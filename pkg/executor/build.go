@@ -637,6 +637,23 @@ func (s *stageBuilder) saveLayerToImage(layer v1.Layer, createdBy string) error 
 	if err != nil {
 		return err
 	}
+
+	// Images in google/go-containerregistry don't support adding unique layers
+	// with duplicate diff IDs. For example, if the source image has an empty
+	// layer which has been compressed with Gzip level 3, and the layer we're
+	// adding is also an empty layer compressed with Gzip level 1, the diff IDs
+	// would match but the layer blobs would be different. This would cause an
+	// error when trying to upload the image to a registry as the manifest is
+	// referencing a blob that has been "overwritten".
+	diffID, err := layer.DiffID()
+	if err != nil {
+		return errors.Wrap(err, "checking layer diffID failed")
+	}
+	if el, err := s.image.LayerByDiffID(diffID); err == nil {
+		logrus.Debugf("Layer already exists in image, using existing layer: %s", diffID)
+		layer = el
+	}
+
 	s.image, err = mutate.Append(s.image,
 		mutate.Addendum{
 			Layer: layer,
