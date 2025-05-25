@@ -1,0 +1,7 @@
+FROM ubuntu
+
+RUN mkdir /test \
+    && ln -s /test /link
+
+RUN rm -rf /test /link \
+    && mkdir /link
