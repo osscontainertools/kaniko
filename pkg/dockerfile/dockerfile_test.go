@@ -620,7 +620,7 @@ func Test_SkipingUnusedStages(t *testing.T) {
 				"final": {"FROM alpine:3.11 as final"},
 				"buzz":  {"FROM alpine:3.11 as buzz"},
 				"fizz":  {"FROM debian:10.13 as base", "FROM debian:10.13 as fizz"},
-				"":      {"FROM alpine:3.11", "FROM debian:10.13 as base", "FROM debian:10.13 as fizz", "FROM alpine:3.11 as buzz", "FROM alpine:3.11 as final"},
+				"":      {"FROM alpine:3.11 as final"},
 			},
 			expectedTargetIndexBeforeSkip: map[string]int{
 				"final": 4,
@@ -632,7 +632,7 @@ func Test_SkipingUnusedStages(t *testing.T) {
 				"final": 0,
 				"buzz":  0,
 				"fizz":  1,
-				"":      4,
+				"":      0,
 			},
 		},
 	}
