@@ -376,9 +376,7 @@ func skipUnusedStages(stages []instructions.Stage, lastStageIndex *int, target s
 		}
 	}
 	dependenciesLen := len(stagesDependencies)
-	if target == "" && dependenciesLen == 0 {
-		return stages
-	} else if dependenciesLen > 0 {
+	if dependenciesLen > 0 {
 		for i := 0; i < idx; i++ {
 			if stages[i].Name == "" {
 				continue
