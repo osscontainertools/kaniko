@@ -1,3 +1,34 @@
+# v1.24.0-5 Release 2025-06-01
+The executor images in this release are:
+```
+martizih/kaniko:latest
+martizih/kaniko:v1.24.0-5
+```
+
+The debug images are available at:
+```
+martizih/kaniko:debug
+martizih/kaniko:v1.24.0-5-debug
+```
+
+The slim executor images which don't contain any authentication binaries are available at:
+```
+martizih/kaniko:slim
+martizih/kaniko:v1.24.0-5-slim
+```
+
+The warmer images are available at:
+```
+martizih/kaniko:warmer
+martizih/kaniko:v1.24.0-5-warmer
+```
+
+* export warmer image properly by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/26
+* if target stage is unspecified we implicitly target the last stage by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/27
+* kaniko learned to preserve the build-context accross multi-stage builds by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/28
+* kaniko learned '--materialize' forcing the filesystem into a well-defined state after the build by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/29
+
+
 # v1.24.0-4 Release 2025-05-31
 The executor images in this release are:
 ```
