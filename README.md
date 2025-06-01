@@ -90,6 +90,7 @@ _If you are interested in contributing to kaniko, see
       - [Flag `--label`](#flag---label)
       - [Flag `--log-format`](#flag---log-format)
       - [Flag `--log-timestamp`](#flag---log-timestamp)
+      - [Flag `--materialize`](#flag---materialize)
       - [Flag `--no-push`](#flag---no-push)
       - [Flag `--no-push-cache`](#flag---no-push-cache)
       - [Flag `--oci-layout-path`](#flag---oci-layout-path)
@@ -943,6 +944,14 @@ Defaults to `color`.
 
 Set this flag as `--log-timestamp=<true|false>` to add timestamps to
 `<text|color>` log format. Defaults to `false`.
+
+#### Flag `--materialize`
+
+Set this boolean flag to `true` if you want kaniko to ensure that the filesystem is in a well-defined state after the build finishes. If you have a 100% cache-hitrate kaniko can skip unpacking files to the filesystem as it is superfluous if the goal is to simply build an image and push it to registry, but this also means that state of the filesystem after the build depends on whether that optimization was possible or not. This option disables this optimization entirely making sure that the filesystem is always well-defined.
+
+This is useful if you use kaniko not to build a docker image, but to initialize your environment.
+
+Defaults to `false`
 
 #### Flag `--no-push`
 

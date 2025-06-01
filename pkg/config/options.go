@@ -92,6 +92,7 @@ type KanikoOptions struct {
 	InitialFSUnpacked        bool
 	SkipPushPermissionCheck  bool
 	PreserveContext          bool
+	Materialize              bool
 }
 
 type KanikoGitOptions struct {
