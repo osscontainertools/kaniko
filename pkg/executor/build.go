@@ -341,6 +341,9 @@ func (s *stageBuilder) build() error {
 	if len(s.crossStageDeps[s.stage.Index]) > 0 {
 		shouldUnpack = true
 	}
+	if s.stage.Final && s.opts.Materialize {
+		shouldUnpack = true
+	}
 	if s.stage.Index == 0 && s.opts.InitialFSUnpacked {
 		shouldUnpack = false
 	}
