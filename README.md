@@ -1,7 +1,7 @@
 # 🌿 This project is a maintained fork 🌿
 
 The focus of this fork is to keep dependencies up-to-date, fix bugs and improve performance.
-If you are new here these are the main differences to last official kaniko version:
+If you are new here, these are the main differences to the last official kaniko version:
 
 ### Bugfixes
 * cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3 opened as https://github.com/GoogleContainerTools/kaniko/pull/3429
