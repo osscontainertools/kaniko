@@ -1,3 +1,27 @@
+# 🌿 This project is a maintained fork 🌿
+
+The focus of this fork is to keep dependencies up-to-date, fix bugs and improve performance.
+If you are new here these are the main differences to last official kaniko version:
+
+### Bugfixes
+* cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3 opened as https://github.com/GoogleContainerTools/kaniko/pull/3429
+### Caching
+* sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1 opened as https://github.com/GoogleContainerTools/kaniko/pull/3489
+* ignore labels on base image for cache: https://github.com/mzihlmann/kaniko/pull/2 opened as https://github.com/GoogleContainerTools/kaniko/pull/3342
+* intermediate images should not be labelled: https://github.com/mzihlmann/kaniko/pull/4 opened as https://github.com/GoogleContainerTools/kaniko/pull/3413
+* Fix caching for empty RUN: https://github.com/mzihlmann/kaniko/pull/19 opened as https://github.com/GoogleContainerTools/kaniko/pull/3496
+* WORKDIR learned to cache its potential output layer: https://github.com/mzihlmann/kaniko/pull/22 https://github.com/mzihlmann/kaniko/pull/23 opened as https://github.com/GoogleContainerTools/kaniko/pull/3341
+* ADD learned to cache its output layer: https://github.com/mzihlmann/kaniko/pull/24 opened as https://github.com/GoogleContainerTools/kaniko/pull/3499
+### Optimizations
+* if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
+### Materialize Workflow
+* kaniko learned `--preserve-context` to preserve the build-context across multi-stage builds: https://github.com/mzihlmann/kaniko/pull/28 opened as https://github.com/GoogleContainerTools/kaniko/pull/3500
+* kaniko learned `--materialize` forcing the filesystem into a well-defined state after the build: https://github.com/mzihlmann/kaniko/pull/29
+
+for a more detailed view you can refer to our release notes https://github.com/mzihlmann/kaniko/releases
+
+-----
+
 # kaniko - Build Images In Kubernetes
 
 ## 🚨NOTE: kaniko is not an officially supported Google product🚨
