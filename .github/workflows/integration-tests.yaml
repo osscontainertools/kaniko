@@ -2,20 +2,26 @@ name: Integration tests
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - 'main'
   pull_request:
-    branches: ["main"]
+    branches:
+      - 'main'
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   tests:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
     env:
-      IMAGE_REPO: "localhost:5000"
-      REGISTRY: "localhost:5000"
-      DOCKER_BUILDKIT: "0"
+      IMAGE_REPO: 'localhost:5000'
+      REGISTRY: 'localhost:5000'
+      DOCKER_BUILDKIT: '0'
+
     strategy:
       fail-fast: false
       matrix:
@@ -26,17 +32,28 @@ jobs:
           - k8s-executor-build-push integration-test-k8s
 
     steps:
-      - name: Maximize build space
-        uses: AdityaGarg8/remove-unwanted-software@v5
+      - name: Harden Runner
+        uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0 # v2.12.0
         with:
-          remove-android: "true"
-          remove-dotnet: "true"
-          remove-haskell: "true"
+          egress-policy: audit
+
+      - name: Maximize build space
+        uses: AdityaGarg8/remove-unwanted-software@90e01b21170618765a73370fcc3abbd1684a7793 # v5
+        with:
+          remove-android: 'true'
+          remove-dotnet: 'true'
+          remove-haskell: 'true'
+
       - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
-          go-version: "1.22"
+          go-version: '1.24'
+          check-latest: true
+
       - uses: actions/checkout@b0e28b5ac45a892f91e7d036f8200cf5ed489415 # v3
-      - uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v1
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
 
       - run: make install-container-diff k3s-setup
       - run: make ${{ matrix.make-target }}
