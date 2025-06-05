@@ -687,7 +687,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 				mode = fi.Mode()
 			}
 			uid, gid := DetermineTargetFileOwnership(fi, uid, gid)
-			if err := MkdirAllWithPermissions(destPath, mode, uid, gid); err != nil {
+			if err := MkdirAllWithPermissionsKeepExistingMode(destPath, mode, uid, gid); err != nil {
 				return nil, err
 			}
 		} else if IsSymlink(fi) {
@@ -842,6 +842,16 @@ func Volumes() []string {
 }
 
 func MkdirAllWithPermissions(path string, mode os.FileMode, uid, gid int64) error {
+	err := MkdirAllWithPermissionsKeepExistingMode(path, mode, uid, gid)
+	if err != nil {
+		return err
+	}
+	// For existing directories, MkdirAll doesn't change the permissions, so run Chmod
+	// Must chmod after chown because chown resets the file mode.
+	return os.Chmod(path, mode)
+}
+
+func MkdirAllWithPermissionsKeepExistingMode(path string, mode os.FileMode, uid, gid int64) error {
 	// Check if a file already exists on the path, if yes then delete it
 	info, err := os.Lstat(path)
 	if err == nil && !info.IsDir() {
@@ -869,9 +879,7 @@ func MkdirAllWithPermissions(path string, mode os.FileMode, uid, gid int64) erro
 	if err := os.Chown(path, int(uid), int(gid)); err != nil {
 		return err
 	}
-	// In some cases, MkdirAll doesn't change the permissions, so run Chmod
-	// Must chmod after chown because chown resets the file mode.
-	return os.Chmod(path, mode)
+	return nil
 }
 
 func setFilePermissions(path string, mode os.FileMode, uid, gid int) error {
