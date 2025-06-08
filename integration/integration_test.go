@@ -1240,7 +1240,7 @@ func containerDiff(t *testing.T, image1, image2 string, flags ...string) []byte 
 
 	flags = append([]string{"diff"}, flags...)
 	flags = append(flags, image1, image2,
-		"-q", "--type=file", "--type=metadata", "--json")
+		"-q", "--type=file", "--type=metadata", "--type=filemetadata", "--json")
 
 	containerdiffCmd := exec.Command("container-diff", flags...)
 	diff := RunCommand(containerdiffCmd, t)
