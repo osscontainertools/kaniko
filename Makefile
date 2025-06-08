@@ -55,8 +55,10 @@ out/warmer: $(GO_FILES)
 
 .PHONY: install-container-diff
 install-container-diff:
-	@ curl -LO https://github.com/GoogleContainerTools/container-diff/releases/download/v0.17.0/container-diff-$(GOOS)-amd64 && \
-		chmod +x container-diff-$(GOOS)-amd64 && sudo mv container-diff-$(GOOS)-amd64 /usr/local/bin/container-diff
+	@ git clone https://github.com/mzihlmann/container-diff.git && \
+		cd container-diff && \
+		go mod vendor && \
+		go install
 
 .PHONY: k3s-setup
 k3s-setup:
