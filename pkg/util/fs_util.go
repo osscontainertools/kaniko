@@ -366,6 +366,11 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		if err := MkdirAllWithPermissions(path, mode, int64(uid), int64(gid)); err != nil {
 			return err
 		}
+		// For existing directories, MkdirAll doesn't change the permissions, so run Chmod
+		// To force permissions into what is configured in the tarball
+		if err = os.Chmod(path, mode); err != nil {
+			return err
+		}
 
 	case tar.TypeLink:
 		logrus.Tracef("Link from %s to %s", hdr.Linkname, path)
@@ -687,7 +692,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 				mode = fi.Mode()
 			}
 			uid, gid := DetermineTargetFileOwnership(fi, uid, gid)
-			if err := MkdirAllWithPermissionsKeepExistingMode(destPath, mode, uid, gid); err != nil {
+			if err := MkdirAllWithPermissions(destPath, mode, uid, gid); err != nil {
 				return nil, err
 			}
 		} else if IsSymlink(fi) {
@@ -842,16 +847,6 @@ func Volumes() []string {
 }
 
 func MkdirAllWithPermissions(path string, mode os.FileMode, uid, gid int64) error {
-	err := MkdirAllWithPermissionsKeepExistingMode(path, mode, uid, gid)
-	if err != nil {
-		return err
-	}
-	// For existing directories, MkdirAll doesn't change the permissions, so run Chmod
-	// Must chmod after chown because chown resets the file mode.
-	return os.Chmod(path, mode)
-}
-
-func MkdirAllWithPermissionsKeepExistingMode(path string, mode os.FileMode, uid, gid int64) error {
 	// Check if a file already exists on the path, if yes then delete it
 	info, err := os.Lstat(path)
 	if err == nil && !info.IsDir() {
