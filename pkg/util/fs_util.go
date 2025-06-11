@@ -864,7 +864,13 @@ func MkdirAllWithPermissionsKeepExistingMode(path string, mode os.FileMode, uid,
 		return errors.Wrapf(err, "error calling stat on %s.", path)
 	}
 
-	if err := os.MkdirAll(path, mode); err != nil {
+	// mkdir respects the process' umask
+	// so we can't copy the correct permissions from source
+	// if umask is set to anything other than 0
+	umask := syscall.Umask(0)
+	err = os.MkdirAll(path, mode)
+	syscall.Umask(umask)
+	if err != nil {
 		return err
 	}
 	if uid > math.MaxUint32 || gid > math.MaxUint32 {
