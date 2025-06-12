@@ -1,3 +1,42 @@
+# v1.24.1 Release 2025-06-12
+The executor images in this release are:
+```
+martizih/kaniko:latest
+martizih/kaniko:v1.24.1
+```
+
+The debug images are available at:
+```
+martizih/kaniko:debug
+martizih/kaniko:v1.24.1-debug
+```
+
+The slim executor images which don't contain any authentication binaries are available at:
+```
+martizih/kaniko:slim
+martizih/kaniko:v1.24.1-slim
+```
+
+The warmer images are available at:
+```
+martizih/kaniko:warmer
+martizih/kaniko:v1.24.1-warmer
+```
+
+* fix nightlies by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/31
+* Upstream archived notice by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/32
+* typo by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/33
+* enable keyless image signing by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/34
+* chore(deps): bump docker/setup-qemu-action from 3.1.0 to 3.6.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/35
+* chore(deps): bump docker/setup-buildx-action from 3.4.0 to 3.10.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/36
+* chore(deps): bump actions/setup-go from 5.0.2 to 5.5.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/37
+* chore(deps): bump AdityaGarg8/remove-unwanted-software from 4 to 5 by @dependabot in https://github.com/mzihlmann/kaniko/pull/38
+* chore(deps): bump docker/build-push-action from 6.16.0 to 6.18.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/39
+* chore(deps): bump github.com/google/go-containerregistry from 0.20.4 to 0.20.5 by @dependabot in https://github.com/mzihlmann/kaniko/pull/41
+* sticky bit gets lost on COPY by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/45
+* CVE-2025-22874: bump go 1.24.3 -> 1.24.4 by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/50
+
+
 # v1.24.0-5 Release 2025-06-01
 The executor images in this release are:
 ```
