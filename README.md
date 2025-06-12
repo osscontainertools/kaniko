@@ -20,11 +20,6 @@ If you are new here, these are the main differences to the last official kaniko 
 * kaniko learned `--preserve-context` to preserve the build-context across multi-stage builds: https://github.com/mzihlmann/kaniko/pull/28 opened as https://github.com/GoogleContainerTools/kaniko/pull/3500
 * kaniko learned `--materialize` forcing the filesystem into a well-defined state after the build: https://github.com/mzihlmann/kaniko/pull/29
 ### Maintenance
-* chore(deps): bump docker/setup-qemu-action from 3.1.0 to 3.6.0: https://github.com/mzihlmann/kaniko/pull/35
-* chore(deps): bump docker/setup-buildx-action from 3.4.0 to 3.10.0: https://github.com/mzihlmann/kaniko/pull/36
-* chore(deps): bump actions/setup-go from 5.0.2 to 5.5.0: https://github.com/mzihlmann/kaniko/pull/37
-* chore(deps): bump AdityaGarg8/remove-unwanted-software from 4 to 5: https://github.com/mzihlmann/kaniko/pull/38
-* chore(deps): bump docker/build-push-action from 6.16.0 to 6.18.0: https://github.com/mzihlmann/kaniko/pull/39
 * chore(deps): bump github.com/google/go-containerregistry from 0.20.4 to 0.20.5: https://github.com/mzihlmann/kaniko/pull/41
 
 for a more detailed view you can refer to our release notes https://github.com/mzihlmann/kaniko/releases
