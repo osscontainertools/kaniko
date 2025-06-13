@@ -36,6 +36,7 @@ jobs:
           - executor-debug
           - executor-slim
           - warmer
+          - bootstrap
 
         include:
           - image: executor
@@ -65,6 +66,13 @@ jobs:
             image-name: martizih/kaniko
             tag: ${{ github.sha }}-warmer
             release-tag: warmer
+
+          - image: bootstrap
+            target: kaniko-debug-2
+            platforms: linux/amd64,linux/arm64,linux/s390x,linux/ppc64le
+            image-name: martizih/kaniko
+            tag: ${{ github.sha }}-bootstrap
+            release-tag: bootstrap
 
     steps:
       - name: Harden Runner
