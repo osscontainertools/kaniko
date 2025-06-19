@@ -31,10 +31,12 @@ If you are new here, these are the main differences to the last official kaniko 
 * chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.80.2 to 1.80.3: https://github.com/mzihlmann/kaniko/pull/70
 * chore(deps): bump github.com/moby/buildkit from 0.22.0 to 0.23.0: https://github.com/mzihlmann/kaniko/pull/75
 ### Shoutout & Thanks
-* cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
-* update ENV syntax in Dockerfile: by @babs in https://github.com/mzihlmann/kaniko/pull/60
+* 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
+* 🔗 update ENV syntax in Dockerfile: by @babs in https://github.com/mzihlmann/kaniko/pull/60
 
 for a more detailed view you can refer to our release notes https://github.com/mzihlmann/kaniko/releases
+
+🔗 indicates a change is in sync with chainguard's fork https://github.com/chainguard-dev/kaniko
 
 -----
 
