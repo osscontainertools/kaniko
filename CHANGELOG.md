@@ -1,3 +1,51 @@
+# v1.24.2 Release 2025-06-19
+The executor images in this release are:
+```
+martizih/kaniko:latest
+martizih/kaniko:v1.24.2
+```
+
+The debug images are available at:
+```
+martizih/kaniko:debug
+martizih/kaniko:v1.24.2-debug
+```
+
+The slim executor images which don't contain any authentication binaries are available at:
+```
+martizih/kaniko:slim
+martizih/kaniko:v1.24.2-slim
+```
+
+The warmer images are available at:
+```
+martizih/kaniko:warmer
+martizih/kaniko:v1.24.2-warmer
+```
+
+* update readme by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/52
+* drop irrelevant updates by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/53
+* remove binary artifacts by @tlk in https://github.com/mzihlmann/kaniko/pull/54
+* Cleanup jobs by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
+* chore(deps): bump step-security/harden-runner from 2.12.0 to 2.12.1 by @dependabot in https://github.com/mzihlmann/kaniko/pull/56
+* fix: update ENV syntax in Dockerfile by @babs in https://github.com/mzihlmann/kaniko/pull/60
+* chore(deps): bump docker/setup-buildx-action from 3.10.0 to 3.11.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/61
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.75 to 1.17.79 by @dependabot in https://github.com/mzihlmann/kaniko/pull/58
+* chore(deps): bump github.com/GoogleCloudPlatform/docker-credential-gcr/v2 from 2.1.22 to 2.1.29 by @dependabot in https://github.com/mzihlmann/kaniko/pull/40
+* chore(deps): bump cloud.google.com/go/storage from 1.54.0 to 1.55.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/43
+* chore(deps): bump sigstore/cosign-installer from 3.8.2 to 3.9.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/67
+* chore(deps): bump github.com/go-git/go-git/v5 from 5.16.0 to 5.16.2 by @dependabot in https://github.com/mzihlmann/kaniko/pull/66
+* chore(deps): bump github.com/google/go-containerregistry from 0.20.5 to 0.20.6 by @dependabot in https://github.com/mzihlmann/kaniko/pull/65
+* chore(deps): bump golang.org/x/sync from 0.14.0 to 0.15.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/64
+* chore(deps): bump google.golang.org/api from 0.235.0 to 0.237.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/63
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.79 to 1.17.80 by @dependabot in https://github.com/mzihlmann/kaniko/pull/73
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.80.2 to 1.80.3 by @dependabot in https://github.com/mzihlmann/kaniko/pull/70
+* chore(deps): bump google.golang.org/api from 0.237.0 to 0.238.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/71
+* chore(deps): bump docker/setup-buildx-action from 3.11.0 to 3.11.1 by @dependabot in https://github.com/mzihlmann/kaniko/pull/69
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.80 to 1.17.81 by @dependabot in https://github.com/mzihlmann/kaniko/pull/74
+* chore(deps): bump github.com/moby/buildkit from 0.22.0 to 0.23.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/75
+
+
 # v1.24.1 Release 2025-06-12
 The executor images in this release are:
 ```
