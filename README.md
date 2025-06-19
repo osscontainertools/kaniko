@@ -4,6 +4,7 @@ The focus of this fork is to keep dependencies up-to-date, fix bugs and improve 
 If you are new here, these are the main differences to the last official kaniko version:
 ### Security
 * CVE-2025-22874: bump go 1.24.3 -> 1.24.4: https://github.com/mzihlmann/kaniko/pull/50
+* remove binary artifacts: by @tlk in https://github.com/mzihlmann/kaniko/pull/54
 ### Bugfixes
 * cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3 opened as https://github.com/GoogleContainerTools/kaniko/pull/3429
 * sticky bit gets lost on COPY: https://github.com/mzihlmann/kaniko/pull/45
@@ -20,7 +21,18 @@ If you are new here, these are the main differences to the last official kaniko 
 * kaniko learned `--preserve-context` to preserve the build-context across multi-stage builds: https://github.com/mzihlmann/kaniko/pull/28 opened as https://github.com/GoogleContainerTools/kaniko/pull/3500
 * kaniko learned `--materialize` forcing the filesystem into a well-defined state after the build: https://github.com/mzihlmann/kaniko/pull/29
 ### Maintenance
-* chore(deps): bump github.com/google/go-containerregistry from 0.20.4 to 0.20.5: https://github.com/mzihlmann/kaniko/pull/41
+* chore(deps): bump github.com/google/go-containerregistry from 0.20.4 to 0.20.6: https://github.com/mzihlmann/kaniko/pull/41 https://github.com/mzihlmann/kaniko/pull/65
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.75 to 1.17.81: https://github.com/mzihlmann/kaniko/pull/58 https://github.com/mzihlmann/kaniko/pull/73 https://github.com/mzihlmann/kaniko/pull/74
+* chore(deps): bump github.com/GoogleCloudPlatform/docker-credential-gcr/v2 from 2.1.22 to 2.1.29: https://github.com/mzihlmann/kaniko/pull/40
+* chore(deps): bump cloud.google.com/go/storage from 1.54.0 to 1.55.0: https://github.com/mzihlmann/kaniko/pull/43
+* chore(deps): bump github.com/go-git/go-git/v5 from 5.16.0 to 5.16.2: https://github.com/mzihlmann/kaniko/pull/66
+* chore(deps): bump golang.org/x/sync from 0.14.0 to 0.15.0: https://github.com/mzihlmann/kaniko/pull/64
+* chore(deps): bump google.golang.org/api from 0.235.0 to 0.238.0: https://github.com/mzihlmann/kaniko/pull/63 https://github.com/mzihlmann/kaniko/pull/71
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.80.2 to 1.80.3: https://github.com/mzihlmann/kaniko/pull/70
+* chore(deps): bump github.com/moby/buildkit from 0.22.0 to 0.23.0: https://github.com/mzihlmann/kaniko/pull/75
+### Shoutout & Thanks
+* cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
+* update ENV syntax in Dockerfile: by @babs in https://github.com/mzihlmann/kaniko/pull/60
 
 for a more detailed view you can refer to our release notes https://github.com/mzihlmann/kaniko/releases
 
