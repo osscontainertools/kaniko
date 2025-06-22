@@ -770,6 +770,7 @@ func TestExitCodePropagation(t *testing.T) {
 			"-f", dockerfile,
 		}
 		dockerCmd := exec.Command("docker", append(dockerFlags, context)...)
+		dockerCmd.Env = append(dockerCmd.Env, "DOCKER_BUILDKIT=0")
 
 		out, kanikoErr := RunCommandWithoutTest(dockerCmd)
 		if kanikoErr == nil {
