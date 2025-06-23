@@ -1216,6 +1216,7 @@ func containerDiff(t *testing.T, image1, image2 string, flags ...string) []byte 
 
 	flags = append([]string{"diff"}, flags...)
 	flags = append(flags, image1, image2, "--ignore-image-name", "--ignore-image-timestamps")
+	flags = append(flags, diffArgsMap[t.Name()]...)
 
 	containerdiffCmd := exec.Command("diffoci", flags...)
 	diff := RunCommand(containerdiffCmd, t)

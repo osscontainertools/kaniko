@@ -96,6 +96,14 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_add":              {"--cache-copy-layers=true"},
 }
 
+// Arguments to diffoci when comparing dockerfiles
+var diffArgsMap = map[string][]string{
+	// /root/.config 0x1c0 0x1ed
+	// I suspect the issue is that /root/.config pre-exists,
+	// it's where we store the docker credentials.
+	"TestWithContext/test_with_context_issue-1020": {"--extra-ignore-files=root/.config/"},
+}
+
 // output check to do when building with kaniko
 var outputChecks = map[string]func(string, []byte) error{
 	"Dockerfile_test_arg_secret": checkArgsNotPrinted,
