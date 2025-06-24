@@ -102,6 +102,8 @@ var diffArgsMap = map[string][]string{
 	// I suspect the issue is that /root/.config pre-exists,
 	// it's where we store the docker credentials.
 	"TestWithContext/test_with_context_issue-1020": {"--extra-ignore-files=root/.config/"},
+	// docker is wrong. we do copy the symlink correctly.
+	"TestRun/test_Dockerfile_test_copy_symlink": {"--extra-ignore-files=workdirAnother/relative_link"},
 }
 
 // output check to do when building with kaniko
