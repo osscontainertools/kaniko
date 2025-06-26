@@ -55,17 +55,18 @@ for a more detailed view you can refer to our release notes https://github.com/m
 kaniko is a tool to build container images from a Dockerfile, inside a container
 or Kubernetes cluster.
 
+> [!IMPORTANT]
+> This is a supported replacement of the original `GoogleContainerTools/kaniko`
+> repository, which was archived in June of 2025.
+
 kaniko doesn't depend on a Docker daemon and executes each command within a
 Dockerfile completely in userspace. This enables building container images in
 environments that can't easily or securely run a Docker daemon, such as a
 standard Kubernetes cluster.
 
-kaniko is meant to be run as an image: `gcr.io/kaniko-project/executor`. We do
-**not** recommend running the kaniko executor binary in another image, as it
-might not work as you expect - see [Known Issues](#known-issues).
-
-_If you are interested in contributing to kaniko, see
-[DEVELOPMENT.md](DEVELOPMENT.md) and [CONTRIBUTING.md](CONTRIBUTING.md)._
+kaniko is meant to be run as an image: `martizih/kaniko:latest`. We do **not** recommend
+running the kaniko executor binary in another image, as it might not work as you
+expect - see [Known Issues](#known-issues).
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -74,6 +75,8 @@ _If you are interested in contributing to kaniko, see
 [DocToc](https://github.com/thlorenz/doctoc)_
 
 - [kaniko - Build Images In Kubernetes](#kaniko---build-images-in-kubernetes)
+  - [Community](#community)
+  - [Releases](#releases)
   - [How does kaniko work?](#how-does-kaniko-work)
   - [Known Issues](#known-issues)
   - [Demo](#demo)
@@ -175,8 +178,17 @@ _If you are interested in contributing to kaniko, see
 
 ## Community
 
-We'd love to hear from you! Join
-[#kaniko on Kubernetes Slack](https://kubernetes.slack.com/messages/CQDCHGX7Y/)
+If you are interested in contributing to kaniko, learn more from our
+[development](DEVELOPMENT.md) and [contributing](CONTRIBUTING.md) guides and
+find other community members on [#kaniko on Kubernetes
+Slack](https://kubernetes.slack.com/messages/CQDCHGX7Y/)
+
+## Releases
+
+kaniko releases are published as images on docker hub [martizih/kaniko](https://hub.docker.com/r/martizih/kaniko)
+
+Release notes and source code archives are available on the [releases
+section](https://github.com/mzihlmann/kaniko/releases).
 
 ## How does kaniko work?
 
