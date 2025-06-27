@@ -57,6 +57,7 @@ type KanikoOptions struct {
 	Destinations                 multiArg
 	BuildArgs                    multiArg
 	Labels                       multiArg
+	Annotations                  keyValueArg
 	Git                          KanikoGitOptions
 	IgnorePaths                  multiArg
 	DockerfilePath               string
