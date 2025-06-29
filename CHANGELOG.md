@@ -40,6 +40,7 @@ martizih/kaniko:v1.24.3-bootstrap
 * chore(deps): bump github.com/GoogleCloudPlatform/docker-credential-gcr/v2 from 2.1.29 to 2.1.30 by @dependabot in https://github.com/mzihlmann/kaniko/pull/86
 * bootstrap image by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/59
 * switch container-diff for diffoci by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/46
+* add changelog by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/88
 
 
 # v1.24.2 Release 2025-06-19
