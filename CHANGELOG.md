@@ -1,3 +1,47 @@
+# v1.24.3 Release 2025-06-29
+The executor images in this release are:
+```
+martizih/kaniko:latest
+martizih/kaniko:v1.24.3
+```
+
+The debug images are available at:
+```
+martizih/kaniko:debug
+martizih/kaniko:v1.24.3-debug
+```
+
+The slim executor images which don't contain any authentication binaries are available at:
+```
+martizih/kaniko:slim
+martizih/kaniko:v1.24.3-slim
+```
+
+The warmer images are available at:
+```
+martizih/kaniko:warmer
+martizih/kaniko:v1.24.3-warmer
+```
+
+The bootstrap images, that can be used to build kaniko in kaniko, are available at:
+```
+martizih/kaniko:bootstrap
+martizih/kaniko:v1.24.3-bootstrap
+```
+
+* update readme by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/77
+* update readme by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/78
+* chore(deps): bump github.com/moby/buildkit from 0.23.0 to 0.23.1 by @dependabot in https://github.com/mzihlmann/kaniko/pull/79
+* cache collision under rename by @SJrX in https://github.com/mzihlmann/kaniko/pull/62
+* chore(deps): bump sigstore/cosign-installer from 3.9.0 to 3.9.1 by @dependabot in https://github.com/mzihlmann/kaniko/pull/82
+* chore(deps): bump google.golang.org/api from 0.238.0 to 0.239.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/84
+* chore(deps): bump github.com/docker/docker from 28.2.2+incompatible to 28.3.0+incompatible by @dependabot in https://github.com/mzihlmann/kaniko/pull/83
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.81 to 1.17.82 by @dependabot in https://github.com/mzihlmann/kaniko/pull/87
+* chore(deps): bump github.com/GoogleCloudPlatform/docker-credential-gcr/v2 from 2.1.29 to 2.1.30 by @dependabot in https://github.com/mzihlmann/kaniko/pull/86
+* bootstrap image by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/59
+* switch container-diff for diffoci by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/46
+
+
 # v1.24.2 Release 2025-06-19
 The executor images in this release are:
 ```
