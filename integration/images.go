@@ -104,6 +104,7 @@ var diffArgsMap = map[string][]string{
 	"TestWithContext/test_with_context_issue-1020": {"--extra-ignore-files=root/.config/"},
 	// docker is wrong. we do copy the symlink correctly.
 	"TestRun/test_Dockerfile_test_copy_symlink": {"--extra-ignore-files=workdirAnother/relative_link"},
+	"TestRun/test_Dockerfile_test_multistage":   {"--extra-ignore-files=new"},
 }
 
 // output check to do when building with kaniko
