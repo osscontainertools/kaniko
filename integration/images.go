@@ -106,6 +106,8 @@ var diffArgsMap = map[string][]string{
 	// docker is wrong. we do copy the symlink correctly.
 	"TestRun/test_Dockerfile_test_copy_symlink": {"--extra-ignore-files=workdirAnother/relative_link"},
 	"TestRun/test_Dockerfile_test_multistage":   {"--extra-ignore-files=new"},
+	// docker is wrong. we set permissions to 777 as instructed, they set to 755
+	"TestRun/test_Dockerfile_test_copyadd_chmod": {"--extra-ignore-files=dir777/"},
 }
 
 // output check to do when building with kaniko
