@@ -69,8 +69,9 @@ var argsMap = map[string][]string{
 
 // Environment to build Dockerfiles with, used for both docker and kaniko builds
 var envsMap = map[string][]string{
-	"Dockerfile_test_arg_secret":    {"SSH_PRIVATE_KEY=ThEPriv4t3Key"},
-	"Dockerfile_test_copyadd_chmod": {"DOCKER_BUILDKIT=1"},
+	"Dockerfile_test_arg_secret":                 {"SSH_PRIVATE_KEY=ThEPriv4t3Key"},
+	"Dockerfile_test_copyadd_chmod":              {"DOCKER_BUILDKIT=1"},
+	"Dockerfile_test_multistage_args_issue_1911": {"DOCKER_BUILDKIT=1"},
 }
 
 // Arguments to build Dockerfiles with when building with docker
@@ -94,6 +95,19 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_cache_copy":             {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache_copy_oci":         {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_add":              {"--cache-copy-layers=true"},
+}
+
+// Arguments to diffoci when comparing dockerfiles
+var diffArgsMap = map[string][]string{
+	// /root/.config 0x1c0 0x1ed
+	// I suspect the issue is that /root/.config pre-exists,
+	// it's where we store the docker credentials.
+	"TestWithContext/test_with_context_issue-1020": {"--extra-ignore-files=root/.config/"},
+	// docker is wrong. we do copy the symlink correctly.
+	"TestRun/test_Dockerfile_test_copy_symlink": {"--extra-ignore-files=workdirAnother/relative_link"},
+	"TestRun/test_Dockerfile_test_multistage":   {"--extra-ignore-files=new"},
+	// docker is wrong. we set permissions to 777 as instructed, they set to 755
+	"TestRun/test_Dockerfile_test_copyadd_chmod": {"--extra-ignore-files=dir777/"},
 }
 
 // output check to do when building with kaniko
