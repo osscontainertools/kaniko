@@ -8,4 +8,6 @@ FROM ubuntu
 # This is aberrant behaviour, other build-tools persist the permissions.
 # In this specific case this leads to build-failure as sticky bit is lost on /tmp
 COPY ./ tmp
-RUN apt-get update && apt-get install -y curl
+RUN apt-get update \
+    && apt-get install -y curl \
+    && rm -rf /var/lib/apt/lists/*
