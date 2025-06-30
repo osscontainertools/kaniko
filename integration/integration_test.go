@@ -205,7 +205,7 @@ func TestRun(t *testing.T) {
 			dockerImage := GetDockerImage(config.imageRepo, dockerfile)
 			kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 
-			containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-permissions", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+			containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 		})
 	}
 
@@ -290,7 +290,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-permissions", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 // TestGitBuildcontext explicitly names the main branch
@@ -359,7 +359,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-permissions", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 func TestBuildViaRegistryMirrors(t *testing.T) {
@@ -398,7 +398,7 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-permissions", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 func TestBuildViaRegistryMap(t *testing.T) {
@@ -437,7 +437,7 @@ func TestBuildViaRegistryMap(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-permissions", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 func TestBuildSkipFallback(t *testing.T) {
@@ -499,7 +499,7 @@ func TestKanikoDir(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-permissions", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 func TestBuildWithLabels(t *testing.T) {
@@ -541,7 +541,7 @@ func TestBuildWithLabels(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-permissions", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 func TestBuildWithHTTPError(t *testing.T) {
@@ -751,7 +751,7 @@ func TestRelativePaths(t *testing.T) {
 		dockerImage := GetDockerImage(config.imageRepo, "test_relative_"+dockerfile)
 		kanikoImage := GetKanikoImage(config.imageRepo, "test_relative_"+dockerfile)
 
-		containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-permissions", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+		containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 	})
 }
 

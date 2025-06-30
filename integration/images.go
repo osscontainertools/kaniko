@@ -103,9 +103,39 @@ var diffArgsMap = map[string][]string{
 	"TestWithContext/test_with_context_issue-1020": {"--extra-ignore-files=root/.config/"},
 	// docker is wrong. we do copy the symlink correctly.
 	"TestRun/test_Dockerfile_test_copy_symlink": {"--extra-ignore-files=workdirAnother/relative_link"},
-	"TestRun/test_Dockerfile_test_multistage":   {"--extra-ignore-files=new"},
+	"TestRun/test_Dockerfile_test_multistage":   {"--extra-ignore-files=new", "--extra-ignore-file-permissions"},
 	// docker is wrong. we set permissions to 777 as instructed, they set to 755
-	"TestRun/test_Dockerfile_test_copyadd_chmod": {"--extra-ignore-files=dir777/"},
+	"TestRun/test_Dockerfile_test_copyadd_chmod": {"--extra-ignore-files=dir777/", "--extra-ignore-file-permissions"},
+	// file permissions
+	"TestRun/test_Dockerfile_test_copy":                        {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_copy_bucket":                 {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_copy_reproducible":           {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_issue_3393":                  {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_run_new":                     {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_run":                         {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_target":                      {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_scratch":                     {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_run_redo":                    {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_copy_same_file_many_times":   {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_copy_root_multistage":        {"--extra-ignore-file-permissions"},
+	"TestRelativePaths/test_relative_Dockerfile_relative_copy": {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_workdir":                     {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_volume_2":                    {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_volume_4":                    {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_mv_add":                      {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_maintainer":                  {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_ignore":                      {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_dockerignore":                {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_cache_oci":                   {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_cache_install_oci":           {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_cache_copy_oci":              {"--extra-ignore-file-permissions"},
+	"TestRun/test_Dockerfile_test_add_dest_symlink_dir":        {"--extra-ignore-file-permissions"},
+	// when we untar we overwrite the parent directory, buildx doesnt
+	"TestRun/test_Dockerfile_test_add": {"--extra-ignore-file-permissions"},
+	// FROM scratch we start with root, buildx doesnt
+	"TestRun/test_Dockerfile_test_workdir_with_user": {"--extra-ignore-file-permissions"},
+	// if group is not set, buildx defaults to 0
+	"TestRun/test_Dockerfile_test_user_nonexisting": {"--extra-ignore-file-permissions"},
 }
 
 // output check to do when building with kaniko
