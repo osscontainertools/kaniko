@@ -426,14 +426,8 @@ func (s *stageBuilder) build() error {
 		if isCacheCommand {
 			v := command.(commands.Cached)
 			layer := v.Layer()
-			if layer == nil || (files != nil && len(files) == 0) {
-				// a cache image without a layer indicates that no files were changed, ie. by 'WORKDIR /'
-				// a cache image with a layer with no files indicates that no files were changed too, ie. by 'RUN echo hello'
-				logrus.Info("No files were changed, appending empty layer to config. No layer added to image.")
-			} else {
-				if err := s.saveLayerToImage(layer, command.String()); err != nil {
-					return errors.Wrap(err, "failed to save layer")
-				}
+			if err := s.saveLayerToImage(layer, command.String()); err != nil {
+				return errors.Wrap(err, "failed to save layer")
 			}
 		} else {
 			tarPath, err := s.takeSnapshot(files, command.ShouldDetectDeletedFiles())
@@ -518,14 +512,6 @@ func (s *stageBuilder) saveSnapshotToImage(createdBy string, tarPath string) err
 
 func (s *stageBuilder) saveSnapshotToLayer(tarPath string) (v1.Layer, error) {
 	if tarPath == "" {
-		return nil, nil
-	}
-	fi, err := os.Stat(tarPath)
-	if err != nil {
-		return nil, errors.Wrap(err, "tar file path does not exist")
-	}
-	if fi.Size() <= emptyTarSize && !s.opts.ForceBuildMetadata {
-		logrus.Info("No files were changed, appending empty layer to config. No layer added to image.")
 		return nil, nil
 	}
 

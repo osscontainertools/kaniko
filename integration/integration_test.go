@@ -577,15 +577,6 @@ func TestLayers(t *testing.T) {
 		"Dockerfile_test_maintainer": 0,
 	}
 
-	if os.Getenv("CI") == "true" {
-		// TODO: tejaldesai fix this!
-		// This files build locally with difference 0, on CI docker
-		// produces a different amount of layers (?).
-		offset["Dockerfile_test_copy_same_file_many_times"] = 47
-		offset["Dockerfile_test_meta_arg"] = 1
-		offset["Dockerfile_test_copyadd_chmod"] = 6
-	}
-
 	for _, dockerfile := range allDockerfiles {
 		t.Run("test_layer_"+dockerfile, func(t *testing.T) {
 			dockerfileTest := dockerfile
