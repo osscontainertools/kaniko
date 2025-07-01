@@ -289,6 +289,9 @@ func UnTar(r io.Reader, dest string) ([]string, error) {
 			return nil, err
 		}
 		cleanedName := filepath.Clean(hdr.Name)
+		if cleanedName == "." {
+			continue
+		}
 		if err := ExtractFile(dest, hdr, cleanedName, tr); err != nil {
 			return nil, err
 		}
