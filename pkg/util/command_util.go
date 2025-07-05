@@ -355,6 +355,46 @@ Loop:
 	return nil
 }
 
+func GetActiveUserGroup(configUser string, chownStr string, replacementEnvs []string) (int64, int64, error) {
+	user, err := user.Current()
+	if err != nil {
+		return DoNotChangeUID, DoNotChangeGID, errors.Wrapf(err, "failed to lookup current user")
+	}
+	uid32, gid32, err := getUIDAndGIDFunc(user.Uid, user.Gid)
+	if err != nil {
+		return DoNotChangeUID, DoNotChangeGID, errors.Wrapf(err, "Failed parsing uid and gid %s:%s", user.Uid, user.Gid)
+	}
+	uid, gid := int64(uid32), int64(gid32)
+
+	if configUser != "" {
+		ouid, ogid, err := GetUserGroup(configUser, replacementEnvs)
+		if err != nil {
+			return DoNotChangeUID, DoNotChangeGID, errors.Wrapf(err, "identifying uid and gid for user %s", configUser)
+		}
+		if ouid > DoNotChangeUID {
+			uid = ouid
+		}
+		if ogid > DoNotChangeGID {
+			gid = ogid
+		}
+	}
+
+	if chownStr != "" {
+		ouid, ogid, err := GetUserGroup(chownStr, replacementEnvs)
+		if err != nil {
+			return DoNotChangeUID, DoNotChangeGID, errors.Wrap(err, "getting user group from chown")
+		}
+		if ouid > DoNotChangeUID {
+			uid = ouid
+		}
+		if ogid > DoNotChangeGID {
+			gid = ogid
+		}
+	}
+
+	return uid, gid, nil
+}
+
 func GetUserGroup(chownStr string, env []string) (int64, int64, error) {
 	if chownStr == "" {
 		return DoNotChangeUID, DoNotChangeGID, nil

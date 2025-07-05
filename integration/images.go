@@ -106,6 +106,12 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_multistage":   {"--extra-ignore-files=new"},
 	// docker is wrong. we set permissions to 777 as instructed, they set to 755
 	"TestRun/test_Dockerfile_test_copyadd_chmod": {"--extra-ignore-files=dir777/"},
+	// when we untar we overwrite the parent directory, buildx doesnt
+	"TestRun/test_Dockerfile_test_add": {"--extra-ignore-file-permissions"},
+	// FROM scratch we start with root, buildx doesnt
+	"TestRun/test_Dockerfile_test_workdir_with_user": {"--extra-ignore-file-permissions"},
+	// if group is not set, buildx defaults to 0
+	"TestRun/test_Dockerfile_test_user_nonexisting": {"--extra-ignore-file-permissions"},
 }
 
 // output check to do when building with kaniko

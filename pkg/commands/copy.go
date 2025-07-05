@@ -34,7 +34,8 @@ import (
 
 // for testing
 var (
-	getUserGroup = util.GetUserGroup
+	getUserGroup       = util.GetUserGroup
+	getActiveUserGroup = util.GetActiveUserGroup
 )
 
 type CopyCommand struct {
@@ -47,15 +48,21 @@ type CopyCommand struct {
 
 func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
 	// Resolve from
+	uid, gid := int64(-1), int64(-1)
+	var err error
+	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 	if c.cmd.From != "" {
 		c.fileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoDir, c.cmd.From)}
-	}
-
-	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
-	uid, gid, err := getUserGroup(c.cmd.Chown, replacementEnvs)
-	logrus.Debugf("found uid %v and gid %v for chown string %v", uid, gid, c.cmd.Chown)
-	if err != nil {
-		return errors.Wrap(err, "getting user group from chown")
+		uid, gid, err = getUserGroup(c.cmd.Chown, replacementEnvs)
+		if err != nil {
+			return errors.Wrap(err, "getting user group from chown")
+		}
+	} else {
+		replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
+		uid, gid, err = getActiveUserGroup(config.User, c.cmd.Chown, replacementEnvs)
+		if err != nil {
+			return errors.Wrap(err, "getting user group from chown")
+		}
 	}
 
 	// sources from the Copy command are resolved with wildcards {*?[}

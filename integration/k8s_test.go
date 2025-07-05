@@ -129,7 +129,7 @@ func TestK8s(t *testing.T) {
 				t.Fatal(errR)
 			}
 
-			containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-permissions", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+			containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 		})
 	}
 
