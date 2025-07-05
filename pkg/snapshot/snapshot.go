@@ -63,7 +63,7 @@ func (s *Snapshotter) Key() (string, error) {
 
 // TakeSnapshot takes a snapshot of the specified files, avoiding directories in the ignorelist, and creates
 // a tarball of the changed files. Return contents of the tarball, and whether or not any files were changed
-func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool, forceBuildMetadata bool) (string, error) {
+func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string, error) {
 	f, err := os.CreateTemp(config.KanikoDir, "")
 	if err != nil {
 		return "", err

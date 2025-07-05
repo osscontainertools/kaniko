@@ -278,7 +278,6 @@ func addKanikoOptionsFlags() {
 	RootCmd.PersistentFlags().BoolVarP(&opts.CacheCopyLayers, "cache-copy-layers", "", false, "Caches copy layers")
 	RootCmd.PersistentFlags().BoolVarP(&opts.CacheRunLayers, "cache-run-layers", "", true, "Caches run layers")
 	RootCmd.PersistentFlags().VarP(&opts.IgnorePaths, "ignore-path", "", "Ignore these paths when taking a snapshot. Set it repeatedly for multiple paths.")
-	RootCmd.PersistentFlags().BoolVarP(&opts.ForceBuildMetadata, "force-build-metadata", "", false, "Force add metadata layers to build image")
 	RootCmd.PersistentFlags().BoolVarP(&opts.SkipPushPermissionCheck, "skip-push-permission-check", "", false, "Skip check of the push permission")
 	RootCmd.PersistentFlags().BoolVarP(&opts.PreserveContext, "preserve-context", "", false, "Preserve build context accross build stages by taking a snapshot of the full filesystem before build and restore it after we switch stages. Restores in the end too if passed together with 'cleanup'")
 	RootCmd.PersistentFlags().BoolVarP(&opts.Materialize, "materialize", "", false, "Guarantee that the final state of the file system corresponds to what was specified as the build target, even if we have 100% cache hitrate and wouldn't need to unpack any layers")
@@ -287,6 +286,7 @@ func addKanikoOptionsFlags() {
 	RootCmd.PersistentFlags().StringVarP(&opts.SnapshotModeDeprecated, "snapshotMode", "", "", "This flag is deprecated. Please use '--snapshot-mode'.")
 	RootCmd.PersistentFlags().StringVarP(&opts.CustomPlatformDeprecated, "customPlatform", "", "", "This flag is deprecated. Please use '--custom-platform'.")
 	RootCmd.PersistentFlags().StringVarP(&opts.TarPath, "tarPath", "", "", "This flag is deprecated. Please use '--tar-path'.")
+	RootCmd.PersistentFlags().BoolVarP(&opts.ForceBuildMetadataDeprecated, "force-build-metadata", "", false, "This flag is deprecated. This is the new default behaviour")
 }
 
 // addHiddenFlags marks certain flags as hidden from the executor help text
@@ -338,6 +338,10 @@ func checkNoDeprecatedFlags() {
 	if opts.TarPathDeprecated != "" {
 		logrus.Warn("Flag --tarPath is deprecated. Use: --tar-path")
 		opts.TarPath = opts.TarPathDeprecated
+	}
+
+	if opts.ForceBuildMetadataDeprecated {
+		logrus.Warn("Flag --force-build-metadata is deprecated. This is the new default behaviour")
 	}
 }
 

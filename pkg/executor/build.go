@@ -63,7 +63,7 @@ type cachePusher func(*config.KanikoOptions, string, string, string) error
 type snapShotter interface {
 	Init() error
 	TakeSnapshotFS() (string, error)
-	TakeSnapshot([]string, bool, bool) (string, error)
+	TakeSnapshot([]string, bool) (string, error)
 }
 
 // stageBuilder contains all fields necessary to build one stage of a Dockerfile
@@ -419,7 +419,7 @@ func (s *stageBuilder) build() error {
 		files = command.FilesToSnapshot()
 		timing.DefaultRun.Stop(t)
 
-		if !s.shouldTakeSnapshot(index, command.MetadataOnly()) && !s.opts.ForceBuildMetadata {
+		if !s.shouldTakeSnapshot(index, command.MetadataOnly()) {
 			logrus.Debugf("Build: skipping snapshot for [%v]", command.String())
 			continue
 		}
@@ -474,7 +474,7 @@ func (s *stageBuilder) takeSnapshot(files []string, shdDelete bool) (string, err
 	} else {
 		// Volumes are very weird. They get snapshotted in the next command.
 		files = append(files, util.Volumes()...)
-		snapshot, err = s.snapshotter.TakeSnapshot(files, shdDelete, s.opts.ForceBuildMetadata)
+		snapshot, err = s.snapshotter.TakeSnapshot(files, shdDelete)
 	}
 	timing.DefaultRun.Stop(t)
 	return snapshot, err
