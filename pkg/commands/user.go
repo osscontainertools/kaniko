@@ -18,6 +18,7 @@ package commands
 
 import (
 	"fmt"
+	"os/user"
 	"strings"
 
 	"github.com/GoogleContainerTools/kaniko/pkg/dockerfile"
@@ -43,15 +44,20 @@ func (r *UserCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		return errors.Wrap(err, fmt.Sprintf("resolving user %s", userAndGroup[0]))
 	}
 
+	user, err := user.Current()
+	if err != nil {
+		return errors.Wrapf(err, "failed to lookup current user")
+	}
+
+	var groupStr = user.Gid
 	if len(userAndGroup) > 1 {
-		groupStr, err := util.ResolveEnvironmentReplacement(userAndGroup[1], replacementEnvs, false)
+		groupStr, err = util.ResolveEnvironmentReplacement(userAndGroup[1], replacementEnvs, false)
 		if err != nil {
 			return errors.Wrap(err, fmt.Sprintf("resolving group %s", userAndGroup[1]))
 		}
-		userStr = userStr + ":" + groupStr
 	}
 
-	config.User = userStr
+	config.User = userStr + ":" + groupStr
 	return nil
 }
 
