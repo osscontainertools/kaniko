@@ -828,10 +828,7 @@ func TestExitCodePropagation(t *testing.T) {
 }
 
 func TestBuildWithAnnotations(t *testing.T) {
-	// buildx/buildkit is a bit more finicky about the URL format.
 	branch, _, url := getBranchCommitAndURL()
-	buildxRepo := "https://" + url + ".git#refs/heads/" + branch
-	kanikoRepo := url + "#refs/heads/" + branch
 
 	dockerfile := fmt.Sprintf("%s/testdata/Dockerfile.trivial", integrationPath)
 	annotationKey := "myannotation"
@@ -840,17 +837,27 @@ func TestBuildWithAnnotations(t *testing.T) {
 	// Build with docker
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_annotation")
 	dockerCmd := exec.Command("docker",
-		"buildx", // Use buildx to support annotations.
 		"build",
 		"--push", // Push the image. Docker engine does not support annotations without pushing.
 		"-t", dockerImage,
 		"-f", dockerfile,
-		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
-		buildxRepo,
+		DockerGitRepo(url, "", branch),
 	)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
+	}
+
+	// Add image manifest annotations with crane
+	// as they're not natively supported in buildkit
+	craneCmd := exec.Command("crane",
+		"mutate",
+		dockerImage,
+		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
+	)
+	out, err = RunCommandWithoutTest(craneCmd)
+	if err != nil {
+		t.Errorf("Failed to mutate image %s with crane command %q: %s %s", dockerImage, craneCmd.Args, err, string(out))
 	}
 
 	// Build with kaniko
@@ -861,13 +868,14 @@ func TestBuildWithAnnotations(t *testing.T) {
 		"-f", dockerfile,
 		"-d", kanikoImage,
 		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
-		"-c", fmt.Sprintf("git://%s", kanikoRepo),
+		"-c", KanikoGitRepo(url, "", branch),
 	)
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 	out, err = RunCommandWithoutTest(kanikoCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
+	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--ignore-history")
 
 	dockerAnnotations, err := getImageManifestAnnotations(t, dockerImage)
 	if err != nil {

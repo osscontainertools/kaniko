@@ -60,6 +60,10 @@ install-diffoci:
 		go mod vendor && \
 		go install
 
+.PHONY: install-crane
+install-crane:
+	@ GOFLAGS="" go install github.com/google/go-containerregistry/cmd/crane@latest
+
 .PHONY: k3s-setup
 k3s-setup:
 	@ ./scripts/k3s-setup.sh
