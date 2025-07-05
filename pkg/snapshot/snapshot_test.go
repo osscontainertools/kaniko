@@ -250,7 +250,7 @@ func TestSnapshotFiles(t *testing.T) {
 	filesToSnapshot := []string{
 		filepath.Join(testDir, "foo"),
 	}
-	tarPath, err := snapshotter.TakeSnapshot(filesToSnapshot, false, false)
+	tarPath, err := snapshotter.TakeSnapshot(filesToSnapshot, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -385,7 +385,7 @@ func TestSnapshotPreservesFileOrder(t *testing.T) {
 		}
 
 		// Take a snapshot
-		tarPath, err := snapshotter.TakeSnapshot(filesToSnapshot, false, false)
+		tarPath, err := snapshotter.TakeSnapshot(filesToSnapshot, false)
 
 		if err != nil {
 			t.Fatalf("Error taking snapshot of fs: %s", err)
@@ -408,26 +408,6 @@ func TestSnapshotPreservesFileOrder(t *testing.T) {
 	}
 }
 
-func TestSnapshotWithForceBuildMetadataSet(t *testing.T) {
-	_, snapshotter, cleanup, err := setUpTest(t)
-	defer cleanup()
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	filesToSnapshot := []string{}
-
-	// snapshot should be taken regardless, if forceBuildMetadata flag is set
-	filename, err := snapshotter.TakeSnapshot(filesToSnapshot, false, true)
-	if err != nil {
-		t.Fatalf("Error taking snapshot of fs: %s", err)
-	}
-	if filename == "" {
-		t.Fatalf("Filename returned from snapshot is empty.")
-	}
-}
-
 func TestSnapshotIncludesParentDirBeforeWhiteoutFile(t *testing.T) {
 	testDir, snapshotter, cleanup, err := setUpTest(t)
 	defer cleanup()
@@ -437,7 +417,7 @@ func TestSnapshotIncludesParentDirBeforeWhiteoutFile(t *testing.T) {
 
 	// Take a snapshot
 	filesToSnapshot := []string{filepath.Join(testDir, "kaniko/file", "bar/bat")}
-	_, err = snapshotter.TakeSnapshot(filesToSnapshot, false, false)
+	_, err = snapshotter.TakeSnapshot(filesToSnapshot, false)
 	if err != nil {
 		t.Fatalf("Error taking snapshot of fs: %s", err)
 	}
@@ -461,7 +441,7 @@ func TestSnapshotIncludesParentDirBeforeWhiteoutFile(t *testing.T) {
 	}
 
 	// Take a snapshot again
-	tarPath, err := snapshotter.TakeSnapshot(filesToSnapshot, true, false)
+	tarPath, err := snapshotter.TakeSnapshot(filesToSnapshot, true)
 	if err != nil {
 		t.Fatalf("Error taking snapshot of fs: %s", err)
 	}
@@ -528,7 +508,7 @@ func TestSnapshotPreservesWhiteoutOrder(t *testing.T) {
 		}
 
 		// Take a snapshot
-		_, err = snapshotter.TakeSnapshot(filesToSnapshot, false, false)
+		_, err = snapshotter.TakeSnapshot(filesToSnapshot, false)
 		if err != nil {
 			t.Fatalf("Error taking snapshot of fs: %s", err)
 		}
@@ -542,7 +522,7 @@ func TestSnapshotPreservesWhiteoutOrder(t *testing.T) {
 		}
 
 		// Take a snapshot again
-		tarPath, err := snapshotter.TakeSnapshot(filesToSnapshot, true, false)
+		tarPath, err := snapshotter.TakeSnapshot(filesToSnapshot, true)
 		if err != nil {
 			t.Fatalf("Error taking snapshot of fs: %s", err)
 		}

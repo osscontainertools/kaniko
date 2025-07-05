@@ -1781,9 +1781,7 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 			name: "oci image",
 			fields: fields{
 				image: ociFakeImage{},
-				opts: &config.KanikoOptions{
-					ForceBuildMetadata: true,
-				},
+				opts:  &config.KanikoOptions{},
 			},
 			args: args{
 				tarPath: filepath.Join(dir, files[0]),
@@ -1802,9 +1800,7 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 			name: "docker image",
 			fields: fields{
 				image: fakeImage{},
-				opts: &config.KanikoOptions{
-					ForceBuildMetadata: true,
-				},
+				opts:  &config.KanikoOptions{},
 			},
 			args: args{
 				tarPath: filepath.Join(dir, files[0]),
@@ -1824,8 +1820,7 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 			fields: fields{
 				image: ociFakeImage{},
 				opts: &config.KanikoOptions{
-					ForceBuildMetadata: true,
-					Compression:        config.ZStd,
+					Compression: config.ZStd,
 				},
 			},
 			args: args{
