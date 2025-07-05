@@ -63,7 +63,7 @@ func TestWithContext(t *testing.T) {
 			dockerImage := GetDockerImage(config.imageRepo, name)
 			kanikoImage := GetKanikoImage(config.imageRepo, name)
 
-			containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-permissions", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+			containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 		})
 	}
 

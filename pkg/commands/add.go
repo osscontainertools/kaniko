@@ -59,7 +59,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		chmod = fs.FileMode(0o600)
 	}
 
-	uid, gid, err := util.GetUserGroup(a.cmd.Chown, replacementEnvs)
+	uid, gid, err := util.GetActiveUserGroup(config.User, a.cmd.Chown, replacementEnvs)
 	if err != nil {
 		return errors.Wrap(err, "getting user group from chown")
 	}

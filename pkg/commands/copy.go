@@ -34,7 +34,7 @@ import (
 
 // for testing
 var (
-	getUserGroup = util.GetUserGroup
+	getActiveUserGroup = util.GetActiveUserGroup
 )
 
 type CopyCommand struct {
@@ -52,8 +52,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 	}
 
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
-	uid, gid, err := getUserGroup(c.cmd.Chown, replacementEnvs)
-	logrus.Debugf("found uid %v and gid %v for chown string %v", uid, gid, c.cmd.Chown)
+	uid, gid, err := getActiveUserGroup(config.User, c.cmd.Chown, replacementEnvs)
 	if err != nil {
 		return errors.Wrap(err, "getting user group from chown")
 	}

@@ -1035,13 +1035,13 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 		testDir, srcDir := setupDirs(t)
 		defer os.RemoveAll(testDir)
 
-		original := getUserGroup
-		defer func() { getUserGroup = original }()
+		original := getActiveUserGroup
+		defer func() { getActiveUserGroup = original }()
 
 		uid := os.Getuid()
 		gid := os.Getgid()
 
-		getUserGroup = func(userStr string, _ []string) (int64, int64, error) {
+		getActiveUserGroup = func(userStr string, chownStr string, _ []string) (int64, int64, error) {
 			return int64(uid), int64(gid), nil
 		}
 
@@ -1083,10 +1083,10 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 		testDir, srcDir := setupDirs(t)
 		defer os.RemoveAll(testDir)
 
-		original := getUserGroup
-		defer func() { getUserGroup = original }()
+		original := getActiveUserGroup
+		defer func() { getActiveUserGroup = original }()
 
-		getUserGroup = func(userStr string, _ []string) (int64, int64, error) {
+		getActiveUserGroup = func(userStr string, chownStr string, _ []string) (int64, int64, error) {
 			return 12345, 12345, nil
 		}
 
