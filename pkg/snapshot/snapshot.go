@@ -71,10 +71,6 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool, forceBui
 	defer f.Close()
 
 	s.l.Snapshot()
-	if len(files) == 0 && !forceBuildMetadata {
-		logrus.Info("No files changed in this command, skipping snapshotting.")
-		return "", nil
-	}
 
 	filesToAdd, err := filesystem.ResolvePaths(files, s.ignorelist)
 	if err != nil {

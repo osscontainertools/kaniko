@@ -107,11 +107,11 @@ func (w *WorkdirCommand) CacheCommand(img v1.Image) DockerCommand {
 }
 
 func (w *WorkdirCommand) MetadataOnly() bool {
-	return false
+	return w.cmd.Path == "/"
 }
 
-func (r *WorkdirCommand) RequiresUnpackedFS() bool {
-	return true
+func (w *WorkdirCommand) RequiresUnpackedFS() bool {
+	return w.cmd.Path != "/"
 }
 
 func (w *WorkdirCommand) ShouldCacheOutput() bool {

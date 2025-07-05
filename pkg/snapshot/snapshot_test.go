@@ -428,26 +428,6 @@ func TestSnapshotWithForceBuildMetadataSet(t *testing.T) {
 	}
 }
 
-func TestSnapshotWithForceBuildMetadataIsNotSet(t *testing.T) {
-	_, snapshotter, cleanup, err := setUpTest(t)
-	defer cleanup()
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	filesToSnapshot := []string{}
-
-	// snapshot should not be taken
-	filename, err := snapshotter.TakeSnapshot(filesToSnapshot, false, false)
-	if err != nil {
-		t.Fatalf("Error taking snapshot of fs: %s", err)
-	}
-	if filename != "" {
-		t.Fatalf("Filename returned is expected to be empty.")
-	}
-}
-
 func TestSnapshotIncludesParentDirBeforeWhiteoutFile(t *testing.T) {
 	testDir, snapshotter, cleanup, err := setUpTest(t)
 	defer cleanup()
