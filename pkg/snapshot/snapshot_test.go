@@ -65,8 +65,7 @@ func TestSnapshotFSFileChange(t *testing.T) {
 		batPath: "baz",
 	}
 	for _, path := range util.ParentDirectoriesWithoutLeadingSlash(batPath) {
-		if path == "/" {
-			snapshotFiles["/"] = ""
+		if path == config.RootDir {
 			continue
 		}
 		snapshotFiles[path+"/"] = ""
@@ -155,8 +154,7 @@ func TestSnapshotFSChangePermissions(t *testing.T) {
 		batPathWithoutLeadingSlash: "baz2",
 	}
 	for _, path := range util.ParentDirectoriesWithoutLeadingSlash(batPathWithoutLeadingSlash) {
-		if path == "/" {
-			snapshotFiles["/"] = ""
+		if path == config.RootDir {
 			continue
 		}
 		snapshotFiles[path+"/"] = ""
@@ -225,6 +223,9 @@ func TestSnapshotFSReplaceDirWithLink(t *testing.T) {
 		filepath.Join(testDirWithoutLeadingSlash, "foo"),
 	}
 	for _, path := range util.ParentDirectoriesWithoutLeadingSlash(filepath.Join(testDir, "foo")) {
+		if path == config.RootDir {
+			continue
+		}
 		expectedFiles = append(expectedFiles, strings.TrimRight(path, "/")+"/")
 	}
 
@@ -260,6 +261,9 @@ func TestSnapshotFiles(t *testing.T) {
 		filepath.Join(testDirWithoutLeadingSlash, "foo"),
 	}
 	for _, path := range util.ParentDirectoriesWithoutLeadingSlash(filepath.Join(testDir, "foo")) {
+		if path == config.RootDir {
+			continue
+		}
 		expectedFiles = append(expectedFiles, strings.TrimRight(path, "/")+"/")
 	}
 
@@ -456,7 +460,6 @@ func TestSnapshotIncludesParentDirBeforeWhiteoutFile(t *testing.T) {
 		filepath.Join(testDirWithoutLeadingSlash, "kaniko/.wh.file"),
 		filepath.Join(testDirWithoutLeadingSlash, "kaniko/new-file"),
 		filepath.Join(testDirWithoutLeadingSlash, ".wh.bar"),
-		"/",
 	}
 	for parentDir := filepath.Dir(expectedFiles[0]); parentDir != "."; parentDir = filepath.Dir(parentDir) {
 		expectedFiles = append(expectedFiles, parentDir+"/")

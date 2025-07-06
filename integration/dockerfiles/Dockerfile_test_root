@@ -1,0 +1,6 @@
+FROM debian
+
+RUN chmod 700 /
+RUN chmod 755 /
+RUN chown 1000:1000 /
+RUN chown root:root /
