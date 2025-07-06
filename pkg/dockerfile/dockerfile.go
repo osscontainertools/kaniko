@@ -365,7 +365,7 @@ func skipUnusedStages(stages []instructions.Stage, lastStageIndex *int, target s
 			continue
 		}
 		s := stages[i]
-		if BaseIndex, ok := stageByName[s.BaseName]; ok {
+		if BaseIndex, ok := stageByName[strings.ToLower(s.BaseName)]; ok {
 			// There can be references that appear as non-existing stages
 			// ie. `FROM debian AS base` would try refer to `debian` as stage
 			// before falling back to `debian` as a docker image.
@@ -379,7 +379,7 @@ func skipUnusedStages(stages []instructions.Stage, lastStageIndex *int, target s
 					stagesDependencies[copyFromIndex] = true
 				} else {
 					// named reference `COPY --from=base`
-					if copyFromIndex, ok := stageByName[cmd.From]; ok {
+					if copyFromIndex, ok := stageByName[strings.ToLower(cmd.From)]; ok {
 						// There can be references that appear as non-existing stages
 						// ie. `COPY --from=debian` would try refer to `debian` as stage
 						// before falling back to `debian` as a docker image.
