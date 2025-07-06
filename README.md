@@ -121,8 +121,10 @@ _If you are interested in contributing to kaniko, see
       - [Flag `--cache-repo`](#flag---cache-repo)
       - [Flag `--cache-copy-layers`](#flag---cache-copy-layers)
       - [Flag `--cache-run-layers`](#flag---cache-run-layers)
-      - [Flag `--cache-ttl duration`](#flag---cache-ttl-duration)
+      - [Flag `--cache-ttl`](#flag---cache-ttl)
       - [Flag `--cleanup`](#flag---cleanup)
+      - [Flag `--compression`](#flag---compression)
+      - [Flag `--compression-level`](#flag---compression-level)
       - [Flag `--compressed-caching`](#flag---compressed-caching)
       - [Flag `--context-sub-path`](#flag---context-sub-path)
       - [Flag `--custom-platform`](#flag---custom-platform)
@@ -135,6 +137,7 @@ _If you are interested in contributing to kaniko, see
       - [Flag `--insecure`](#flag---insecure)
       - [Flag `--insecure-pull`](#flag---insecure-pull)
       - [Flag `--insecure-registry`](#flag---insecure-registry)
+      - [Flag `--kaniko-dir`](#flag---kaniko-dir)
       - [Flag `--label`](#flag---label)
       - [Flag `--log-format`](#flag---log-format)
       - [Flag `--log-timestamp`](#flag---log-timestamp)
@@ -933,13 +936,21 @@ Set this flag to cache copy layers.
 
 Set this flag to cache run layers (default=true).
 
-#### Flag `--cache-ttl duration`
+#### Flag `--cache-ttl`
 
 Cache timeout in hours. Defaults to two weeks.
 
 #### Flag `--cleanup`
 
 Set this flag to clean the filesystem at the end of the build.
+
+#### Flag `--compression`
+
+Use this flag to select the compression algorithm `[gzip, zstd]`. Defaults to `gzip`.
+
+#### Flag `--compression-level`
+
+Use this flag to select the compression level. Defaults to `-1` (no compression)
 
 #### Flag `--compressed-caching`
 
@@ -1024,6 +1035,10 @@ You can set `--insecure-registry <registry-name>` to use plain HTTP requests
 when accessing the specified registry. It is supposed to be used for testing
 purposes only and should not be used in production! You can set it multiple
 times for multiple registries.
+
+#### Flag `--kaniko-dir`
+
+Set this flag as `--kaniko-dir /not-kaniko` to move the kaniko binaries to `/not-kaniko` before the build starts. It's the cli alternative to the env variable `KANIKO_DIR`. This is helpful in [Bootstrapping Kaniko](#bootstrapping-kaniko).
 
 #### Flag `--label`
 
@@ -1212,9 +1227,8 @@ multiple times for multiple registries.
 
 #### Flag `--skip-unused-stages`
 
-This flag builds only used stages if defined to `true`. Otherwise it builds by
-default all stages, even the unnecessary ones until it reaches the target stage
-/ end of Dockerfile
+Builds only used stages.  If set to `false` it builds all stages, even the unnecessary ones until it reaches the target stage / end of Dockerfile.
+Defaults to `true`.
 
 #### Flag `--snapshot-mode`
 
@@ -1241,6 +1255,7 @@ want to save the image as tarball only you also need to set `--no-push`.
 #### Flag `--target`
 
 Set this flag to indicate which build stage is the target build stage.
+If not set we implicitly target the last stage.
 
 #### Flag `--use-new-run`
 
