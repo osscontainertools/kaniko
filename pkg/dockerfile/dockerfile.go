@@ -349,48 +349,53 @@ func unifyArgs(metaArgs []instructions.ArgCommand, buildArgs []string) []string 
 
 // skipUnusedStages returns the list of used stages without the unnecessaries ones
 func skipUnusedStages(stages []instructions.Stage, lastStageIndex *int, target string) []instructions.Stage {
-	stagesDependencies := make(map[string]bool)
-	var onlyUsedStages []instructions.Stage
-	idx := *lastStageIndex
+	stageByName := make(map[string]int)
 
-	lastStageBaseName := stages[idx].BaseName
+	for idx, s := range stages {
+		if s.Name != "" {
+			stageByName[s.Name] = idx
+		}
+	}
 
-	for i := idx; i >= 0; i-- {
+	stagesDependencies := make([]bool, len(stages))
+	stagesDependencies[*lastStageIndex] = true
+
+	for i := *lastStageIndex; i >= 0; i-- {
+		if !stagesDependencies[i] {
+			continue
+		}
 		s := stages[i]
-		if (s.Name != "" && stagesDependencies[s.Name]) || s.Name == lastStageBaseName || i == idx {
-			for _, c := range s.Commands {
-				switch cmd := c.(type) {
-				case *instructions.CopyCommand:
-					stageName := cmd.From
-					if copyFromIndex, err := strconv.Atoi(stageName); err == nil {
-						stageName = stages[copyFromIndex].Name
-					}
-					if !stagesDependencies[stageName] {
-						stagesDependencies[stageName] = true
+		if BaseIndex, ok := stageByName[s.BaseName]; ok {
+			// There can be references that appear as non-existing stages
+			// ie. `FROM debian AS base` would try refer to `debian` as stage
+			// before falling back to `debian` as a docker image.
+			stagesDependencies[BaseIndex] = true
+		}
+		for _, c := range s.Commands {
+			switch cmd := c.(type) {
+			case *instructions.CopyCommand:
+				if copyFromIndex, err := strconv.Atoi(cmd.From); err == nil {
+					// numeric reference `COPY --from=0`
+					stagesDependencies[copyFromIndex] = true
+				} else {
+					// named reference `COPY --from=base`
+					if copyFromIndex, ok := stageByName[cmd.From]; ok {
+						// There can be references that appear as non-existing stages
+						// ie. `COPY --from=debian` would try refer to `debian` as stage
+						// before falling back to `debian` as a docker image.
+						stagesDependencies[copyFromIndex] = true
 					}
 				}
 			}
-			if i != idx {
-				stagesDependencies[s.BaseName] = true
-			}
 		}
-	}
-	dependenciesLen := len(stagesDependencies)
-	if dependenciesLen > 0 {
-		for i := 0; i < idx; i++ {
-			if stages[i].Name == "" {
-				continue
-			}
-			s := stages[i]
-			if stagesDependencies[s.Name] || s.Name == lastStageBaseName {
-				onlyUsedStages = append(onlyUsedStages, s)
-			}
-		}
-	}
-	onlyUsedStages = append(onlyUsedStages, stages[idx])
-	if idx > len(onlyUsedStages)-1 {
-		*lastStageIndex = len(onlyUsedStages) - 1
 	}
 
+	var onlyUsedStages []instructions.Stage
+	for i := 0; i < *lastStageIndex+1; i++ {
+		if stagesDependencies[i] {
+			onlyUsedStages = append(onlyUsedStages, stages[i])
+		}
+	}
+	*lastStageIndex = len(onlyUsedStages) - 1
 	return onlyUsedStages
 }
