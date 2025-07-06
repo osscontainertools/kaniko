@@ -1,0 +1,11 @@
+FROM debian AS BUILD
+RUN touch /blubb
+
+FROM scratch
+# Fails on main@1d2bff5 before #1965:
+# Stage-names are implicitly lower-cased when we parse the dockerfile.
+# But the same is not done for references in COPY and FROM statements.
+# This leads to a situation where upper-case stage-names are unreferenceable.
+# The stage-names are properly handled druing build, but cause errors in the optional
+# --skip-unused-stages optimization logic.
+COPY --from=BUILD /blubb /blubb

@@ -95,6 +95,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_add":              {"--cache-copy-layers=true"},
 	// skip-unused-stages
 	"Dockerfile_test_copy_chown_nonexisting_user": {"--skip-unused-stages"},
+	"Dockerfile_test_issue_1965":                  {"--skip-unused-stages"},
 }
 
 // Arguments to diffoci when comparing dockerfiles
