@@ -695,13 +695,16 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 		} else if fi.IsDir() {
 			logrus.Tracef("Creating directory %s", destPath)
 
-			mode := chmod
-			if useDefaultChmod {
-				mode = fi.Mode()
-			}
 			uid, gid := DetermineTargetFileOwnership(fi, uid, gid)
-			if err := MkdirAllWithPermissions(destPath, mode, uid, gid); err != nil {
+			if err := MkdirAllWithPermissions(destPath, fi.Mode(), uid, gid); err != nil {
 				return nil, err
+			}
+			if !useDefaultChmod {
+				// For existing directories, MkdirAll doesn't change the permissions, so run Chmod
+				// To force permissions into what is configured via the chmod parameter
+				if err = os.Chmod(destPath, chmod); err != nil {
+					return nil, err
+				}
 			}
 		} else if IsSymlink(fi) {
 			// If file is a symlink, we want to create the same relative symlink
