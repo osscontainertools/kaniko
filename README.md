@@ -1,6 +1,9 @@
 # 🌿 This project is a maintained fork 🌿
 
 The focus of this fork is to keep dependencies up-to-date, fix bugs and improve performance.
+
+The images are available on docker hub [martizih/kaniko](https://hub.docker.com/r/martizih/kaniko)
+
 If you are new here, these are the main differences to the last official kaniko version:
 ### Security
 * CVE-2025-22874: bump go 1.24.3 -> 1.24.4: https://github.com/mzihlmann/kaniko/pull/50
@@ -9,6 +12,11 @@ If you are new here, these are the main differences to the last official kaniko 
 * cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3
 * sticky bit gets lost on COPY: https://github.com/mzihlmann/kaniko/pull/45
 * cache collision under rename: by @SJrX in https://github.com/mzihlmann/kaniko/pull/62
+* COPY with restrictive chmod makes directory inacessible: https://github.com/mzihlmann/kaniko/pull/80
+* file permissions: https://github.com/mzihlmann/kaniko/pull/101
+* skip-unused-stages fails on numeric references: https://github.com/mzihlmann/kaniko/pull/103
+* skip-unused-stages fails on capitalized references: https://github.com/mzihlmann/kaniko/pull/104
+* Persist capabilities on COPY: https://github.com/mzihlmann/kaniko/pull/107
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
 * ignore labels on base image for cache: https://github.com/mzihlmann/kaniko/pull/2
@@ -16,13 +24,13 @@ If you are new here, these are the main differences to the last official kaniko 
 * Fix caching for empty RUN: https://github.com/mzihlmann/kaniko/pull/19
 * WORKDIR learned to cache its potential output layer: https://github.com/mzihlmann/kaniko/pull/22 https://github.com/mzihlmann/kaniko/pull/23
 * ADD learned to cache its output layer: https://github.com/mzihlmann/kaniko/pull/24
-### Optimizations
+### Usability
 * if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
-### Bootstrap
-* bootstrap image: https://github.com/mzihlmann/kaniko/pull/59
-### Materialize Workflow
 * kaniko learned `--preserve-context` to preserve the build-context across multi-stage builds: https://github.com/mzihlmann/kaniko/pull/28
 * kaniko learned `--materialize` forcing the filesystem into a well-defined state after the build: https://github.com/mzihlmann/kaniko/pull/29
+* bootstrap image: https://github.com/mzihlmann/kaniko/pull/59
+* deprecate force-build-metadata: https://github.com/mzihlmann/kaniko/pull/99
+* make skip-unused-stages the default: https://github.com/mzihlmann/kaniko/pull/100
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
 * 🔗 update ENV syntax in Dockerfile: by @babs in https://github.com/mzihlmann/kaniko/pull/60
