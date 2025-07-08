@@ -6,35 +6,23 @@ If you are new here, these are the main differences to the last official kaniko 
 * CVE-2025-22874: bump go 1.24.3 -> 1.24.4: https://github.com/mzihlmann/kaniko/pull/50
 * remove binary artifacts: by @tlk in https://github.com/mzihlmann/kaniko/pull/54
 ### Bugfixes
-* cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3 opened as https://github.com/GoogleContainerTools/kaniko/pull/3429
+* cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3
 * sticky bit gets lost on COPY: https://github.com/mzihlmann/kaniko/pull/45
 * cache collision under rename: by @SJrX in https://github.com/mzihlmann/kaniko/pull/62
 ### Caching
-* sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1 opened as https://github.com/GoogleContainerTools/kaniko/pull/3489
-* ignore labels on base image for cache: https://github.com/mzihlmann/kaniko/pull/2 opened as https://github.com/GoogleContainerTools/kaniko/pull/3342
-* intermediate images should not be labelled: https://github.com/mzihlmann/kaniko/pull/4 opened as https://github.com/GoogleContainerTools/kaniko/pull/3413
-* Fix caching for empty RUN: https://github.com/mzihlmann/kaniko/pull/19 opened as https://github.com/GoogleContainerTools/kaniko/pull/3496
-* WORKDIR learned to cache its potential output layer: https://github.com/mzihlmann/kaniko/pull/22 https://github.com/mzihlmann/kaniko/pull/23 opened as https://github.com/GoogleContainerTools/kaniko/pull/3341
-* ADD learned to cache its output layer: https://github.com/mzihlmann/kaniko/pull/24 opened as https://github.com/GoogleContainerTools/kaniko/pull/3499
+* sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
+* ignore labels on base image for cache: https://github.com/mzihlmann/kaniko/pull/2
+* intermediate images should not be labelled: https://github.com/mzihlmann/kaniko/pull/4
+* Fix caching for empty RUN: https://github.com/mzihlmann/kaniko/pull/19
+* WORKDIR learned to cache its potential output layer: https://github.com/mzihlmann/kaniko/pull/22 https://github.com/mzihlmann/kaniko/pull/23
+* ADD learned to cache its output layer: https://github.com/mzihlmann/kaniko/pull/24
 ### Optimizations
 * if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
 ### Bootstrap
 * bootstrap image: https://github.com/mzihlmann/kaniko/pull/59
 ### Materialize Workflow
-* kaniko learned `--preserve-context` to preserve the build-context across multi-stage builds: https://github.com/mzihlmann/kaniko/pull/28 opened as https://github.com/GoogleContainerTools/kaniko/pull/3500
+* kaniko learned `--preserve-context` to preserve the build-context across multi-stage builds: https://github.com/mzihlmann/kaniko/pull/28
 * kaniko learned `--materialize` forcing the filesystem into a well-defined state after the build: https://github.com/mzihlmann/kaniko/pull/29
-### Maintenance
-* chore(deps): bump github.com/google/go-containerregistry from 0.20.4 to 0.20.6: https://github.com/mzihlmann/kaniko/pull/41 https://github.com/mzihlmann/kaniko/pull/65
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.75 to 1.17.82: https://github.com/mzihlmann/kaniko/pull/58 https://github.com/mzihlmann/kaniko/pull/73 https://github.com/mzihlmann/kaniko/pull/74 https://github.com/mzihlmann/kaniko/pull/87
-* chore(deps): bump github.com/GoogleCloudPlatform/docker-credential-gcr/v2 from 2.1.22 to 2.1.30: https://github.com/mzihlmann/kaniko/pull/40 https://github.com/mzihlmann/kaniko/pull/86
-* chore(deps): bump cloud.google.com/go/storage from 1.54.0 to 1.55.0: https://github.com/mzihlmann/kaniko/pull/43
-* chore(deps): bump github.com/go-git/go-git/v5 from 5.16.0 to 5.16.2: https://github.com/mzihlmann/kaniko/pull/66
-* chore(deps): bump golang.org/x/sync from 0.14.0 to 0.15.0: https://github.com/mzihlmann/kaniko/pull/64
-* chore(deps): bump google.golang.org/api from 0.235.0 to 0.239.0: https://github.com/mzihlmann/kaniko/pull/63 https://github.com/mzihlmann/kaniko/pull/71 https://github.com/mzihlmann/kaniko/pull/84
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.80.2 to 1.80.3: https://github.com/mzihlmann/kaniko/pull/70
-* chore(deps): bump github.com/moby/buildkit from 0.22.0 to 0.23.1: https://github.com/mzihlmann/kaniko/pull/75 https://github.com/mzihlmann/kaniko/pull/79
-* chore(deps): bump sigstore/cosign-installer from 3.9.0 to 3.9.1: https://github.com/mzihlmann/kaniko/pull/82
-* chore(deps): bump github.com/docker/docker from 28.2.2+incompatible to 28.3.0+incompatible: https://github.com/mzihlmann/kaniko/pull/83
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
 * 🔗 update ENV syntax in Dockerfile: by @babs in https://github.com/mzihlmann/kaniko/pull/60

@@ -581,7 +581,7 @@ func TestBuildWithHTTPError(t *testing.T) {
 }
 
 func TestLayers(t *testing.T) {
-	// offset is caused because for those two files we use
+	// offset is caused because for those three files we use
 	// --single-snapshot option, compressing all layers into one
 	offset := map[string]int{
 		"Dockerfile_test_add":        12,
