@@ -1,3 +1,52 @@
+# v1.25.0 Release 2025-07-08
+The executor images in this release are:
+```
+martizih/kaniko:latest
+martizih/kaniko:v1.25.0
+```
+
+The debug images are available at:
+```
+martizih/kaniko:debug
+martizih/kaniko:v1.25.0-debug
+```
+
+The slim executor images which don't contain any authentication binaries are available at:
+```
+martizih/kaniko:slim
+martizih/kaniko:v1.25.0-slim
+```
+
+The warmer images are available at:
+```
+martizih/kaniko:warmer
+martizih/kaniko:v1.25.0-warmer
+```
+
+The bootstrap images, that can be used to build kaniko in kaniko, are available at:
+```
+martizih/kaniko:bootstrap
+martizih/kaniko:v1.25.0-bootstrap
+```
+
+* chore(deps): bump step-security/harden-runner from 2.12.1 to 2.12.2 by @dependabot in https://github.com/mzihlmann/kaniko/pull/92
+* chore(deps): bump github.com/moby/buildkit from 0.23.1 to 0.23.2 by @dependabot in https://github.com/mzihlmann/kaniko/pull/93
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.82 to 1.17.83 by @dependabot in https://github.com/mzihlmann/kaniko/pull/95
+* chore(deps): bump google.golang.org/api from 0.239.0 to 0.240.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/96
+* chore(deps): bump github.com/docker/docker from 28.3.0+incompatible to 28.3.1+incompatible by @dependabot in https://github.com/mzihlmann/kaniko/pull/97
+* switch target implementation to buildkit by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/81
+* deprecate force-build-metadata by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/99
+* file permissions by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/101
+* skip-unused-stages fails on numeric references by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/103
+* skip-unused-stages fails on capitalized references  by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/104
+* make skip-unused-stages the default by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/100
+* update flags documentation by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/105
+* Persist capabilities on COPY by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/107
+* COPY with restrictive chmod makes directory inacessible by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/80
+* COPY --chmod doesn't change existing directories by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/109
+* cleanup by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/110
+
+
 # v1.24.3 Release 2025-06-29
 The executor images in this release are:
 ```
