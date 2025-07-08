@@ -93,9 +93,6 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_cache_copy":             {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache_copy_oci":         {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_add":              {"--cache-copy-layers=true"},
-	// skip-unused-stages
-	"Dockerfile_test_copy_chown_nonexisting_user": {"--skip-unused-stages"},
-	"Dockerfile_test_issue_1965":                  {"--skip-unused-stages"},
 }
 
 // Arguments to diffoci when comparing dockerfiles
@@ -107,13 +104,11 @@ var diffArgsMap = map[string][]string{
 	// docker is wrong. we do copy the symlink correctly.
 	"TestRun/test_Dockerfile_test_copy_symlink": {"--extra-ignore-files=workdirAnother/relative_link"},
 	"TestRun/test_Dockerfile_test_multistage":   {"--extra-ignore-files=new"},
-	// docker is wrong. we set permissions to 777 as instructed, they set to 755
-	"TestRun/test_Dockerfile_test_copyadd_chmod": {"--extra-ignore-files=dir777/"},
-	// when we untar we overwrite the parent directory, buildx doesnt
+	// when we untar we overwrite the parent directory, buildkit doesnt
 	"TestRun/test_Dockerfile_test_add": {"--extra-ignore-file-permissions"},
-	// FROM scratch we start with root, buildx doesnt
+	// FROM scratch we start with root, buildkit doesnt
 	"TestRun/test_Dockerfile_test_workdir_with_user": {"--extra-ignore-file-permissions"},
-	// if group is not set, buildx defaults to 0
+	// if group is not set, buildkit defaults to 0
 	"TestRun/test_Dockerfile_test_user_nonexisting": {"--extra-ignore-file-permissions"},
 	// Somehow buildkit sets Uid of copied files to root=0 instead of active user.
 	"TestRun/test_Dockerfile_test_issue_3166":  {"--extra-ignore-file-permissions"},
