@@ -200,19 +200,15 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 	timer := timing.Start("Resolving Paths")
 
 	filesToAdd := []string{}
-	resolvedFiles, err := filesystem.ResolvePaths(changedPaths, s.ignorelist)
-	if err != nil {
-		return nil, nil, err
-	}
-	for _, path := range resolvedFiles {
-		if util.CheckIgnoreList(path) {
+	for _, path := range changedPaths {
+		if util.IsInProvidedIgnoreList(path, s.ignorelist) {
 			logrus.Debugf("Not adding %s to layer, as it's ignored", path)
 			continue
 		}
 		filesToAdd = append(filesToAdd, path)
 	}
 	// Ignore-list filtering can only reduce the file set.
-	util.Assert("snapshot.scan.files-count", len(filesToAdd) <= len(resolvedFiles), "scanFullFilesystem: filesToAdd (%d) exceeds resolvedFiles (%d)", len(resolvedFiles), len(filesToAdd))
+	util.Assert("snapshot.scan.files-count", len(filesToAdd) <= len(changedPaths), "scanFullFilesystem: filesToAdd (%d) exceeds changedPaths (%d)", len(changedPaths), len(filesToAdd))
 
 	logrus.Debugf("Adding to layer: %v", filesToAdd)
 	logrus.Debugf("Deleting in layer: %v", deletedPaths)
