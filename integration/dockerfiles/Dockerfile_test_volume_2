@@ -1,4 +1,4 @@
-FROM debian:10.13
+FROM debian:12.11
 VOLUME /foo1
 RUN mkdir -p /foo1
 RUN echo "hello" > /foo1/hello
