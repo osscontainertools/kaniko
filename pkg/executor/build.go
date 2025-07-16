@@ -426,8 +426,14 @@ func (s *stageBuilder) build() error {
 		if isCacheCommand {
 			v := command.(commands.Cached)
 			layer := v.Layer()
-			if err := s.saveLayerToImage(layer, command.String()); err != nil {
-				return errors.Wrap(err, "failed to save layer")
+			if layer == nil {
+				// a cache image without a layer indicates that no files were changed, ie. by 'WORKDIR /' prior to v1.25.0
+				// We continue to handle this case here as users might still have cache entries lying around
+				logrus.Info("No files were changed, appending empty layer to config. No layer added to image.")
+			} else {
+				if err := s.saveLayerToImage(layer, command.String()); err != nil {
+					return errors.Wrap(err, "failed to save layer")
+				}
 			}
 		} else {
 			tarPath, err := s.takeSnapshot(files, command.ShouldDetectDeletedFiles())
