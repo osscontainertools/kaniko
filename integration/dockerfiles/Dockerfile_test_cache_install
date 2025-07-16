@@ -16,8 +16,10 @@
 # /date should be the same regardless of when this image is built
 # if the cache is implemented correctly
 
-FROM debian:10.13
+FROM debian:12.11
 WORKDIR /foo
-RUN apt-get update && apt-get install -y make
+RUN apt-get update \
+    && apt-get -y install make \
+    && rm -rf /var/lib/apt/lists/*
 COPY context/bar /context
 RUN echo "hey" > foo
