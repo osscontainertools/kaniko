@@ -1,3 +1,50 @@
+# v1.25.1 Release 2025-07-17
+The executor images in this release are:
+```
+martizih/kaniko:latest
+martizih/kaniko:v1.25.1
+```
+
+The debug images are available at:
+```
+martizih/kaniko:debug
+martizih/kaniko:v1.25.1-debug
+```
+
+The slim executor images which don't contain any authentication binaries are available at:
+```
+martizih/kaniko:slim
+martizih/kaniko:v1.25.1-slim
+```
+
+The warmer images are available at:
+```
+martizih/kaniko:warmer
+martizih/kaniko:v1.25.1-warmer
+```
+
+The bootstrap images, that can be used to build kaniko in kaniko, are available at:
+```
+martizih/kaniko:bootstrap
+martizih/kaniko:v1.25.1-bootstrap
+```
+
+* update readme by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/112
+* chore(deps): bump golang from 1.24.4 to 1.24.5 in /deploy by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/113
+* chore(deps): bump google.golang.org/api from 0.240.0 to 0.241.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/114
+* chore(deps): bump golang.org/x/sys from 0.33.0 to 0.34.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/115
+* chore(deps): bump golang.org/x/sync from 0.15.0 to 0.16.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/116
+* chore(deps): bump github.com/docker/docker from 28.3.1+incompatible to 28.3.2+incompatible by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/117
+* chore(deps): bump golang.org/x/net from 0.41.0 to 0.42.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/118
+* debian buster was archived by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/124
+* chore(deps): bump step-security/harden-runner from 2.12.2 to 2.13.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/121
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.83 to 1.17.84 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/122
+* backwards compatibility for caches without layers by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/120
+* update debian images for testing to 12.10 by @cpanato in https://github.com/mzihlmann/kaniko/pull/125
+* chore(deps): bump github.com/spf13/pflag from 1.0.6 to 1.0.7 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/127
+* chore(deps): bump google.golang.org/api from 0.241.0 to 0.242.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/128
+
+
 # v1.25.0 Release 2025-07-08
 The executor images in this release are:
 ```
