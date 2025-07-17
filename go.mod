@@ -2,7 +2,7 @@ module github.com/GoogleContainerTools/kaniko
 
 go 1.24.0
 
-toolchain go1.24.4
+toolchain go1.24.5
 
 require (
 	cloud.google.com/go/storage v1.55.0
