@@ -159,7 +159,7 @@ func remoteOptions(registryName string, opts config.RegistryOptions, customPlatf
 		logrus.Fatalf("Invalid platform %q: %v", customPlatform, err)
 	}
 
-	return []remote.Option{remote.WithTransport(tr), remote.WithAuthFromKeychain(creds.GetKeychain()), remote.WithPlatform(*platform)}
+	return []remote.Option{remote.WithTransport(tr), remote.WithAuthFromKeychain(creds.GetKeychain(&opts)), remote.WithPlatform(*platform)}
 }
 
 // Parse the registry mapping

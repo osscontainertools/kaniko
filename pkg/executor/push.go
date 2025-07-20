@@ -129,7 +129,7 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 			return errors.Wrapf(err, "making transport for registry %q", registryName)
 		}
 		tr := newRetry(rt)
-		if err := checkRemotePushPermission(destRef, creds.GetKeychain(), tr); err != nil {
+		if err := checkRemotePushPermission(destRef, creds.GetKeychain(&opts.RegistryOptions), tr); err != nil {
 			return errors.Wrapf(err, "checking push permission for %q", destRef)
 		}
 		checked[destRef.Context().String()] = true
@@ -271,7 +271,7 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 			destRef.Repository.Registry = newReg
 		}
 
-		pushAuth, err := creds.GetKeychain().Resolve(destRef.Context().Registry)
+		pushAuth, err := creds.GetKeychain(&opts.RegistryOptions).Resolve(destRef.Context().Registry)
 		if err != nil {
 			return errors.Wrap(err, "resolving pushAuth")
 		}
