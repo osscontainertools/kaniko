@@ -182,8 +182,8 @@ If you are interested in contributing to kaniko, learn more from our
 [development](DEVELOPMENT.md) and [contributing](CONTRIBUTING.md) guides.
 
 For any community discussion [participate in open
-issues](https://github.com/chainguard-dev/kaniko/issues) or [file a new
-issue](https://github.com/chainguard-dev/kaniko/issues/new/choose).
+issues](https://github.com/mzihlmann/kaniko/issues) or [file a new
+issue](https://github.com/mzihlmann/kaniko/issues/new/choose).
 
 Some community members can be found on [#kaniko on Kubernetes
 Slack](https://kubernetes.slack.com/messages/CQDCHGX7Y/) but there is no active
