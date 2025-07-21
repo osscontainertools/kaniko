@@ -226,7 +226,7 @@ func getBranchCommitAndURL() (branch, commit, url string) {
 		branch = strings.TrimPrefix(branch, "refs/heads/")
 	}
 	if repo == "" {
-		repo = "GoogleContainerTools/kaniko"
+		repo = "mzihlmann/kaniko"
 	}
 	if branch == "" {
 		branch = "main"
