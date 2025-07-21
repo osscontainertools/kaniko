@@ -73,7 +73,7 @@ func (rc *RegistryCache) RetrieveLayer(ck string) (v1.Image, error) {
 		return nil, errors.Wrapf(err, "making transport for registry %q", registryName)
 	}
 
-	img, err := remote.Image(cacheRef, remote.WithTransport(tr), remote.WithAuthFromKeychain(creds.GetKeychain()))
+	img, err := remote.Image(cacheRef, remote.WithTransport(tr), remote.WithAuthFromKeychain(creds.GetKeychain(&rc.Opts.RegistryOptions)))
 	if err != nil {
 		return nil, err
 	}

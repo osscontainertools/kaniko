@@ -46,6 +46,7 @@ type RegistryOptions struct {
 	PushIgnoreImmutableTagErrors bool
 	PushRetry                    int
 	ImageDownloadRetry           int
+	CredentialHelpers            multiArg
 }
 
 // KanikoOptions are options that are set by command line arguments
