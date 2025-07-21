@@ -76,6 +76,7 @@ expect - see [Known Issues](#known-issues).
 
 - [kaniko - Build Images In Kubernetes](#kaniko---build-images-in-kubernetes)
   - [Community](#community)
+  - [Alternatives](#alternatives)
   - [Releases](#releases)
   - [How does kaniko work?](#how-does-kaniko-work)
   - [Known Issues](#known-issues)
@@ -188,6 +189,13 @@ issue](https://github.com/mzihlmann/kaniko/issues/new/choose).
 Some community members can be found on [#kaniko on Kubernetes
 Slack](https://kubernetes.slack.com/messages/CQDCHGX7Y/) but there is no active
 monitoring, regular availability, or access to older discussions.
+
+## Alternatives
+
+Chainguard forked kaniko and continues to maintain the project as https://github.com/chainguard-dev/kaniko.
+Chainguard is a company founded by the [original authors](https://github.com/chainguard-dev/kaniko?tab=readme-ov-file#history-and-status) of kaniko and hence it is a project dear to their heart.
+Their focus is to keep dependencies up to date and patch security issues, keeping kaniko more or less as-is feature wise. They do not release images publicly, only to chainguard customers. However, there is good guidance on how to build kaniko yourself from their source-only releases.
+
 
 ## Releases
 
