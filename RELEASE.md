@@ -11,7 +11,7 @@ Other users must use the following steps:
 1. Follow the [setup instruction to fork kaniko repository](https://github.com/mzihlmann/kaniko/blob/master/DEVELOPMENT.md#getting-started)
 2. Run the following `make` commands to build and push Kaniko image to your organization image repository and registry..
   ```shell
-   REGISTRY=/YOUR-PROJECT make images
+   REGISTRY=YOUR-REGISTRY/YOUR-PROJECT make images
    ```
   The above command will build and push all the 3 kaniko images
   * YOUR-REGISTRY/YOUR-PROJECT/executor:latest
@@ -26,7 +26,7 @@ Other users must use the following steps:
     docker tag YOUR-REGISTRY/YOUR-PROJECT/executor:latest YOUR-REGISTRY/YOUR-PROJECT/executor:v1.25.0self-serve
    ```
    
-Change all usages of the official image to `OUR-REGISTRY/YOUR-PROJECT/executor:latest` for executor image and so on.
+Change all usages of the official image to `YOUR-REGISTRY/YOUR-PROJECT/executor:latest` for executor image and so on.
 4. Finally, push your tagged images via docker. You could also use the Makefile target `push` to push these images like this
   ```shell
    REGISTRY=YOUR-REGISTRY/YOUR-PROJECT make images
