@@ -190,6 +190,10 @@ kaniko releases are published as images on docker hub [martizih/kaniko](https://
 Release notes and source code archives are available on the [releases
 section](https://github.com/mzihlmann/kaniko/releases).
 
+Other available images:
+
+* [kaniko-build organization](https://github.com/kaniko-build)
+
 ## How does kaniko work?
 
 The kaniko executor image is responsible for building an image from a Dockerfile
