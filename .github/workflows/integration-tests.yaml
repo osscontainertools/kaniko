@@ -25,11 +25,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        make-target:
-          - integration-test-layers
-          - integration-test-misc
-          - integration-test-run
-          - k8s-executor-build-push integration-test-k8s
+        include:
+          - make-target: integration-test-layers
+            make-setup: install-diffoci
+          - make-target: integration-test-misc
+            make-setup: install-diffoci
+          - make-target: integration-test-run
+            make-setup: install-diffoci
+          - make-target: k8s-executor-build-push integration-test-k8s
+            make-setup: install-diffoci k3s-setup
 
     steps:
       - name: Maximize build space
@@ -50,5 +54,5 @@ jobs:
 
       - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
-      - run: make install-diffoci k3s-setup
+      - run: make ${{ matrix.make-setup }}
       - run: make ${{ matrix.make-target }}
