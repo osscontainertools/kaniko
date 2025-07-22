@@ -1352,20 +1352,17 @@ to create or update security policies on your cluster.
 
 ### Verifying Signed Kaniko Images
 
-kaniko images are signed for versions >= 1.5.2 using
+kaniko images are signed for versions >= 1.24.1 using
 [cosign](https://github.com/sigstore/cosign)!
 
 To verify a public image, install [cosign](https://github.com/sigstore/cosign)
-and use the provided [public key](cosign.pub):
+and use keyless verification with github actions issuer
 
 ```
-$ cat cosign.pub
------BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE9aAfAcgAxIFMTstJUv8l/AMqnSKw
-P+vLu3NnnBDHCfREQpV/AJuiZ1UtgGpFpHlJLCNPmFkzQTnfyN5idzNl6Q==
------END PUBLIC KEY-----
-
-$ cosign verify -key ./cosign.pub gcr.io/kaniko-project/executor:latest
+$ cosign verify \
+  --certificate-identity-regexp "https://github.com/mzihlmann/kaniko/.github/workflows/images.yaml@.*" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  martizih/kaniko:latest
 ```
 
 ## Kaniko Builds - Profiling
