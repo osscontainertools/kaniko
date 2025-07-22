@@ -55,25 +55,18 @@ for a more detailed view you can refer to our release notes https://github.com/m
 kaniko is a tool to build container images from a Dockerfile, inside a container
 or Kubernetes cluster.
 
+> [!IMPORTANT]
+> This is a supported replacement of the original `GoogleContainerTools/kaniko`
+> repository, which was archived in June of 2025.
+
 kaniko doesn't depend on a Docker daemon and executes each command within a
 Dockerfile completely in userspace. This enables building container images in
 environments that can't easily or securely run a Docker daemon, such as a
 standard Kubernetes cluster.
 
-kaniko is meant to be run as an image: `gcr.io/kaniko-project/executor`. We do
-**not** recommend running the kaniko executor binary in another image, as it
-might not work as you expect - see [Known Issues](#known-issues).
-
-We'd love to hear from you! Join us on
-[#kaniko Kubernetes Slack](https://kubernetes.slack.com/messages/CQDCHGX7Y/)
-
-:mega: **Please fill out our
-[quick 5-question survey](https://forms.gle/HhZGEM33x4FUz9Qa6)** so that we can
-learn how satisfied you are with kaniko, and what improvements we should make.
-Thank you! :dancers:
-
-_If you are interested in contributing to kaniko, see
-[DEVELOPMENT.md](DEVELOPMENT.md) and [CONTRIBUTING.md](CONTRIBUTING.md)._
+kaniko is meant to be run as an image: `martizih/kaniko:latest`. We do **not** recommend
+running the kaniko executor binary in another image, as it might not work as you
+expect - see [Known Issues](#known-issues).
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -82,8 +75,9 @@ _If you are interested in contributing to kaniko, see
 [DocToc](https://github.com/thlorenz/doctoc)_
 
 - [kaniko - Build Images In Kubernetes](#kaniko---build-images-in-kubernetes)
-  - [🚨NOTE: kaniko is not an officially supported Google product🚨](#note-kaniko-is-not-an-officially-supported-google-product)
   - [Community](#community)
+  - [Alternatives](#alternatives)
+  - [Releases](#releases)
   - [How does kaniko work?](#how-does-kaniko-work)
   - [Known Issues](#known-issues)
   - [Demo](#demo)
@@ -185,8 +179,34 @@ _If you are interested in contributing to kaniko, see
 
 ## Community
 
-We'd love to hear from you! Join
-[#kaniko on Kubernetes Slack](https://kubernetes.slack.com/messages/CQDCHGX7Y/)
+If you are interested in contributing to kaniko, learn more from our
+[development](DEVELOPMENT.md) and [contributing](CONTRIBUTING.md) guides.
+
+For any community discussion [participate in open
+issues](https://github.com/mzihlmann/kaniko/issues) or [file a new
+issue](https://github.com/mzihlmann/kaniko/issues/new/choose).
+
+Some community members can be found on [#kaniko on Kubernetes
+Slack](https://kubernetes.slack.com/messages/CQDCHGX7Y/) but there is no active
+monitoring, regular availability, or access to older discussions.
+
+## Alternatives
+
+Chainguard forked kaniko and continues to maintain the project as https://github.com/chainguard-dev/kaniko.
+Chainguard is a company founded by the [original authors](https://github.com/chainguard-dev/kaniko?tab=readme-ov-file#history-and-status) of kaniko and hence it is a project dear to their heart.
+Their focus is to keep dependencies up to date and patch security issues, keeping kaniko more or less as-is feature wise. They do not release images publicly, only to chainguard customers. However, there is good guidance on how to build kaniko yourself from their source-only releases.
+
+
+## Releases
+
+kaniko releases are published as images on docker hub [martizih/kaniko](https://hub.docker.com/r/martizih/kaniko)
+
+Release notes and source code archives are available on the [releases
+section](https://github.com/mzihlmann/kaniko/releases).
+
+Other available images:
+
+* [kaniko-build organization](https://github.com/kaniko-build)
 
 ## How does kaniko work?
 
@@ -326,9 +346,9 @@ Input data, using docker:
 
 ```shell
 echo -e 'FROM alpine \nRUN echo "created from standard input"' > Dockerfile | tar -cf - Dockerfile | gzip -9 | docker run \
-  --interactive -v $(pwd):/workspace gcr.io/kaniko-project/executor:latest \
+  --interactive -v $(pwd):/workspace <YOUR-REGISTRY>/<YOUR-REPO>/<KANIKO-EXECUTOR> \
   --context tar://stdin \
-  --destination=<gcr.io/$project/$image:$tag>
+  --destination=<YOUR-REGISTRY>/$project/$image:$tag>
 ```
 
 Complete example of how to interactively run kaniko with `.tar.gz` Standard
@@ -338,20 +358,20 @@ completely dockerless:
 ```shell
 echo -e 'FROM alpine \nRUN echo "created from standard input"' > Dockerfile | tar -cf - Dockerfile | gzip -9 | kubectl run kaniko \
 --rm --stdin=true \
---image=gcr.io/kaniko-project/executor:latest --restart=Never \
+--image=<YOUR-REGISTRY>/<YOUR-REPO>/<KANIKO-EXECUTOR> --restart=Never \
 --overrides='{
   "apiVersion": "v1",
   "spec": {
     "containers": [
       {
         "name": "kaniko",
-        "image": "gcr.io/kaniko-project/executor:latest",
+        "image": "<YOUR-REGISTRY>/<YOUR-REPO>/<KANIKO-EXECUTOR>",
         "stdin": true,
         "stdinOnce": true,
         "args": [
           "--dockerfile=Dockerfile",
           "--context=tar://stdin",
-          "--destination=gcr.io/my-repo/my-image"
+          "--destination<YOUR-REGISTRY>/<YOUR-REPO>/my-image"
         ],
         "volumeMounts": [
           {
@@ -433,11 +453,11 @@ metadata:
 spec:
   containers:
     - name: kaniko
-      image: gcr.io/kaniko-project/executor:latest
+      image: <YOUR-REGISTRY>/<YOUR-REPO>/<KANIKO-EXECUTOR>
       args:
         - "--dockerfile=<path to Dockerfile within the build context>"
         - "--context=gs://<GCS bucket>/<path to .tar.gz>"
-        - "--destination=<gcr.io/$PROJECT/$IMAGE:$TAG>"
+        - "--destination=<<YOUR-REGISTRY>/$PROJECT/$IMAGE:$TAG>"
       volumeMounts:
         - name: kaniko-secret
           mountPath: /secret
@@ -464,9 +484,9 @@ a container is running in gVisor.
 
 ```shell
 docker run --runtime=runsc -v $(pwd):/workspace -v ~/.config:/root/.config \
-gcr.io/kaniko-project/executor:latest \
+<YOUR-REGISTRY>/<YOUR-REPO>/<KANIKO-EXECUTOR> \
 --dockerfile=<path to Dockerfile> --context=/workspace \
---destination=gcr.io/my-repo/my-image --force
+--destination=<YOUR-REGISTRY>/<YOUR-REPO>/my-image --force
 ```
 
 We pass in `--runtime=runsc` to use gVisor. This example mounts the current
@@ -483,12 +503,12 @@ To run kaniko in GCB, add it to your build config as a build step:
 
 ```yaml
 steps:
-  - name: gcr.io/kaniko-project/executor:latest
+  - name: <YOUR-REGISTRY>/<YOUR-REPO>/<KANIKO-EXECUTOR>
     args:
       [
         "--dockerfile=<path to Dockerfile within the build context>",
         "--context=dir://<path to build context>",
-        "--destination=<gcr.io/$PROJECT/$IMAGE:$TAG>",
+        "--destination=<<YOUR-REGISTRY>/$PROJECT/$IMAGE:$TAG>",
       ]
 ```
 
@@ -1332,20 +1352,17 @@ to create or update security policies on your cluster.
 
 ### Verifying Signed Kaniko Images
 
-kaniko images are signed for versions >= 1.5.2 using
+kaniko images are signed for versions >= 1.24.1 using
 [cosign](https://github.com/sigstore/cosign)!
 
 To verify a public image, install [cosign](https://github.com/sigstore/cosign)
-and use the provided [public key](cosign.pub):
+and use keyless verification with github actions issuer
 
 ```
-$ cat cosign.pub
------BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE9aAfAcgAxIFMTstJUv8l/AMqnSKw
-P+vLu3NnnBDHCfREQpV/AJuiZ1UtgGpFpHlJLCNPmFkzQTnfyN5idzNl6Q==
------END PUBLIC KEY-----
-
-$ cosign verify -key ./cosign.pub gcr.io/kaniko-project/executor:latest
+$ cosign verify \
+  --certificate-identity-regexp "https://github.com/mzihlmann/kaniko/.github/workflows/images.yaml@.*" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  martizih/kaniko:latest
 ```
 
 ## Kaniko Builds - Profiling
@@ -1355,7 +1372,7 @@ function calls using [Slow Jam](https://github.com/google/slowjam) To start
 profiling,
 
 1. Add an environment variable `STACKLOG_PATH` to your
-   [pod definition](https://github.com/GoogleContainerTools/kaniko/blob/master/examples/pod-build-profile.yaml#L15).
+   [pod definition](https://github.com/mzihlmann/kaniko/blob/master/examples/pod-build-profile.yaml#L15).
 2. If you are using the kaniko `debug` image, you can copy the file in the
    `pre-stop` container lifecycle hook.
 
@@ -1393,7 +1410,7 @@ The following conditions must be met:
    ([GitHub](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/about-self-hosted-runners),[GitLab](https://docs.gitlab.com/runner/register/).
 2. Kaniko needs to be able to run on the desired architectures. At the time of
    writing, the official Kaniko container supports
-   [linux/amd64, linux/arm64, linux/s390x and linux/ppc64le (not on \*-debug images)](https://github.com/GoogleContainerTools/kaniko/blob/main/.github/workflows/images.yaml).
+   [linux/amd64, linux/arm64, linux/s390x and linux/ppc64le (not on \*-debug images)](https://github.com/mzihlmann/kaniko/blob/main/.github/workflows/images.yaml).
 3. The container registry of your choice must be OCIv1 or Docker v2.2
    compatible.
 
@@ -1561,14 +1578,6 @@ for a subset of images. These can be thought of as a special-case "fast path"
 that can be used in conjunction with the support for general Dockerfiles kaniko
 provides.
 
-## Community
-
-[kaniko-users](https://groups.google.com/forum/#!forum/kaniko-users) Google
-group
-
-To Contribute to kaniko, see [DEVELOPMENT.md](DEVELOPMENT.md) and
-[CONTRIBUTING.md](CONTRIBUTING.md).
-
 ## Limitations
 
 ### mtime and snapshotting
@@ -1589,7 +1598,7 @@ changes to a file are made and when the `mtime` is updated. This means:
 
 _Note that these issues are currently theoretical only. If you see this issue
 occur, please
-[open an issue](https://github.com/GoogleContainerTools/kaniko/issues)._
+[open an issue](https://github.com/mzihlmann/kaniko/issues)._
 
 ### Dockerfile commands `--chown` support
 Kaniko currently supports `COPY --chown` and `ADD --chown` Dockerfile command. It does not support `RUN --chown`.
