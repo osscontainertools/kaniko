@@ -28,8 +28,6 @@ ENV GOBIN=/usr/local/bin
 # Add .docker config dir
 RUN mkdir -p /kaniko/.docker
 
-COPY . .
-
 #  dependencies https://github.com/golang/go/issues/48332
 
 # The versions of these tools and their transitive dependencies are controlled via go.mod.
@@ -40,16 +38,16 @@ COPY . .
 #
 # Then submit a PR with the changes to `go.mod`, `go.sum`, and `vendor`.
 
-# Get GCR credential helper
-RUN go install github.com/GoogleCloudPlatform/docker-credential-gcr/v2
+# Get credential helpers
+COPY go.mod go.sum ./
+RUN go install github.com/GoogleCloudPlatform/docker-credential-gcr/v2 \
+    && go install github.com/awslabs/amazon-ecr-credential-helper/ecr-login/cli/docker-credential-ecr-login \
+    && go install github.com/chrismellard/docker-credential-acr-env \
+    && rm -rf /root/.cache /go/pkg
 
-# Get Amazon ECR credential helper
-RUN go install github.com/awslabs/amazon-ecr-credential-helper/ecr-login/cli/docker-credential-ecr-login
-
-# Get ACR docker env credential helper
-RUN go install github.com/chrismellard/docker-credential-acr-env
-
-RUN make out/executor out/warmer
+COPY . .
+RUN make out/executor out/warmer \
+    && rm -rf /root/.cache
 
 # Generate latest ca-certificates
 FROM debian:bookworm-slim AS certs

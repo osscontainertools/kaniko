@@ -1,9 +1,8 @@
-integration/**/*
-scripts/**/*
-hack/**/*
-examples/**/*
-docs/**/*
-.github/**/*
-logo/**/*
-out/**/*
-
+**
+!Makefile
+!go.mod
+!go.sum
+!vendor
+!pkg
+!cmd
+!files
