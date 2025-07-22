@@ -1062,7 +1062,7 @@ func CopyOwnership(src string, destDir string, root string) error {
 	})
 }
 
-// CopyCapabilities copies the file capabilites from src to dest
+// CopyCapabilities copies the file capabilities from src to dest
 func CopyCapabilities(src string, dest string) error {
 	capBuf := make([]byte, 1024)
 	n, err := unix.Getxattr(src, "security.capability", capBuf)

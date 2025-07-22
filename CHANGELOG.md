@@ -253,7 +253,7 @@ martizih/kaniko:v1.24.0-5-warmer
 
 * export warmer image properly by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/26
 * if target stage is unspecified we implicitly target the last stage by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/27
-* kaniko learned to preserve the build-context accross multi-stage builds by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/28
+* kaniko learned to preserve the build-context across multi-stage builds by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/28
 * kaniko learned '--materialize' forcing the filesystem into a well-defined state after the build by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/29
 
 
