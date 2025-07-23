@@ -4,7 +4,7 @@ RUN apt-get update \
     && apt-get install -y libbsd0 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN apt remove -y libbsd0
+RUN apt-get remove -y libbsd0
 
 RUN apt-get update \
     && apt-get install -y libbsd0 \
