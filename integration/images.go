@@ -140,6 +140,13 @@ var outputChecks = map[string]func(string, []byte) error{
 	},
 }
 
+func checkNoWarnings(_ string, out []byte) error {
+	if strings.Contains(string(out), "WARN") {
+		return fmt.Errorf("output must not contain WARN")
+	}
+	return nil
+}
+
 // Checks if argument are not printed in output.
 // Argument may be passed through --build-arg key=value manner or --build-arg key with key in environment
 func checkArgsNotPrinted(dockerfile string, out []byte) error {
@@ -552,13 +559,18 @@ func buildKanikoImage(
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
 	out, err := RunCommandWithoutTest(kanikoCmd)
+	logf(string(out))
+
 	if err != nil {
-		return "", fmt.Errorf("Failed to build image %s with kaniko command \"%s\": %w\n%s", kanikoImage, kanikoCmd.Args, err, string(out))
+		return "", fmt.Errorf("Failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
 	}
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
 		if err := outputCheck(dockerfile, out); err != nil {
-			return "", fmt.Errorf("Output check failed for image %s with kaniko command : %w\n%s", kanikoImage, err, string(out))
+			return "", fmt.Errorf("Output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
+	}
+	if err := checkNoWarnings(dockerfile, out); err != nil {
+		return "", err
 	}
 	return benchmarkDir, nil
 }

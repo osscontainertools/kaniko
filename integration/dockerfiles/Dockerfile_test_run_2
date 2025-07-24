@@ -17,4 +17,3 @@
 
 FROM debian:12.10
 RUN echo "hey" 
-MAINTAINER kaniko
