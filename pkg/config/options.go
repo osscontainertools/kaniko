@@ -94,6 +94,7 @@ type KanikoOptions struct {
 	SkipPushPermissionCheck      bool
 	PreserveContext              bool
 	Materialize                  bool
+	CopyAsRoot                   bool
 }
 
 type KanikoGitOptions struct {

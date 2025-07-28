@@ -93,6 +93,8 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_cache_copy":             {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache_copy_oci":         {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_add":              {"--cache-copy-layers=true"},
+	"Dockerfile_test_issue_3166":             {"--copy-as-root=true"},
+	"Dockerfile_test_issue_mz108":            {"--copy-as-root=true"},
 }
 
 // Arguments to diffoci when comparing dockerfiles
