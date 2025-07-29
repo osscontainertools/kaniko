@@ -93,6 +93,8 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_cache_copy":             {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache_copy_oci":         {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_add":              {"--cache-copy-layers=true"},
+	"Dockerfile_test_issue_3166":             {"--copy-as-root=true"},
+	"Dockerfile_test_issue_mz108":            {"--copy-as-root=true"},
 }
 
 // Arguments to diffoci when comparing dockerfiles
@@ -110,9 +112,6 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_workdir_with_user": {"--extra-ignore-file-permissions"},
 	// if group is not set, buildkit defaults to 0
 	"TestRun/test_Dockerfile_test_user_nonexisting": {"--extra-ignore-file-permissions"},
-	// Somehow buildkit sets Uid of copied files to root=0 instead of active user.
-	"TestRun/test_Dockerfile_test_issue_3166":  {"--extra-ignore-file-permissions"},
-	"TestRun/test_Dockerfile_test_issue_mz108": {"--extra-ignore-file-permissions"},
 }
 
 // output check to do when building with kaniko

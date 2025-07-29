@@ -43,6 +43,7 @@ type CopyCommand struct {
 	cmd           *instructions.CopyCommand
 	fileContext   util.FileContext
 	snapshotFiles []string
+	copyAsRoot    bool
 	shdCache      bool
 }
 
@@ -58,8 +59,15 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 			return errors.Wrap(err, "getting user group from chown")
 		}
 	} else {
-		replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
-		uid, gid, err = getActiveUserGroup(config.User, c.cmd.Chown, replacementEnvs)
+		user := config.User
+		if c.copyAsRoot {
+			// According to spec: https://docs.docker.com/reference/dockerfile/#copy---chown---chmod
+			//   All files and directories copied from the build context
+			//   are created with a default UID and GID of 0.
+			// But this is a breaking change so we keep it optional for now
+			user = "0:0"
+		}
+		uid, gid, err = getActiveUserGroup(user, c.cmd.Chown, replacementEnvs)
 		if err != nil {
 			return errors.Wrap(err, "getting user group from chown")
 		}

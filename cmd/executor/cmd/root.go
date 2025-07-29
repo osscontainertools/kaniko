@@ -283,6 +283,10 @@ func addKanikoOptionsFlags() {
 	RootCmd.PersistentFlags().BoolVarP(&opts.Materialize, "materialize", "", false, "Guarantee that the final state of the file system corresponds to what was specified as the build target, even if we have 100% cache hitrate and wouldn't need to unpack any layers")
 	RootCmd.PersistentFlags().VarP(&opts.CredentialHelpers, "credential-helpers", "", "Use these credential helpers automatically, select from (google, ecr, acr, gitlab). Set it repeatedly for multiple helpers, defaults to all, set it to empty string to deactivate.")
 
+	// Feature Flags
+	// --copy-as-root: https://docs.docker.com/reference/dockerfile/#copy---chown---chmod
+	RootCmd.PersistentFlags().BoolVarP(&opts.CopyAsRoot, "copy-as-root", "", false, "FeatureFlag: When files are copied from context, kaniko will copy them as the current user. But according to dockerfile spec they should always be copied as root:root unless specified otherwise")
+
 	// Deprecated flags.
 	RootCmd.PersistentFlags().StringVarP(&opts.SnapshotModeDeprecated, "snapshotMode", "", "", "This flag is deprecated. Please use '--snapshot-mode'.")
 	RootCmd.PersistentFlags().StringVarP(&opts.CustomPlatformDeprecated, "customPlatform", "", "", "This flag is deprecated. Please use '--custom-platform'.")

@@ -37,6 +37,7 @@ type AddCommand struct {
 	cmd           *instructions.AddCommand
 	fileContext   util.FileContext
 	snapshotFiles []string
+	copyAsRoot    bool
 	shdCache      bool
 }
 

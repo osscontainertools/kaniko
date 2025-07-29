@@ -156,6 +156,8 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--ignore-path`](#flag---ignore-path)
       - [Flag `--image-fs-extract-retry`](#flag---image-fs-extract-retry)
       - [Flag `--image-download-retry`](#flag---image-download-retry)
+    - [Feature Flags](#feature-flags)
+      - [Flag `--copy-as-root`](#flag---copy-as-root)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1308,6 +1310,13 @@ image filesystem. Defaults to `0`.
 Set this flag to the number of retries that should happen when downloading the
 remote image. Consecutive retries occur with exponential backoff and an initial
 delay of 1 second. Defaults to 0`.
+
+### Feature Flags
+
+#### Flag `--copy-as-root`
+
+When files are copied from context, kaniko will copy them as the current user. But according to [dockerfile specification](https://docs.docker.com/reference/dockerfile/#copy---chown---chmod) they should always be copied as root:root unless specified otherwise.
+Set this flag to `true` to implement COPY as specified. Defaults to `false`.
 
 ### Debug Image
 
