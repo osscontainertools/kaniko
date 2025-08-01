@@ -722,6 +722,10 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 				return nil, err
 			}
 		}
+		err = CopyTimestamps(fullPath, destPath)
+		if err != nil {
+			return nil, err
+		}
 		copiedFiles = append(copiedFiles, destPath)
 	}
 	return copiedFiles, nil
@@ -778,6 +782,11 @@ func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod fs.Fi
 	}
 
 	err = CreateFile(dest, srcFile, mode, uint32(uid), uint32(gid))
+	if err != nil {
+		return false, err
+	}
+
+	err = CopyTimestamps(src, dest)
 	if err != nil {
 		return false, err
 	}
@@ -1011,6 +1020,9 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 	if err := os.Chmod(destFile, fi.Mode()); err != nil {
 		return errors.Wrap(err, "copying file mode")
 	}
+	if err := CopyTimestamps(src, destFile); err != nil {
+		return errors.Wrap(err, "copying file timestamps")
+	}
 
 	return CopyCapabilities(src, destFile)
 }
@@ -1076,6 +1088,25 @@ func CopyCapabilities(src string, dest string) error {
 		if err != nil {
 			return errors.Wrap(err, "setting security.capability on dest")
 		}
+	}
+	return nil
+}
+
+// CopyTimestamps copies the file timestamps from src to dest
+func CopyTimestamps(src string, dest string) error {
+	fi, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	stat, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok {
+		return fmt.Errorf("failed to retrieve timestamps from: %s", src)
+	}
+	atime := time.Unix(int64(stat.Atim.Sec), int64(stat.Atim.Nsec))
+	mtime := time.Unix(int64(stat.Mtim.Sec), int64(stat.Mtim.Nsec))
+	err = os.Chtimes(dest, atime, mtime)
+	if err != nil {
+		return fmt.Errorf("failed to copy timestamps: %w", err)
 	}
 	return nil
 }
