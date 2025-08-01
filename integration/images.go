@@ -112,6 +112,12 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_workdir_with_user": {"--extra-ignore-file-permissions"},
 	// if group is not set, buildkit defaults to 0
 	"TestRun/test_Dockerfile_test_user_nonexisting": {"--extra-ignore-file-permissions"},
+	// #mz155: `COPY --from` does not copy the timestamps from the source but touches new files with new timestamps.
+	// To test this we have to deactivate `--ignore-file-timestamps`. This is achieved here by deactivating `--semantic` comparison,
+	// which we pass by default, and then activating all the necessary ignores except file-timestamps.
+	// We do ignore /tmp directory as the timestamp on that directory will be altered if we create a new file inside.
+	// for some reason buildkit switches to USTAR instead of PAX format and we don't
+	"TestRun/test_Dockerfile_test_issue_mz155": {"--semantic=false", "--ignore-history", "--ignore-file-meta-format", "--ignore-file-atime", "--ignore-file-ctime", "--extra-ignore-files=tmp/"},
 }
 
 // output check to do when building with kaniko
