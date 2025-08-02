@@ -722,9 +722,11 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 				return nil, err
 			}
 		}
-		err = CopyTimestamps(fullPath, destPath)
-		if err != nil {
-			return nil, err
+		if !IsSymlink(fi) {
+			err = CopyTimestamps(fullPath, destPath)
+			if err != nil {
+				return nil, err
+			}
 		}
 		copiedFiles = append(copiedFiles, destPath)
 	}
