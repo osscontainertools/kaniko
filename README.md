@@ -157,7 +157,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--image-fs-extract-retry`](#flag---image-fs-extract-retry)
       - [Flag `--image-download-retry`](#flag---image-download-retry)
     - [Feature Flags](#feature-flags)
-      - [Flag `--copy-as-root`](#flag---copy-as-root)
+      - [Flag `FF_KANIKO_COPY_AS_ROOT`](#flag-ff_kaniko_copy_as_root)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1313,9 +1313,9 @@ delay of 1 second. Defaults to 0`.
 
 ### Feature Flags
 
-#### Flag `--copy-as-root`
+#### Flag `FF_KANIKO_COPY_AS_ROOT`
 
-When files are copied from context, kaniko will copy them as the current user. But according to [dockerfile specification](https://docs.docker.com/reference/dockerfile/#copy---chown---chmod) they should always be copied as root:root unless specified otherwise.
+When files are copied from context, kaniko will copy them as the current user. But according to [dockerfile specification](https://docs.docker.com/reference/dockerfile/#copy---chown---chmod) they should always be copied as `root:root` unless specified otherwise.
 Set this flag to `true` to implement COPY as specified. Defaults to `false`.
 
 ### Debug Image

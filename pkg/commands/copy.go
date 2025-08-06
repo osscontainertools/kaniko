@@ -43,7 +43,6 @@ type CopyCommand struct {
 	cmd           *instructions.CopyCommand
 	fileContext   util.FileContext
 	snapshotFiles []string
-	copyAsRoot    bool
 	shdCache      bool
 }
 
@@ -60,7 +59,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		}
 	} else {
 		user := config.User
-		if c.copyAsRoot {
+		if kConfig.EnvBool("FF_KANIKO_COPY_AS_ROOT") {
 			// According to spec: https://docs.docker.com/reference/dockerfile/#copy---chown---chmod
 			//   All files and directories copied from the build context
 			//   are created with a default UID and GID of 0.
