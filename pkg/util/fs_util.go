@@ -659,6 +659,10 @@ func DetermineTargetFileOwnership(fi os.FileInfo, uid, gid int64) (int64, int64)
 	return uid, gid
 }
 
+type timestampUpdate struct {
+	src, dest string
+}
+
 // CopyDir copies the file or directory at src to dest
 // It returns a list of files it copied over
 func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool) ([]string, error) {
@@ -667,6 +671,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 		return nil, errors.Wrap(err, "copying dir")
 	}
 	var copiedFiles []string
+	var updates []timestampUpdate
 	for _, file := range files {
 		fullPath := filepath.Join(src, file)
 		if context.ExcludesFile(fullPath) {
@@ -716,12 +721,15 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 			}
 		}
 		if !IsSymlink(fi) {
-			err = CopyTimestamps(fullPath, destPath)
-			if err != nil {
-				return nil, err
-			}
+			updates = append(updates, timestampUpdate{src: fullPath, dest: destPath})
 		}
 		copiedFiles = append(copiedFiles, destPath)
+	}
+	for _, u := range updates {
+		err = CopyTimestamps(u.src, u.dest)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return copiedFiles, nil
 }
@@ -1095,7 +1103,7 @@ func CopyCapabilities(src string, dest string) error {
 
 // CopyTimestamps copies the file timestamps from src to dest
 func CopyTimestamps(src string, dest string) error {
-	fi, err := os.Stat(src)
+	fi, err := os.Lstat(src)
 	if err != nil {
 		return err
 	}
