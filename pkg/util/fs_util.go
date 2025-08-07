@@ -82,13 +82,6 @@ var ignorelist = append([]IgnoreListEntry{}, defaultIgnoreList...)
 
 var volumes = []string{}
 
-// skipKanikoDir opts to skip the '/kaniko' dir for otiai10.copy which should be ignored in root
-var skipKanikoDir = otiai10Cpy.Options{
-	Skip: func(info os.FileInfo, src, dest string) (bool, error) {
-		return strings.HasSuffix(src, "/kaniko"), nil
-	},
-}
-
 type FileContext struct {
 	Root          string
 	ExcludedFiles []string
@@ -666,6 +659,10 @@ func DetermineTargetFileOwnership(fi os.FileInfo, uid, gid int64) (int64, int64)
 	return uid, gid
 }
 
+type timestampUpdate struct {
+	src, dest string
+}
+
 // CopyDir copies the file or directory at src to dest
 // It returns a list of files it copied over
 func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool) ([]string, error) {
@@ -674,6 +671,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 		return nil, errors.Wrap(err, "copying dir")
 	}
 	var copiedFiles []string
+	var updates []timestampUpdate
 	for _, file := range files {
 		fullPath := filepath.Join(src, file)
 		if context.ExcludesFile(fullPath) {
@@ -722,7 +720,16 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 				return nil, err
 			}
 		}
+		if !IsSymlink(fi) {
+			updates = append(updates, timestampUpdate{src: fullPath, dest: destPath})
+		}
 		copiedFiles = append(copiedFiles, destPath)
+	}
+	for _, u := range updates {
+		err = CopyTimestamps(u.src, u.dest)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return copiedFiles, nil
 }
@@ -778,6 +785,11 @@ func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod fs.Fi
 	}
 
 	err = CreateFile(dest, srcFile, mode, uint32(uid), uint32(gid))
+	if err != nil {
+		return false, err
+	}
+
+	err = CopyTimestamps(src, dest)
 	if err != nil {
 		return false, err
 	}
@@ -1002,7 +1014,13 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 		}
 		return os.Symlink(link, destFile)
 	}
-	if err := otiai10Cpy.Copy(src, destFile, skipKanikoDir); err != nil {
+	opts := otiai10Cpy.Options{
+		PreserveTimes: true,
+		Skip: func(info os.FileInfo, src, dest string) (bool, error) {
+			return strings.HasSuffix(src, "/kaniko"), nil
+		},
+	}
+	if err := otiai10Cpy.Copy(src, destFile, opts); err != nil {
 		return errors.Wrap(err, "copying file")
 	}
 	if err := CopyOwnership(src, destDir, root); err != nil {
@@ -1010,6 +1028,9 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 	}
 	if err := os.Chmod(destFile, fi.Mode()); err != nil {
 		return errors.Wrap(err, "copying file mode")
+	}
+	if err := CopyTimestamps(src, destFile); err != nil {
+		return errors.Wrap(err, "copying file timestamps")
 	}
 
 	return CopyCapabilities(src, destFile)
@@ -1076,6 +1097,25 @@ func CopyCapabilities(src string, dest string) error {
 		if err != nil {
 			return errors.Wrap(err, "setting security.capability on dest")
 		}
+	}
+	return nil
+}
+
+// CopyTimestamps copies the file timestamps from src to dest
+func CopyTimestamps(src string, dest string) error {
+	fi, err := os.Lstat(src)
+	if err != nil {
+		return err
+	}
+	stat, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok {
+		return fmt.Errorf("failed to retrieve timestamps from: %s", src)
+	}
+	atime := time.Unix(int64(stat.Atim.Sec), int64(stat.Atim.Nsec))
+	mtime := time.Unix(int64(stat.Mtim.Sec), int64(stat.Mtim.Nsec))
+	err = os.Chtimes(dest, atime, mtime)
+	if err != nil {
+		return fmt.Errorf("failed to copy timestamps: %w", err)
 	}
 	return nil
 }

@@ -1,0 +1,16 @@
+FROM debian:12.10 AS first-image
+
+RUN mkdir -p /tmp/testdir \
+    && echo "hello" > /tmp/testdir/file.txt \
+    && touch -d '2000-01-01' /tmp/testdir \
+    && touch -d '2000-01-01' /tmp/testdir/file.txt
+
+RUN stat /tmp/testdir \
+    && stat /tmp/testdir/file.txt
+
+FROM debian:12.10 AS second-image
+
+COPY --from=first-image /tmp/testdir /tmp/testdir
+
+RUN stat /tmp/testdir \
+    && stat /tmp/testdir/file.txt
