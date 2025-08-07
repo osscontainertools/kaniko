@@ -19,6 +19,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -94,7 +95,6 @@ type KanikoOptions struct {
 	SkipPushPermissionCheck      bool
 	PreserveContext              bool
 	Materialize                  bool
-	CopyAsRoot                   bool
 }
 
 type KanikoGitOptions struct {
@@ -180,4 +180,10 @@ type WarmerOptions struct {
 	Force          bool
 	DockerfilePath string
 	BuildArgs      multiArg
+}
+
+func EnvBool(key string) bool {
+	val := os.Getenv(key)
+	ok, err := strconv.ParseBool(val)
+	return err == nil && ok
 }
