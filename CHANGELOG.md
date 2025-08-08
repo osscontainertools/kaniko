@@ -1,3 +1,71 @@
+# v1.25.2 Release 2025-08-08
+The executor images in this release are:
+```
+martizih/kaniko:latest
+martizih/kaniko:v1.25.2
+```
+
+The debug images are available at:
+```
+martizih/kaniko:debug
+martizih/kaniko:v1.25.2-debug
+```
+
+The slim executor images which don't contain any authentication binaries are available at:
+```
+martizih/kaniko:slim
+martizih/kaniko:v1.25.2-slim
+```
+
+The warmer images are available at:
+```
+martizih/kaniko:warmer
+martizih/kaniko:v1.25.2-warmer
+```
+
+The bootstrap images, that can be used to build kaniko in kaniko, are available at:
+```
+martizih/kaniko:bootstrap
+martizih/kaniko:v1.25.2-bootstrap
+```
+
+* chore(deps): bump sigstore/cosign-installer from 3.9.1 to 3.9.2 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/130
+* chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.36.5 to 1.36.6 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/131
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.84.0 to 1.84.1 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/134
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.29.17 to 1.29.18 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/132
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.84 to 1.17.85 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/133
+* new cli option to select credential helpers by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/135
+* 🔗 update docs by @mosabua @cpanato in https://github.com/mzihlmann/kaniko/pull/136
+* update docs by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/137
+* optimize dockerfile by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/138
+* chore(deps): bump google.golang.org/api from 0.242.0 to 0.243.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/140
+* log kaniko output in integration tests by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/142
+* chore(deps): bump github.com/Azure/azure-sdk-for-go/sdk/storage/azblob from 1.6.1 to 1.6.2 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/143
+* chore(deps): bump cloud.google.com/go/storage from 1.55.0 to 1.56.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/144
+* chore(deps): bump github.com/containerd/containerd from 1.7.27 to 1.7.28 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/146
+* chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.36.6 to 1.37.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/150
+* COPY from context should always default to root:root by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/145
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.84.1 to 1.85.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/147
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.29.18 to 1.30.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/149
+* chore(deps): bump github.com/docker/docker from 28.3.2+incompatible to 28.3.3+incompatible by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/152
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.85 to 1.18.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/148
+* chore(deps): bump github.com/awslabs/amazon-ecr-credential-helper/ecr-login from 0.9.1 to 0.10.1 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/151
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.18.0 to 1.18.1 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/153
+* chore(deps): bump google.golang.org/api from 0.243.0 to 0.244.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/156
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.85.0 to 1.85.1 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/157
+* chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.37.0 to 1.37.1 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/159
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.18.1 to 1.18.2 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/158
+* 🔗 group dependabot updates for go and github actions by @cpanato in https://github.com/mzihlmann/kaniko/pull/162
+* chore(deps): bump the gomod group with 4 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/163
+* chore(deps): bump google.golang.org/api from 0.244.0 to 0.245.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/165
+* chore(deps): bump google.golang.org/api from 0.245.0 to 0.246.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/167
+* chore(deps): bump golang.org/x/sys from 0.34.0 to 0.35.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/168
+* chore(deps): bump golang from 1.24.5 to 1.24.6 in /deploy by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/169
+* expose feature flag copy-as-root as environment var instead by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/166
+* 155: COPY --from preserves mtime by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/161
+* chore(deps): bump golang.org/x/net from 0.42.0 to 0.43.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/170
+
+
 # v1.25.1 Release 2025-07-17
 The executor images in this release are:
 ```

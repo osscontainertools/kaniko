@@ -17,6 +17,8 @@ If you are new here, these are the main differences to the last official kaniko 
 * skip-unused-stages fails on numeric references: https://github.com/mzihlmann/kaniko/pull/103
 * skip-unused-stages fails on capitalized references: https://github.com/mzihlmann/kaniko/pull/104
 * Persist capabilities on COPY: https://github.com/mzihlmann/kaniko/pull/107
+* `FF_KANIKO_COPY_AS_ROOT=false` COPY from context should always default to root:root: https://github.com/mzihlmann/kaniko/pull/145 https://github.com/mzihlmann/kaniko/pull/166
+* COPY --from preserves mtime: https://github.com/mzihlmann/kaniko/pull/161
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
 * ignore labels on base image for cache: https://github.com/mzihlmann/kaniko/pull/2
@@ -31,9 +33,12 @@ If you are new here, these are the main differences to the last official kaniko 
 * bootstrap image: https://github.com/mzihlmann/kaniko/pull/59
 * deprecate force-build-metadata: https://github.com/mzihlmann/kaniko/pull/99
 * make skip-unused-stages the default: https://github.com/mzihlmann/kaniko/pull/100
+* kaniko learned `--credential-helpers` to select credential helpers: https://github.com/mzihlmann/kaniko/pull/135
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
 * 🔗 update ENV syntax in Dockerfile: by @babs in https://github.com/mzihlmann/kaniko/pull/60
+* 🔗 update docs: by @mosabua @cpanato in https://github.com/mzihlmann/kaniko/pull/136
+* 🔗 group dependabot updates for go and github actions: by @cpanato in https://github.com/mzihlmann/kaniko/pull/162
 
 for a more detailed view you can refer to our release notes https://github.com/mzihlmann/kaniko/releases
 
