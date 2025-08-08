@@ -21,7 +21,6 @@ jobs:
       IMAGE_REPO: 'localhost:5000'
       REGISTRY: 'localhost:5000'
       DOCKER_BUILDKIT: '1'
-      FF_KANIKO_COPY_AS_ROOT: '1'
 
     strategy:
       fail-fast: false
