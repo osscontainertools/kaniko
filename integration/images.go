@@ -73,6 +73,7 @@ var envsMap = map[string][]string{
 }
 
 var KanikoEnv = []string{
+	"KANIKO_REGISTRY_MIRROR=localhost:5001",
 	"FF_KANIKO_COPY_AS_ROOT=1",
 }
 

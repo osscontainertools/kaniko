@@ -25,6 +25,7 @@ export SCRIPT_PATH="$(realpath $(dirname $0))"
 timeout 5m bash -c 'until kubectl cluster-info 2>/dev/null | grep "CoreDNS" >/dev/null; do sleep 1; done'
 # Install local registry and have it listen on localhost:5000
 sudo cp "${SCRIPT_PATH}/local-registry-helm.yaml" /var/lib/rancher/k3s/server/manifests/
+sudo cp "${SCRIPT_PATH}/docker-proxy-helm.yaml" /var/lib/rancher/k3s/server/manifests/
 # Wait until install of the registry completes
 timeout 5m bash -c 'until kubectl get -n kube-system pod 2>/dev/null | grep local-registry | grep Completed >/dev/null; do sleep 1; done'
 # Wait until registry becomes available on localhost:5000

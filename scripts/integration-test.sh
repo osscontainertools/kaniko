@@ -17,6 +17,9 @@ set -e
 
 function start_local_registry {
   docker start registry || docker run --name registry -d -p 5000:5000 registry:2
+  docker start proxy || docker run --name proxy -d -p 5001:5000 \
+    -e REGISTRY_PROXY_REMOTEURL=https://registry-1.docker.io \
+    registry:2
 }
 
 # TODO: to get this working, we need a way to override the gcs endpoint of kaniko at runtime

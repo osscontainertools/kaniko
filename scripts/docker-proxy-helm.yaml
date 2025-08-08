@@ -1,7 +1,7 @@
 apiVersion: helm.cattle.io/v1
 kind: HelmChart
 metadata:
-  name: local-registry
+  name: docker-proxy
   namespace: kube-system
 spec:
   chart: https://github.com/twuni/docker-registry.helm/archive/refs/tags/v2.2.2.tar.gz
@@ -9,3 +9,8 @@ spec:
     # Expose the registry server on localhost
     service:
       type: LoadBalancer
+      port: 5001
+    # Proxy for docker hub
+    proxy:
+      enabled: true
+      remoteurl: https://registry-1.docker.io
