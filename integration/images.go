@@ -72,6 +72,10 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_arg_secret": {"SSH_PRIVATE_KEY=ThEPriv4t3Key"},
 }
 
+var KanikoEnv = []string{
+	"FF_KANIKO_COPY_AS_ROOT=1",
+}
+
 // Arguments to build Dockerfiles with when building with docker
 var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_target": {"--target=second"},
@@ -109,8 +113,6 @@ var diffArgsMap = map[string][]string{
 	// FROM scratch we start with root, buildkit doesnt
 	"TestRun/test_Dockerfile_test_workdir_with_user": {"--extra-ignore-file-permissions"},
 	// We don't handle user nobody=-1 nogroup=-1 correctly
-	"TestRun/test_Dockerfile_test_issue_mz108": {"--extra-ignore-file-permissions"},
-	"TestRun/test_Dockerfile_test_issue_3166":  {"--extra-ignore-file-permissions"},
 	// if group is not set, buildkit defaults to 0
 	"TestRun/test_Dockerfile_test_user_nonexisting": {"--extra-ignore-file-permissions"},
 	// #mz155: `COPY --from` does not copy the timestamps from the source but touches new files with new timestamps.
@@ -432,6 +434,9 @@ func (d *DockerFileBuilder) buildCachedImage(config *integrationTestConfig, cach
 		"-v", cwd + ":/workspace",
 		"-e", benchmarkEnv,
 	}
+	for _, envVariable := range KanikoEnv {
+		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
+	}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", path.Join(buildContextPath, dockerfilesPath, dockerfile),
@@ -478,6 +483,9 @@ func (d *DockerFileBuilder) buildRelativePathsImage(imageRepo, dockerfile, servi
 	}
 
 	dockerRunFlags := []string{"run", "--net=host", "-v", cwd + ":/workspace"}
+	for _, envVariable := range KanikoEnv {
+		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
+	}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
@@ -546,6 +554,9 @@ func buildKanikoImage(
 		for _, envVariable := range env {
 			dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 		}
+	}
+	for _, envVariable := range KanikoEnv {
+		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
 
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
