@@ -35,7 +35,6 @@ import (
 	"github.com/GoogleContainerTools/kaniko/pkg/timing"
 	"github.com/docker/docker/pkg/archive"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/karrick/godirwalk"
 	"github.com/moby/buildkit/frontend/dockerfile/dockerignore"
 	"github.com/moby/patternmatcher"
 	otiai10Cpy "github.com/otiai10/copy"
@@ -1179,6 +1178,7 @@ func InitIgnoreList() error {
 type walkFSResult struct {
 	filesAdded    []string
 	existingPaths map[string]struct{}
+	err           error
 }
 
 // WalkFS given a directory dir and list of existing files existingPaths,
@@ -1191,7 +1191,7 @@ func WalkFS(
 	dir string,
 	existingPaths map[string]struct{},
 	changeFunc func(string) (bool, error),
-) ([]string, map[string]struct{}) {
+) ([]string, map[string]struct{}, error) {
 	timeOutStr := os.Getenv(snapshotTimeout)
 	if timeOutStr == "" {
 		logrus.Tracef("Environment '%s' not set. Using default snapshot timeout '%s'", snapshotTimeout, defaultTimeout)
@@ -1206,27 +1206,31 @@ func WalkFS(
 	ch := make(chan walkFSResult, 1)
 
 	go func() {
-		ch <- gowalkDir(dir, existingPaths, changeFunc)
+		filesAdded, existingPaths, err := gowalkDir(dir, existingPaths, changeFunc)
+		ch <- walkFSResult{filesAdded, existingPaths, err}
 	}()
 
 	// Listen on our channel AND a timeout channel - which ever happens first.
 	select {
 	case res := <-ch:
 		timing.DefaultRun.Stop(timer)
-		return res.filesAdded, res.existingPaths
+		return res.filesAdded, res.existingPaths, res.err
 	case <-time.After(timeOut):
 		timing.DefaultRun.Stop(timer)
 		logrus.Fatalf("Timed out snapshotting FS in %s", timeOutStr)
-		return nil, nil
+		return nil, nil, fmt.Errorf("Timed out snapshotting FS in %s", timeOutStr)
 	}
 }
 
-func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(string) (bool, error)) walkFSResult {
+func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(string) (bool, error)) ([]string, map[string]struct{}, error) {
 	foundPaths := make([]string, 0)
 	deletedFiles := existingPaths // Make a reference.
 
-	callback := func(path string, ent *godirwalk.Dirent) error {
+	callback := func(path string, _ fs.DirEntry, err error) error {
 		logrus.Tracef("Analyzing path '%s'", path)
+		if err != nil {
+			return err
+		}
 
 		if IsInIgnoreList(path) {
 			if IsDestDir(path) {
@@ -1248,49 +1252,51 @@ func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(st
 		return nil
 	}
 
-	godirwalk.Walk(dir,
-		&godirwalk.Options{
-			Callback: callback,
-			Unsorted: true,
-		})
+	err := filepath.WalkDir(dir, callback)
+	if err != nil {
+		return nil, nil, err
+	}
 
-	return walkFSResult{foundPaths, deletedFiles}
+	return foundPaths, deletedFiles, nil
 }
 
 // GetFSInfoMap given a directory gets a map of FileInfo for all files
-func GetFSInfoMap(dir string, existing map[string]os.FileInfo) (map[string]os.FileInfo, []string) {
+func GetFSInfoMap(dir string, existing map[string]os.FileInfo) (map[string]os.FileInfo, []string, error) {
 	fileMap := map[string]os.FileInfo{}
 	foundPaths := []string{}
 	timer := timing.Start("Walking filesystem with Stat")
-	godirwalk.Walk(dir, &godirwalk.Options{
-		Callback: func(path string, ent *godirwalk.Dirent) error {
-			if CheckCleanedPathAgainstIgnoreList(path) {
-				if IsDestDir(path) {
-					logrus.Tracef("Skipping paths under %s, as it is a ignored directory", path)
-					return filepath.SkipDir
-				}
-				return nil
+	callback := func(path string, _ fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if CheckCleanedPathAgainstIgnoreList(path) {
+			if IsDestDir(path) {
+				logrus.Tracef("Skipping paths under %s, as it is a ignored directory", path)
+				return filepath.SkipDir
 			}
-			if fi, err := os.Lstat(path); err == nil {
-				if fiPrevious, ok := existing[path]; ok {
-					// check if file changed
-					if !isSame(fiPrevious, fi) {
-						fileMap[path] = fi
-						foundPaths = append(foundPaths, path)
-					}
-				} else {
-					// new path
+			return nil
+		}
+		if fi, err := os.Lstat(path); err == nil {
+			if fiPrevious, ok := existing[path]; ok {
+				// check if file changed
+				if !isSame(fiPrevious, fi) {
 					fileMap[path] = fi
 					foundPaths = append(foundPaths, path)
 				}
+			} else {
+				// new path
+				fileMap[path] = fi
+				foundPaths = append(foundPaths, path)
 			}
-			return nil
-		},
-		Unsorted: true,
-	},
-	)
+		}
+		return nil
+	}
+	err := filepath.WalkDir(dir, callback)
+	if err != nil {
+		return nil, nil, err
+	}
 	timing.DefaultRun.Stop(timer)
-	return fileMap, foundPaths
+	return fileMap, foundPaths, nil
 }
 
 func isSame(fi1, fi2 os.FileInfo) bool {

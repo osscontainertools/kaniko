@@ -92,9 +92,12 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 	// Get whiteout paths
 	var filesToWhiteout []string
 	if shdCheckDelete {
-		_, deletedFiles := util.WalkFS(s.directory, s.l.GetCurrentPaths(), func(s string) (bool, error) {
+		_, deletedFiles, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), func(s string) (bool, error) {
 			return true, nil
 		})
+		if err != nil {
+			return "", err
+		}
 
 		logrus.Debugf("Deleting in layer: %v", deletedFiles)
 		// Whiteout files in current layer.
@@ -171,7 +174,10 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 
 	logrus.Debugf("Current image filesystem: %v", s.l.currentImage)
 
-	changedPaths, deletedPaths := util.WalkFS(s.directory, s.l.GetCurrentPaths(), s.l.CheckFileChange)
+	changedPaths, deletedPaths, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), s.l.CheckFileChange)
+	if err != nil {
+		return nil, nil, err
+	}
 	timer := timing.Start("Resolving Paths")
 
 	filesToAdd := []string{}
