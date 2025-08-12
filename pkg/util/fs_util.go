@@ -225,7 +225,7 @@ func GetFSFromLayers(root string, layers []v1.Layer, opts ...FSOpt) ([]string, e
 // DeleteFilesystem deletes the extracted image file system
 func DeleteFilesystem() error {
 	logrus.Info("Deleting filesystem...")
-	return filepath.WalkDir(config.RootDir, func(path string, info fs.DirEntry, err error) error {
+	return fs.WalkDir(NoAtimeFS{}, config.RootDir, func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			// ignore errors when deleting.
 			return nil //nolint:nilerr
@@ -500,7 +500,7 @@ func RelativeFiles(fp string, root string) ([]string, error) {
 	fullPath := filepath.Join(root, fp)
 	cleanedRoot := filepath.Clean(root)
 	logrus.Debugf("Getting files and contents at root %s for %s", root, fullPath)
-	err := filepath.WalkDir(fullPath, func(path string, _ fs.DirEntry, err error) error {
+	err := fs.WalkDir(NoAtimeFS{}, fullPath, func(path string, _ fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -1038,7 +1038,7 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 
 // CopyOwnership copies the file or directory ownership recursively at src to dest
 func CopyOwnership(src string, destDir string, root string) error {
-	return filepath.WalkDir(src, func(path string, info fs.DirEntry, err error) error {
+	return fs.WalkDir(NoAtimeFS{}, src, func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -1253,7 +1253,7 @@ func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(st
 		return nil
 	}
 
-	err := filepath.WalkDir(dir, callback)
+	err := fs.WalkDir(NoAtimeFS{}, dir, callback)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1292,7 +1292,7 @@ func GetFSInfoMap(dir string, existing map[string]os.FileInfo) (map[string]os.Fi
 		}
 		return nil
 	}
-	err := filepath.WalkDir(dir, callback)
+	err := fs.WalkDir(NoAtimeFS{}, dir, callback)
 	if err != nil {
 		return nil, nil, err
 	}

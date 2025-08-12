@@ -67,7 +67,7 @@ func CreateTarballOfDirectory(pathToDir string, f io.Writer) error {
 		return tarWriter.AddFileToTar(path)
 	}
 
-	return filepath.WalkDir(pathToDir, walkFn)
+	return fs.WalkDir(NoAtimeFS{}, pathToDir, walkFn)
 }
 
 // Close will close any open streams used by Tar.
