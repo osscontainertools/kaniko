@@ -24,7 +24,6 @@ import (
 	"bufio"
 	"bytes"
 	"io"
-	"os"
 	"os/user"
 	"strconv"
 	"strings"
@@ -50,7 +49,7 @@ func groupIDs(u *user.User) ([]string, error) {
 		return []string{}, nil
 	}
 
-	f, err := os.Open(groupFile)
+	f, err := NoAtimeFS{}.Open(groupFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "open")
 	}

@@ -771,7 +771,7 @@ func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod fs.Fi
 		return false, err
 	}
 	logrus.Debugf("Copying file %s to %s", src, dest)
-	srcFile, err := os.Open(src)
+	srcFile, err := NoAtimeFS{}.Open(src)
 	if err != nil {
 		return false, err
 	}
@@ -1018,6 +1018,7 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 		Skip: func(info os.FileInfo, src, dest string) (bool, error) {
 			return strings.HasSuffix(src, "/kaniko"), nil
 		},
+		FS: NoAtimeFS{},
 	}
 	if err := otiai10Cpy.Copy(src, destFile, opts); err != nil {
 		return errors.Wrap(err, "copying file")
@@ -1309,4 +1310,10 @@ func isSame(fi1, fi2 os.FileInfo) bool {
 		uint64(fi1.Sys().(*syscall.Stat_t).Uid) == uint64(fi2.Sys().(*syscall.Stat_t).Uid) &&
 		// file group id is
 		uint64(fi1.Sys().(*syscall.Stat_t).Gid) == uint64(fi2.Sys().(*syscall.Stat_t).Gid)
+}
+
+type NoAtimeFS struct{}
+
+func (NoAtimeFS) Open(name string) (fs.File, error) {
+	return os.OpenFile(name, os.O_RDONLY|unix.O_NOATIME, 0)
 }

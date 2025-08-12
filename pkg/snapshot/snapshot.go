@@ -156,12 +156,18 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 	// which can lag if sync is not called. Unfortunately there can still be lag if too much data needs
 	// to be flushed or the disk does its own caching/buffering.
 	if runtime.GOOS == "linux" {
-		dir, err := os.Open(s.directory)
+		dir, err := util.NoAtimeFS{}.Open(s.directory)
 		if err != nil {
 			return nil, nil, err
 		}
 		defer dir.Close()
-		_, _, errno := syscall.Syscall(unix.SYS_SYNCFS, dir.Fd(), 0, 0)
+
+		f, ok := dir.(*os.File)
+		if !ok {
+			return nil, nil, fmt.Errorf("unexpected file type: %T", dir)
+		}
+
+		_, _, errno := syscall.Syscall(unix.SYS_SYNCFS, f.Fd(), 0, 0)
 		if errno != 0 {
 			return nil, nil, errno
 		}
