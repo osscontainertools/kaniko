@@ -20,6 +20,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"io"
+	"io/fs"
 	"log"
 	"os"
 	"os/user"
@@ -136,7 +137,7 @@ meow meow meow meow
 	writer := bytes.NewBuffer([]byte{})
 	tw := tar.NewWriter(writer)
 	defer tw.Close()
-	filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	filepath.WalkDir(dir, func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -145,7 +146,11 @@ meow meow meow meow
 			return nil
 		}
 
-		hdr, err := tar.FileInfoHeader(info, "")
+		fileInfo, err := info.Info()
+		if err != nil {
+			return err
+		}
+		hdr, err := tar.FileInfoHeader(fileInfo, "")
 		if err != nil {
 			return err
 		}
