@@ -43,6 +43,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// for testing
+var (
+	FSys fs.FS = NoAtimeFS{}
+)
+
 const (
 	DoNotChangeUID = -1
 	DoNotChangeGID = -1
@@ -225,7 +230,7 @@ func GetFSFromLayers(root string, layers []v1.Layer, opts ...FSOpt) ([]string, e
 // DeleteFilesystem deletes the extracted image file system
 func DeleteFilesystem() error {
 	logrus.Info("Deleting filesystem...")
-	return fs.WalkDir(NoAtimeFS{}, config.RootDir, func(path string, info fs.DirEntry, err error) error {
+	return fs.WalkDir(FSys, config.RootDir, func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			// ignore errors when deleting.
 			return nil //nolint:nilerr
@@ -459,7 +464,7 @@ func checkIgnoreListRoot(root string) bool {
 // From: https://www.kernel.org/doc/Documentation/filesystems/proc.txt
 func DetectFilesystemIgnoreList(path string) error {
 	logrus.Trace("Detecting filesystem ignore list")
-	f, err := os.Open(path)
+	f, err := FSys.Open(path)
 	if err != nil {
 		return err
 	}
@@ -500,7 +505,7 @@ func RelativeFiles(fp string, root string) ([]string, error) {
 	fullPath := filepath.Join(root, fp)
 	cleanedRoot := filepath.Clean(root)
 	logrus.Debugf("Getting files and contents at root %s for %s", root, fullPath)
-	err := fs.WalkDir(NoAtimeFS{}, fullPath, func(path string, _ fs.DirEntry, err error) error {
+	err := fs.WalkDir(FSys, fullPath, func(path string, _ fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -771,7 +776,7 @@ func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod fs.Fi
 		return false, err
 	}
 	logrus.Debugf("Copying file %s to %s", src, dest)
-	srcFile, err := NoAtimeFS{}.Open(src)
+	srcFile, err := FSys.Open(src)
 	if err != nil {
 		return false, err
 	}
@@ -1018,7 +1023,7 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 		Skip: func(info os.FileInfo, src, dest string) (bool, error) {
 			return strings.HasSuffix(src, "/kaniko"), nil
 		},
-		FS: NoAtimeFS{},
+		FS: FSys,
 	}
 	if err := otiai10Cpy.Copy(src, destFile, opts); err != nil {
 		return errors.Wrap(err, "copying file")
@@ -1038,7 +1043,7 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 
 // CopyOwnership copies the file or directory ownership recursively at src to dest
 func CopyOwnership(src string, destDir string, root string) error {
-	return fs.WalkDir(NoAtimeFS{}, src, func(path string, info fs.DirEntry, err error) error {
+	return fs.WalkDir(FSys, src, func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -1253,7 +1258,7 @@ func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(st
 		return nil
 	}
 
-	err := fs.WalkDir(NoAtimeFS{}, dir, callback)
+	err := fs.WalkDir(FSys, dir, callback)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1292,7 +1297,7 @@ func GetFSInfoMap(dir string, existing map[string]os.FileInfo) (map[string]os.Fi
 		}
 		return nil
 	}
-	err := fs.WalkDir(NoAtimeFS{}, dir, callback)
+	err := fs.WalkDir(FSys, dir, callback)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1316,4 +1321,10 @@ type NoAtimeFS struct{}
 
 func (NoAtimeFS) Open(name string) (fs.File, error) {
 	return os.OpenFile(name, os.O_RDONLY|unix.O_NOATIME, 0)
+}
+
+type OSFS struct{}
+
+func (OSFS) Open(name string) (fs.File, error) {
+	return os.Open(name)
 }

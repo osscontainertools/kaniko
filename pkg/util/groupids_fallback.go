@@ -49,7 +49,7 @@ func groupIDs(u *user.User) ([]string, error) {
 		return []string{}, nil
 	}
 
-	f, err := NoAtimeFS{}.Open(groupFile)
+	f, err := FSys.Open(groupFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "open")
 	}

@@ -219,7 +219,7 @@ func (c *cachedImage) Manifest() (*v1.Manifest, error) {
 }
 
 func mfstFromPath(p string) (*v1.Manifest, error) {
-	f, err := util.NoAtimeFS{}.Open(p)
+	f, err := util.FSys.Open(p)
 	if err != nil {
 		return nil, err
 	}

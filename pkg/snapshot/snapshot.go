@@ -156,7 +156,7 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 	// which can lag if sync is not called. Unfortunately there can still be lag if too much data needs
 	// to be flushed or the disk does its own caching/buffering.
 	if runtime.GOOS == "linux" {
-		dir, err := util.NoAtimeFS{}.Open(s.directory)
+		dir, err := util.FSys.Open(s.directory)
 		if err != nil {
 			return nil, nil, err
 		}

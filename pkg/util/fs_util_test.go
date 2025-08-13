@@ -1012,6 +1012,10 @@ func fakeExtract(_ string, _ *tar.Header, _ string, _ io.Reader) error {
 }
 
 func Test_GetFSFromLayers_with_whiteouts_include_whiteout_enabled(t *testing.T) {
+	_original := FSys
+	FSys = OSFS{}
+	defer func() { FSys = _original }()
+
 	resetMountInfoFile := provideEmptyMountinfoFile()
 	defer resetMountInfoFile()
 
@@ -1121,6 +1125,10 @@ func provideEmptyMountinfoFile() func() {
 }
 
 func Test_GetFSFromLayers_with_whiteouts_include_whiteout_disabled(t *testing.T) {
+	_original := FSys
+	FSys = OSFS{}
+	defer func() { FSys = _original }()
+
 	resetMountInfoFile := provideEmptyMountinfoFile()
 	defer resetMountInfoFile()
 
@@ -1224,6 +1232,10 @@ func Test_GetFSFromLayers_with_whiteouts_include_whiteout_disabled(t *testing.T)
 }
 
 func Test_GetFSFromLayers_ignorelist(t *testing.T) {
+	_original := FSys
+	FSys = OSFS{}
+	defer func() { FSys = _original }()
+
 	resetMountInfoFile := provideEmptyMountinfoFile()
 	defer resetMountInfoFile()
 

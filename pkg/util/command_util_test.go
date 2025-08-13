@@ -534,6 +534,10 @@ var testResolveSources = []struct {
 }
 
 func Test_ResolveSources(t *testing.T) {
+	_original := FSys
+	FSys = OSFS{}
+	defer func() { FSys = _original }()
+
 	for _, test := range testResolveSources {
 		actualList, err := ResolveSources(test.srcsAndDest, buildContextPath)
 		testutil.CheckErrorAndDeepEqual(t, false, err, test.expectedList, actualList)
