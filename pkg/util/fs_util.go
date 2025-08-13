@@ -505,7 +505,8 @@ func RelativeFiles(fp string, root string) ([]string, error) {
 	fullPath := filepath.Join(root, fp)
 	cleanedRoot := filepath.Clean(root)
 	logrus.Debugf("Getting files and contents at root %s for %s", root, fullPath)
-	err := fs.WalkDir(FSys, fullPath, func(path string, _ fs.DirEntry, err error) error {
+	// TODO: #155 somehow fs.WalkDir here causes unittests to fail
+	err := filepath.WalkDir(fullPath, func(path string, _ fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
