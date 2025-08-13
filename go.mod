@@ -21,7 +21,6 @@ require (
 	github.com/google/go-containerregistry v0.20.6
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/google/slowjam v1.1.2
-	github.com/karrick/godirwalk v1.17.0
 	github.com/minio/highwayhash v1.0.3
 	github.com/moby/buildkit v0.23.2
 	github.com/otiai10/copy v1.14.1
