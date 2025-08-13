@@ -225,7 +225,7 @@ func GetFSFromLayers(root string, layers []v1.Layer, opts ...FSOpt) ([]string, e
 // DeleteFilesystem deletes the extracted image file system
 func DeleteFilesystem() error {
 	logrus.Info("Deleting filesystem...")
-	return filepath.Walk(config.RootDir, func(path string, info os.FileInfo, err error) error {
+	return filepath.WalkDir(config.RootDir, func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			// ignore errors when deleting.
 			return nil //nolint:nilerr
@@ -500,7 +500,7 @@ func RelativeFiles(fp string, root string) ([]string, error) {
 	fullPath := filepath.Join(root, fp)
 	cleanedRoot := filepath.Clean(root)
 	logrus.Debugf("Getting files and contents at root %s for %s", root, fullPath)
-	err := filepath.Walk(fullPath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.WalkDir(fullPath, func(path string, _ fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -1037,11 +1037,15 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 
 // CopyOwnership copies the file or directory ownership recursively at src to dest
 func CopyOwnership(src string, destDir string, root string) error {
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+	return filepath.WalkDir(src, func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if IsSymlink(info) {
+		fileInfo, err := info.Info()
+		if err != nil {
+			return err
+		}
+		if IsSymlink(fileInfo) {
 			return nil
 		}
 		relPath, err := filepath.Rel(root, path)
@@ -1073,11 +1077,7 @@ func CopyOwnership(src string, destDir string, root string) error {
 			return nil
 		}
 
-		info, err = os.Stat(path)
-		if err != nil {
-			return errors.Wrap(err, "reading ownership")
-		}
-		stat := info.Sys().(*syscall.Stat_t)
+		stat := fileInfo.Sys().(*syscall.Stat_t)
 		return os.Chown(destPath, int(stat.Uid), int(stat.Gid))
 	})
 }

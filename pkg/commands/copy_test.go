@@ -81,21 +81,14 @@ func setupTestTemp(t *testing.T) string {
 	if err != nil {
 		logrus.Fatalf("Error getting abs path %s", srcPath)
 	}
-	cperr := filepath.Walk(srcPath,
-		func(path string, info os.FileInfo, err error) error {
+	cperr := filepath.WalkDir(srcPath,
+		func(path string, info fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
 			if path != srcPath {
-				if err != nil {
-					return err
-				}
 				tempPath := strings.TrimPrefix(path, srcPath)
-				fileInfo, err := os.Stat(path)
-				if err != nil {
-					return err
-				}
-				if fileInfo.IsDir() {
+				if info.IsDir() {
 					os.MkdirAll(tempDir+"/"+tempPath, 0777)
 				} else {
 					out, err := os.Create(tempDir + "/" + tempPath)
