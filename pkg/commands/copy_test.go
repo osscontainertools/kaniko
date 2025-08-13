@@ -523,6 +523,10 @@ func Test_CopyEnvAndWildcards(t *testing.T) {
 }
 
 func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
+	_original := util.FSys
+	util.FSys = util.OSFS{}
+	defer func() { util.FSys = _original }()
+
 	setupDirs := func(t *testing.T) (string, string) {
 		testDir := t.TempDir()
 
@@ -758,6 +762,10 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 	})
 
 	t.Run("copy deadlink symlink file to a dir", func(t *testing.T) {
+		_original := util.FSys
+		util.FSys = util.OSFS{}
+		defer func() { util.FSys = _original }()
+
 		testDir, srcDir := setupDirs(t)
 		defer os.RemoveAll(testDir)
 		doesNotExists := filepath.Join(testDir, "dead.txt")

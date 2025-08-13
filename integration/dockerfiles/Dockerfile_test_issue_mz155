@@ -8,6 +8,11 @@ RUN mkdir -p /tmp/testdir \
 RUN stat /tmp/testdir \
     && stat /tmp/testdir/file.txt
 
+# assert that snapshot did not touch atime. we can't use diffoci for that,
+# as buildkit does not snapshot atime, they are only present during build.
+RUN [ $(stat -c %X /tmp/testdir) -eq $(date -d '2000-01-01' +%s) ] \
+    && [ $(stat -c %X /tmp/testdir) -eq $(date -d '2000-01-01' +%s) ]
+
 FROM debian:12.10 AS second-image
 
 COPY --from=first-image /tmp/testdir /tmp/testdir

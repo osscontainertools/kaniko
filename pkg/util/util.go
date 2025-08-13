@@ -62,7 +62,7 @@ func Hasher() func(string) (string, error) {
 			if capability != nil {
 				h.Write(capability)
 			}
-			f, err := os.Open(p)
+			f, err := FSys.Open(p)
 			if err != nil {
 				return "", err
 			}
@@ -100,7 +100,7 @@ func CacheHasher() func(string) (string, error) {
 		h.Write([]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Gid), 36)))
 
 		if fi.Mode().IsRegular() {
-			f, err := os.Open(p)
+			f, err := FSys.Open(p)
 			if err != nil {
 				return "", err
 			}
