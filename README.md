@@ -1066,6 +1066,13 @@ Set this flag as `--kaniko-dir /not-kaniko` to move the kaniko binaries to `/not
 Set this flag as `--label key=value` to set some metadata to the final image.
 This is equivalent as using the `LABEL` within the Dockerfile.
 
+#### Flag `--annotation`
+
+Set this flag as `--annotation key=value` to set some metadata to the final image.
+[Annotation levels](https://docs.docker.com/build/metadata/annotations/#specify-annotation-level) 
+are currently not supported and it's always the manifest that's 
+annotated.
+
 #### Flag `--log-format`
 
 Set this flag as `--log-format=<text|color|json>` to set the log format.
