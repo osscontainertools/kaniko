@@ -148,6 +148,7 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		baseImageDigest:  digest.String(),
 		opts:             opts,
 		fileContext:      fileContext,
+		args:             args.Clone(),
 		crossStageDeps:   crossStageDeps,
 		digestToCacheKey: dcm,
 		stageIdxToDigest: sid,
@@ -164,12 +165,6 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 			continue
 		}
 		s.cmds = append(s.cmds, command)
-	}
-
-	if args != nil {
-		s.args = args.Clone()
-	} else {
-		s.args = dockerfile.NewBuildArgs(s.opts.BuildArgs)
 	}
 	s.args.AddMetaArgs(s.stage.MetaArgs)
 	return s, nil
@@ -744,7 +739,17 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 	}
 	logrus.Infof("Built cross stage deps: %v", crossStageDependencies)
 
-	var args *dockerfile.BuildArgs
+	if len(kanikoStages) == 0 {
+		logrus.Panic("no stages to build")
+	}
+	lastStage := kanikoStages[len(kanikoStages)-1]
+	predefined, err := dockerfile.PredefinedBuildArgs(opts, &lastStage)
+	if err != nil {
+		return nil, err
+	}
+	logrus.Infof("predefined build args: %s", predefined)
+	merged := append(predefined, opts.BuildArgs...)
+	var args = dockerfile.NewBuildArgs(merged)
 
 	var tarball string
 	if opts.PreserveContext {

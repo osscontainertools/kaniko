@@ -17,8 +17,11 @@ limitations under the License.
 package dockerfile
 
 import (
+	"fmt"
 	"strings"
 
+	"github.com/GoogleContainerTools/kaniko/pkg/config"
+	"github.com/containerd/platforms"
 	d "github.com/docker/docker/builder/dockerfile"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 )
@@ -67,4 +70,40 @@ func (b *BuildArgs) AddMetaArgs(metaArgs []instructions.ArgCommand) {
 			b.AddMetaArg(arg.Key, v)
 		}
 	}
+}
+
+// Initialize predefined build args s.a.: TARGETOS, TARGETARCH, BUILDPLATFORM, TARGETPLATFORM ...
+func PredefinedBuildArgs(opts *config.KanikoOptions, lastStage *config.KanikoStage) ([]string, error) {
+	buildSpec := platforms.Normalize(platforms.DefaultSpec())
+	build := platforms.Format(buildSpec)
+
+	var target = build
+	var targetSpec = buildSpec
+	var err error
+	if opts.CustomPlatform != "" {
+		target = opts.CustomPlatform
+		targetSpec, err = platforms.Parse(opts.CustomPlatform)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to parse target platform %q: %v", opts.CustomPlatform, err)
+		}
+	}
+
+	var targetStage = "default"
+	if lastStage.Stage.Name != "" {
+		targetStage = lastStage.Stage.Name
+	}
+
+	return []string{
+		"BUILDPLATFORM=" + build,
+		"BUILDOS=" + buildSpec.OS,
+		"BUILDOSVERSION=" + buildSpec.OSVersion,
+		"BUILDARCH=" + buildSpec.Architecture,
+		"BUILDVARIANT=" + buildSpec.Variant,
+		"TARGETPLATFORM=" + target,
+		"TARGETOS=" + targetSpec.OS,
+		"TARGETOSVERSION=" + targetSpec.OSVersion,
+		"TARGETARCH=" + targetSpec.Architecture,
+		"TARGETVARIANT=" + targetSpec.Variant,
+		"TARGETSTAGE=" + targetStage,
+	}, nil
 }
