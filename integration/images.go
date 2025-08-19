@@ -133,17 +133,13 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_arg_multi":             {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_arg_multi_with_quotes": {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_daemons":               {"--extra-ignore-layer-length-mismatch"},
-	// somehow empty folders show up on our side but not buildkit
-	"TestRun/test_Dockerfile_test_issue_1039":                  {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_3393":                  {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_copy_chown_nonexisting_user": {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_mv_add":						{"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_parent_dir_perms":      		{"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_registry":              		{"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_arg_blank_with_quotes": 		{"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_cache_perm_oci":        		{"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_complex_substitution":  		{"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_dangling_symlink":      		{"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_mv_add":                {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_parent_dir_perms":      {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_registry":              {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_arg_blank_with_quotes": {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_cache_perm_oci":        {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_complex_substitution":  {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_dangling_symlink":      {"--extra-ignore-layer-length-mismatch"},
 	// "Check that overriding a default value works"
 	// produces a different output in kaniko and docker
 	"TestRun/test_Dockerfile_test_scratch": {"--extra-ignore-layer-length-mismatch"},
@@ -152,7 +148,7 @@ var diffArgsMap = map[string][]string{
 	// somehow empty folders show up on our side but not buildkit
 	"TestRun/test_Dockerfile_test_issue_1039":                  {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_issue_3393":                  {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_copy_chown_nonexisting_user": {"--extra-ignore-layer-length-mismatch"}
+	"TestRun/test_Dockerfile_test_copy_chown_nonexisting_user": {"--extra-ignore-layer-length-mismatch"},
 }
 
 // output check to do when building with kaniko
