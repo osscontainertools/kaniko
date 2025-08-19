@@ -123,6 +123,8 @@ var diffArgsMap = map[string][]string{
 	// We do ignore /tmp directory as the timestamp on that directory will be altered if we create a new file inside.
 	// for some reason buildkit switches to USTAR instead of PAX format and we don't
 	"TestRun/test_Dockerfile_test_issue_mz155": {"--semantic=false", "--ignore-history", "--ignore-file-meta-format", "--ignore-file-atime", "--ignore-file-ctime", "--extra-ignore-files=tmp/"},
+	// We enforce predefined ARGs are identical by dumping them to a file
+	"TestRun/test_Dockerfile_test_pre_defined_build_args": {"--extra-ignore-file-content=false"},
 }
 
 // output check to do when building with kaniko

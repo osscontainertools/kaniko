@@ -1,29 +1,16 @@
 # ingegration test for pre-defined build args; see pkg/dockerfile/buildargs.go
-FROM alpine:3 AS builder
-ARG BUILDPLATFORM
-ARG BUILDOS
-ARG BUILDARCH
-ARG BUILDVARIANT
-ARG TARGETPLATFORM
-ARG TARGETOS
-ARG TARGETARCH
-ARG TARGETVARIANT
-ARG TARGETSTAGE
-RUN echo "BUILDPLATFORM: ${BUILDPLATFORM}" && \
-    echo "BUILDOS: ${BUILDOS}" && \
-    echo "BUILDARCH: ${BUILDARCH}" && \
-    echo "BUILDVARIANT: ${BUILDVARIANT}" && \
-    echo "TARGETPLATFORM: ${TARGETPLATFORM}" && \
-    echo "TARGETOS: ${TARGETOS}" && \
-    echo "TARGETARCH: ${TARGETARCH}" && \
-    echo "TARGETVARIANT: ${TARGETVARIANT}" && \
-    echo "TARGETSTAGE: ${TARGETSTAGE}"
-RUN uname -a
-COPY foo /app/foo
-RUN echo 'add line' >> /app/foo
+FROM alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a AS undefined
+RUN echo "BUILDPLATFORM: ${BUILDPLATFORM}" | tee info1.txt && \
+    echo "BUILDOS: ${BUILDOS}" | tee -a info1.txt && \
+    echo "BUILDARCH: ${BUILDARCH}" | tee -a info1.txt && \
+    echo "BUILDVARIANT: ${BUILDVARIANT}" | tee -a info1.txt && \
+    echo "TARGETPLATFORM: ${TARGETPLATFORM}" | tee -a info1.txt && \
+    echo "TARGETOS: ${TARGETOS}" | tee -a info1.txt && \
+    echo "TARGETARCH: ${TARGETARCH}" | tee -a info1.txt && \
+    echo "TARGETVARIANT: ${TARGETVARIANT}" | tee -a info1.txt && \
+    echo "TARGETSTAGE: ${TARGETSTAGE}" | tee -a info1.txt
 
-FROM alpine:3
-COPY --from=builder /app/foo /app/foo
+FROM undefined
 ARG BUILDPLATFORM
 ARG BUILDOS
 ARG BUILDARCH
@@ -33,14 +20,13 @@ ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETVARIANT
 ARG TARGETSTAGE
-RUN echo "BUILDPLATFORM: ${BUILDPLATFORM}" && \
-    echo "BUILDOS: ${BUILDOS}" && \
-    echo "BUILDARCH: ${BUILDARCH}" && \
-    echo "BUILDVARIANT: ${BUILDVARIANT}" && \
-    echo "TARGETPLATFORM: ${TARGETPLATFORM}" && \
-    echo "TARGETOS: ${TARGETOS}" && \
-    echo "TARGETARCH: ${TARGETARCH}" && \
-    echo "TARGETVARIANT: ${TARGETVARIANT}" && \
-    echo "TARGETSTAGE: ${TARGETSTAGE}"
+RUN echo "BUILDPLATFORM: ${BUILDPLATFORM}" | tee info2.txt && \
+    echo "BUILDOS: ${BUILDOS}" | tee -a info2.txt && \
+    echo "BUILDARCH: ${BUILDARCH}" | tee -a info2.txt && \
+    echo "BUILDVARIANT: ${BUILDVARIANT}" | tee -a info2.txt && \
+    echo "TARGETPLATFORM: ${TARGETPLATFORM}" | tee -a info2.txt && \
+    echo "TARGETOS: ${TARGETOS}" | tee -a info2.txt && \
+    echo "TARGETARCH: ${TARGETARCH}" | tee -a info2.txt && \
+    echo "TARGETVARIANT: ${TARGETVARIANT}" | tee -a info2.txt && \
+    echo "TARGETSTAGE: ${TARGETSTAGE}" | tee -a info2.txt
 RUN uname -a
-RUN cat /app/foo

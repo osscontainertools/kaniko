@@ -19,18 +19,12 @@ package dockerfile
 import (
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/GoogleContainerTools/kaniko/pkg/config"
 	"github.com/containerd/platforms"
 	d "github.com/docker/docker/builder/dockerfile"
-	containerregistryV1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
-	"github.com/sirupsen/logrus"
 )
-
-var defaultArgsOnce sync.Once
-var defaultArgs []string
 
 type BuildArgs struct {
 	d.BuildArgs
@@ -78,44 +72,38 @@ func (b *BuildArgs) AddMetaArgs(metaArgs []instructions.ArgCommand) {
 	}
 }
 
-// DefaultArgs get default args.
-// include pre-defined build args: TARGETOS, TARGETARCH, BUILDPLATFORM, TARGETPLATFORM ...
-func DefaultArgs(opt config.KanikoOptions) []string {
-	defaultArgsOnce.Do(func() {
-		// build info
-		buildPlatform := platforms.Format(platforms.Normalize(platforms.DefaultSpec()))
-		buildPlatformSpec, err := containerregistryV1.ParsePlatform(buildPlatform)
-		if err != nil {
-			logrus.Fatalf("Parse build platform %q: %v", buildPlatform, err)
-		}
+// Initialize predefined build args s.a.: TARGETOS, TARGETARCH, BUILDPLATFORM, TARGETPLATFORM ...
+func PredefinedBuildArgs(opts *config.KanikoOptions, lastStage *config.KanikoStage) ([]string, error) {
+	buildSpec := platforms.Normalize(platforms.DefaultSpec())
+	build := platforms.Format(buildSpec)
 
-		// target info
-		var targetPlatform string
-		if opt.CustomPlatform != "" {
-			targetPlatform = opt.CustomPlatform
-		} else {
-			targetPlatform = buildPlatform
-		}
-		targetPlatformSpec, err := containerregistryV1.ParsePlatform(opt.CustomPlatform)
+	var target = build
+	var targetSpec = buildSpec
+	var err error
+	if opts.CustomPlatform != "" {
+		target = opts.CustomPlatform
+		targetSpec, err = platforms.Parse(opts.CustomPlatform)
 		if err != nil {
-			logrus.Fatalf("Invalid platform %q: %v", opt.CustomPlatform, err)
+			return nil, fmt.Errorf("Failed to parse target platform %q: %v", opts.CustomPlatform, err)
 		}
+	}
 
-		// pre-defined build args
-		defaultArgs = []string{
-			fmt.Sprintf("%s=%s", "BUILDPLATFORM", buildPlatform),
-			fmt.Sprintf("%s=%s", "BUILDOS", buildPlatformSpec.OS),
-			fmt.Sprintf("%s=%s", "BUILDOSVERSION", buildPlatformSpec.OSVersion),
-			fmt.Sprintf("%s=%s", "BUILDARCH", buildPlatformSpec.Architecture),
-			fmt.Sprintf("%s=%s", "BUILDVARIANT", buildPlatformSpec.Variant),
-			fmt.Sprintf("%s=%s", "TARGETPLATFORM", targetPlatform),
-			fmt.Sprintf("%s=%s", "TARGETOS", targetPlatformSpec.OS),
-			fmt.Sprintf("%s=%s", "TARGETOSVERSION", targetPlatformSpec.OSVersion),
-			fmt.Sprintf("%s=%s", "TARGETARCH", targetPlatformSpec.Architecture),
-			fmt.Sprintf("%s=%s", "TARGETVARIANT", targetPlatformSpec.Variant),
-			fmt.Sprintf("%s=%s", "TARGETSTAGE", opt.Target),
-		}
-		logrus.Infof("init default args: %s", defaultArgs)
-	})
-	return defaultArgs
+	var targetStage = "default"
+	if lastStage.Stage.Name != "" {
+		targetStage = lastStage.Stage.Name
+	}
+
+	return []string{
+		"BUILDPLATFORM=" + build,
+		"BUILDOS=" + buildSpec.OS,
+		"BUILDOSVERSION=" + buildSpec.OSVersion,
+		"BUILDARCH=" + buildSpec.Architecture,
+		"BUILDVARIANT=" + buildSpec.Variant,
+		"TARGETPLATFORM=" + target,
+		"TARGETOS=" + targetSpec.OS,
+		"TARGETOSVERSION=" + targetSpec.OSVersion,
+		"TARGETARCH=" + targetSpec.Architecture,
+		"TARGETVARIANT=" + targetSpec.Variant,
+		"TARGETSTAGE=" + targetStage,
+	}, nil
 }
