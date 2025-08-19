@@ -103,13 +103,13 @@ func (t *Tar) AddFileToTar(p string) error {
 	}
 
 	if p == config.RootDir {
-		// allow entry for / to preserve permission changes etc. (currently ignored anyway by Docker runtime)
-		hdr.Name = "/"
-	} else {
-		// Docker uses no leading / in the tarball
-		hdr.Name = strings.TrimPrefix(p, config.RootDir)
-		hdr.Name = strings.TrimLeft(hdr.Name, "/")
+		logrus.Panic("Unreachable Code: We should no longer snapshot '/' as it will be ignored by docker anyways")
 	}
+
+	// Docker uses no leading / in the tarball
+	hdr.Name = strings.TrimPrefix(p, config.RootDir)
+	hdr.Name = strings.TrimLeft(hdr.Name, "/")
+
 	if hdr.Typeflag == tar.TypeDir && !strings.HasSuffix(hdr.Name, "/") {
 		hdr.Name = hdr.Name + "/"
 	}

@@ -110,6 +110,8 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_multistage":   {"--extra-ignore-files=new"},
 	// when we untar we overwrite the parent directory, buildkit doesnt
 	"TestRun/test_Dockerfile_test_add": {"--extra-ignore-file-permissions"},
+	// Verify we don't store root directory
+	"TestRun/test_Dockerfile_test_root": {"--extra-ignore-layer-length-mismatch=false"},
 	// FROM scratch we start with root, buildkit doesnt
 	"TestRun/test_Dockerfile_test_workdir_with_user": {"--extra-ignore-file-permissions"},
 	// We don't handle user nobody=-1 nogroup=-1 correctly

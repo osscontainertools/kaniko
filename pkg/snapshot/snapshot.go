@@ -244,6 +244,7 @@ func writeToTar(t util.Tar, files, whiteouts []string) error {
 
 	// Now create the tar.
 	addedPaths := make(map[string]bool)
+	addedPaths[config.RootDir] = true
 
 	for _, path := range whiteouts {
 		skipWhiteout, err := parentPathIncludesNonDirectory(path)
@@ -294,6 +295,9 @@ func parentPathIncludesNonDirectory(path string) (bool, error) {
 
 func addParentDirectories(t util.Tar, addedPaths map[string]bool, path string) error {
 	for _, parentPath := range util.ParentDirectories(path) {
+		if parentPath == config.RootDir {
+			continue
+		}
 		if _, pathAdded := addedPaths[parentPath]; pathAdded {
 			continue
 		}
