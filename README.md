@@ -19,6 +19,9 @@ If you are new here, these are the main differences to the last official kaniko 
 * Persist capabilities on COPY: https://github.com/mzihlmann/kaniko/pull/107
 * `FF_KANIKO_COPY_AS_ROOT=false` COPY from context should always default to root:root: https://github.com/mzihlmann/kaniko/pull/145 https://github.com/mzihlmann/kaniko/pull/166
 * COPY --from preserves mtime: https://github.com/mzihlmann/kaniko/pull/161
+* snapshotting preserves atime: https://github.com/mzihlmann/kaniko/pull/178
+* skip snapshotting rootdir: https://github.com/mzihlmann/kaniko/pull/183
+* predefined build args by @kit101 in https://github.com/mzihlmann/kaniko/pull/185
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
 * ignore labels on base image for cache: https://github.com/mzihlmann/kaniko/pull/2
@@ -34,6 +37,8 @@ If you are new here, these are the main differences to the last official kaniko 
 * deprecate force-build-metadata: https://github.com/mzihlmann/kaniko/pull/99
 * make skip-unused-stages the default: https://github.com/mzihlmann/kaniko/pull/100
 * kaniko learned `--credential-helpers` to select credential helpers: https://github.com/mzihlmann/kaniko/pull/135
+* 🔗 Annotation flag by @markusthoemmes in https://github.com/mzihlmann/kaniko/pull/98
+* relative OCILayoutPath by @EladAviczer in https://github.com/mzihlmann/kaniko/pull/187
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
 * 🔗 update ENV syntax in Dockerfile: by @babs in https://github.com/mzihlmann/kaniko/pull/60
@@ -132,6 +137,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--insecure-registry`](#flag---insecure-registry)
       - [Flag `--kaniko-dir`](#flag---kaniko-dir)
       - [Flag `--label`](#flag---label)
+      - [Flag `--annotation`](#flag---annotation)
       - [Flag `--log-format`](#flag---log-format)
       - [Flag `--log-timestamp`](#flag---log-timestamp)
       - [Flag `--materialize`](#flag---materialize)
@@ -139,6 +145,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--no-push-cache`](#flag---no-push-cache)
       - [Flag `--oci-layout-path`](#flag---oci-layout-path)
       - [Flag `--preserve-context`](#flag---preserve-context)
+      - [Flag `--push-ignore-immutable-tag-errors`](#flag---push-ignore-immutable-tag-errors)
       - [Flag `--push-retry`](#flag---push-retry)
       - [Flag `--registry-certificate`](#flag---registry-certificate)
       - [Flag `--registry-client-cert`](#flag---registry-client-cert)
@@ -175,9 +182,9 @@ expect - see [Known Issues](#known-issues).
       - [Merging the Container Manifests](#merging-the-container-manifests)
       - [On the Note of Adding Versioned Tags](#on-the-note-of-adding-versioned-tags)
   - [Comparison with Other Tools](#comparison-with-other-tools)
-  - [Community](#community-1)
   - [Limitations](#limitations)
     - [mtime and snapshotting](#mtime-and-snapshotting)
+    - [Dockerfile commands `--chown` support](#dockerfile-commands---chown-support)
   - [References](#references)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -1069,8 +1076,8 @@ This is equivalent as using the `LABEL` within the Dockerfile.
 #### Flag `--annotation`
 
 Set this flag as `--annotation key=value` to set some metadata to the final image.
-[Annotation levels](https://docs.docker.com/build/metadata/annotations/#specify-annotation-level) 
-are currently not supported and it's always the manifest that's 
+[Annotation levels](https://docs.docker.com/build/metadata/annotations/#specify-annotation-level)
+are currently not supported and it's always the manifest that's
 annotated.
 
 #### Flag `--log-format`
