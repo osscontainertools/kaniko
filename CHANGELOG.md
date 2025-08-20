@@ -1,3 +1,53 @@
+# v1.25.3 Release 2025-08-20
+The executor images in this release are:
+```
+martizih/kaniko:latest
+martizih/kaniko:v1.25.3
+```
+
+The debug images are available at:
+```
+martizih/kaniko:debug
+martizih/kaniko:v1.25.3-debug
+```
+
+The slim executor images which don't contain any authentication binaries are available at:
+```
+martizih/kaniko:slim
+martizih/kaniko:v1.25.3-slim
+```
+
+The warmer images are available at:
+```
+martizih/kaniko:warmer
+martizih/kaniko:v1.25.3-warmer
+```
+
+The bootstrap images, that can be used to build kaniko in kaniko, are available at:
+```
+martizih/kaniko:bootstrap
+martizih/kaniko:v1.25.3-bootstrap
+```
+
+* pass feature flag into integration tests correctly by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/173
+* chore(deps): bump actions/checkout from 4.2.2 to 5.0.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/174
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.30.3 to 1.31.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/177
+* chore(deps): bump the gomod group with 2 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/175
+* chore(deps): bump google.golang.org/api from 0.246.0 to 0.247.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/179
+* drop karrick/godirwalk in favour of stdlib by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/180
+* swap out filepath.Walk -> filepath.WalkDir by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/181
+* 155: snapshotting preserves atime by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/178
+* chore(deps): bump golang from 1.24.6 to 1.25.0 in /deploy by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/182
+* 🔗 Annotation flag by @markusthoemmes in https://github.com/mzihlmann/kaniko/pull/98
+* skip snapshotting rootdir by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/183
+* Annotations by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/184
+* predefined build args by @kit101 in https://github.com/mzihlmann/kaniko/pull/185
+* chore(deps): bump google.golang.org/api from 0.247.0 to 0.248.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/186
+* relative OCILayoutPath by @EladAviczer in https://github.com/mzihlmann/kaniko/pull/187
+* chore(deps): bump cloud.google.com/go/storage from 1.56.0 to 1.56.1 in the gomod group by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/188
+* chore(deps): bump the gomod group with 2 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/191
+
+
 # v1.25.2 Release 2025-08-08
 The executor images in this release are:
 ```
