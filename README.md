@@ -137,6 +137,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--insecure-registry`](#flag---insecure-registry)
       - [Flag `--kaniko-dir`](#flag---kaniko-dir)
       - [Flag `--label`](#flag---label)
+      - [Flag `--annotation`](#flag---annotation)
       - [Flag `--log-format`](#flag---log-format)
       - [Flag `--log-timestamp`](#flag---log-timestamp)
       - [Flag `--materialize`](#flag---materialize)
@@ -144,6 +145,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--no-push-cache`](#flag---no-push-cache)
       - [Flag `--oci-layout-path`](#flag---oci-layout-path)
       - [Flag `--preserve-context`](#flag---preserve-context)
+      - [Flag `--push-ignore-immutable-tag-errors`](#flag---push-ignore-immutable-tag-errors)
       - [Flag `--push-retry`](#flag---push-retry)
       - [Flag `--registry-certificate`](#flag---registry-certificate)
       - [Flag `--registry-client-cert`](#flag---registry-client-cert)
@@ -180,9 +182,9 @@ expect - see [Known Issues](#known-issues).
       - [Merging the Container Manifests](#merging-the-container-manifests)
       - [On the Note of Adding Versioned Tags](#on-the-note-of-adding-versioned-tags)
   - [Comparison with Other Tools](#comparison-with-other-tools)
-  - [Community](#community-1)
   - [Limitations](#limitations)
     - [mtime and snapshotting](#mtime-and-snapshotting)
+    - [Dockerfile commands `--chown` support](#dockerfile-commands---chown-support)
   - [References](#references)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -1074,8 +1076,8 @@ This is equivalent as using the `LABEL` within the Dockerfile.
 #### Flag `--annotation`
 
 Set this flag as `--annotation key=value` to set some metadata to the final image.
-[Annotation levels](https://docs.docker.com/build/metadata/annotations/#specify-annotation-level) 
-are currently not supported and it's always the manifest that's 
+[Annotation levels](https://docs.docker.com/build/metadata/annotations/#specify-annotation-level)
+are currently not supported and it's always the manifest that's
 annotated.
 
 #### Flag `--log-format`
