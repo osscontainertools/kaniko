@@ -20,6 +20,7 @@ jobs:
     env:
       IMAGE_REPO: 'localhost:5000'
       REGISTRY: 'localhost:5000'
+      PROXY: 'localhost:5001'
       DOCKER_BUILDKIT: '1'
 
     strategy:
@@ -49,6 +50,10 @@ jobs:
           persist-credentials: false
 
       - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+        with:
+          buildkitd-config-inline: |
+            [registry."docker.io"]
+              mirrors = ["${PROXY}"]
 
       - run: make install-diffoci install-crane k3s-setup
       - run: make ${{ matrix.make-target }}
