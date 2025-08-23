@@ -120,6 +120,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--cache-copy-layers`](#flag---cache-copy-layers)
       - [Flag `--cache-run-layers`](#flag---cache-run-layers)
       - [Flag `--cache-ttl`](#flag---cache-ttl)
+      - [Flag `--pre-cleanup`](#flag---pre-cleanup)
       - [Flag `--cleanup`](#flag---cleanup)
       - [Flag `--compression`](#flag---compression)
       - [Flag `--compression-level`](#flag---compression-level)
@@ -968,6 +969,11 @@ Set this flag to cache run layers (default=true).
 
 Cache timeout in hours. Defaults to two weeks.
 
+#### Flag `--pre-cleanup`
+
+Set this flag to clean the filesystem before the build.
+ie. in order to support custom built kaniko images.
+
 #### Flag `--cleanup`
 
 Set this flag to clean the filesystem at the end of the build.
@@ -1128,11 +1134,11 @@ be either `application/vnd.oci.image.manifest.v1+json` or
 #### Flag `--preserve-context`
 
 Set this boolean flag to `true` if you want kaniko to restore the build-context for multi-stage builds.
-If set, kaniko will take a snapshot of the full filesystem before it starts building to later restore to that state. If combined with the `--cleanup` flag it will also restore the state after cleanup.
+If set, kaniko will take a snapshot of the full filesystem before it starts building to later restore to that state. If combined with the `--cleanup` flag it will also restore the state after cleanup. If combined with `--pre-cleanup` it will **not** restore the state in between stages.
 
 This is useful if you want to pass in secrets via files or if you want to execute commands after the build completes.
 
-It will only take the snapshot if we are building a multistage image or if we plan to cleanup the filesystem after the build.
+It will only take the snapshot if we are building a multistage image or if we plan to cleanup the filesystem either before or after the build.
 
 Defaults to `false`
 

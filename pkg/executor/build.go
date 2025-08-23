@@ -86,11 +86,6 @@ type stageBuilder struct {
 }
 
 func makeSnapshotter(opts *config.KanikoOptions) (*snapshot.Snapshotter, error) {
-	err := util.InitIgnoreList()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to initialize ignore list")
-	}
-
 	hasher, err := getHasher(opts.SnapshotMode)
 	if err != nil {
 		return nil, err
@@ -752,8 +747,12 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 	var args = dockerfile.NewBuildArgs(merged)
 
 	var tarball string
+	err = util.InitIgnoreList()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to initialize ignore list")
+	}
 	if opts.PreserveContext {
-		if len(kanikoStages) > 1 || opts.Cleanup {
+		if len(kanikoStages) > 1 || opts.PreCleanup || opts.Cleanup {
 			logrus.Info("Creating snapshot of build context")
 			snapshotter, err := makeSnapshotter(opts)
 			if err != nil {
@@ -766,6 +765,11 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 			}
 		} else {
 			logrus.Info("Skipping context snapshot as no-one requires it")
+		}
+	}
+	if opts.PreCleanup {
+		if err = util.DeleteFilesystem(); err != nil {
+			return nil, err
 		}
 	}
 
@@ -882,7 +886,7 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 		if err := util.DeleteFilesystem(); err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("deleting file system after stage %d", index))
 		}
-		if opts.PreserveContext {
+		if opts.PreserveContext && !opts.PreCleanup {
 			if tarball == "" {
 				return nil, fmt.Errorf("context snapshot is missing")
 			}
