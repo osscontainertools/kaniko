@@ -645,7 +645,105 @@ func Test_SkipingUnusedStages(t *testing.T) {
 			targetIndex, err := targetStage(stages, target)
 			testutil.CheckError(t, false, err)
 			targetIndexBeforeSkip := targetIndex
-			onlyUsedStages := skipUnusedStages(stages, &targetIndex, target)
+			onlyUsedStages := skipUnusedStages(stages, &targetIndex, target, false)
+			for _, s := range onlyUsedStages {
+				actualSourceCodes[target] = append(actualSourceCodes[target], s.SourceCode)
+			}
+			t.Run(test.description, func(t *testing.T) {
+				testutil.CheckDeepEqual(t, test.expectedSourceCodes[target], actualSourceCodes[target])
+				testutil.CheckDeepEqual(t, test.expectedTargetIndexBeforeSkip[target], targetIndexBeforeSkip)
+				testutil.CheckDeepEqual(t, test.expectedTargetIndexAfterSkip[target], targetIndex)
+			})
+		}
+	}
+}
+
+func Test_SquashStages(t *testing.T) {
+	tests := []struct {
+		description                   string
+		dockerfile                    string
+		targets                       []string
+		expectedSourceCodes           map[string][]string
+		expectedTargetIndexBeforeSkip map[string]int
+		expectedTargetIndexAfterSkip  map[string]int
+	}{
+		{
+			description: "dockerfile_without_copyFrom",
+			dockerfile: `
+			FROM alpine:3.11 AS base-dev
+			RUN echo dev > /hi
+			FROM alpine:3.11 AS base-prod
+			RUN echo prod > /hi
+			FROM base-dev as final-stage
+			RUN cat /hi
+			`,
+			targets: []string{"base-dev", "base-prod", ""},
+			expectedSourceCodes: map[string][]string{
+				"base-dev":  {"FROM alpine:3.11 AS base-dev"},
+				"base-prod": {"FROM alpine:3.11 AS base-prod"},
+				"":          {"FROM alpine:3.11 AS base-dev\nFROM base-dev as final-stage"},
+			},
+			expectedTargetIndexBeforeSkip: map[string]int{
+				"base-dev":  0,
+				"base-prod": 1,
+				"":          2,
+			},
+			expectedTargetIndexAfterSkip: map[string]int{
+				"base-dev":  0,
+				"base-prod": 0,
+				"":          0,
+			},
+		},
+		{
+			description: "dockerfile_with_two_copyFrom_and_arg",
+			dockerfile: `
+			FROM debian:12.10 as base
+			COPY . .
+			FROM scratch as second
+			ENV foopath context/foo
+			COPY --from=0 $foopath context/b* /foo/
+			FROM second as third
+			COPY --from=base /context/foo /new/foo
+			FROM base as fourth
+			# Make sure that we snapshot intermediate images correctly
+			RUN date > /date
+			ENV foo bar
+			# This base image contains symlinks with relative paths to ignored directories
+			# We need to test they're extracted correctly
+			FROM fedora@sha256:c4cc32b09c6ae3f1353e7e33a8dda93dc41676b923d6d89afa996b421cc5aa48
+			FROM fourth
+			ARG file=/foo2
+			COPY --from=second /foo ${file}
+			COPY --from=debian:10.13 /etc/os-release /new
+			`,
+			targets: []string{"base", ""},
+			expectedSourceCodes: map[string][]string{
+				"base":   {"FROM debian:12.10 as base"},
+				"second": {"FROM debian:12.10 as base", "FROM scratch as second"},
+				"":       {"FROM debian:12.10 as base", "FROM scratch as second", "FROM base as fourth\nFROM fourth"},
+			},
+			expectedTargetIndexBeforeSkip: map[string]int{
+				"base":   0,
+				"second": 1,
+				"":       5,
+			},
+			expectedTargetIndexAfterSkip: map[string]int{
+				"base":   0,
+				"second": 1,
+				"":       2,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		stages, _, err := Parse([]byte(test.dockerfile))
+		testutil.CheckError(t, false, err)
+		actualSourceCodes := make(map[string][]string)
+		for _, target := range test.targets {
+			targetIndex, err := targetStage(stages, target)
+			testutil.CheckError(t, false, err)
+			targetIndexBeforeSkip := targetIndex
+			onlyUsedStages := skipUnusedStages(stages, &targetIndex, target, true)
 			for _, s := range onlyUsedStages {
 				actualSourceCodes[target] = append(actualSourceCodes[target], s.SourceCode)
 			}

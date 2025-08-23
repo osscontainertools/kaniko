@@ -283,12 +283,13 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		return nil, errors.Wrap(err, "resolving args")
 	}
 	if opts.SkipUnusedStages {
-		stages = skipUnusedStages(stages, &targetStage, opts.Target)
+		ffSquashStages := config.EnvBool("FF_KANIKO_SQUASH_STAGES")
+		stages = skipUnusedStages(stages, &targetStage, opts.Target, ffSquashStages)
 	}
 	var kanikoStages []config.KanikoStage
 	for index, stage := range stages {
 		if len(stage.Name) > 0 {
-			logrus.Infof("Resolved base name %s to %s", stage.BaseName, stage.Name)
+			logrus.Infof("Resolved base name of %s to %s", stage.Name, stage.BaseName)
 		}
 		baseImageIndex := baseImageIndex(index, stages)
 		kanikoStages = append(kanikoStages, config.KanikoStage{
@@ -347,8 +348,21 @@ func unifyArgs(metaArgs []instructions.ArgCommand, buildArgs []string) []string 
 	return args
 }
 
-// skipUnusedStages returns the list of used stages without the unnecessaries ones
-func skipUnusedStages(stages []instructions.Stage, lastStageIndex *int, target string) []instructions.Stage {
+func squash(a, b instructions.Stage) instructions.Stage {
+	return instructions.Stage{
+		Name:       b.Name,
+		Commands:   append(a.Commands, b.Commands...),
+		OrigCmd:    a.OrigCmd,
+		BaseName:   a.BaseName,
+		Platform:   a.Platform,
+		Comment:    a.Comment + b.Comment,
+		SourceCode: a.SourceCode + "\n" + b.SourceCode,
+		Location:   append(a.Location, b.Location...),
+	}
+}
+
+// skipUnusedStages returns the list of used stages, filters out unused stages and optionally squashes them together.
+func skipUnusedStages(stages []instructions.Stage, lastStageIndex *int, target string, squashStages bool) []instructions.Stage {
 	stageByName := make(map[string]int)
 
 	for idx, s := range stages {
@@ -357,11 +371,13 @@ func skipUnusedStages(stages []instructions.Stage, lastStageIndex *int, target s
 		}
 	}
 
-	stagesDependencies := make([]bool, len(stages))
-	stagesDependencies[*lastStageIndex] = true
+	// We now "count" references, it is only safe to squash
+	// stages if the references are exactly 1.
+	stagesDependencies := make([]int, len(stages))
+	stagesDependencies[*lastStageIndex] = 1
 
 	for i := *lastStageIndex; i >= 0; i-- {
-		if !stagesDependencies[i] {
+		if stagesDependencies[i] == 0 {
 			continue
 		}
 		s := stages[i]
@@ -369,22 +385,41 @@ func skipUnusedStages(stages []instructions.Stage, lastStageIndex *int, target s
 			// There can be references that appear as non-existing stages
 			// ie. `FROM debian AS base` would try refer to `debian` as stage
 			// before falling back to `debian` as a docker image.
-			stagesDependencies[BaseIndex] = true
+			stagesDependencies[BaseIndex]++
 		}
 		for _, c := range s.Commands {
 			switch cmd := c.(type) {
 			case *instructions.CopyCommand:
 				if copyFromIndex, err := strconv.Atoi(cmd.From); err == nil {
 					// numeric reference `COPY --from=0`
-					stagesDependencies[copyFromIndex] = true
+					// COPY --from can never be squashed, identical to having 2 dependencies
+					stagesDependencies[copyFromIndex] += 2
 				} else {
 					// named reference `COPY --from=base`
 					if copyFromIndex, ok := stageByName[strings.ToLower(cmd.From)]; ok {
 						// There can be references that appear as non-existing stages
 						// ie. `COPY --from=debian` would try refer to `debian` as stage
 						// before falling back to `debian` as a docker image.
-						stagesDependencies[copyFromIndex] = true
+						// COPY --from can never be squashed, identical to having 2 dependencies
+						stagesDependencies[copyFromIndex] += 2
 					}
+				}
+			}
+		}
+	}
+
+	for i := 0; i <= *lastStageIndex; i++ {
+		if squashStages {
+			if BaseIndex, ok := stageByName[strings.ToLower(stages[i].BaseName)]; ok {
+				if stagesDependencies[BaseIndex] == 1 {
+					// squash stages[i] into stages[i].BaseName
+					logrus.Infof("Squashing stages: %s into %s", stages[i].Name, stages[BaseIndex].Name)
+					// We squash the base stage into the current stage because,
+					// no one else depends on the base stage so it can be freely moved,
+					// the current stage might depend on other stages so it is not safe to move it.
+					stages[i] = squash(stages[BaseIndex], stages[i])
+					stagesDependencies[BaseIndex] = 0
+					continue
 				}
 			}
 		}
@@ -392,7 +427,7 @@ func skipUnusedStages(stages []instructions.Stage, lastStageIndex *int, target s
 
 	var onlyUsedStages []instructions.Stage
 	for i := 0; i < *lastStageIndex+1; i++ {
-		if stagesDependencies[i] {
+		if stagesDependencies[i] > 0 {
 			onlyUsedStages = append(onlyUsedStages, stages[i])
 		}
 	}
