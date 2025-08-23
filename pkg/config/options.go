@@ -84,6 +84,7 @@ type KanikoOptions struct {
 	NoPush                       bool
 	NoPushCache                  bool
 	Cache                        bool
+	PreCleanup                   bool
 	Cleanup                      bool
 	CompressedCaching            bool
 	IgnoreVarRun                 bool
