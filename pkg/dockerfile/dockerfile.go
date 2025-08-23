@@ -283,7 +283,8 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		return nil, errors.Wrap(err, "resolving args")
 	}
 	if opts.SkipUnusedStages {
-		stages = skipUnusedStages(stages, &targetStage, opts.Target)
+		ffSquashStages := config.EnvBool("FF_KANIKO_SQUASH_STAGES")
+		stages = skipUnusedStages(stages, &targetStage, opts.Target, ffSquashStages)
 	}
 	var kanikoStages []config.KanikoStage
 	for index, stage := range stages {
@@ -361,7 +362,7 @@ func squash(a, b instructions.Stage) instructions.Stage {
 }
 
 // skipUnusedStages returns the list of used stages, filters out unused stages and optionally squashes them together.
-func skipUnusedStages(stages []instructions.Stage, lastStageIndex *int, target string) []instructions.Stage {
+func skipUnusedStages(stages []instructions.Stage, lastStageIndex *int, target string, squashStages bool) []instructions.Stage {
 	stageByName := make(map[string]int)
 
 	for idx, s := range stages {
@@ -408,16 +409,18 @@ func skipUnusedStages(stages []instructions.Stage, lastStageIndex *int, target s
 	}
 
 	for i := 0; i <= *lastStageIndex; i++ {
-		if BaseIndex, ok := stageByName[strings.ToLower(stages[i].BaseName)]; ok {
-			if stagesDependencies[BaseIndex] == 1 {
-				// squash stages[i] into stages[i].BaseName
-				logrus.Infof("Squashing stages: %s into %s", stages[i].Name, stages[BaseIndex].Name)
-				// We squash the base stage into the current stage because,
-				// no one else depends on the base stage so it can be freely moved,
-				// the current stage might depend on other stages so it is not safe to move it.
-				stages[i] = squash(stages[BaseIndex], stages[i])
-				stagesDependencies[BaseIndex] = 0
-				continue
+		if squashStages {
+			if BaseIndex, ok := stageByName[strings.ToLower(stages[i].BaseName)]; ok {
+				if stagesDependencies[BaseIndex] == 1 {
+					// squash stages[i] into stages[i].BaseName
+					logrus.Infof("Squashing stages: %s into %s", stages[i].Name, stages[BaseIndex].Name)
+					// We squash the base stage into the current stage because,
+					// no one else depends on the base stage so it can be freely moved,
+					// the current stage might depend on other stages so it is not safe to move it.
+					stages[i] = squash(stages[BaseIndex], stages[i])
+					stagesDependencies[BaseIndex] = 0
+					continue
+				}
 			}
 		}
 	}

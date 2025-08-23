@@ -1337,6 +1337,11 @@ delay of 1 second. Defaults to 0`.
 When files are copied from context, kaniko will copy them as the current user. But according to [dockerfile specification](https://docs.docker.com/reference/dockerfile/#copy---chown---chmod) they should always be copied as `root:root` unless specified otherwise.
 Set this flag to `true` to implement COPY as specified. Defaults to `false`.
 
+#### Flag `FF_KANIKO_SQUASH_STAGES`
+
+Many multi-stage Dockerfiles include intermediate stages that only become relevant if we were to build multiple build targets. As kaniko can only build a single target at a time, they can be squashed together without changing the final build output.
+Set this flag to `true` to squash stages together. Defaults to `false`.
+
 ### Debug Image
 
 The kaniko executor image is based on scratch and doesn't contain a shell. We
