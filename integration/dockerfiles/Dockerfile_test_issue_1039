@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi7/ubi:7.7-214
+FROM registry.access.redhat.com/ubi7/ubi:7.7-214 AS base
 
 # Install GCC, GCC-C++ and make libraries for build environment
 # Then clean caches
@@ -9,3 +9,6 @@ RUN yum --disableplugin=subscription-manager update -y \
         make-3.82-24.el7 \
     && yum --disableplugin=subscription-manager clean all \
     && rm -rf /var/cache/yum /var/lib/yum/yumdb
+
+FROM base
+RUN echo test
