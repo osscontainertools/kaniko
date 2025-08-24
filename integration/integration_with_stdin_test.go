@@ -31,6 +31,7 @@ import (
 )
 
 func TestBuildWithStdin(t *testing.T) {
+	t.Parallel()
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
 
