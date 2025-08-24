@@ -388,7 +388,7 @@ func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrat
 	kanikoImage := GetKanikoImage(imageRepo, dockerfile)
 	timer = timing.Start(dockerfile + "_kaniko")
 	if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
-		contextDir, gcsBucket, gcsClient, serviceAccount, true); err != nil {
+		contextDir, gcsBucket, gcsClient, serviceAccount, false); err != nil {
 		return err
 	}
 	timing.DefaultRun.Stop(timer)
@@ -528,14 +528,11 @@ func buildKanikoImage(
 	shdUpload bool,
 ) (string, error) {
 	benchmarkEnv := "BENCHMARK_FILE=false"
-	benchmarkDir, err := os.MkdirTemp("", "")
-	if err != nil {
-		return "", err
-	}
+	os.Mkdir("benchmarks", 0o755)
 	if b, err := strconv.ParseBool(os.Getenv("BENCHMARK")); err == nil && b {
-		benchmarkEnv = "BENCHMARK_FILE=/kaniko/benchmarks/" + dockerfile
+		benchmarkEnv = "BENCHMARK_FILE=/workspace/benchmarks/" + dockerfile
 		if shdUpload {
-			benchmarkFile := path.Join(benchmarkDir, dockerfile)
+			benchmarkFile := path.Join("benchmarks", dockerfile)
 			fileName := fmt.Sprintf("run_%s_%s", time.Now().Format("2006-01-02-15:04"), dockerfile)
 			dst := path.Join("benchmarks", fileName)
 			file, err := os.Open(benchmarkFile)
@@ -554,7 +551,6 @@ func buildKanikoImage(
 		"run", "--net=host",
 		"-e", benchmarkEnv,
 		"-v", contextDir + ":/workspace:ro",
-		"-v", benchmarkDir + ":/kaniko/benchmarks",
 	}
 
 	if env, ok := envsMap[dockerfile]; ok {
@@ -595,5 +591,5 @@ func buildKanikoImage(
 	if err := checkNoWarnings(dockerfile, out); err != nil {
 		return "", err
 	}
-	return benchmarkDir, nil
+	return "benchmarks", nil
 }
