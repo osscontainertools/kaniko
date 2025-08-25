@@ -102,6 +102,7 @@ type KanikoOptions struct {
 type KanikoGitOptions struct {
 	Branch            string
 	SingleBranch      bool
+	Depth             int
 	RecurseSubmodules bool
 	InsecureSkipTLS   bool
 }
@@ -113,7 +114,7 @@ func (k *KanikoGitOptions) Type() string {
 }
 
 func (k *KanikoGitOptions) String() string {
-	return fmt.Sprintf("branch=%s,single-branch=%t,recurse-submodules=%t", k.Branch, k.SingleBranch, k.RecurseSubmodules)
+	return fmt.Sprintf("branch=%s,single-branch=%t,depth=%d,recurse-submodules=%t,insecure-skip-tls=%t", k.Branch, k.SingleBranch, k.Depth, k.RecurseSubmodules, k.InsecureSkipTLS)
 }
 
 func (k *KanikoGitOptions) Set(s string) error {
@@ -130,6 +131,12 @@ func (k *KanikoGitOptions) Set(s string) error {
 			return err
 		}
 		k.SingleBranch = v
+	case "depth":
+		v, err := strconv.ParseInt(parts[1], 10, strconv.IntSize)
+		if err != nil {
+			return err
+		}
+		k.Depth = int(v)
 	case "recurse-submodules":
 		v, err := strconv.ParseBool(parts[1])
 		if err != nil {

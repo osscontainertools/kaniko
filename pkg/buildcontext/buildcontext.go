@@ -31,6 +31,7 @@ const (
 type BuildOptions struct {
 	GitBranch            string
 	GitSingleBranch      bool
+	GitDepth             int
 	GitRecurseSubmodules bool
 	InsecureSkipTLS      bool
 }
