@@ -299,6 +299,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 //
 //	git://github.com/myuser/repo#refs/heads/main
 func TestGitBuildcontext(t *testing.T) {
+	t.Parallel()
 	branch, _, url := getBranchCommitAndURL()
 	testGitBuildcontextHelper(t, url, "", branch)
 }
@@ -309,6 +310,7 @@ func TestGitBuildcontext(t *testing.T) {
 //	git://github.com/myuser/repo
 func TestGitBuildcontextNoRef(t *testing.T) {
 	t.Skip("Docker's behavior is to assume a 'master' branch, which the Kaniko repo doesn't have")
+	t.Parallel()
 	_, _, url := getBranchCommitAndURL()
 	testGitBuildcontextHelper(t, url, "", "")
 }
@@ -318,11 +320,13 @@ func TestGitBuildcontextNoRef(t *testing.T) {
 //
 //	git://github.com/myuser/repo#b873088c4a7b60bb7e216289c58da945d0d771b6
 func TestGitBuildcontextExplicitCommit(t *testing.T) {
+	t.Parallel()
 	_, commit, url := getBranchCommitAndURL()
 	testGitBuildcontextHelper(t, url, commit, "")
 }
 
 func TestGitBuildcontextSubPath(t *testing.T) {
+	t.Parallel()
 	branch, _, url := getBranchCommitAndURL()
 	dockerfile := "Dockerfile_test_run_2"
 
@@ -364,6 +368,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 }
 
 func TestBuildViaRegistryMirrors(t *testing.T) {
+	t.Parallel()
 	branch, _, url := getBranchCommitAndURL()
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
 
@@ -403,6 +408,7 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 }
 
 func TestBuildViaRegistryMap(t *testing.T) {
+	t.Parallel()
 	branch, _, url := getBranchCommitAndURL()
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
 
@@ -442,6 +448,7 @@ func TestBuildViaRegistryMap(t *testing.T) {
 }
 
 func TestBuildSkipFallback(t *testing.T) {
+	t.Parallel()
 	branch, _, url := getBranchCommitAndURL()
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
 
@@ -466,6 +473,7 @@ func TestBuildSkipFallback(t *testing.T) {
 
 // TestKanikoDir tests that a build that sets --kaniko-dir produces the same output as the equivalent docker build.
 func TestKanikoDir(t *testing.T) {
+	t.Parallel()
 	branch, _, url := getBranchCommitAndURL()
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
 
@@ -504,6 +512,7 @@ func TestKanikoDir(t *testing.T) {
 }
 
 func TestBuildWithLabels(t *testing.T) {
+	t.Parallel()
 	branch, _, url := getBranchCommitAndURL()
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_test_label", integrationPath, dockerfilesPath)
 
@@ -546,6 +555,7 @@ func TestBuildWithLabels(t *testing.T) {
 }
 
 func TestBuildWithHTTPError(t *testing.T) {
+	t.Parallel()
 	branch, _, url := getBranchCommitAndURL()
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_test_add_404", integrationPath, dockerfilesPath)
 
@@ -620,6 +630,7 @@ func TestReplaceFolderWithFileOrLink(t *testing.T) {
 	dockerfiles := []string{"TestReplaceFolderWithFile", "TestReplaceFolderWithLink"}
 	for _, dockerfile := range dockerfiles {
 		t.Run(dockerfile, func(t *testing.T) {
+			t.Parallel()
 			buildImage(t, dockerfile, imageBuilder)
 			kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 
@@ -679,6 +690,7 @@ func TestCache(t *testing.T) {
 
 // Attempt to warm an image two times : first time should populate the cache, second time should find the image in the cache.
 func TestWarmerTwice(t *testing.T) {
+	t.Parallel()
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex) + "/tmpCache"
 
@@ -766,6 +778,7 @@ func TestExitCodePropagation(t *testing.T) {
 	dockerfile := fmt.Sprintf("%s/Dockerfile_exit_code_propagation", context)
 
 	t.Run("test error code propagation", func(t *testing.T) {
+		t.Parallel()
 		// building the image with docker should fail with exit code 42
 		dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_exit_code_propagation")
 		dockerFlags := []string{
@@ -828,6 +841,7 @@ func TestExitCodePropagation(t *testing.T) {
 }
 
 func TestBuildWithAnnotations(t *testing.T) {
+	t.Parallel()
 	branch, _, url := getBranchCommitAndURL()
 
 	dockerfile := fmt.Sprintf("%s/testdata/Dockerfile.trivial", integrationPath)

@@ -52,6 +52,7 @@ func TestSnapshotBenchmark(t *testing.T) {
 	var wg sync.WaitGroup
 	for _, num := range nums {
 		t.Run(fmt.Sprintf("test_benchmark_%d", num), func(t *testing.T) {
+			t.Parallel()
 			wg.Add(1)
 			var err error
 			go func(num int, err *error) {
@@ -131,6 +132,7 @@ func TestSnapshotBenchmarkGcloud(t *testing.T) {
 	t.Log("Number of Files,Total Build Time,Walking Filesystem, Resolving Files")
 	for _, num := range nums {
 		t.Run(fmt.Sprintf("test_benchmark_%d", num), func(t *testing.T) {
+			t.Parallel()
 			wg.Add(1)
 			go func(num int) {
 				dir, err := runInGcloud(contextDir, num)
