@@ -70,6 +70,7 @@ var argsMap = map[string][]string{
 // Environment to build Dockerfiles with, used for both docker and kaniko builds
 var envsMap = map[string][]string{
 	"Dockerfile_test_arg_secret": {"SSH_PRIVATE_KEY=ThEPriv4t3Key"},
+	"Dockerfile_test_issue_519":  {"DOCKER_BUILDKIT=0"},
 }
 
 var KanikoEnv = []string{
