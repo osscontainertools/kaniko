@@ -99,12 +99,11 @@ integration-test-misc:
 
 .PHONY: k8s-executor-build-push
 k8s-executor-build-push:
-	DOCKER_BUILDKIT=1 docker build ${BUILD_ARG} --build-arg=GOARCH=$(GOARCH) --build-arg=TARGETOS=linux -t $(REGISTRY)/executor:latest -f deploy/Dockerfile --target kaniko-executor .
+	docker build ${BUILD_ARG} --build-arg=GOARCH=$(GOARCH) --build-arg=TARGETOS=linux -t $(REGISTRY)/executor:latest -f deploy/Dockerfile --target kaniko-executor .
 	docker push $(REGISTRY)/executor:latest
 
 
 .PHONY: images
-images: DOCKER_BUILDKIT=1
 images:
 	docker build ${BUILD_ARG} --build-arg=TARGETARCH=$(GOARCH) --build-arg=TARGETOS=linux -t $(REGISTRY)/executor:latest -f deploy/Dockerfile --target kaniko-executor .
 	docker build ${BUILD_ARG} --build-arg=TARGETARCH=$(GOARCH) --build-arg=TARGETOS=linux -t $(REGISTRY)/executor:debug -f deploy/Dockerfile --target kaniko-debug .
