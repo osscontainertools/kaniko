@@ -434,6 +434,7 @@ func resolveSourceContext() error {
 	contextExecutor, err := buildcontext.GetBuildContext(opts.SrcContext, buildcontext.BuildOptions{
 		GitBranch:            opts.Git.Branch,
 		GitSingleBranch:      opts.Git.SingleBranch,
+		GitDepth:             opts.Git.Depth,
 		GitRecurseSubmodules: opts.Git.RecurseSubmodules,
 		InsecureSkipTLS:      opts.Git.InsecureSkipTLS,
 	})

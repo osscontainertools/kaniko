@@ -1040,7 +1040,7 @@ Force building outside of a container
 #### Flag `--git`
 
 Branch to clone if build context is a git repository (default
-branch=,single-branch=false,recurse-submodules=false,insecure-skip-tls=false)
+branch=,single-branch=false,depth=0,recurse-submodules=false,insecure-skip-tls=false)
 
 #### Flag `--image-name-with-digest-file`
 
