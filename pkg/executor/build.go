@@ -119,6 +119,15 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		return nil, err
 	}
 
+	man, err := sourceImage.Manifest()
+	if err != nil {
+		return nil, err
+	}
+	ann := map[string]string{}
+	for k := range man.Annotations {
+		ann[k] = ""
+	}
+
 	cf, err := sourceImage.ConfigFile()
 	if err != nil {
 		return nil, err
@@ -131,6 +140,7 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		return nil, err
 	}
 
+	sourceImageReproducible = mutate.Annotations(sourceImageReproducible, ann).(v1.Image)
 	digest, err := sourceImageReproducible.Digest()
 	if err != nil {
 		return nil, err
