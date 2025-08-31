@@ -92,7 +92,7 @@ func ResolveEnvAndWildcards(sd instructions.SourcesAndDest, fileContext FileCont
 	if err != nil {
 		return nil, "", errors.Wrap(err, "failed to resolve environment")
 	}
-	if len(resolvedEnvs) == 0 {
+	if len(resolvedEnvs) == 0 && !config.EnvBool("FF_KANIKO_HEREDOC") {
 		return nil, "", errors.New("resolved envs is empty")
 	}
 	dests, err := ResolveEnvironmentReplacementList([]string{sd.DestPath}, envs, true)
@@ -287,7 +287,7 @@ func IsSrcsValid(srcsAndDest instructions.SourcesAndDest, resolvedSources []stri
 		}
 	}
 	// ignore the case where whildcards and there are no files to copy
-	if totalFiles == 0 {
+	if totalFiles == 0 && !config.EnvBool("FF_KANIKO_HEREDOC") {
 		// using log warning instead of return errors.New("copy failed: no source files specified")
 		logrus.Warn("No files to copy")
 	}
@@ -415,7 +415,7 @@ func GetUserGroup(chownStr string, env []string) (int64, int64, error) {
 
 func GetChmod(chmodStr string, env []string) (chmod fs.FileMode, useDefault bool, err error) {
 	if chmodStr == "" {
-		return fs.FileMode(0o600), true, nil
+		return fs.FileMode(0o644), true, nil
 	}
 
 	chmodStr, err = ResolveEnvironmentReplacement(chmodStr, env, false)
