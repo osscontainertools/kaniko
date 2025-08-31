@@ -139,28 +139,27 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 			c.snapshotFiles = append(c.snapshotFiles, destPath)
 		}
 	}
-	if len(c.cmd.SourcesAndDest.SourceContents) > 0 {
-		if kConfig.EnvBool("FF_KANIKO_HEREDOC") {
-			for _, src := range c.cmd.SourcesAndDest.SourceContents {
-				fullPath := filepath.Join(c.fileContext.Root, src.Path)
-				cwd := config.WorkingDir
-				if cwd == "" {
-					cwd = kConfig.RootDir
-				}
-				destPath, err := util.DestinationFilepath(fullPath, dest, cwd)
-				if err != nil {
-					return errors.Wrap(err, "find destination path")
-				}
 
-				srcFile := strings.NewReader(src.Data)
-				err = util.CreateFile(destPath, srcFile, chmod, uint32(uid), uint32(gid))
-				if err != nil {
-					return errors.Wrap(err, "creating file")
-				}
-				c.snapshotFiles = append(c.snapshotFiles, destPath)
-			}
+	// Heredocs
+	for _, src := range c.cmd.SourcesAndDest.SourceContents {
+		fullPath := filepath.Join(c.fileContext.Root, src.Path)
+		cwd := config.WorkingDir
+		if cwd == "" {
+			cwd = kConfig.RootDir
 		}
+		destPath, err := util.DestinationFilepath(fullPath, dest, cwd)
+		if err != nil {
+			return errors.Wrap(err, "find destination path")
+		}
+
+		srcFile := strings.NewReader(src.Data)
+		err = util.CreateFile(destPath, srcFile, chmod, uint32(uid), uint32(gid))
+		if err != nil {
+			return errors.Wrap(err, "creating file")
+		}
+		c.snapshotFiles = append(c.snapshotFiles, destPath)
 	}
+
 	return nil
 }
 
@@ -312,12 +311,6 @@ func copyCmdFilesUsedFromContext(
 	config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd *instructions.CopyCommand,
 	fileContext util.FileContext,
 ) ([]string, error) {
-	if len(cmd.SourcesAndDest.SourceContents) > 0 && !kConfig.EnvBool("FF_KANIKO_HEREDOC") {
-		// https://github.com/GoogleContainerTools/kaniko/issues/1713
-		logrus.Warnf("#1713 kaniko does not support heredoc syntax in COPY statements: %v", cmd.SourcesAndDest.SourceContents[0].Path)
-		logrus.Info("Experimental syntax support for heredoc can be activated using FF_KANIKO_HEREDOC=1")
-	}
-
 	if cmd.From != "" {
 		fileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoDir, cmd.From)}
 	}
