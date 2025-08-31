@@ -65,18 +65,27 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 
 		cmd := strings.Join(cmdRun.CmdLine, " ")
 		if nfiles := len(cmdRun.Files); nfiles > 0 {
-			file0 := cmdRun.Files[0]
-			if nfiles == 1 && cmd == fmt.Sprintf("<<%s", file0.Name) {
-				// 1713: if we encounter a line like 'RUN <<EOF',
-				// we implicitly want the file body to be executed as a script
-				cmd += " sh"
-			}
-			for _, h := range cmdRun.Files {
-				cmd += "\n" + h.Data + h.Name
+			if kConfig.EnvBool("FF_KANIKO_HEREDOC") {
+				file0 := cmdRun.Files[0]
+				if nfiles == 1 && cmd == fmt.Sprintf("<<%s", file0.Name) {
+					// 1713: if we encounter a line like 'RUN <<EOF',
+					// we implicitly want the file body to be executed as a script
+					cmd += " sh"
+				}
+				for _, h := range cmdRun.Files {
+					cmd += "\n" + h.Data + h.Name
+				}
+			} else {
+				logrus.Warnf("#1713 kaniko does not support heredoc syntax in 'RUN <command> ...' (Shell Form) statements: %v", cmdRun.Files[0].Name)
+				logrus.Info("Experimental syntax support for heredoc can be activated using FF_KANIKO_HEREDOC=1")
 			}
 		}
 		newCommand = append(shell, cmd)
 	} else {
+		if len(cmdRun.Files) > 0 {
+			// https://github.com/GoogleContainerTools/kaniko/issues/1713
+			logrus.Warnf("#1713 kaniko does not support heredoc syntax in 'RUN [\"<command>\", ...]' (Exec Form) statements: %v", cmdRun.Files[0].Name)
+		}
 		newCommand = cmdRun.CmdLine
 		// Find and set absolute path of executable by setting PATH temporary
 		replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
