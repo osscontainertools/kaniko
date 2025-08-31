@@ -415,7 +415,7 @@ func GetUserGroup(chownStr string, env []string) (int64, int64, error) {
 
 func GetChmod(chmodStr string, env []string) (chmod fs.FileMode, useDefault bool, err error) {
 	if chmodStr == "" {
-		return fs.FileMode(0o600), true, nil
+		return fs.FileMode(0o644), true, nil
 	}
 
 	chmodStr, err = ResolveEnvironmentReplacement(chmodStr, env, false)
