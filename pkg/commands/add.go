@@ -224,6 +224,11 @@ func (ca *CachingAddCommand) String() string {
 func addCmdFilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd *instructions.AddCommand,
 	fileContext util.FileContext,
 ) ([]string, error) {
+	if len(cmd.SourcesAndDest.SourceContents) > 0 {
+		// https://github.com/GoogleContainerTools/kaniko/issues/1713
+		logrus.Warnf("#1713 kaniko does not support heredoc syntax in ADD statements: %v", cmd.SourcesAndDest.SourceContents[0].Path)
+	}
+
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 
 	srcs, _, err := util.ResolveEnvAndWildcards(cmd.SourcesAndDest, fileContext, replacementEnvs)

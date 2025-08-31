@@ -53,6 +53,11 @@ func (r *RunCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 }
 
 func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand) error {
+	if len(cmdRun.Files) > 0 {
+		// https://github.com/GoogleContainerTools/kaniko/issues/1713
+		logrus.Warnf("#1713 kaniko does not support heredoc syntax in RUN statements: %v", cmdRun.Files[0].Name)
+	}
+
 	var newCommand []string
 	if cmdRun.PrependShell {
 		// This is the default shell on Linux
