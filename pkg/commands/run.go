@@ -53,11 +53,6 @@ func (r *RunCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 }
 
 func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand) error {
-	if len(cmdRun.Files) > 0 {
-		// https://github.com/GoogleContainerTools/kaniko/issues/1713
-		logrus.Warnf("#1713 kaniko does not support heredoc syntax in RUN statements: %v", cmdRun.Files[0].Name)
-	}
-
 	var newCommand []string
 	if cmdRun.PrependShell {
 		// This is the default shell on Linux
@@ -68,7 +63,19 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 			shell = append(shell, "/bin/sh", "-c")
 		}
 
-		newCommand = append(shell, strings.Join(cmdRun.CmdLine, " "))
+		cmd := strings.Join(cmdRun.CmdLine, " ")
+		if nfiles := len(cmdRun.Files); nfiles > 0 {
+			file0 := cmdRun.Files[0]
+			if nfiles == 1 && cmd == fmt.Sprintf("<<%s", file0.Name) {
+				// 1713: if we encounter a line like 'RUN <<EOF',
+				// we implicitly want the file body to be executed as a script
+				cmd += " sh"
+			}
+			for _, h := range cmdRun.Files {
+				cmd += "\n" + h.Data + h.Name
+			}
+		}
+		newCommand = append(shell, cmd)
 	} else {
 		newCommand = cmdRun.CmdLine
 		// Find and set absolute path of executable by setting PATH temporary
