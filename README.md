@@ -844,6 +844,13 @@ identities and the MSI endpoint is attempted to be contacted which will work in
 various Azure contexts such as App Service and Azure Kubernetes Service where
 the MSI endpoint will authenticate the MSI context the service is running under.
 
+`AZURE_ENVIRONMENT=<environment>` can be used to connect to clouds other than the standard public cloud.
+Choose among:
+  * `AZUREPUBLICCLOUD` (default)
+  * `AZURECHINACLOUD`
+  * `AZUREGERMANCLOUD`
+  * `AZUREUSGOVERNMENT`
+
 The Kubernetes Pod spec should look similar to this, with the args parameters
 filled in. Note that `azure-secret` secret is only needed when using Azure
 Service Principal credentials, not when using a managed service identity.
