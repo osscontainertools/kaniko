@@ -16,4 +16,8 @@ COPY <<file3.txt /tmp/file3.txt
 Hello from file3
 file3.txt
 
+ADD <<file4.txt /tmp/file4.txt
+Hello from file4
+file4.txt
+
 RUN ls -la /tmp && cat /tmp/*.txt

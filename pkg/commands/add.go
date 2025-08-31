@@ -104,13 +104,14 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		}
 	}
 	// With the remaining "normal" sources, create and execute a standard copy command
-	if len(unresolvedSrcs) == 0 {
+	heredocs := a.cmd.SourcesAndDest.SourceContents
+	if len(unresolvedSrcs) == 0 && len(heredocs) == 0 {
 		return nil
 	}
 
 	copyCmd := CopyCommand{
 		cmd: &instructions.CopyCommand{
-			SourcesAndDest: instructions.SourcesAndDest{SourcePaths: unresolvedSrcs, DestPath: dest},
+			SourcesAndDest: instructions.SourcesAndDest{SourcePaths: unresolvedSrcs, DestPath: dest, SourceContents: heredocs},
 			Chown:          a.cmd.Chown,
 			Chmod:          a.cmd.Chmod,
 		},
@@ -224,9 +225,10 @@ func (ca *CachingAddCommand) String() string {
 func addCmdFilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd *instructions.AddCommand,
 	fileContext util.FileContext,
 ) ([]string, error) {
-	if len(cmd.SourcesAndDest.SourceContents) > 0 {
+	if len(cmd.SourcesAndDest.SourceContents) > 0 && !kConfig.EnvBool("FF_KANIKO_HEREDOC") {
 		// https://github.com/GoogleContainerTools/kaniko/issues/1713
 		logrus.Warnf("#1713 kaniko does not support heredoc syntax in ADD statements: %v", cmd.SourcesAndDest.SourceContents[0].Path)
+		logrus.Info("Experimental syntax support for heredoc can be activated using FF_KANIKO_HEREDOC=1")
 	}
 
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
