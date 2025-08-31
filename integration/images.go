@@ -551,7 +551,7 @@ func buildKanikoImage(
 	dockerRunFlags := []string{
 		"run", "--net=host",
 		"-e", benchmarkEnv,
-		"-v", contextDir + ":/workspace",
+		"-v", contextDir + ":/workspace:ro",
 		"-v", benchmarkDir + ":/kaniko/benchmarks",
 	}
 
