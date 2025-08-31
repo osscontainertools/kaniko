@@ -290,6 +290,11 @@ func copyCmdFilesUsedFromContext(
 	config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd *instructions.CopyCommand,
 	fileContext util.FileContext,
 ) ([]string, error) {
+	if len(cmd.SourcesAndDest.SourceContents) > 0 {
+		// https://github.com/GoogleContainerTools/kaniko/issues/1713
+		logrus.Warnf("#1713 kaniko does not support heredoc syntax in COPY statements: %v", cmd.SourcesAndDest.SourceContents[0].Path)
+	}
+
 	if cmd.From != "" {
 		fileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoDir, cmd.From)}
 	}
