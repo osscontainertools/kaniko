@@ -11,4 +11,9 @@ Hello from file1
 file1.txt
 Hello from file2
 file2.txt
+
+COPY <<file3.txt /tmp/file3.txt
+Hello from file3
+file3.txt
+
 RUN ls -la /tmp && cat /tmp/*.txt
