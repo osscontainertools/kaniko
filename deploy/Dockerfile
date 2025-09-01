@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.25.0 AS builder
+ARG BUILDPLATFORM
+FROM --platform=$BUILDPLATFORM golang:1.25.0 AS builder
 WORKDIR /src
 
 # This arg is passed by docker buildx & contains the target CPU architecture (e.g., amd64, arm64, etc.)
@@ -23,7 +24,6 @@ ENV GOARCH=$TARGETARCH
 ENV GOOS=$TARGETOS
 
 ENV CGO_ENABLED=0
-ENV GOBIN=/usr/local/bin
 
 # Add .docker config dir
 RUN mkdir -p /kaniko/.docker
@@ -40,9 +40,9 @@ RUN mkdir -p /kaniko/.docker
 
 # Get credential helpers
 COPY go.mod go.sum ./
-RUN go install github.com/GoogleCloudPlatform/docker-credential-gcr/v2 \
-    && go install github.com/awslabs/amazon-ecr-credential-helper/ecr-login/cli/docker-credential-ecr-login \
-    && go install github.com/chrismellard/docker-credential-acr-env \
+RUN go build -o out/ github.com/GoogleCloudPlatform/docker-credential-gcr/v2 \
+    && go build -o out/ github.com/awslabs/amazon-ecr-credential-helper/ecr-login/cli/docker-credential-ecr-login \
+    && go build -o out/ github.com/chrismellard/docker-credential-acr-env \
     && rm -rf /root/.cache /go/pkg
 
 COPY . .
@@ -50,7 +50,8 @@ RUN make out/executor out/warmer \
     && rm -rf /root/.cache
 
 # Generate latest ca-certificates
-FROM debian:bookworm-slim AS certs
+ARG BUILDPLATFORM
+FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS certs
 RUN apt update && apt install -y ca-certificates
 
 # use musl busybox since it's staticly compiled on all platforms
@@ -71,9 +72,9 @@ ENV SSL_CERT_DIR=/kaniko/ssl/certs
 
 FROM kaniko-base-slim AS kaniko-base
 
-COPY --from=builder --chown=0:0 /usr/local/bin/docker-credential-gcr /kaniko/docker-credential-gcr
-COPY --from=builder --chown=0:0 /usr/local/bin/docker-credential-ecr-login /kaniko/docker-credential-ecr-login
-COPY --from=builder --chown=0:0 /usr/local/bin/docker-credential-acr-env /kaniko/docker-credential-acr-env
+COPY --from=builder --chown=0:0 /src/out/docker-credential-gcr /kaniko/docker-credential-gcr
+COPY --from=builder --chown=0:0 /src/out/docker-credential-ecr-login /kaniko/docker-credential-ecr-login
+COPY --from=builder --chown=0:0 /src/out/docker-credential-acr-env /kaniko/docker-credential-acr-env
 
 COPY --from=builder /kaniko/.docker /kaniko/.docker
 
