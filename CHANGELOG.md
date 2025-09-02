@@ -1,3 +1,63 @@
+# v1.25.4 Release 2025-09-02
+The executor images in this release are:
+```
+martizih/kaniko:latest
+martizih/kaniko:v1.25.4
+```
+
+The debug images are available at:
+```
+martizih/kaniko:debug
+martizih/kaniko:v1.25.4-debug
+```
+
+The slim executor images which don't contain any authentication binaries are available at:
+```
+martizih/kaniko:slim
+martizih/kaniko:v1.25.4-slim
+```
+
+The warmer images are available at:
+```
+martizih/kaniko:warmer
+martizih/kaniko:v1.25.4-warmer
+```
+
+The bootstrap images, that can be used to build kaniko in kaniko, are available at:
+```
+martizih/kaniko:bootstrap
+martizih/kaniko:v1.25.4-bootstrap
+```
+
+## What's Changed
+* chore(deps): bump the gomod group with 3 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/193
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.18.5 to 1.19.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/194
+* squash stages by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/141
+* 189: new cli option --pre-cleanup to clean the filesystem prior to build by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/196
+* cleanup integration tests by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/198
+* speedup integration tests by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/199
+* pass correct storage account URL to azure blob client by @okhaliavka in https://github.com/mzihlmann/kaniko/pull/201
+* revert integration tests for uppercase stages by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/202
+* add git depth by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/203
+* deactivate squashing stages in integration tests again by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/200
+* AWS ECR immutable tag update error message by @Sapr0 in https://github.com/mzihlmann/kaniko/pull/204
+* chore(deps): bump the gomod group with 2 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/207
+* chore(deps): bump the gomod group with 4 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/205
+* whiteout annotations by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/209
+* chore(deps): bump the gomod group with 2 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/210
+* drop force by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/212
+* add warning for unsupported heredoc syntax by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/213
+* 1713: heredoc "<<EOF" syntax support for RUN statements by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/206
+* 1713: heredoc "<<EOF" syntax support for COPY/ADD statements by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/214
+* 1713: drop heredoc featureflag by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/215
+* 3369: add docs for azure chinacloud by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/216
+* chore(deps): bump the gomod group with 4 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/217
+* chore(deps): bump github.com/spf13/pflag from 1.0.7 to 1.0.9 in the gomod group by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/218
+* chore(deps): bump github.com/spf13/cobra from 1.9.1 to 1.10.1 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/219
+* cross-compilation by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/221
+* 2971: riscv image by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/220
+
+
 # v1.25.3 Release 2025-08-20
 The executor images in this release are:
 ```
