@@ -94,5 +94,9 @@ jobs:
         uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
       - if: github.event_name != 'pull_request'
         run: |
+          for target in ("executor" "debug" "slim" "warmer" "bootstrap"); do
+            cosign sign --yes "$tag"
+          done
+
           cosign sign --yes \
               ${{ env.REGISTRY }}@${{ steps.build-and-push.outputs.digest }}
