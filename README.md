@@ -10,18 +10,22 @@ If you are new here, these are the main differences to the last official kaniko 
 * remove binary artifacts: by @tlk in https://github.com/mzihlmann/kaniko/pull/54
 ### Bugfixes
 * cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3
-* sticky bit gets lost on COPY: https://github.com/mzihlmann/kaniko/pull/45
 * cache collision under rename: by @SJrX in https://github.com/mzihlmann/kaniko/pull/62
-* COPY with restrictive chmod makes directory inacessible: https://github.com/mzihlmann/kaniko/pull/80
-* file permissions: https://github.com/mzihlmann/kaniko/pull/101
 * skip-unused-stages fails on numeric references: https://github.com/mzihlmann/kaniko/pull/103
 * skip-unused-stages fails on capitalized references: https://github.com/mzihlmann/kaniko/pull/104
+* pass correct storage account URL to azure blob client: by @okhaliavka in https://github.com/mzihlmann/kaniko/pull/201
+* AWS ECR immutable tag update error message: by @Sapr0 in https://github.com/mzihlmann/kaniko/pull/204
+### Standardization
+* sticky bit gets lost on COPY: https://github.com/mzihlmann/kaniko/pull/45
+* COPY with restrictive chmod makes directory inacessible: https://github.com/mzihlmann/kaniko/pull/80
+* file permissions: https://github.com/mzihlmann/kaniko/pull/101
 * Persist capabilities on COPY: https://github.com/mzihlmann/kaniko/pull/107
 * `FF_KANIKO_COPY_AS_ROOT=false` COPY from context should always default to root:root: https://github.com/mzihlmann/kaniko/pull/145 https://github.com/mzihlmann/kaniko/pull/166
 * COPY --from preserves mtime: https://github.com/mzihlmann/kaniko/pull/161
 * snapshotting preserves atime: https://github.com/mzihlmann/kaniko/pull/178
 * skip snapshotting rootdir: https://github.com/mzihlmann/kaniko/pull/183
-* predefined build args by @kit101 in https://github.com/mzihlmann/kaniko/pull/185
+* predefined build args: by @kit101 in https://github.com/mzihlmann/kaniko/pull/185
+* add heredoc `<<EOF` syntax support: https://github.com/mzihlmann/kaniko/pull/206 https://github.com/mzihlmann/kaniko/pull/213 https://github.com/mzihlmann/kaniko/pull/214 https://github.com/mzihlmann/kaniko/pull/215
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
 * ignore labels on base image for cache: https://github.com/mzihlmann/kaniko/pull/2
@@ -29,6 +33,9 @@ If you are new here, these are the main differences to the last official kaniko 
 * Fix caching for empty RUN: https://github.com/mzihlmann/kaniko/pull/19
 * WORKDIR learned to cache its potential output layer: https://github.com/mzihlmann/kaniko/pull/22 https://github.com/mzihlmann/kaniko/pull/23
 * ADD learned to cache its output layer: https://github.com/mzihlmann/kaniko/pull/24
+* whiteout annotations to prevent cache misses through `--annotation`: https://github.com/mzihlmann/kaniko/pull/209
+### Performance
+* `FF_KANIKO_SQUASH_STAGES=false` squash stages together, speeding up build: https://github.com/mzihlmann/kaniko/pull/141
 ### Usability
 * if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
 * kaniko learned `--preserve-context` to preserve the build-context across multi-stage builds: https://github.com/mzihlmann/kaniko/pull/28
@@ -37,8 +44,12 @@ If you are new here, these are the main differences to the last official kaniko 
 * deprecate force-build-metadata: https://github.com/mzihlmann/kaniko/pull/99
 * make skip-unused-stages the default: https://github.com/mzihlmann/kaniko/pull/100
 * kaniko learned `--credential-helpers` to select credential helpers: https://github.com/mzihlmann/kaniko/pull/135
-* 🔗 Annotation flag by @markusthoemmes in https://github.com/mzihlmann/kaniko/pull/98
-* relative OCILayoutPath by @EladAviczer in https://github.com/mzihlmann/kaniko/pull/187
+* 🔗 Annotation flag: by @markusthoemmes in https://github.com/mzihlmann/kaniko/pull/98
+* relative OCILayoutPath: by @EladAviczer in https://github.com/mzihlmann/kaniko/pull/187
+* new cli option `--pre-cleanup` to clean the filesystem prior to build, allowing customized kaniko images to work properly: https://github.com/mzihlmann/kaniko/pull/196
+* add git depth option: https://github.com/mzihlmann/kaniko/pull/203
+* add docs for azure chinacloud: https://github.com/mzihlmann/kaniko/pull/216
+* riscv image: https://github.com/mzihlmann/kaniko/pull/220
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
 * 🔗 update ENV syntax in Dockerfile: by @babs in https://github.com/mzihlmann/kaniko/pull/60
