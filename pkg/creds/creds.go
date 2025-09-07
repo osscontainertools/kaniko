@@ -38,7 +38,15 @@ func GetKeychain(opts *config.RegistryOptions) authn.Keychain {
 		helpers = opts.CredentialHelpers
 	}
 
-	keychains := []authn.Keychain{authn.DefaultKeychain}
+	var defaultKeychain authn.Keychain
+	if config.EnvBool("FF_KANIKO_SECURE_REGISTRY_CREDENTIALS") {
+		dk := newDefaultKeychain{}
+		dk.Load()
+		defaultKeychain = &newDefaultKeychain{}
+	} else {
+		defaultKeychain = authn.DefaultKeychain
+	}
+	keychains := []authn.Keychain{defaultKeychain}
 
 	for _, source := range helpers {
 		switch source {
