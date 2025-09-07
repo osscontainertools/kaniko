@@ -38,7 +38,9 @@ func GetKeychain(opts *config.RegistryOptions) authn.Keychain {
 		helpers = opts.CredentialHelpers
 	}
 
-	keychains := []authn.Keychain{authn.DefaultKeychain}
+	defaultKeychain := newDefaultKeychain{}
+	defaultKeychain.Load()
+	keychains := []authn.Keychain{&defaultKeychain}
 
 	for _, source := range helpers {
 		switch source {
