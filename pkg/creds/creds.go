@@ -33,17 +33,20 @@ func GetKeychain(opts *config.RegistryOptions) authn.Keychain {
 	var helpers []string
 
 	if len(opts.CredentialHelpers) == 0 {
-		helpers = []string{"google", "ecr", "acr", "gitlab"}
+		helpers = []string{"env", "google", "ecr", "acr", "gitlab"}
 	} else {
 		helpers = opts.CredentialHelpers
 	}
 
 	keychains := []authn.Keychain{authn.DefaultKeychain}
-
 	for _, source := range helpers {
 		switch source {
 		case "":
 			logrus.Info("all credential helpers disabled")
+		case "env":
+			keychains = append(keychains,
+				authn.NewKeychainFromHelper(EnvCredentialsHelper),
+			)
 		case "google":
 			keychains = append(keychains, google.Keychain)
 		case "ecr":

@@ -102,6 +102,13 @@ def file_passes(filename, refs, regexs):
         if found != 0:
             break
 
+    # Replace all occurrences of 'company' regex with "COMPANY"
+    p = regexs["company"]
+    for i, d in enumerate(data):
+        (data[i], found) = p.subn('COMPANY', d)
+        if found != 0:
+            break
+ 
     # if we don't match the reference at this point, fail
     if ref != data:
         return False
@@ -148,6 +155,7 @@ def get_regexs():
     regexs["year"] = re.compile( 'YEAR' )
     # dates can be any year [2000-2099] company holder names can be anything
     regexs["date"] = re.compile( '(20\d\d)' )
+    regexs["company"] = re.compile(r"Google LLC|Google, Inc\.|Martin Zihlmann")
     # strip // go:build \n\n build constraints
     regexs["go_build_constraints_go"] = re.compile(r"^(//go\:build.*)+\n", re.MULTILINE)
     # strip // +build \n\n build constraints

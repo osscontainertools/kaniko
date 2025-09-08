@@ -137,6 +137,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--compression-level`](#flag---compression-level)
       - [Flag `--compressed-caching`](#flag---compressed-caching)
       - [Flag `--context-sub-path`](#flag---context-sub-path)
+      - [Flag `--credential-helpers`](#flag---credential-helpers)
       - [Flag `--custom-platform`](#flag---custom-platform)
       - [Flag `--digest-file`](#flag---digest-file)
       - [Flag `--dockerfile`](#flag---dockerfile)
@@ -1018,6 +1019,10 @@ Set a sub path within the given `--context`.
 
 Its particularly useful when your context is, for example, a git repository, and
 you want to build one of its subfolders instead of the root folder.
+
+#### Flag `--credential-helpers`
+
+Use these credential helpers automatically, select from (env, google, ecr, acr, gitlab). Set it repeatedly for multiple helpers, defaults to all, set it to empty string to deactivate.
 
 #### Flag `--custom-platform`
 
