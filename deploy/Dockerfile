@@ -109,9 +109,3 @@ VOLUME /busybox2
 
 RUN ["/busybox2/mkdir", "-p", "/bin"]
 RUN ["/busybox2/ln", "-s", "/busybox2/sh", "/bin/sh"]
-
-FROM kaniko-base-slim AS kaniko-slim
-
-COPY --from=builder /src/out/executor /kaniko/executor
-
-ENTRYPOINT ["/kaniko/executor"]

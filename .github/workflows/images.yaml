@@ -34,7 +34,6 @@ jobs:
         image:
           - executor
           - executor-debug
-          - executor-slim
           - warmer
           - bootstrap
 
@@ -52,13 +51,6 @@ jobs:
             image-name: martizih/kaniko
             tag: ${{ github.sha }}-debug
             release-tag: debug
-
-          - image: executor-slim
-            target: kaniko-slim
-            platforms: linux/amd64,linux/arm64,linux/s390x,linux/riscv64,linux/ppc64le
-            image-name: martizih/kaniko
-            tag: ${{ github.sha }}-slim
-            release-tag: slim
 
           - image: warmer
             target: kaniko-warmer
@@ -152,7 +144,7 @@ jobs:
         run: |
           tag=${GITHUB_REF/refs\/tags\//}
 
-          # Tag :latest, :debug, :slim
+          # Tag :latest, :debug
           crane cp ${{ matrix.image-name }}@${{ steps.build-and-push.outputs.digest }} \
               ${{ matrix.image-name }}:${{ matrix.release-tag }}
 
@@ -161,7 +153,7 @@ jobs:
             crane cp ${{ matrix.image-name }}@${{ steps.build-and-push.outputs.digest }} \
                 ${{ matrix.image-name }}:${tag}
           else
-            # Or tag :v1.X.Y-debug and :v1.X.Y-slim
+            # Or tag :v1.X.Y-debug
             crane cp ${{ matrix.image-name }}@${{ steps.build-and-push.outputs.digest }} \
                 ${{ matrix.image-name }}:${tag}-${{ matrix.release-tag }}
           fi
