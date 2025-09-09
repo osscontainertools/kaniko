@@ -102,7 +102,7 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 	logrus.Infof("Cmd: %s", newCommand[0])
 	logrus.Infof("Args: %s", newCommand[1:])
 
-	cmd := exec.Command(newCommand[0], newCommand[1:]...)
+	cmd := exec.Command("/kaniko/runner", newCommand...)
 
 	cmd.Dir = setWorkDirIfExists(config.WorkingDir)
 	cmd.Stdout = os.Stdout

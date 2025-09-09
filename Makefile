@@ -38,6 +38,7 @@ GO_LDFLAGS += '
 
 EXECUTOR_PACKAGE = $(REPOPATH)/cmd/executor
 WARMER_PACKAGE = $(REPOPATH)/cmd/warmer
+RUNNER_PACKAGE = $(REPOPATH)/cmd/runner
 KANIKO_PROJECT = $(REPOPATH)/kaniko
 BUILD_ARG ?=
 
@@ -52,6 +53,9 @@ out/executor: $(GO_FILES)
 
 out/warmer: $(GO_FILES)
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=0 go build -ldflags $(GO_LDFLAGS) -o $@ $(WARMER_PACKAGE)
+
+out/runner: $(GO_FILES)
+	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=0 go build -ldflags $(GO_LDFLAGS) -o $@ $(RUNNER_PACKAGE)
 
 .PHONY: install-diffoci
 install-diffoci:
