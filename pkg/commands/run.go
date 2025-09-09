@@ -102,8 +102,13 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 	logrus.Infof("Cmd: %s", newCommand[0])
 	logrus.Infof("Args: %s", newCommand[1:])
 
-	cmd := exec.Command("/kaniko/runner", newCommand...)
+	var cmd *exec.Cmd
+	if kConfig.EnvBool("FF_KANIKO_LANDLOCK") {
+		cmd = exec.Command("/kaniko/runner", newCommand...)
+	} else {
+		cmd = exec.Command(newCommand[0], newCommand[1:]...)
 
+	}
 	cmd.Dir = setWorkDirIfExists(config.WorkingDir)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
