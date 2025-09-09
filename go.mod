@@ -38,6 +38,7 @@ require (
 	github.com/GoogleCloudPlatform/docker-credential-gcr/v2 v2.1.30
 	github.com/containerd/containerd v1.7.28
 	github.com/containerd/platforms v1.0.0-rc.1
+	github.com/landlock-lsm/go-landlock v0.0.0-20250303204525-1544bccde3a3
 )
 
 require github.com/googleapis/enterprise-certificate-proxy v0.3.6 // indirect
@@ -205,4 +206,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	kernel.org/pub/linux/libs/security/libcap/psx v1.2.76 // indirect
 )
