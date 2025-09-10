@@ -44,6 +44,11 @@ var BuildContextDir = fmt.Sprintf("%s/buildcontext/", KanikoDir)
 // as tarballs in case they are needed later on
 var KanikoIntermediateStagesDir = fmt.Sprintf("%s/stages/", KanikoDir)
 
+// KanikoCacheDir is where we will store cache mount directories, ie.
+// RUN --mount=type=cache,target=/var/lib/apt/lists/
+// Contents are stored as-is.
+var KanikoCacheDir = fmt.Sprintf("%s/caches/", KanikoDir)
+
 var MountInfoPath string
 
 func init() {
