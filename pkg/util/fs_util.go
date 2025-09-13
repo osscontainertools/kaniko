@@ -1233,14 +1233,14 @@ func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(st
 	foundPaths := make([]string, 0)
 	deletedFiles := existingPaths // Make a reference.
 
-	callback := func(path string, _ fs.DirEntry, err error) error {
+	callback := func(path string, info fs.DirEntry, err error) error {
 		logrus.Tracef("Analyzing path '%s'", path)
 		if err != nil {
 			return err
 		}
 
 		if IsInIgnoreList(path) {
-			if IsDestDir(path) {
+			if IsDestDir(path) && info.IsDir() {
 				logrus.Tracef("Skipping paths under '%s', as it is an ignored directory", path)
 				return filepath.SkipDir
 			}
@@ -1272,12 +1272,12 @@ func GetFSInfoMap(dir string, existing map[string]os.FileInfo) (map[string]os.Fi
 	fileMap := map[string]os.FileInfo{}
 	foundPaths := []string{}
 	timer := timing.Start("Walking filesystem with Stat")
-	callback := func(path string, _ fs.DirEntry, err error) error {
+	callback := func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if CheckCleanedPathAgainstIgnoreList(path) {
-			if IsDestDir(path) {
+			if IsDestDir(path) && info.IsDir() {
 				logrus.Tracef("Skipping paths under %s, as it is a ignored directory", path)
 				return filepath.SkipDir
 			}

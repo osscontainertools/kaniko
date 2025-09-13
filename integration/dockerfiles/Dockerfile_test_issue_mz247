@@ -1,0 +1,22 @@
+FROM busybox AS base
+
+# mz247: Starting with v1.25.3 we introduced a regression
+# in this PR https://github.com/mzihlmann/kaniko/pull/180
+# karrick/godirwalk would recurse into symlinks, therefore returning SkipDir from inside
+# a directory opened via symlink would only skip that directory. But fs.WalkDir does not
+# recurse into symlinks, it treats symlinks as regular files, not directories. Returning
+# SkipDir when processing a file means skip the rest of the current directory, skip siblings.
+# This behaviour can be observed when systemd is installed because systemd replaces /var/run
+# with a symlink to /var/run -> /run. However, /var/run is ignored by default.
+RUN mkdir /run \
+    && ln -s /run /var/run
+
+# As it is now a symlink, we don't snapshot any files or directories
+# that come later alphabetically. Our /var/www happens to be skipped accidentally.
+RUN mkdir -p /var/www
+
+# This can be seen easily when building a multistage image, as we load the image
+# from the snapshots, dropping all files/folders that were just lying around.
+FROM base
+RUN ls -la /var \
+    && test -d /var/www
