@@ -52,7 +52,7 @@ func (ech *envCredentialsHelper) Get(serverURL string) (string, string, error) {
 			return usr, pwd, nil
 		}
 	}
-	return "", "", nil
+	return "", "", errors.New("no matching env var set")
 }
 
 func (ech *envCredentialsHelper) List() (map[string]string, error) {
