@@ -46,7 +46,7 @@ RUN go build -o out/ github.com/GoogleCloudPlatform/docker-credential-gcr/v2 \
     && rm -rf /root/.cache /go/pkg
 
 COPY . .
-RUN make out/executor out/warmer \
+RUN make out/executor out/warmer out/runner \
     && rm -rf /root/.cache
 
 # Generate latest ca-certificates
@@ -92,7 +92,7 @@ ENTRYPOINT ["/kaniko/warmer"]
 
 FROM kaniko-base AS kaniko-executor
 
-COPY --from=builder /src/out/executor /kaniko/executor
+COPY --from=builder /src/out/executor /src/out/runner /kaniko/
 
 ENTRYPOINT ["/kaniko/executor"]
 
@@ -124,6 +124,6 @@ RUN ["/busybox2/ln", "-s", "/busybox2/sh", "/bin/sh"]
 
 FROM kaniko-base-slim AS kaniko-slim
 
-COPY --from=builder /src/out/executor /kaniko/executor
+COPY --from=builder /src/out/executor /src/out/runner /kaniko/
 
 ENTRYPOINT ["/kaniko/executor"]

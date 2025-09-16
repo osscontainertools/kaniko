@@ -808,6 +808,10 @@ github.com/klauspost/compress/internal/le
 github.com/klauspost/compress/internal/snapref
 github.com/klauspost/compress/zstd
 github.com/klauspost/compress/zstd/internal/xxhash
+# github.com/landlock-lsm/go-landlock v0.0.0-20250303204525-1544bccde3a3
+## explicit; go 1.18
+github.com/landlock-lsm/go-landlock/landlock
+github.com/landlock-lsm/go-landlock/landlock/syscall
 # github.com/magiconair/properties v1.8.7
 ## explicit; go 1.19
 github.com/magiconair/properties
@@ -1411,3 +1415,6 @@ gopkg.in/warnings.v0
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
+# kernel.org/pub/linux/libs/security/libcap/psx v1.2.76
+## explicit; go 1.11
+kernel.org/pub/linux/libs/security/libcap/psx
