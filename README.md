@@ -15,6 +15,8 @@ If you are new here, these are the main differences to the last official kaniko 
 * skip-unused-stages fails on capitalized references: https://github.com/mzihlmann/kaniko/pull/104
 * pass correct storage account URL to azure blob client: by @okhaliavka in https://github.com/mzihlmann/kaniko/pull/201
 * AWS ECR immutable tag update error message: by @Sapr0 in https://github.com/mzihlmann/kaniko/pull/204
+* prevent layer overwrites in image resulting in `BLOB_UNKNOWN` error: by @mafredri in https://github.com/mzihlmann/kaniko/pull/230
+* Adjust the determination priority of runtime under the Kubernetes cluster with cgroupv2: by @lcgash in https://github.com/mzihlmann/kaniko/pull/235
 ### Standardization
 * sticky bit gets lost on COPY: https://github.com/mzihlmann/kaniko/pull/45
 * COPY with restrictive chmod makes directory inacessible: https://github.com/mzihlmann/kaniko/pull/80
@@ -50,6 +52,7 @@ If you are new here, these are the main differences to the last official kaniko 
 * add git depth option: https://github.com/mzihlmann/kaniko/pull/203
 * add docs for azure chinacloud: https://github.com/mzihlmann/kaniko/pull/216
 * riscv image: https://github.com/mzihlmann/kaniko/pull/220
+* add env credential helper: https://github.com/mzihlmann/kaniko/pull/236 https://github.com/mzihlmann/kaniko/pull/249
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
 * 🔗 update ENV syntax in Dockerfile: by @babs in https://github.com/mzihlmann/kaniko/pull/60
