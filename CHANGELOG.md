@@ -1,3 +1,60 @@
+# v1.25.5 Release 2025-09-18
+The executor images in this release are:
+```
+martizih/kaniko:latest
+martizih/kaniko:v1.25.5
+```
+
+The debug images are available at:
+```
+martizih/kaniko:debug
+martizih/kaniko:v1.25.5-debug
+```
+
+The slim executor images which don't contain any authentication binaries are available at:
+```
+martizih/kaniko:slim
+martizih/kaniko:v1.25.5-slim
+```
+
+The warmer images are available at:
+```
+martizih/kaniko:warmer
+martizih/kaniko:v1.25.5-warmer
+```
+
+The bootstrap images, that can be used to build kaniko in kaniko, are available at:
+```
+martizih/kaniko:bootstrap
+martizih/kaniko:v1.25.5-bootstrap
+```
+
+## What's Changed
+* update readme by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/223
+* chore(deps): bump github.com/spf13/pflag from 1.0.9 to 1.0.10 in the gomod group by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/225
+* chore(deps): bump github.com/moby/buildkit from 0.23.2 to 0.24.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/226
+* chore(deps): bump github.com/docker/docker from 28.3.3+incompatible to 28.4.0+incompatible by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/228
+* chore(deps): bump actions/setup-go from 5.5.0 to 6.0.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/227
+* fix: prevent layer overwrites in image resulting in BLOB_UNKNOWN error by @mafredri in https://github.com/mzihlmann/kaniko/pull/230
+* chore(deps): bump golang from 1.25.0 to 1.25.1 in /deploy by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/229
+* chore(deps): bump golang.org/x/oauth2 from 0.30.0 to 0.31.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/232
+* chore(deps): bump golang.org/x/sys from 0.35.0 to 0.36.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/233
+* chore(deps): bump golang.org/x/sync from 0.16.0 to 0.17.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/234
+* Adjust the determination priority of runtime under the Kubernetes cluster with cgroupv2 by @lcgash in https://github.com/mzihlmann/kaniko/pull/235
+* 3362: add env credential helper by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/236
+* chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.38.3 to 1.39.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/241
+* chore(deps): bump github.com/spf13/afero from 1.14.0 to 1.15.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/239
+* chore(deps): bump the gomod group with 3 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/238
+* chore(deps): bump google.golang.org/api from 0.248.0 to 0.249.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/240
+* chore(deps): bump golang.org/x/net from 0.43.0 to 0.44.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/242
+* chore(deps): bump step-security/harden-runner from 2.13.0 to 2.13.1 in the actions group by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/244
+* chore(deps): bump the gomod group with 3 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/246
+* 247: avoid skipping siblings if /var/run is a soft-link by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/248
+* 3362: fix env keychain by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/249
+* chore(deps): bump sigstore/cosign-installer from 3.9.2 to 3.10.0 in the actions group by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/250
+* chore(deps): bump cloud.google.com/go/storage from 1.56.1 to 1.56.2 in the gomod group by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/251
+
+
 # v1.25.4 Release 2025-09-02
 The executor images in this release are:
 ```
