@@ -33,9 +33,9 @@ import (
 
 	"github.com/GoogleContainerTools/kaniko/pkg/config"
 	"github.com/GoogleContainerTools/kaniko/pkg/timing"
-	"github.com/docker/docker/pkg/archive"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/dockerignore"
+	"github.com/moby/go-archive"
 	"github.com/moby/patternmatcher"
 	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/pkg/errors"
