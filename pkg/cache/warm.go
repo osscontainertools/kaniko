@@ -201,13 +201,19 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 		return nil, errors.Wrap(err, fmt.Sprintf("reading dockerfile at path %s", opts.DockerfilePath))
 	}
 
-	stages, _, err := dockerfile.Parse(d)
+	stages, metaArgs, err := dockerfile.Parse(d)
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing dockerfile")
 	}
 
+	args := opts.BuildArgs
+	for _, marg := range metaArgs {
+		for _, arg := range marg.Args {
+			args = append(args, fmt.Sprintf("%s=%s", arg.Key, arg.ValueString()))
+		}
+	}
 	for i, s := range stages {
-		resolvedBaseName, err := util.ResolveEnvironmentReplacement(s.BaseName, opts.BuildArgs, false)
+		resolvedBaseName, err := util.ResolveEnvironmentReplacement(s.BaseName, args, false)
 		if err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("resolving base name %s", s.BaseName))
 		}

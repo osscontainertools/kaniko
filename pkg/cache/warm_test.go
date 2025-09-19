@@ -182,8 +182,8 @@ LABEL maintainer="alexezio"
 }
 
 func TestParseDockerfile_ArgsDockerfile(t *testing.T) {
-	dockerfile := `ARG version=latest
-FROM golang:${version}
+	dockerfile := `ARG NGINX_VERSION=1.29.1
+FROM nginx:$NGINX_VERSION-alpine-slim
 `
 	tmpfile, err := os.CreateTemp("", "example")
 	if err != nil {
@@ -206,8 +206,8 @@ FROM golang:${version}
 	if len(baseNames) != 1 {
 		t.Fatalf("expected 1 base name, got %d", len(baseNames))
 	}
-	if baseNames[0] != "golang:1.20" {
-		t.Fatalf("expected 'golang:1.20', got '%s'", baseNames[0])
+	if baseNames[0] != "nginx:1.29.1-alpine-slim" {
+		t.Fatalf("expected 'nginx:1.29.1-alpine-slim', got '%s'", baseNames[0])
 	}
 }
 
