@@ -33,10 +33,10 @@ import (
 
 	"github.com/GoogleContainerTools/kaniko/pkg/config"
 	"github.com/GoogleContainerTools/kaniko/pkg/timing"
-	"github.com/docker/docker/pkg/archive"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/moby/buildkit/frontend/dockerfile/dockerignore"
+	"github.com/moby/go-archive"
 	"github.com/moby/patternmatcher"
+	"github.com/moby/patternmatcher/ignorefile"
 	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -827,7 +827,7 @@ func getExcludedFiles(dockerfilePath, buildcontext string) ([]string, error) {
 		return nil, errors.Wrap(err, "parsing .dockerignore")
 	}
 	reader := bytes.NewBuffer(contents)
-	return dockerignore.ReadAll(reader)
+	return ignorefile.ReadAll(reader)
 }
 
 // ExcludesFile returns true if the file context specified this file should be ignored.

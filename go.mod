@@ -37,6 +37,7 @@ require (
 require (
 	github.com/GoogleCloudPlatform/docker-credential-gcr/v2 v2.1.30
 	github.com/containerd/platforms v1.0.0-rc.1
+	github.com/moby/go-archive v0.1.0
 )
 
 require github.com/googleapis/enterprise-certificate-proxy v0.3.6 // indirect
@@ -168,7 +169,6 @@ require (
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
-	github.com/moby/go-archive v0.1.0 // indirect
 	github.com/moby/sys/atomicwriter v0.1.0 // indirect
 	github.com/moby/sys/reexec v0.1.0 // indirect
 	github.com/moby/sys/user v0.4.0 // indirect
