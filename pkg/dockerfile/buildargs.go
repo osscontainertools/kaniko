@@ -22,34 +22,36 @@ import (
 
 	"github.com/GoogleContainerTools/kaniko/pkg/config"
 	"github.com/containerd/platforms"
-	d "github.com/docker/docker/builder/dockerfile"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 )
 
 type BuildArgs struct {
-	d.BuildArgs
+	buildArgs map[string]*string
+	metaArgs  map[string]*string
 }
 
 func NewBuildArgs(args []string) *BuildArgs {
-	argsFromOptions := make(map[string]*string)
+	res := BuildArgs{}
 	for _, a := range args {
 		s := strings.SplitN(a, "=", 2)
 		if len(s) == 1 {
-			argsFromOptions[s[0]] = nil
+			res.buildArgs[s[0]] = nil
 		} else {
-			argsFromOptions[s[0]] = &s[1]
+			res.buildArgs[s[0]] = &s[1]
 		}
 	}
-	return &BuildArgs{
-		BuildArgs: *d.NewBuildArgs(argsFromOptions),
-	}
+	return &res
 }
 
 func (b *BuildArgs) Clone() *BuildArgs {
-	clone := b.BuildArgs.Clone()
-	return &BuildArgs{
-		BuildArgs: *clone,
+	res := BuildArgs{}
+	for k, v := range b.buildArgs {
+		res.buildArgs[k] = v
 	}
+	for k, v := range b.metaArgs {
+		res.metaArgs[k] = v
+	}
+	return &res
 }
 
 // ReplacementEnvs returns a list of filtered environment variables
@@ -57,7 +59,9 @@ func (b *BuildArgs) ReplacementEnvs(envs []string) []string {
 	// Ensure that we operate on a new array and do not modify the underlying array
 	resultEnv := make([]string, len(envs))
 	copy(resultEnv, envs)
-	filtered := b.FilterAllowed(envs)
+	// TODO
+	filtered := []string{}
+	//filtered := b.FilterAllowed(envs)
 	// Disable makezero linter, since the previous make is paired with a same sized copy
 	return append(resultEnv, filtered...) //nolint:makezero
 }
@@ -66,10 +70,36 @@ func (b *BuildArgs) ReplacementEnvs(envs []string) []string {
 func (b *BuildArgs) AddMetaArgs(metaArgs []instructions.ArgCommand) {
 	for _, marg := range metaArgs {
 		for _, arg := range marg.Args {
-			v := arg.Value
-			b.AddMetaArg(arg.Key, v)
+			b.metaArgs[arg.Key] = arg.Value
 		}
 	}
+}
+
+// AddMetaArg adds a new meta arg that can be used by FROM directives
+func (b *BuildArgs) AddMetaArg(key string, value *string) {
+	b.metaArgs[key] = value
+}
+
+func (b *BuildArgs) AddArg(key string, value *string) {
+	b.buildArgs[key] = value
+}
+
+// GetAllAllowed returns a mapping with all the allowed args
+func (b *BuildArgs) GetAllAllowed() map[string]string {
+	return b.getAllFromMapping(b.buildArgs)
+}
+
+// GetAllMeta returns a mapping with all the meta args
+func (b *BuildArgs) GetAllMeta() map[string]string {
+	return b.getAllFromMapping(b.metaArgs)
+}
+
+func (b *BuildArgs) getAllFromMapping(source map[string]*string) map[string]string {
+	m := make(map[string]string)
+	for k, v := range source {
+		m[k] = *v
+	}
+	return m
 }
 
 // Initialize predefined build args s.a.: TARGETOS, TARGETARCH, BUILDPLATFORM, TARGETPLATFORM ...
