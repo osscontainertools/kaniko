@@ -29,11 +29,12 @@ import (
 	"syscall"
 
 	"github.com/GoogleContainerTools/kaniko/pkg/config"
-	"github.com/docker/docker/pkg/system"
 	"github.com/moby/go-archive"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
+
+var ErrNotSupportedPlatform = errors.New("platform and architecture is not supported")
 
 // Tar knows how to write files to a tar file.
 type Tar struct {
@@ -154,8 +155,8 @@ func writeSecurityXattrToTarFile(path string, hdr *tar.Header) error {
 		return nil
 	}
 	if capability, ok := hdr.Xattrs[securityCapabilityXattr]; ok {
-		err := system.Lsetxattr(path, securityCapabilityXattr, []byte(capability), 0)
-		if err != nil && !errors.Is(err, syscall.EOPNOTSUPP) && !errors.Is(err, system.ErrNotSupportedPlatform) {
+		err := Lsetxattr(path, securityCapabilityXattr, []byte(capability), 0)
+		if err != nil && !errors.Is(err, syscall.EOPNOTSUPP) && !errors.Is(err, ErrNotSupportedPlatform) {
 			return errors.Wrapf(err, "failed to write %q attribute to %q", securityCapabilityXattr, path)
 		}
 	}
@@ -168,8 +169,8 @@ func readSecurityXattrToTarHeader(path string, hdr *tar.Header) error {
 	if hdr.Xattrs == nil {
 		hdr.Xattrs = make(map[string]string)
 	}
-	capability, err := system.Lgetxattr(path, securityCapabilityXattr)
-	if err != nil && !errors.Is(err, syscall.EOPNOTSUPP) && !errors.Is(err, system.ErrNotSupportedPlatform) {
+	capability, err := Lgetxattr(path, securityCapabilityXattr)
+	if err != nil && !errors.Is(err, syscall.EOPNOTSUPP) && !errors.Is(err, ErrNotSupportedPlatform) {
 		return errors.Wrapf(err, "failed to read %q attribute from %q", securityCapabilityXattr, path)
 	}
 	if capability != nil {
