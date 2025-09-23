@@ -37,7 +37,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/daemon"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/pkg/errors"
 	"google.golang.org/api/option"
@@ -610,11 +609,10 @@ func TestLayers(t *testing.T) {
 
 			buildImage(t, dockerfileTest, imageBuilder)
 
-			// Pull the kaniko image
 			dockerImage := GetDockerImage(config.imageRepo, dockerfileTest)
 			kanikoImage := GetKanikoImage(config.imageRepo, dockerfileTest)
-			pullCmd := exec.Command("docker", "pull", kanikoImage)
-			RunCommand(pullCmd, t)
+			pushCmd := exec.Command("docker", "push", dockerImage)
+			RunCommand(pushCmd, t)
 			checkLayers(t, dockerImage, kanikoImage, offset[dockerfileTest])
 		})
 	}
@@ -1120,9 +1118,9 @@ func resolveCreatedBy(image string, layerIndex int) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("Couldn't parse reference to image %s: %w", image, err)
 	}
-	imgRef, err := daemon.Image(ref)
+	imgRef, err := remote.Image(ref)
 	if err != nil {
-		return "", fmt.Errorf("Couldn't get reference to image %s from daemon: %w", image, err)
+		return "", fmt.Errorf("Couldn't get reference to image %s from remote: %w", image, err)
 	}
 	cfg, err := imgRef.ConfigFile()
 	if err != nil {
@@ -1146,9 +1144,9 @@ func getImageLayers(image string) ([]v1.Layer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't parse reference to image %s: %w", image, err)
 	}
-	imgRef, err := daemon.Image(ref)
+	imgRef, err := remote.Image(ref)
 	if err != nil {
-		return nil, fmt.Errorf("Couldn't get reference to image %s from daemon: %w", image, err)
+		return nil, fmt.Errorf("Couldn't get reference to image %s from remote: %w", image, err)
 	}
 	layers, err := imgRef.Layers()
 	if err != nil {
@@ -1162,9 +1160,9 @@ func getImageDetails(image string) (*imageDetails, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't parse reference to image %s: %w", image, err)
 	}
-	imgRef, err := daemon.Image(ref)
+	imgRef, err := remote.Image(ref)
 	if err != nil {
-		return nil, fmt.Errorf("Couldn't get reference to image %s from daemon: %w", image, err)
+		return nil, fmt.Errorf("Couldn't get reference to image %s from remote: %w", image, err)
 	}
 	layers, err := imgRef.Layers()
 	if err != nil {
