@@ -212,16 +212,26 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 			args = append(args, fmt.Sprintf("%s=%s", arg.Key, arg.ValueString()))
 		}
 	}
+outer:
 	for i, s := range stages {
 		resolvedBaseName, err := util.ResolveEnvironmentReplacement(s.BaseName, args, false)
 		if err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("resolving base name %s", s.BaseName))
 		}
-		if s.BaseName != resolvedBaseName {
-			stages[i].BaseName = resolvedBaseName
+		// skip stage references ie.
+		// FROM base AS target
+		for j := range i {
+			if stages[j].Name == resolvedBaseName {
+				continue outer
+			}
+		}
+		// deduplicate
+		for _, x := range baseNames {
+			if x == resolvedBaseName {
+				continue outer
+			}
 		}
 		baseNames = append(baseNames, resolvedBaseName)
 	}
 	return baseNames, nil
-
 }
