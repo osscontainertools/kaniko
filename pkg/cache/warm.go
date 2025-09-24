@@ -228,6 +228,12 @@ outer:
 				continue outer
 			}
 		}
+		// deduplicate
+		for _, x := range baseNames {
+			if x == resolvedBaseName {
+				continue outer
+			}
+		}
 		baseNames = append(baseNames, resolvedBaseName)
 	}
 	return baseNames, nil
