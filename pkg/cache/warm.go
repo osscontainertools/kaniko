@@ -218,9 +218,6 @@ outer:
 		if err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("resolving base name %s", s.BaseName))
 		}
-		if s.BaseName != resolvedBaseName {
-			stages[i].BaseName = resolvedBaseName
-		}
 		// skip stage references ie.
 		// FROM base AS target
 		for j := range i {
@@ -237,5 +234,4 @@ outer:
 		baseNames = append(baseNames, resolvedBaseName)
 	}
 	return baseNames, nil
-
 }
