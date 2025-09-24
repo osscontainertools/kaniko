@@ -356,7 +356,7 @@ func cacheFlagsValid() error {
 	}
 	// If --cache=true and --no-push=true, then cache repo must be provided
 	// since cache can't be inferred from destination
-	if opts.CacheRepo == "" && opts.NoPush {
+	if !opts.NoPushCache && opts.CacheRepo == "" && opts.NoPush {
 		return errors.New("if using cache with --no-push, specify cache repo with --cache-repo")
 	}
 	return nil
