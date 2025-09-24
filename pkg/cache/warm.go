@@ -212,6 +212,7 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 			args = append(args, fmt.Sprintf("%s=%s", arg.Key, arg.ValueString()))
 		}
 	}
+outer:
 	for i, s := range stages {
 		resolvedBaseName, err := util.ResolveEnvironmentReplacement(s.BaseName, args, false)
 		if err != nil {
@@ -219,6 +220,13 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 		}
 		if s.BaseName != resolvedBaseName {
 			stages[i].BaseName = resolvedBaseName
+		}
+		// skip stage references ie.
+		// FROM base AS target
+		for j := range i {
+			if stages[j].Name == resolvedBaseName {
+				continue outer
+			}
 		}
 		baseNames = append(baseNames, resolvedBaseName)
 	}
