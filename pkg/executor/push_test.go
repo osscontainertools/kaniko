@@ -26,14 +26,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/GoogleContainerTools/kaniko/pkg/config"
-	"github.com/GoogleContainerTools/kaniko/pkg/util"
-	"github.com/GoogleContainerTools/kaniko/testutil"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/validate"
+	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/util"
+	"github.com/osscontainertools/kaniko/testutil"
 	"github.com/spf13/afero"
 )
 

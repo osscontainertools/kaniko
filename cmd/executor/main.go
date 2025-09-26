@@ -19,7 +19,7 @@ package main
 import (
 	"os"
 
-	"github.com/GoogleContainerTools/kaniko/cmd/executor/cmd"
+	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
 
 	"github.com/google/slowjam/pkg/stacklog"
 )

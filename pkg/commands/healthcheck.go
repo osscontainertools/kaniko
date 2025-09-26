@@ -17,10 +17,10 @@ limitations under the License.
 package commands
 
 import (
-	"github.com/GoogleContainerTools/kaniko/pkg/dockerfile"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/moby/moby/api/types/container"
+	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 )
 
 func convertDockerHealthConfigToContainerRegistryFormat(dockerHealthcheck container.HealthConfig) v1.HealthConfig {

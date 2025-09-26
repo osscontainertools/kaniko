@@ -37,17 +37,17 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/GoogleContainerTools/kaniko/pkg/cache"
-	"github.com/GoogleContainerTools/kaniko/pkg/commands"
-	"github.com/GoogleContainerTools/kaniko/pkg/config"
-	"github.com/GoogleContainerTools/kaniko/pkg/constants"
-	"github.com/GoogleContainerTools/kaniko/pkg/dockerfile"
-	image_util "github.com/GoogleContainerTools/kaniko/pkg/image"
-	"github.com/GoogleContainerTools/kaniko/pkg/image/remote"
-	"github.com/GoogleContainerTools/kaniko/pkg/snapshot"
-	"github.com/GoogleContainerTools/kaniko/pkg/timing"
-	"github.com/GoogleContainerTools/kaniko/pkg/util"
 	"github.com/google/go-containerregistry/pkg/v1/partial"
+	"github.com/osscontainertools/kaniko/pkg/cache"
+	"github.com/osscontainertools/kaniko/pkg/commands"
+	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/constants"
+	"github.com/osscontainertools/kaniko/pkg/dockerfile"
+	image_util "github.com/osscontainertools/kaniko/pkg/image"
+	"github.com/osscontainertools/kaniko/pkg/image/remote"
+	"github.com/osscontainertools/kaniko/pkg/snapshot"
+	"github.com/osscontainertools/kaniko/pkg/timing"
+	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
 // This is the size of an empty tar in Go

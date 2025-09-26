@@ -19,7 +19,7 @@ package util
 import (
 	"testing"
 
-	"github.com/GoogleContainerTools/kaniko/testutil"
+	"github.com/osscontainertools/kaniko/testutil"
 )
 
 func Test_ValidAzureBlobStorageHost(t *testing.T) {

@@ -19,12 +19,12 @@ package creds
 import (
 	"io"
 
-	"github.com/GoogleContainerTools/kaniko/pkg/config"
 	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
 	gitlab "github.com/ePirat/docker-credential-gitlabci/pkg/credhelper"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/v1/google"
+	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/sirupsen/logrus"
 )
 

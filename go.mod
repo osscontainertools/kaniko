@@ -1,4 +1,4 @@
-module github.com/GoogleContainerTools/kaniko
+module github.com/osscontainertools/kaniko
 
 go 1.25
 

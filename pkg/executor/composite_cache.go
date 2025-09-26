@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/GoogleContainerTools/kaniko/pkg/util"
+	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/pkg/errors"
 )
 

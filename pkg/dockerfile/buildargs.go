@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/GoogleContainerTools/kaniko/pkg/config"
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/pkg/config"
 )
 
 // builtinAllowedBuildArgs is list of built-in allowed build args

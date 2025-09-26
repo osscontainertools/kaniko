@@ -28,8 +28,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/GoogleContainerTools/kaniko/pkg/config"
 	"github.com/moby/go-archive"
+	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
