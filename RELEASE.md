@@ -8,7 +8,7 @@ Only maintainers of the `kaniko` repository can [create an official release of K
 
 Other users must use the following steps:
 
-1. Follow the [setup instruction to fork kaniko repository](https://github.com/mzihlmann/kaniko/blob/master/DEVELOPMENT.md#getting-started)
+1. Follow the [setup instruction to fork kaniko repository](https://github.com/osscontainertools/kaniko/blob/master/DEVELOPMENT.md#getting-started)
 2. Run the following `make` commands to build and push Kaniko image to your organization image repository and registry..
   ```shell
    REGISTRY=YOUR-REGISTRY/YOUR-PROJECT make images
@@ -49,13 +49,13 @@ Once you have the correct access, you can kick off a release.
 
     In order to release a new version of Kaniko, you will need to first
 
-    a. Create a new branch and bump the kaniko version in [Makefile](https://github.com/mzihlmann/kaniko/blob/master/Makefile#L16)
+    a. Create a new branch and bump the kaniko version in [Makefile](https://github.com/osscontainertools/kaniko/blob/master/Makefile#L16)
 
 
     In most cases, you will need to bump the `VERSION_MINOR` number.
     In case you are doing a patch release for a hot fix, bump the `VERSION_BUILD` number.
 
-    b. Run the [script](https://github.com/mzihlmann/kaniko/blob/master/hack/release.sh) to create release notes.
+    b. Run the [script](https://github.com/osscontainertools/kaniko/blob/master/hack/release.sh) to create release notes.
     ```
     ./hack/release.sh
     Collecting pull request that were merged since the last release: v1.25.0 (2020-08-18 02:53:46 +0000 UTC)
@@ -65,7 +65,7 @@ Once you have the correct access, you can kick off a release.
     - Contributor 2
     - ...
     ```
-    Copy the release notes and update the [CHANGELOG.md](https://github.com/mzihlmann/kaniko/blob/master/CHANGELOG.md) at the root of the repository.
+    Copy the release notes and update the [CHANGELOG.md](https://github.com/osscontainertools/kaniko/blob/master/CHANGELOG.md) at the root of the repository.
 
     c. Create a pull request and get it approved from Kaniko maintainers.
 
@@ -81,7 +81,7 @@ Once you have the correct access, you can kick off a release.
     git tag v1.2.0
     git push remote v1.2.0
     ```
-3.  Pushing a tag to remote with above naming convention will trigger the Github workflow action defined [here](https://github.com/mzihlmann/kaniko/blob/main/.github/workflows/images.yaml) It takes 20-30 mins for the job to finish and push images to [martizih/kaniko](https://hub.docker.com/r/martizih/kaniko)
+3.  Pushing a tag to remote with above naming convention will trigger the Github workflow action defined [here](https://github.com/osscontainertools/kaniko/blob/main/.github/workflows/images.yaml) It takes 20-30 mins for the job to finish and push images to [martizih/kaniko](https://hub.docker.com/r/martizih/kaniko)
 
 ```
 martizih/kaniko:latest
@@ -99,7 +99,7 @@ docker pull martizih/kaniko:vX.Y.Z-warmer
 ```
 In case the images are still not published, ping one of the kaniko maintainers and they will provide the cloud build trigger logs.
 
-4. Finally, once the images are published, create a release for the newly created [tag](https://github.com/mzihlmann/kaniko/tags) and publish it. 
+4. Finally, once the images are published, create a release for the newly created [tag](https://github.com/osscontainertools/kaniko/tags) and publish it. 
 Summarize the change log to mention, 
 - new features added if any
 - bug fixes, 

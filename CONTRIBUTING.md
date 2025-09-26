@@ -59,6 +59,6 @@ you can find something interesting to work on:
 
 - To find issues that we particularly would like contributors to tackle, look
   for
-  [issues with the "help wanted" label](https://github.com/mzihlmann/kaniko/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22).
+  [issues with the "help wanted" label](https://github.com/osscontainertools/kaniko/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22).
 - Issues that are good for new folks will additionally be marked with
-  ["good first issue"](https://github.com/mzihlmann/kaniko/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).
+  ["good first issue"](https://github.com/osscontainertools/kaniko/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22).

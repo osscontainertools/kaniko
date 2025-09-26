@@ -41,7 +41,7 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-const org = "mzihlmann"
+const org = "osscontainertools"
 const repo = "kaniko"
 
 func main() {
