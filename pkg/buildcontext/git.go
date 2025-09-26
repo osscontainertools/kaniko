@@ -22,7 +22,6 @@ import (
 	"os"
 	"strings"
 
-	kConfig "github.com/GoogleContainerTools/kaniko/pkg/config"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -31,6 +30,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage/filesystem"
+	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/sirupsen/logrus"
 )
 

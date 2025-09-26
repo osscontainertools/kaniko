@@ -19,8 +19,8 @@ package dockerfile
 import (
 	"testing"
 
-	"github.com/GoogleContainerTools/kaniko/testutil"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/testutil"
 )
 
 func strPtr(source string) *string {

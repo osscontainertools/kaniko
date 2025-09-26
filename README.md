@@ -59,7 +59,7 @@ If you are new here, these are the main differences to the last official kaniko 
 * 🔗 update docs: by @mosabua @cpanato in https://github.com/mzihlmann/kaniko/pull/136
 * 🔗 group dependabot updates for go and github actions: by @cpanato in https://github.com/mzihlmann/kaniko/pull/162
 
-for a more detailed view you can refer to our release notes https://github.com/mzihlmann/kaniko/releases
+for a more detailed view you can refer to our release notes https://github.com/osscontainertools/kaniko/releases
 
 🔗 indicates a change is in sync with chainguard's fork https://github.com/chainguard-dev/kaniko
 
@@ -67,10 +67,10 @@ for a more detailed view you can refer to our release notes https://github.com/m
 
 # kaniko - Build Images In Kubernetes
 
-[![Unit tests](https://github.com/mzihlmann/kaniko/actions/workflows/unit-tests.yaml/badge.svg)](https://github.com/mzihlmann/kaniko/actions/workflows/unit-tests.yaml)
-[![Integration tests](https://github.com/mzihlmann/kaniko/actions/workflows/integration-tests.yaml/badge.svg)](https://github.com/mzihlmann/kaniko/actions/workflows/integration-tests.yaml)
-[![Build images](https://github.com/mzihlmann/kaniko/actions/workflows/images.yaml/badge.svg)](https://github.com/mzihlmann/kaniko/actions/workflows/images.yaml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/mzihlmann/kaniko)](https://goreportcard.com/report/github.com/mzihlmann/kaniko)
+[![Unit tests](https://github.com/osscontainertools/kaniko/actions/workflows/unit-tests.yaml/badge.svg)](https://github.com/osscontainertools/kaniko/actions/workflows/unit-tests.yaml)
+[![Integration tests](https://github.com/osscontainertools/kaniko/actions/workflows/integration-tests.yaml/badge.svg)](https://github.com/osscontainertools/kaniko/actions/workflows/integration-tests.yaml)
+[![Build images](https://github.com/osscontainertools/kaniko/actions/workflows/images.yaml/badge.svg)](https://github.com/osscontainertools/kaniko/actions/workflows/images.yaml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/osscontainertools/kaniko)](https://goreportcard.com/report/github.com/osscontainertools/kaniko)
 
 ![kaniko logo](logo/Kaniko-Logo.png)
 
@@ -212,8 +212,8 @@ If you are interested in contributing to kaniko, learn more from our
 [development](DEVELOPMENT.md) and [contributing](CONTRIBUTING.md) guides.
 
 For any community discussion [participate in open
-issues](https://github.com/mzihlmann/kaniko/issues) or [file a new
-issue](https://github.com/mzihlmann/kaniko/issues/new/choose).
+issues](https://github.com/osscontainertools/kaniko/issues) or [file a new
+issue](https://github.com/osscontainertools/kaniko/issues/new/choose).
 
 Some community members can be found on [#kaniko on Kubernetes
 Slack](https://kubernetes.slack.com/messages/CQDCHGX7Y/) but there is no active
@@ -231,7 +231,7 @@ Their focus is to keep dependencies up to date and patch security issues, keepin
 kaniko releases are published as images on docker hub [martizih/kaniko](https://hub.docker.com/r/martizih/kaniko)
 
 Release notes and source code archives are available on the [releases
-section](https://github.com/mzihlmann/kaniko/releases).
+section](https://github.com/osscontainertools/kaniko/releases).
 
 Other available images:
 
@@ -1438,7 +1438,7 @@ function calls using [Slow Jam](https://github.com/google/slowjam) To start
 profiling,
 
 1. Add an environment variable `STACKLOG_PATH` to your
-   [pod definition](https://github.com/mzihlmann/kaniko/blob/master/examples/pod-build-profile.yaml#L15).
+   [pod definition](https://github.com/osscontainertools/kaniko/blob/master/examples/pod-build-profile.yaml#L15).
 2. If you are using the kaniko `debug` image, you can copy the file in the
    `pre-stop` container lifecycle hook.
 
@@ -1476,7 +1476,7 @@ The following conditions must be met:
    ([GitHub](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/about-self-hosted-runners),[GitLab](https://docs.gitlab.com/runner/register/).
 2. Kaniko needs to be able to run on the desired architectures. At the time of
    writing, the official Kaniko container supports
-   [linux/amd64, linux/arm64, linux/s390x and linux/ppc64le (not on \*-debug images)](https://github.com/mzihlmann/kaniko/blob/main/.github/workflows/images.yaml).
+   [linux/amd64, linux/arm64, linux/s390x and linux/ppc64le (not on \*-debug images)](https://github.com/osscontainertools/kaniko/blob/main/.github/workflows/images.yaml).
 3. The container registry of your choice must be OCIv1 or Docker v2.2
    compatible.
 
@@ -1664,7 +1664,7 @@ changes to a file are made and when the `mtime` is updated. This means:
 
 _Note that these issues are currently theoretical only. If you see this issue
 occur, please
-[open an issue](https://github.com/mzihlmann/kaniko/issues)._
+[open an issue](https://github.com/osscontainertools/kaniko/issues)._
 
 ### Dockerfile commands `--chown` support
 Kaniko currently supports `COPY --chown` and `ADD --chown` Dockerfile command. It does not support `RUN --chown`.

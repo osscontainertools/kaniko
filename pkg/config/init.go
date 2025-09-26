@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/GoogleContainerTools/kaniko/pkg/constants"
+	"github.com/osscontainertools/kaniko/pkg/constants"
 )
 
 var RootDir string

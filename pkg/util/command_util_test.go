@@ -25,9 +25,9 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/GoogleContainerTools/kaniko/testutil"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/testutil"
 )
 
 var testURL = "https://github.com/GoogleContainerTools/runtimes-common/blob/master/LICENSE"
