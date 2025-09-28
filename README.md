@@ -1377,6 +1377,13 @@ Many multi-stage Dockerfiles include intermediate stages that only become releva
 Set this flag to `true` to squash stages together. Defaults to `false`.
 Becomes default in `v1.26.0`.
 
+#### Flag `FF_KANIKO_IGNORE_CACHED_MANIFEST`
+
+Warmer does not only store the image as a tarball, but also the original manifest as a separate json file.
+This is done to speedup manifest retrieval, but has adverse effects in some scenarios, as storing the image as a tarball actively rewrites part of the image, specifically it forces the mediatype to `vnd.docker.distribution.manifest.v2+json`. This causes the stored manifest being incompatible with the stored image. With this featureflag we ignore the manifest stored in cache and instead create the manifest from the image upon load.
+Set this flag to `true` to ignore stored manifest.json in the cache directory. Defaults to `false`.
+Currently no plans to activate.
+
 ### Debug Image
 
 The kaniko executor image is based on scratch and doesn't contain a shell. We

@@ -214,7 +214,7 @@ func (c *cachedImage) Digest() (v1.Hash, error) {
 }
 
 func (c *cachedImage) Manifest() (*v1.Manifest, error) {
-	if c.mfst == nil {
+	if config.EnvBool("FF_KANIKO_IGNORE_CACHED_MANIFEST") || c.mfst == nil {
 		return c.Image.Manifest()
 	}
 	return c.mfst, nil
