@@ -765,13 +765,11 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 		logrus.Panic("no stages to build")
 	}
 	lastStage := kanikoStages[len(kanikoStages)-1]
-	predefined, err := dockerfile.PredefinedBuildArgs(opts, &lastStage)
+	var args = dockerfile.NewBuildArgs(opts.BuildArgs)
+	err = args.InitPredefinedArgs(opts.CustomPlatform, lastStage.Stage.Name)
 	if err != nil {
 		return nil, err
 	}
-	logrus.Infof("predefined build args: %s", predefined)
-	merged := append(predefined, opts.BuildArgs...)
-	var args = dockerfile.NewBuildArgs(merged)
 
 	var tarball string
 	err = util.InitIgnoreList()
