@@ -22,7 +22,6 @@ import (
 
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
-	"github.com/osscontainertools/kaniko/pkg/config"
 )
 
 // builtinAllowedBuildArgs is list of built-in allowed build args
@@ -47,6 +46,8 @@ type BuildArgs struct {
 	allowedBuildArgs map[string]*string
 	// args defined before the first `FROM` in a Dockerfile
 	allowedMetaArgs map[string]*string
+	// default for args based on host system
+	predefinedArgs map[string]*string
 	// args referenced by the Dockerfile
 	referencedArgs map[string]struct{}
 	// args provided by the user on the command line
@@ -63,6 +64,7 @@ func newBuildArgsFromMap(argsFromOptions map[string]*string) *BuildArgs {
 	return &BuildArgs{
 		allowedBuildArgs: make(map[string]*string),
 		allowedMetaArgs:  make(map[string]*string),
+		predefinedArgs:   make(map[string]*string),
 		referencedArgs:   make(map[string]struct{}),
 		argsFromOptions:  argsFromOptions,
 	}
@@ -76,6 +78,9 @@ func (b *BuildArgs) Clone() *BuildArgs {
 	}
 	for k, v := range b.allowedMetaArgs {
 		result.allowedMetaArgs[k] = v
+	}
+	for k, v := range b.predefinedArgs {
+		result.predefinedArgs[k] = v
 	}
 	for k := range b.referencedArgs {
 		result.referencedArgs[k] = struct{}{}
@@ -156,6 +161,9 @@ func (b *BuildArgs) getBuildArg(key string, mapping map[string]*string) (string,
 		if v, ok := b.allowedMetaArgs[key]; ok && v != nil {
 			return *v, ok
 		}
+		if v, ok := b.predefinedArgs[key]; exists && ok && v != nil {
+			return *v, ok
+		}
 		return "", false
 	}
 	return *defaultValue, exists
@@ -187,37 +195,38 @@ func convertKVStringsToMap(values []string) map[string]*string {
 }
 
 // Initialize predefined build args s.a.: TARGETOS, TARGETARCH, BUILDPLATFORM, TARGETPLATFORM ...
-func PredefinedBuildArgs(opts *config.KanikoOptions, lastStage *config.KanikoStage) ([]string, error) {
+func (b *BuildArgs) InitPredefinedArgs(customPlatform string, lastStage string) error {
 	buildSpec := platforms.Normalize(platforms.DefaultSpec())
 	build := platforms.Format(buildSpec)
 
 	var target = build
 	var targetSpec = buildSpec
 	var err error
-	if opts.CustomPlatform != "" {
-		target = opts.CustomPlatform
-		targetSpec, err = platforms.Parse(opts.CustomPlatform)
+	if customPlatform != "" {
+		target = customPlatform
+		targetSpec, err = platforms.Parse(customPlatform)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to parse target platform %q: %v", opts.CustomPlatform, err)
+			return fmt.Errorf("Failed to parse target platform %q: %v", customPlatform, err)
 		}
 	}
 
 	var targetStage = "default"
-	if lastStage.Stage.Name != "" {
-		targetStage = lastStage.Stage.Name
+	if lastStage != "" {
+		targetStage = lastStage
 	}
 
-	return []string{
-		"BUILDPLATFORM=" + build,
-		"BUILDOS=" + buildSpec.OS,
-		"BUILDOSVERSION=" + buildSpec.OSVersion,
-		"BUILDARCH=" + buildSpec.Architecture,
-		"BUILDVARIANT=" + buildSpec.Variant,
-		"TARGETPLATFORM=" + target,
-		"TARGETOS=" + targetSpec.OS,
-		"TARGETOSVERSION=" + targetSpec.OSVersion,
-		"TARGETARCH=" + targetSpec.Architecture,
-		"TARGETVARIANT=" + targetSpec.Variant,
-		"TARGETSTAGE=" + targetStage,
-	}, nil
+	b.predefinedArgs = map[string]*string{
+		"BUILDPLATFORM":   &build,
+		"BUILDOS":         &buildSpec.OS,
+		"BUILDOSVERSION":  &buildSpec.OSVersion,
+		"BUILDARCH":       &buildSpec.Architecture,
+		"BUILDVARIANT":    &buildSpec.Variant,
+		"TARGETPLATFORM":  &target,
+		"TARGETOS":        &targetSpec.OS,
+		"TARGETOSVERSION": &targetSpec.OSVersion,
+		"TARGETARCH":      &targetSpec.Architecture,
+		"TARGETVARIANT":   &targetSpec.Variant,
+		"TARGETSTAGE":     &targetStage,
+	}
+	return nil
 }
