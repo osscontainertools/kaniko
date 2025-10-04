@@ -409,7 +409,7 @@ func skipUnusedStages(stages []instructions.Stage, lastStageIndex *int, target s
 	}
 
 	for i := 0; i <= *lastStageIndex; i++ {
-		if squashStages {
+		if squashStages && stagesDependencies[i] > 0 {
 			if BaseIndex, ok := stageByName[strings.ToLower(stages[i].BaseName)]; ok {
 				if stagesDependencies[BaseIndex] == 1 {
 					// squash stages[i] into stages[i].BaseName
@@ -419,7 +419,6 @@ func skipUnusedStages(stages []instructions.Stage, lastStageIndex *int, target s
 					// the current stage might depend on other stages so it is not safe to move it.
 					stages[i] = squash(stages[BaseIndex], stages[i])
 					stagesDependencies[BaseIndex] = 0
-					continue
 				}
 			}
 		}
