@@ -1,0 +1,10 @@
+# using debian as scratch results in empty image
+# and diffoci can't handle that
+FROM debian:12.10 AS base
+
+FROM base AS output1
+
+# mz282: in kaniko <=v1.25.5, when squashing stages FF_KANIKO_SQUASH_STAGES=1
+# and targetting the stage `--target=output2`. The stage output1 erroneously
+# gets squashed into base, which makes it impossible to build the target stage. 
+FROM base AS output2
