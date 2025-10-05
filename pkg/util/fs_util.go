@@ -1022,7 +1022,7 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 	opts := otiai10Cpy.Options{
 		PreserveTimes: true,
 		Skip: func(info os.FileInfo, src, dest string) (bool, error) {
-			return strings.HasSuffix(src, "/kaniko"), nil
+			return strings.HasSuffix(src, config.KanikoDir), nil
 		},
 		FS: FSys,
 	}

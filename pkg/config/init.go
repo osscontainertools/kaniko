@@ -49,6 +49,13 @@ var KanikoIntermediateStagesDir = fmt.Sprintf("%s/stages/", KanikoDir)
 // Contents are stored as-is.
 var KanikoCacheDir = fmt.Sprintf("%s/caches/", KanikoDir)
 
+// KanikoSwapDir is a temporary directory used to swap out cache
+// and target directories
+var KanikoSwapDir = fmt.Sprintf("%s/swap/", KanikoDir)
+
+// DockerConfigDir is a where registry credentials are stored
+var DockerConfigDir = fmt.Sprintf("%s/.docker/", KanikoDir)
+
 var MountInfoPath string
 
 func init() {
