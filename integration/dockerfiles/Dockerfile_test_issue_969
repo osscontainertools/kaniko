@@ -1,0 +1,11 @@
+FROM busybox
+
+RUN --mount=type=cache,target=/tmp/bli/bla/ \
+    touch /tmp/bli/bla/blubb
+
+RUN ls -la /tmp/ \
+    && test ! -f /tmp/bli/bla/blubb
+
+RUN --mount=type=cache,target=/tmp/bli/bla \
+    ls -la /tmp/bli/bla/ \
+    && test -f /tmp/bli/bla/blubb

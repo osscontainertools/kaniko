@@ -17,9 +17,12 @@ limitations under the License.
 package commands
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -49,14 +52,66 @@ func (r *RunCommand) IsArgsEnvsRequiredInCache() bool {
 }
 
 func (r *RunCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
-	return runCommandInExec(config, buildArgs, r.cmd)
+	return runCommandWithFlags(config, buildArgs, r.cmd)
+}
+
+func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand) (reterr error) {
+	ff_cache := kConfig.EnvBool("FF_KANIKO_RUN_MOUNT_CACHE")
+	for _, f := range cmdRun.FlagsUsed {
+		if !(ff_cache && f == "mount") {
+			logrus.Warnf("#969 kaniko does not support '--%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", f)
+		}
+	}
+	if ff_cache && len(cmdRun.FlagsUsed) > 0 {
+		replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
+		expand := func(word string) (string, error) {
+			return util.ResolveEnvironmentReplacement(word, replacementEnvs, false)
+		}
+		err := cmdRun.Expand(expand)
+		if err != nil {
+			return err
+		}
+		for _, m := range instructions.GetMounts(cmdRun) {
+			switch m.Type {
+			case instructions.MountTypeCache:
+				normalized := filepath.Clean(m.Target)
+				h := sha256.Sum256([]byte(normalized))
+				targetHash := hex.EncodeToString(h[:])
+				cacheDir := filepath.Join(kConfig.KanikoCacheDir, targetHash)
+				err = os.MkdirAll(cacheDir, 0755)
+				if err != nil {
+					return err
+				}
+				created, err := ensureDir(m.Target)
+				if err != nil {
+					return err
+				}
+				if created != "" {
+					defer func() {
+						err := os.RemoveAll(created)
+						if err != nil {
+							reterr = err
+						}
+					}()
+				}
+				err = swapDir(cacheDir, m.Target)
+				defer func() {
+					err := swapDir(m.Target, cacheDir)
+					if err != nil {
+						reterr = err
+					}
+				}()
+			default:
+				logrus.Warnf("Kaniko does not support '--mount=type=%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", m.Type)
+			}
+
+		}
+	}
+	return runCommandInExec(config, buildArgs, cmdRun)
 }
 
 func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand) error {
 	var newCommand []string
-	for _, f := range cmdRun.FlagsUsed {
-		logrus.Warnf("#969 kaniko does not support '--%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", f)
-	}
 	if cmdRun.PrependShell {
 		// This is the default shell on Linux
 		var shell []string
@@ -284,4 +339,52 @@ func setWorkDirIfExists(workdir string) string {
 		return workdir
 	}
 	return ""
+}
+
+func swapDir(pathA, pathB string) (err error) {
+	if pathA == "" || pathB == "" {
+		return fmt.Errorf("paths must not be empty")
+	}
+	tmp := "/kaniko/swap"
+
+	err = os.Rename(pathA, tmp)
+	if err != nil {
+		return fmt.Errorf("failed to rename (1) %s -> %s: %w", pathA, tmp, err)
+	}
+
+	err = os.Rename(pathB, pathA)
+	if err != nil {
+		return fmt.Errorf("failed to rename (2) %s -> %s: %w", pathB, pathA, err)
+	}
+
+	err = os.Rename(tmp, pathB)
+	if err != nil {
+		return fmt.Errorf("failed to rename (3) %s -> %s: %w", tmp, pathB, err)
+	}
+
+	return nil
+}
+
+func ensureDir(target string) (string, error) {
+	var firstCreated = ""
+	curr := target
+	for {
+		_, err := os.Stat(curr)
+		if !os.IsNotExist(err) {
+			break
+		}
+		firstCreated = curr
+		curr = filepath.Dir(curr)
+	}
+
+	if firstCreated == "" {
+		return "", nil
+	}
+
+	err := os.MkdirAll(target, 0755)
+	if err != nil {
+		return "", err
+	}
+
+	return firstCreated, nil
 }

@@ -40,7 +40,7 @@ func (r *RunMarkerCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfi
 	if err != nil {
 		return err
 	}
-	if err := runCommandInExec(config, buildArgs, r.cmd); err != nil {
+	if err := runCommandWithFlags(config, buildArgs, r.cmd); err != nil {
 		return err
 	}
 	_, r.Files, err = util.GetFSInfoMap("/", prevFilesMap)
