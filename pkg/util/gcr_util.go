@@ -19,6 +19,8 @@ package util
 import (
 	"os"
 	"path/filepath"
+
+	"github.com/osscontainertools/kaniko/pkg/config"
 )
 
 // DockerConfLocation returns the file system location of the Docker
@@ -35,10 +37,10 @@ func DockerConfLocation() string {
 			}
 		} else {
 			if os.IsNotExist(err) {
-				return string(os.PathSeparator) + filepath.Join("kaniko", ".docker", configFile)
+				return filepath.Join(config.DockerConfigDir, configFile)
 			}
 		}
 		return filepath.Clean(dockerConfig)
 	}
-	return string(os.PathSeparator) + filepath.Join("kaniko", ".docker", configFile)
+	return filepath.Join(config.DockerConfigDir, configFile)
 }

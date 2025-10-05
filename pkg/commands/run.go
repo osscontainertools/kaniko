@@ -345,7 +345,7 @@ func swapDir(pathA, pathB string) (err error) {
 	if pathA == "" || pathB == "" {
 		return fmt.Errorf("paths must not be empty")
 	}
-	tmp := "/kaniko/swap"
+	tmp := kConfig.KanikoSwapDir
 
 	err = os.Rename(pathA, tmp)
 	if err != nil {
