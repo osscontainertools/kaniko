@@ -187,9 +187,11 @@ func setupMultistageTests(t *testing.T) (string, func()) {
 	//          - exec.link -> ../exec
 	//      exec
 
-	// Make directory for stage or else the executor will create with permissions 0664
+	// Overwrite permissions used to create folder for stage,
+	// otherwise executor will create it using 0664
 	// and we will run into issue https://github.com/golang/go/issues/22323
-	if err := os.MkdirAll(filepath.Join(testDir, "kaniko/0"), 0755); err != nil {
+	mkdirPermissions = 0755
+	if err := os.MkdirAll(filepath.Join(testDir, "kaniko"), 0755); err != nil {
 		t.Fatal(err)
 	}
 	workspace := filepath.Join(testDir, "workspace")

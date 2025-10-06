@@ -55,8 +55,9 @@ const emptyTarSize = 1024
 
 // for testing
 var (
-	initializeConfig = initConfig
-	getFSFromImage   = util.GetFSFromImage
+	initializeConfig             = initConfig
+	getFSFromImage               = util.GetFSFromImage
+	mkdirPermissions os.FileMode = 0644
 )
 
 type cachePusher func(*config.KanikoOptions, string, string, string) error
@@ -894,7 +895,8 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 			return nil, err
 		}
 		dstDir := filepath.Join(config.KanikoDir, strconv.Itoa(index))
-		if err := os.MkdirAll(dstDir, 0644); err != nil {
+		_ = os.RemoveAll(dstDir)
+		if err := os.Mkdir(dstDir, mkdirPermissions); err != nil {
 			return nil, errors.Wrap(err,
 				fmt.Sprintf("to create workspace for stage %s",
 					stageIdxToDigest[strconv.Itoa(index)],
