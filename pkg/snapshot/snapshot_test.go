@@ -626,10 +626,10 @@ func setUpTest(t *testing.T) (string, *Snapshotter, func(), error) {
 		return "", nil, nil, errors.Wrap(err, "initializing snapshotter")
 	}
 
-	original := config.KanikoDir
-	config.KanikoDir = testDir
+	original := config.KanikoLayersDir
+	config.KanikoLayersDir = testDir
 	cleanup := func() {
-		config.KanikoDir = original
+		config.KanikoLayersDir = original
 	}
 
 	return testDir, snapshotter, cleanup, nil

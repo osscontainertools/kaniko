@@ -44,6 +44,23 @@ var BuildContextDir = fmt.Sprintf("%s/buildcontext/", KanikoDir)
 // as tarballs in case they are needed later on
 var KanikoIntermediateStagesDir = fmt.Sprintf("%s/stages/", KanikoDir)
 
+// KanikoInsterStageDir is where we will store inter-stage dependencies
+// Contents are stored as-is.
+var KanikoInterStageDepsDir = func() string {
+	if EnvBool("FF_KANIKO_NEW_CACHE_LAYOUT") {
+		return fmt.Sprintf("%s/deps/", KanikoDir)
+	}
+	return KanikoDir
+}()
+
+// KanikoLayersDir is where we will store layers as tarballs
+var KanikoLayersDir = func() string {
+	if EnvBool("FF_KANIKO_NEW_CACHE_LAYOUT") {
+		return fmt.Sprintf("%s/layers/", KanikoDir)
+	}
+	return KanikoDir
+}()
+
 // KanikoCacheDir is where we will store cache mount directories, ie.
 // RUN --mount=type=cache,target=/var/lib/apt/lists/
 // Contents are stored as-is.

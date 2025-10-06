@@ -52,7 +52,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 	var err error
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 	if c.cmd.From != "" {
-		c.fileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoDir, c.cmd.From)}
+		c.fileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoInterStageDepsDir, c.cmd.From)}
 		uid, gid, err = getUserGroup(c.cmd.Chown, replacementEnvs)
 		if err != nil {
 			return errors.Wrap(err, "getting user group from chown")
@@ -312,7 +312,7 @@ func copyCmdFilesUsedFromContext(
 	fileContext util.FileContext,
 ) ([]string, error) {
 	if cmd.From != "" {
-		fileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoDir, cmd.From)}
+		fileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoInterStageDepsDir, cmd.From)}
 	}
 
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)

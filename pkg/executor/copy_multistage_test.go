@@ -219,6 +219,9 @@ func setupMultistageTests(t *testing.T) (string, func()) {
 	// set up config
 	config.RootDir = testDir
 	config.KanikoDir = fmt.Sprintf("%s/%s", testDir, "kaniko")
+	config.KanikoInterStageDepsDir = config.KanikoDir
+	config.KanikoLayersDir = config.KanikoDir
+
 	// Write path to ignore list
 	if err := os.MkdirAll(filepath.Join(testDir, "proc"), 0755); err != nil {
 		t.Fatal(err)
