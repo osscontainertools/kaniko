@@ -1,3 +1,73 @@
+# v1.25.6 Release 2025-10-08
+The executor images in this release are:
+```
+martizih/kaniko:latest
+martizih/kaniko:v1.25.6
+```
+
+The debug images are available at:
+```
+martizih/kaniko:debug
+martizih/kaniko:v1.25.6-debug
+```
+
+The slim executor images which don't contain any authentication binaries are available at:
+```
+martizih/kaniko:slim
+martizih/kaniko:v1.25.6-slim
+```
+
+The warmer images are available at:
+```
+martizih/kaniko:warmer
+martizih/kaniko:v1.25.6-warmer
+```
+
+The bootstrap images, that can be used to build kaniko in kaniko, are available at:
+```
+martizih/kaniko:bootstrap
+martizih/kaniko:v1.25.6-bootstrap
+```
+
+## What's Changed
+* update readme by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/254
+* chore(deps): remove deprecated github.com/containerd/containerd/platforms by @BobDu in https://github.com/osscontainertools/kaniko/pull/252
+* drop deprecated packages by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/255
+* cg159: parse metaArgs in warmer by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/256
+* Remove github.com/docker/docker/builder as dependency by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/260
+* vendor in Lsetxattr by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/261
+* move github.com/docker/docker/api -> github.com/moby/moby/api by @BobDu in https://github.com/osscontainertools/kaniko/pull/258
+* chore(deps): bump the gomod group with 2 updates by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/262
+* drop docker daemon by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/263
+* chore(deps): bump cloud.google.com/go/storage from 1.56.2 to 1.57.0 by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/265
+* chore(deps): bump the gomod group with 4 updates by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/264
+* warmer tries to load stage references by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/266
+* allow skip push cache by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/268
+* chore(deps): bump google.golang.org/api from 0.249.0 to 0.250.0 by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/269
+* rename repository by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/270
+* add funding.yml by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/271
+* cg160: feature-flag to ignore cached manifest by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/267
+* :link: fix code scanning alert 1 by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/272
+* chore(deps): bump the gomod group with 4 updates by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/273
+* 969: cache mounts - part 1 by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/274
+* chore(deps): bump the gomod group with 2 updates by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/275
+* chore(deps): bump github.com/moby/buildkit from 0.24.0 to 0.25.0 by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/279
+* chore(deps): bump google.golang.org/api from 0.250.0 to 0.251.0 by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/278
+* chore(deps): bump the gomod group with 2 updates by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/281
+* skip ignored stages during squash by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/283
+* oversteer predefined args by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/277
+* 969: cache mounts by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/245
+* 2876: don't hardcode kaniko dir by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/284
+* 1406: don't reuse interstage dependencies by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/286
+* chore(deps): bump github.com/go-git/go-git/v5 from 5.16.2 to 5.16.3 in the gomod group by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/287
+* update docs by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/288
+* chore(deps): bump google.golang.org/api from 0.251.0 to 0.252.0 by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/292
+* chore(deps): bump golang from 1.25.1 to 1.25.2 in /deploy by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/289
+* chore(deps): bump the gomod group with 3 updates by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/290
+* Organize kaniko dir by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/285
+* chore(deps): bump golang.org/x/net from 0.44.0 to 0.45.0 by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/291
+
+
 # v1.25.5 Release 2025-09-18
 The executor images in this release are:
 ```
