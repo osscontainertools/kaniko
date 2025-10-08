@@ -1446,6 +1446,14 @@ and use keyless verification with github actions issuer
 
 ```
 $ cosign verify \
+  --certificate-identity-regexp "https://github.com/osscontainertools/kaniko/.github/workflows/images.yaml@.*" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  martizih/kaniko:latest
+```
+
+kaniko images for older versions [1.24.1 - 1.25.5] can be verified using
+```
+$ cosign verify \
   --certificate-identity-regexp "https://github.com/mzihlmann/kaniko/.github/workflows/images.yaml@.*" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
   martizih/kaniko:latest
