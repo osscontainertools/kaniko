@@ -894,9 +894,9 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 		if err != nil {
 			return nil, err
 		}
-		dstDir := filepath.Join(config.KanikoDir, strconv.Itoa(index))
+		dstDir := filepath.Join(config.KanikoInterStageDepsDir, strconv.Itoa(index))
 		_ = os.RemoveAll(dstDir)
-		if err := os.Mkdir(dstDir, mkdirPermissions); err != nil {
+		if err := os.MkdirAll(dstDir, mkdirPermissions); err != nil {
 			return nil, errors.Wrap(err,
 				fmt.Sprintf("to create workspace for stage %s",
 					stageIdxToDigest[strconv.Itoa(index)],
@@ -1058,7 +1058,7 @@ func fromPreviousStage(copyCommand *instructions.CopyCommand, previousStageNames
 func extractImageToDependencyDir(name string, image v1.Image) error {
 	t := timing.Start("Extracting Image to Dependency Dir")
 	defer timing.DefaultRun.Stop(t)
-	dependencyDir := filepath.Join(config.KanikoDir, name)
+	dependencyDir := filepath.Join(config.KanikoInterStageDepsDir, name)
 	if err := os.MkdirAll(dependencyDir, 0755); err != nil {
 		return err
 	}

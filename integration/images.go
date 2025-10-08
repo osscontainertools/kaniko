@@ -77,6 +77,7 @@ var envsMap = map[string][]string{
 var KanikoEnv = []string{
 	"FF_KANIKO_COPY_AS_ROOT=1",
 	"FF_KANIKO_RUN_MOUNT_CACHE=1",
+	"FF_KANIKO_NEW_CACHE_LAYOUT=1",
 }
 
 // Arguments to build Dockerfiles with when building with docker
