@@ -2,7 +2,7 @@ module github.com/osscontainertools/kaniko
 
 go 1.25
 
-toolchain go1.25.1
+toolchain go1.25.2
 
 require (
 	cloud.google.com/go/storage v1.57.0
