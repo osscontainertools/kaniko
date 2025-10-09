@@ -168,11 +168,9 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
-	u := config.User
-	userAndGroup := strings.Split(u, ":")
-	userStr, err := util.ResolveEnvironmentReplacement(userAndGroup[0], replacementEnvs, false)
+	userStr, err := util.ResolveEnvironmentReplacement(config.User, replacementEnvs, false)
 	if err != nil {
-		return errors.Wrapf(err, "resolving user %s", userAndGroup[0])
+		return errors.Wrapf(err, "resolving user %s", config.User)
 	}
 
 	// If specified, run the command as a specific user
@@ -183,7 +181,7 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 		}
 	}
 
-	env, err := addDefaultHOME(userStr, replacementEnvs)
+	env, err := addDefaultHOME(strings.Split(userStr, ":")[0], replacementEnvs)
 	if err != nil {
 		return errors.Wrap(err, "adding default HOME variable")
 	}
