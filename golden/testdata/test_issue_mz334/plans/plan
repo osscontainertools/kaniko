@@ -1,0 +1,11 @@
+FROM busybox AS base
+UNPACK busybox
+RUN touch /blubb
+SAVE STAGE /kaniko/stages/0
+SAVE FILES [/blubb] /kaniko/deps/0
+CLEAN
+
+FROM base AS final
+UNPACK /kaniko/stages/0
+COPY --from=base /blubb /blubb
+RUN ls -lah /blubb
