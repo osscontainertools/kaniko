@@ -1,4 +1,10 @@
-To report a security issue with Kaniko, please use https://g.co/vulnz. We use
-https://g.co/vulnz for our intake, and do coordination and disclosure here on
-GitHub (including using GitHub Security Advisory). The Google Security Team will
-respond within 5 working days of your report on g.co/vulnz.
+# Security
+
+We take security seriously. If you discover a security issue, please bring it to our attention right away!
+
+## Reporting a Vulnerability
+
+Please DO NOT file a public issue, instead send your report privately to `todo @ domain`.
+
+Security reports are greatly appreciated, and we will publicly thank you for it.
+If you choose to remain anonymous, we will respect your request and keep your name confidential.
