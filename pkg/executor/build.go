@@ -29,6 +29,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
@@ -1079,7 +1080,17 @@ func saveStageAsTarball(path string, image v1.Image) error {
 	if err := os.MkdirAll(filepath.Dir(tarPath), 0750); err != nil {
 		return err
 	}
-	return tarball.WriteToFile(tarPath, destRef, image)
+	if config.EnvBool("FF_KANIKO_OCI_STAGES") {
+		p, err := layout.Write(tarPath, empty.Index)
+		if err != nil {
+			return err
+		}
+		return p.AppendImage(image, layout.WithAnnotations(map[string]string{
+			"org.opencontainers.image.ref.name": destRef.Name(),
+		}))
+	} else {
+		return tarball.WriteToFile(tarPath, destRef, image)
+	}
 }
 
 func getHasher(snapshotMode string) (func(string) (string, error), error) {

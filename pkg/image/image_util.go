@@ -31,6 +31,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 
 	"github.com/sirupsen/logrus"
@@ -66,7 +67,11 @@ func RetrieveSourceImage(stage config.KanikoStage, opts *config.KanikoOptions) (
 	// Next, check if the base image of the current stage is built from a previous stage
 	// If so, retrieve the image from the stored tarball
 	if stage.BaseImageStoredLocally {
-		return retrieveTarImage(stage.BaseImageIndex)
+		if config.EnvBool("FF_KANIKO_OCI_STAGES") {
+			return ociImage(stage.BaseImageIndex)
+		} else {
+			return retrieveTarImage(stage.BaseImageIndex)
+		}
 	}
 
 	// Finally, check if local caching is enabled
@@ -95,6 +100,33 @@ func tarballImage(index int) (v1.Image, error) {
 	tarPath := filepath.Join(config.KanikoIntermediateStagesDir, strconv.Itoa(index))
 	logrus.Infof("Base image from previous stage %d found, using saved tar at path %s", index, tarPath)
 	return tarball.ImageFromPath(tarPath, nil)
+}
+
+func ociImage(index int) (v1.Image, error) {
+	tarPath := filepath.Join(config.KanikoIntermediateStagesDir, strconv.Itoa(index))
+	logrus.Infof("Base image from previous stage %d found, using saved tar at path %s", index, tarPath)
+	p, err := layout.FromPath(tarPath)
+	if err != nil {
+		return nil, err
+	}
+	idx, err := p.ImageIndex()
+	if err != nil {
+		return nil, err
+	}
+	idxManifest, err := idx.IndexManifest()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(idxManifest.Manifests) == 0 {
+		return nil, fmt.Errorf("no images found in OCI layout")
+	}
+	if len(idxManifest.Manifests) > 1 {
+		return nil, fmt.Errorf("expected one image, found %d", len(idxManifest.Manifests))
+	}
+
+	hash := idxManifest.Manifests[0].Digest
+	return p.Image(hash)
 }
 
 func cachedImage(opts *config.KanikoOptions, image string) (v1.Image, error) {

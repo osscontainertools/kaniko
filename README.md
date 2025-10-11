@@ -200,6 +200,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_IGNORE_CACHED_MANIFEST`](#flag-ff_kaniko_ignore_cached_manifest)
       - [Flag `FF_KANIKO_RUN_MOUNT_CACHE`](#flag-ff_kaniko_run_mount_cache)
       - [Flag `FF_KANIKO_NEW_CACHE_LAYOUT`](#flag-ff_kaniko_new_cache_layout)
+      - [Flag `FF_KANIKO_OCI_STAGES`](#flag-ff_kaniko_oci_stages)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1412,6 +1413,13 @@ Becomes default in `v1.26.0`.
 
 Kaniko stores cache-layers and inter-stage dependencies in `/kaniko` folder directly. Our plan is to make downloaded cache-layers shareable on the host, similar to images downloaded with warmer. Therefore we should move them to a subdirectory, s.t. they can later be replaced with a volume mount.
 Set this flag to `true` to store cache-layers in `/kaniko/layers` and inter-stage dependencies in `/kaniko/deps` respectively.
+Defaults to `false`.
+Becomes default in `v1.26.0`.
+
+#### Flag `FF_KANIKO_OCI_STAGES`
+
+To switch between stages Kaniko has to store in a local directory temporarily. So far this is done using tarballs from go-containerregistry. However, this approach creates two problems. The tarball writer only supports dockerv2 mediatype, so when building a multi-stage image we forcefully rewrite all images to that mediatype. Secondly, the performance of that approach is suboptimal, as the manifest is not stored and has to be recalculated (ie. digest hash) upon reload. With this change we use ocilayout instead. Ocilayout folders support arbitrary mediatypes and store the manifest alongside the image data.
+Set this flag to `true` to store inter-stage dependencies as ocilayout.
 Defaults to `false`.
 Becomes default in `v1.26.0`.
 
