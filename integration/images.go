@@ -84,10 +84,12 @@ var envsMap = map[string][]string{
 var KanikoEnv = []string{
 	"FF_KANIKO_COPY_AS_ROOT=1",
 	"FF_KANIKO_OCI_STAGES=1",
-	"FF_KANIKO_IGNORE_CACHED_MANIFEST=1",
+	"FF_KANIKO_OCI_WARMER=1",
 }
 
-var WarmerEnv = []string{}
+var WarmerEnv = []string{
+	"FF_KANIKO_OCI_WARMER=1",
+}
 
 // Arguments to build Dockerfiles with when building with docker
 var additionalDockerFlagsMap = map[string][]string{
