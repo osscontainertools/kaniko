@@ -37,14 +37,6 @@ RUN mkdir -p /kaniko/.docker
 #   go mod vendor
 #
 # Then submit a PR with the changes to `go.mod`, `go.sum`, and `vendor`.
-
-# Get credential helpers
-COPY go.mod go.sum ./
-RUN go build -o out/ github.com/GoogleCloudPlatform/docker-credential-gcr/v2 \
-    && go build -o out/ github.com/awslabs/amazon-ecr-credential-helper/ecr-login/cli/docker-credential-ecr-login \
-    && go build -o out/ github.com/chrismellard/docker-credential-acr-env \
-    && rm -rf /root/.cache /go/pkg
-
 COPY . .
 RUN make out/executor out/warmer \
     && rm -rf /root/.cache
@@ -71,10 +63,6 @@ ENV PATH=/usr/local/bin:/kaniko
 ENV SSL_CERT_DIR=/kaniko/ssl/certs
 
 FROM kaniko-base-slim AS kaniko-base
-
-COPY --from=builder --chown=0:0 /src/out/docker-credential-gcr /kaniko/docker-credential-gcr
-COPY --from=builder --chown=0:0 /src/out/docker-credential-ecr-login /kaniko/docker-credential-ecr-login
-COPY --from=builder --chown=0:0 /src/out/docker-credential-acr-env /kaniko/docker-credential-acr-env
 
 COPY --from=builder /kaniko/.docker /kaniko/.docker
 
@@ -121,9 +109,3 @@ VOLUME /busybox2
 
 RUN ["/busybox2/mkdir", "-p", "/bin"]
 RUN ["/busybox2/ln", "-s", "/busybox2/sh", "/bin/sh"]
-
-FROM kaniko-base-slim AS kaniko-slim
-
-COPY --from=builder /src/out/executor /kaniko/executor
-
-ENTRYPOINT ["/kaniko/executor"]
