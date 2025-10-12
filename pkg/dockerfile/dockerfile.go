@@ -282,10 +282,6 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	if err := resolveStagesArgs(stages, args); err != nil {
 		return nil, errors.Wrap(err, "resolving args")
 	}
-	if opts.SkipUnusedStages {
-		ffSquashStages := config.EnvBool("FF_KANIKO_SQUASH_STAGES")
-		stages = skipUnusedStages(stages, &targetStage, opts.Target, ffSquashStages)
-	}
 	var kanikoStages []config.KanikoStage
 	for index, stage := range stages {
 		if len(stage.Name) > 0 {
@@ -304,6 +300,10 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		if index == targetStage {
 			break
 		}
+	}
+	if opts.SkipUnusedStages {
+		ffSquashStages := config.EnvBool("FF_KANIKO_SQUASH_STAGES")
+		kanikoStages = skipUnusedStages(kanikoStages, targetStage, ffSquashStages)
 	}
 	return kanikoStages, nil
 }
@@ -348,22 +348,31 @@ func unifyArgs(metaArgs []instructions.ArgCommand, buildArgs []string) []string 
 	return args
 }
 
-func squash(a, b instructions.Stage) instructions.Stage {
-	return instructions.Stage{
-		Name:       b.Name,
-		Commands:   append(a.Commands, b.Commands...),
-		OrigCmd:    a.OrigCmd,
-		BaseName:   a.BaseName,
-		Platform:   a.Platform,
-		Comment:    a.Comment + b.Comment,
-		SourceCode: a.SourceCode + "\n" + b.SourceCode,
-		Location:   append(a.Location, b.Location...),
+func squash(a, b config.KanikoStage) config.KanikoStage {
+	return config.KanikoStage{
+		Stage: instructions.Stage{
+			Name:       b.Name,
+			Commands:   append(a.Commands, b.Commands...),
+			OrigCmd:    a.OrigCmd,
+			BaseName:   a.BaseName,
+			Platform:   a.Platform,
+			Comment:    a.Comment + b.Comment,
+			SourceCode: a.SourceCode + "\n" + b.SourceCode,
+			Location:   append(a.Location, b.Location...),
+		},
+		BaseImageIndex:         a.BaseImageIndex,
+		Final:                  b.Final,
+		BaseImageStoredLocally: a.BaseImageStoredLocally,
+		SaveStage:              b.SaveStage,
+		MetaArgs:               append(a.MetaArgs, b.MetaArgs...),
+		Index:                  b.Index,
 	}
 }
 
 // skipUnusedStages returns the list of used stages, filters out unused stages and optionally squashes them together.
-func skipUnusedStages(stages []instructions.Stage, lastStageIndex *int, target string, squashStages bool) []instructions.Stage {
+func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages bool) []config.KanikoStage {
 	stageByName := make(map[string]int)
+	stages = stages[:targetStage+1]
 
 	for idx, s := range stages {
 		if s.Name != "" {
@@ -374,18 +383,15 @@ func skipUnusedStages(stages []instructions.Stage, lastStageIndex *int, target s
 	// We now "count" references, it is only safe to squash
 	// stages if the references are exactly 1.
 	stagesDependencies := make([]int, len(stages))
-	stagesDependencies[*lastStageIndex] = 1
+	stagesDependencies[targetStage] = 1
 
-	for i := *lastStageIndex; i >= 0; i-- {
+	for i := targetStage; i >= 0; i-- {
 		if stagesDependencies[i] == 0 {
 			continue
 		}
 		s := stages[i]
-		if BaseIndex, ok := stageByName[strings.ToLower(s.BaseName)]; ok {
-			// There can be references that appear as non-existing stages
-			// ie. `FROM debian AS base` would try refer to `debian` as stage
-			// before falling back to `debian` as a docker image.
-			stagesDependencies[BaseIndex]++
+		if s.BaseImageStoredLocally {
+			stagesDependencies[s.BaseImageIndex]++
 		}
 		for _, c := range s.Commands {
 			switch cmd := c.(type) {
@@ -408,28 +414,26 @@ func skipUnusedStages(stages []instructions.Stage, lastStageIndex *int, target s
 		}
 	}
 
-	for i := 0; i <= *lastStageIndex; i++ {
+	for i, s := range stages {
 		if squashStages && stagesDependencies[i] > 0 {
-			if BaseIndex, ok := stageByName[strings.ToLower(stages[i].BaseName)]; ok {
-				if stagesDependencies[BaseIndex] == 1 {
-					// squash stages[i] into stages[i].BaseName
-					logrus.Infof("Squashing stages: %s into %s", stages[i].Name, stages[BaseIndex].Name)
-					// We squash the base stage into the current stage because,
-					// no one else depends on the base stage so it can be freely moved,
-					// the current stage might depend on other stages so it is not safe to move it.
-					stages[i] = squash(stages[BaseIndex], stages[i])
-					stagesDependencies[BaseIndex] = 0
-				}
+			if s.BaseImageStoredLocally && stagesDependencies[s.BaseImageIndex] == 1 {
+				sb := stages[s.BaseImageIndex]
+				// squash stages[i] into stages[i].BaseName
+				logrus.Infof("Squashing stages: %s into %s", s.Name, sb.Name)
+				// We squash the base stage into the current stage because,
+				// no one else depends on the base stage so it can be freely moved,
+				// the current stage might depend on other stages so it is not safe to move it.
+				stages[i] = squash(sb, s)
+				stagesDependencies[s.BaseImageIndex] = 0
 			}
 		}
 	}
 
-	var onlyUsedStages []instructions.Stage
-	for i := 0; i < *lastStageIndex+1; i++ {
+	var onlyUsedStages []config.KanikoStage
+	for i, s := range stages {
 		if stagesDependencies[i] > 0 {
-			onlyUsedStages = append(onlyUsedStages, stages[i])
+			onlyUsedStages = append(onlyUsedStages, s)
 		}
 	}
-	*lastStageIndex = len(onlyUsedStages) - 1
 	return onlyUsedStages
 }

@@ -1,0 +1,11 @@
+FROM busybox AS zero
+FROM busybox AS one
+RUN touch /tmp/blubb
+FROM busybox AS two
+# mz305: build fails in kaniko v1.25.6 and priors.
+# --skip-unused-stages can drop stages, and we refer to them by the list index in code.
+# However, in the commands themselves the indizes are never updated.
+# In this specific edge-case the simplified list will be `[one, two]`,
+# so index `1` erronously points to stage `two`, a self-reference.
+COPY --from=1 /tmp /tmp
+RUN ls -la /tmp

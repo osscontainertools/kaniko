@@ -470,12 +470,10 @@ func Test_ResolveStagesArgs(t *testing.T) {
 
 func Test_SkipingUnusedStages(t *testing.T) {
 	tests := []struct {
-		description                   string
-		dockerfile                    string
-		targets                       []string
-		expectedSourceCodes           map[string][]string
-		expectedTargetIndexBeforeSkip map[string]int
-		expectedTargetIndexAfterSkip  map[string]int
+		description         string
+		dockerfile          string
+		targets             []string
+		expectedSourceCodes map[string][]string
 	}{
 		{
 			description: "dockerfile_without_copyFrom",
@@ -492,16 +490,6 @@ func Test_SkipingUnusedStages(t *testing.T) {
 				"base-dev":  {"FROM alpine:3.11 AS base-dev"},
 				"base-prod": {"FROM alpine:3.11 AS base-prod"},
 				"":          {"FROM alpine:3.11 AS base-dev", "FROM base-dev as final-stage"},
-			},
-			expectedTargetIndexBeforeSkip: map[string]int{
-				"base-dev":  0,
-				"base-prod": 1,
-				"":          2,
-			},
-			expectedTargetIndexAfterSkip: map[string]int{
-				"base-dev":  0,
-				"base-prod": 0,
-				"":          1,
 			},
 		},
 		{
@@ -520,16 +508,6 @@ func Test_SkipingUnusedStages(t *testing.T) {
 				"base-dev":  {"FROM alpine:3.11 AS base-dev"},
 				"base-prod": {"FROM alpine:3.11 AS base-prod"},
 				"":          {"FROM alpine:3.11 AS base-prod", "FROM alpine:3.11"},
-			},
-			expectedTargetIndexBeforeSkip: map[string]int{
-				"base-dev":  0,
-				"base-prod": 1,
-				"":          2,
-			},
-			expectedTargetIndexAfterSkip: map[string]int{
-				"base-dev":  0,
-				"base-prod": 0,
-				"":          1,
 			},
 		},
 		{
@@ -550,16 +528,6 @@ func Test_SkipingUnusedStages(t *testing.T) {
 				"base-dev":  {"FROM alpine:3.11 AS base-dev"},
 				"base-prod": {"FROM alpine:3.11 AS base-prod"},
 				"":          {"FROM alpine:3.11 AS base-dev", "FROM alpine:3.11 AS base-prod", "FROM alpine:3.11"},
-			},
-			expectedTargetIndexBeforeSkip: map[string]int{
-				"base-dev":  0,
-				"base-prod": 1,
-				"":          2,
-			},
-			expectedTargetIndexAfterSkip: map[string]int{
-				"base-dev":  0,
-				"base-prod": 0,
-				"":          2,
 			},
 		},
 		{
@@ -590,16 +558,6 @@ func Test_SkipingUnusedStages(t *testing.T) {
 				"second": {"FROM debian:12.10 as base", "FROM scratch as second"},
 				"":       {"FROM debian:12.10 as base", "FROM scratch as second", "FROM base as fourth", "FROM fourth"},
 			},
-			expectedTargetIndexBeforeSkip: map[string]int{
-				"base":   0,
-				"second": 1,
-				"":       5,
-			},
-			expectedTargetIndexAfterSkip: map[string]int{
-				"base":   0,
-				"second": 1,
-				"":       3,
-			},
 		},
 		{
 			description: "dockerfile_without_final_dependencies",
@@ -622,37 +580,37 @@ func Test_SkipingUnusedStages(t *testing.T) {
 				"fizz":  {"FROM debian:12.10 as base", "FROM debian:12.10 as fizz"},
 				"":      {"FROM alpine:3.11 as final"},
 			},
-			expectedTargetIndexBeforeSkip: map[string]int{
-				"final": 4,
-				"buzz":  3,
-				"fizz":  2,
-				"":      4,
-			},
-			expectedTargetIndexAfterSkip: map[string]int{
-				"final": 0,
-				"buzz":  0,
-				"fizz":  1,
-				"":      0,
-			},
 		},
 	}
 
 	for _, test := range tests {
 		stages, _, err := Parse([]byte(test.dockerfile))
 		testutil.CheckError(t, false, err)
+
+		var kanikoStages []config.KanikoStage
+		for index, stage := range stages {
+			baseImageIndex := baseImageIndex(index, stages)
+			kanikoStages = append(kanikoStages, config.KanikoStage{
+				Stage:                  stage,
+				BaseImageIndex:         baseImageIndex,
+				BaseImageStoredLocally: (baseImageIndex != -1),
+				SaveStage:              saveStage(index, stages),
+				Final:                  false,
+				MetaArgs:               nil,
+				Index:                  index,
+			})
+		}
+
 		actualSourceCodes := make(map[string][]string)
 		for _, target := range test.targets {
 			targetIndex, err := targetStage(stages, target)
 			testutil.CheckError(t, false, err)
-			targetIndexBeforeSkip := targetIndex
-			onlyUsedStages := skipUnusedStages(stages, &targetIndex, target, false)
+			onlyUsedStages := skipUnusedStages(kanikoStages, targetIndex, false)
 			for _, s := range onlyUsedStages {
 				actualSourceCodes[target] = append(actualSourceCodes[target], s.SourceCode)
 			}
 			t.Run(test.description, func(t *testing.T) {
 				testutil.CheckDeepEqual(t, test.expectedSourceCodes[target], actualSourceCodes[target])
-				testutil.CheckDeepEqual(t, test.expectedTargetIndexBeforeSkip[target], targetIndexBeforeSkip)
-				testutil.CheckDeepEqual(t, test.expectedTargetIndexAfterSkip[target], targetIndex)
 			})
 		}
 	}
@@ -660,12 +618,10 @@ func Test_SkipingUnusedStages(t *testing.T) {
 
 func Test_SquashStages(t *testing.T) {
 	tests := []struct {
-		description                   string
-		dockerfile                    string
-		targets                       []string
-		expectedSourceCodes           map[string][]string
-		expectedTargetIndexBeforeSkip map[string]int
-		expectedTargetIndexAfterSkip  map[string]int
+		description         string
+		dockerfile          string
+		targets             []string
+		expectedSourceCodes map[string][]string
 	}{
 		{
 			description: "dockerfile_without_copyFrom",
@@ -682,16 +638,6 @@ func Test_SquashStages(t *testing.T) {
 				"base-dev":  {"FROM alpine:3.11 AS base-dev"},
 				"base-prod": {"FROM alpine:3.11 AS base-prod"},
 				"":          {"FROM alpine:3.11 AS base-dev\nFROM base-dev as final-stage"},
-			},
-			expectedTargetIndexBeforeSkip: map[string]int{
-				"base-dev":  0,
-				"base-prod": 1,
-				"":          2,
-			},
-			expectedTargetIndexAfterSkip: map[string]int{
-				"base-dev":  0,
-				"base-prod": 0,
-				"":          0,
 			},
 		},
 		{
@@ -722,35 +668,37 @@ func Test_SquashStages(t *testing.T) {
 				"second": {"FROM debian:12.10 as base", "FROM scratch as second"},
 				"":       {"FROM debian:12.10 as base", "FROM scratch as second", "FROM base as fourth\nFROM fourth"},
 			},
-			expectedTargetIndexBeforeSkip: map[string]int{
-				"base":   0,
-				"second": 1,
-				"":       5,
-			},
-			expectedTargetIndexAfterSkip: map[string]int{
-				"base":   0,
-				"second": 1,
-				"":       2,
-			},
 		},
 	}
 
 	for _, test := range tests {
 		stages, _, err := Parse([]byte(test.dockerfile))
 		testutil.CheckError(t, false, err)
+
+		var kanikoStages []config.KanikoStage
+		for index, stage := range stages {
+			baseImageIndex := baseImageIndex(index, stages)
+			kanikoStages = append(kanikoStages, config.KanikoStage{
+				Stage:                  stage,
+				BaseImageIndex:         baseImageIndex,
+				BaseImageStoredLocally: (baseImageIndex != -1),
+				SaveStage:              saveStage(index, stages),
+				Final:                  false,
+				MetaArgs:               nil,
+				Index:                  index,
+			})
+		}
+
 		actualSourceCodes := make(map[string][]string)
 		for _, target := range test.targets {
 			targetIndex, err := targetStage(stages, target)
 			testutil.CheckError(t, false, err)
-			targetIndexBeforeSkip := targetIndex
-			onlyUsedStages := skipUnusedStages(stages, &targetIndex, target, true)
+			onlyUsedStages := skipUnusedStages(kanikoStages, targetIndex, true)
 			for _, s := range onlyUsedStages {
 				actualSourceCodes[target] = append(actualSourceCodes[target], s.SourceCode)
 			}
 			t.Run(test.description, func(t *testing.T) {
 				testutil.CheckDeepEqual(t, test.expectedSourceCodes[target], actualSourceCodes[target])
-				testutil.CheckDeepEqual(t, test.expectedTargetIndexBeforeSkip[target], targetIndexBeforeSkip)
-				testutil.CheckDeepEqual(t, test.expectedTargetIndexAfterSkip[target], targetIndex)
 			})
 		}
 	}
