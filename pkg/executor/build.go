@@ -668,7 +668,7 @@ func (s *stageBuilder) saveLayerToImage(layer v1.Layer, createdBy string) error 
 }
 
 func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptions, stageNameToIdx map[string]string) (map[int][]string, error) {
-	images := []v1.Image{}
+	images := make(map[int]v1.Image)
 	depGraph := map[int][]string{}
 	for _, s := range stages {
 		ba := dockerfile.NewBuildArgs(opts.BuildArgs)
@@ -725,7 +725,7 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 				}
 			}
 		}
-		images = append(images, image)
+		images[s.Index] = image
 	}
 	return depGraph, nil
 }
@@ -799,7 +799,7 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 		}
 	}
 
-	for index, stage := range kanikoStages {
+	for _, stage := range kanikoStages {
 		sb, err := newStageBuilder(
 			args, opts, stage,
 			crossStageDependencies,
@@ -885,21 +885,21 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 			return sourceImage, nil
 		}
 		if stage.SaveStage {
-			if err := saveStageAsTarball(strconv.Itoa(index), sourceImage); err != nil {
+			if err := saveStageAsTarball(strconv.Itoa(stage.Index), sourceImage); err != nil {
 				return nil, err
 			}
 		}
 
-		filesToSave, err := filesToSave(crossStageDependencies[index])
+		filesToSave, err := filesToSave(crossStageDependencies[stage.Index])
 		if err != nil {
 			return nil, err
 		}
-		dstDir := filepath.Join(config.KanikoInterStageDepsDir, strconv.Itoa(index))
+		dstDir := filepath.Join(config.KanikoInterStageDepsDir, strconv.Itoa(stage.Index))
 		_ = os.RemoveAll(dstDir)
 		if err := os.MkdirAll(dstDir, mkdirPermissions); err != nil {
 			return nil, errors.Wrap(err,
 				fmt.Sprintf("to create workspace for stage %s",
-					stageIdxToDigest[strconv.Itoa(index)],
+					stageIdxToDigest[strconv.Itoa(stage.Index)],
 				))
 		}
 		for _, p := range filesToSave {
@@ -911,7 +911,7 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 
 		// Delete the filesystem
 		if err := util.DeleteFilesystem(); err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("deleting file system after stage %d", index))
+			return nil, errors.Wrap(err, fmt.Sprintf("deleting file system after stage %d", stage.Index))
 		}
 		if opts.PreserveContext && !opts.PreCleanup {
 			if tarball == "" {
@@ -1006,7 +1006,7 @@ func fetchExtraStages(stages []config.KanikoStage, opts *config.KanikoOptions) e
 
 	var names []string
 
-	for stageIndex, s := range stages {
+	for _, s := range stages {
 		for _, cmd := range s.Commands {
 			c, ok := cmd.(*instructions.CopyCommand)
 			if !ok || c.From == "" {
@@ -1017,7 +1017,7 @@ func fetchExtraStages(stages []config.KanikoStage, opts *config.KanikoOptions) e
 			// the name of a previous stage, or a name of a remote image.
 
 			// If it is an integer stage index, validate that it is actually a previous index
-			if fromIndex, err := strconv.Atoi(c.From); err == nil && stageIndex > fromIndex && fromIndex >= 0 {
+			if fromIndex, err := strconv.Atoi(c.From); err == nil && s.Index > fromIndex && fromIndex >= 0 {
 				continue
 			}
 			// Check if the name is the alias of a previous stage
@@ -1135,8 +1135,8 @@ func reviewConfig(stage config.KanikoStage, config *v1.Config) {
 // returns a mapping of stage name to stage id, f.e - ["first": "0", "second": "1", "target": "2"]
 func ResolveCrossStageInstructions(stages []config.KanikoStage) map[string]string {
 	nameToIndex := make(map[string]string)
-	for i, stage := range stages {
-		index := strconv.Itoa(i)
+	for _, stage := range stages {
+		index := strconv.Itoa(stage.Index)
 		if stage.Name != "" {
 			nameToIndex[stage.Name] = index
 		}
