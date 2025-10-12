@@ -93,8 +93,9 @@ ENTRYPOINT ["/kaniko/warmer"]
 FROM kaniko-base AS kaniko-executor
 
 COPY --from=builder /src/out/executor /kaniko/executor
+COPY --from=dph5199278/dumb-init:latest /usr/bin/dumb-init /kaniko/dumb-init
 
-ENTRYPOINT ["/kaniko/executor"]
+ENTRYPOINT ["/kaniko/dumb-init", "--", "/kaniko/executor"]
 
 FROM kaniko-executor AS kaniko-debug
 
