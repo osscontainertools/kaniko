@@ -103,8 +103,7 @@ func ResolveEnvAndWildcards(sd instructions.SourcesAndDest, fileContext FileCont
 	if err != nil {
 		return nil, "", errors.Wrap(err, "failed to resolve sources")
 	}
-	err = IsSrcsValid(sd, srcs, fileContext)
-	return srcs, dest, err
+	return srcs, dest, nil
 }
 
 // ContainsWildcards returns true if any entry in paths contains wildcards

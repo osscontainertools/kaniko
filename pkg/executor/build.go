@@ -245,9 +245,7 @@ func (s *stageBuilder) populateCompositeKey(command commands.DockerCommand, file
 	compositeKey.AddKey(command.String())
 
 	for _, f := range files {
-		if err := compositeKey.AddPath(f, s.fileContext); err != nil {
-			return compositeKey, err
-		}
+		compositeKey.AddKey(f)
 	}
 	return compositeKey, nil
 }
@@ -736,6 +734,7 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 	t := timing.Start("Total Build Time")
 	digestToCacheKey := make(map[string]string)
 	stageIdxToDigest := make(map[string]string)
+	stageIdxToCacheKey := make(map[string]string)
 
 	stages, metaArgs, err := dockerfile.ParseStages(opts)
 	if err != nil {
@@ -799,6 +798,75 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 			return nil, err
 		}
 	}
+
+	// We now "count" references, it is only safe to squash
+	// stages if the references are exactly 1.
+	stagesDependencies := make(map[int]int)
+	stagesDependencies[lastStage.Index] = 1
+
+	for i := len(kanikoStages) - 1; i >= 0; i-- {
+		s := kanikoStages[i]
+		if stagesDependencies[s.Index] == 0 {
+			continue
+		}
+		if s.BaseImageStoredLocally {
+			stagesDependencies[s.BaseImageIndex]++
+			for _, c := range s.Commands {
+				switch cmd := c.(type) {
+				case *instructions.CopyCommand:
+					if copyFromIndex, err := strconv.Atoi(cmd.From); err == nil {
+						// COPY --from can never be squashed, identical to having 2 dependencies
+						stagesDependencies[copyFromIndex] += 2
+					}
+				}
+			}
+		} else {
+			sb, err := newStageBuilder(
+				args, opts, s,
+				crossStageDependencies,
+				digestToCacheKey,
+				stageIdxToDigest,
+				stageNameToIdx,
+				fileContext)
+			if err != nil {
+				return nil, err
+			}
+			args = sb.args
+			// Set the initial cache key to be the base image digest, the build args and the SrcContext.
+			var compositeKey *CompositeCache
+			if cacheKey, ok := sb.digestToCacheKey[sb.baseImageDigest]; ok {
+				compositeKey = NewCompositeCache(cacheKey)
+			} else {
+				compositeKey = NewCompositeCache(sb.baseImageDigest)
+			}
+
+			// Apply optimizations to the instructions.
+			if err := sb.optimize(*compositeKey, sb.cf.Config); err != nil {
+				return nil, errors.Wrap(err, "failed to optimize instructions")
+			}
+
+			for _, c := range sb.cmds {
+				switch cmd := c.(type) {
+				case *commands.CopyCommand:
+					if copyFromIndex, err := strconv.Atoi(cmd.From()); err == nil {
+						// COPY --from can never be squashed, identical to having 2 dependencies
+						stagesDependencies[copyFromIndex] += 2
+					}
+				}
+			}
+			stageIdxToCacheKey[fmt.Sprintf("%d", sb.stage.Index)] = sb.finalCacheKey
+		}
+	}
+
+	logrus.Warnf("stagesDependencies: %v", stagesDependencies)
+	var onlyUsedStages []config.KanikoStage
+	for _, s := range kanikoStages {
+		if stagesDependencies[s.Index] > 0 {
+			onlyUsedStages = append(onlyUsedStages, s)
+		}
+	}
+
+	kanikoStages = onlyUsedStages
 
 	for _, stage := range kanikoStages {
 		sb, err := newStageBuilder(
