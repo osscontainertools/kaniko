@@ -56,7 +56,7 @@ func (r *RunCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 }
 
 func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand) (reterr error) {
-	ff_cache := kConfig.EnvBool("FF_KANIKO_RUN_MOUNT_CACHE")
+	ff_cache := kConfig.EnvBoolDefault("FF_KANIKO_RUN_MOUNT_CACHE", true)
 	for _, f := range cmdRun.FlagsUsed {
 		if !(ff_cache && f == "mount") {
 			logrus.Warnf("#969 kaniko does not support '--%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", f)

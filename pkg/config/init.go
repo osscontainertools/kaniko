@@ -47,7 +47,7 @@ var KanikoIntermediateStagesDir = fmt.Sprintf("%s/stages/", KanikoDir)
 // KanikoInsterStageDir is where we will store inter-stage dependencies
 // Contents are stored as-is.
 var KanikoInterStageDepsDir = func() string {
-	if EnvBool("FF_KANIKO_NEW_CACHE_LAYOUT") {
+	if EnvBoolDefault("FF_KANIKO_NEW_CACHE_LAYOUT", true) {
 		return fmt.Sprintf("%s/deps/", KanikoDir)
 	}
 	return KanikoDir
@@ -55,7 +55,7 @@ var KanikoInterStageDepsDir = func() string {
 
 // KanikoLayersDir is where we will store layers as tarballs
 var KanikoLayersDir = func() string {
-	if EnvBool("FF_KANIKO_NEW_CACHE_LAYOUT") {
+	if EnvBoolDefault("FF_KANIKO_NEW_CACHE_LAYOUT", true) {
 		return fmt.Sprintf("%s/layers/", KanikoDir)
 	}
 	return KanikoDir

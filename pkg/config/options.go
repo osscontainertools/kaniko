@@ -192,7 +192,17 @@ type WarmerOptions struct {
 }
 
 func EnvBool(key string) bool {
-	val := os.Getenv(key)
+	return EnvBoolDefault(key, false)
+}
+
+func EnvBoolDefault(key string, def bool) bool {
+	val, ok := os.LookupEnv(key)
+	if !ok {
+		return def
+	}
 	ok, err := strconv.ParseBool(val)
-	return err == nil && ok
+	if err != nil {
+		return def
+	}
+	return ok
 }
