@@ -302,7 +302,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		}
 	}
 	if opts.SkipUnusedStages {
-		ffSquashStages := config.EnvBool("FF_KANIKO_SQUASH_STAGES")
+		ffSquashStages := config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true)
 		kanikoStages = skipUnusedStages(kanikoStages, targetStage, ffSquashStages)
 	}
 	return kanikoStages, nil
