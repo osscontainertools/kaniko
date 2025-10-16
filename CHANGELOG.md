@@ -36,7 +36,6 @@ Please also notify us by [filing a new issue](https://github.com/osscontainertoo
 * update docs: https://github.com/osscontainertools/kaniko/pull/294 https://github.com/osscontainertools/kaniko/pull/302 https://github.com/osscontainertools/kaniko/pull/313
 * update docs: by @6543 in https://github.com/osscontainertools/kaniko/pull/300
 * enable `FF_KANIKO_SQUASH_STAGES` in integrationtests: https://github.com/osscontainertools/kaniko/pull/309
-* mz308: activate featureflags for v1.26.0 release: https://github.com/osscontainertools/kaniko/pull/312
 
 
 # v1.25.6 Release 2025-10-08
