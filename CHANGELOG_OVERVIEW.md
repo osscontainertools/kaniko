@@ -26,7 +26,8 @@
 * skip snapshotting rootdir: https://github.com/mzihlmann/kaniko/pull/183
 * predefined build args: by @kit101 in https://github.com/mzihlmann/kaniko/pull/185 https://github.com/osscontainertools/kaniko/pull/277
 * add heredoc `<<EOF` syntax support: https://github.com/mzihlmann/kaniko/pull/206 https://github.com/mzihlmann/kaniko/pull/213 https://github.com/mzihlmann/kaniko/pull/214 https://github.com/mzihlmann/kaniko/pull/215
-* `FF_KANIKO_RUN_MOUNT_CACHE=false` cache mounts: https://github.com/osscontainertools/kaniko/pull/245 https://github.com/osscontainertools/kaniko/pull/274 https://github.com/osscontainertools/kaniko/pull/284
+* `FF_KANIKO_RUN_MOUNT_CACHE=true` cache mounts: https://github.com/osscontainertools/kaniko/pull/245 https://github.com/osscontainertools/kaniko/pull/274 https://github.com/osscontainertools/kaniko/pull/284
+* skip-unused-stages invalidates numeric references: https://github.com/osscontainertools/kaniko/pull/306
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
 * ignore labels on base image for cache: https://github.com/mzihlmann/kaniko/pull/2
@@ -36,7 +37,8 @@
 * ADD learned to cache its output layer: https://github.com/mzihlmann/kaniko/pull/24
 * whiteout annotations to prevent cache misses through `--annotation`: https://github.com/mzihlmann/kaniko/pull/209
 ### Performance
-* `FF_KANIKO_SQUASH_STAGES=false` squash stages together, speeding up build: https://github.com/mzihlmann/kaniko/pull/141 https://github.com/osscontainertools/kaniko/pull/283
+* `FF_KANIKO_SQUASH_STAGES=true` squash stages together, speeding up build: https://github.com/mzihlmann/kaniko/pull/141 https://github.com/osscontainertools/kaniko/pull/283
+* `FF_KANIKO_OCI_STAGES=false` use ocilayout instead of tarballs during stage transitions: https://github.com/mzihlmann/kaniko/pull/141
 ### Usability
 * if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
 * kaniko learned `--preserve-context` to preserve the build-context across multi-stage builds: https://github.com/mzihlmann/kaniko/pull/28
@@ -53,7 +55,7 @@
 * riscv image: https://github.com/mzihlmann/kaniko/pull/220
 * add env credential helper: https://github.com/mzihlmann/kaniko/pull/236 https://github.com/mzihlmann/kaniko/pull/249
 * allow skip push cache: https://github.com/osscontainertools/kaniko/pull/268
-* `FF_KANIKO_NEW_CACHE_LAYOUT=false` organize kaniko dir: https://github.com/osscontainertools/kaniko/pull/285
+* `FF_KANIKO_NEW_CACHE_LAYOUT=true` organize kaniko dir: https://github.com/osscontainertools/kaniko/pull/285
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
 * 🔗 update ENV syntax in Dockerfile: by @babs in https://github.com/mzihlmann/kaniko/pull/60
@@ -62,6 +64,7 @@
 * remove deprecated github.com/containerd/containerd/platforms: by @BobDu in https://github.com/osscontainertools/kaniko/pull/252
 * move github.com/docker/docker/api -> github.com/moby/moby/api: by @BobDu in https://github.com/osscontainertools/kaniko/pull/258
 * 🔗 fix code scanning alert 1: by @cpanato in https://github.com/osscontainertools/kaniko/pull/272
+* update docs: by @6543 in https://github.com/osscontainertools/kaniko/pull/300
 
 for a more detailed view you can refer to our [Changelog](./CHANGELOG.md) or [release notes](https://github.com/osscontainertools/kaniko/releases)
 
