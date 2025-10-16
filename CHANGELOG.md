@@ -1,691 +1,338 @@
 # v1.25.6 Release 2025-10-08
-The executor images in this release are:
-```
-martizih/kaniko:latest
-martizih/kaniko:v1.25.6
-```
+## What's changed
+### Bugfixes
+* parse metaArgs in warmer: https://github.com/osscontainertools/kaniko/pull/256
+* warmer tries to load stage references: https://github.com/osscontainertools/kaniko/pull/266
+* `FF_KANIKO_IGNORE_CACHED_MANIFEST=false` ignore potentially invalid cached manifest files: by @luxurine in https://github.com/osscontainertools/kaniko/pull/267
+* oversteer predefined args: https://github.com/osscontainertools/kaniko/pull/277
+* skip ignored stages during squash: https://github.com/osscontainertools/kaniko/pull/283
+* don't hardcode kaniko dir: https://github.com/osscontainertools/kaniko/pull/284
+* don't reuse interstage dependencies: https://github.com/osscontainertools/kaniko/pull/286
 
-The debug images are available at:
-```
-martizih/kaniko:debug
-martizih/kaniko:v1.25.6-debug
-```
+### Standardization
+* `FF_KANIKO_RUN_MOUNT_CACHE=false` cache mounts: https://github.com/osscontainertools/kaniko/pull/245 https://github.com/osscontainertools/kaniko/pull/274
 
-The slim executor images which don't contain any authentication binaries are available at:
-```
-martizih/kaniko:slim
-martizih/kaniko:v1.25.6-slim
-```
+### Usability
+* allow skip push cache: https://github.com/osscontainertools/kaniko/pull/268
+* `FF_KANIKO_NEW_CACHE_LAYOUT=false` organize kaniko dir: https://github.com/osscontainertools/kaniko/pull/285
 
-The warmer images are available at:
-```
-martizih/kaniko:warmer
-martizih/kaniko:v1.25.6-warmer
-```
+### Maintenance
+* remove deprecated github.com/containerd/containerd/platforms: by @BobDu in https://github.com/osscontainertools/kaniko/pull/252
+* drop deprecated packages: https://github.com/osscontainertools/kaniko/pull/255
+* Remove github.com/docker/docker/builder as dependency: https://github.com/osscontainertools/kaniko/pull/260
+* vendor in Lsetxattr: https://github.com/osscontainertools/kaniko/pull/261
+* move github.com/docker/docker/api -> github.com/moby/moby/api: by @BobDu in https://github.com/osscontainertools/kaniko/pull/258
+* drop docker daemon: https://github.com/osscontainertools/kaniko/pull/263
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.31.8 to 1.31.12: https://github.com/osscontainertools/kaniko/pull/262 https://github.com/osscontainertools/kaniko/pull/264 https://github.com/osscontainertools/kaniko/pull/273 https://github.com/osscontainertools/kaniko/pull/275
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.19.6 to 1.19.12: https://github.com/osscontainertools/kaniko/pull/262 https://github.com/osscontainertools/kaniko/pull/264 https://github.com/osscontainertools/kaniko/pull/273 https://github.com/osscontainertools/kaniko/pull/275 https://github.com/osscontainertools/kaniko/pull/281 https://github.com/osscontainertools/kaniko/pull/290
+* chore(deps): bump cloud.google.com/go/storage from 1.56.2 to 1.57.0: https://github.com/osscontainertools/kaniko/pull/265
+* chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.39.0 to 1.39.2: https://github.com/osscontainertools/kaniko/pull/264 https://github.com/osscontainertools/kaniko/pull/273
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.88.1 to 1.88.4: https://github.com/osscontainertools/kaniko/pull/264 https://github.com/osscontainertools/kaniko/pull/273 https://github.com/osscontainertools/kaniko/pull/290
+* chore(deps): bump google.golang.org/api from 0.249.0 to 0.252.0: https://github.com/osscontainertools/kaniko/pull/269 https://github.com/osscontainertools/kaniko/pull/278 https://github.com/osscontainertools/kaniko/pull/292
+* chore(deps): bump github.com/moby/buildkit from 0.24.0 to 0.25.1: https://github.com/osscontainertools/kaniko/pull/279 https://github.com/osscontainertools/kaniko/pull/290
+* chore(deps): bump github.com/docker/docker-credential-helpers from 0.9.3 to 0.9.4: https://github.com/osscontainertools/kaniko/pull/281
+* chore(deps): bump github.com/go-git/go-git/v5 from 5.16.2 to 5.16.3: https://github.com/osscontainertools/kaniko/pull/287
+* chore(deps): bump golang from 1.25.1 to 1.25.2: https://github.com/osscontainertools/kaniko/pull/289
+* chore(deps): bump golang.org/x/net from 0.44.0 to 0.45.0: https://github.com/osscontainertools/kaniko/pull/291
 
-The bootstrap images, that can be used to build kaniko in kaniko, are available at:
-```
-martizih/kaniko:bootstrap
-martizih/kaniko:v1.25.6-bootstrap
-```
-
-## What's Changed
-* update readme by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/254
-* chore(deps): remove deprecated github.com/containerd/containerd/platforms by @BobDu in https://github.com/osscontainertools/kaniko/pull/252
-* drop deprecated packages by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/255
-* cg159: parse metaArgs in warmer by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/256
-* Remove github.com/docker/docker/builder as dependency by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/260
-* vendor in Lsetxattr by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/261
-* move github.com/docker/docker/api -> github.com/moby/moby/api by @BobDu in https://github.com/osscontainertools/kaniko/pull/258
-* chore(deps): bump the gomod group with 2 updates by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/262
-* drop docker daemon by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/263
-* chore(deps): bump cloud.google.com/go/storage from 1.56.2 to 1.57.0 by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/265
-* chore(deps): bump the gomod group with 4 updates by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/264
-* warmer tries to load stage references by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/266
-* allow skip push cache by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/268
-* chore(deps): bump google.golang.org/api from 0.249.0 to 0.250.0 by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/269
-* rename repository by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/270
-* add funding.yml by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/271
-* cg160: feature-flag to ignore cached manifest by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/267
-* :link: fix code scanning alert 1 by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/272
-* chore(deps): bump the gomod group with 4 updates by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/273
-* 969: cache mounts - part 1 by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/274
-* chore(deps): bump the gomod group with 2 updates by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/275
-* chore(deps): bump github.com/moby/buildkit from 0.24.0 to 0.25.0 by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/279
-* chore(deps): bump google.golang.org/api from 0.250.0 to 0.251.0 by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/278
-* chore(deps): bump the gomod group with 2 updates by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/281
-* skip ignored stages during squash by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/283
-* oversteer predefined args by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/277
-* 969: cache mounts by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/245
-* 2876: don't hardcode kaniko dir by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/284
-* 1406: don't reuse interstage dependencies by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/286
-* chore(deps): bump github.com/go-git/go-git/v5 from 5.16.2 to 5.16.3 in the gomod group by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/287
-* update docs by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/288
-* chore(deps): bump google.golang.org/api from 0.251.0 to 0.252.0 by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/292
-* chore(deps): bump golang from 1.25.1 to 1.25.2 in /deploy by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/289
-* chore(deps): bump the gomod group with 3 updates by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/290
-* Organize kaniko dir by @mzihlmann in https://github.com/osscontainertools/kaniko/pull/285
-* chore(deps): bump golang.org/x/net from 0.44.0 to 0.45.0 by @dependabot[bot] in https://github.com/osscontainertools/kaniko/pull/291
+### Fork Related
+* update readme: https://github.com/osscontainertools/kaniko/pull/254 https://github.com/osscontainertools/kaniko/pull/288 https://github.com/osscontainertools/kaniko/pull/293
+* rename repository: https://github.com/osscontainertools/kaniko/pull/270 https://github.com/osscontainertools/kaniko/pull/271
+* 🔗 fix code scanning alert 1: by @cpanato in https://github.com/osscontainertools/kaniko/pull/272
 
 
 # v1.25.5 Release 2025-09-18
-The executor images in this release are:
-```
-martizih/kaniko:latest
-martizih/kaniko:v1.25.5
-```
+## What's changed
+### Bugfixes
+* prevent layer overwrites in image resulting in `BLOB_UNKNOWN` error: by @mafredri in https://github.com/mzihlmann/kaniko/pull/230
+* Adjust the determination priority of runtime under the Kubernetes cluster with cgroupv2: by @lcgash in https://github.com/mzihlmann/kaniko/pull/235
+* avoid skipping siblings if `/var/run` is a soft-link: https://github.com/mzihlmann/kaniko/pull/248
 
-The debug images are available at:
-```
-martizih/kaniko:debug
-martizih/kaniko:v1.25.5-debug
-```
+### Usability
+* add env credential helper: https://github.com/mzihlmann/kaniko/pull/236 https://github.com/mzihlmann/kaniko/pull/249
 
-The slim executor images which don't contain any authentication binaries are available at:
-```
-martizih/kaniko:slim
-martizih/kaniko:v1.25.5-slim
-```
+### Maintenance
+* chore(deps): bump github.com/spf13/pflag from 1.0.9 to 1.0.10 in the gomod group: https://github.com/mzihlmann/kaniko/pull/225
+* chore(deps): bump github.com/moby/buildkit from 0.23.2 to 0.24.0: https://github.com/mzihlmann/kaniko/pull/226
+* chore(deps): bump github.com/docker/docker from 28.3.3+incompatible to 28.4.0+incompatible: https://github.com/mzihlmann/kaniko/pull/228
+* chore(deps): bump actions/setup-go from 5.5.0 to 6.0.0: https://github.com/mzihlmann/kaniko/pull/227
+* chore(deps): bump golang from 1.25.0 to 1.25.1 in /deploy: https://github.com/mzihlmann/kaniko/pull/229
+* chore(deps): bump golang.org/x/oauth2 from 0.30.0 to 0.31.0: https://github.com/mzihlmann/kaniko/pull/232
+* chore(deps): bump golang.org/x/sys from 0.35.0 to 0.36.0: https://github.com/mzihlmann/kaniko/pull/233
+* chore(deps): bump golang.org/x/sync from 0.16.0 to 0.17.0: https://github.com/mzihlmann/kaniko/pull/234
+* chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.38.3 to 1.39.0: https://github.com/mzihlmann/kaniko/pull/241
+* chore(deps): bump github.com/spf13/afero from 1.14.0 to 1.15.0: https://github.com/mzihlmann/kaniko/pull/239
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.31.6 to 1.31.8: https://github.com/mzihlmann/kaniko/pull/238 https://github.com/mzihlmann/kaniko/pull/246
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.19.4 to 1.19.6: https://github.com/mzihlmann/kaniko/pull/238 https://github.com/mzihlmann/kaniko/pull/246
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.87.3 to 1.88.1: https://github.com/mzihlmann/kaniko/pull/238 https://github.com/mzihlmann/kaniko/pull/246
+* chore(deps): bump google.golang.org/api from 0.248.0 to 0.249.0: https://github.com/mzihlmann/kaniko/pull/240
+* chore(deps): bump golang.org/x/net from 0.43.0 to 0.44.0: https://github.com/mzihlmann/kaniko/pull/242
+* chore(deps): bump step-security/harden-runner from 2.13.0 to 2.13.1 in the actions group: https://github.com/mzihlmann/kaniko/pull/244
+* chore(deps): bump sigstore/cosign-installer from 3.9.2 to 3.10.0 in the actions group: https://github.com/mzihlmann/kaniko/pull/250
+* chore(deps): bump cloud.google.com/go/storage from 1.56.1 to 1.56.2 in the gomod group: https://github.com/mzihlmann/kaniko/pull/251
 
-The warmer images are available at:
-```
-martizih/kaniko:warmer
-martizih/kaniko:v1.25.5-warmer
-```
-
-The bootstrap images, that can be used to build kaniko in kaniko, are available at:
-```
-martizih/kaniko:bootstrap
-martizih/kaniko:v1.25.5-bootstrap
-```
-
-## What's Changed
-* update readme by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/223
-* chore(deps): bump github.com/spf13/pflag from 1.0.9 to 1.0.10 in the gomod group by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/225
-* chore(deps): bump github.com/moby/buildkit from 0.23.2 to 0.24.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/226
-* chore(deps): bump github.com/docker/docker from 28.3.3+incompatible to 28.4.0+incompatible by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/228
-* chore(deps): bump actions/setup-go from 5.5.0 to 6.0.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/227
-* fix: prevent layer overwrites in image resulting in BLOB_UNKNOWN error by @mafredri in https://github.com/mzihlmann/kaniko/pull/230
-* chore(deps): bump golang from 1.25.0 to 1.25.1 in /deploy by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/229
-* chore(deps): bump golang.org/x/oauth2 from 0.30.0 to 0.31.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/232
-* chore(deps): bump golang.org/x/sys from 0.35.0 to 0.36.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/233
-* chore(deps): bump golang.org/x/sync from 0.16.0 to 0.17.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/234
-* Adjust the determination priority of runtime under the Kubernetes cluster with cgroupv2 by @lcgash in https://github.com/mzihlmann/kaniko/pull/235
-* 3362: add env credential helper by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/236
-* chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.38.3 to 1.39.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/241
-* chore(deps): bump github.com/spf13/afero from 1.14.0 to 1.15.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/239
-* chore(deps): bump the gomod group with 3 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/238
-* chore(deps): bump google.golang.org/api from 0.248.0 to 0.249.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/240
-* chore(deps): bump golang.org/x/net from 0.43.0 to 0.44.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/242
-* chore(deps): bump step-security/harden-runner from 2.13.0 to 2.13.1 in the actions group by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/244
-* chore(deps): bump the gomod group with 3 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/246
-* 247: avoid skipping siblings if /var/run is a soft-link by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/248
-* 3362: fix env keychain by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/249
-* chore(deps): bump sigstore/cosign-installer from 3.9.2 to 3.10.0 in the actions group by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/250
-* chore(deps): bump cloud.google.com/go/storage from 1.56.1 to 1.56.2 in the gomod group by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/251
+### Fork Related
+* update readme: https://github.com/mzihlmann/kaniko/pull/223 https://github.com/mzihlmann/kaniko/pull/253
 
 
 # v1.25.4 Release 2025-09-02
-The executor images in this release are:
-```
-martizih/kaniko:latest
-martizih/kaniko:v1.25.4
-```
+## What's changed
+### Bugfixes
+* pass correct storage account URL to azure blob client: by @okhaliavka in https://github.com/mzihlmann/kaniko/pull/201
+* AWS ECR immutable tag update error message: by @Sapr0 in https://github.com/mzihlmann/kaniko/pull/204
 
-The debug images are available at:
-```
-martizih/kaniko:debug
-martizih/kaniko:v1.25.4-debug
-```
+### Standardization
+* add heredoc `<<EOF` syntax support: https://github.com/mzihlmann/kaniko/pull/206 https://github.com/mzihlmann/kaniko/pull/213 https://github.com/mzihlmann/kaniko/pull/214 https://github.com/mzihlmann/kaniko/pull/215
 
-The slim executor images which don't contain any authentication binaries are available at:
-```
-martizih/kaniko:slim
-martizih/kaniko:v1.25.4-slim
-```
+### Caching
+* whiteout annotations to prevent cache misses through `--annotation`: https://github.com/mzihlmann/kaniko/pull/209
 
-The warmer images are available at:
-```
-martizih/kaniko:warmer
-martizih/kaniko:v1.25.4-warmer
-```
+### Performance
+* `FF_KANIKO_SQUASH_STAGES=false` squash stages together skipping inter-stage cleanup & restore: https://github.com/mzihlmann/kaniko/pull/141
 
-The bootstrap images, that can be used to build kaniko in kaniko, are available at:
-```
-martizih/kaniko:bootstrap
-martizih/kaniko:v1.25.4-bootstrap
-```
+### Usability
+* new cli option `--pre-cleanup` to clean the filesystem prior to build, allowing customized kaniko images to work properly: https://github.com/mzihlmann/kaniko/pull/196
+* add git depth option: https://github.com/mzihlmann/kaniko/pull/203
+* add docs for azure chinacloud: https://github.com/mzihlmann/kaniko/pull/216
+* riscv image: https://github.com/mzihlmann/kaniko/pull/220
 
-## What's Changed
-* chore(deps): bump the gomod group with 3 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/193
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.18.5 to 1.19.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/194
-* squash stages by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/141
-* 189: new cli option --pre-cleanup to clean the filesystem prior to build by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/196
-* cleanup integration tests by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/198
-* speedup integration tests by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/199
-* pass correct storage account URL to azure blob client by @okhaliavka in https://github.com/mzihlmann/kaniko/pull/201
-* revert integration tests for uppercase stages by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/202
-* add git depth by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/203
-* deactivate squashing stages in integration tests again by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/200
-* AWS ECR immutable tag update error message by @Sapr0 in https://github.com/mzihlmann/kaniko/pull/204
-* chore(deps): bump the gomod group with 2 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/207
-* chore(deps): bump the gomod group with 4 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/205
-* whiteout annotations by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/209
-* chore(deps): bump the gomod group with 2 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/210
-* drop force by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/212
-* add warning for unsupported heredoc syntax by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/213
-* 1713: heredoc "<<EOF" syntax support for RUN statements by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/206
-* 1713: heredoc "<<EOF" syntax support for COPY/ADD statements by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/214
-* 1713: drop heredoc featureflag by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/215
-* 3369: add docs for azure chinacloud by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/216
-* chore(deps): bump the gomod group with 4 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/217
-* chore(deps): bump github.com/spf13/pflag from 1.0.7 to 1.0.9 in the gomod group by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/218
-* chore(deps): bump github.com/spf13/cobra from 1.9.1 to 1.10.1 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/219
-* cross-compilation by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/221
-* 2971: riscv image by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/220
+### Maintenance
+* chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.38.0 to 1.38.3: https://github.com/mzihlmann/kaniko/pull/193 https://github.com/mzihlmann/kaniko/pull/205 https://github.com/mzihlmann/kaniko/pull/217
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.31.1 to 1.31.6: https://github.com/mzihlmann/kaniko/pull/193 https://github.com/mzihlmann/kaniko/pull/207 https://github.com/mzihlmann/kaniko/pull/205 https://github.com/mzihlmann/kaniko/pull/210 https://github.com/mzihlmann/kaniko/pull/217
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.87.0 to 1.87.3: https://github.com/mzihlmann/kaniko/pull/193 https://github.com/mzihlmann/kaniko/pull/205 https://github.com/mzihlmann/kaniko/pull/217
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.18.5 to 1.19.4: https://github.com/mzihlmann/kaniko/pull/194 https://github.com/mzihlmann/kaniko/pull/207 https://github.com/mzihlmann/kaniko/pull/205 https://github.com/mzihlmann/kaniko/pull/210 https://github.com/mzihlmann/kaniko/pull/217
+* chore(deps): bump github.com/spf13/pflag from 1.0.7 to 1.0.9 in the gomod group: https://github.com/mzihlmann/kaniko/pull/218
+* chore(deps): bump github.com/spf13/cobra from 1.9.1 to 1.10.1: https://github.com/mzihlmann/kaniko/pull/219
+
+### Fork Related
+* cleanup integration tests: https://github.com/mzihlmann/kaniko/pull/198 https://github.com/mzihlmann/kaniko/pull/199 https://github.com/mzihlmann/kaniko/pull/202 https://github.com/mzihlmann/kaniko/pull/200 https://github.com/mzihlmann/kaniko/pull/212
+* switch to cross-compilation of images for faster builds: https://github.com/mzihlmann/kaniko/pull/221
 
 
 # v1.25.3 Release 2025-08-20
-The executor images in this release are:
-```
-martizih/kaniko:latest
-martizih/kaniko:v1.25.3
-```
+## What's changed
+### Standardization
+* snapshotting preserves atime: https://github.com/mzihlmann/kaniko/pull/178
+* skip snapshotting rootdir: https://github.com/mzihlmann/kaniko/pull/183
+* predefined build args: by @kit101 in https://github.com/mzihlmann/kaniko/pull/185
 
-The debug images are available at:
-```
-martizih/kaniko:debug
-martizih/kaniko:v1.25.3-debug
-```
+### Usability
+* 🔗 Annotation flag: by @markusthoemmes in https://github.com/mzihlmann/kaniko/pull/98
+* relative OCILayoutPath: by @EladAviczer in https://github.com/mzihlmann/kaniko/pull/187
 
-The slim executor images which don't contain any authentication binaries are available at:
-```
-martizih/kaniko:slim
-martizih/kaniko:v1.25.3-slim
-```
+### Maintenance
+* chore(deps): bump actions/checkout from 4.2.2 to 5.0.0: https://github.com/mzihlmann/kaniko/pull/174
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.30.3 to 1.31.1: https://github.com/mzihlmann/kaniko/pull/177 https://github.com/mzihlmann/kaniko/pull/191
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.18.3 to 1.18.5: https://github.com/mzihlmann/kaniko/pull/175 https://github.com/mzihlmann/kaniko/pull/191
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.86.0 to 1.87.0: https://github.com/mzihlmann/kaniko/pull/175
+* chore(deps): bump golang from 1.24.6 to 1.25.0: https://github.com/mzihlmann/kaniko/pull/182
+* chore(deps): bump google.golang.org/api from 0.246.0 to 0.248.0: https://github.com/mzihlmann/kaniko/pull/179 https://github.com/mzihlmann/kaniko/pull/186
+* chore(deps): bump cloud.google.com/go/storage from 1.56.0 to 1.56.1 in the gomod group: https://github.com/mzihlmann/kaniko/pull/188
 
-The warmer images are available at:
-```
-martizih/kaniko:warmer
-martizih/kaniko:v1.25.3-warmer
-```
-
-The bootstrap images, that can be used to build kaniko in kaniko, are available at:
-```
-martizih/kaniko:bootstrap
-martizih/kaniko:v1.25.3-bootstrap
-```
-
-* pass feature flag into integration tests correctly by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/173
-* chore(deps): bump actions/checkout from 4.2.2 to 5.0.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/174
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.30.3 to 1.31.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/177
-* chore(deps): bump the gomod group with 2 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/175
-* chore(deps): bump google.golang.org/api from 0.246.0 to 0.247.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/179
-* drop karrick/godirwalk in favour of stdlib by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/180
-* swap out filepath.Walk -> filepath.WalkDir by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/181
-* 155: snapshotting preserves atime by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/178
-* chore(deps): bump golang from 1.24.6 to 1.25.0 in /deploy by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/182
-* 🔗 Annotation flag by @markusthoemmes in https://github.com/mzihlmann/kaniko/pull/98
-* skip snapshotting rootdir by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/183
-* Annotations by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/184
-* predefined build args by @kit101 in https://github.com/mzihlmann/kaniko/pull/185
-* chore(deps): bump google.golang.org/api from 0.247.0 to 0.248.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/186
-* relative OCILayoutPath by @EladAviczer in https://github.com/mzihlmann/kaniko/pull/187
-* chore(deps): bump cloud.google.com/go/storage from 1.56.0 to 1.56.1 in the gomod group by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/188
-* chore(deps): bump the gomod group with 2 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/191
+### Fork Related
+* pass feature flag into integration tests correctly: https://github.com/mzihlmann/kaniko/pull/173
+* drop karrick/godirwalk in favour of stdlib: https://github.com/mzihlmann/kaniko/pull/180
+* swap out filepath.Walk -> filepath.WalkDir: https://github.com/mzihlmann/kaniko/pull/181
+* add OCI-Annotations to the images: https://github.com/mzihlmann/kaniko/pull/184
 
 
 # v1.25.2 Release 2025-08-08
-The executor images in this release are:
-```
-martizih/kaniko:latest
-martizih/kaniko:v1.25.2
-```
+## What's changed
+### Security
+* [CVE-2025-54388](https://github.com/advisories/GHSA-x4rx-4gw3-53p4): bump github.com/docker/docker from 28.3.2+incompatible to 28.3.3+incompatible: https://github.com/mzihlmann/kaniko/pull/152
 
-The debug images are available at:
-```
-martizih/kaniko:debug
-martizih/kaniko:v1.25.2-debug
-```
+### Standardization
+* `FF_KANIKO_COPY_AS_ROOT=false` COPY from context should always default to root:root: https://github.com/mzihlmann/kaniko/pull/145 https://github.com/mzihlmann/kaniko/pull/166
+* COPY --from preserves mtime: https://github.com/mzihlmann/kaniko/pull/161
 
-The slim executor images which don't contain any authentication binaries are available at:
-```
-martizih/kaniko:slim
-martizih/kaniko:v1.25.2-slim
-```
+### Usability
+* kaniko learned `--credential-helpers` to select credential helpers: https://github.com/mzihlmann/kaniko/pull/135
 
-The warmer images are available at:
-```
-martizih/kaniko:warmer
-martizih/kaniko:v1.25.2-warmer
-```
+### Maintenance
+* chore(deps): bump cloud.google.com/go/storage from 1.55.0 to 1.56.0: https://github.com/mzihlmann/kaniko/pull/144
+* chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.36.5 to 1.37.2: https://github.com/mzihlmann/kaniko/pull/131 https://github.com/mzihlmann/kaniko/pull/150 https://github.com/mzihlmann/kaniko/pull/159 https://github.com/mzihlmann/kaniko/pull/163
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.29.17 to 1.30.3: https://github.com/mzihlmann/kaniko/pull/132 https://github.com/mzihlmann/kaniko/pull/149 https://github.com/mzihlmann/kaniko/pull/163
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.84 to 1.18.3: https://github.com/mzihlmann/kaniko/pull/133 https://github.com/mzihlmann/kaniko/pull/148 https://github.com/mzihlmann/kaniko/pull/153 https://github.com/mzihlmann/kaniko/pull/158 https://github.com/mzihlmann/kaniko/pull/163
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.84.0 to 1.86.0: https://github.com/mzihlmann/kaniko/pull/134 https://github.com/mzihlmann/kaniko/pull/147 https://github.com/mzihlmann/kaniko/pull/157 https://github.com/mzihlmann/kaniko/pull/163
+* chore(deps): bump github.com/awslabs/amazon-ecr-credential-helper/ecr-login from 0.9.1 to 0.10.1: https://github.com/mzihlmann/kaniko/pull/151
+* chore(deps): bump github.com/Azure/azure-sdk-for-go/sdk/storage/azblob from 1.6.1 to 1.6.2: https://github.com/mzihlmann/kaniko/pull/143
+* chore(deps): bump github.com/containerd/containerd from 1.7.27 to 1.7.28: https://github.com/mzihlmann/kaniko/pull/146
+* chore(deps): bump golang from 1.24.5 to 1.24.6: https://github.com/mzihlmann/kaniko/pull/169
+* chore(deps): bump golang.org/x/net from 0.42.0 to 0.43.0: https://github.com/mzihlmann/kaniko/pull/170
+* chore(deps): bump golang.org/x/sys from 0.34.0 to 0.35.0: https://github.com/mzihlmann/kaniko/pull/168
+* chore(deps): bump google.golang.org/api from 0.242.0 to 0.246.0: https://github.com/mzihlmann/kaniko/pull/140 https://github.com/mzihlmann/kaniko/pull/156 https://github.com/mzihlmann/kaniko/pull/165 https://github.com/mzihlmann/kaniko/pull/167
 
-The bootstrap images, that can be used to build kaniko in kaniko, are available at:
-```
-martizih/kaniko:bootstrap
-martizih/kaniko:v1.25.2-bootstrap
-```
-
-* chore(deps): bump sigstore/cosign-installer from 3.9.1 to 3.9.2 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/130
-* chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.36.5 to 1.36.6 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/131
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.84.0 to 1.84.1 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/134
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.29.17 to 1.29.18 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/132
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.84 to 1.17.85 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/133
-* new cli option to select credential helpers by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/135
-* 🔗 update docs by @mosabua @cpanato in https://github.com/mzihlmann/kaniko/pull/136
-* update docs by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/137
-* optimize dockerfile by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/138
-* chore(deps): bump google.golang.org/api from 0.242.0 to 0.243.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/140
-* log kaniko output in integration tests by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/142
-* chore(deps): bump github.com/Azure/azure-sdk-for-go/sdk/storage/azblob from 1.6.1 to 1.6.2 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/143
-* chore(deps): bump cloud.google.com/go/storage from 1.55.0 to 1.56.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/144
-* chore(deps): bump github.com/containerd/containerd from 1.7.27 to 1.7.28 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/146
-* chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.36.6 to 1.37.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/150
-* COPY from context should always default to root:root by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/145
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.84.1 to 1.85.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/147
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.29.18 to 1.30.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/149
-* chore(deps): bump github.com/docker/docker from 28.3.2+incompatible to 28.3.3+incompatible by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/152
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.85 to 1.18.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/148
-* chore(deps): bump github.com/awslabs/amazon-ecr-credential-helper/ecr-login from 0.9.1 to 0.10.1 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/151
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.18.0 to 1.18.1 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/153
-* chore(deps): bump google.golang.org/api from 0.243.0 to 0.244.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/156
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.85.0 to 1.85.1 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/157
-* chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.37.0 to 1.37.1 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/159
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.18.1 to 1.18.2 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/158
-* 🔗 group dependabot updates for go and github actions by @cpanato in https://github.com/mzihlmann/kaniko/pull/162
-* chore(deps): bump the gomod group with 4 updates by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/163
-* chore(deps): bump google.golang.org/api from 0.244.0 to 0.245.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/165
-* chore(deps): bump google.golang.org/api from 0.245.0 to 0.246.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/167
-* chore(deps): bump golang.org/x/sys from 0.34.0 to 0.35.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/168
-* chore(deps): bump golang from 1.24.5 to 1.24.6 in /deploy by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/169
-* expose feature flag copy-as-root as environment var instead by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/166
-* 155: COPY --from preserves mtime by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/161
-* chore(deps): bump golang.org/x/net from 0.42.0 to 0.43.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/170
+### Fork Related
+* 🔗 update docs: by @mosabua @cpanato in https://github.com/mzihlmann/kaniko/pull/136
+* optimize dockerfile: https://github.com/mzihlmann/kaniko/pull/138
+* log kaniko output in integration tests: https://github.com/mzihlmann/kaniko/pull/142
+* 🔗 group dependabot updates for go and github actions: by @cpanato in https://github.com/mzihlmann/kaniko/pull/162
 
 
 # v1.25.1 Release 2025-07-17
-The executor images in this release are:
-```
-martizih/kaniko:latest
-martizih/kaniko:v1.25.1
-```
+## What's changed
+### Bugfixes
+* backwards compatibility for caches without layers: https://github.com/mzihlmann/kaniko/pull/120
 
-The debug images are available at:
-```
-martizih/kaniko:debug
-martizih/kaniko:v1.25.1-debug
-```
+### Maintenance
+* chore(deps): bump golang from 1.24.4 to 1.24.5: https://github.com/mzihlmann/kaniko/pull/113
+* chore(deps): bump google.golang.org/api from 0.240.0 to 0.242.0: https://github.com/mzihlmann/kaniko/pull/114 https://github.com/mzihlmann/kaniko/pull/128
+* chore(deps): bump golang.org/x/sys from 0.33.0 to 0.34.0: https://github.com/mzihlmann/kaniko/pull/115
+* chore(deps): bump golang.org/x/sync from 0.15.0 to 0.16.0: https://github.com/mzihlmann/kaniko/pull/116
+* chore(deps): bump github.com/docker/docker from 28.3.1+incompatible to 28.3.2+incompatible: https://github.com/mzihlmann/kaniko/pull/117
+* chore(deps): bump golang.org/x/net from 0.41.0 to 0.42.0: https://github.com/mzihlmann/kaniko/pull/118
+* chore(deps): bump step-security/harden-runner from 2.12.2 to 2.13.0: https://github.com/mzihlmann/kaniko/pull/121
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.83 to 1.17.84: https://github.com/mzihlmann/kaniko/pull/122
+* chore(deps): bump github.com/spf13/pflag from 1.0.6 to 1.0.7: https://github.com/mzihlmann/kaniko/pull/127
 
-The slim executor images which don't contain any authentication binaries are available at:
-```
-martizih/kaniko:slim
-martizih/kaniko:v1.25.1-slim
-```
-
-The warmer images are available at:
-```
-martizih/kaniko:warmer
-martizih/kaniko:v1.25.1-warmer
-```
-
-The bootstrap images, that can be used to build kaniko in kaniko, are available at:
-```
-martizih/kaniko:bootstrap
-martizih/kaniko:v1.25.1-bootstrap
-```
-
-* update readme by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/112
-* chore(deps): bump golang from 1.24.4 to 1.24.5 in /deploy by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/113
-* chore(deps): bump google.golang.org/api from 0.240.0 to 0.241.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/114
-* chore(deps): bump golang.org/x/sys from 0.33.0 to 0.34.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/115
-* chore(deps): bump golang.org/x/sync from 0.15.0 to 0.16.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/116
-* chore(deps): bump github.com/docker/docker from 28.3.1+incompatible to 28.3.2+incompatible by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/117
-* chore(deps): bump golang.org/x/net from 0.41.0 to 0.42.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/118
-* debian buster was archived by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/124
-* chore(deps): bump step-security/harden-runner from 2.12.2 to 2.13.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/121
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.83 to 1.17.84 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/122
-* backwards compatibility for caches without layers by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/120
-* update debian images for testing to 12.10 by @cpanato in https://github.com/mzihlmann/kaniko/pull/125
-* chore(deps): bump github.com/spf13/pflag from 1.0.6 to 1.0.7 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/127
-* chore(deps): bump google.golang.org/api from 0.241.0 to 0.242.0 by @dependabot[bot] in https://github.com/mzihlmann/kaniko/pull/128
+### Fork Related
+* 🔗 debian buster was archived: @cpanato in https://github.com/mzihlmann/kaniko/pull/124 https://github.com/mzihlmann/kaniko/pull/125
+* update readme: https://github.com/mzihlmann/kaniko/pull/112 https://github.com/mzihlmann/kaniko/pull/129
 
 
 # v1.25.0 Release 2025-07-08
-The executor images in this release are:
-```
-martizih/kaniko:latest
-martizih/kaniko:v1.25.0
-```
+## What's changed
+### Bugfixes
+* skip-unused-stages fails on numeric references: https://github.com/mzihlmann/kaniko/pull/103
+* skip-unused-stages fails on capitalized references: https://github.com/mzihlmann/kaniko/pull/104
 
-The debug images are available at:
-```
-martizih/kaniko:debug
-martizih/kaniko:v1.25.0-debug
-```
+### Standardization
+* COPY with restrictive chmod makes directory inacessible: https://github.com/mzihlmann/kaniko/pull/80
+* switch target implementation to buildkit, emit empty layers for `RUN` and `WORKDIR`: https://github.com/mzihlmann/kaniko/pull/81
+* file permissions: https://github.com/mzihlmann/kaniko/pull/101
+* Persist capabilities on COPY: https://github.com/mzihlmann/kaniko/pull/107
+* COPY --chmod doesn't change existing directories: https://github.com/mzihlmann/kaniko/pull/109
 
-The slim executor images which don't contain any authentication binaries are available at:
-```
-martizih/kaniko:slim
-martizih/kaniko:v1.25.0-slim
-```
+### Usability
+* deprecate force-build-metadata: https://github.com/mzihlmann/kaniko/pull/99
+* make skip-unused-stages the default: https://github.com/mzihlmann/kaniko/pull/100
 
-The warmer images are available at:
-```
-martizih/kaniko:warmer
-martizih/kaniko:v1.25.0-warmer
-```
+### Maintenance
+* chore(deps): bump step-security/harden-runner from 2.12.1 to 2.12.2: https://github.com/mzihlmann/kaniko/pull/92
+* chore(deps): bump github.com/moby/buildkit from 0.23.1 to 0.23.2: https://github.com/mzihlmann/kaniko/pull/93
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.82 to 1.17.83: https://github.com/mzihlmann/kaniko/pull/95
+* chore(deps): bump google.golang.org/api from 0.239.0 to 0.240.0: https://github.com/mzihlmann/kaniko/pull/96
+* chore(deps): bump github.com/docker/docker from 28.3.0+incompatible to 28.3.1+incompatible: https://github.com/mzihlmann/kaniko/pull/97
 
-The bootstrap images, that can be used to build kaniko in kaniko, are available at:
-```
-martizih/kaniko:bootstrap
-martizih/kaniko:v1.25.0-bootstrap
-```
-
-* chore(deps): bump step-security/harden-runner from 2.12.1 to 2.12.2 by @dependabot in https://github.com/mzihlmann/kaniko/pull/92
-* chore(deps): bump github.com/moby/buildkit from 0.23.1 to 0.23.2 by @dependabot in https://github.com/mzihlmann/kaniko/pull/93
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.82 to 1.17.83 by @dependabot in https://github.com/mzihlmann/kaniko/pull/95
-* chore(deps): bump google.golang.org/api from 0.239.0 to 0.240.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/96
-* chore(deps): bump github.com/docker/docker from 28.3.0+incompatible to 28.3.1+incompatible by @dependabot in https://github.com/mzihlmann/kaniko/pull/97
-* switch target implementation to buildkit by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/81
-* deprecate force-build-metadata by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/99
-* file permissions by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/101
-* skip-unused-stages fails on numeric references by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/103
-* skip-unused-stages fails on capitalized references  by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/104
-* make skip-unused-stages the default by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/100
-* update flags documentation by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/105
-* Persist capabilities on COPY by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/107
-* COPY with restrictive chmod makes directory inacessible by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/80
-* COPY --chmod doesn't change existing directories by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/109
-* cleanup by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/110
+### Fork Related
+* update flags documentation: https://github.com/mzihlmann/kaniko/pull/105
+* cleanup: https://github.com/mzihlmann/kaniko/pull/110
 
 
 # v1.24.3 Release 2025-06-29
-The executor images in this release are:
-```
-martizih/kaniko:latest
-martizih/kaniko:v1.24.3
-```
+## What's Changed
+### Bugfixes
+* cache collision under rename: by @SJrX in https://github.com/mzihlmann/kaniko/pull/62
 
-The debug images are available at:
-```
-martizih/kaniko:debug
-martizih/kaniko:v1.24.3-debug
-```
+### Usability
+* bootstrap image: https://github.com/mzihlmann/kaniko/pull/59
 
-The slim executor images which don't contain any authentication binaries are available at:
-```
-martizih/kaniko:slim
-martizih/kaniko:v1.24.3-slim
-```
+### Maintenance
+* chore(deps): bump github.com/moby/buildkit from 0.23.0 to 0.23.1: https://github.com/mzihlmann/kaniko/pull/79
+* chore(deps): bump sigstore/cosign-installer from 3.9.0 to 3.9.1: https://github.com/mzihlmann/kaniko/pull/82
+* chore(deps): bump google.golang.org/api from 0.238.0 to 0.239.0: https://github.com/mzihlmann/kaniko/pull/84
+* chore(deps): bump github.com/docker/docker from 28.2.2+incompatible to 28.3.0+incompatible: https://github.com/mzihlmann/kaniko/pull/83
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.81 to 1.17.82: https://github.com/mzihlmann/kaniko/pull/87
+* chore(deps): bump github.com/GoogleCloudPlatform/docker-credential-gcr/v2 from 2.1.29 to 2.1.30: https://github.com/mzihlmann/kaniko/pull/86
 
-The warmer images are available at:
-```
-martizih/kaniko:warmer
-martizih/kaniko:v1.24.3-warmer
-```
-
-The bootstrap images, that can be used to build kaniko in kaniko, are available at:
-```
-martizih/kaniko:bootstrap
-martizih/kaniko:v1.24.3-bootstrap
-```
-
-* update readme by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/77
-* update readme by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/78
-* chore(deps): bump github.com/moby/buildkit from 0.23.0 to 0.23.1 by @dependabot in https://github.com/mzihlmann/kaniko/pull/79
-* cache collision under rename by @SJrX in https://github.com/mzihlmann/kaniko/pull/62
-* chore(deps): bump sigstore/cosign-installer from 3.9.0 to 3.9.1 by @dependabot in https://github.com/mzihlmann/kaniko/pull/82
-* chore(deps): bump google.golang.org/api from 0.238.0 to 0.239.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/84
-* chore(deps): bump github.com/docker/docker from 28.2.2+incompatible to 28.3.0+incompatible by @dependabot in https://github.com/mzihlmann/kaniko/pull/83
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.81 to 1.17.82 by @dependabot in https://github.com/mzihlmann/kaniko/pull/87
-* chore(deps): bump github.com/GoogleCloudPlatform/docker-credential-gcr/v2 from 2.1.29 to 2.1.30 by @dependabot in https://github.com/mzihlmann/kaniko/pull/86
-* bootstrap image by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/59
-* switch container-diff for diffoci by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/46
-* add changelog by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/88
+### Fork Related
+* switch container-diff for diffoci: https://github.com/mzihlmann/kaniko/pull/46
+* update readme: https://github.com/mzihlmann/kaniko/pull/77 https://github.com/mzihlmann/kaniko/pull/78 https://github.com/mzihlmann/kaniko/pull/88 https://github.com/mzihlmann/kaniko/pull/89
 
 
 # v1.24.2 Release 2025-06-19
-The executor images in this release are:
-```
-martizih/kaniko:latest
-martizih/kaniko:v1.24.2
-```
+## What's changed
+### Security
+* remove binary artifacts: by @tlk in https://github.com/mzihlmann/kaniko/pull/54
 
-The debug images are available at:
-```
-martizih/kaniko:debug
-martizih/kaniko:v1.24.2-debug
-```
+### Maintenance
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.75 to 1.17.81: https://github.com/mzihlmann/kaniko/pull/58 https://github.com/mzihlmann/kaniko/pull/73 https://github.com/mzihlmann/kaniko/pull/74
+* chore(deps): bump github.com/GoogleCloudPlatform/docker-credential-gcr/v2 from 2.1.22 to 2.1.29: https://github.com/mzihlmann/kaniko/pull/40
+* chore(deps): bump cloud.google.com/go/storage from 1.54.0 to 1.55.0: https://github.com/mzihlmann/kaniko/pull/43
+* chore(deps): bump github.com/go-git/go-git/v5 from 5.16.0 to 5.16.2: https://github.com/mzihlmann/kaniko/pull/66
+* chore(deps): bump github.com/google/go-containerregistry from 0.20.5 to 0.20.6: https://github.com/mzihlmann/kaniko/pull/65
+* chore(deps): bump golang.org/x/sync from 0.14.0 to 0.15.0: https://github.com/mzihlmann/kaniko/pull/64
+* chore(deps): bump google.golang.org/api from 0.235.0 to 0.238.0: https://github.com/mzihlmann/kaniko/pull/63 https://github.com/mzihlmann/kaniko/pull/71
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.80.2 to 1.80.3: https://github.com/mzihlmann/kaniko/pull/70
+* chore(deps): bump github.com/moby/buildkit from 0.22.0 to 0.23.0: https://github.com/mzihlmann/kaniko/pull/75
+* chore(deps): bump docker/setup-buildx-action from 3.10.0 to 3.11.1: https://github.com/mzihlmann/kaniko/pull/61 https://github.com/mzihlmann/kaniko/pull/69
+* chore(deps): bump step-security/harden-runner from 2.12.0 to 2.12.1: https://github.com/mzihlmann/kaniko/pull/56
+* chore(deps): bump sigstore/cosign-installer from 3.8.2 to 3.9.0: https://github.com/mzihlmann/kaniko/pull/67
 
-The slim executor images which don't contain any authentication binaries are available at:
-```
-martizih/kaniko:slim
-martizih/kaniko:v1.24.2-slim
-```
-
-The warmer images are available at:
-```
-martizih/kaniko:warmer
-martizih/kaniko:v1.24.2-warmer
-```
-
-* update readme by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/52
-* drop irrelevant updates by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/53
-* remove binary artifacts by @tlk in https://github.com/mzihlmann/kaniko/pull/54
-* Cleanup jobs by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
-* chore(deps): bump step-security/harden-runner from 2.12.0 to 2.12.1 by @dependabot in https://github.com/mzihlmann/kaniko/pull/56
-* fix: update ENV syntax in Dockerfile by @babs in https://github.com/mzihlmann/kaniko/pull/60
-* chore(deps): bump docker/setup-buildx-action from 3.10.0 to 3.11.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/61
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.75 to 1.17.79 by @dependabot in https://github.com/mzihlmann/kaniko/pull/58
-* chore(deps): bump github.com/GoogleCloudPlatform/docker-credential-gcr/v2 from 2.1.22 to 2.1.29 by @dependabot in https://github.com/mzihlmann/kaniko/pull/40
-* chore(deps): bump cloud.google.com/go/storage from 1.54.0 to 1.55.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/43
-* chore(deps): bump sigstore/cosign-installer from 3.8.2 to 3.9.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/67
-* chore(deps): bump github.com/go-git/go-git/v5 from 5.16.0 to 5.16.2 by @dependabot in https://github.com/mzihlmann/kaniko/pull/66
-* chore(deps): bump github.com/google/go-containerregistry from 0.20.5 to 0.20.6 by @dependabot in https://github.com/mzihlmann/kaniko/pull/65
-* chore(deps): bump golang.org/x/sync from 0.14.0 to 0.15.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/64
-* chore(deps): bump google.golang.org/api from 0.235.0 to 0.237.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/63
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.79 to 1.17.80 by @dependabot in https://github.com/mzihlmann/kaniko/pull/73
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.80.2 to 1.80.3 by @dependabot in https://github.com/mzihlmann/kaniko/pull/70
-* chore(deps): bump google.golang.org/api from 0.237.0 to 0.238.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/71
-* chore(deps): bump docker/setup-buildx-action from 3.11.0 to 3.11.1 by @dependabot in https://github.com/mzihlmann/kaniko/pull/69
-* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.17.80 to 1.17.81 by @dependabot in https://github.com/mzihlmann/kaniko/pull/74
-* chore(deps): bump github.com/moby/buildkit from 0.22.0 to 0.23.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/75
+### Fork Related
+* 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
+* 🔗 update ENV syntax in Dockerfile: by @babs in https://github.com/mzihlmann/kaniko/pull/60
+* update readme: https://github.com/mzihlmann/kaniko/pull/52 https://github.com/mzihlmann/kaniko/pull/53 https://github.com/mzihlmann/kaniko/pull/76
 
 
 # v1.24.1 Release 2025-06-12
-The executor images in this release are:
-```
-martizih/kaniko:latest
-martizih/kaniko:v1.24.1
-```
-
-The debug images are available at:
-```
-martizih/kaniko:debug
-martizih/kaniko:v1.24.1-debug
-```
-
-The slim executor images which don't contain any authentication binaries are available at:
-```
-martizih/kaniko:slim
-martizih/kaniko:v1.24.1-slim
-```
-
-The warmer images are available at:
-```
-martizih/kaniko:warmer
-martizih/kaniko:v1.24.1-warmer
-```
-
-* fix nightlies by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/31
-* Upstream archived notice by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/32
-* typo by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/33
-* enable keyless image signing by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/34
-* chore(deps): bump docker/setup-qemu-action from 3.1.0 to 3.6.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/35
-* chore(deps): bump docker/setup-buildx-action from 3.4.0 to 3.10.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/36
-* chore(deps): bump actions/setup-go from 5.0.2 to 5.5.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/37
-* chore(deps): bump AdityaGarg8/remove-unwanted-software from 4 to 5 by @dependabot in https://github.com/mzihlmann/kaniko/pull/38
-* chore(deps): bump docker/build-push-action from 6.16.0 to 6.18.0 by @dependabot in https://github.com/mzihlmann/kaniko/pull/39
-* chore(deps): bump github.com/google/go-containerregistry from 0.20.4 to 0.20.5 by @dependabot in https://github.com/mzihlmann/kaniko/pull/41
-* sticky bit gets lost on COPY by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/45
-* CVE-2025-22874: bump go 1.24.3 -> 1.24.4 by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/50
+## What's changed
+### Security
+* CVE-2025-22874: bump go 1.24.3 -> 1.24.4: https://github.com/mzihlmann/kaniko/pull/50
+### Standardization
+* sticky bit gets lost on COPY: https://github.com/mzihlmann/kaniko/pull/45
+### Maintenance
+* chore(deps): bump docker/setup-qemu-action from 3.1.0 to 3.6.0: https://github.com/mzihlmann/kaniko/pull/35
+* chore(deps): bump docker/setup-buildx-action from 3.4.0 to 3.10.0: https://github.com/mzihlmann/kaniko/pull/36
+* chore(deps): bump actions/setup-go from 5.0.2 to 5.5.0: https://github.com/mzihlmann/kaniko/pull/37
+* chore(deps): bump AdityaGarg8/remove-unwanted-software from 4 to 5: https://github.com/mzihlmann/kaniko/pull/38
+* chore(deps): bump docker/build-push-action from 6.16.0 to 6.18.0: https://github.com/mzihlmann/kaniko/pull/39
+* chore(deps): bump github.com/google/go-containerregistry from 0.20.4 to 0.20.5: https://github.com/mzihlmann/kaniko/pull/41
+### Fork Related
+* fix nightlies: https://github.com/mzihlmann/kaniko/pull/31
+* Upstream archived notice: https://github.com/mzihlmann/kaniko/pull/32 https://github.com/mzihlmann/kaniko/pull/33
+* enable keyless image signing: https://github.com/mzihlmann/kaniko/pull/34
 
 
 # v1.24.0-5 Release 2025-06-01
-The executor images in this release are:
-```
-martizih/kaniko:latest
-martizih/kaniko:v1.24.0-5
-```
+## What's changed
+### Usability
+* if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
+* kaniko learned `--preserve-context` to preserve the build-context across multi-stage builds: https://github.com/mzihlmann/kaniko/pull/28
+* kaniko learned `--materialize` forcing the filesystem into a well-defined state after the build: https://github.com/mzihlmann/kaniko/pull/29
 
-The debug images are available at:
-```
-martizih/kaniko:debug
-martizih/kaniko:v1.24.0-5-debug
-```
-
-The slim executor images which don't contain any authentication binaries are available at:
-```
-martizih/kaniko:slim
-martizih/kaniko:v1.24.0-5-slim
-```
-
-The warmer images are available at:
-```
-martizih/kaniko:warmer
-martizih/kaniko:v1.24.0-5-warmer
-```
-
-* export warmer image properly by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/26
-* if target stage is unspecified we implicitly target the last stage by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/27
-* kaniko learned to preserve the build-context across multi-stage builds by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/28
-* kaniko learned '--materialize' forcing the filesystem into a well-defined state after the build by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/29
+### Fork Related
+* export warmer image properly: https://github.com/mzihlmann/kaniko/pull/26
 
 
 # v1.24.0-4 Release 2025-05-31
-The executor images in this release are:
-```
-martizih/kaniko:latest
-martizih/kaniko:v1.24.0-4
-```
-
-The debug images are available at:
-```
-martizih/kaniko:debug
-martizih/kaniko:v1.24.0-4-debug
-```
-
-The slim executor images which don't contain any authentication binaries are available at:
-```
-martizih/kaniko:slim
-martizih/kaniko:v1.24.0-4-slim
-```
-
-The warmer images are available at:
-```
-martizih/kaniko:warmer
-martizih/kaniko:v1.24.0-4-warmer
-```
-
-* WORKDIR learned to cache it's potential output layer by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/22
-* simplify logic for detecting empty layers by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/23
-* fix: ADD learned to cache it's output layer by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/24
+## What's changed
+### Caching
+* WORKDIR learned to cache its potential output layer: https://github.com/mzihlmann/kaniko/pull/22 https://github.com/mzihlmann/kaniko/pull/23
+* ADD learned to cache its output layer: https://github.com/mzihlmann/kaniko/pull/24
 
 
 # v1.24.0-3 Release 2025-05-27
-The executor images in this release are:
-```
-martizih/kaniko:latest
-martizih/kaniko:v1.24.0-3
-```
-
-The debug images are available at:
-```
-martizih/kaniko:debug
-martizih/kaniko:v1.24.0-3-debug
-```
-
-The slim executor images which don't contain any authentication binaries are available at:
-```
-martizih/kaniko:slim
-martizih/kaniko:v1.24.0-3-slim
-```
-
-The warmer images are available at:
-```
-martizih/kaniko:warmer
-martizih/kaniko:v1.24.0-3-warmer
-```
-
-* Integration test for caching by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/14
-* warn about potential cache-misses explicitly by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/12
-* integration tests args overrides by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/15
-* no need for deepcopy by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/17
-* RUN commands dont specify which files were added by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/18
-* Fix caching for empty RUN by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/19
+## What's changed
+### Caching
+* warn about potential cache-misses explicitly: https://github.com/mzihlmann/kaniko/pull/12 https://github.com/mzihlmann/kaniko/pull/18
+* Fix caching for empty RUN: https://github.com/mzihlmann/kaniko/pull/19
+### Testing
+* Integration test for caching: https://github.com/mzihlmann/kaniko/pull/14
+* integration tests args overrides: https://github.com/mzihlmann/kaniko/pull/15
+### Amends
+* no need for deepcopy: https://github.com/mzihlmann/kaniko/pull/17
 
 
 # v1.24.0-2 Release 2025-05-25
-The executor images in this release are:
-```
-martizih/kaniko:latest
-martizih/kaniko:v1.24.0-2
-```
-
-The debug images are available at:
-```
-martizih/kaniko:debug
-martizih/kaniko:v1.24.0-2-debug
-```
-
-The slim executor images which don't contain any authentication binaries are available at:
-```
-martizih/kaniko:slim
-martizih/kaniko:v1.24.0-2-slim
-```
-
-The warmer images are available at:
-```
-martizih/kaniko:warmer
-martizih/kaniko:v1.24.0-2-warmer
-```
-
-* fix: preserve labels from base images by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/6
-* fix CI by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/5
-* drop image signing by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/7
-* drop whitespace diff by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/8
-* add integration test by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/10
+## What's changed
+### Amends
+* add integration test: https://github.com/mzihlmann/kaniko/pull/10
+* fix: preserve labels from base images: https://github.com/mzihlmann/kaniko/pull/6
+* drop whitespace diff: https://github.com/mzihlmann/kaniko/pull/8
+### Fork Related
+* fix CI: https://github.com/mzihlmann/kaniko/pull/5
+* drop image signing: https://github.com/mzihlmann/kaniko/pull/7
 
 
 # v1.24.0-1 Release 2025-05-24
-The executor images in this release are:
-```
-martizih/kaniko:latest
-martizih/kaniko:v1.24.0-1
-```
-
-The debug images are available at:
-```
-martizih/kaniko:debug
-martizih/kaniko:v1.24.0-1-debug
-```
-
-The slim executor images which don't contain any authentication binaries are available at:
-```
-martizih/kaniko:slim
-martizih/kaniko:v1.24.0-1-slim
-```
-
-The warmer images are available at:
-```
-martizih/kaniko:warmer
-martizih/kaniko:v1.24.0-1-warmer
-```
-
-* fix: sourceImage's CreatedAt timestamp should not be included in cach… by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/1
-* fix: ignore labels on base image for cache by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/2
-* fix: cache extract fails on invalid symlinks by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/3
-* fix: intermediate images should not be labelled by @mzihlmann in https://github.com/mzihlmann/kaniko/pull/4
+## What's changed
+### Bugfixes
+* cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3
+### Caching
+* sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
+* ignore labels on base image for cache: https://github.com/mzihlmann/kaniko/pull/2
+* intermediate images should not be labelled: https://github.com/mzihlmann/kaniko/pull/4
 
 
 # v1.24.0 Release 2025-05-21
