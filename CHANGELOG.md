@@ -1,3 +1,44 @@
+# v1.26.0 Release 2025-10-16
+## Update Notice
+In this Release we activated three feature flags:
+* [FF_KANIKO_SQUASH_STAGES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_squash_stages)
+* [FF_KANIKO_RUN_MOUNT_CACHE](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_run_mount_cache)
+* [FF_KANIKO_NEW_CACHE_LAYOUT](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_new_cache_layout)
+
+You can roll-back those changes by overriding them in the environment ie.
+```yaml
+job:
+  variables:
+    FF_KANIKO_SQUASH_STAGES: "0"
+    FF_KANIKO_RUN_MOUNT_CACHE: "0"
+    FF_KANIKO_NEW_CACHE_LAYOUT: "0"
+```
+Please also notify us by [filing a new issue](https://github.com/osscontainertools/kaniko/issues/new/choose).
+
+## What's Changed
+### Bugfixes
+* skip-unused-stages invalidates numeric references: https://github.com/osscontainertools/kaniko/pull/306
+
+### Performance
+* `FF_KANIKO_OCI_STAGES=false` use ocilayout instead of tarballs during stage transitions: https://github.com/mzihlmann/kaniko/pull/141
+
+### Usability
+* activate featureflags for v1.26.0 release: https://github.com/osscontainertools/kaniko/pull/312
+
+### Maintenance
+* chore(deps): bump golang.org/x/sys from 0.36.0 to 0.37.0: https://github.com/osscontainertools/kaniko/pull/296
+* chore(deps): bump golang.org/x/oauth2 from 0.31.0 to 0.32.0: https://github.com/osscontainertools/kaniko/pull/297
+* chore(deps): bump golang.org/x/net from 0.45.0 to 0.46.0: https://github.com/osscontainertools/kaniko/pull/298
+* chore(deps): bump github.com/moby/moby/api from 1.52.0-beta.1 to 1.52.0-beta.2: https://github.com/osscontainertools/kaniko/pull/311
+* chore(deps): bump golang from 1.25.2 to 1.25.3: https://github.com/osscontainertools/kaniko/pull/310
+
+### Fork Related
+* update docs: https://github.com/osscontainertools/kaniko/pull/294 https://github.com/osscontainertools/kaniko/pull/302 https://github.com/osscontainertools/kaniko/pull/313
+* update docs: by @6543 in https://github.com/osscontainertools/kaniko/pull/300
+* enable `FF_KANIKO_SQUASH_STAGES` in integrationtests: https://github.com/osscontainertools/kaniko/pull/309
+* mz308: activate featureflags for v1.26.0 release: https://github.com/osscontainertools/kaniko/pull/312
+
+
 # v1.25.6 Release 2025-10-08
 ## What's changed
 ### Bugfixes
