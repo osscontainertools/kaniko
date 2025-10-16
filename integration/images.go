@@ -69,9 +69,16 @@ var argsMap = map[string][]string{
 
 // Environment to build Dockerfiles with, used for both docker and kaniko builds
 var envsMap = map[string][]string{
-	"Dockerfile_test_arg_secret":  {"SSH_PRIVATE_KEY=ThEPriv4t3Key"},
-	"Dockerfile_test_issue_519":   {"DOCKER_BUILDKIT=0"},
-	"Dockerfile_test_issue_mz282": {"FF_KANIKO_SQUASH_STAGES=1"},
+	"Dockerfile_test_arg_secret":                 {"SSH_PRIVATE_KEY=ThEPriv4t3Key"},
+	"Dockerfile_test_issue_519":                  {"DOCKER_BUILDKIT=0", "FF_KANIKO_SQUASH_STAGES=0"},
+	"Dockerfile_test_cmd":                        {"FF_KANIKO_SQUASH_STAGES=0"},
+	"Dockerfile_test_issue_mz247":                {"FF_KANIKO_SQUASH_STAGES=0"},
+	"Dockerfile_test_multistage_args_issue_1911": {"FF_KANIKO_SQUASH_STAGES=0"},
+	"Dockerfile_test_issue_mz276":                {"FF_KANIKO_SQUASH_STAGES=0"},
+	"Dockerfile_test_pre_defined_build_args":     {"FF_KANIKO_SQUASH_STAGES=0"},
+	"Dockerfile_test_issue_1039":                 {"FF_KANIKO_SQUASH_STAGES=0"},
+	"Dockerfile_test_issue_2066":                 {"FF_KANIKO_SQUASH_STAGES=0"},
+	"Dockerfile_test_issue_1837":                 {"FF_KANIKO_SQUASH_STAGES=0"},
 }
 
 var KanikoEnv = []string{
@@ -79,6 +86,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_RUN_MOUNT_CACHE=1",
 	"FF_KANIKO_NEW_CACHE_LAYOUT=1",
 	"FF_KANIKO_OCI_STAGES=1",
+	"FF_KANIKO_SQUASH_STAGES=1",
 }
 
 // Arguments to build Dockerfiles with when building with docker
@@ -102,6 +110,9 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_cache_copy":             {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache_copy_oci":         {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_add":              {"--cache-copy-layers=true"},
+	"Dockerfile_test_volume_3":               {"--skip-unused-stages=false"},
+	"Dockerfile_test_multistage":             {"--skip-unused-stages=false"},
+	"Dockerfile_test_copy_root_multistage":   {"--skip-unused-stages=false"},
 }
 
 // Arguments to diffoci when comparing dockerfiles
@@ -559,13 +570,13 @@ func buildKanikoImage(
 		"-v", benchmarkDir + ":/kaniko/benchmarks",
 	}
 
+	for _, envVariable := range KanikoEnv {
+		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
+	}
 	if env, ok := envsMap[dockerfile]; ok {
 		for _, envVariable := range env {
 			dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 		}
-	}
-	for _, envVariable := range KanikoEnv {
-		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
 
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
