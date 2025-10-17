@@ -33,7 +33,7 @@ Please also notify us by [filing a new issue](https://github.com/osscontainertoo
 * chore(deps): bump golang from 1.25.2 to 1.25.3: https://github.com/osscontainertools/kaniko/pull/310
 
 ### Fork Related
-* update docs: https://github.com/osscontainertools/kaniko/pull/294 https://github.com/osscontainertools/kaniko/pull/302 https://github.com/osscontainertools/kaniko/pull/313
+* update docs: https://github.com/osscontainertools/kaniko/pull/294 https://github.com/osscontainertools/kaniko/pull/302 https://github.com/osscontainertools/kaniko/pull/313 https://github.com/osscontainertools/kaniko/pull/314
 * update docs: by @6543 in https://github.com/osscontainertools/kaniko/pull/300
 * enable `FF_KANIKO_SQUASH_STAGES` in integrationtests: https://github.com/osscontainertools/kaniko/pull/309
 
