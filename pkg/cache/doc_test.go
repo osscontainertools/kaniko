@@ -17,7 +17,6 @@ limitations under the License.
 package cache
 
 import (
-	"bytes"
 	"log"
 
 	"github.com/osscontainertools/kaniko/pkg/config"
@@ -25,13 +24,9 @@ import (
 )
 
 func ExampleWarmer_Warm() {
-	tarBuf := new(bytes.Buffer)
-	manifestBuf := new(bytes.Buffer)
 	w := &Warmer{
-		Remote:         remote.RetrieveRemoteImage,
-		Local:          LocalSource,
-		TarWriter:      tarBuf,
-		ManifestWriter: manifestBuf,
+		Remote: remote.RetrieveRemoteImage,
+		Local:  LocalSource,
 	}
 
 	options := &config.WarmerOptions{}
@@ -43,5 +38,5 @@ func ExampleWarmer_Warm() {
 		}
 	}
 
-	log.Printf("digest %v tar len %d\nmanifest:\n%s\n", digest, tarBuf.Len(), manifestBuf.String())
+	log.Printf("digest %v tar len %d\nmanifest:\n%s\n", digest)
 }

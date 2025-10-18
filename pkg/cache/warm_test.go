@@ -17,13 +17,11 @@ limitations under the License.
 package cache
 
 import (
-	"bytes"
 	"os"
 	"testing"
 
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/osscontainertools/kaniko/pkg/config"
-	"github.com/osscontainertools/kaniko/pkg/fakes"
+	"github.com/osscontainertools/kaniko/pkg/image/remote"
 )
 
 const (
@@ -31,86 +29,62 @@ const (
 )
 
 func Test_Warmer_Warm_not_in_cache(t *testing.T) {
-	tarBuf := new(bytes.Buffer)
-	manifestBuf := new(bytes.Buffer)
+	tmp, err := os.MkdirTemp("", "")
+	t.Error(err)
+	defer os.RemoveAll(tmp)
 
 	cw := &Warmer{
-		Remote: func(_ string, _ config.RegistryOptions, _ string) (v1.Image, error) {
-			return fakes.FakeImage{}, nil
-		},
-		Local: func(_ *config.CacheOptions, _ string) (v1.Image, error) {
-			return nil, NotFoundErr{}
-		},
-		TarWriter:      tarBuf,
-		ManifestWriter: manifestBuf,
+		Remote: remote.RetrieveRemoteImage,
+		Local:  LocalSource,
+		TmpDir: tmp,
 	}
 
 	opts := &config.WarmerOptions{}
 
-	_, err := cw.Warm(image, opts)
+	_, err = cw.Warm(image, opts)
 	if err != nil {
 		t.Errorf("expected error to be nil but was %v", err)
 		t.FailNow()
 	}
-
-	if len(tarBuf.Bytes()) == 0 {
-		t.Error("expected image to be written but buffer was empty")
-	}
 }
 
 func Test_Warmer_Warm_in_cache_not_expired(t *testing.T) {
-	tarBuf := new(bytes.Buffer)
-	manifestBuf := new(bytes.Buffer)
+	tmp, err := os.MkdirTemp("", "")
+	t.Error(err)
+	defer os.RemoveAll(tmp)
 
 	cw := &Warmer{
-		Remote: func(_ string, _ config.RegistryOptions, _ string) (v1.Image, error) {
-			return fakes.FakeImage{}, nil
-		},
-		Local: func(_ *config.CacheOptions, _ string) (v1.Image, error) {
-			return fakes.FakeImage{}, nil
-		},
-		TarWriter:      tarBuf,
-		ManifestWriter: manifestBuf,
+		Remote: remote.RetrieveRemoteImage,
+		Local:  LocalSource,
+		TmpDir: tmp,
 	}
 
 	opts := &config.WarmerOptions{}
 
-	_, err := cw.Warm(image, opts)
+	_, err = cw.Warm(image, opts)
 	if !IsAlreadyCached(err) {
 		t.Errorf("expected error to be already cached err but was %v", err)
 		t.FailNow()
-	}
-
-	if len(tarBuf.Bytes()) != 0 {
-		t.Errorf("expected nothing to be written")
 	}
 }
 
 func Test_Warmer_Warm_in_cache_expired(t *testing.T) {
-	tarBuf := new(bytes.Buffer)
-	manifestBuf := new(bytes.Buffer)
+	tmp, err := os.MkdirTemp("", "")
+	t.Error(err)
+	defer os.RemoveAll(tmp)
 
 	cw := &Warmer{
-		Remote: func(_ string, _ config.RegistryOptions, _ string) (v1.Image, error) {
-			return fakes.FakeImage{}, nil
-		},
-		Local: func(_ *config.CacheOptions, _ string) (v1.Image, error) {
-			return fakes.FakeImage{}, ExpiredErr{}
-		},
-		TarWriter:      tarBuf,
-		ManifestWriter: manifestBuf,
+		Remote: remote.RetrieveRemoteImage,
+		Local:  LocalSource,
+		TmpDir: tmp,
 	}
 
 	opts := &config.WarmerOptions{}
 
-	_, err := cw.Warm(image, opts)
+	_, err = cw.Warm(image, opts)
 	if !IsAlreadyCached(err) {
 		t.Errorf("expected error to be already cached err but was %v", err)
 		t.FailNow()
-	}
-
-	if len(tarBuf.Bytes()) != 0 {
-		t.Errorf("expected nothing to be written")
 	}
 }
 

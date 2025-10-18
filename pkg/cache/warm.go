@@ -26,6 +26,8 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
@@ -56,11 +58,21 @@ func WarmCache(opts *config.WarmerOptions) error {
 	logrus.Debugf("%s\n", images)
 
 	errs := 0
-	for _, img := range images {
-		err := warmToFile(cacheDir, img, opts)
-		if err != nil {
-			logrus.Warnf("Error while trying to warm image: %v %v", img, err)
-			errs++
+	if config.EnvBool("FF_KANIKO_OCI_WARMER") {
+		for _, img := range images {
+			err := ociWarmToFile(cacheDir, img, opts)
+			if err != nil {
+				logrus.Warnf("Error while trying to warm image: %v %v", img, err)
+				errs++
+			}
+		}
+	} else {
+		for _, img := range images {
+			err := warmToFile(cacheDir, img, opts)
+			if err != nil {
+				logrus.Warnf("Error while trying to warm image: %v %v", img, err)
+				errs++
+			}
 		}
 	}
 
@@ -122,6 +134,41 @@ func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	return nil
 }
 
+// Download image in temporary files then move files to final destination
+func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
+	tmp, err := os.MkdirTemp(cacheDir, "")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tmp)
+
+	cw := &OciWarmer{
+		Remote: remote.RetrieveRemoteImage,
+		Local:  LocalSource,
+		TmpDir: tmp,
+	}
+
+	digest, err := cw.Warm(img, opts)
+	if err != nil {
+		if IsAlreadyCached(err) {
+			logrus.Infof("Image already in cache: %v", img)
+			return nil
+		}
+		logrus.Warnf("Error while trying to warm image: %v %v", img, err)
+		return err
+	}
+
+	finalCachePath := path.Join(cacheDir, digest.String())
+
+	err = os.Rename(tmp, finalCachePath)
+	if err != nil {
+		return err
+	}
+
+	logrus.Debugf("Wrote %s to cache", img)
+	return nil
+}
+
 // FetchRemoteImage retrieves a Docker image manifest from a remote source.
 // github.com/GoogleContainerTools/kaniko/image/remote.RetrieveRemoteImage can be used as
 // this type.
@@ -177,6 +224,52 @@ func (w *Warmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error)
 
 	if _, err := w.ManifestWriter.Write(mfst); err != nil {
 		return v1.Hash{}, errors.Wrapf(err, "Failed to save manifest to buffer for %s", image)
+	}
+
+	return digest, nil
+}
+
+type OciWarmer struct {
+	Remote FetchRemoteImage
+	Local  FetchLocalSource
+	TmpDir string
+}
+
+// Warm retrieves a Docker image and populates the supplied buffer with the image content and manifest
+// or returns an AlreadyCachedErr if the image is present in the cache.
+func (w *OciWarmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error) {
+	cacheRef, err := name.ParseReference(image, name.WeakValidation)
+	if err != nil {
+		return v1.Hash{}, errors.Wrapf(err, "Failed to verify image name: %s", image)
+	}
+
+	img, err := w.Remote(image, opts.RegistryOptions, opts.CustomPlatform)
+	if err != nil || img == nil {
+		return v1.Hash{}, errors.Wrapf(err, "Failed to retrieve image: %s", image)
+	}
+
+	digest, err := img.Digest()
+	if err != nil {
+		return v1.Hash{}, errors.Wrapf(err, "Failed to retrieve digest: %s", image)
+	}
+
+	if !opts.Force {
+		_, err := w.Local(&opts.CacheOptions, digest.String())
+		if err == nil || IsExpired(err) {
+			return v1.Hash{}, AlreadyCachedErr{}
+		}
+	}
+
+	p, err := layout.Write(w.TmpDir, empty.Index)
+	if err != nil {
+		return v1.Hash{}, errors.Wrapf(err, "Failed to create create ocilayout for %s", image)
+	}
+
+	err = p.AppendImage(img, layout.WithAnnotations(map[string]string{
+		"org.opencontainers.image.ref.name": cacheRef.Name(),
+	}))
+	if err != nil {
+		return v1.Hash{}, errors.Wrapf(err, "Failed to append image %s to ocilayout", image)
 	}
 
 	return digest, nil
