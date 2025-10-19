@@ -46,8 +46,12 @@ const (
 	kanikoPrefix     = "kaniko-"
 	buildContextPath = "/workspace"
 	cacheDir         = "/workspace/cache"
-	baseImageToCache = "gcr.io/google-appengine/debian9@sha256:1d6a9a6d106bd795098f60f4abb7083626354fa6735e81743c7f8cfca11259f0"
 )
+
+var baseImagesToCache = []string{
+	"debian:12.10",
+	"busybox:latest",
+}
 
 // Arguments to build Dockerfiles with, used for both docker and kaniko builds
 var argsMap = map[string][]string{
@@ -84,6 +88,7 @@ var envsMap = map[string][]string{
 var KanikoEnv = []string{
 	"FF_KANIKO_COPY_AS_ROOT=1",
 	"FF_KANIKO_OCI_STAGES=1",
+	"FF_KANIKO_IGNORE_CACHED_MANIFEST=1",
 }
 
 // Arguments to build Dockerfiles with when building with docker
@@ -408,24 +413,29 @@ func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrat
 	return nil
 }
 
-func populateVolumeCache() error {
+func populateVolumeCache(config *integrationTestConfig) error {
+	fmt.Println("Warming up cache")
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
-	warmerCmd := exec.Command("docker",
-		append([]string{
-			"run", "--net=host",
-			"-d",
-			"-v", os.Getenv("HOME") + "/.config/gcloud:/root/.config/gcloud",
-			"-v", cwd + ":/workspace",
-			WarmerImage,
-			"-c", cacheDir,
-			"-i", baseImageToCache,
-		},
-		)...,
+
+	dockerRunFlags := []string{
+		"run", "--net=host",
+		"-v", cwd + "/cache:" + cacheDir,
+	}
+	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+	command := append(
+		dockerRunFlags,
+		WarmerImage,
+		"-c", cacheDir,
 	)
 
+	for _, img := range baseImagesToCache {
+		command = append(command, "-i", img)
+	}
+	warmerCmd := exec.Command("docker", command...)
+
 	if _, err := RunCommandWithoutTest(warmerCmd); err != nil {
-		return fmt.Errorf("Failed to warm kaniko cache: %w", err)
+		return fmt.Errorf("failed to warm kaniko cache: %w", err)
 	}
 
 	return nil
@@ -586,6 +596,10 @@ func buildKanikoImage(
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", kanikoDockerfilePath,
 		"-d", kanikoImage,
+		"--cache",
+		"--cache-run-layers=false",
+		"--cache-dir", cacheDir,
+		"--no-push-cache",
 	)
 	dockerRunFlags = append(dockerRunFlags, additionalFlags...)
 
