@@ -432,7 +432,7 @@ func populateVolumeCache() error {
 }
 
 // buildCachedImage builds the image for testing caching via kaniko where version is the nth time this image has been built
-func (d *DockerFileBuilder) buildCachedImage(config *integrationTestConfig, cacheRepo, dockerfilesPath, dockerfile string, version int, args []string) error {
+func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTestConfig, cacheRepo, dockerfilesPath, dockerfile string, version int, args []string) error {
 	imageRepo, serviceAccount := config.imageRepo, config.serviceAccount
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
@@ -467,15 +467,25 @@ func (d *DockerFileBuilder) buildCachedImage(config *integrationTestConfig, cach
 	}
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
-	_, err := RunCommandWithoutTest(kanikoCmd)
+	out, err := RunCommandWithoutTest(kanikoCmd)
+	logf(string(out))
+
 	if err != nil {
 		return fmt.Errorf("Failed to build cached image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
+	}
+	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
+		if err := outputCheck(dockerfile, out); err != nil {
+			return fmt.Errorf("Output check failed for image %s with kaniko command : %w", kanikoImage, err)
+		}
+	}
+	if err := checkNoWarnings(dockerfile, out); err != nil {
+		return err
 	}
 	return nil
 }
 
 // buildRelativePathsImage builds the images for testing passing relatives paths to Kaniko
-func (d *DockerFileBuilder) buildRelativePathsImage(imageRepo, dockerfile, serviceAccount, buildContextPath string) error {
+func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dockerfile, serviceAccount, buildContextPath string) error {
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
 
@@ -514,13 +524,21 @@ func (d *DockerFileBuilder) buildRelativePathsImage(imageRepo, dockerfile, servi
 	timer = timing.Start(dockerfile + "_kaniko_relative_paths")
 	out, err = RunCommandWithoutTest(kanikoCmd)
 	timing.DefaultRun.Stop(timer)
+	logf(string(out))
 
 	if err != nil {
 		return fmt.Errorf(
-			"Failed to build relative path image %s with kaniko command \"%s\": %w\n%s",
-			kanikoImage, kanikoCmd.Args, err, string(out))
+			"Failed to build relative path image %s with kaniko command \"%s\": %w",
+			kanikoImage, kanikoCmd.Args, err)
 	}
-
+	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
+		if err := outputCheck(dockerfile, out); err != nil {
+			return fmt.Errorf("Output check failed for image %s with kaniko command : %w", kanikoImage, err)
+		}
+	}
+	if err := checkNoWarnings(dockerfile, out); err != nil {
+		return err
+	}
 	return nil
 }
 
