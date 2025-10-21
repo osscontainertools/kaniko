@@ -1,0 +1,8 @@
+FROM debian:12.10@sha256:6bc30d909583f38600edd6609e29eb3fb284ab8affce8d0389f332fc91c2dd91 AS image-manifest
+RUN echo blubb
+
+# mz320: When loading from cache we had an optimization that would skip lookup if we specify a digest.
+# However, the digest can refer to an image index, which is just a pointer to the underlying images.
+# Therefore, pointer resolution cannot be skipped, even though the image download afterwards can.
+FROM debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56 AS image-index
+RUN echo blubb
