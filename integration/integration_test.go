@@ -195,6 +195,9 @@ func TestRun(t *testing.T) {
 			if _, ok := imageBuilder.TestCacheDockerfiles[dockerfile]; ok {
 				t.SkipNow()
 			}
+			if _, ok := imageBuilder.TestWarmerDockerfiles[dockerfile]; ok {
+				t.SkipNow()
+			}
 
 			buildImage(t, dockerfile, imageBuilder)
 
@@ -655,8 +658,6 @@ func buildImage(t *testing.T, dockerfile string, imageBuilder *DockerFileBuilder
 
 // Build each image with kaniko twice, and then make sure they're exactly the same
 func TestCache(t *testing.T) {
-	populateVolumeCache()
-
 	// Build dockerfiles with registry cache
 	for dockerfile := range imageBuilder.TestCacheDockerfiles {
 		t.Run("test_cache_"+dockerfile, func(t *testing.T) {
@@ -682,6 +683,39 @@ func TestCache(t *testing.T) {
 	}
 }
 
+func TestWarmer(t *testing.T) {
+	populateVolumeCache(t.Logf, config.serviceAccount)
+
+	for dockerfile := range imageBuilder.TestWarmerDockerfiles {
+		t.Run("test_warmer_"+dockerfile, func(t *testing.T) {
+			t.Parallel()
+			args, ok := additionalKanikoFlagsMap[dockerfile]
+			imageRepo := config.imageRepo
+			if !ok {
+				args = []string{}
+			}
+
+			// Build the initial without warmer
+			if err := imageBuilder.buildWarmerImage(t.Logf, config, dockerfilesPath, dockerfile, 0, args, false); err != nil {
+				t.Fatalf("error building cached image for the first time: %v", err)
+			}
+
+			// Build the second with warmer
+			if err := imageBuilder.buildWarmerImage(t.Logf, config, dockerfilesPath, dockerfile, 1, args, true); err != nil {
+				t.Fatalf("error building cached image for the second time: %v", err)
+			}
+
+			// Make sure both images are the same
+			kanikoVersion0 := GetKanikoImage(imageRepo, "test_warmer_"+dockerfile) + strconv.Itoa(0)
+			kanikoVersion1 := GetKanikoImage(imageRepo, "test_warmer_"+dockerfile) + strconv.Itoa(1)
+
+			containerDiff(t, kanikoVersion0, kanikoVersion1)
+			layerDiff(t, kanikoVersion0, kanikoVersion1)
+			manifestDiff(t, kanikoVersion0, kanikoVersion1)
+		})
+	}
+}
+
 // Attempt to warm an image two times : first time should populate the cache, second time should find the image in the cache.
 func TestWarmerTwice(t *testing.T) {
 	_, ex, _, _ := runtime.Caller(0)
@@ -697,6 +731,9 @@ func TestWarmerTwice(t *testing.T) {
 			// Start a sleeping warmer container
 			dockerRunFlags := []string{"run", "--net=host"}
 			dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+			for _, envVariable := range WarmerEnv {
+				dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
+			}
 			dockerRunFlags = append(dockerRunFlags,
 				"-v", tmpDir+":/cache",
 				WarmerImage,
@@ -705,17 +742,17 @@ func TestWarmerTwice(t *testing.T) {
 
 			warmCmd := exec.Command("docker", dockerRunFlags...)
 			out, err := RunCommandWithoutTest(warmCmd)
+			t.Logf("First warm output:\n%s", out)
 			if err != nil {
 				t.Fatalf("Unable to perform first warming: %s", err)
 			}
-			t.Logf("First warm output: %s", out)
 
 			warmCmd = exec.Command("docker", dockerRunFlags...)
 			out, err = RunCommandWithoutTest(warmCmd)
+			t.Logf("Second warm output:\n%s", out)
 			if err != nil {
 				t.Fatalf("Unable to perform second warming: %s", err)
 			}
-			t.Logf("Second warm output: %s", out)
 
 			s := fmt.Sprintf("Image already in cache: %s", dockerfile)
 			if !strings.Contains(string(out), s) {
@@ -1010,6 +1047,34 @@ func layerDiff(t *testing.T, image1, image2 string) {
 	}
 }
 
+func manifestDiff(t *testing.T, image1, image2 string) {
+	t.Helper()
+
+	imgRef1, err := getImage(image1)
+	if err != nil {
+		t.Fatalf("Couldn't get image reference for (%s): %s", image1, err)
+	}
+
+	imgRef2, err := getImage(image2)
+	if err != nil {
+		t.Fatalf("Couldn't get image reference for (%s): %s", image2, err)
+	}
+
+	media1, err := imgRef1.MediaType()
+	if err != nil {
+		t.Fatalf("Couldn't get mediatype for (%s): %s", image1, err)
+	}
+
+	media2, err := imgRef2.MediaType()
+	if err != nil {
+		t.Fatalf("Couldn't get mediatype for (%s): %s", image2, err)
+	}
+
+	if media1 != media2 {
+		t.Fatalf("mediatype diff: %s != %s", media1, media2)
+	}
+}
+
 func checkLayers(t *testing.T, image1, image2 string, offset int) {
 	t.Helper()
 	img1, err := getImageDetails(image1)
@@ -1062,12 +1127,16 @@ func resolveCreatedBy(image string, layerIndex int) (string, error) {
 	return "", fmt.Errorf("LayerIndex %d not found in History of length %d", layerIndex, len(cfg.History))
 }
 
-func getImageLayers(image string) ([]v1.Layer, error) {
+func getImage(image string) (v1.Image, error) {
 	ref, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't parse reference to image %s: %w", image, err)
 	}
-	imgRef, err := remote.Image(ref)
+	return remote.Image(ref)
+}
+
+func getImageLayers(image string) ([]v1.Layer, error) {
+	imgRef, err := getImage(image)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't get reference to image %s from remote: %w", image, err)
 	}
@@ -1079,11 +1148,7 @@ func getImageLayers(image string) ([]v1.Layer, error) {
 }
 
 func getImageDetails(image string) (*imageDetails, error) {
-	ref, err := name.ParseReference(image, name.WeakValidation)
-	if err != nil {
-		return nil, fmt.Errorf("Couldn't parse reference to image %s: %w", image, err)
-	}
-	imgRef, err := remote.Image(ref)
+	imgRef, err := getImage(image)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't get reference to image %s from remote: %w", image, err)
 	}
@@ -1103,12 +1168,7 @@ func getImageDetails(image string) (*imageDetails, error) {
 }
 
 func getLastLayerFiles(image string) ([]string, error) {
-	ref, err := name.ParseReference(image, name.WeakValidation)
-	if err != nil {
-		return nil, fmt.Errorf("Couldn't parse reference to image %s: %w", image, err)
-	}
-
-	imgRef, err := remote.Image(ref)
+	imgRef, err := getImage(image)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't get reference to image %s from daemon: %w", image, err)
 	}
