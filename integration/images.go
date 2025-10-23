@@ -87,6 +87,8 @@ var KanikoEnv = []string{
 	"FF_KANIKO_IGNORE_CACHED_MANIFEST=1",
 }
 
+var WarmerEnv = []string{}
+
 // Arguments to build Dockerfiles with when building with docker
 var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_target": {"--target=second"},
@@ -261,6 +263,7 @@ type DockerFileBuilder struct {
 	DockerfilesToIgnore     map[string]struct{}
 	TestCacheDockerfiles    map[string]struct{}
 	TestOCICacheDockerfiles map[string]struct{}
+	TestWarmerDockerfiles   map[string]struct{}
 }
 
 type logger func(string, ...interface{})
@@ -291,13 +294,15 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_workdir": {},
 		"Dockerfile_test_issue_add":     {},
 		"Dockerfile_test_issue_empty":   {},
-		"Dockerfile_test_issue_mz320":   {},
 	}
 	d.TestOCICacheDockerfiles = map[string]struct{}{
 		"Dockerfile_test_cache_oci":         {},
 		"Dockerfile_test_cache_install_oci": {},
 		"Dockerfile_test_cache_perm_oci":    {},
 		"Dockerfile_test_cache_copy_oci":    {},
+	}
+	d.TestWarmerDockerfiles = map[string]struct{}{
+		"Dockerfile_test_issue_mz320": {},
 	}
 	return &d
 }
@@ -420,25 +425,31 @@ func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrat
 	return nil
 }
 
-func populateVolumeCache() error {
+func populateVolumeCache(logf logger, serviceAccount string) error {
+	fmt.Println("Populating warmer cache")
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
-	warmerCmd := exec.Command("docker",
-		append([]string{
-			"run", "--net=host",
-			"-v", os.Getenv("HOME") + "/.config/gcloud:/root/.config/gcloud",
-			"-v", cwd + ":/workspace",
-			WarmerImage,
-			"-c", cacheDir,
-			"-i", baseImageToCache,
-		},
-		)...,
+	cmd := []string{
+		"run", "--net=host",
+		"-v", os.Getenv("HOME") + "/.config/gcloud:/root/.config/gcloud",
+		"-v", cwd + ":/workspace",
+	}
+	for _, envVariable := range WarmerEnv {
+		cmd = append(cmd, "-e", envVariable)
+	}
+	cmd = addServiceAccountFlags(cmd, serviceAccount)
+	cmd = append(cmd,
+		WarmerImage,
+		"-c", cacheDir,
+		"-i", baseImageToCache,
 	)
 
-	if _, err := RunCommandWithoutTest(warmerCmd); err != nil {
+	warmerCmd := exec.Command("docker", cmd...)
+	out, err := RunCommandWithoutTest(warmerCmd)
+	if err != nil {
 		return fmt.Errorf("Failed to warm kaniko cache: %w", err)
 	}
-
+	logf(string(out))
 	return nil
 }
 
@@ -489,9 +500,58 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 			return fmt.Errorf("Output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
-	if outputCheck := warmerOutputChecks[dockerfile]; outputCheck != nil {
+	if err := checkNoWarnings(dockerfile, out); err != nil {
+		return err
+	}
+	return nil
+}
+
+// buildCachedImage builds the image for testing caching via kaniko warmer cache where version is the nth time this image has been built
+func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTestConfig, dockerfilesPath, dockerfile string, version int, args []string, cache bool) error {
+	imageRepo, serviceAccount := config.imageRepo, config.serviceAccount
+	_, ex, _, _ := runtime.Caller(0)
+	cwd := filepath.Dir(ex)
+
+	kanikoImage := GetKanikoImage(imageRepo, "test_warmer_"+dockerfile) + strconv.Itoa(version)
+
+	dockerRunFlags := []string{
+		"run", "--net=host",
+		"-v", cwd + ":/workspace:ro",
+	}
+	for _, envVariable := range KanikoEnv {
+		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
+	}
+	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
+	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
+		"-f", path.Join(buildContextPath, dockerfilesPath, dockerfile),
+		"-d", kanikoImage,
+		"-c", buildContextPath,
+		fmt.Sprintf("--cache=%t", cache),
+		"--cache-dir", cacheDir,
+		"--cache-run-layers=false",
+		"--no-push-cache",
+	)
+	for _, v := range args {
+		dockerRunFlags = append(dockerRunFlags, v)
+	}
+	kanikoCmd := exec.Command("docker", dockerRunFlags...)
+
+	out, err := RunCommandWithoutTest(kanikoCmd)
+	logf(string(out))
+
+	if err != nil {
+		return fmt.Errorf("Failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
+	}
+	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
 		if err := outputCheck(dockerfile, out); err != nil {
 			return fmt.Errorf("Output check failed for image %s with kaniko command : %w", kanikoImage, err)
+		}
+	}
+	if cache {
+		if outputCheck := warmerOutputChecks[dockerfile]; outputCheck != nil {
+			if err := outputCheck(dockerfile, out); err != nil {
+				return fmt.Errorf("Output check failed for image %s with kaniko command : %w", kanikoImage, err)
+			}
 		}
 	}
 	if err := checkNoWarnings(dockerfile, out); err != nil {
