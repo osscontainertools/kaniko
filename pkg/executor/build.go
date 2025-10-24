@@ -744,11 +744,10 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 		return nil, err
 	}
 
-	kanikoStages, err := dockerfile.MakeKanikoStages(opts, stages, metaArgs)
+	kanikoStages, stageNameToIdx, err := dockerfile.MakeKanikoStages(opts, stages, metaArgs)
 	if err != nil {
 		return nil, err
 	}
-	stageNameToIdx := ResolveCrossStageInstructions(kanikoStages)
 
 	fileContext, err := util.NewFileContextFromDockerfile(opts.DockerfilePath, opts.SrcContext)
 	if err != nil {
@@ -1142,21 +1141,6 @@ func reviewConfig(stage config.KanikoStage, config *v1.Config) {
 	if entrypoint && !cmd {
 		config.Cmd = nil
 	}
-}
-
-// iterates over a list of KanikoStage and resolves instructions referring to earlier stages
-// returns a mapping of stage name to stage id, f.e - ["first": "0", "second": "1", "target": "2"]
-func ResolveCrossStageInstructions(stages []config.KanikoStage) map[string]int {
-	nameToIndex := make(map[string]int)
-	for _, stage := range stages {
-		if stage.Name != "" {
-			nameToIndex[stage.Name] = stage.Index
-		}
-		dockerfile.ResolveCrossStageCommands(stage.Commands, nameToIndex)
-	}
-
-	logrus.Debugf("Built stage name to index map: %v", nameToIndex)
-	return nameToIndex
 }
 
 func (s stageBuilder) initSnapshotWithTimings() error {
