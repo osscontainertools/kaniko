@@ -249,13 +249,13 @@ func saveStage(index int, stages []instructions.Stage) bool {
 // ResolveCrossStageCommands resolves any calls to previous stages with names to indices
 // Ex. --from=secondStage should be --from=1 for easier processing later on
 // As third party library lowers stage name in FROM instruction, this function resolves stage case insensitively.
-func ResolveCrossStageCommands(cmds []instructions.Command, stageNameToIdx map[string]string) {
+func ResolveCrossStageCommands(cmds []instructions.Command, stageNameToIdx map[string]int) {
 	for _, cmd := range cmds {
 		switch c := cmd.(type) {
 		case *instructions.CopyCommand:
 			if c.From != "" {
 				if val, ok := stageNameToIdx[strings.ToLower(c.From)]; ok {
-					c.From = val
+					c.From = strconv.Itoa(val)
 				}
 			}
 		}
@@ -323,7 +323,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	return kanikoStages, nil
 }
 
-func GetOnBuildInstructions(config *v1.Config, stageNameToIdx map[string]string) ([]instructions.Command, error) {
+func GetOnBuildInstructions(config *v1.Config, stageNameToIdx map[string]int) ([]instructions.Command, error) {
 	if config.OnBuild == nil || len(config.OnBuild) == 0 {
 		return nil, nil
 	}
