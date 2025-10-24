@@ -282,6 +282,13 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	if err := resolveStagesArgs(stages, args); err != nil {
 		return nil, errors.Wrap(err, "resolving args")
 	}
+
+	stageNameToIdx := make(map[string]int)
+	for idx, s := range stages {
+		if s.Name != "" {
+			stageNameToIdx[s.Name] = idx
+		}
+	}
 	var kanikoStages []config.KanikoStage
 	for index, stage := range stages {
 		if len(stage.Name) > 0 {
@@ -305,7 +312,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	}
 	if opts.SkipUnusedStages {
 		ffSquashStages := config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true)
-		kanikoStages = skipUnusedStages(kanikoStages, targetStage, ffSquashStages)
+		kanikoStages = skipUnusedStages(kanikoStages, stageNameToIdx, targetStage, ffSquashStages)
 	}
 	return kanikoStages, nil
 }
@@ -365,16 +372,8 @@ func squash(a, b config.KanikoStage) config.KanikoStage {
 }
 
 // skipUnusedStages returns the list of used stages, filters out unused stages and optionally squashes them together.
-func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages bool) []config.KanikoStage {
-	stageByName := make(map[string]int)
+func skipUnusedStages(stages []config.KanikoStage, stageNameToIdx map[string]int, targetStage int, squashStages bool) []config.KanikoStage {
 	stages = stages[:targetStage+1]
-
-	for idx, s := range stages {
-		if s.Name != "" {
-			stageByName[s.Name] = idx
-		}
-	}
-
 	// We now "count" references, it is only safe to squash
 	// stages if the references are exactly 1.
 	stagesDependencies := make([]int, len(stages))
@@ -397,7 +396,7 @@ func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages
 					stagesDependencies[copyFromIndex] += 2
 				} else {
 					// named reference `COPY --from=base`
-					if copyFromIndex, ok := stageByName[strings.ToLower(cmd.From)]; ok {
+					if copyFromIndex, ok := stageNameToIdx[strings.ToLower(cmd.From)]; ok {
 						// There can be references that appear as non-existing stages
 						// ie. `COPY --from=debian` would try refer to `debian` as stage
 						// before falling back to `debian` as a docker image.
