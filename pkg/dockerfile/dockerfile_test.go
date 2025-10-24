@@ -235,7 +235,7 @@ func Test_GetOnBuildInstructions(t *testing.T) {
 			if len(cmds) != len(test.expCommands) {
 				t.Fatalf("Expected %d commands, got %d", len(test.expCommands), len(cmds))
 			}
-			ResolveCrossStageCommands(cmds, test.stageToIdx)
+			resolveCrossStageCommands(cmds, test.stageToIdx)
 
 			for i, cmd := range cmds {
 				if reflect.TypeOf(cmd) != reflect.TypeOf(test.expCommands[i]) {
@@ -601,7 +601,6 @@ func Test_SkipingUnusedStages(t *testing.T) {
 			kanikoStages, err := MakeKanikoStages(&opts, stages, []instructions.ArgCommand{})
 			testutil.CheckError(t, false, err)
 			actualSourceCodes := []string{}
-			testutil.CheckError(t, false, err)
 			for _, s := range kanikoStages {
 				actualSourceCodes = append(actualSourceCodes, s.SourceCode)
 			}
@@ -684,7 +683,6 @@ func Test_SquashStages(t *testing.T) {
 			kanikoStages, err := MakeKanikoStages(&opts, stages, []instructions.ArgCommand{})
 			testutil.CheckError(t, false, err)
 			actualSourceCodes := []string{}
-			testutil.CheckError(t, false, err)
 			for _, s := range kanikoStages {
 				actualSourceCodes = append(actualSourceCodes, s.SourceCode)
 			}

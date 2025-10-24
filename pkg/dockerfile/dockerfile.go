@@ -253,7 +253,7 @@ func saveStage(index int, stages []instructions.Stage) bool {
 // ResolveCrossStageCommands resolves any calls to previous stages with names to indices
 // Ex. --from=secondStage should be --from=1 for easier processing later on
 // As third party library lowers stage name in FROM instruction, this function resolves stage case insensitively.
-func ResolveCrossStageCommands(cmds []instructions.Command, stageNameToIdx map[string]int) {
+func resolveCrossStageCommands(cmds []instructions.Command, stageNameToIdx map[string]int) {
 	for _, cmd := range cmds {
 		switch c := cmd.(type) {
 		case *instructions.CopyCommand:
@@ -331,7 +331,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			return nil, fmt.Errorf("failed to parse ONBUILD instructions: %w", err)
 		}
 		stage.Commands = append(cmds, stage.Commands...)
-
+		resolveCrossStageCommands(stage.Commands, stageByName)
 		if opts.SkipUnusedStages {
 			if baseImageStoredLocally {
 				stagesDependencies[baseImageIndex]++
@@ -340,16 +340,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 				switch cmd := c.(type) {
 				case *instructions.CopyCommand:
 					if copyFromIndex, err := strconv.Atoi(cmd.From); err == nil {
-						// numeric reference `COPY --from=0`
 						copyDependencies[copyFromIndex]++
-					} else {
-						// named reference `COPY --from=base`
-						if copyFromIndex, ok := stageByName[strings.ToLower(cmd.From)]; ok {
-							// There can be references that appear as non-existing stages
-							// ie. `COPY --from=debian` would try refer to `debian` as stage
-							// before falling back to `debian` as a docker image.
-							copyDependencies[copyFromIndex]++
-						}
 					}
 				}
 			}
