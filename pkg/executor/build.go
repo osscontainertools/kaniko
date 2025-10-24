@@ -70,7 +70,8 @@ type snapShotter interface {
 
 // stageBuilder contains all fields necessary to build one stage of a Dockerfile
 type stageBuilder struct {
-	stage            config.KanikoStage
+	index            int
+	final            bool
 	image            v1.Image
 	cf               *v1.ConfigFile
 	baseImageDigest  string
@@ -148,7 +149,8 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		return nil, err
 	}
 	s := &stageBuilder{
-		stage:            stage,
+		index:            stage.Index,
+		final:            stage.Final,
 		image:            sourceImage,
 		cf:               imageConfig,
 		snapshotter:      snapshotter,
@@ -163,7 +165,7 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		pushLayerToCache: pushLayerToCache,
 	}
 
-	for _, cmd := range s.stage.Commands {
+	for _, cmd := range stage.Commands {
 		command, err := commands.GetCommand(cmd, fileContext, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
 		if err != nil {
 			return nil, err
@@ -173,7 +175,7 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		}
 		s.cmds = append(s.cmds, command)
 	}
-	s.args.AddMetaArgs(s.stage.MetaArgs)
+	s.args.AddMetaArgs(stage.MetaArgs)
 	return s, nil
 }
 
@@ -340,13 +342,13 @@ func (s *stageBuilder) build() error {
 			break
 		}
 	}
-	if len(s.crossStageDeps[s.stage.Index]) > 0 {
+	if len(s.crossStageDeps[s.index]) > 0 {
 		shouldUnpack = true
 	}
-	if s.stage.Final && s.opts.Materialize {
+	if s.final && s.opts.Materialize {
 		shouldUnpack = true
 	}
-	if s.stage.Index == 0 && s.opts.InitialFSUnpacked {
+	if s.index == 0 && s.opts.InitialFSUnpacked {
 		shouldUnpack = false
 	}
 
@@ -847,8 +849,8 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 		if err != nil {
 			return nil, err
 		}
-		stageIdxToDigest[fmt.Sprintf("%d", sb.stage.Index)] = d.String()
-		logrus.Debugf("Mapping stage idx %v to digest %v", sb.stage.Index, d.String())
+		stageIdxToDigest[fmt.Sprintf("%d", sb.index)] = d.String()
+		logrus.Debugf("Mapping stage idx %v to digest %v", sb.index, d.String())
 
 		digestToCacheKey[d.String()] = sb.finalCacheKey
 		logrus.Debugf("Mapping digest %v to cachekey %v", d.String(), sb.finalCacheKey)
