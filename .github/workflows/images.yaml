@@ -25,7 +25,8 @@ jobs:
 
     permissions:
       contents: read  # Read the repo contents.
-      id-token: write  # Produce identity token for keyless signing.
+      id-token: write # Produce identity token for keyless signing.
+      packages: write # push to ghcr registry
 
     runs-on: ubuntu-latest
     strategy:
@@ -164,4 +165,30 @@ jobs:
             # Or tag :v1.X.Y-debug and :v1.X.Y-slim
             crane cp ${{ matrix.image-name }}@${{ steps.build-and-push.outputs.digest }} \
                 ${{ matrix.image-name }}:${tag}-${{ matrix.release-tag }}
+          fi
+
+      # If a tag push, distribute to other registries too
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - if: startsWith(github.ref, 'refs/tags/v')
+        name: Distribute to GHCR
+        run: |
+          tag=${GITHUB_REF/refs\/tags\//}
+
+          # Tag :latest, :debug, :slim
+          crane cp ${{ matrix.image-name }}@${{ steps.build-and-push.outputs.digest }} \
+              ghcr.io/osscontainertools/kaniko:${{ matrix.release-tag }}
+
+          if [[ "${{ matrix.release-tag }}" == "latest" ]]; then
+            # Tag :latest images as :v1.X.Y
+            crane cp ${{ matrix.image-name }}@${{ steps.build-and-push.outputs.digest }} \
+                ghcr.io/osscontainertools/kaniko:${tag}
+          else
+            # Or tag :v1.X.Y-debug and :v1.X.Y-slim
+            crane cp ${{ matrix.image-name }}@${{ steps.build-and-push.outputs.digest }} \
+                ghcr.io/osscontainertools/kaniko:${tag}-${{ matrix.release-tag }}
           fi
