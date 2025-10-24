@@ -304,7 +304,9 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			stage.Commands = append(cmds, stage.Commands...)
 		}
 		kanikoStages = append(kanikoStages, config.KanikoStage{
-			Stage:                  stage,
+			Name:                   stage.Name,
+			BaseName:               stage.BaseName,
+			Commands:               stage.Commands,
 			BaseImageIndex:         baseImageIndex,
 			BaseImageStoredLocally: (baseImageIndex != -1),
 			SaveStage:              saveStage(index, stages),
@@ -390,16 +392,9 @@ func filterOnBuild(cmds []instructions.Command) []instructions.Command {
 func squash(a, b config.KanikoStage) config.KanikoStage {
 	acmds := filterOnBuild(a.Commands)
 	return config.KanikoStage{
-		Stage: instructions.Stage{
-			Name:       b.Name,
-			Commands:   append(acmds, b.Commands...),
-			OrigCmd:    a.OrigCmd,
-			BaseName:   a.BaseName,
-			Platform:   a.Platform,
-			Comment:    a.Comment + b.Comment,
-			SourceCode: a.SourceCode + "\n" + b.SourceCode,
-			Location:   append(a.Location, b.Location...),
-		},
+		Name:                   b.Name,
+		BaseName:               a.BaseName,
+		Commands:               append(acmds, b.Commands...),
 		BaseImageIndex:         a.BaseImageIndex,
 		Final:                  b.Final,
 		BaseImageStoredLocally: a.BaseImageStoredLocally,
