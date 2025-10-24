@@ -1152,7 +1152,6 @@ func ResolveCrossStageInstructions(stages []config.KanikoStage) map[string]int {
 		if stage.Name != "" {
 			nameToIndex[stage.Name] = stage.Index
 		}
-		dockerfile.ResolveCrossStageCommands(stage.Commands, nameToIndex)
 	}
 
 	logrus.Debugf("Built stage name to index map: %v", nameToIndex)
