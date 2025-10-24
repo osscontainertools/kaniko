@@ -289,7 +289,9 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		}
 		baseImageIndex := baseImageIndex(index, stages)
 		kanikoStages = append(kanikoStages, config.KanikoStage{
-			Stage:                  stage,
+			Name:                   stage.Name,
+			BaseName:               stage.BaseName,
+			Commands:               stage.Commands,
 			BaseImageIndex:         baseImageIndex,
 			BaseImageStoredLocally: (baseImageIndex != -1),
 			SaveStage:              saveStage(index, stages),
@@ -350,16 +352,9 @@ func unifyArgs(metaArgs []instructions.ArgCommand, buildArgs []string) []string 
 
 func squash(a, b config.KanikoStage) config.KanikoStage {
 	return config.KanikoStage{
-		Stage: instructions.Stage{
-			Name:       b.Name,
-			Commands:   append(a.Commands, b.Commands...),
-			OrigCmd:    a.OrigCmd,
-			BaseName:   a.BaseName,
-			Platform:   a.Platform,
-			Comment:    a.Comment + b.Comment,
-			SourceCode: a.SourceCode + "\n" + b.SourceCode,
-			Location:   append(a.Location, b.Location...),
-		},
+		Name:                   b.Name,
+		BaseName:               a.BaseName,
+		Commands:               append(a.Commands, b.Commands...),
 		BaseImageIndex:         a.BaseImageIndex,
 		Final:                  b.Final,
 		BaseImageStoredLocally: a.BaseImageStoredLocally,

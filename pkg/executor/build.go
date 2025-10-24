@@ -770,7 +770,7 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 	}
 	lastStage := kanikoStages[len(kanikoStages)-1]
 	var args = dockerfile.NewBuildArgs(opts.BuildArgs)
-	err = args.InitPredefinedArgs(opts.CustomPlatform, lastStage.Stage.Name)
+	err = args.InitPredefinedArgs(opts.CustomPlatform, lastStage.Name)
 	if err != nil {
 		return nil, err
 	}
