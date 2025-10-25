@@ -112,6 +112,9 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		return nil, err
 	}
 
+	if stage.BaseImageStoredLocally && len(imageConfig.Config.OnBuild) > 0 {
+		logrus.Panic("ONBUILD instructions for local stages must have already been handled when creating kanikoStages")
+	}
 	if err := resolveOnBuild(&stage, &imageConfig.Config, stageNameToIdx); err != nil {
 		return nil, err
 	}
@@ -691,6 +694,9 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 			return nil, err
 		}
 
+		if s.BaseImageStoredLocally && len(cfg.Config.OnBuild) > 0 {
+			logrus.Panic("ONBUILD instructions for local stages must have already been handled when creating kanikoStages")
+		}
 		cmds, err := dockerfile.GetOnBuildInstructions(&cfg.Config, stageNameToIdx)
 		cmds = append(cmds, s.Commands...)
 
