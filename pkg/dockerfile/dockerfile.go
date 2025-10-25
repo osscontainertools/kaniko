@@ -246,13 +246,13 @@ func saveStage(index int, stages []instructions.Stage) bool {
 // ResolveCrossStageCommands resolves any calls to previous stages with names to indices
 // Ex. --from=secondStage should be --from=1 for easier processing later on
 // As third party library lowers stage name in FROM instruction, this function resolves stage case insensitively.
-func ResolveCrossStageCommands(cmds []instructions.Command, stageNameToIdx map[string]string) {
+func resolveCrossStageCommands(cmds []instructions.Command, stageNameToIdx map[string]int) {
 	for _, cmd := range cmds {
 		switch c := cmd.(type) {
 		case *instructions.CopyCommand:
 			if c.From != "" {
 				if val, ok := stageNameToIdx[strings.ToLower(c.From)]; ok {
-					c.From = val
+					c.From = strconv.Itoa(val)
 				}
 			}
 		}
@@ -273,14 +273,21 @@ func resolveStagesArgs(stages []instructions.Stage, args []string) error {
 	return nil
 }
 
-func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, metaArgs []instructions.ArgCommand) ([]config.KanikoStage, error) {
+func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, metaArgs []instructions.ArgCommand) ([]config.KanikoStage, map[string]int, error) {
 	targetStage, err := targetStage(stages, opts.Target)
 	if err != nil {
-		return nil, errors.Wrap(err, "Error finding target stage")
+		return nil, nil, errors.Wrap(err, "Error finding target stage")
 	}
 	args := unifyArgs(metaArgs, opts.BuildArgs)
 	if err := resolveStagesArgs(stages, args); err != nil {
-		return nil, errors.Wrap(err, "resolving args")
+		return nil, nil, errors.Wrap(err, "resolving args")
+	}
+
+	stageNameToIdx := make(map[string]int)
+	for idx, s := range stages {
+		if s.Name != "" {
+			stageNameToIdx[s.Name] = idx
+		}
 	}
 	var kanikoStages []config.KanikoStage
 	for index, stage := range stages {
@@ -288,8 +295,11 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			logrus.Infof("Resolved base name of %s to %s", stage.Name, stage.BaseName)
 		}
 		baseImageIndex := baseImageIndex(index, stages)
+		resolveCrossStageCommands(stage.Commands, stageNameToIdx)
 		kanikoStages = append(kanikoStages, config.KanikoStage{
-			Stage:                  stage,
+			Name:                   stage.Name,
+			BaseName:               stage.BaseName,
+			Commands:               stage.Commands,
 			BaseImageIndex:         baseImageIndex,
 			BaseImageStoredLocally: (baseImageIndex != -1),
 			SaveStage:              saveStage(index, stages),
@@ -305,10 +315,10 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		ffSquashStages := config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true)
 		kanikoStages = skipUnusedStages(kanikoStages, targetStage, ffSquashStages)
 	}
-	return kanikoStages, nil
+	return kanikoStages, stageNameToIdx, nil
 }
 
-func GetOnBuildInstructions(config *v1.Config, stageNameToIdx map[string]string) ([]instructions.Command, error) {
+func GetOnBuildInstructions(config *v1.Config, stageNameToIdx map[string]int) ([]instructions.Command, error) {
 	if config.OnBuild == nil || len(config.OnBuild) == 0 {
 		return nil, nil
 	}
@@ -319,7 +329,7 @@ func GetOnBuildInstructions(config *v1.Config, stageNameToIdx map[string]string)
 	}
 
 	// Iterate over commands and replace references to other stages with their index
-	ResolveCrossStageCommands(cmds, stageNameToIdx)
+	resolveCrossStageCommands(cmds, stageNameToIdx)
 	return cmds, nil
 }
 
@@ -350,16 +360,9 @@ func unifyArgs(metaArgs []instructions.ArgCommand, buildArgs []string) []string 
 
 func squash(a, b config.KanikoStage) config.KanikoStage {
 	return config.KanikoStage{
-		Stage: instructions.Stage{
-			Name:       b.Name,
-			Commands:   append(a.Commands, b.Commands...),
-			OrigCmd:    a.OrigCmd,
-			BaseName:   a.BaseName,
-			Platform:   a.Platform,
-			Comment:    a.Comment + b.Comment,
-			SourceCode: a.SourceCode + "\n" + b.SourceCode,
-			Location:   append(a.Location, b.Location...),
-		},
+		Name:                   b.Name,
+		BaseName:               a.BaseName,
+		Commands:               append(a.Commands, b.Commands...),
 		BaseImageIndex:         a.BaseImageIndex,
 		Final:                  b.Final,
 		BaseImageStoredLocally: a.BaseImageStoredLocally,
@@ -371,15 +374,7 @@ func squash(a, b config.KanikoStage) config.KanikoStage {
 
 // skipUnusedStages returns the list of used stages, filters out unused stages and optionally squashes them together.
 func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages bool) []config.KanikoStage {
-	stageByName := make(map[string]int)
 	stages = stages[:targetStage+1]
-
-	for idx, s := range stages {
-		if s.Name != "" {
-			stageByName[s.Name] = idx
-		}
-	}
-
 	// We now "count" references, it is only safe to squash
 	// stages if the references are exactly 1.
 	stagesDependencies := make([]int, len(stages))
@@ -400,15 +395,6 @@ func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages
 					// numeric reference `COPY --from=0`
 					// COPY --from can never be squashed, identical to having 2 dependencies
 					stagesDependencies[copyFromIndex] += 2
-				} else {
-					// named reference `COPY --from=base`
-					if copyFromIndex, ok := stageByName[strings.ToLower(cmd.From)]; ok {
-						// There can be references that appear as non-existing stages
-						// ie. `COPY --from=debian` would try refer to `debian` as stage
-						// before falling back to `debian` as a docker image.
-						// COPY --from can never be squashed, identical to having 2 dependencies
-						stagesDependencies[copyFromIndex] += 2
-					}
 				}
 			}
 		}
