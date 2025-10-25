@@ -88,8 +88,11 @@ func stage(t *testing.T, d string) config.KanikoStage {
 	if err != nil {
 		t.Fatalf("error parsing dockerfile: %v", err)
 	}
+	s := stages[0]
 	return config.KanikoStage{
-		Stage: stages[0],
+		Name:     s.Name,
+		BaseName: s.BaseName,
+		Commands: s.Commands,
 	}
 }
 
@@ -200,9 +203,8 @@ func Test_stageBuilder_shouldTakeSnapshot(t *testing.T) {
 				tt.fields.opts = &config.KanikoOptions{}
 			}
 			s := &stageBuilder{
-				stage: tt.fields.stage,
-				opts:  tt.fields.opts,
-				cmds:  tt.fields.cmds,
+				opts: tt.fields.opts,
+				cmds: tt.fields.cmds,
 			}
 			if got := s.shouldTakeSnapshot(tt.args.index, tt.args.metadataOnly); got != tt.want {
 				t.Errorf("stageBuilder.shouldTakeSnapshot() = %v, want %v", got, tt.want)
@@ -1482,6 +1484,7 @@ RUN foobar
 			}
 			keys := []string{}
 			sb := &stageBuilder{
+				index:       tc.stage.Index,
 				args:        dockerfile.NewBuildArgs([]string{}), //required or code will panic
 				image:       tc.image,
 				opts:        tc.opts,
@@ -1501,7 +1504,6 @@ RUN foobar
 			if tc.rootDir != "" {
 				config.RootDir = tc.rootDir
 			}
-			sb.stage = tc.stage
 			sb.crossStageDeps = tc.crossStageDeps
 			if tc.mockGetFSFromImage != nil {
 				original := getFSFromImage
@@ -1667,8 +1669,8 @@ func Test_stageBuild_populateCompositeKeyForCopyCommand(t *testing.T) {
 
 					sb := &stageBuilder{
 						fileContext: fc,
-						stageIdxToDigest: map[string]string{
-							"0": "some-digest",
+						stageIdxToDigest: map[int]string{
+							0: "some-digest",
 						},
 						digestToCacheKey: map[string]string{
 							"some-digest": "some-cache-key",
@@ -1741,7 +1743,7 @@ func Test_ResolveCrossStageInstructions(t *testing.T) {
 			}
 		}
 
-		expectedMap := map[string]string{"second": "1", "third": "2"}
+		expectedMap := map[string]int{"second": 1, "third": 2}
 		testutil.CheckDeepEqual(t, expectedMap, stageToIdx)
 	}
 }
@@ -1749,6 +1751,8 @@ func Test_ResolveCrossStageInstructions(t *testing.T) {
 func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 	dir, files := tempDirAndFile(t)
 	type fields struct {
+		Index            int
+		Final            bool
 		stage            config.KanikoStage
 		image            v1.Image
 		cf               *v1.ConfigFile
@@ -1760,7 +1764,7 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 		args             *dockerfile.BuildArgs
 		crossStageDeps   map[int][]string
 		digestToCacheKey map[string]string
-		stageIdxToDigest map[string]string
+		stageIdxToDigest map[int]string
 		snapshotter      snapShotter
 		layerCache       cache.LayerCache
 		pushLayerToCache cachePusher
@@ -1840,7 +1844,8 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &stageBuilder{
-				stage:            tt.fields.stage,
+				index:            tt.fields.stage.Index,
+				final:            tt.fields.stage.Final,
 				image:            tt.fields.image,
 				cf:               tt.fields.cf,
 				baseImageDigest:  tt.fields.baseImageDigest,
@@ -1879,7 +1884,8 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 
 func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 	type fields struct {
-		stage            config.KanikoStage
+		Index            int
+		Final            bool
 		image            v1.Image
 		cf               *v1.ConfigFile
 		baseImageDigest  string
@@ -1890,7 +1896,7 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 		args             *dockerfile.BuildArgs
 		crossStageDeps   map[int][]string
 		digestToCacheKey map[string]string
-		stageIdxToDigest map[string]string
+		stageIdxToDigest map[int]string
 		snapshotter      snapShotter
 		layerCache       cache.LayerCache
 		pushLayerToCache cachePusher
@@ -1987,7 +1993,8 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &stageBuilder{
-				stage:            tt.fields.stage,
+				index:            tt.fields.Index,
+				final:            tt.fields.Final,
 				image:            tt.fields.image,
 				cf:               tt.fields.cf,
 				baseImageDigest:  tt.fields.baseImageDigest,
