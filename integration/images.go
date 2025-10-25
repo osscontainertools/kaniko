@@ -163,6 +163,13 @@ var outputChecks = map[string]func(string, []byte) error{
 
 		return nil
 	},
+	"Dockerfile_test_issue_mz333": func(_ string, out []byte) error {
+		s := "Storing source image from stage 0 at path /kaniko/stages/0"
+		if strings.Contains(string(out), s) {
+			return fmt.Errorf("output must not contain %s", s)
+		}
+		return nil
+	},
 }
 
 func checkNoWarnings(_ string, out []byte) error {

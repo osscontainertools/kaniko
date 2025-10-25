@@ -1,0 +1,11 @@
+FROM busybox AS base
+RUN touch blubb
+# mz333: When dropping the `ignored` stage
+# we no longer have a reason to store this here
+# `base` stage as a tarball. Prior to mz333 kaniko
+# would not recognize this optimization and store it anways.
+
+FROM base AS ignored
+
+FROM scratch AS final
+COPY --from=base blubb .
