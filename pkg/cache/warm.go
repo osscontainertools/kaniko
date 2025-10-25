@@ -148,6 +148,27 @@ func (w *Warmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error)
 		return v1.Hash{}, errors.Wrapf(err, "Failed to verify image name: %s", image)
 	}
 
+	// mz320: If we have a digest reference, we can try a cache lookup directly.
+	var oldKey string
+	var oldErr error
+	if !opts.Force {
+		if d, ok := cacheRef.(name.Digest); ok {
+			cacheKey := d.DigestStr()
+			_, err := w.Local(&opts.CacheOptions, cacheKey)
+			if err == nil || IsExpired(err) {
+				return v1.Hash{}, AlreadyCachedErr{}
+			} else {
+				// mz320: But in case it is a cache miss, not all hope is lost.
+				// It could have also been the digest for an image-index.
+				// The thin wrapper that only points to the image-manifests for different archs.
+				// Unfortunately we can't tell a-priori and we only store the image manifests as keys.
+				// Therefore we don't return and instead try a remote lookup again.
+				oldKey = cacheKey
+				oldErr = err
+			}
+		}
+	}
+
 	img, err := w.Remote(image, opts.RegistryOptions, opts.CustomPlatform)
 	if err != nil || img == nil {
 		return v1.Hash{}, errors.Wrapf(err, "Failed to retrieve image: %s", image)
@@ -159,7 +180,16 @@ func (w *Warmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error)
 	}
 
 	if !opts.Force {
-		_, err := w.Local(&opts.CacheOptions, digest.String())
+		var err error
+		cacheKey := digest.String()
+		if oldKey != "" && cacheKey == oldKey {
+			// mz320: But if the cacheKey didn't change, we indeed were looking
+			// at an image manifest, we already confirmed it is not in cache,
+			// so we can short-circuit with the previous error here.
+			err = oldErr
+		} else {
+			_, err = w.Local(&opts.CacheOptions, cacheKey)
+		}
 		if err == nil || IsExpired(err) {
 			return v1.Hash{}, AlreadyCachedErr{}
 		}
