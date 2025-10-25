@@ -1,0 +1,5 @@
+FROM alpine AS base
+ONBUILD RUN touch /blubb
+
+FROM base AS build
+RUN ls -lah /blubb
