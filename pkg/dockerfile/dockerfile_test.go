@@ -605,7 +605,8 @@ func Test_SkipingUnusedStages(t *testing.T) {
 		for _, target := range test.targets {
 			targetIndex, err := targetStage(stages, target)
 			testutil.CheckError(t, false, err)
-			onlyUsedStages := skipUnusedStages(kanikoStages, targetIndex, false)
+			onlyUsedStages, err := skipUnusedStages(kanikoStages, targetIndex, false)
+			testutil.CheckError(t, false, err)
 			for _, s := range onlyUsedStages {
 				actualSourceCodes[target] = append(actualSourceCodes[target], s.SourceCode)
 			}
@@ -693,7 +694,8 @@ func Test_SquashStages(t *testing.T) {
 		for _, target := range test.targets {
 			targetIndex, err := targetStage(stages, target)
 			testutil.CheckError(t, false, err)
-			onlyUsedStages := skipUnusedStages(kanikoStages, targetIndex, true)
+			onlyUsedStages, err := skipUnusedStages(kanikoStages, targetIndex, true)
+			testutil.CheckError(t, false, err)
 			for _, s := range onlyUsedStages {
 				actualSourceCodes[target] = append(actualSourceCodes[target], s.SourceCode)
 			}

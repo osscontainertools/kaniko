@@ -303,7 +303,10 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	}
 	if opts.SkipUnusedStages {
 		ffSquashStages := config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true)
-		kanikoStages = skipUnusedStages(kanikoStages, targetStage, ffSquashStages)
+		kanikoStages, err = skipUnusedStages(kanikoStages, targetStage, ffSquashStages)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return kanikoStages, nil
 }
@@ -348,11 +351,33 @@ func unifyArgs(metaArgs []instructions.ArgCommand, buildArgs []string) []string 
 	return args
 }
 
-func squash(a, b config.KanikoStage) config.KanikoStage {
+func flattenOnbuild(a []instructions.Command) ([]instructions.Command, error) {
+	var cmds []instructions.Command
+	for _, c := range a {
+		switch cmd := c.(type) {
+		case *instructions.OnbuildCommand:
+			logrus.Warnf("expression: %v", cmd.Expression)
+			parsed, err := ParseCommands([]string{cmd.Expression})
+			if err != nil {
+				return nil, err
+			}
+			cmds = append(cmds, parsed...)
+		default:
+			cmds = append(cmds, cmd)
+		}
+	}
+	return cmds, nil
+}
+
+func squash(a, b config.KanikoStage) (config.KanikoStage, error) {
+	cmds, err := flattenOnbuild(a.Commands)
+	if err != nil {
+		return config.KanikoStage{}, err
+	}
 	return config.KanikoStage{
 		Stage: instructions.Stage{
 			Name:       b.Name,
-			Commands:   append(a.Commands, b.Commands...),
+			Commands:   append(cmds, b.Commands...),
 			OrigCmd:    a.OrigCmd,
 			BaseName:   a.BaseName,
 			Platform:   a.Platform,
@@ -366,11 +391,11 @@ func squash(a, b config.KanikoStage) config.KanikoStage {
 		SaveStage:              b.SaveStage,
 		MetaArgs:               append(a.MetaArgs, b.MetaArgs...),
 		Index:                  b.Index,
-	}
+	}, nil
 }
 
 // skipUnusedStages returns the list of used stages, filters out unused stages and optionally squashes them together.
-func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages bool) []config.KanikoStage {
+func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages bool) ([]config.KanikoStage, error) {
 	stageByName := make(map[string]int)
 	stages = stages[:targetStage+1]
 
@@ -423,7 +448,11 @@ func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages
 				// We squash the base stage into the current stage because,
 				// no one else depends on the base stage so it can be freely moved,
 				// the current stage might depend on other stages so it is not safe to move it.
-				stages[i] = squash(sb, s)
+				res, err := squash(sb, s)
+				if err != nil {
+					return nil, err
+				}
+				stages[i] = res
 				stagesDependencies[s.BaseImageIndex] = 0
 			}
 		}
@@ -435,5 +464,5 @@ func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages
 			onlyUsedStages = append(onlyUsedStages, s)
 		}
 	}
-	return onlyUsedStages
+	return onlyUsedStages, nil
 }
