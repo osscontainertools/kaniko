@@ -374,11 +374,24 @@ func getOnBuild(cmds []instructions.Command) []string {
 	return out
 }
 
+func filterOnBuild(cmds []instructions.Command) []instructions.Command {
+	var out []instructions.Command
+	for _, c := range cmds {
+		switch cmd := c.(type) {
+		case *instructions.OnbuildCommand:
+		default:
+			out = append(out, cmd)
+		}
+	}
+	return out
+}
+
 func squash(a, b config.KanikoStage) config.KanikoStage {
+	acmds := filterOnBuild(a.Commands)
 	return config.KanikoStage{
 		Stage: instructions.Stage{
 			Name:       b.Name,
-			Commands:   append(a.Commands, b.Commands...),
+			Commands:   append(acmds, b.Commands...),
 			OrigCmd:    a.OrigCmd,
 			BaseName:   a.BaseName,
 			Platform:   a.Platform,
