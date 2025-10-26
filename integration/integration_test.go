@@ -614,6 +614,7 @@ func TestLayers(t *testing.T) {
 			pushCmd := exec.Command("docker", "push", dockerImage)
 			RunCommand(pushCmd, t)
 			checkLayers(t, dockerImage, kanikoImage, offset[dockerfileTest])
+			onBuildDiff(t, dockerImage, kanikoImage)
 		})
 	}
 
@@ -1045,6 +1046,18 @@ func filterFileDiff(f []fileDiff) []fileDiff {
 	return newDiffs
 }
 
+func onBuildDiff(t *testing.T, image1, image2 string) {
+	img1, err := getImageConfig(image1)
+	if err != nil {
+		t.Fatalf("Failed to get image config for (%s): %s", image1, err)
+	}
+	img2, err := getImageConfig(image2)
+	if err != nil {
+		t.Fatalf("Failed to get image config for (%s): %s", image2, err)
+	}
+	testutil.CheckDeepEqual(t, img1.Config.OnBuild, img2.Config.OnBuild)
+}
+
 func layerDiff(t *testing.T, image1, image2 string) {
 	t.Helper()
 	layers1, err := getImageLayers(image1)
@@ -1113,18 +1126,26 @@ func checkLayers(t *testing.T, image1, image2 string, offset int) {
 	}
 }
 
-func resolveCreatedBy(image string, layerIndex int) (string, error) {
+func getImageConfig(image string) (*v1.ConfigFile, error) {
 	ref, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
-		return "", fmt.Errorf("Couldn't parse reference to image %s: %w", image, err)
+		return nil, fmt.Errorf("Couldn't parse reference to image %s: %w", image, err)
 	}
 	imgRef, err := remote.Image(ref)
 	if err != nil {
-		return "", fmt.Errorf("Couldn't get reference to image %s from remote: %w", image, err)
+		return nil, fmt.Errorf("Couldn't get reference to image %s from remote: %w", image, err)
 	}
 	cfg, err := imgRef.ConfigFile()
 	if err != nil {
-		return "", fmt.Errorf("Couldn't get Config for image %s: %w", image, err)
+		return nil, fmt.Errorf("Couldn't get Config for image %s: %w", image, err)
+	}
+	return cfg, nil
+}
+
+func resolveCreatedBy(image string, layerIndex int) (string, error) {
+	cfg, err := getImageConfig(image)
+	if err != nil {
+		return "", err
 	}
 	idx := 0
 	for _, history := range cfg.History {
