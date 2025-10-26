@@ -285,17 +285,17 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	if err := resolveStagesArgs(stages, args); err != nil {
 		return nil, errors.Wrap(err, "resolving args")
 	}
-
-	stages = stages[:targetStage+1]
-	kanikoStages := make([]config.KanikoStage, len(stages))
-	for index := len(stages) - 1; index >= 0; index-- {
-		stage := stages[index]
+	var kanikoStages []config.KanikoStage
+	for index, stage := range stages {
 		if len(stage.Name) > 0 {
 			logrus.Infof("Resolved base name of %s to %s", stage.Name, stage.BaseName)
 		}
 		baseImageIndex := baseImageIndex(index, stages)
-		stage.Commands = filterOnBuild(stage.Commands)
 		if baseImageIndex != -1 {
+			// mz338: Handle ONBUILD instructions for local stages.
+			// ONBUILD instructions must be handled prior to skip & squash optimizations.
+			// But handling them for remote images without performance impact is non-trivial,
+			// so for now we just handle local stages here.
 			onBuild := getOnBuild(stages[baseImageIndex].Commands)
 			cmds, err := ParseCommands(onBuild)
 			if err != nil {
@@ -303,7 +303,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			}
 			stage.Commands = append(cmds, stage.Commands...)
 		}
-		kanikoStages[index] = config.KanikoStage{
+		kanikoStages = append(kanikoStages, config.KanikoStage{
 			Stage:                  stage,
 			BaseImageIndex:         baseImageIndex,
 			BaseImageStoredLocally: (baseImageIndex != -1),
@@ -311,11 +311,14 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			Final:                  index == targetStage,
 			MetaArgs:               metaArgs,
 			Index:                  index,
+		})
+		if index == targetStage {
+			break
 		}
 	}
 	if opts.SkipUnusedStages {
 		ffSquashStages := config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true)
-		kanikoStages = skipUnusedStages(kanikoStages, ffSquashStages)
+		kanikoStages = skipUnusedStages(kanikoStages, targetStage, ffSquashStages)
 	}
 	return kanikoStages, nil
 }
@@ -371,18 +374,6 @@ func getOnBuild(cmds []instructions.Command) []string {
 	return out
 }
 
-func filterOnBuild(cmds []instructions.Command) []instructions.Command {
-	var out []instructions.Command
-	for _, c := range cmds {
-		switch cmd := c.(type) {
-		case *instructions.OnbuildCommand:
-		default:
-			out = append(out, cmd)
-		}
-	}
-	return out
-}
-
 func squash(a, b config.KanikoStage) config.KanikoStage {
 	return config.KanikoStage{
 		Stage: instructions.Stage{
@@ -405,8 +396,9 @@ func squash(a, b config.KanikoStage) config.KanikoStage {
 }
 
 // skipUnusedStages returns the list of used stages, filters out unused stages and optionally squashes them together.
-func skipUnusedStages(stages []config.KanikoStage, squashStages bool) []config.KanikoStage {
+func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages bool) []config.KanikoStage {
 	stageByName := make(map[string]int)
+	stages = stages[:targetStage+1]
 
 	for idx, s := range stages {
 		if s.Name != "" {
@@ -417,9 +409,9 @@ func skipUnusedStages(stages []config.KanikoStage, squashStages bool) []config.K
 	// We now "count" references, it is only safe to squash
 	// stages if the references are exactly 1.
 	stagesDependencies := make([]int, len(stages))
-	stagesDependencies[len(stages)-1] = 1
+	stagesDependencies[targetStage] = 1
 
-	for i := len(stages) - 1; i >= 0; i-- {
+	for i := targetStage; i >= 0; i-- {
 		if stagesDependencies[i] == 0 {
 			continue
 		}

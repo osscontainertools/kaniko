@@ -112,9 +112,6 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		return nil, err
 	}
 
-	if stage.BaseImageStoredLocally && len(imageConfig.Config.OnBuild) > 0 {
-		logrus.Panic("ONBUILD instructions for local stages must have already been handled when creating kanikoStages")
-	}
 	if err := resolveOnBuild(&stage, &imageConfig.Config, stageNameToIdx); err != nil {
 		return nil, err
 	}
@@ -694,11 +691,18 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 			return nil, err
 		}
 
-		if s.BaseImageStoredLocally && len(cfg.Config.OnBuild) > 0 {
-			logrus.Panic("ONBUILD instructions for local stages must have already been handled when creating kanikoStages")
+		cmds := s.Commands
+
+		// mz338: ONBUILD instructions for local stages were already
+		// prepended, here we only handle instructions coming from
+		// remote images.
+		if !s.BaseImageStoredLocally {
+			onBuild, err := dockerfile.GetOnBuildInstructions(&cfg.Config, stageNameToIdx)
+			if err != nil {
+				return nil, err
+			}
+			cmds = append(onBuild, cmds...)
 		}
-		cmds, err := dockerfile.GetOnBuildInstructions(&cfg.Config, stageNameToIdx)
-		cmds = append(cmds, s.Commands...)
 
 		for _, c := range cmds {
 			switch cmd := c.(type) {
@@ -1114,14 +1118,20 @@ func getHasher(snapshotMode string) (func(string) (string, error), error) {
 }
 
 func resolveOnBuild(stage *config.KanikoStage, config *v1.Config, stageNameToIdx map[string]string) error {
-	cmds, err := dockerfile.GetOnBuildInstructions(config, stageNameToIdx)
-	if err != nil {
-		return err
+	// mz338: ONBUILD instructions for local stages were already
+	// prepended, here we only handle instructions coming from
+	// remote images.
+	if !stage.BaseImageStoredLocally {
+		cmds, err := dockerfile.GetOnBuildInstructions(config, stageNameToIdx)
+		if err != nil {
+			return err
+		}
+
+		// Append to the beginning of the commands in the stage
+		stage.Commands = append(cmds, stage.Commands...)
 	}
 
-	// Append to the beginning of the commands in the stage
-	stage.Commands = append(cmds, stage.Commands...)
-	logrus.Infof("Executing %v build triggers", len(cmds))
+	logrus.Infof("Executing %v build triggers", len(stage.Commands))
 
 	// Blank out the Onbuild command list for this image
 	config.OnBuild = nil
