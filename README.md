@@ -127,6 +127,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_RUN_MOUNT_CACHE`](#flag-ff_kaniko_run_mount_cache)
       - [Flag `FF_KANIKO_NEW_CACHE_LAYOUT`](#flag-ff_kaniko_new_cache_layout)
       - [Flag `FF_KANIKO_OCI_STAGES`](#flag-ff_kaniko_oci_stages)
+      - [Flag `FF_KANIKO_DISABLE_HTTP2`](#flag-ff_kaniko_disable_http2)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1351,6 +1352,12 @@ To switch between stages Kaniko has to store in a local directory temporarily. S
 Set this flag to `true` to store inter-stage dependencies as ocilayout.
 Defaults to `false`.
 Becomes default in `v1.27.0`.
+
+#### Flag `FF_KANIKO_DISABLE_HTTP2`
+
+We noticed that there is a significant performance gap when using http/2.0 together with gitlab registry. Set this flag to `true` to enforce http/1.1 protocol, the same behaviour as if setting `GODEBUG="http2client=0"`.
+Defaults to `false`.
+Currently no plans to activate.
 
 ### Debug Image
 
