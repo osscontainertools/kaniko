@@ -96,6 +96,11 @@ func (d *debugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 func MakeTransport(opts config.RegistryOptions, registryName string) (http.RoundTripper, error) {
 	// Create a transport to set our user-agent.
 	var tr http.RoundTripper = http.DefaultTransport.(*http.Transport).Clone()
+	if config.EnvBool("FF_KANIKO_DISABLE_HTTP2") {
+		tr.(*http.Transport).ForceAttemptHTTP2 = false
+		tr.(*http.Transport).TLSClientConfig.NextProtos = []string{"http/1.1"}
+	}
+
 	if opts.SkipTLSVerify || opts.SkipTLSVerifyRegistries.Contains(registryName) {
 		tr.(*http.Transport).TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: true,
