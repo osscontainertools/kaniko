@@ -79,6 +79,20 @@ func init() {
 	systemKeyPairLoader = &X509KeyPairLoader{}
 }
 
+type debugTransport struct {
+	rt http.RoundTripper
+}
+
+func (d *debugTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := d.rt.RoundTrip(req)
+	if err == nil {
+		fmt.Printf("[HTTP DEBUG] %s %s -> %s\n", req.Method, req.URL, resp.Proto)
+	} else {
+		fmt.Printf("[HTTP DEBUG] %s %s -> ERROR: %v\n", req.Method, req.URL, err)
+	}
+	return resp, err
+}
+
 func MakeTransport(opts config.RegistryOptions, registryName string) (http.RoundTripper, error) {
 	// Create a transport to set our user-agent.
 	var tr http.RoundTripper = http.DefaultTransport.(*http.Transport).Clone()
@@ -107,5 +121,6 @@ func MakeTransport(opts config.RegistryOptions, registryName string) (http.Round
 		tr.(*http.Transport).TLSClientConfig.Certificates = []tls.Certificate{cert}
 	}
 
+	tr = &debugTransport{rt: tr}
 	return tr, nil
 }

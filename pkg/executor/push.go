@@ -173,6 +173,7 @@ func writeDigestFile(path string, digestByteArray []byte) error {
 // is not empty with empty --destinations.
 func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 	t := timing.Start("Total Push Time")
+	tt := time.Now()
 	var digestByteArray []byte
 	var builder strings.Builder
 
@@ -315,6 +316,8 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		}
 	}
 	timing.DefaultRun.Stop(t)
+	elapsed := time.Since(tt)
+	logrus.Warnf("pushing took: %s\n", elapsed)
 	return writeImageOutputs(image, destRefs)
 }
 

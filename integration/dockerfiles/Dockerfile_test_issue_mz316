@@ -1,0 +1,3 @@
+FROM busybox:latest
+RUN touch /blubb
+COPY --from=python:latest /usr /usr
