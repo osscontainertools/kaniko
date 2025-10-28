@@ -17,6 +17,7 @@ limitations under the License.
 package commands
 
 import (
+	"fmt"
 	"os/user"
 	"testing"
 
@@ -37,34 +38,40 @@ var userTests = []struct {
 		user:        "root",
 		userObj:     &user.User{Uid: "root", Gid: "root"},
 		expectedUID: "root",
+		expectedGID: "",
 	},
 	{
 		user:        "root-add",
 		userObj:     &user.User{Uid: "root-add", Gid: "root"},
 		expectedUID: "root-add",
+		expectedGID: "",
 	},
 	{
 		user:        "0",
 		userObj:     &user.User{Uid: "0", Gid: "0"},
 		expectedUID: "0",
+		expectedGID: "",
 	},
 	{
 		user:        "fakeUser",
 		userObj:     &user.User{Uid: "fakeUser", Gid: "fakeUser"},
 		expectedUID: "fakeUser",
+		expectedGID: "",
 	},
 	{
 		user:        "root",
 		userObj:     &user.User{Uid: "root", Gid: "some"},
 		expectedUID: "root",
+		expectedGID: "",
 	},
 	{
 		user:        "0",
 		userObj:     &user.User{Uid: "0"},
 		expectedUID: "0",
+		expectedGID: "",
 	},
 	{
-		user:        "root",
+		user:        "root:f0",
 		userObj:     &user.User{Uid: "root"},
 		expectedUID: "root",
 		expectedGID: "f0",
@@ -73,29 +80,38 @@ var userTests = []struct {
 		user:        "0",
 		userObj:     &user.User{Uid: "0"},
 		expectedUID: "0",
+		expectedGID: "",
 	},
 	{
 		user:        "$envuser",
 		userObj:     &user.User{Uid: "root", Gid: "root"},
 		expectedUID: "root",
+		expectedGID: "",
 	},
 	{
 		user:        "root",
 		userObj:     &user.User{Uid: "root"},
 		expectedUID: "root",
+		expectedGID: "",
 	},
 	{
 		user:        "some",
 		userObj:     &user.User{Uid: "some"},
 		expectedUID: "some",
+		expectedGID: "",
 	},
 	{
 		user:        "some",
 		expectedUID: "some",
+		expectedGID: "",
 	},
 }
 
 func TestUpdateUser(t *testing.T) {
+	user, err := user.Current()
+	if err != nil {
+		t.Errorf("failed to get user %v", err)
+	}
 	for _, test := range userTests {
 		cfg := &v1.Config{
 			Env: []string{
@@ -110,6 +126,11 @@ func TestUpdateUser(t *testing.T) {
 		}
 		buildArgs := dockerfile.NewBuildArgs([]string{})
 		err := cmd.ExecuteCommand(cfg, buildArgs)
-		testutil.CheckErrorAndDeepEqual(t, false, err, test.expectedUID, cfg.User)
+		uid := test.expectedUID
+		gid := test.expectedGID
+		if gid == "" {
+			gid = user.Gid
+		}
+		testutil.CheckErrorAndDeepEqual(t, false, err, fmt.Sprintf("%s:%s", uid, gid), cfg.User)
 	}
 }
