@@ -583,7 +583,7 @@ func Test_SkipingUnusedStages(t *testing.T) {
 		},
 	}
 
-	os.Setenv("FF_KANIKO_SQUASH_STAGES", "0")
+	t.Setenv("FF_KANIKO_SQUASH_STAGES", "0")
 	for _, test := range tests {
 		stages, _, err := Parse([]byte(test.dockerfile))
 		testutil.CheckError(t, false, err)
