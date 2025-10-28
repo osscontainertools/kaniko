@@ -1351,7 +1351,7 @@ Set this flag to `true` to store inter-stage dependencies as ocilayout.
 Defaults to `false`.
 Becomes default in `v1.27.0`.
 
-### FLAG `FF_KANIKO_DISABLE_HTTP2`
+#### Flag `FF_KANIKO_DISABLE_HTTP2`
 
 We noticed that there is a significant performance gap when using http/2.0 together with gitlab registry. Set this flag to `true` to enforce http/1.1 protocol, the same behaviour as if setting `GODEBUG="http2client=0"`.
 Defaults to `false`.
