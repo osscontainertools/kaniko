@@ -9,7 +9,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.3
 	github.com/aws/aws-sdk-go-v2 v1.39.4
 	github.com/aws/aws-sdk-go-v2/config v1.31.15
-	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.19.15
+	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.20.0
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.88.7
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.10.1
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589
