@@ -379,6 +379,7 @@ func filterOnBuild(cmds []instructions.Command) []instructions.Command {
 	for _, c := range cmds {
 		switch cmd := c.(type) {
 		case *instructions.OnbuildCommand:
+			// Skip ONBUILD commands
 		default:
 			out = append(out, cmd)
 		}
