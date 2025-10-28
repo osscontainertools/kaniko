@@ -3,7 +3,7 @@ RUN touch blubb
 # mz333: When dropping the `ignored` stage
 # we no longer have a reason to store this here
 # `base` stage as a tarball. Prior to mz333 kaniko
-# would not recognize this optimization and store it anways.
+# would not recognize this optimization and store it anyways.
 
 FROM base AS ignored
 
