@@ -657,7 +657,7 @@ func Test_SquashStages(t *testing.T) {
 		},
 	}
 
-	os.Setenv("FF_KANIKO_SQUASH_STAGES", "1")
+	t.Setenv("FF_KANIKO_SQUASH_STAGES", "1")
 	for _, test := range tests {
 		stages, _, err := Parse([]byte(test.dockerfile))
 		testutil.CheckError(t, false, err)
