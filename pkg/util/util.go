@@ -35,6 +35,12 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+var ErrNotSupportedPlatform = errors.New("platform and architecture is not supported")
+
+const (
+	securityCapabilityXattr = "security.capability"
+)
+
 // Hasher returns a hash function, used in snapshotting to determine if a file has changed
 func Hasher() func(string) (string, error) {
 	pool := sync.Pool{
@@ -233,7 +239,9 @@ func Lgetxattr(path string, attr string) ([]byte, error) {
 	}
 
 	switch {
-	case errors.Is(errno, unix.ENODATA):
+	case errors.Is(errno, unix.ENODATA),
+		errors.Is(errno, syscall.EOPNOTSUPP),
+		errors.Is(errno, ErrNotSupportedPlatform):
 		return nil, nil
 	case errno != nil:
 		return nil, errno
