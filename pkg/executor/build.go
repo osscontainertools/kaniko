@@ -1129,9 +1129,8 @@ func resolveOnBuild(stage *config.KanikoStage, config *v1.Config, stageNameToIdx
 
 		// Append to the beginning of the commands in the stage
 		stage.Commands = append(cmds, stage.Commands...)
+		logrus.Infof("Executing %v build triggers", len(cmds))
 	}
-
-	logrus.Infof("Executing %v build triggers", len(stage.Commands))
 
 	// Blank out the Onbuild command list for this image
 	config.OnBuild = nil
