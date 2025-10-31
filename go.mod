@@ -36,7 +36,7 @@ require (
 	github.com/GoogleCloudPlatform/docker-credential-gcr/v2 v2.1.30
 	github.com/containerd/platforms v1.0.0-rc.1
 	github.com/moby/go-archive v0.1.0
-	github.com/moby/moby/api v1.52.0-beta.2
+	github.com/moby/moby/api v1.52.0-beta.3
 )
 
 require github.com/googleapis/enterprise-certificate-proxy v0.3.6 // indirect
