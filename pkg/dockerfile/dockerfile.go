@@ -208,6 +208,9 @@ func targetStage(stages []instructions.Stage, target string) (int, error) {
 
 // ParseCommands parses an array of commands into an array of instructions.Command; used for onbuild
 func ParseCommands(cmdArray []string) ([]instructions.Command, error) {
+	if len(cmdArray) == 0 {
+		return []instructions.Command{}, nil
+	}
 	var cmds []instructions.Command
 	cmdString := strings.Join(cmdArray, "\n")
 	ast, err := parser.Parse(strings.NewReader(cmdString))
@@ -288,6 +291,18 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			logrus.Infof("Resolved base name of %s to %s", stage.Name, stage.BaseName)
 		}
 		baseImageIndex := baseImageIndex(index, stages)
+		if baseImageIndex != -1 {
+			// mz338: Handle ONBUILD instructions for local stages.
+			// ONBUILD instructions must be handled prior to skip & squash optimizations.
+			// But handling them for remote images without performance impact is non-trivial,
+			// so for now we just handle local stages here.
+			onBuild := getOnBuild(stages[baseImageIndex].Commands)
+			cmds, err := ParseCommands(onBuild)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to parse ONBUILD instructions")
+			}
+			stage.Commands = append(cmds, stage.Commands...)
+		}
 		kanikoStages = append(kanikoStages, config.KanikoStage{
 			Stage:                  stage,
 			BaseImageIndex:         baseImageIndex,
@@ -348,11 +363,36 @@ func unifyArgs(metaArgs []instructions.ArgCommand, buildArgs []string) []string 
 	return args
 }
 
+func getOnBuild(cmds []instructions.Command) []string {
+	var out []string
+	for _, c := range cmds {
+		switch cmd := c.(type) {
+		case *instructions.OnbuildCommand:
+			out = append(out, cmd.Expression)
+		}
+	}
+	return out
+}
+
+func filterOnBuild(cmds []instructions.Command) []instructions.Command {
+	var out []instructions.Command
+	for _, c := range cmds {
+		switch cmd := c.(type) {
+		case *instructions.OnbuildCommand:
+			// Skip ONBUILD commands
+		default:
+			out = append(out, cmd)
+		}
+	}
+	return out
+}
+
 func squash(a, b config.KanikoStage) config.KanikoStage {
+	acmds := filterOnBuild(a.Commands)
 	return config.KanikoStage{
 		Stage: instructions.Stage{
 			Name:       b.Name,
-			Commands:   append(a.Commands, b.Commands...),
+			Commands:   append(acmds, b.Commands...),
 			OrigCmd:    a.OrigCmd,
 			BaseName:   a.BaseName,
 			Platform:   a.Platform,
