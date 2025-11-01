@@ -135,20 +135,41 @@ func cachedImage(opts *config.KanikoOptions, image string) (v1.Image, error) {
 		return nil, err
 	}
 
-	var cacheKey string
+	// mz320: If we have a digest reference, we can try a cache lookup directly.
+	var oldKey string
+	var oldErr error
 	if d, ok := ref.(name.Digest); ok {
-		cacheKey = d.DigestStr()
-	} else {
-		image, err := remote.RetrieveRemoteImage(image, opts.RegistryOptions, opts.CustomPlatform)
-		if err != nil {
+		cacheKey := d.DigestStr()
+		img, err := cache.LocalSource(&opts.CacheOptions, cacheKey)
+		if err == nil {
+			return img, nil
+		} else if cache.IsNotFound(err) {
+			// mz320: But in case it is a cache miss, not all hope is lost.
+			// It could have also been the digest for an image-index.
+			// The thin wrapper that only points to the image-manifests for different archs.
+			// Unfortunately we can't tell a-priori and we only store the image manifests as keys.
+			// Therefore we don't return and instead try a remote lookup again.
+			oldKey = cacheKey
+			oldErr = err
+		} else {
 			return nil, err
 		}
+	}
+	img, err := remote.RetrieveRemoteImage(image, opts.RegistryOptions, opts.CustomPlatform)
+	if err != nil {
+		return nil, err
+	}
 
-		d, err := image.Digest()
-		if err != nil {
-			return nil, err
-		}
-		cacheKey = d.String()
+	d, err := img.Digest()
+	if err != nil {
+		return nil, err
+	}
+	cacheKey := d.String()
+	if oldKey != "" && cacheKey == oldKey {
+		// mz320: But if the cacheKey didn't change, we indeed were looking
+		// at an image manifest, we already confirmed it is not in cache,
+		// so we can short-circuit with the previous error here.
+		return nil, oldErr
 	}
 	return cache.LocalSource(&opts.CacheOptions, cacheKey)
 }
