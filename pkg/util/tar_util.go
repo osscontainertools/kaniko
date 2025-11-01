@@ -34,8 +34,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var ErrNotSupportedPlatform = errors.New("platform and architecture is not supported")
-
 // Tar knows how to write files to a tar file.
 type Tar struct {
 	hardlinks map[uint64]string
@@ -144,10 +142,6 @@ func (t *Tar) AddFileToTar(p string) error {
 	return nil
 }
 
-const (
-	securityCapabilityXattr = "security.capability"
-)
-
 // writeSecurityXattrToTarFile writes security.capability
 // xattrs from a tar header to filesystem
 func writeSecurityXattrToTarFile(path string, hdr *tar.Header) error {
@@ -170,7 +164,7 @@ func readSecurityXattrToTarHeader(path string, hdr *tar.Header) error {
 		hdr.Xattrs = make(map[string]string)
 	}
 	capability, err := Lgetxattr(path, securityCapabilityXattr)
-	if err != nil && !errors.Is(err, syscall.EOPNOTSUPP) && !errors.Is(err, ErrNotSupportedPlatform) {
+	if err != nil {
 		return errors.Wrapf(err, "failed to read %q attribute from %q", securityCapabilityXattr, path)
 	}
 	if capability != nil {

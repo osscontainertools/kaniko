@@ -1091,17 +1091,14 @@ func CopyOwnership(src string, destDir string, root string) error {
 
 // CopyCapabilities copies the file capabilities from src to dest
 func CopyCapabilities(src string, dest string) error {
-	capBuf := make([]byte, 1024)
-	n, err := unix.Getxattr(src, "security.capability", capBuf)
-	if err == syscall.ENODATA {
-		return nil
-	} else if err != nil {
-		return errors.Wrap(err, "getting security.capability from src")
+	caps, err := Lgetxattr(src, securityCapabilityXattr)
+	if err != nil {
+		return errors.Wrapf(err, "getting %q from src", securityCapabilityXattr)
 	}
-	if n > 0 {
-		err = unix.Setxattr(dest, "security.capability", capBuf[:n], 0)
+	if caps != nil {
+		err = Lsetxattr(dest, securityCapabilityXattr, caps, 0)
 		if err != nil {
-			return errors.Wrap(err, "setting security.capability on dest")
+			return errors.Wrapf(err, "setting %q on dest", securityCapabilityXattr)
 		}
 	}
 	return nil
