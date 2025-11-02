@@ -196,24 +196,24 @@ func Test_GetOnBuildInstructions(t *testing.T) {
 	type testCase struct {
 		name        string
 		cfg         *v1.Config
-		stageToIdx  map[string]string
+		stageToIdx  map[string]int
 		expCommands []instructions.Command
 	}
 
 	tests := []testCase{
 		{name: "no on-build on config",
 			cfg:         &v1.Config{},
-			stageToIdx:  map[string]string{"builder": "0"},
+			stageToIdx:  map[string]int{"builder": 0},
 			expCommands: nil,
 		},
 		{name: "onBuild on config, nothing to resolve",
 			cfg:         &v1.Config{OnBuild: []string{"WORKDIR /app"}},
-			stageToIdx:  map[string]string{"builder": "0", "temp": "1"},
+			stageToIdx:  map[string]int{"builder": 0, "temp": 1},
 			expCommands: []instructions.Command{&instructions.WorkdirCommand{Path: "/app"}},
 		},
 		{name: "onBuild on config, resolve multiple stages",
 			cfg:        &v1.Config{OnBuild: []string{"COPY --from=builder a.txt b.txt", "COPY --from=temp /app /app"}},
-			stageToIdx: map[string]string{"builder": "0", "temp": "1"},
+			stageToIdx: map[string]int{"builder": 0, "temp": 1},
 			expCommands: []instructions.Command{
 				&instructions.CopyCommand{
 					SourcesAndDest: instructions.SourcesAndDest{SourcePaths: []string{"a.txt"}, DestPath: "b.txt"},

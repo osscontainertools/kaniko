@@ -1667,8 +1667,8 @@ func Test_stageBuild_populateCompositeKeyForCopyCommand(t *testing.T) {
 
 					sb := &stageBuilder{
 						fileContext: fc,
-						stageIdxToDigest: map[string]string{
-							"0": "some-digest",
+						stageIdxToDigest: map[int]string{
+							0: "some-digest",
 						},
 						digestToCacheKey: map[string]string{
 							"some-digest": "some-cache-key",
@@ -1741,7 +1741,7 @@ func Test_ResolveCrossStageInstructions(t *testing.T) {
 			}
 		}
 
-		expectedMap := map[string]string{"second": "1", "third": "2"}
+		expectedMap := map[string]int{"second": 1, "third": 2}
 		testutil.CheckDeepEqual(t, expectedMap, stageToIdx)
 	}
 }
@@ -1760,7 +1760,7 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 		args             *dockerfile.BuildArgs
 		crossStageDeps   map[int][]string
 		digestToCacheKey map[string]string
-		stageIdxToDigest map[string]string
+		stageIdxToDigest map[int]string
 		snapshotter      snapShotter
 		layerCache       cache.LayerCache
 		pushLayerToCache cachePusher
@@ -1890,7 +1890,7 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 		args             *dockerfile.BuildArgs
 		crossStageDeps   map[int][]string
 		digestToCacheKey map[string]string
-		stageIdxToDigest map[string]string
+		stageIdxToDigest map[int]string
 		snapshotter      snapShotter
 		layerCache       cache.LayerCache
 		pushLayerToCache cachePusher
