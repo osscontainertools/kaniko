@@ -168,12 +168,14 @@ Their focus is to keep dependencies up to date and patch security issues, keepin
 
 ## Releases
 
-kaniko releases are published as images on docker hub [martizih/kaniko](https://hub.docker.com/r/martizih/kaniko)
+kaniko releases are published as images on docker hub [martizih/kaniko](https://hub.docker.com/r/martizih/kaniko).
 
 Release notes and source code archives are available on the [releases
 section](https://github.com/osscontainertools/kaniko/releases).
 
-Other available images:
+For redundancy the images are also pushed to github registry [ghcr.io/osscontainertools/kaniko](https://github.com/orgs/osscontainertools/packages/container/package/kaniko), but signatures only work on docker hub.
+
+Images available from other vendors:
 
 * [kaniko-build organization](https://github.com/kaniko-build)
 
