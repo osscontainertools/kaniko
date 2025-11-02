@@ -13,7 +13,6 @@ on:
 
 env:
   # to be replaced by ${{ github.repository }} at some point
-  # Maybe split build repo from publish repo ?
   IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/${{ vars.REPOSITORY_NAME || 'kaniko' }}
 
 permissions: {}
