@@ -167,6 +167,12 @@ func buildRequiredImages() error {
 		name:    "Pushing onbuild base image",
 		command: []string{"docker", "push", config.onbuildBaseImage},
 	}, {
+		name:    "Building onbuild copy image",
+		command: []string{"docker", "build", "-t", config.onbuildCopyImage, "-f", fmt.Sprintf("%s/Dockerfile_onbuild_copy", dockerfilesPath), "."},
+	}, {
+		name:    "Pushing onbuild copy image",
+		command: []string{"docker", "push", config.onbuildCopyImage},
+	}, {
 		name:    "Building hardlink base image",
 		command: []string{"docker", "build", "-t", config.hardlinkBaseImage, "-f", fmt.Sprintf("%s/Dockerfile_hardlink_base", dockerfilesPath), "."},
 	}, {
@@ -1213,6 +1219,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 
 	c.dockerMajorVersion = getDockerMajorVersion()
 	c.onbuildBaseImage = c.imageRepo + "onbuild-base:latest"
+	c.onbuildCopyImage = c.imageRepo + "onbuild-copy:latest"
 	c.hardlinkBaseImage = c.imageRepo + "hardlink-base:latest"
 	return &c
 }
