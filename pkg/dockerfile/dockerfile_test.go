@@ -228,13 +228,14 @@ func Test_GetOnBuildInstructions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cmds, err := GetOnBuildInstructions(test.cfg, test.stageToIdx)
+			cmds, err := ParseCommands(test.cfg.OnBuild)
 			if err != nil {
 				t.Fatalf("Failed to parse config for on-build instructions")
 			}
 			if len(cmds) != len(test.expCommands) {
 				t.Fatalf("Expected %d commands, got %d", len(test.expCommands), len(cmds))
 			}
+			ResolveCrossStageCommands(cmds, test.stageToIdx)
 
 			for i, cmd := range cmds {
 				if reflect.TypeOf(cmd) != reflect.TypeOf(test.expCommands[i]) {

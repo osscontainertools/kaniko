@@ -107,10 +107,6 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		return nil, err
 	}
 
-	if err := resolveOnBuild(&stage, &imageConfig.Config, stageNameToIdx); err != nil {
-		return nil, err
-	}
-
 	snapshotter, err := makeSnapshotter(opts)
 	if err != nil {
 		return nil, err
@@ -181,6 +177,8 @@ func initConfig(img partial.WithConfigFile, opts *config.KanikoOptions) (*v1.Con
 	if imageConfig.Config.Env == nil {
 		imageConfig.Config.Env = constants.ScratchEnvVars
 	}
+	// Blank out the Onbuild command list for this image
+	imageConfig.Config.OnBuild = nil
 
 	if opts == nil {
 		return imageConfig, nil
@@ -688,17 +686,6 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 
 		cmds := s.Commands
 
-		// mz338: ONBUILD instructions for local stages were already
-		// prepended, here we only handle instructions coming from
-		// remote images.
-		if !s.BaseImageStoredLocally {
-			onBuild, err := dockerfile.GetOnBuildInstructions(&cfg.Config, stageNameToIdx)
-			if err != nil {
-				return nil, err
-			}
-			cmds = append(onBuild, cmds...)
-		}
-
 		for _, c := range cmds {
 			switch cmd := c.(type) {
 			case *instructions.CopyCommand:
@@ -1108,26 +1095,6 @@ func getHasher(snapshotMode string) (func(string) (string, error), error) {
 	default:
 		return nil, fmt.Errorf("%s is not a valid snapshot mode", snapshotMode)
 	}
-}
-
-func resolveOnBuild(stage *config.KanikoStage, config *v1.Config, stageNameToIdx map[string]int) error {
-	// mz338: ONBUILD instructions for local stages were already
-	// prepended, here we only handle instructions coming from
-	// remote images.
-	if !stage.BaseImageStoredLocally {
-		cmds, err := dockerfile.GetOnBuildInstructions(config, stageNameToIdx)
-		if err != nil {
-			return err
-		}
-
-		// Append to the beginning of the commands in the stage
-		stage.Commands = append(cmds, stage.Commands...)
-		logrus.Infof("Executing %v build triggers", len(cmds))
-	}
-
-	// Blank out the Onbuild command list for this image
-	config.OnBuild = nil
-	return nil
 }
 
 // reviewConfig makes sure the value of CMD is correct after building the stage
