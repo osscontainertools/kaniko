@@ -27,11 +27,12 @@ import (
 	"strconv"
 	"strings"
 
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/moby/buildkit/frontend/dockerfile/linter"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/constants"
+	"github.com/osscontainertools/kaniko/pkg/image/remote"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
@@ -290,18 +291,29 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			logrus.Infof("Resolved base name of %s to %s", stage.Name, stage.BaseName)
 		}
 		baseImageIndex := baseImageIndex(index, stages)
-		if baseImageIndex != -1 {
-			// mz338: Handle ONBUILD instructions for local stages.
-			// ONBUILD instructions must be handled prior to skip & squash optimizations.
-			// But handling them for remote images without performance impact is non-trivial,
-			// so for now we just handle local stages here.
-			onBuild := getOnBuild(stages[baseImageIndex].Commands)
-			cmds, err := ParseCommands(onBuild)
+
+		var onBuild []string
+		if stage.BaseName == constants.NoBaseImage {
+			// pass
+		} else if baseImageIndex != -1 {
+			onBuild = getOnBuild(stages[baseImageIndex].Commands)
+		} else {
+			image, err := remote.RetrieveRemoteImage(stage.BaseName, opts.RegistryOptions, opts.CustomPlatform)
 			if err != nil {
-				return nil, fmt.Errorf("failed to parse ONBUILD instructions: %w", err)
+				return nil, err
 			}
-			stage.Commands = append(cmds, stage.Commands...)
+			cfg, err := image.ConfigFile()
+			if err != nil {
+				return nil, err
+			}
+			onBuild = cfg.Config.OnBuild
 		}
+		cmds, err := ParseCommands(onBuild)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse ONBUILD instructions: %w", err)
+		}
+		stage.Commands = append(cmds, stage.Commands...)
+
 		kanikoStages = append(kanikoStages, config.KanikoStage{
 			Stage:                  stage,
 			BaseImageIndex:         baseImageIndex,
@@ -320,21 +332,6 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		kanikoStages = skipUnusedStages(kanikoStages, targetStage, ffSquashStages)
 	}
 	return kanikoStages, nil
-}
-
-func GetOnBuildInstructions(config *v1.Config, stageNameToIdx map[string]int) ([]instructions.Command, error) {
-	if len(config.OnBuild) == 0 {
-		return nil, nil
-	}
-
-	cmds, err := ParseCommands(config.OnBuild)
-	if err != nil {
-		return nil, err
-	}
-
-	// Iterate over commands and replace references to other stages with their index
-	ResolveCrossStageCommands(cmds, stageNameToIdx)
-	return cmds, nil
 }
 
 // unifyArgs returns the unified args between metaArgs and --build-arg
