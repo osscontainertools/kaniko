@@ -13,7 +13,7 @@ on:
 
 env:
   # to be replaced by ${{ github.repository }} at some point
-  IMAGE_NAME: ${{ vars.DOCKERHUB_USERNAME }}/${{ vars.REPOSITORY_NAME || 'kaniko' }}
+  IMAGE_NAME: martizih/kaniko
 
 permissions: {}
 
