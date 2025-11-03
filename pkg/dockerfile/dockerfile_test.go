@@ -482,14 +482,14 @@ func Test_SkipingUnusedStages(t *testing.T) {
 			RUN echo dev > /hi
 			FROM alpine:3.11 AS base-prod
 			RUN echo prod > /hi
-			FROM base-dev as final-stage
+			FROM base-dev AS final-stage
 			RUN cat /hi
 			`,
 			targets: []string{"base-dev", "base-prod", ""},
 			expectedSourceCodes: map[string][]string{
 				"base-dev":  {"FROM alpine:3.11 AS base-dev"},
 				"base-prod": {"FROM alpine:3.11 AS base-prod"},
-				"":          {"FROM alpine:3.11 AS base-dev", "FROM base-dev as final-stage"},
+				"":          {"FROM alpine:3.11 AS base-dev", "FROM base-dev AS final-stage"},
 			},
 		},
 		{
@@ -507,7 +507,7 @@ func Test_SkipingUnusedStages(t *testing.T) {
 			expectedSourceCodes: map[string][]string{
 				"base-dev":  {"FROM alpine:3.11 AS base-dev"},
 				"base-prod": {"FROM alpine:3.11 AS base-prod"},
-				"":          {"FROM alpine:3.11 AS base-prod", "FROM alpine:3.11"},
+				"":          {"FROM alpine:3.11 AS base-prod", "FROM alpine:3.11 AS "},
 			},
 		},
 		{
@@ -527,20 +527,20 @@ func Test_SkipingUnusedStages(t *testing.T) {
 			expectedSourceCodes: map[string][]string{
 				"base-dev":  {"FROM alpine:3.11 AS base-dev"},
 				"base-prod": {"FROM alpine:3.11 AS base-prod"},
-				"":          {"FROM alpine:3.11 AS base-dev", "FROM alpine:3.11 AS base-prod", "FROM alpine:3.11"},
+				"":          {"FROM alpine:3.11 AS base-dev", "FROM alpine:3.11 AS base-prod", "FROM alpine:3.11 AS "},
 			},
 		},
 		{
 			description: "dockerfile_with_two_copyFrom_and_arg",
 			dockerfile: `
-			FROM debian:12.10 as base
+			FROM debian:12.10 AS base
 			COPY . .
-			FROM scratch as second
+			FROM scratch AS second
 			ENV foopath context/foo
 			COPY --from=0 $foopath context/b* /foo/
-			FROM second as third
+			FROM second AS third
 			COPY --from=base /context/foo /new/foo
-			FROM base as fourth
+			FROM base AS fourth
 			# Make sure that we snapshot intermediate images correctly
 			RUN date > /date
 			ENV foo bar
@@ -554,63 +554,51 @@ func Test_SkipingUnusedStages(t *testing.T) {
 			`,
 			targets: []string{"base", ""},
 			expectedSourceCodes: map[string][]string{
-				"base":   {"FROM debian:12.10 as base"},
-				"second": {"FROM debian:12.10 as base", "FROM scratch as second"},
-				"":       {"FROM debian:12.10 as base", "FROM scratch as second", "FROM base as fourth", "FROM fourth"},
+				"base":   {"FROM debian:12.10 AS base"},
+				"second": {"FROM debian:12.10 AS base", "FROM scratch AS second"},
+				"":       {"FROM debian:12.10 AS base", "FROM scratch AS second", "FROM base AS fourth", "FROM fourth AS "},
 			},
 		},
 		{
 			description: "dockerfile_without_final_dependencies",
 			dockerfile: `
 			FROM alpine:3.11
-			FROM debian:12.10 as base
+			FROM debian:12.10 AS base
 			RUN echo foo > /foo
-			FROM debian:12.10 as fizz
+			FROM debian:12.10 AS fizz
 			RUN echo fizz >> /fizz
 			COPY --from=base /foo /fizz
-			FROM alpine:3.11 as buzz
+			FROM alpine:3.11 AS buzz
 			RUN echo buzz > /buzz
-			FROM alpine:3.11 as final
+			FROM alpine:3.11 AS final
 			RUN echo bar > /bar
 			`,
 			targets: []string{"final", "buzz", "fizz", ""},
 			expectedSourceCodes: map[string][]string{
-				"final": {"FROM alpine:3.11 as final"},
-				"buzz":  {"FROM alpine:3.11 as buzz"},
-				"fizz":  {"FROM debian:12.10 as base", "FROM debian:12.10 as fizz"},
-				"":      {"FROM alpine:3.11 as final"},
+				"final": {"FROM alpine:3.11 AS final"},
+				"buzz":  {"FROM alpine:3.11 AS buzz"},
+				"fizz":  {"FROM debian:12.10 AS base", "FROM debian:12.10 AS fizz"},
+				"":      {"FROM alpine:3.11 AS final"},
 			},
 		},
 	}
 
+	t.Setenv("FF_KANIKO_SQUASH_STAGES", "0")
 	for _, test := range tests {
 		stages, _, err := Parse([]byte(test.dockerfile))
 		testutil.CheckError(t, false, err)
-
-		var kanikoStages []config.KanikoStage
-		for index, stage := range stages {
-			baseImageIndex := baseImageIndex(index, stages)
-			kanikoStages = append(kanikoStages, config.KanikoStage{
-				Stage:                  stage,
-				BaseImageIndex:         baseImageIndex,
-				BaseImageStoredLocally: (baseImageIndex != -1),
-				SaveStage:              saveStage(index, stages),
-				Final:                  false,
-				MetaArgs:               nil,
-				Index:                  index,
-			})
-		}
-
-		actualSourceCodes := make(map[string][]string)
 		for _, target := range test.targets {
-			targetIndex, err := targetStage(stages, target)
+			opts := config.KanikoOptions{SkipUnusedStages: true, Target: target}
+			kanikoStages, err := MakeKanikoStages(&opts, stages, []instructions.ArgCommand{})
 			testutil.CheckError(t, false, err)
-			onlyUsedStages := skipUnusedStages(kanikoStages, targetIndex, false)
-			for _, s := range onlyUsedStages {
-				actualSourceCodes[target] = append(actualSourceCodes[target], s.SourceCode)
+			actualSourceCodes := []string{}
+			testutil.CheckError(t, false, err)
+			for _, s := range kanikoStages {
+				sourceCode := fmt.Sprintf("FROM %s AS %s", s.BaseName, s.Name)
+				actualSourceCodes = append(actualSourceCodes, sourceCode)
 			}
 			t.Run(test.description, func(t *testing.T) {
-				testutil.CheckDeepEqual(t, test.expectedSourceCodes[target], actualSourceCodes[target])
+				testutil.CheckDeepEqual(t, test.expectedSourceCodes[target], actualSourceCodes)
 			})
 		}
 	}
@@ -630,27 +618,27 @@ func Test_SquashStages(t *testing.T) {
 			RUN echo dev > /hi
 			FROM alpine:3.11 AS base-prod
 			RUN echo prod > /hi
-			FROM base-dev as final-stage
+			FROM base-dev AS final-stage
 			RUN cat /hi
 			`,
 			targets: []string{"base-dev", "base-prod", ""},
 			expectedSourceCodes: map[string][]string{
 				"base-dev":  {"FROM alpine:3.11 AS base-dev"},
 				"base-prod": {"FROM alpine:3.11 AS base-prod"},
-				"":          {"FROM alpine:3.11 AS base-dev\nFROM base-dev as final-stage"},
+				"":          {"FROM alpine:3.11 AS final-stage"},
 			},
 		},
 		{
 			description: "dockerfile_with_two_copyFrom_and_arg",
 			dockerfile: `
-			FROM debian:12.10 as base
+			FROM debian:12.10 AS base
 			COPY . .
-			FROM scratch as second
+			FROM scratch AS second
 			ENV foopath context/foo
 			COPY --from=0 $foopath context/b* /foo/
-			FROM second as third
+			FROM second AS third
 			COPY --from=base /context/foo /new/foo
-			FROM base as fourth
+			FROM base AS fourth
 			# Make sure that we snapshot intermediate images correctly
 			RUN date > /date
 			ENV foo bar
@@ -664,41 +652,29 @@ func Test_SquashStages(t *testing.T) {
 			`,
 			targets: []string{"base", ""},
 			expectedSourceCodes: map[string][]string{
-				"base":   {"FROM debian:12.10 as base"},
-				"second": {"FROM debian:12.10 as base", "FROM scratch as second"},
-				"":       {"FROM debian:12.10 as base", "FROM scratch as second", "FROM base as fourth\nFROM fourth"},
+				"base":   {"FROM debian:12.10 AS base"},
+				"second": {"FROM debian:12.10 AS base", "FROM scratch AS second"},
+				"":       {"FROM debian:12.10 AS base", "FROM scratch AS second", "FROM base AS "},
 			},
 		},
 	}
 
+	t.Setenv("FF_KANIKO_SQUASH_STAGES", "1")
 	for _, test := range tests {
 		stages, _, err := Parse([]byte(test.dockerfile))
 		testutil.CheckError(t, false, err)
-
-		var kanikoStages []config.KanikoStage
-		for index, stage := range stages {
-			baseImageIndex := baseImageIndex(index, stages)
-			kanikoStages = append(kanikoStages, config.KanikoStage{
-				Stage:                  stage,
-				BaseImageIndex:         baseImageIndex,
-				BaseImageStoredLocally: (baseImageIndex != -1),
-				SaveStage:              saveStage(index, stages),
-				Final:                  false,
-				MetaArgs:               nil,
-				Index:                  index,
-			})
-		}
-
-		actualSourceCodes := make(map[string][]string)
 		for _, target := range test.targets {
-			targetIndex, err := targetStage(stages, target)
+			opts := config.KanikoOptions{SkipUnusedStages: true, Target: target}
+			kanikoStages, err := MakeKanikoStages(&opts, stages, []instructions.ArgCommand{})
 			testutil.CheckError(t, false, err)
-			onlyUsedStages := skipUnusedStages(kanikoStages, targetIndex, true)
-			for _, s := range onlyUsedStages {
-				actualSourceCodes[target] = append(actualSourceCodes[target], s.SourceCode)
+			actualSourceCodes := []string{}
+			testutil.CheckError(t, false, err)
+			for _, s := range kanikoStages {
+				sourceCode := fmt.Sprintf("FROM %s AS %s", s.BaseName, s.Name)
+				actualSourceCodes = append(actualSourceCodes, sourceCode)
 			}
 			t.Run(test.description, func(t *testing.T) {
-				testutil.CheckDeepEqual(t, test.expectedSourceCodes[target], actualSourceCodes[target])
+				testutil.CheckDeepEqual(t, test.expectedSourceCodes[target], actualSourceCodes)
 			})
 		}
 	}
