@@ -285,12 +285,30 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	if err := resolveStagesArgs(stages, args); err != nil {
 		return nil, fmt.Errorf("resolving args: %w", err)
 	}
-	var kanikoStages []config.KanikoStage
-	for index, stage := range stages {
+	stages = stages[:targetStage+1]
+
+	stageByName := make(map[string]int)
+	for idx, s := range stages {
+		if s.Name != "" {
+			stageByName[s.Name] = idx
+		}
+	}
+
+	kanikoStages := make([]config.KanikoStage, len(stages))
+	// We now "count" references, it is only safe to squash
+	// stages if the references are exactly 1 and there are no COPY references
+	stagesDependencies := make([]int, len(stages))
+	copyDependencies := make([]int, len(stages))
+	stagesDependencies[targetStage] = 1
+	for i := targetStage; i >= 0; i-- {
+		if stagesDependencies[i] == 0 && copyDependencies[i] == 0 && opts.SkipUnusedStages {
+			continue
+		}
+		stage := stages[i]
 		if len(stage.Name) > 0 {
 			logrus.Infof("Resolved base name of %s to %s", stage.Name, stage.BaseName)
 		}
-		baseImageIndex := baseImageIndex(index, stages)
+		baseImageIndex := baseImageIndex(i, stages)
 
 		var onBuild []string
 		if stage.BaseName == constants.NoBaseImage {
@@ -314,22 +332,63 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		}
 		stage.Commands = append(cmds, stage.Commands...)
 
-		kanikoStages = append(kanikoStages, config.KanikoStage{
+		if opts.SkipUnusedStages {
+			if baseImageIndex != -1 {
+				stagesDependencies[baseImageIndex]++
+			}
+			for _, c := range stage.Commands {
+				switch cmd := c.(type) {
+				case *instructions.CopyCommand:
+					if copyFromIndex, err := strconv.Atoi(cmd.From); err == nil {
+						// numeric reference `COPY --from=0`
+						copyDependencies[copyFromIndex]++
+					} else {
+						// named reference `COPY --from=base`
+						if copyFromIndex, ok := stageByName[strings.ToLower(cmd.From)]; ok {
+							// There can be references that appear as non-existing stages
+							// ie. `COPY --from=debian` would try refer to `debian` as stage
+							// before falling back to `debian` as a docker image.
+							copyDependencies[copyFromIndex]++
+						}
+					}
+				}
+			}
+		}
+		kanikoStages[i] = config.KanikoStage{
 			Stage:                  stage,
 			BaseImageIndex:         baseImageIndex,
 			BaseImageStoredLocally: (baseImageIndex != -1),
-			SaveStage:              saveStage(index, stages),
-			Final:                  index == targetStage,
+			SaveStage:              saveStage(i, stages),
+			Final:                  i == targetStage,
 			MetaArgs:               metaArgs,
-			Index:                  index,
-		})
-		if index == targetStage {
-			break
+			Index:                  i,
+		}
+	}
+	if opts.SkipUnusedStages && config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true) {
+		for i, s := range kanikoStages {
+			if stagesDependencies[i] > 0 {
+				if s.BaseImageStoredLocally && stagesDependencies[s.BaseImageIndex] == 1 && copyDependencies[s.BaseImageIndex] == 0 {
+					sb := kanikoStages[s.BaseImageIndex]
+					// squash stages[i] into stages[i].BaseName
+					logrus.Infof("Squashing stages: %s into %s", s.Name, sb.Name)
+					// We squash the base stage into the current stage because,
+					// no one else depends on the base stage so it can be freely moved,
+					// the current stage might depend on other stages so it is not safe to move it.
+					kanikoStages[i] = squash(sb, s)
+					stagesDependencies[s.BaseImageIndex] = 0
+				}
+			}
 		}
 	}
 	if opts.SkipUnusedStages {
-		ffSquashStages := config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true)
-		kanikoStages = skipUnusedStages(kanikoStages, targetStage, ffSquashStages)
+		var onlyUsedStages []config.KanikoStage
+		for i, s := range kanikoStages {
+			if stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
+				s.SaveStage = stagesDependencies[i] > 0
+				onlyUsedStages = append(onlyUsedStages, s)
+			}
+		}
+		kanikoStages = onlyUsedStages
 	}
 	return kanikoStages, nil
 }
@@ -404,73 +463,4 @@ func squash(a, b config.KanikoStage) config.KanikoStage {
 		MetaArgs:               append(a.MetaArgs, b.MetaArgs...),
 		Index:                  b.Index,
 	}
-}
-
-// skipUnusedStages returns the list of used stages, filters out unused stages and optionally squashes them together.
-func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages bool) []config.KanikoStage {
-	stageByName := make(map[string]int)
-	stages = stages[:targetStage+1]
-
-	for idx, s := range stages {
-		if s.Name != "" {
-			stageByName[s.Name] = idx
-		}
-	}
-
-	// We now "count" references, it is only safe to squash
-	// stages if the references are exactly 1 and there are no COPY references
-	stagesDependencies := make([]int, len(stages))
-	copyDependencies := make([]int, len(stages))
-	stagesDependencies[targetStage] = 1
-
-	for i := targetStage; i >= 0; i-- {
-		if stagesDependencies[i] == 0 && copyDependencies[i] == 0 {
-			continue
-		}
-		s := stages[i]
-		if s.BaseImageStoredLocally {
-			stagesDependencies[s.BaseImageIndex]++
-		}
-		for _, c := range s.Commands {
-			switch cmd := c.(type) {
-			case *instructions.CopyCommand:
-				if copyFromIndex, err := strconv.Atoi(cmd.From); err == nil {
-					// numeric reference `COPY --from=0`
-					copyDependencies[copyFromIndex]++
-				} else {
-					// named reference `COPY --from=base`
-					if copyFromIndex, ok := stageByName[strings.ToLower(cmd.From)]; ok {
-						// There can be references that appear as non-existing stages
-						// ie. `COPY --from=debian` would try refer to `debian` as stage
-						// before falling back to `debian` as a docker image.
-						copyDependencies[copyFromIndex]++
-					}
-				}
-			}
-		}
-	}
-
-	for i, s := range stages {
-		if squashStages && stagesDependencies[i] > 0 {
-			if s.BaseImageStoredLocally && stagesDependencies[s.BaseImageIndex] == 1 && copyDependencies[s.BaseImageIndex] == 0 {
-				sb := stages[s.BaseImageIndex]
-				// squash stages[i] into stages[i].BaseName
-				logrus.Infof("Squashing stages: %s into %s", s.Name, sb.Name)
-				// We squash the base stage into the current stage because,
-				// no one else depends on the base stage so it can be freely moved,
-				// the current stage might depend on other stages so it is not safe to move it.
-				stages[i] = squash(sb, s)
-				stagesDependencies[s.BaseImageIndex] = 0
-			}
-		}
-	}
-
-	var onlyUsedStages []config.KanikoStage
-	for i, s := range stages {
-		if stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
-			s.SaveStage = stagesDependencies[i] > 0
-			onlyUsedStages = append(onlyUsedStages, s)
-		}
-	}
-	return onlyUsedStages
 }
