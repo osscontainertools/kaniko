@@ -583,34 +583,21 @@ func Test_SkipingUnusedStages(t *testing.T) {
 		},
 	}
 
+	t.Setenv("FF_KANIKO_SQUASH_STAGES", "0")
 	for _, test := range tests {
 		stages, _, err := Parse([]byte(test.dockerfile))
 		testutil.CheckError(t, false, err)
-
-		var kanikoStages []config.KanikoStage
-		for index, stage := range stages {
-			baseImageIndex := baseImageIndex(index, stages)
-			kanikoStages = append(kanikoStages, config.KanikoStage{
-				Stage:                  stage,
-				BaseImageIndex:         baseImageIndex,
-				BaseImageStoredLocally: (baseImageIndex != -1),
-				SaveStage:              saveStage(index, stages),
-				Final:                  false,
-				MetaArgs:               nil,
-				Index:                  index,
-			})
-		}
-
-		actualSourceCodes := make(map[string][]string)
 		for _, target := range test.targets {
-			targetIndex, err := targetStage(stages, target)
+			opts := config.KanikoOptions{SkipUnusedStages: true, Target: target}
+			kanikoStages, err := MakeKanikoStages(&opts, stages, []instructions.ArgCommand{})
 			testutil.CheckError(t, false, err)
-			onlyUsedStages := skipUnusedStages(kanikoStages, targetIndex, false)
-			for _, s := range onlyUsedStages {
-				actualSourceCodes[target] = append(actualSourceCodes[target], s.SourceCode)
+			actualSourceCodes := []string{}
+			testutil.CheckError(t, false, err)
+			for _, s := range kanikoStages {
+				actualSourceCodes = append(actualSourceCodes, s.SourceCode)
 			}
 			t.Run(test.description, func(t *testing.T) {
-				testutil.CheckDeepEqual(t, test.expectedSourceCodes[target], actualSourceCodes[target])
+				testutil.CheckDeepEqual(t, test.expectedSourceCodes[target], actualSourceCodes)
 			})
 		}
 	}
@@ -671,34 +658,21 @@ func Test_SquashStages(t *testing.T) {
 		},
 	}
 
+	t.Setenv("FF_KANIKO_SQUASH_STAGES", "1")
 	for _, test := range tests {
 		stages, _, err := Parse([]byte(test.dockerfile))
 		testutil.CheckError(t, false, err)
-
-		var kanikoStages []config.KanikoStage
-		for index, stage := range stages {
-			baseImageIndex := baseImageIndex(index, stages)
-			kanikoStages = append(kanikoStages, config.KanikoStage{
-				Stage:                  stage,
-				BaseImageIndex:         baseImageIndex,
-				BaseImageStoredLocally: (baseImageIndex != -1),
-				SaveStage:              saveStage(index, stages),
-				Final:                  false,
-				MetaArgs:               nil,
-				Index:                  index,
-			})
-		}
-
-		actualSourceCodes := make(map[string][]string)
 		for _, target := range test.targets {
-			targetIndex, err := targetStage(stages, target)
+			opts := config.KanikoOptions{SkipUnusedStages: true, Target: target}
+			kanikoStages, err := MakeKanikoStages(&opts, stages, []instructions.ArgCommand{})
 			testutil.CheckError(t, false, err)
-			onlyUsedStages := skipUnusedStages(kanikoStages, targetIndex, true)
-			for _, s := range onlyUsedStages {
-				actualSourceCodes[target] = append(actualSourceCodes[target], s.SourceCode)
+			actualSourceCodes := []string{}
+			testutil.CheckError(t, false, err)
+			for _, s := range kanikoStages {
+				actualSourceCodes = append(actualSourceCodes, s.SourceCode)
 			}
 			t.Run(test.description, func(t *testing.T) {
-				testutil.CheckDeepEqual(t, test.expectedSourceCodes[target], actualSourceCodes[target])
+				testutil.CheckDeepEqual(t, test.expectedSourceCodes[target], actualSourceCodes)
 			})
 		}
 	}
