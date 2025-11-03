@@ -77,9 +77,7 @@ type stageBuilder struct {
 	fileContext      util.FileContext
 	cmds             []commands.DockerCommand
 	args             *dockerfile.BuildArgs
-	crossStageDeps   map[int][]string
-	digestToCacheKey map[string]string
-	stageIdxToDigest map[int]string
+	crossStageDeps   bool
 	snapshotter      snapShotter
 	layerCache       cache.LayerCache
 	pushLayerToCache cachePusher
@@ -95,7 +93,7 @@ func makeSnapshotter(opts *config.KanikoOptions) (*snapshot.Snapshotter, error) 
 }
 
 // newStageBuilder returns a new type stageBuilder which contains all the information required to build the stage
-func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, stage config.KanikoStage, crossStageDeps map[int][]string, dcm map[string]string, sid map[int]string, stageNameToIdx map[string]int, fileContext util.FileContext) (*stageBuilder, error) {
+func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, stage config.KanikoStage, crossStageDeps map[int][]string, stageNameToIdx map[string]int, fileContext util.FileContext) (*stageBuilder, error) {
 	sourceImage, err := image_util.RetrieveSourceImage(stage, opts)
 	if err != nil {
 		return nil, err
@@ -151,9 +149,7 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		opts:             opts,
 		fileContext:      fileContext,
 		args:             args.Clone(),
-		crossStageDeps:   crossStageDeps,
-		digestToCacheKey: dcm,
-		stageIdxToDigest: sid,
+		crossStageDeps:   len(crossStageDeps[stage.Index]) > 0,
 		layerCache:       newLayerCache(opts),
 		pushLayerToCache: pushLayerToCache,
 	}
@@ -314,10 +310,10 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config) erro
 	return nil
 }
 
-func (s *stageBuilder) build() error {
+func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 	// Set the initial cache key to be the base image digest, the build args and the SrcContext.
 	var compositeKey *CompositeCache
-	if cacheKey, ok := s.digestToCacheKey[s.baseImageDigest]; ok {
+	if cacheKey, ok := digestToCacheKey[s.baseImageDigest]; ok {
 		compositeKey = NewCompositeCache(cacheKey)
 	} else {
 		compositeKey = NewCompositeCache(s.baseImageDigest)
@@ -337,7 +333,7 @@ func (s *stageBuilder) build() error {
 			break
 		}
 	}
-	if len(s.crossStageDeps[s.index]) > 0 {
+	if s.crossStageDeps {
 		shouldUnpack = true
 	}
 	if s.final && s.opts.Materialize {
@@ -799,7 +795,6 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	t := timing.Start("Total Build Time")
 	digestToCacheKey := make(map[string]string)
-	stageIdxToDigest := make(map[int]string)
 
 	stages, metaArgs, err := dockerfile.ParseStages(opts)
 	if err != nil {
@@ -896,8 +891,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		sb, err := newStageBuilder(
 			args, opts, stage,
 			crossStageDependencies,
-			digestToCacheKey,
-			stageIdxToDigest,
 			stageNameToIdx,
 			fileContext)
 
@@ -908,7 +901,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return nil, err
 		}
 		args = sb.args
-		if err := sb.build(); err != nil {
+		if err := sb.build(digestToCacheKey); err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
 		}
 
@@ -939,7 +932,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if err != nil {
 			return nil, err
 		}
-		stageIdxToDigest[sb.index] = d.String()
 		logrus.Debugf("Mapping stage idx %v to digest %v", sb.index, d.String())
 
 		digestToCacheKey[d.String()] = sb.finalCacheKey
@@ -975,8 +967,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		dstDir := filepath.Join(config.KanikoInterStageDepsDir, strconv.Itoa(stage.Index))
 		_ = os.RemoveAll(dstDir)
 		if err := os.MkdirAll(dstDir, mkdirPermissions); err != nil {
-			return nil, fmt.Errorf("to create workspace for stage %s: %w",
-				stageIdxToDigest[stage.Index], err)
+			return nil, fmt.Errorf("to create workspace for stage %d: %w",
+				stage.Index, err)
 		}
 		for _, p := range filesToSave {
 			logrus.Infof("Saving file %s for later use", p)
