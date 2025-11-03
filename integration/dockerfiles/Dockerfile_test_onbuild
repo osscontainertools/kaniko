@@ -1,4 +1,5 @@
-FROM gcr.io/kaniko-test/onbuild-base:latest
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}onbuild-base:latest
 COPY context/foo foo
 ENV dir /new/workdir/
 ARG file

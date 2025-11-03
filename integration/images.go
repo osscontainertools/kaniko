@@ -317,6 +317,7 @@ func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfile
 	for _, arg := range argsMap[dockerfile] {
 		buildArgs = append(buildArgs, buildArgFlag, arg)
 	}
+	buildArgs = append(buildArgs, buildArgFlag, fmt.Sprintf("IMAGE_REPO=%s", imageRepo))
 
 	// build docker image
 	additionalFlags := append(buildArgs, additionalDockerFlagsMap[dockerfile]...)
@@ -369,6 +370,7 @@ func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrat
 	for _, arg := range argsMap[dockerfile] {
 		buildArgs = append(buildArgs, buildArgFlag, arg)
 	}
+	buildArgs = append(buildArgs, buildArgFlag, fmt.Sprintf("IMAGE_REPO=%s", config.imageRepo))
 
 	timer := timing.Start(dockerfile + "_docker")
 	if err := d.BuildDockerImage(t, imageRepo, dockerfilesPath, dockerfile, contextDir); err != nil {
