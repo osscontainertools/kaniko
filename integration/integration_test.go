@@ -724,11 +724,11 @@ func verifyBuildWith(t *testing.T, cache, dockerfile string) {
 	}
 
 	// Build the initial image which will cache layers
-	if err := imageBuilder.buildCachedImage(config, cache, dockerfilesPath, dockerfile, 0, args); err != nil {
+	if err := imageBuilder.buildCachedImage(t.Logf, config, cache, dockerfilesPath, dockerfile, 0, args); err != nil {
 		t.Fatalf("error building cached image for the first time: %v", err)
 	}
 	// Build the second image which should pull from the cache
-	if err := imageBuilder.buildCachedImage(config, cache, dockerfilesPath, dockerfile, 1, args); err != nil {
+	if err := imageBuilder.buildCachedImage(t.Logf, config, cache, dockerfilesPath, dockerfile, 1, args); err != nil {
 		t.Fatalf("error building cached image for the second time: %v", err)
 	}
 	// Make sure both images are the same
@@ -750,6 +750,7 @@ func TestRelativePaths(t *testing.T) {
 		contextPath := "./context"
 
 		err := imageBuilder.buildRelativePathsImage(
+			t.Logf,
 			config.imageRepo,
 			dockerfile,
 			config.serviceAccount,
