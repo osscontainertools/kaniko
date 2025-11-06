@@ -686,6 +686,44 @@ func TestCache(t *testing.T) {
 	}
 }
 
+func TestWarmerCache(t *testing.T) {
+	warmerDockerfiles := []string{"Dockerfile_test_issue_mz320"}
+	for _, dockerfile := range warmerDockerfiles {
+		t.Run("test_warmer_"+dockerfile, func(t *testing.T) {
+			t.Parallel()
+			_, ex, _, _ := runtime.Caller(0)
+			cwd := filepath.Dir(ex) + "/tmpCache"
+			dockerRunFlags := []string{"run", "--net=host", "-v", cwd + ":/cache"}
+			dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+			dockerRunFlags = append(dockerRunFlags,
+				WarmerImage,
+				"--dockerfile", dockerfile,
+				"--cache-dir=/cache",
+			)
+			warmCmd := exec.Command("docker", dockerRunFlags...)
+			_, err := RunCommandWithoutTest(warmCmd)
+			if err != nil {
+				t.Fatalf("Failed to warm up cache: %s", err)
+			}
+
+			// build from cache with no networking - in an air-gapped environment
+			dockerflags := []string{"-v", cwd + ":/cache", "--net=none"}
+			buildArgs := []string{}
+			additionalKanikoFlags := []string{
+				"--cache-dir=/cache",
+				"--cache",
+				"--no-push",
+				"--no-push-cache",
+			}
+			gcsBucket, gcsClient, serviceAccount, _ := config.gcsBucket, config.gcsClient, config.serviceAccount, config.imageRepo
+			_, err = buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, dockerflags, buildArgs, additionalKanikoFlags, ExecutorImage, cwd, gcsBucket, gcsClient, serviceAccount, false)
+			if err != nil {
+				t.Fatalf("Failed to build kaniko image: %s", err)
+			}
+		})
+	}
+}
+
 // Attempt to warm an image two times : first time should populate the cache, second time should find the image in the cache.
 func TestWarmerTwice(t *testing.T) {
 	t.Parallel()

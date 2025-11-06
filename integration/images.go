@@ -397,7 +397,7 @@ func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrat
 
 	kanikoImage := GetKanikoImage(imageRepo, dockerfile)
 	timer = timing.Start(dockerfile + "_kaniko")
-	if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
+	if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, []string{"--net=host"}, buildArgs, additionalKanikoFlags, kanikoImage,
 		contextDir, gcsBucket, gcsClient, serviceAccount, true); err != nil {
 		return err
 	}
@@ -528,6 +528,7 @@ func buildKanikoImage(
 	logf logger,
 	dockerfilesPath string,
 	dockerfile string,
+	dockerflags []string,
 	buildArgs []string,
 	kanikoArgs []string,
 	kanikoImage string,
@@ -561,11 +562,12 @@ func buildKanikoImage(
 	logf("Going to build image with kaniko: %s, flags: %s \n", kanikoImage, additionalFlags)
 
 	dockerRunFlags := []string{
-		"run", "--net=host",
+		"run",
 		"-e", benchmarkEnv,
 		"-v", contextDir + ":/workspace:ro",
 		"-v", benchmarkDir + ":/kaniko/benchmarks",
 	}
+	dockerRunFlags = append(dockerRunFlags, dockerflags...)
 
 	for _, envVariable := range KanikoEnv {
 		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
