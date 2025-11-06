@@ -128,6 +128,11 @@ func launchTests(m *testing.M) (int, error) {
 		return 1, errors.Wrap(err, "Error while building images")
 	}
 
+	err := populateVolumeCache(config)
+	if err != nil {
+		return 1, errors.Wrap(err, "Error while warming up cache")
+	}
+
 	imageBuilder = NewDockerFileBuilder()
 
 	return m.Run(), nil
@@ -659,8 +664,6 @@ func buildImage(t *testing.T, dockerfile string, imageBuilder *DockerFileBuilder
 
 // Build each image with kaniko twice, and then make sure they're exactly the same
 func TestCache(t *testing.T) {
-	populateVolumeCache()
-
 	// Build dockerfiles with registry cache
 	for dockerfile := range imageBuilder.TestCacheDockerfiles {
 		t.Run("test_cache_"+dockerfile, func(t *testing.T) {
