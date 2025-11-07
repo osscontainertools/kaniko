@@ -688,33 +688,51 @@ func TestCache(t *testing.T) {
 
 // Attempt to warm an image two times : first time should populate the cache, second time should find the image in the cache.
 func TestWarmerTwice(t *testing.T) {
-	t.Parallel()
 	_, ex, _, _ := runtime.Caller(0)
-	cwd := filepath.Dir(ex) + "/tmpCache"
-
-	// Start a sleeping warmer container
-	dockerRunFlags := []string{"run", "--net=host"}
-	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
-	dockerRunFlags = append(dockerRunFlags,
-		"--memory=16m",
-		"-v", cwd+":/cache",
-		WarmerImage,
-		"--cache-dir=/cache",
-		"-i", "debian:trixie-slim")
-
-	warmCmd := exec.Command("docker", dockerRunFlags...)
-	out, err := RunCommandWithoutTest(warmCmd)
-	if err != nil {
-		t.Fatalf("Unable to perform first warming: %s", err)
+	tmpDir := filepath.Dir(ex) + "/tmpCache"
+	dockerfiles := map[string]bool{
+		"debian:trixie-slim": true,
+		"debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56": true,  // image-index requires remote lookup
+		"debian:12.10@sha256:6bc30d909583f38600edd6609e29eb3fb284ab8affce8d0389f332fc91c2dd91": false, // image-manifest can skip lookup
 	}
-	t.Logf("First warm output: %s", out)
+	for dockerfile, remoteLookup := range dockerfiles {
+		t.Run("test_warmer_twice_"+dockerfile, func(t *testing.T) {
+			t.Parallel()
+			// Start a sleeping warmer container
+			dockerRunFlags := []string{"run", "--net=host"}
+			dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+			dockerRunFlags = append(dockerRunFlags,
+				"-v", tmpDir+":/cache",
+				WarmerImage,
+				"--cache-dir=/cache",
+				"-i", dockerfile)
 
-	warmCmd = exec.Command("docker", dockerRunFlags...)
-	out, err = RunCommandWithoutTest(warmCmd)
-	if err != nil {
-		t.Fatalf("Unable to perform second warming: %s", err)
+			warmCmd := exec.Command("docker", dockerRunFlags...)
+			out, err := RunCommandWithoutTest(warmCmd)
+			if err != nil {
+				t.Fatalf("Unable to perform first warming: %s", err)
+			}
+			t.Logf("First warm output: %s", out)
+
+			warmCmd = exec.Command("docker", dockerRunFlags...)
+			out, err = RunCommandWithoutTest(warmCmd)
+			if err != nil {
+				t.Fatalf("Unable to perform second warming: %s", err)
+			}
+			t.Logf("Second warm output: %s", out)
+
+			s := fmt.Sprintf("Image already in cache: %s", dockerfile)
+			if !strings.Contains(string(out), s) {
+				t.Fatalf("output must contain %s", s)
+			}
+			s = fmt.Sprintf("Retrieving image %s from registry index.docker.io", dockerfile)
+			if remoteLookup && !strings.Contains(string(out), s) {
+				t.Fatalf("output must contain %s", s)
+			} else if !remoteLookup && strings.Contains(string(out), s) {
+				t.Fatalf("output must not contain %s", s)
+			}
+		})
 	}
-	t.Logf("Second warm output: %s", out)
 }
 
 func verifyBuildWith(t *testing.T, cache, dockerfile string) {
