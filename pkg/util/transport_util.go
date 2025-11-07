@@ -107,5 +107,10 @@ func MakeTransport(opts config.RegistryOptions, registryName string) (http.Round
 		tr.(*http.Transport).TLSClientConfig.Certificates = []tls.Certificate{cert}
 	}
 
+	if config.EnvBool("FF_KANIKO_DISABLE_HTTP2") {
+		tr.(*http.Transport).ForceAttemptHTTP2 = false
+		tr.(*http.Transport).TLSClientConfig.NextProtos = []string{"http/1.1"}
+	}
+
 	return tr, nil
 }
