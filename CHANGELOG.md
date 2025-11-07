@@ -1,3 +1,49 @@
+# v1.26.1 Release 2025-11-07
+## Community Update
+Please welcome our new maintainers: @0hlov3 @babs @BobDu and @nejch
+
+If you're interested in joining our community too, please reach out here:
+https://github.com/osscontainertools/kaniko/discussions/304
+
+Also many thanks to @Ashex @ehfd and @YevheniiSemendiak for reporting the issues fixed in this release.
+
+## What's Changed
+### Bugfixes
+* squashing breaks `ONBUILD` instructions: https://github.com/osscontainertools/kaniko/pull/339
+* image-index digests causes warmer cache misses: https://github.com/osscontainertools/kaniko/pull/321
+* fix copy capabilities: https://github.com/osscontainertools/kaniko/pull/343
+
+### Performance
+* recompute whether a stage must be saved: https://github.com/osscontainertools/kaniko/pull/335
+* port digest optimization to warmer: https://github.com/osscontainertools/kaniko/pull/325
+* `FF_KANIKO_DISABLE_HTTP2=false` stop forcing http/2.0: https://github.com/osscontainertools/kaniko/pull/340
+
+### Maintenance
+* chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.39.2 to 1.39.6: https://github.com/osscontainertools/kaniko/pull/317 https://github.com/osscontainertools/kaniko/pull/331 https://github.com/osscontainertools/kaniko/pull/349 https://github.com/osscontainertools/kaniko/pull/359
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.31.12 to 1.31.17: https://github.com/osscontainertools/kaniko/pull/317 https://github.com/osscontainertools/kaniko/pull/327 https://github.com/osscontainertools/kaniko/pull/331 https://github.com/osscontainertools/kaniko/pull/349 https://github.com/osscontainertools/kaniko/pull/359
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.19.12 to 1.20.4: https://github.com/osscontainertools/kaniko/pull/317 https://github.com/osscontainertools/kaniko/pull/327 https://github.com/osscontainertools/kaniko/pull/331 https://github.com/osscontainertools/kaniko/pull/341 https://github.com/osscontainertools/kaniko/pull/344 https://github.com/osscontainertools/kaniko/pull/349 https://github.com/osscontainertools/kaniko/pull/359 https://github.com/osscontainertools/kaniko/pull/363
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.88.4 to 1.90.0: https://github.com/osscontainertools/kaniko/pull/317 https://github.com/osscontainertools/kaniko/pull/327 https://github.com/osscontainertools/kaniko/pull/331 https://github.com/osscontainertools/kaniko/pull/344 https://github.com/osscontainertools/kaniko/pull/359 https://github.com/osscontainertools/kaniko/pull/363
+* chore(deps): bump sigstore/cosign-installer from 3.10.0 to 4.0.0: https://github.com/osscontainertools/kaniko/pull/318 https://github.com/osscontainertools/kaniko/pull/349
+* chore(deps): bump github.com/Azure/azure-sdk-for-go/sdk/storage/azblob from 1.6.2 to 1.6.3 in the gomod group: https://github.com/osscontainertools/kaniko/pull/319
+* chore(deps): bump google.golang.org/api from 0.252.0 to 0.255.0: https://github.com/osscontainertools/kaniko/pull/328 https://github.com/osscontainertools/kaniko/pull/345 https://github.com/osscontainertools/kaniko/pull/361
+* chore(deps): bump cloud.google.com/go/storage from 1.57.0 to 1.57.1 in the gomod group: https://github.com/osscontainertools/kaniko/pull/346
+* chore(deps): bump github.com/moby/moby/api from 1.52.0-beta.2 to 1.52.0-beta.4: https://github.com/osscontainertools/kaniko/pull/348 https://github.com/osscontainertools/kaniko/pull/357
+* chore(deps): bump github.com/moby/buildkit from 0.25.1 to 0.25.2: https://github.com/osscontainertools/kaniko/pull/359
+* chore(deps): bump github.com/containerd/platforms from 1.0.0-rc.1 to 1.0.0-rc.2: https://github.com/osscontainertools/kaniko/pull/360
+* chore(deps): bump step-security/harden-runner from 2.13.1 to 2.13.2 in the actions group: https://github.com/osscontainertools/kaniko/pull/358
+* chore(deps): bump docker/setup-qemu-action from 3.6.0 to 3.7.0 in the actions group: https://github.com/osscontainertools/kaniko/pull/358
+* chore(deps): bump golang from 1.25.3 to 1.25.4: https://github.com/osscontainertools/kaniko/pull/362
+
+### Fork Related
+* cleanup docs: https://github.com/osscontainertools/kaniko/pull/315
+* cleanup unused release script: by @BobDu in https://github.com/osscontainertools/kaniko/pull/347
+* publish images to ghcr: by @babs in https://github.com/osscontainertools/kaniko/pull/329 https://github.com/osscontainertools/kaniko/pull/353
+* use upstream images from local registry: https://github.com/osscontainertools/kaniko/pull/355
+
+### Refactorings
+* stageIdx is an int: https://github.com/osscontainertools/kaniko/pull/336
+
+
 # v1.26.0 Release 2025-10-16
 ## Update Notice
 In this Release we activated three feature flags:
@@ -20,7 +66,7 @@ Please also notify us by [filing a new issue](https://github.com/osscontainertoo
 * skip-unused-stages invalidates numeric references: https://github.com/osscontainertools/kaniko/pull/306
 
 ### Performance
-* `FF_KANIKO_OCI_STAGES=false` use ocilayout instead of tarballs during stage transitions: https://github.com/mzihlmann/kaniko/pull/141
+* `FF_KANIKO_OCI_STAGES=false` use ocilayout instead of tarballs during stage transitions: https://github.com/mzihlmann/kaniko/pull/303
 
 ### Usability
 * activate featureflags for v1.26.0 release: https://github.com/osscontainertools/kaniko/pull/312
