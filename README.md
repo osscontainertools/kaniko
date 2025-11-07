@@ -1240,6 +1240,7 @@ multiple times for multiple registries.
 
 Builds only used stages.  If set to `false` it builds all stages, even the unnecessary ones until it reaches the target stage / end of Dockerfile.
 Defaults to `true`.
+Will be deprecated in `v1.27.0`.
 
 #### Flag `--snapshot-mode`
 

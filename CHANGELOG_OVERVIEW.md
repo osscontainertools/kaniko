@@ -15,6 +15,7 @@
 * warmer tries to load stage references: https://github.com/osscontainertools/kaniko/pull/266
 * `FF_KANIKO_IGNORE_CACHED_MANIFEST=false` ignore potentially invalid cached manifest files: by @luxurine in https://github.com/osscontainertools/kaniko/pull/267
 * don't reuse interstage dependencies: https://github.com/osscontainertools/kaniko/pull/286
+* image-index digests causes warmer cache misses: https://github.com/osscontainertools/kaniko/pull/321
 ### Standardization
 * sticky bit gets lost on COPY: https://github.com/mzihlmann/kaniko/pull/45
 * COPY with restrictive chmod makes directory inacessible: https://github.com/mzihlmann/kaniko/pull/80
@@ -38,7 +39,10 @@
 * whiteout annotations to prevent cache misses through `--annotation`: https://github.com/mzihlmann/kaniko/pull/209
 ### Performance
 * `FF_KANIKO_SQUASH_STAGES=true` squash stages together, speeding up build: https://github.com/mzihlmann/kaniko/pull/141 https://github.com/osscontainertools/kaniko/pull/283
-* `FF_KANIKO_OCI_STAGES=false` use ocilayout instead of tarballs during stage transitions: https://github.com/mzihlmann/kaniko/pull/141
+* `FF_KANIKO_OCI_STAGES=false` use ocilayout instead of tarballs during stage transitions: https://github.com/mzihlmann/kaniko/pull/303
+* recompute whether a stage must be saved: https://github.com/osscontainertools/kaniko/pull/335
+* port digest optimization to warmer: https://github.com/osscontainertools/kaniko/pull/325
+* `FF_KANIKO_DISABLE_HTTP2=false` stop forcing http/2.0: https://github.com/osscontainertools/kaniko/pull/340
 ### Usability
 * if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
 * kaniko learned `--preserve-context` to preserve the build-context across multi-stage builds: https://github.com/mzihlmann/kaniko/pull/28
@@ -65,6 +69,8 @@
 * move github.com/docker/docker/api -> github.com/moby/moby/api: by @BobDu in https://github.com/osscontainertools/kaniko/pull/258
 * 🔗 fix code scanning alert 1: by @cpanato in https://github.com/osscontainertools/kaniko/pull/272
 * update docs: by @6543 in https://github.com/osscontainertools/kaniko/pull/300
+* cleanup unused release script: by @BobDu in https://github.com/osscontainertools/kaniko/pull/347
+* publish images to ghcr: by @babs in https://github.com/osscontainertools/kaniko/pull/329 https://github.com/osscontainertools/kaniko/pull/353
 
 for a more detailed view you can refer to our [Changelog](./CHANGELOG.md) or [release notes](https://github.com/osscontainertools/kaniko/releases)
 
