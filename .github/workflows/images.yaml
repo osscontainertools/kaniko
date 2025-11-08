@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKER_REPO: ${{ vars.DOCKERHUB_USERNAME }}/${{ vars.REPOSITORY_NAME || 'kaniko' }}
+  DOCKER_REPO: ${{ vars.DOCKERHUB_ORG }}/${{ vars.REPOSITORY_NAME || 'kaniko' }}
 
 permissions: {}
 
@@ -121,11 +121,10 @@ jobs:
               IMAGE_NAME=ghcr.io/${{ github.repository }}
               ;;
             *)
-              IMAGE_NAME=ghcr.io/${{ github.repository }}-dev-builds
+              IMAGE_NAME=ghcr.io/${{ github.repository }}-dev
             ;;
           esac
           echo "image_name=$IMAGE_NAME" >> $GITHUB_OUTPUT
-          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
 
       - uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         id: build-and-push
