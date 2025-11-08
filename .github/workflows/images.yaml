@@ -12,8 +12,7 @@ on:
   workflow_dispatch:
 
 env:
-  # to be replaced by ${{ github.repository }} at some point
-  IMAGE_NAME: martizih/kaniko
+  DOCKER_REPO: ${{ vars.DOCKERHUB_USERNAME }}/${{ vars.REPOSITORY_NAME || 'kaniko' }}
 
 permissions: {}
 
@@ -87,8 +86,9 @@ jobs:
       - if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
-          username: ${{ vars.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       # Don't build for all platforms on PRs.
       - id: platforms
@@ -113,6 +113,20 @@ jobs:
         id: build-time
         run: echo "now=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
 
+      - name: Define proper repo
+        id: repo
+        run: |
+          case "${{ github.ref }}" in
+            refs/tags/v*)
+              IMAGE_NAME=ghcr.io/${{ github.repository }}
+              ;;
+            *)
+              IMAGE_NAME=ghcr.io/${{ github.repository }}-dev-builds
+            ;;
+          esac
+          echo "image_name=$IMAGE_NAME" >> $GITHUB_OUTPUT
+          echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
+
       - uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         id: build-and-push
         with:
@@ -120,7 +134,7 @@ jobs:
           file: ./deploy/Dockerfile
           platforms: ${{ steps.platforms.outputs.platforms }}
           push: ${{ github.event_name != 'pull_request' }} # Only push if not a PR.
-          tags: ${{ env.IMAGE_NAME }}:${{ matrix.tag }}
+          tags: ${{ steps.repo.outputs.image_name }}:${{ matrix.tag }}
           no-cache-filters: certs
           # https://github.com/docker/build-push-action/blob/master/docs/advanced/cache.md#github-cache
           cache-from: type=gha
@@ -135,7 +149,7 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.vendor=${{ github.repository_owner }}
             org.opencontainers.image.licenses=Apache-2.0
-            org.opencontainers.image.title=${{ env.IMAGE_NAME }}:${{ matrix.release-tag }}
+            org.opencontainers.image.title=${{ steps.repo.outputs.image_name }}:${{ matrix.release-tag }}
             org.opencontainers.image.version=${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || github.sha }}
 
       # Sign images if not a PR.
@@ -145,53 +159,53 @@ jobs:
       - if: github.event_name != 'pull_request'
         run: |
           cosign sign --yes \
-              ${{ env.IMAGE_NAME }}@${{ steps.build-and-push.outputs.digest }}
+              ${{ steps.repo.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }}
 
       # If a tag push, use crane to add more tags.
       - if: startsWith(github.ref, 'refs/tags/v')
         uses: imjasonh/setup-crane@31b88efe9de28ae0ffa220711af4b60be9435f6e # v0.4
+
       - if: startsWith(github.ref, 'refs/tags/v')
         name: Apply release tags
         run: |
           tag=${GITHUB_REF/refs\/tags\//}
 
           # Tag :latest, :debug, :slim
-          crane cp ${{ env.IMAGE_NAME }}@${{ steps.build-and-push.outputs.digest }} \
-              ${{ env.IMAGE_NAME }}:${{ matrix.release-tag }}
+          crane cp ${{ steps.repo.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }} \
+              ${{ steps.repo.outputs.image_name }}:${{ matrix.release-tag }}
 
           if [[ "${{ matrix.release-tag }}" == "latest" ]]; then
             # Tag :latest images as :v1.X.Y
-            crane cp ${{ env.IMAGE_NAME }}@${{ steps.build-and-push.outputs.digest }} \
-                ${{ env.IMAGE_NAME }}:${tag}
+            crane cp ${{ steps.repo.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }} \
+                ${{ steps.repo.outputs.image_name }}:${tag}
           else
             # Or tag :v1.X.Y-debug and :v1.X.Y-slim
-            crane cp ${{ env.IMAGE_NAME }}@${{ steps.build-and-push.outputs.digest }} \
-                ${{ env.IMAGE_NAME }}:${tag}-${{ matrix.release-tag }}
+            crane cp ${{ steps.repo.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }} \
+                ${{ steps.repo.outputs.image_name }}:${tag}-${{ matrix.release-tag }}
           fi
 
       # If a tag push, distribute to other registries too
       - if: startsWith(github.ref, 'refs/tags/v')
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - if: startsWith(github.ref, 'refs/tags/v')
-        name: Distribute to GHCR
+        name: Distribute to Docker hub
         run: |
           tag=${GITHUB_REF/refs\/tags\//}
 
           # Tag :latest, :debug, :slim
-          crane cp ${{ env.IMAGE_NAME }}@${{ steps.build-and-push.outputs.digest }} \
-              ghcr.io/${{ github.repository }}:${{ matrix.release-tag }}
+          crane cp ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
+              ${{ env.DOCKER_REPO }}:${{ matrix.release-tag }}
 
           if [[ "${{ matrix.release-tag }}" == "latest" ]]; then
             # Tag :latest images as :v1.X.Y
-            crane cp ${{ env.IMAGE_NAME }}@${{ steps.build-and-push.outputs.digest }} \
-                ghcr.io/${{ github.repository }}:${tag}
+            crane cp ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
+                ${{ env.DOCKER_REPO }}:${tag}
           else
             # Or tag :v1.X.Y-debug and :v1.X.Y-slim
-            crane cp ${{ env.IMAGE_NAME }}@${{ steps.build-and-push.outputs.digest }} \
-                ghcr.io/${{ github.repository }}:${tag}-${{ matrix.release-tag }}
+            crane cp ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
+                ${{ env.DOCKER_REPO }}:${tag}-${{ matrix.release-tag }}
           fi
