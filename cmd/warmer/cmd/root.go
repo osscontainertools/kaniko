@@ -17,6 +17,7 @@ limitations under the License.
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,7 +32,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/logging"
 	"github.com/osscontainertools/kaniko/pkg/util"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -83,7 +83,7 @@ var RootCmd = &cobra.Command{
 
 		if opts.DockerfilePath != "" {
 			if err := validateDockerfilePath(); err != nil {
-				return errors.Wrap(err, "error validating dockerfile path")
+				return fmt.Errorf("error validating dockerfile path: %w", err)
 			}
 		}
 
@@ -93,11 +93,11 @@ var RootCmd = &cobra.Command{
 		if _, err := os.Stat(opts.CacheDir); os.IsNotExist(err) {
 			err = os.MkdirAll(opts.CacheDir, 0755)
 			if err != nil {
-				exit(errors.Wrap(err, "Failed to create cache directory"))
+				exit(fmt.Errorf("Failed to create cache directory: %w", err))
 			}
 		}
 		if err := cache.WarmCache(opts); err != nil {
-			exit(errors.Wrap(err, "Failed warming cache"))
+			exit(fmt.Errorf("Failed warming cache: %w", err))
 		}
 
 	},
@@ -146,7 +146,7 @@ func validateDockerfilePath() error {
 	if util.FilepathExists(opts.DockerfilePath) {
 		abs, err := filepath.Abs(opts.DockerfilePath)
 		if err != nil {
-			return errors.Wrap(err, "getting absolute path for dockerfile")
+			return fmt.Errorf("getting absolute path for dockerfile: %w", err)
 		}
 		opts.DockerfilePath = abs
 		return nil

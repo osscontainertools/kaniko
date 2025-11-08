@@ -18,6 +18,7 @@ package dockerfile
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -27,14 +28,12 @@ import (
 	"strings"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/sirupsen/logrus"
-
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/moby/buildkit/frontend/dockerfile/linter"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/util"
-	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 func ParseStages(opts *config.KanikoOptions) ([]instructions.Stage, []instructions.ArgCommand, error) {
@@ -52,17 +51,17 @@ func ParseStages(opts *config.KanikoOptions) ([]instructions.Stage, []instructio
 	}
 
 	if err != nil {
-		return nil, nil, errors.Wrap(err, fmt.Sprintf("reading dockerfile at path %s", opts.DockerfilePath))
+		return nil, nil, fmt.Errorf("reading dockerfile at path %s: %w", opts.DockerfilePath, err)
 	}
 
 	stages, metaArgs, err := Parse(d)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "parsing dockerfile")
+		return nil, nil, fmt.Errorf("parsing dockerfile: %w", err)
 	}
 
 	metaArgs, err = expandNestedArgs(metaArgs, opts.BuildArgs)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "expanding meta ARGs")
+		return nil, nil, fmt.Errorf("expanding meta ARGs: %w", err)
 	}
 
 	return stages, metaArgs, nil
@@ -267,7 +266,7 @@ func resolveStagesArgs(stages []instructions.Stage, args []string) error {
 	for i, s := range stages {
 		resolvedBaseName, err := util.ResolveEnvironmentReplacement(s.BaseName, args, false)
 		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("resolving base name %s", s.BaseName))
+			return fmt.Errorf("resolving base name %s: %w", s.BaseName, err)
 		}
 		if s.BaseName != resolvedBaseName {
 			stages[i].BaseName = resolvedBaseName
@@ -279,11 +278,11 @@ func resolveStagesArgs(stages []instructions.Stage, args []string) error {
 func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, metaArgs []instructions.ArgCommand) ([]config.KanikoStage, error) {
 	targetStage, err := targetStage(stages, opts.Target)
 	if err != nil {
-		return nil, errors.Wrap(err, "Error finding target stage")
+		return nil, fmt.Errorf("Error finding target stage: %w", err)
 	}
 	args := unifyArgs(metaArgs, opts.BuildArgs)
 	if err := resolveStagesArgs(stages, args); err != nil {
-		return nil, errors.Wrap(err, "resolving args")
+		return nil, fmt.Errorf("resolving args: %w", err)
 	}
 	var kanikoStages []config.KanikoStage
 	for index, stage := range stages {
@@ -299,7 +298,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			onBuild := getOnBuild(stages[baseImageIndex].Commands)
 			cmds, err := ParseCommands(onBuild)
 			if err != nil {
-				return nil, errors.Wrap(err, "failed to parse ONBUILD instructions")
+				return nil, fmt.Errorf("failed to parse ONBUILD instructions: %w", err)
 			}
 			stage.Commands = append(cmds, stage.Commands...)
 		}

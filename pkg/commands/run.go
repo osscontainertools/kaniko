@@ -19,6 +19,7 @@ package commands
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -32,7 +33,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -172,35 +172,35 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 	userAndGroup := strings.Split(u, ":")
 	userStr, err := util.ResolveEnvironmentReplacement(userAndGroup[0], replacementEnvs, false)
 	if err != nil {
-		return errors.Wrapf(err, "resolving user %s", userAndGroup[0])
+		return fmt.Errorf("resolving user %s: %w", userAndGroup[0], err)
 	}
 
 	// If specified, run the command as a specific user
 	if userStr != "" {
 		cmd.SysProcAttr.Credential, err = util.SyscallCredentials(userStr)
 		if err != nil {
-			return errors.Wrap(err, "credentials")
+			return fmt.Errorf("credentials: %w", err)
 		}
 	}
 
 	env, err := addDefaultHOME(userStr, replacementEnvs)
 	if err != nil {
-		return errors.Wrap(err, "adding default HOME variable")
+		return fmt.Errorf("adding default HOME variable: %w", err)
 	}
 
 	cmd.Env = env
 
 	logrus.Infof("Running: %s", cmd.Args)
 	if err := cmd.Start(); err != nil {
-		return errors.Wrap(err, "starting command")
+		return fmt.Errorf("starting command: %w", err)
 	}
 
 	pgid, err := syscall.Getpgid(cmd.Process.Pid)
 	if err != nil {
-		return errors.Wrap(err, "getting group id for process")
+		return fmt.Errorf("getting group id for process: %w", err)
 	}
 	if err := cmd.Wait(); err != nil {
-		return errors.Wrap(err, "waiting for process to exit")
+		return fmt.Errorf("waiting for process to exit: %w", err)
 	}
 
 	//it's not an error if there are no grandchildren
@@ -292,7 +292,7 @@ func (cr *CachingRunCommand) ExecuteCommand(config *v1.Config, buildArgs *docker
 
 	layers, err := cr.img.Layers()
 	if err != nil {
-		return errors.Wrap(err, "retrieving image layers")
+		return fmt.Errorf("retrieving image layers: %w", err)
 	}
 
 	if len(layers) != 1 {
@@ -308,7 +308,7 @@ func (cr *CachingRunCommand) ExecuteCommand(config *v1.Config, buildArgs *docker
 		util.IncludeWhiteout(),
 	)
 	if err != nil {
-		return errors.Wrap(err, "extracting fs from image")
+		return fmt.Errorf("extracting fs from image: %w", err)
 	}
 
 	return nil

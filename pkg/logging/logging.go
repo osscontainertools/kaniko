@@ -19,7 +19,6 @@ package logging
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -41,7 +40,7 @@ const (
 func Configure(level, format string, logTimestamp bool) error {
 	lvl, err := logrus.ParseLevel(level)
 	if err != nil {
-		return errors.Wrap(err, "parsing log level")
+		return fmt.Errorf("parsing log level: %w", err)
 	}
 	logrus.SetLevel(lvl)
 

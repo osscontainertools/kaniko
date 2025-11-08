@@ -17,6 +17,7 @@ limitations under the License.
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -38,7 +39,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/util/proc"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -134,13 +134,13 @@ var RootCmd = &cobra.Command{
 				return errors.New("you must provide --destination, or use --no-push")
 			}
 			if err := cacheFlagsValid(); err != nil {
-				return errors.Wrap(err, "cache flags invalid")
+				return fmt.Errorf("cache flags invalid: %w", err)
 			}
 			if err := resolveSourceContext(); err != nil {
-				return errors.Wrap(err, "error resolving source context")
+				return fmt.Errorf("error resolving source context: %w", err)
 			}
 			if err := resolveDockerfilePath(); err != nil {
-				return errors.Wrap(err, "error resolving dockerfile path")
+				return fmt.Errorf("error resolving dockerfile path: %w", err)
 			}
 			if len(opts.Destinations) == 0 && opts.ImageNameDigestFile != "" {
 				return errors.New("you must provide --destination if setting ImageNameDigestFile")
@@ -178,21 +178,21 @@ var RootCmd = &cobra.Command{
 		}
 		if !opts.NoPush || opts.CacheRepo != "" {
 			if err := executor.CheckPushPermissions(opts); err != nil {
-				exit(errors.Wrap(err, "error checking push permissions -- make sure you entered the correct tag name, and that you are authenticated correctly, and try again"))
+				exit(fmt.Errorf("error checking push permissions -- make sure you entered the correct tag name, and that you are authenticated correctly, and try again: %w", err))
 			}
 		}
 		if err := resolveRelativePaths(); err != nil {
-			exit(errors.Wrap(err, "error resolving relative paths to absolute paths"))
+			exit(fmt.Errorf("error resolving relative paths to absolute paths: %w", err))
 		}
 		if err := os.Chdir("/"); err != nil {
-			exit(errors.Wrap(err, "error changing to root dir"))
+			exit(fmt.Errorf("error changing to root dir: %w", err))
 		}
 		image, err := executor.DoBuild(opts)
 		if err != nil {
-			exit(errors.Wrap(err, "error building image"))
+			exit(fmt.Errorf("error building image: %w", err))
 		}
 		if err := executor.DoPush(image, opts); err != nil {
-			exit(errors.Wrap(err, "error pushing image"))
+			exit(fmt.Errorf("error pushing image: %w", err))
 		}
 
 		benchmarkFile := os.Getenv("BENCHMARK_FILE")
@@ -370,7 +370,7 @@ func resolveDockerfilePath() error {
 	if util.FilepathExists(opts.DockerfilePath) {
 		abs, err := filepath.Abs(opts.DockerfilePath)
 		if err != nil {
-			return errors.Wrap(err, "getting absolute path for dockerfile")
+			return fmt.Errorf("getting absolute path for dockerfile: %w", err)
 		}
 		opts.DockerfilePath = abs
 		return copyDockerfile()
@@ -379,7 +379,7 @@ func resolveDockerfilePath() error {
 	if util.FilepathExists(filepath.Join(opts.SrcContext, opts.DockerfilePath)) {
 		abs, err := filepath.Abs(filepath.Join(opts.SrcContext, opts.DockerfilePath))
 		if err != nil {
-			return errors.Wrap(err, "getting absolute path for src context/dockerfile path")
+			return fmt.Errorf("getting absolute path for src context/dockerfile path: %w", err)
 		}
 		opts.DockerfilePath = abs
 		return copyDockerfile()
@@ -402,12 +402,12 @@ func resolveEnvironmentBuildArgs(arguments []string, resolver func(string) strin
 // it won't be copied into the image
 func copyDockerfile() error {
 	if _, err := util.CopyFile(opts.DockerfilePath, config.DockerfilePath, util.FileContext{}, util.DoNotChangeUID, util.DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
-		return errors.Wrap(err, "copying dockerfile")
+		return fmt.Errorf("copying dockerfile: %w", err)
 	}
 	dockerignorePath := opts.DockerfilePath + ".dockerignore"
 	if util.FilepathExists(dockerignorePath) {
 		if _, err := util.CopyFile(dockerignorePath, config.DockerfilePath+".dockerignore", util.FileContext{}, util.DoNotChangeUID, util.DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
-			return errors.Wrap(err, "copying Dockerfile.dockerignore")
+			return fmt.Errorf("copying Dockerfile.dockerignore: %w", err)
 		}
 	}
 	opts.DockerfilePath = config.DockerfilePath
@@ -478,7 +478,7 @@ func resolveRelativePaths() error {
 		var err error
 		relp := *p // save original relative path
 		if *p, err = filepath.Abs(*p); err != nil {
-			return errors.Wrapf(err, "Couldn't resolve relative path %s to an absolute path", *p)
+			return fmt.Errorf("Couldn't resolve relative path %s to an absolute path: %w", *p, err)
 		}
 		logrus.Debugf("Resolved relative path %s to %s", relp, *p)
 	}

@@ -20,6 +20,7 @@ import (
 	"archive/tar"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -38,13 +39,11 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/pkg/errors"
-	"google.golang.org/api/option"
-
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/util/bucket"
 	"github.com/osscontainertools/kaniko/testutil"
+	"google.golang.org/api/option"
 )
 
 var (
@@ -98,12 +97,12 @@ func launchTests(m *testing.M) (int, error) {
 	if config.isGcrRepository() {
 		contextFilePath, err := CreateIntegrationTarball()
 		if err != nil {
-			return 1, errors.Wrap(err, "Failed to create tarball of integration files for build context")
+			return 1, fmt.Errorf("Failed to create tarball of integration files for build context: %w", err)
 		}
 
 		bucketName, item, err := bucket.GetNameAndFilepathFromURI(config.gcsBucket)
 		if err != nil {
-			return 1, errors.Wrap(err, "failed to get bucket name from uri")
+			return 1, fmt.Errorf("failed to get bucket name from uri: %w", err)
 		}
 		contextFile, err := os.Open(contextFilePath)
 		if err != nil {
@@ -111,11 +110,11 @@ func launchTests(m *testing.M) (int, error) {
 		}
 		err = bucket.Upload(context.Background(), bucketName, item, contextFile, config.gcsClient)
 		if err != nil {
-			return 1, errors.Wrap(err, "Failed to upload build context")
+			return 1, fmt.Errorf("Failed to upload build context: %w", err)
 		}
 
 		if err = os.Remove(contextFilePath); err != nil {
-			return 1, errors.Wrap(err, fmt.Sprintf("Failed to remove tarball at %s", contextFilePath))
+			return 1, fmt.Errorf("Failed to remove tarball at %s: %w", contextFilePath, err)
 		}
 
 		deleteFunc := func() {
@@ -125,7 +124,7 @@ func launchTests(m *testing.M) (int, error) {
 		defer deleteFunc()
 	}
 	if err := buildRequiredImages(); err != nil {
-		return 1, errors.Wrap(err, "Error while building images")
+		return 1, fmt.Errorf("Error while building images: %w", err)
 	}
 
 	imageBuilder = NewDockerFileBuilder()
@@ -181,7 +180,7 @@ func buildRequiredImages() error {
 		fmt.Println(setupCmd.name)
 		cmd := exec.Command(setupCmd.command[0], setupCmd.command[1:]...)
 		if out, err := RunCommandWithoutTest(cmd); err != nil {
-			return errors.Wrap(err, fmt.Sprintf("%s failed: %s", setupCmd.name, string(out)))
+			return fmt.Errorf("%s failed: %s: %w", setupCmd.name, string(out), err)
 		}
 	}
 	return nil

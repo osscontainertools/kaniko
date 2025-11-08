@@ -31,14 +31,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
-
-	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/commands"
 	"github.com/osscontainertools/kaniko/pkg/config"
@@ -49,6 +45,8 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/snapshot"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 // This is the size of an empty tar in Go
@@ -273,7 +271,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config) erro
 		}
 		files, err := command.FilesUsedFromContext(&cfg, s.args)
 		if err != nil {
-			return errors.Wrap(err, "failed to get files used from context")
+			return fmt.Errorf("failed to get files used from context: %w", err)
 		}
 
 		compositeKey, err = s.populateCompositeKey(command, files, compositeKey, s.args, cfg.Env)
@@ -284,7 +282,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config) erro
 		logrus.Debugf("Optimize: composite key for command %v %v", command.String(), compositeKey)
 		ck, err := compositeKey.Hash()
 		if err != nil {
-			return errors.Wrap(err, "failed to hash composite key")
+			return fmt.Errorf("failed to hash composite key: %w", err)
 		}
 
 		logrus.Debugf("Optimize: cache key for command %v %v", command.String(), ck)
@@ -328,7 +326,7 @@ func (s *stageBuilder) build() error {
 
 	// Apply optimizations to the instructions.
 	if err := s.optimize(*compositeKey, s.cf.Config); err != nil {
-		return errors.Wrap(err, "failed to optimize instructions")
+		return fmt.Errorf("failed to optimize instructions: %w", err)
 	}
 
 	// Unpack file system to root if we need to.
@@ -359,7 +357,7 @@ func (s *stageBuilder) build() error {
 		}
 
 		if err := util.Retry(retryFunc, s.opts.ImageFSExtractRetry, 1000); err != nil {
-			return errors.Wrap(err, "failed to get filesystem from image")
+			return fmt.Errorf("failed to get filesystem from image: %w", err)
 		}
 
 		timing.DefaultRun.Stop(t)
@@ -386,7 +384,7 @@ func (s *stageBuilder) build() error {
 		// If the command uses files from the context, add them.
 		files, err := command.FilesUsedFromContext(&s.cf.Config, s.args)
 		if err != nil {
-			return errors.Wrap(err, "failed to get files used from context")
+			return fmt.Errorf("failed to get files used from context: %w", err)
 		}
 
 		if s.opts.Cache {
@@ -416,7 +414,7 @@ func (s *stageBuilder) build() error {
 		}
 
 		if err := command.ExecuteCommand(&s.cf.Config, s.args); err != nil {
-			return errors.Wrap(err, "failed to execute command")
+			return fmt.Errorf("failed to execute command: %w", err)
 		}
 		files = command.FilesToSnapshot()
 		timing.DefaultRun.Stop(t)
@@ -434,20 +432,20 @@ func (s *stageBuilder) build() error {
 				logrus.Info("No files were changed, appending empty layer to config. No layer added to image.")
 			} else {
 				if err := s.saveLayerToImage(layer, command.String()); err != nil {
-					return errors.Wrap(err, "failed to save layer")
+					return fmt.Errorf("failed to save layer: %w", err)
 				}
 			}
 		} else {
 			tarPath, err := s.takeSnapshot(files, command.ShouldDetectDeletedFiles())
 			if err != nil {
-				return errors.Wrap(err, "failed to take snapshot")
+				return fmt.Errorf("failed to take snapshot: %w", err)
 			}
 
 			if s.opts.Cache {
 				logrus.Debugf("Build: composite key for command %v %v", command.String(), compositeKey)
 				ck, err := compositeKey.Hash()
 				if err != nil {
-					return errors.Wrap(err, "failed to hash composite key")
+					return fmt.Errorf("failed to hash composite key: %w", err)
 				}
 
 				logrus.Debugf("Build: cache key for command %v %v", command.String(), ck)
@@ -460,7 +458,7 @@ func (s *stageBuilder) build() error {
 				}
 			}
 			if err := s.saveSnapshotToImage(command.String(), tarPath); err != nil {
-				return errors.Wrap(err, "failed to save snapshot to image")
+				return fmt.Errorf("failed to save snapshot to image: %w", err)
 			}
 		}
 	}
@@ -649,7 +647,7 @@ func (s *stageBuilder) saveLayerToImage(layer v1.Layer, createdBy string) error 
 	// referencing a blob that has been "overwritten".
 	diffID, err := layer.DiffID()
 	if err != nil {
-		return errors.Wrap(err, "checking layer diffID failed")
+		return fmt.Errorf("checking layer diffID failed: %w", err)
 	}
 	if el, err := s.image.LayerByDiffID(diffID); err == nil {
 		logrus.Debugf("Layer already exists in image, using existing layer: %s", diffID)
@@ -786,7 +784,7 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 	var tarball string
 	err = util.InitIgnoreList()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to initialize ignore list")
+		return nil, fmt.Errorf("failed to initialize ignore list: %w", err)
 	}
 	if opts.PreserveContext {
 		if len(kanikoStages) > 1 || opts.PreCleanup || opts.Cleanup {
@@ -827,7 +825,7 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 		}
 		args = sb.args
 		if err := sb.build(); err != nil {
-			return nil, errors.Wrap(err, "error building stage")
+			return nil, fmt.Errorf("error building stage: %w", err)
 		}
 
 		reviewConfig(stage, &sb.cf.Config)
@@ -887,7 +885,7 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 					}
 					_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
 					if err != nil {
-						errors.Wrap(err, "failed to unpack context snapshot")
+						fmt.Errorf("failed to unpack context snapshot: %w", err)
 					}
 					logrus.Info("Context restored")
 				}
@@ -908,21 +906,19 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 		dstDir := filepath.Join(config.KanikoInterStageDepsDir, strconv.Itoa(stage.Index))
 		_ = os.RemoveAll(dstDir)
 		if err := os.MkdirAll(dstDir, mkdirPermissions); err != nil {
-			return nil, errors.Wrap(err,
-				fmt.Sprintf("to create workspace for stage %s",
-					stageIdxToDigest[stage.Index],
-				))
+			return nil, fmt.Errorf("to create workspace for stage %s: %w",
+				stageIdxToDigest[stage.Index], err)
 		}
 		for _, p := range filesToSave {
 			logrus.Infof("Saving file %s for later use", p)
 			if err := util.CopyFileOrSymlink(p, dstDir, config.RootDir); err != nil {
-				return nil, errors.Wrap(err, "could not save file")
+				return nil, fmt.Errorf("could not save file: %w", err)
 			}
 		}
 
 		// Delete the filesystem
 		if err := util.DeleteFilesystem(); err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("deleting file system after stage %d", stage.Index))
+			return nil, fmt.Errorf("deleting file system after stage %d: %w", stage.Index, err)
 		}
 		if opts.PreserveContext && !opts.PreCleanup {
 			if tarball == "" {
@@ -930,7 +926,7 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 			}
 			_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
 			if err != nil {
-				errors.Wrap(err, "failed to unpack context snapshot")
+				fmt.Errorf("failed to unpack context snapshot: %w", err)
 			}
 			logrus.Info("Context restored")
 		}
@@ -952,13 +948,13 @@ func filesToSave(deps []string) ([]string, error) {
 			if link, err := util.EvalSymLink(f); err == nil {
 				link, err = filepath.Rel(config.RootDir, link)
 				if err != nil {
-					return nil, errors.Wrap(err, fmt.Sprintf("could not find relative path to %s", config.RootDir))
+					return nil, fmt.Errorf("could not find relative path to %s: %w", config.RootDir, err)
 				}
 				srcFiles = append(srcFiles, link)
 			}
 			f, err = filepath.Rel(config.RootDir, f)
 			if err != nil {
-				return nil, errors.Wrap(err, fmt.Sprintf("could not find relative path to %s", config.RootDir))
+				return nil, fmt.Errorf("could not find relative path to %s: %w", config.RootDir, err)
 			}
 			srcFiles = append(srcFiles, f)
 		}

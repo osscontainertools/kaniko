@@ -17,16 +17,15 @@ limitations under the License.
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	kConfig "github.com/osscontainertools/kaniko/pkg/config"
-	"github.com/osscontainertools/kaniko/pkg/dockerfile"
-	"github.com/pkg/errors"
-
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	kConfig "github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
@@ -70,13 +69,13 @@ func (w *WorkdirCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile
 
 		uid, gid, err := util.GetActiveUserGroup(config.User, "", replacementEnvs)
 		if err != nil {
-			return errors.Wrap(err, "getting user group")
+			return fmt.Errorf("getting user group: %w", err)
 		}
 
 		logrus.Infof("Creating directory %s with uid %d and gid %d", config.WorkingDir, uid, gid)
 		w.snapshotFiles = append(w.snapshotFiles, config.WorkingDir)
 		if err := mkdirAllWithPermissions(config.WorkingDir, 0755, uid, gid); err != nil {
-			return errors.Wrapf(err, "creating workdir %s", config.WorkingDir)
+			return fmt.Errorf("creating workdir %s: %w", config.WorkingDir, err)
 		}
 	}
 	return nil
@@ -143,7 +142,7 @@ func (wr *CachingWorkdirCommand) ExecuteCommand(config *v1.Config, buildArgs *do
 
 	layers, err := wr.img.Layers()
 	if err != nil {
-		return errors.Wrap(err, "retrieving image layers")
+		return fmt.Errorf("retrieving image layers: %w", err)
 	}
 
 	if len(layers) > 1 {
@@ -162,7 +161,7 @@ func (wr *CachingWorkdirCommand) ExecuteCommand(config *v1.Config, buildArgs *do
 		util.IncludeWhiteout(),
 	)
 	if err != nil {
-		return errors.Wrap(err, "extracting fs from image")
+		return fmt.Errorf("extracting fs from image: %w", err)
 	}
 
 	return nil

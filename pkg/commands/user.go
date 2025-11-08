@@ -24,7 +24,6 @@ import (
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -40,13 +39,13 @@ func (r *UserCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 	userStr, err := util.ResolveEnvironmentReplacement(userAndGroup[0], replacementEnvs, false)
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("resolving user %s", userAndGroup[0]))
+		return fmt.Errorf("resolving user %s: %w", userAndGroup[0], err)
 	}
 
 	if len(userAndGroup) > 1 {
 		groupStr, err := util.ResolveEnvironmentReplacement(userAndGroup[1], replacementEnvs, false)
 		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("resolving group %s", userAndGroup[1]))
+			return fmt.Errorf("resolving group %s: %w", userAndGroup[1], err)
 		}
 		userStr = userStr + ":" + groupStr
 	}

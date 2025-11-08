@@ -22,19 +22,18 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
 func SyscallCredentials(userStr string) (*syscall.Credential, error) {
 	uid, gid, err := getUIDAndGIDFromString(userStr)
 	if err != nil {
-		return nil, errors.Wrap(err, "get uid/gid")
+		return nil, fmt.Errorf("get uid/gid: %w", err)
 	}
 
 	u, err := LookupUser(fmt.Sprint(uid))
 	if err != nil {
-		return nil, errors.Wrap(err, "lookup")
+		return nil, fmt.Errorf("lookup: %w", err)
 	}
 	logrus.Infof("Util.Lookup returned: %+v", u)
 
@@ -43,13 +42,13 @@ func SyscallCredentials(userStr string) (*syscall.Credential, error) {
 
 	gidStr, err := groupIDs(u)
 	if err != nil {
-		return nil, errors.Wrap(err, "group ids for user")
+		return nil, fmt.Errorf("group ids for user: %w", err)
 	}
 
 	for _, g := range gidStr {
 		i, err := strconv.ParseUint(g, 10, 32)
 		if err != nil {
-			return nil, errors.Wrap(err, "parseuint")
+			return nil, fmt.Errorf("parseuint: %w", err)
 		}
 
 		groups = append(groups, uint32(i))

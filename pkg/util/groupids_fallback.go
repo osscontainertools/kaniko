@@ -23,12 +23,12 @@ package util
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"os/user"
 	"strconv"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -51,7 +51,7 @@ func groupIDs(u *user.User) ([]string, error) {
 
 	f, err := FSys.Open(groupFile)
 	if err != nil {
-		return nil, errors.Wrap(err, "open")
+		return nil, fmt.Errorf("open: %w", err)
 	}
 	defer f.Close()
 

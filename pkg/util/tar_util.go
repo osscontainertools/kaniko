@@ -20,6 +20,7 @@ import (
 	"archive/tar"
 	"compress/bzip2"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -30,7 +31,6 @@ import (
 
 	"github.com/moby/go-archive"
 	"github.com/osscontainertools/kaniko/pkg/config"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -151,7 +151,7 @@ func writeSecurityXattrToTarFile(path string, hdr *tar.Header) error {
 	if capability, ok := hdr.Xattrs[securityCapabilityXattr]; ok {
 		err := Lsetxattr(path, securityCapabilityXattr, []byte(capability), 0)
 		if err != nil && !errors.Is(err, syscall.EOPNOTSUPP) && !errors.Is(err, ErrNotSupportedPlatform) {
-			return errors.Wrapf(err, "failed to write %q attribute to %q", securityCapabilityXattr, path)
+			return fmt.Errorf("failed to write %q attribute to %q: %w", securityCapabilityXattr, path, err)
 		}
 	}
 	return nil
@@ -165,7 +165,7 @@ func readSecurityXattrToTarHeader(path string, hdr *tar.Header) error {
 	}
 	capability, err := Lgetxattr(path, securityCapabilityXattr)
 	if err != nil {
-		return errors.Wrapf(err, "failed to read %q attribute from %q", securityCapabilityXattr, path)
+		return fmt.Errorf("failed to read %q attribute from %q: %w", securityCapabilityXattr, path, err)
 	}
 	if capability != nil {
 		hdr.Xattrs[securityCapabilityXattr] = string(capability)

@@ -17,6 +17,7 @@ limitations under the License.
 package cache
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,7 +32,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/image/remote"
 	"github.com/osscontainertools/kaniko/pkg/util"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -45,7 +45,7 @@ func WarmCache(opts *config.WarmerOptions) error {
 	if opts.DockerfilePath != "" {
 		var err error
 		if dockerfileImages, err = ParseDockerfile(opts); err != nil {
-			return errors.Wrap(err, "failed to parse Dockerfile")
+			return fmt.Errorf("failed to parse Dockerfile: %w", err)
 		}
 	}
 
@@ -115,7 +115,7 @@ func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 
 	err = os.Rename(mtfsFile.Name(), finalMfstPath)
 	if err != nil {
-		return errors.Wrap(err, "Failed to rename manifest file")
+		return fmt.Errorf("Failed to rename manifest file: %w", err)
 	}
 
 	logrus.Debugf("Wrote %s to cache", img)
@@ -145,7 +145,7 @@ type Warmer struct {
 func (w *Warmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error) {
 	cacheRef, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
-		return v1.Hash{}, errors.Wrapf(err, "Failed to verify image name: %s", image)
+		return v1.Hash{}, fmt.Errorf("Failed to verify image name: %s: %w", image, err)
 	}
 
 	// mz320: If we have a digest reference, we can try a cache lookup directly.
@@ -171,12 +171,12 @@ func (w *Warmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error)
 
 	img, err := w.Remote(image, opts.RegistryOptions, opts.CustomPlatform)
 	if err != nil || img == nil {
-		return v1.Hash{}, errors.Wrapf(err, "Failed to retrieve image: %s", image)
+		return v1.Hash{}, fmt.Errorf("Failed to retrieve image: %s: %w", image, err)
 	}
 
 	digest, err := img.Digest()
 	if err != nil {
-		return v1.Hash{}, errors.Wrapf(err, "Failed to retrieve digest: %s", image)
+		return v1.Hash{}, fmt.Errorf("Failed to retrieve digest: %s: %w", image, err)
 	}
 
 	if !opts.Force {
@@ -197,16 +197,16 @@ func (w *Warmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error)
 
 	err = tarball.Write(cacheRef, img, w.TarWriter)
 	if err != nil {
-		return v1.Hash{}, errors.Wrapf(err, "Failed to write %s to tar buffer", image)
+		return v1.Hash{}, fmt.Errorf("Failed to write %s to tar buffer: %w", image, err)
 	}
 
 	mfst, err := img.RawManifest()
 	if err != nil {
-		return v1.Hash{}, errors.Wrapf(err, "Failed to retrieve manifest for %s", image)
+		return v1.Hash{}, fmt.Errorf("Failed to retrieve manifest for %s: %w", image, err)
 	}
 
 	if _, err := w.ManifestWriter.Write(mfst); err != nil {
-		return v1.Hash{}, errors.Wrapf(err, "Failed to save manifest to buffer for %s", image)
+		return v1.Hash{}, fmt.Errorf("Failed to save manifest to buffer for %s: %w", image, err)
 	}
 
 	return digest, nil
@@ -228,12 +228,12 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 	}
 
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("reading dockerfile at path %s", opts.DockerfilePath))
+		return nil, fmt.Errorf("reading dockerfile at path %s: %w", opts.DockerfilePath, err)
 	}
 
 	stages, metaArgs, err := dockerfile.Parse(d)
 	if err != nil {
-		return nil, errors.Wrap(err, "parsing dockerfile")
+		return nil, fmt.Errorf("parsing dockerfile: %w", err)
 	}
 
 	args := opts.BuildArgs
@@ -246,7 +246,7 @@ outer:
 	for i, s := range stages {
 		resolvedBaseName, err := util.ResolveEnvironmentReplacement(s.BaseName, args, false)
 		if err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("resolving base name %s", s.BaseName))
+			return nil, fmt.Errorf("resolving base name %s: %w", s.BaseName, err)
 		}
 		// skip stage references ie.
 		// FROM base AS target

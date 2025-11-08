@@ -18,6 +18,8 @@ package snapshot
 
 import (
 	"archive/tar"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -28,7 +30,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/testutil"
-	"github.com/pkg/errors"
 )
 
 func TestSnapshotFSFileChange(t *testing.T) {
@@ -604,7 +605,7 @@ func setUpTestDir(t *testing.T) (string, error) {
 	}
 	// Set up initial files
 	if err := testutil.SetupFiles(testDir, files); err != nil {
-		return "", errors.Wrap(err, "setting up file system")
+		return "", fmt.Errorf("setting up file system: %w", err)
 	}
 
 	return testDir, nil
@@ -623,7 +624,7 @@ func setUpTest(t *testing.T) (string, *Snapshotter, func(), error) {
 	l := NewLayeredMap(util.Hasher())
 	snapshotter := NewSnapshotter(l, testDir)
 	if err := snapshotter.Init(); err != nil {
-		return "", nil, nil, errors.Wrap(err, "initializing snapshotter")
+		return "", nil, nil, fmt.Errorf("initializing snapshotter: %w", err)
 	}
 
 	original := config.KanikoLayersDir
