@@ -32,7 +32,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/creds"
 	"github.com/osscontainertools/kaniko/pkg/util"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -50,13 +49,13 @@ type RegistryCache struct {
 func (rc *RegistryCache) RetrieveLayer(ck string) (v1.Image, error) {
 	cache, err := Destination(rc.Opts, ck)
 	if err != nil {
-		return nil, errors.Wrap(err, "getting cache destination")
+		return nil, fmt.Errorf("getting cache destination: %w", err)
 	}
 	logrus.Infof("Checking for cached layer %s...", cache)
 
 	cacheRef, err := name.NewTag(cache, name.WeakValidation)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("getting reference for %s", cache))
+		return nil, fmt.Errorf("getting reference for %s: %w", cache, err)
 	}
 
 	registryName := cacheRef.Repository.Registry.Name()
@@ -70,7 +69,7 @@ func (rc *RegistryCache) RetrieveLayer(ck string) (v1.Image, error) {
 
 	tr, err := util.MakeTransport(rc.Opts.RegistryOptions, registryName)
 	if err != nil {
-		return nil, errors.Wrapf(err, "making transport for registry %q", registryName)
+		return nil, fmt.Errorf("making transport for registry %q: %w", registryName, err)
 	}
 
 	img, err := remote.Image(cacheRef, remote.WithTransport(tr), remote.WithAuthFromKeychain(creds.GetKeychain(&rc.Opts.RegistryOptions)))
@@ -87,7 +86,7 @@ func (rc *RegistryCache) RetrieveLayer(ck string) (v1.Image, error) {
 func verifyImage(img v1.Image, cacheTTL time.Duration, cache string) error {
 	cf, err := img.ConfigFile()
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("retrieving config file for %s", cache))
+		return fmt.Errorf("retrieving config file for %s: %w", cache, err)
 	}
 
 	expiry := cf.Created.Add(cacheTTL)
@@ -112,13 +111,13 @@ type LayoutCache struct {
 func (lc *LayoutCache) RetrieveLayer(ck string) (v1.Image, error) {
 	cache, err := Destination(lc.Opts, ck)
 	if err != nil {
-		return nil, errors.Wrap(err, "getting cache destination")
+		return nil, fmt.Errorf("getting cache destination: %w", err)
 	}
 	logrus.Infof("Checking for cached layer %s...", cache)
 
 	var img v1.Image
 	if img, err = locateImage(strings.TrimPrefix(cache, "oci:")); err != nil {
-		return nil, errors.Wrap(err, "locating cache image")
+		return nil, fmt.Errorf("locating cache image: %w", err)
 	}
 
 	if err = verifyImage(img, lc.Opts.CacheTTL, cache); err != nil {
@@ -131,21 +130,21 @@ func locateImage(path string) (v1.Image, error) {
 	var img v1.Image
 	layoutPath, err := layout.FromPath(path)
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("constructing layout path from %s", path))
+		return nil, fmt.Errorf("constructing layout path from %s: %w", path, err)
 	}
 	index, err := layoutPath.ImageIndex()
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("retrieving index file for %s", layoutPath))
+		return nil, fmt.Errorf("retrieving index file for %s: %w", layoutPath, err)
 	}
 	manifest, err := index.IndexManifest()
 	if err != nil {
-		return nil, errors.Wrap(err, fmt.Sprintf("retrieving manifest file for %s", layoutPath))
+		return nil, fmt.Errorf("retrieving manifest file for %s: %w", layoutPath, err)
 	}
 	for _, m := range manifest.Manifests {
 		// assume there is only one image
 		img, err = layoutPath.Image(m.Digest)
 		if err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("initializing image with digest %s", m.Digest.String()))
+			return nil, fmt.Errorf("initializing image with digest %s: %w", m.Digest.String(), err)
 		}
 	}
 	if img == nil {
@@ -164,7 +163,7 @@ func Destination(opts *config.KanikoOptions, cacheKey string) (string, error) {
 		destination := opts.Destinations[0]
 		destRef, err := name.NewTag(destination, name.WeakValidation)
 		if err != nil {
-			return "", errors.Wrap(err, "getting tag for destination")
+			return "", fmt.Errorf("getting tag for destination: %w", err)
 		}
 		return fmt.Sprintf("%s/cache:%s", destRef.Context(), cacheKey), nil
 	}
@@ -232,7 +231,7 @@ func mfstFromPath(p string) (*v1.Manifest, error) {
 func cachedImageFromPath(p string) (v1.Image, error) {
 	imgTar, err := tarball.ImageFromPath(p, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "getting image from path")
+		return nil, fmt.Errorf("getting image from path: %w", err)
 	}
 
 	// Manifests may be present next to the tar, named with a ".json" suffix

@@ -18,6 +18,7 @@ package commands
 
 import (
 	"archive/tar"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -32,7 +33,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/testutil"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 

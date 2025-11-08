@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"net/url"
@@ -30,10 +31,8 @@ import (
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/moby/buildkit/frontend/dockerfile/shell"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-
 	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/sirupsen/logrus"
 )
 
 // for testing
@@ -90,18 +89,18 @@ func ResolveEnvAndWildcards(sd instructions.SourcesAndDest, fileContext FileCont
 	// First, resolve any environment replacement
 	resolvedEnvs, err := ResolveEnvironmentReplacementList(sd.SourcePaths, envs, true)
 	if err != nil {
-		return nil, "", errors.Wrap(err, "failed to resolve environment")
+		return nil, "", fmt.Errorf("failed to resolve environment: %w", err)
 	}
 	dests, err := ResolveEnvironmentReplacementList([]string{sd.DestPath}, envs, true)
 	if err != nil {
-		return nil, "", errors.Wrap(err, "failed to resolve environment for dest path")
+		return nil, "", fmt.Errorf("failed to resolve environment for dest path: %w", err)
 	}
 	dest := dests[0]
 	sd.DestPath = dest
 	// Resolve wildcards and get a list of resolved sources
 	srcs, err := ResolveSources(resolvedEnvs, fileContext.Root)
 	if err != nil {
-		return nil, "", errors.Wrap(err, "failed to resolve sources")
+		return nil, "", fmt.Errorf("failed to resolve sources: %w", err)
 	}
 	err = IsSrcsValid(sd, srcs, fileContext)
 	return srcs, dest, err
@@ -127,11 +126,11 @@ func ResolveSources(srcs []string, root string) ([]string, error) {
 	logrus.Infof("Resolving srcs %v...", srcs)
 	files, err := RelativeFiles("", root)
 	if err != nil {
-		return nil, errors.Wrap(err, "resolving sources")
+		return nil, fmt.Errorf("resolving sources: %w", err)
 	}
 	resolved, err := matchSources(srcs, files)
 	if err != nil {
-		return nil, errors.Wrap(err, "matching sources")
+		return nil, fmt.Errorf("matching sources: %w", err)
 	}
 	logrus.Debugf("Resolved sources to %v", resolved)
 	return resolved, nil
@@ -258,7 +257,7 @@ func IsSrcsValid(srcsAndDest instructions.SourcesAndDest, resolvedSources []stri
 		path := filepath.Join(fileContext.Root, resolvedSources[0])
 		fi, err := os.Lstat(path)
 		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to get fileinfo for %v", path))
+			return fmt.Errorf("failed to get fileinfo for %v: %w", path, err)
 		}
 		if fi.IsDir() {
 			return nil
@@ -274,7 +273,7 @@ func IsSrcsValid(srcsAndDest instructions.SourcesAndDest, resolvedSources []stri
 		src = filepath.Clean(src)
 		files, err := RelativeFiles(src, fileContext.Root)
 		if err != nil {
-			return errors.Wrap(err, "failed to get relative files")
+			return fmt.Errorf("failed to get relative files: %w", err)
 		}
 		for _, file := range files {
 			if fileContext.ExcludesFile(file) {
@@ -350,18 +349,18 @@ Loop:
 func GetActiveUserGroup(configUser string, chownStr string, replacementEnvs []string) (int64, int64, error) {
 	user, err := user.Current()
 	if err != nil {
-		return DoNotChangeUID, DoNotChangeGID, errors.Wrapf(err, "failed to lookup current user")
+		return DoNotChangeUID, DoNotChangeGID, fmt.Errorf("failed to lookup current user: %w", err)
 	}
 	uid32, gid32, err := getUIDAndGIDFunc(user.Uid, user.Gid)
 	if err != nil {
-		return DoNotChangeUID, DoNotChangeGID, errors.Wrapf(err, "Failed parsing uid and gid %s:%s", user.Uid, user.Gid)
+		return DoNotChangeUID, DoNotChangeGID, fmt.Errorf("Failed parsing uid and gid %s:%s: %w", user.Uid, user.Gid, err)
 	}
 	uid, gid := int64(uid32), int64(gid32)
 
 	if configUser != "" {
 		ouid, ogid, err := GetUserGroup(configUser, replacementEnvs)
 		if err != nil {
-			return DoNotChangeUID, DoNotChangeGID, errors.Wrapf(err, "identifying uid and gid for user %s", configUser)
+			return DoNotChangeUID, DoNotChangeGID, fmt.Errorf("identifying uid and gid for user %s: %w", configUser, err)
 		}
 		if ouid > DoNotChangeUID {
 			uid = ouid
@@ -374,7 +373,7 @@ func GetActiveUserGroup(configUser string, chownStr string, replacementEnvs []st
 	if chownStr != "" {
 		ouid, ogid, err := GetUserGroup(chownStr, replacementEnvs)
 		if err != nil {
-			return DoNotChangeUID, DoNotChangeGID, errors.Wrap(err, "getting user group from chown")
+			return DoNotChangeUID, DoNotChangeGID, fmt.Errorf("getting user group from chown: %w", err)
 		}
 		if ouid > DoNotChangeUID {
 			uid = ouid
@@ -417,7 +416,7 @@ func GetChmod(chmodStr string, env []string) (chmod fs.FileMode, useDefault bool
 
 	mode, err := strconv.ParseUint(chmodStr, 8, 32)
 	if err != nil {
-		return 0, false, errors.Wrap(err, "parsing value from chmod")
+		return 0, false, fmt.Errorf("parsing value from chmod: %w", err)
 	}
 	chmod = fs.FileMode(mode)
 	return

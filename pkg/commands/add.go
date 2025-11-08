@@ -17,17 +17,15 @@ limitations under the License.
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"path/filepath"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
-	"github.com/pkg/errors"
-
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
-
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
@@ -53,7 +51,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 
 	chmod, useDefaultChmod, err := util.GetChmod(a.cmd.Chmod, replacementEnvs)
 	if err != nil {
-		return errors.Wrap(err, "getting permissions from chmod")
+		return fmt.Errorf("getting permissions from chmod: %w", err)
 	}
 	if useDefaultChmod {
 		chmod = fs.FileMode(0o600)
@@ -61,7 +59,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 
 	uid, gid, err := util.GetActiveUserGroup(config.User, a.cmd.Chown, replacementEnvs)
 	if err != nil {
-		return errors.Wrap(err, "getting user group from chown")
+		return fmt.Errorf("getting user group from chown: %w", err)
 	}
 
 	srcs, dest, err := util.ResolveEnvAndWildcards(a.cmd.SourcesAndDest, a.fileContext, replacementEnvs)
@@ -84,18 +82,18 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 			}
 			logrus.Infof("Adding remote URL %s to %s", src, urlDest)
 			if err := util.DownloadFileToDest(src, urlDest, uid, gid, chmod); err != nil {
-				return errors.Wrap(err, "downloading remote source file")
+				return fmt.Errorf("downloading remote source file: %w", err)
 			}
 			a.snapshotFiles = append(a.snapshotFiles, urlDest)
 		} else if util.IsFileLocalTarArchive(fullPath) {
 			tarDest, err := util.DestinationFilepath("", dest, config.WorkingDir)
 			if err != nil {
-				return errors.Wrap(err, "determining dest for tar")
+				return fmt.Errorf("determining dest for tar: %w", err)
 			}
 			logrus.Infof("Unpacking local tar archive %s to %s", src, tarDest)
 			extractedFiles, err := util.UnpackLocalTarArchive(fullPath, tarDest)
 			if err != nil {
-				return errors.Wrap(err, "unpacking local tar")
+				return fmt.Errorf("unpacking local tar: %w", err)
 			}
 			logrus.Debugf("Added %v from local tar archive %s", extractedFiles, src)
 			a.snapshotFiles = append(a.snapshotFiles, extractedFiles...)
@@ -119,7 +117,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 	}
 
 	if err := copyCmd.ExecuteCommand(config, buildArgs); err != nil {
-		return errors.Wrap(err, "executing copy command")
+		return fmt.Errorf("executing copy command: %w", err)
 	}
 	a.snapshotFiles = append(a.snapshotFiles, copyCmd.snapshotFiles...)
 	return nil
@@ -181,7 +179,7 @@ func (ca *CachingAddCommand) ExecuteCommand(config *v1.Config, buildArgs *docker
 
 	layers, err := ca.img.Layers()
 	if err != nil {
-		return errors.Wrapf(err, "retrieve image layers")
+		return fmt.Errorf("retrieve image layers: %w", err)
 	}
 
 	if len(layers) != 1 {
@@ -193,7 +191,7 @@ func (ca *CachingAddCommand) ExecuteCommand(config *v1.Config, buildArgs *docker
 
 	logrus.Debugf("ExtractedFiles: %s", ca.extractedFiles)
 	if err != nil {
-		return errors.Wrap(err, "extracting fs from image")
+		return fmt.Errorf("extracting fs from image: %w", err)
 	}
 
 	return nil

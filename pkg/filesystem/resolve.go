@@ -17,12 +17,13 @@ limitations under the License.
 package filesystem
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/util"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
 
@@ -136,7 +137,7 @@ loop:
 	for newPath != config.RootDir {
 		fi, err := os.Lstat(newPath)
 		if err != nil {
-			return "", errors.Wrap(err, "resolvePaths: failed to lstat")
+			return "", fmt.Errorf("resolvePaths: failed to lstat: %w", err)
 		}
 
 		if util.IsSymlink(fi) {

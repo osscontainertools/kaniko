@@ -19,6 +19,7 @@ package executor
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -42,7 +43,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/version"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 )
@@ -110,7 +110,7 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 	for _, destination := range targets {
 		destRef, err := name.NewTag(destination, name.WeakValidation)
 		if err != nil {
-			return errors.Wrap(err, "getting tag for destination")
+			return fmt.Errorf("getting tag for destination: %w", err)
 		}
 		if checked[destRef.Context().String()] {
 			continue
@@ -120,17 +120,17 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 		if opts.Insecure || opts.InsecureRegistries.Contains(registryName) {
 			newReg, err := name.NewRegistry(registryName, name.WeakValidation, name.Insecure)
 			if err != nil {
-				return errors.Wrap(err, "getting new insecure registry")
+				return fmt.Errorf("getting new insecure registry: %w", err)
 			}
 			destRef.Repository.Registry = newReg
 		}
 		rt, err := util.MakeTransport(opts.RegistryOptions, registryName)
 		if err != nil {
-			return errors.Wrapf(err, "making transport for registry %q", registryName)
+			return fmt.Errorf("making transport for registry %q: %w", registryName, err)
 		}
 		tr := newRetry(rt)
 		if err := checkRemotePushPermission(destRef, creds.GetKeychain(&opts.RegistryOptions), tr); err != nil {
-			return errors.Wrapf(err, "checking push permission for %q", destRef)
+			return fmt.Errorf("checking push permission for %q: %w", destRef, err)
 		}
 		checked[destRef.Context().String()] = true
 	}
@@ -184,24 +184,24 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		var err error
 		digestByteArray, err = getDigest(image)
 		if err != nil {
-			return errors.Wrap(err, "error fetching digest")
+			return fmt.Errorf("error fetching digest: %w", err)
 		}
 	}
 
 	if opts.DigestFile != "" {
 		err := writeDigestFile(opts.DigestFile, digestByteArray)
 		if err != nil {
-			return errors.Wrap(err, "writing digest to file failed")
+			return fmt.Errorf("writing digest to file failed: %w", err)
 		}
 	}
 
 	if opts.OCILayoutPath != "" {
 		path, err := layout.Write(opts.OCILayoutPath, empty.Index)
 		if err != nil {
-			return errors.Wrap(err, "writing empty layout")
+			return fmt.Errorf("writing empty layout: %w", err)
 		}
 		if err := path.AppendImage(image); err != nil {
-			return errors.Wrap(err, "appending image")
+			return fmt.Errorf("appending image: %w", err)
 		}
 	}
 
@@ -215,7 +215,7 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 	for _, destination := range opts.Destinations {
 		destRef, err := name.NewTag(destination, name.WeakValidation)
 		if err != nil {
-			return errors.Wrap(err, "getting tag for destination")
+			return fmt.Errorf("getting tag for destination: %w", err)
 		}
 		if opts.ImageNameDigestFile != "" || opts.ImageNameTagDigestFile != "" {
 			tag := ""
@@ -232,14 +232,14 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 	if opts.ImageNameDigestFile != "" {
 		err := writeDigestFile(opts.ImageNameDigestFile, []byte(builder.String()))
 		if err != nil {
-			return errors.Wrap(err, "writing image name with digest to file failed")
+			return fmt.Errorf("writing image name with digest to file failed: %w", err)
 		}
 	}
 
 	if opts.ImageNameTagDigestFile != "" {
 		err := writeDigestFile(opts.ImageNameTagDigestFile, []byte(builder.String()))
 		if err != nil {
-			return errors.Wrap(err, "writing image name with image tag and digest to file failed")
+			return fmt.Errorf("writing image name with image tag and digest to file failed: %w", err)
 		}
 	}
 
@@ -251,7 +251,7 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		}
 		err := tarball.MultiWriteToFile(opts.TarPath, tagToImage)
 		if err != nil {
-			return errors.Wrap(err, "writing tarball to file failed")
+			return fmt.Errorf("writing tarball to file failed: %w", err)
 		}
 	}
 
@@ -266,19 +266,19 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		if opts.Insecure || opts.InsecureRegistries.Contains(registryName) {
 			newReg, err := name.NewRegistry(registryName, name.WeakValidation, name.Insecure)
 			if err != nil {
-				return errors.Wrap(err, "getting new insecure registry")
+				return fmt.Errorf("getting new insecure registry: %w", err)
 			}
 			destRef.Repository.Registry = newReg
 		}
 
 		pushAuth, err := creds.GetKeychain(&opts.RegistryOptions).Resolve(destRef.Context().Registry)
 		if err != nil {
-			return errors.Wrap(err, "resolving pushAuth")
+			return fmt.Errorf("resolving pushAuth: %w", err)
 		}
 
 		localRt, err := util.MakeTransport(opts.RegistryOptions, registryName)
 		if err != nil {
-			return errors.Wrapf(err, "making transport for registry %q", registryName)
+			return fmt.Errorf("making transport for registry %q: %w", registryName, err)
 		}
 		tr := newRetry(localRt)
 		rt := &withUserAgent{t: tr}
@@ -311,7 +311,7 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		}
 
 		if err := util.Retry(retryFunc, opts.PushRetry, 1000); err != nil {
-			return errors.Wrap(err, fmt.Sprintf("failed to push to destination %s", destRef))
+			return fmt.Errorf("failed to push to destination %s: %w", destRef, err)
 		}
 	}
 	timing.DefaultRun.Stop(t)
@@ -376,13 +376,13 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 
 	cache, err := cache.Destination(opts, cacheKey)
 	if err != nil {
-		return errors.Wrap(err, "getting cache destination")
+		return fmt.Errorf("getting cache destination: %w", err)
 	}
 	logrus.Infof("Pushing layer %s to cache now", cache)
 	empty := empty.Image
 	empty, err = mutate.CreatedAt(empty, v1.Time{Time: time.Now()})
 	if err != nil {
-		return errors.Wrap(err, "setting empty image created time")
+		return fmt.Errorf("setting empty image created time: %w", err)
 	}
 
 	empty, err = mutate.Append(empty,
@@ -395,7 +395,7 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 		},
 	)
 	if err != nil {
-		return errors.Wrap(err, "appending layer onto empty image")
+		return fmt.Errorf("appending layer onto empty image: %w", err)
 	}
 	cacheOpts := *opts
 	cacheOpts.TarPath = ""              // tarPath doesn't make sense for Docker layers

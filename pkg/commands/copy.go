@@ -17,19 +17,18 @@ limitations under the License.
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
-
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
+	"github.com/sirupsen/logrus"
 )
 
 // for testing
@@ -55,7 +54,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		c.fileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoInterStageDepsDir, c.cmd.From)}
 		uid, gid, err = getUserGroup(c.cmd.Chown, replacementEnvs)
 		if err != nil {
-			return errors.Wrap(err, "getting user group from chown")
+			return fmt.Errorf("getting user group from chown: %w", err)
 		}
 	} else {
 		user := config.User
@@ -68,19 +67,19 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		}
 		uid, gid, err = getActiveUserGroup(user, c.cmd.Chown, replacementEnvs)
 		if err != nil {
-			return errors.Wrap(err, "getting user group from chown")
+			return fmt.Errorf("getting user group from chown: %w", err)
 		}
 	}
 
 	// sources from the Copy command are resolved with wildcards {*?[}
 	srcs, dest, err := util.ResolveEnvAndWildcards(c.cmd.SourcesAndDest, c.fileContext, replacementEnvs)
 	if err != nil {
-		return errors.Wrap(err, "resolving src")
+		return fmt.Errorf("resolving src: %w", err)
 	}
 
 	chmod, useDefaultChmod, err := util.GetChmod(c.cmd.Chmod, replacementEnvs)
 	if err != nil {
-		return errors.Wrap(err, "getting permissions from chmod")
+		return fmt.Errorf("getting permissions from chmod: %w", err)
 	}
 
 	// For each source, iterate through and copy it over
@@ -89,7 +88,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 
 		fi, err := os.Lstat(fullPath)
 		if err != nil {
-			return errors.Wrap(err, "could not copy source")
+			return fmt.Errorf("could not copy source: %w", err)
 		}
 		if fi.IsDir() && !strings.HasSuffix(fullPath, string(os.PathSeparator)) {
 			fullPath += "/"
@@ -101,27 +100,27 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 
 		destPath, err := util.DestinationFilepath(fullPath, dest, cwd)
 		if err != nil {
-			return errors.Wrap(err, "find destination path")
+			return fmt.Errorf("find destination path: %w", err)
 		}
 
 		// If the destination dir is a symlink we need to resolve the path and use
 		// that instead of the symlink path
 		destPath, err = resolveIfSymlink(destPath)
 		if err != nil {
-			return errors.Wrap(err, "resolving dest symlink")
+			return fmt.Errorf("resolving dest symlink: %w", err)
 		}
 
 		if fi.IsDir() {
 			copiedFiles, err := util.CopyDir(fullPath, destPath, c.fileContext, uid, gid, chmod, useDefaultChmod)
 			if err != nil {
-				return errors.Wrap(err, "copying dir")
+				return fmt.Errorf("copying dir: %w", err)
 			}
 			c.snapshotFiles = append(c.snapshotFiles, copiedFiles...)
 		} else if util.IsSymlink(fi) {
 			// If file is a symlink, we want to copy the target file to destPath
 			exclude, err := util.CopySymlink(fullPath, destPath, c.fileContext)
 			if err != nil {
-				return errors.Wrap(err, "copying symlink")
+				return fmt.Errorf("copying symlink: %w", err)
 			}
 			if exclude {
 				continue
@@ -131,7 +130,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 			// ... Else, we want to copy over a file
 			exclude, err := util.CopyFile(fullPath, destPath, c.fileContext, uid, gid, chmod, useDefaultChmod)
 			if err != nil {
-				return errors.Wrap(err, "copying file")
+				return fmt.Errorf("copying file: %w", err)
 			}
 			if exclude {
 				continue
@@ -149,13 +148,13 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		}
 		destPath, err := util.DestinationFilepath(fullPath, dest, cwd)
 		if err != nil {
-			return errors.Wrap(err, "find destination path")
+			return fmt.Errorf("find destination path: %w", err)
 		}
 
 		srcFile := strings.NewReader(src.Data)
 		err = util.CreateFile(destPath, srcFile, chmod, uint32(uid), uint32(gid))
 		if err != nil {
-			return errors.Wrap(err, "creating file")
+			return fmt.Errorf("creating file: %w", err)
 		}
 		c.snapshotFiles = append(c.snapshotFiles, destPath)
 	}
@@ -223,7 +222,7 @@ func (cr *CachingCopyCommand) ExecuteCommand(config *v1.Config, buildArgs *docke
 
 	layers, err := cr.img.Layers()
 	if err != nil {
-		return errors.Wrapf(err, "retrieve image layers")
+		return fmt.Errorf("retrieve image layers: %w", err)
 	}
 
 	if len(layers) != 1 {
@@ -235,7 +234,7 @@ func (cr *CachingCopyCommand) ExecuteCommand(config *v1.Config, buildArgs *docke
 
 	logrus.Debugf("ExtractedFiles: %s", cr.extractedFiles)
 	if err != nil {
-		return errors.Wrap(err, "extracting fs from image")
+		return fmt.Errorf("extracting fs from image: %w", err)
 	}
 
 	return nil
@@ -285,13 +284,13 @@ func resolveIfSymlink(destPath string) (string, error) {
 				nonexistentPaths = append(nonexistentPaths, file)
 				continue
 			} else {
-				return "", errors.Wrap(err, "failed to lstat")
+				return "", fmt.Errorf("failed to lstat: %w", err)
 			}
 		}
 
 		newPath, err = filepath.EvalSymlinks(newPath)
 		if err != nil {
-			return "", errors.Wrap(err, "failed to eval symlinks")
+			return "", fmt.Errorf("failed to eval symlinks: %w", err)
 		}
 		break
 	}
