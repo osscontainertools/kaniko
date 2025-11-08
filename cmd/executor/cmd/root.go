@@ -178,7 +178,15 @@ var RootCmd = &cobra.Command{
 		}
 		if !opts.NoPush || opts.CacheRepo != "" {
 			if err := executor.CheckPushPermissions(opts); err != nil {
-				exit(fmt.Errorf("error checking push permissions -- make sure you entered the correct tag name, and that you are authenticated correctly, and try again: %w", err))
+				logrus.Warnf("make sure you entered the correct tag name, that you are authenticated correctly, and try again.")
+				// mz280: remind users that DOCKER_AUTH_CONFIG gets prioritized by docker-cli
+				// https://github.com/docker/cli/pull/6171
+				_, ok := os.LookupEnv("DOCKER_AUTH_CONFIG")
+				if ok {
+					logrus.Warnf("note that your DOCKER_AUTH_CONFIG env variable can shadow credentials from configfile")
+					logrus.Warnf("see https://github.com/osscontainertools/kaniko/issues/280#issuecomment-3498449955")
+				}
+				exit(fmt.Errorf("error checking push permissions: %w", err))
 			}
 		}
 		if err := resolveRelativePaths(); err != nil {
