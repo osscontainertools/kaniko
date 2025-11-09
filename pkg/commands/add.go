@@ -17,7 +17,6 @@ limitations under the License.
 package commands
 
 import (
-	"errors"
 	"fmt"
 	"io/fs"
 	"path/filepath"
@@ -174,7 +173,7 @@ func (ca *CachingAddCommand) ExecuteCommand(config *v1.Config, buildArgs *docker
 	var err error
 
 	if ca.img == nil {
-		return errors.New(fmt.Sprintf("cached command image is nil %v", ca.String()))
+		return fmt.Errorf("cached command image is nil %v", ca.String())
 	}
 
 	layers, err := ca.img.Layers()
@@ -183,7 +182,7 @@ func (ca *CachingAddCommand) ExecuteCommand(config *v1.Config, buildArgs *docker
 	}
 
 	if len(layers) != 1 {
-		return errors.New(fmt.Sprintf("expected %d layers but got %d", 1, len(layers)))
+		return fmt.Errorf("expected %d layers but got %d", 1, len(layers))
 	}
 
 	ca.layer = layers[0]

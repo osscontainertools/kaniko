@@ -19,7 +19,6 @@ package commands
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -290,7 +289,7 @@ func (cr *CachingRunCommand) ExecuteCommand(config *v1.Config, buildArgs *docker
 	var err error
 
 	if cr.img == nil {
-		return errors.New(fmt.Sprintf("command image is nil %v", cr.String()))
+		return fmt.Errorf("command image is nil %v", cr.String())
 	}
 
 	layers, err := cr.img.Layers()
@@ -299,7 +298,7 @@ func (cr *CachingRunCommand) ExecuteCommand(config *v1.Config, buildArgs *docker
 	}
 
 	if len(layers) != 1 {
-		return errors.New(fmt.Sprintf("expected %d layers but got %d", 1, len(layers)))
+		return fmt.Errorf("expected %d layers but got %d", 1, len(layers))
 	}
 
 	cr.layer = layers[0]
