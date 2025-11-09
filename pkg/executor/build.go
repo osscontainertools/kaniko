@@ -49,9 +49,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// This is the size of an empty tar in Go
-const emptyTarSize = 1024
-
 // for testing
 var (
 	initializeConfig             = initConfig

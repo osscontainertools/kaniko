@@ -19,7 +19,6 @@ package integration
 import (
 	"archive/tar"
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -40,7 +39,6 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/osscontainertools/kaniko/pkg/timing"
-	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/util/bucket"
 	"github.com/osscontainertools/kaniko/testutil"
 	"google.golang.org/api/option"
@@ -948,119 +946,6 @@ func getImageManifestAnnotations(t *testing.T, image string) (map[string]string,
 	}
 
 	return manifest.Annotations, nil
-}
-
-type fileDiff struct {
-	Name string `json:"Name"`
-	Size int    `json:"Size"`
-}
-
-type fileDiffResult struct {
-	Adds []fileDiff `json:"Adds"`
-	Dels []fileDiff `json:"Dels"`
-}
-
-type metaDiffResult struct {
-	Adds []string `json:"Adds"`
-	Dels []string `json:"Dels"`
-}
-
-type diffOutput struct {
-	Image1   string
-	Image2   string
-	DiffType string
-	Diff     interface{}
-}
-
-func (diff *diffOutput) UnmarshalJSON(data []byte) error {
-	type Alias diffOutput
-	aux := &struct{ *Alias }{Alias: (*Alias)(diff)}
-	var rawJSON json.RawMessage
-	aux.Diff = &rawJSON
-	err := json.Unmarshal(data, &aux)
-	if err != nil {
-		return err
-	}
-	switch diff.DiffType {
-	case "File":
-		var dst fileDiffResult
-		err = json.Unmarshal(rawJSON, &dst)
-		diff.Diff = &dst
-	case "Metadata":
-		var dst metaDiffResult
-		err = json.Unmarshal(rawJSON, &dst)
-		diff.Diff = &dst
-	}
-	if err != nil {
-		return err
-	}
-	return err
-}
-
-var allowedDiffPaths = []string{"/sys"}
-
-func checkContainerDiffOutput(t *testing.T, diff []byte, expected string) {
-	// Let's compare the json objects themselves instead of strings to avoid
-	// issues with spaces and indents
-	t.Helper()
-
-	diffInt := []diffOutput{}
-	expectedInt := []diffOutput{}
-
-	err := json.Unmarshal(diff, &diffInt)
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = json.Unmarshal([]byte(expected), &expectedInt)
-	if err != nil {
-		t.Error(err)
-	}
-
-	// Some differences (ignored paths, etc.) are known and expected.
-	fdr := diffInt[0].Diff.(*fileDiffResult)
-	fdr.Adds = filterFileDiff(fdr.Adds)
-	fdr.Dels = filterFileDiff(fdr.Dels)
-	// Remove some of the meta diffs that shouldn't be checked
-	mdr := diffInt[1].Diff.(*metaDiffResult)
-	mdr.Adds = filterMetaDiff(mdr.Adds)
-	mdr.Dels = filterMetaDiff(mdr.Dels)
-
-	testutil.CheckErrorAndDeepEqual(t, false, nil, expectedInt, diffInt)
-}
-
-func filterMetaDiff(metaDiff []string) []string {
-	// TODO remove this once we agree testing shouldn't run on docker 18.xx
-	// currently docker 18.xx will build an image with Metadata set
-	// ArgsEscaped: true, however Docker 19.xx will build an image and have
-	// ArgsEscaped: false
-	if config.dockerMajorVersion == 19 {
-		return metaDiff
-	}
-	newDiffs := []string{}
-	for _, meta := range metaDiff {
-		if !strings.HasPrefix(meta, "ArgsEscaped") {
-			newDiffs = append(newDiffs, meta)
-		}
-	}
-	return newDiffs
-}
-
-func filterFileDiff(f []fileDiff) []fileDiff {
-	var newDiffs []fileDiff
-	for _, diff := range f {
-		isIgnored := false
-		for _, p := range allowedDiffPaths {
-			if util.HasFilepathPrefix(diff.Name, p, false) {
-				isIgnored = true
-				break
-			}
-		}
-		if !isIgnored {
-			newDiffs = append(newDiffs, diff)
-		}
-	}
-	return newDiffs
 }
 
 func onBuildDiff(t *testing.T, image1, image2 string) {
