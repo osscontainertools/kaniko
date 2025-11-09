@@ -77,7 +77,7 @@ func validateFlags() {
 	if val, ok := os.LookupEnv("KANIKO_NO_PUSH"); ok {
 		valBoolean, err := strconv.ParseBool(val)
 		if err != nil {
-			errors.New("invalid value (true/false) for KANIKO_NO_PUSH environment variable")
+			logrus.Fatalf("invalid value %q for KANIKO_NO_PUSH environment variable", val)
 		}
 		opts.NoPush = valBoolean
 	}

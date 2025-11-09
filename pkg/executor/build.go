@@ -885,7 +885,7 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 					}
 					_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
 					if err != nil {
-						fmt.Errorf("failed to unpack context snapshot: %w", err)
+						return nil, fmt.Errorf("failed to unpack context snapshot: %w", err)
 					}
 					logrus.Info("Context restored")
 				}
@@ -926,7 +926,7 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 			}
 			_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
 			if err != nil {
-				fmt.Errorf("failed to unpack context snapshot: %w", err)
+				return nil, fmt.Errorf("failed to unpack context snapshot: %w", err)
 			}
 			logrus.Info("Context restored")
 		}

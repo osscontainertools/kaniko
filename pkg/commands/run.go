@@ -95,6 +95,9 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					}()
 				}
 				err = swapDir(cacheDir, m.Target)
+				if err != nil {
+					return err
+				}
 				defer func() {
 					err := swapDir(m.Target, cacheDir)
 					if err != nil {
