@@ -208,3 +208,11 @@ jobs:
             crane cp ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
                 ${{ env.DOCKER_REPO }}:${tag}-${{ matrix.release-tag }}
           fi
+
+      - if: startsWith(github.ref, 'refs/tags/v')
+        name: Copy Signatures
+        run: |
+          digest=${{ steps.build-and-push.outputs.digest }}
+          tag="sha256-${digest#sha256:}"
+          crane cp ghcr.io/${{ github.repository }}:${tag} \
+              ${{ env.DOCKER_REPO }}:${tag}
