@@ -141,7 +141,7 @@ func TestSnapshotBenchmarkGcloud(t *testing.T) {
 					return
 				}
 				r := newResult(t, filepath.Join(dir, "results"))
-				t.Log(fmt.Sprintf("%d,%f,%f,%f, %f", num, r.totalBuildTime, r.walkingFiles, r.resolvingFiles, r.hashingFiles))
+				t.Logf("%d,%f,%f,%f, %f", num, r.totalBuildTime, r.walkingFiles, r.resolvingFiles, r.hashingFiles)
 				wg.Done()
 				defer os.Remove(dir)
 				defer os.Chdir(cwd)
