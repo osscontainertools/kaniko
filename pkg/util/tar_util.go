@@ -145,10 +145,10 @@ func (t *Tar) AddFileToTar(p string) error {
 // writeSecurityXattrToTarFile writes security.capability
 // xattrs from a tar header to filesystem
 func writeSecurityXattrToTarFile(path string, hdr *tar.Header) error {
-	if hdr.Xattrs == nil {
+	if hdr.PAXRecords == nil {
 		return nil
 	}
-	if capability, ok := hdr.Xattrs[securityCapabilityXattr]; ok {
+	if capability, ok := hdr.PAXRecords["SCHILY.xattr."+securityCapabilityXattr]; ok {
 		err := Lsetxattr(path, securityCapabilityXattr, []byte(capability), 0)
 		if err != nil && !errors.Is(err, syscall.EOPNOTSUPP) && !errors.Is(err, ErrNotSupportedPlatform) {
 			return fmt.Errorf("failed to write %q attribute to %q: %w", securityCapabilityXattr, path, err)
@@ -160,15 +160,15 @@ func writeSecurityXattrToTarFile(path string, hdr *tar.Header) error {
 // readSecurityXattrToTarHeader reads security.capability
 // xattrs from filesystem to a tar header
 func readSecurityXattrToTarHeader(path string, hdr *tar.Header) error {
-	if hdr.Xattrs == nil {
-		hdr.Xattrs = make(map[string]string)
+	if hdr.PAXRecords == nil {
+		hdr.PAXRecords = make(map[string]string)
 	}
 	capability, err := Lgetxattr(path, securityCapabilityXattr)
 	if err != nil {
 		return fmt.Errorf("failed to read %q attribute from %q: %w", securityCapabilityXattr, path, err)
 	}
 	if capability != nil {
-		hdr.Xattrs[securityCapabilityXattr] = string(capability)
+		hdr.PAXRecords["SCHILY.xattr."+securityCapabilityXattr] = string(capability)
 	}
 	return nil
 }
