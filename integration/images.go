@@ -433,15 +433,14 @@ func populateVolumeCache() error {
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
 	warmerCmd := exec.Command("docker",
-		append([]string{
+		[]string{
 			"run", "--net=host",
 			"-v", os.Getenv("HOME") + "/.config/gcloud:/root/.config/gcloud",
 			"-v", cwd + ":/workspace",
 			WarmerImage,
 			"-c", cacheDir,
 			"-i", baseImageToCache,
-		},
-		)...,
+		}...,
 	)
 
 	if _, err := RunCommandWithoutTest(warmerCmd); err != nil {
@@ -482,9 +481,7 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 		cacheFlag,
 		"--cache-repo", cacheRepo,
 		"--cache-dir", cacheDir)
-	for _, v := range args {
-		dockerRunFlags = append(dockerRunFlags, v)
-	}
+	dockerRunFlags = append(dockerRunFlags, args...)
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
 	out, err := RunCommandWithoutTest(kanikoCmd)
@@ -518,13 +515,12 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 	kanikoImage := GetKanikoImage(imageRepo, "test_relative_"+dockerfile)
 
 	dockerCmd := exec.Command("docker",
-		append([]string{
+		[]string{
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
 			"./context",
-		},
-		)...,
+		}...,
 	)
 
 	timer := timing.Start(dockerfile + "_docker")

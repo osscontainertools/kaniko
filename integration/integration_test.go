@@ -261,12 +261,12 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 	// Build with docker
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_git")
 	dockerCmd := exec.Command("docker",
-		append([]string{
+		[]string{
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
 			DockerGitRepo(url, commit, branch),
-		})...)
+		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
@@ -330,12 +330,12 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 	// Build with docker
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_git")
 	dockerCmd := exec.Command("docker",
-		append([]string{
+		[]string{
 			"build",
 			"-t", dockerImage,
 			"-f", filepath.Join(integrationPath, dockerfilesPath, dockerfile),
 			DockerGitRepo(url, "", branch),
-		})...)
+		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
@@ -372,12 +372,12 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 	// Build with docker
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_registry_mirror")
 	dockerCmd := exec.Command("docker",
-		append([]string{
+		[]string{
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
 			DockerGitRepo(url, "", branch),
-		})...)
+		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
@@ -412,12 +412,12 @@ func TestBuildViaRegistryMap(t *testing.T) {
 	// Build with docker
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_registry_mirror")
 	dockerCmd := exec.Command("docker",
-		append([]string{
+		[]string{
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
 			DockerGitRepo(url, "", branch),
-		})...)
+		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
@@ -477,12 +477,12 @@ func TestKanikoDir(t *testing.T) {
 	// Build with docker
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_registry_mirror")
 	dockerCmd := exec.Command("docker",
-		append([]string{
+		[]string{
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
 			DockerGitRepo(url, "", branch),
-		})...)
+		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
@@ -518,13 +518,13 @@ func TestBuildWithLabels(t *testing.T) {
 	// Build with docker
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_label:mylabel")
 	dockerCmd := exec.Command("docker",
-		append([]string{
+		[]string{
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
 			"--label", testLabel,
 			DockerGitRepo(url, "", branch),
-		})...)
+		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
@@ -559,12 +559,12 @@ func TestBuildWithHTTPError(t *testing.T) {
 	// Build with docker
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_add_404")
 	dockerCmd := exec.Command("docker",
-		append([]string{
+		[]string{
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
 			DockerGitRepo(url, "", branch),
-		})...)
+		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err == nil {
 		t.Errorf("an error was expected, got %s", string(out))
@@ -653,7 +653,6 @@ func buildImage(t *testing.T, dockerfile string, imageBuilder *DockerFileBuilder
 		t.Errorf("Error building image: %s", err)
 		t.FailNow()
 	}
-	return
 }
 
 // Build each image with kaniko twice, and then make sure they're exactly the same

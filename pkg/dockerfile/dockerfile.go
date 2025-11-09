@@ -323,7 +323,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 }
 
 func GetOnBuildInstructions(config *v1.Config, stageNameToIdx map[string]int) ([]instructions.Command, error) {
-	if config.OnBuild == nil || len(config.OnBuild) == 0 {
+	if len(config.OnBuild) == 0 {
 		return nil, nil
 	}
 
