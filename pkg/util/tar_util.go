@@ -30,6 +30,7 @@ import (
 	"syscall"
 
 	"github.com/moby/go-archive"
+	"github.com/moby/go-archive/compression"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/sirupsen/logrus"
 )
@@ -229,16 +230,19 @@ func UnpackLocalTarArchive(path, dest string) ([]string, error) {
 			return nil, err
 		}
 		defer file.Close()
-		if compressionLevel == archive.Gzip {
+		switch compressionLevel {
+		case compression.Gzip:
 			gzr, err := gzip.NewReader(file)
 			if err != nil {
 				return nil, err
 			}
 			defer gzr.Close()
 			return UnTar(gzr, dest)
-		} else if compressionLevel == archive.Bzip2 {
+		case compression.Bzip2:
 			bzr := bzip2.NewReader(file)
 			return UnTar(bzr, dest)
+		default:
+			logrus.Fatalf("unsupported compression algorithm: %d", compressionLevel)
 		}
 	}
 	if fileIsUncompressedTar(path) {
@@ -259,7 +263,7 @@ func IsFileLocalTarArchive(src string) bool {
 	return compressed || uncompressed
 }
 
-func fileIsCompressedTar(src string) (bool, archive.Compression) {
+func fileIsCompressedTar(src string) (bool, compression.Compression) {
 	r, err := FSys.Open(src)
 	if err != nil {
 		return false, -1
@@ -269,7 +273,7 @@ func fileIsCompressedTar(src string) (bool, archive.Compression) {
 	if err != nil {
 		return false, -1
 	}
-	compressionLevel := archive.DetectCompression(buf)
+	compressionLevel := compression.Detect(buf)
 	return (compressionLevel > 0), compressionLevel
 }
 
