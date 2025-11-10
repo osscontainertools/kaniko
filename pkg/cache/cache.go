@@ -93,7 +93,7 @@ func verifyImage(img v1.Image, cacheTTL time.Duration, cache string) error {
 	// Layer is stale, rebuild it.
 	if expiry.Before(time.Now()) {
 		logrus.Infof("Cache entry expired: %s", cache)
-		return fmt.Errorf("Cache entry expired: %s", cache)
+		return fmt.Errorf("cache entry expired: %s", cache)
 	}
 
 	// Force the manifest to be populated

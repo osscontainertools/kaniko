@@ -478,7 +478,7 @@ func resolveRelativePaths() error {
 		var err error
 		relp := *p // save original relative path
 		if *p, err = filepath.Abs(*p); err != nil {
-			return fmt.Errorf("Couldn't resolve relative path %s to an absolute path: %w", *p, err)
+			return fmt.Errorf("couldn't resolve relative path %s to an absolute path: %w", *p, err)
 		}
 		logrus.Debugf("Resolved relative path %s to %s", relp, *p)
 	}

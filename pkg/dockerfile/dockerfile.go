@@ -278,7 +278,7 @@ func resolveStagesArgs(stages []instructions.Stage, args []string) error {
 func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, metaArgs []instructions.ArgCommand) ([]config.KanikoStage, error) {
 	targetStage, err := targetStage(stages, opts.Target)
 	if err != nil {
-		return nil, fmt.Errorf("Error finding target stage: %w", err)
+		return nil, fmt.Errorf("error finding target stage: %w", err)
 	}
 	args := unifyArgs(metaArgs, opts.BuildArgs)
 	if err := resolveStagesArgs(stages, args); err != nil {

@@ -162,7 +162,7 @@ func (l *LayeredMap) Add(s string) error {
 	}(s)
 
 	if err != nil {
-		return fmt.Errorf("Error creating hash for %s: %w", s, err)
+		return fmt.Errorf("error creating hash for %s: %w", s, err)
 	}
 
 	l.adds[len(l.adds)-1][s] = newV

@@ -78,7 +78,7 @@ var RootCmd = &cobra.Command{
 		}
 
 		if len(opts.Images) == 0 && opts.DockerfilePath == "" {
-			return errors.New("You must select at least one image to cache or a dockerfilepath to parse")
+			return errors.New("you must select at least one image to cache or a dockerfilepath to parse")
 		}
 
 		if opts.DockerfilePath != "" {
@@ -93,11 +93,11 @@ var RootCmd = &cobra.Command{
 		if _, err := os.Stat(opts.CacheDir); os.IsNotExist(err) {
 			err = os.MkdirAll(opts.CacheDir, 0755)
 			if err != nil {
-				exit(fmt.Errorf("Failed to create cache directory: %w", err))
+				exit(fmt.Errorf("failed to create cache directory: %w", err))
 			}
 		}
 		if err := cache.WarmCache(opts); err != nil {
-			exit(fmt.Errorf("Failed warming cache: %w", err))
+			exit(fmt.Errorf("failed warming cache: %w", err))
 		}
 
 	},
