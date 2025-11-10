@@ -64,11 +64,17 @@ var RootCmd = &cobra.Command{
 		// TODO may need all executors validation in here
 
 		if val, ok := os.LookupEnv("KANIKO_REGISTRY_MAP"); ok {
-			opts.RegistryMaps.Set(val)
+			err := opts.RegistryMaps.Set(val)
+			if err != nil {
+				return err
+			}
 		}
 
 		for _, target := range opts.RegistryMirrors {
-			opts.RegistryMaps.Set(fmt.Sprintf("%s=%s", name.DefaultRegistry, target))
+			err := opts.RegistryMaps.Set(fmt.Sprintf("%s=%s", name.DefaultRegistry, target))
+			if err != nil {
+				return err
+			}
 		}
 
 		if len(opts.RegistryMaps) > 0 {

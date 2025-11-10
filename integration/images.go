@@ -460,7 +460,10 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 
 	benchmarkEnv := "BENCHMARK_FILE=false"
 	if b, err := strconv.ParseBool(os.Getenv("BENCHMARK")); err == nil && b {
-		os.Mkdir("benchmarks", 0o755)
+		err := os.Mkdir("benchmarks", 0o755)
+		if err != nil {
+			return err
+		}
 		benchmarkEnv = "BENCHMARK_FILE=/workspace/benchmarks/" + dockerfile
 	}
 	kanikoImage := GetVersionedKanikoImage(imageRepo, dockerfile, version)

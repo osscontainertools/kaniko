@@ -358,7 +358,10 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 			return err
 		}
 
-		currFile.Close()
+		err = currFile.Close()
+		if err != nil {
+			return err
+		}
 	case tar.TypeDir:
 		logrus.Tracef("Creating dir %s", path)
 		if err := MkdirAllWithPermissions(path, mode, int64(uid), int64(gid)); err != nil {
@@ -1140,10 +1143,16 @@ func createParentDirectory(path string, uid int, gid int) error {
 			dir := dirs[i]
 
 			if _, err := os.Lstat(dir); os.IsNotExist(err) {
-				os.Mkdir(dir, 0o755)
+				err = os.Mkdir(dir, 0o755)
+				if err != nil {
+					return err
+				}
 				if uid != DoNotChangeUID {
 					if gid != DoNotChangeGID {
-						os.Chown(dir, uid, gid)
+						err = os.Chown(dir, uid, gid)
+						if err != nil {
+							return err
+						}
 					} else {
 						return fmt.Errorf("UID=%d but GID=-1, i.e. it is not set for %s", uid, dir)
 					}
