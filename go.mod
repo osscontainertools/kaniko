@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.31.17
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.20.4
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.90.0
-	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.10.1
+	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.11.0
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589
 	github.com/go-git/go-billy/v5 v5.6.2
 	github.com/go-git/go-git/v5 v5.16.3
@@ -121,8 +121,8 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.29.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.53.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.53.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ecr v1.45.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.33.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.51.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ecrpublic v1.38.2 // indirect
 	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/cncf/xds/go v0.0.0-20250501225837-2ac532fd4443 // indirect
 	github.com/containerd/log v0.1.0 // indirect
