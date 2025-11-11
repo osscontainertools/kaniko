@@ -46,26 +46,15 @@ func (s *S3) UnpackTarFromBuildContext() (string, error) {
 	}
 
 	endpoint := os.Getenv(constants.S3EndpointEnv)
-	forcePath := false
-	if strings.ToLower(os.Getenv(constants.S3ForcePathStyle)) == "true" {
-		forcePath = true
-	}
+	forcePath := strings.ToLower(os.Getenv(constants.S3ForcePathStyle)) == "true"
 
-	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		if endpoint != "" {
-			return aws.Endpoint{
-				URL: endpoint,
-			}, nil
-		}
-		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
-	})
-
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolverWithOptions(customResolver))
+	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return bucket, err
 	}
 	client := s3.NewFromConfig(cfg, func(options *s3.Options) {
 		if endpoint != "" {
+			options.BaseEndpoint = aws.String(endpoint)
 			options.UsePathStyle = forcePath
 		}
 	})
