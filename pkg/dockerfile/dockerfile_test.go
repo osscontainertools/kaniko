@@ -584,6 +584,14 @@ func Test_SkipingUnusedStages(t *testing.T) {
 		},
 	}
 
+	original := GetRemoteOnBuild
+	defer func() {
+		GetRemoteOnBuild = original
+	}()
+	GetRemoteOnBuild = func(baseName string, metaArgs []instructions.ArgCommand, opts *config.KanikoOptions) ([]string, error) {
+		return nil, nil
+	}
+
 	t.Setenv("FF_KANIKO_SQUASH_STAGES", "0")
 	for _, test := range tests {
 		stages, _, err := Parse([]byte(test.dockerfile))
@@ -657,6 +665,14 @@ func Test_SquashStages(t *testing.T) {
 				"":       {"FROM debian:12.10 as base", "FROM scratch as second", "FROM base as fourth\nFROM fourth"},
 			},
 		},
+	}
+
+	original := GetRemoteOnBuild
+	defer func() {
+		GetRemoteOnBuild = original
+	}()
+	GetRemoteOnBuild = func(baseName string, metaArgs []instructions.ArgCommand, opts *config.KanikoOptions) ([]string, error) {
+		return nil, nil
 	}
 
 	t.Setenv("FF_KANIKO_SQUASH_STAGES", "1")
