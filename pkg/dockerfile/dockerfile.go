@@ -37,6 +37,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var (
+	GetRemoteOnBuild = getRemoteOnBuild
+)
+
 func ParseStages(opts *config.KanikoOptions) ([]instructions.Stage, []instructions.ArgCommand, error) {
 	var err error
 	var d []uint8
@@ -317,15 +321,10 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		} else if baseImageStoredLocally {
 			onBuild = getOnBuild(stages[baseImageIndex].Commands)
 		} else {
-			image, err := image_util.RetrieveSourceImageInternal(stage.BaseName, false, -1, metaArgs, opts)
+			onBuild, err = GetRemoteOnBuild(stage.BaseName, metaArgs, opts)
 			if err != nil {
 				return nil, err
 			}
-			cfg, err := image.ConfigFile()
-			if err != nil {
-				return nil, err
-			}
-			onBuild = cfg.Config.OnBuild
 		}
 		cmds, err := ParseCommands(onBuild)
 		if err != nil {
@@ -428,6 +427,18 @@ func getOnBuild(cmds []instructions.Command) []string {
 		}
 	}
 	return out
+}
+
+func getRemoteOnBuild(baseName string, metaArgs []instructions.ArgCommand, opts *config.KanikoOptions) ([]string, error) {
+	image, err := image_util.RetrieveSourceImageInternal(baseName, false, -1, metaArgs, opts)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := image.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+	return cfg.Config.OnBuild, nil
 }
 
 func filterOnBuild(cmds []instructions.Command) []instructions.Command {
