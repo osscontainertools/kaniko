@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cache
+package warmer
 
 import (
 	"errors"
@@ -30,6 +30,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/image/remote"
@@ -102,14 +103,14 @@ func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 
 	cw := &Warmer{
 		Remote:         remote.RetrieveRemoteImage,
-		Local:          LocalSource,
+		Local:          cache.LocalSource,
 		TarWriter:      f,
 		ManifestWriter: mtfsFile,
 	}
 
 	digest, err := cw.Warm(img, opts)
 	if err != nil {
-		if IsAlreadyCached(err) {
+		if cache.IsAlreadyCached(err) {
 			logrus.Infof("Image already in cache: %v", img)
 			return nil
 		}
@@ -144,13 +145,13 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 
 	cw := &OciWarmer{
 		Remote: remote.RetrieveRemoteImage,
-		Local:  LocalSource,
+		Local:  cache.LocalSource,
 		TmpDir: tmp,
 	}
 
 	digest, err := cw.Warm(img, opts)
 	if err != nil {
-		if IsAlreadyCached(err) {
+		if cache.IsAlreadyCached(err) {
 			logrus.Infof("Image already in cache: %v", img)
 			return nil
 		}
@@ -202,8 +203,8 @@ func (w *Warmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error)
 		if d, ok := cacheRef.(name.Digest); ok {
 			cacheKey := d.DigestStr()
 			_, err := w.Local(&opts.CacheOptions, cacheKey)
-			if err == nil || IsExpired(err) {
-				return v1.Hash{}, AlreadyCachedErr{}
+			if err == nil || cache.IsExpired(err) {
+				return v1.Hash{}, cache.AlreadyCachedErr{}
 			} else {
 				// mz320: But in case it is a cache miss, not all hope is lost.
 				// It could have also been the digest for an image-index.
@@ -237,8 +238,8 @@ func (w *Warmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error)
 		} else {
 			_, err = w.Local(&opts.CacheOptions, cacheKey)
 		}
-		if err == nil || IsExpired(err) {
-			return v1.Hash{}, AlreadyCachedErr{}
+		if err == nil || cache.IsExpired(err) {
+			return v1.Hash{}, cache.AlreadyCachedErr{}
 		}
 	}
 
@@ -280,8 +281,8 @@ func (w *OciWarmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, err
 		if d, ok := cacheRef.(name.Digest); ok {
 			cacheKey := d.DigestStr()
 			_, err := w.Local(&opts.CacheOptions, cacheKey)
-			if err == nil || IsExpired(err) {
-				return v1.Hash{}, AlreadyCachedErr{}
+			if err == nil || cache.IsExpired(err) {
+				return v1.Hash{}, cache.AlreadyCachedErr{}
 			} else {
 				// mz320: But in case it is a cache miss, not all hope is lost.
 				// It could have also been the digest for an image-index.
@@ -315,8 +316,8 @@ func (w *OciWarmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, err
 		} else {
 			_, err = w.Local(&opts.CacheOptions, cacheKey)
 		}
-		if err == nil || IsExpired(err) {
-			return v1.Hash{}, AlreadyCachedErr{}
+		if err == nil || cache.IsExpired(err) {
+			return v1.Hash{}, cache.AlreadyCachedErr{}
 		}
 	}
 
