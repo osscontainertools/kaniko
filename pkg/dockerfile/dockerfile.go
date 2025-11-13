@@ -32,7 +32,7 @@ import (
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
-	"github.com/osscontainertools/kaniko/pkg/image/remote"
+	image_util "github.com/osscontainertools/kaniko/pkg/image"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
@@ -309,14 +309,15 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			logrus.Infof("Resolved base name of %s to %s", stage.Name, stage.BaseName)
 		}
 		baseImageIndex := baseImageIndex(i, stages)
+		baseImageStoredLocally := baseImageIndex != -1
 
 		var onBuild []string
 		if stage.BaseName == constants.NoBaseImage {
 			// pass
-		} else if baseImageIndex != -1 {
+		} else if baseImageStoredLocally {
 			onBuild = getOnBuild(stages[baseImageIndex].Commands)
 		} else {
-			image, err := remote.RetrieveRemoteImage(stage.BaseName, opts.RegistryOptions, opts.CustomPlatform)
+			image, err := image_util.RetrieveSourceImageInternal(stage.BaseName, false, -1, metaArgs, opts)
 			if err != nil {
 				return nil, err
 			}
@@ -333,7 +334,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		stage.Commands = append(cmds, stage.Commands...)
 
 		if opts.SkipUnusedStages {
-			if baseImageIndex != -1 {
+			if baseImageStoredLocally {
 				stagesDependencies[baseImageIndex]++
 			}
 			for _, c := range stage.Commands {
@@ -357,7 +358,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		kanikoStages[i] = config.KanikoStage{
 			Stage:                  stage,
 			BaseImageIndex:         baseImageIndex,
-			BaseImageStoredLocally: (baseImageIndex != -1),
+			BaseImageStoredLocally: baseImageStoredLocally,
 			SaveStage:              saveStage(i, stages),
 			Final:                  i == targetStage,
 			MetaArgs:               metaArgs,
