@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
@@ -45,17 +46,21 @@ var (
 
 // RetrieveSourceImage returns the base image of the stage at index
 func RetrieveSourceImage(stage config.KanikoStage, opts *config.KanikoOptions) (v1.Image, error) {
+	return RetrieveSourceImageInternal(stage.BaseName, stage.BaseImageStoredLocally, stage.BaseImageIndex, stage.MetaArgs, opts)
+}
+
+func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, baseImageIndex int, metaArgs []instructions.ArgCommand, opts *config.KanikoOptions) (v1.Image, error) {
 	t := timing.Start("Retrieving Source Image")
 	defer timing.DefaultRun.Stop(t)
 	var buildArgs []string
 
-	for _, marg := range stage.MetaArgs {
+	for _, marg := range metaArgs {
 		for _, arg := range marg.Args {
 			buildArgs = append(buildArgs, fmt.Sprintf("%s=%s", arg.Key, arg.ValueString()))
 		}
 	}
 	buildArgs = append(buildArgs, opts.BuildArgs...)
-	currentBaseName, err := util.ResolveEnvironmentReplacement(stage.BaseName, buildArgs, false)
+	currentBaseName, err := util.ResolveEnvironmentReplacement(baseName, buildArgs, false)
 	if err != nil {
 		return nil, err
 	}
@@ -66,11 +71,11 @@ func RetrieveSourceImage(stage config.KanikoStage, opts *config.KanikoOptions) (
 	}
 	// Next, check if the base image of the current stage is built from a previous stage
 	// If so, retrieve the image from the stored tarball
-	if stage.BaseImageStoredLocally {
+	if baseImageStoredLocally {
 		if config.EnvBool("FF_KANIKO_OCI_STAGES") {
-			return ociImage(stage.BaseImageIndex)
+			return ociImage(baseImageIndex)
 		} else {
-			return retrieveTarImage(stage.BaseImageIndex)
+			return retrieveTarImage(baseImageIndex)
 		}
 	}
 
