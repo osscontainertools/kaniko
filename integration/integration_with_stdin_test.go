@@ -87,10 +87,10 @@ func TestBuildWithStdin(t *testing.T) {
 
 	dockerImage := GetDockerImage(config.imageRepo, dockerfile)
 	dockerCmd := exec.Command("docker",
-		append([]string{"build",
+		[]string{"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
-			"."})...)
+			"."}...)
 
 	_, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {

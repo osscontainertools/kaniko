@@ -89,7 +89,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 	// Add files to current layer.
 	for _, file := range filesToAdd {
 		if err := s.l.Add(file); err != nil {
-			return "", fmt.Errorf("Unable to add file %s to layered map: %w", file, err)
+			return "", fmt.Errorf("unable to add file %s to layered map: %w", file, err)
 		}
 	}
 
@@ -107,7 +107,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 		// Whiteout files in current layer.
 		for file := range deletedFiles {
 			if err := s.l.AddDelete(file); err != nil {
-				return "", fmt.Errorf("Unable to whiteout file %s in layered map: %w", file, err)
+				return "", fmt.Errorf("unable to whiteout file %s in layered map: %w", file, err)
 			}
 		}
 
@@ -214,12 +214,12 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 	// Add files to the layered map
 	for _, file := range filesToAdd {
 		if err := s.l.Add(file); err != nil {
-			return nil, nil, fmt.Errorf("Unable to add file %s to layered map: %w", file, err)
+			return nil, nil, fmt.Errorf("unable to add file %s to layered map: %w", file, err)
 		}
 	}
 	for file := range deletedPaths {
 		if err := s.l.AddDelete(file); err != nil {
-			return nil, nil, fmt.Errorf("Unable to whiteout file %s in layered map: %w", file, err)
+			return nil, nil, fmt.Errorf("unable to whiteout file %s in layered map: %w", file, err)
 		}
 	}
 

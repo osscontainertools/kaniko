@@ -206,7 +206,7 @@ func (b *BuildArgs) InitPredefinedArgs(customPlatform string, lastStage string) 
 		target = customPlatform
 		targetSpec, err = platforms.Parse(customPlatform)
 		if err != nil {
-			return fmt.Errorf("Failed to parse target platform %q: %v", customPlatform, err)
+			return fmt.Errorf("failed to parse target platform %q: %v", customPlatform, err)
 		}
 	}
 

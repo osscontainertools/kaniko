@@ -65,7 +65,7 @@ func WarmCache(opts *config.WarmerOptions) error {
 	}
 
 	if len(images) == errs {
-		return errors.New("Failed to warm any of the given images")
+		return errors.New("failed to warm any of the given images")
 	}
 
 	return nil
@@ -115,7 +115,7 @@ func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 
 	err = os.Rename(mtfsFile.Name(), finalMfstPath)
 	if err != nil {
-		return fmt.Errorf("Failed to rename manifest file: %w", err)
+		return fmt.Errorf("failed to rename manifest file: %w", err)
 	}
 
 	logrus.Debugf("Wrote %s to cache", img)
@@ -145,7 +145,7 @@ type Warmer struct {
 func (w *Warmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error) {
 	cacheRef, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
-		return v1.Hash{}, fmt.Errorf("Failed to verify image name: %s: %w", image, err)
+		return v1.Hash{}, fmt.Errorf("failed to verify image name: %s: %w", image, err)
 	}
 
 	// mz320: If we have a digest reference, we can try a cache lookup directly.
@@ -171,12 +171,12 @@ func (w *Warmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error)
 
 	img, err := w.Remote(image, opts.RegistryOptions, opts.CustomPlatform)
 	if err != nil || img == nil {
-		return v1.Hash{}, fmt.Errorf("Failed to retrieve image: %s: %w", image, err)
+		return v1.Hash{}, fmt.Errorf("failed to retrieve image: %s: %w", image, err)
 	}
 
 	digest, err := img.Digest()
 	if err != nil {
-		return v1.Hash{}, fmt.Errorf("Failed to retrieve digest: %s: %w", image, err)
+		return v1.Hash{}, fmt.Errorf("failed to retrieve digest: %s: %w", image, err)
 	}
 
 	if !opts.Force {
@@ -197,16 +197,16 @@ func (w *Warmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error)
 
 	err = tarball.Write(cacheRef, img, w.TarWriter)
 	if err != nil {
-		return v1.Hash{}, fmt.Errorf("Failed to write %s to tar buffer: %w", image, err)
+		return v1.Hash{}, fmt.Errorf("failed to write %s to tar buffer: %w", image, err)
 	}
 
 	mfst, err := img.RawManifest()
 	if err != nil {
-		return v1.Hash{}, fmt.Errorf("Failed to retrieve manifest for %s: %w", image, err)
+		return v1.Hash{}, fmt.Errorf("failed to retrieve manifest for %s: %w", image, err)
 	}
 
 	if _, err := w.ManifestWriter.Write(mfst); err != nil {
-		return v1.Hash{}, fmt.Errorf("Failed to save manifest to buffer for %s: %w", image, err)
+		return v1.Hash{}, fmt.Errorf("failed to save manifest to buffer for %s: %w", image, err)
 	}
 
 	return digest, nil

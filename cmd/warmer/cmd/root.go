@@ -64,11 +64,17 @@ var RootCmd = &cobra.Command{
 		// TODO may need all executors validation in here
 
 		if val, ok := os.LookupEnv("KANIKO_REGISTRY_MAP"); ok {
-			opts.RegistryMaps.Set(val)
+			err := opts.RegistryMaps.Set(val)
+			if err != nil {
+				return err
+			}
 		}
 
 		for _, target := range opts.RegistryMirrors {
-			opts.RegistryMaps.Set(fmt.Sprintf("%s=%s", name.DefaultRegistry, target))
+			err := opts.RegistryMaps.Set(fmt.Sprintf("%s=%s", name.DefaultRegistry, target))
+			if err != nil {
+				return err
+			}
 		}
 
 		if len(opts.RegistryMaps) > 0 {
@@ -78,7 +84,7 @@ var RootCmd = &cobra.Command{
 		}
 
 		if len(opts.Images) == 0 && opts.DockerfilePath == "" {
-			return errors.New("You must select at least one image to cache or a dockerfilepath to parse")
+			return errors.New("you must select at least one image to cache or a dockerfilepath to parse")
 		}
 
 		if opts.DockerfilePath != "" {
@@ -93,11 +99,11 @@ var RootCmd = &cobra.Command{
 		if _, err := os.Stat(opts.CacheDir); os.IsNotExist(err) {
 			err = os.MkdirAll(opts.CacheDir, 0755)
 			if err != nil {
-				exit(fmt.Errorf("Failed to create cache directory: %w", err))
+				exit(fmt.Errorf("failed to create cache directory: %w", err))
 			}
 		}
 		if err := cache.WarmCache(opts); err != nil {
-			exit(fmt.Errorf("Failed warming cache: %w", err))
+			exit(fmt.Errorf("failed warming cache: %w", err))
 		}
 
 	},

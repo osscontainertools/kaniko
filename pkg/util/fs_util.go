@@ -358,7 +358,10 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 			return err
 		}
 
-		currFile.Close()
+		err = currFile.Close()
+		if err != nil {
+			return err
+		}
 	case tar.TypeDir:
 		logrus.Tracef("Creating dir %s", path)
 		if err := MkdirAllWithPermissions(path, mode, int64(uid), int64(gid)); err != nil {
@@ -904,11 +907,9 @@ func MkdirAllWithPermissions(path string, mode os.FileMode, uid, gid int64) erro
 	}
 	if uid > math.MaxUint32 || gid > math.MaxUint32 {
 		// due to https://github.com/golang/go/issues/8537
-		return errors.New(
-			fmt.Sprintf(
-				"Numeric User-ID or Group-ID greater than %v are not properly supported.",
-				uint64(math.MaxUint32),
-			),
+		return fmt.Errorf(
+			"numeric user-id or group-id greater than %v are not properly supported",
+			uint64(math.MaxUint32),
 		)
 	}
 	if err := os.Chown(path, int(uid), int(gid)); err != nil {
@@ -1142,16 +1143,22 @@ func createParentDirectory(path string, uid int, gid int) error {
 			dir := dirs[i]
 
 			if _, err := os.Lstat(dir); os.IsNotExist(err) {
-				os.Mkdir(dir, 0o755)
+				err = os.Mkdir(dir, 0o755)
+				if err != nil {
+					return err
+				}
 				if uid != DoNotChangeUID {
 					if gid != DoNotChangeGID {
-						os.Chown(dir, uid, gid)
+						err = os.Chown(dir, uid, gid)
+						if err != nil {
+							return err
+						}
 					} else {
-						return errors.New(fmt.Sprintf("UID=%d but GID=-1, i.e. it is not set for %s", uid, dir))
+						return fmt.Errorf("UID=%d but GID=-1, i.e. it is not set for %s", uid, dir)
 					}
 				} else {
 					if gid != DoNotChangeGID {
-						return errors.New(fmt.Sprintf("GID=%d but UID=-1, i.e. it is not set for %s", gid, dir))
+						return fmt.Errorf("GID=%d but UID=-1, i.e. it is not set for %s", gid, dir)
 					}
 				}
 			} else if err != nil {

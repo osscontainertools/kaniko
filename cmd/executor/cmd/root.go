@@ -70,25 +70,34 @@ func validateFlags() {
 
 	// Allow setting --registry-mirror using an environment variable.
 	if val, ok := os.LookupEnv("KANIKO_REGISTRY_MIRROR"); ok {
-		opts.RegistryMirrors.Set(val)
+		err := opts.RegistryMirrors.Set(val)
+		if err != nil {
+			logrus.Fatalf("failed to set registry mirror %s", val)
+		}
 	}
 
 	// Allow setting --no-push using an environment variable.
 	if val, ok := os.LookupEnv("KANIKO_NO_PUSH"); ok {
 		valBoolean, err := strconv.ParseBool(val)
 		if err != nil {
-			errors.New("invalid value (true/false) for KANIKO_NO_PUSH environment variable")
+			logrus.Fatalf("invalid value %q for KANIKO_NO_PUSH environment variable", val)
 		}
 		opts.NoPush = valBoolean
 	}
 
 	// Allow setting --registry-maps using an environment variable.
 	if val, ok := os.LookupEnv("KANIKO_REGISTRY_MAP"); ok {
-		opts.RegistryMaps.Set(val)
+		err := opts.RegistryMaps.Set(val)
+		if err != nil {
+			logrus.Fatalf("failed to set registry map %s", val)
+		}
 	}
 
 	for _, target := range opts.RegistryMirrors {
-		opts.RegistryMaps.Set(fmt.Sprintf("%s=%s", name.DefaultRegistry, target))
+		err := opts.RegistryMaps.Set(fmt.Sprintf("%s=%s", name.DefaultRegistry, target))
+		if err != nil {
+			logrus.Fatalf("failed to set registry mirror %s", target)
+		}
 	}
 
 	if len(opts.RegistryMaps) > 0 {
@@ -216,7 +225,11 @@ var RootCmd = &cobra.Command{
 					return
 				}
 				defer f.Close()
-				f.WriteString(s)
+				_, err = f.WriteString(s)
+				if err != nil {
+					logrus.Warnf("Unable to write to benchmarking file %s: %s", benchmarkFile, err)
+					return
+				}
 				logrus.Infof("Benchmark file written at %s", benchmarkFile)
 			}
 		}
@@ -478,7 +491,7 @@ func resolveRelativePaths() error {
 		var err error
 		relp := *p // save original relative path
 		if *p, err = filepath.Abs(*p); err != nil {
-			return fmt.Errorf("Couldn't resolve relative path %s to an absolute path: %w", *p, err)
+			return fmt.Errorf("couldn't resolve relative path %s to an absolute path: %w", *p, err)
 		}
 		logrus.Debugf("Resolved relative path %s to %s", relp, *p)
 	}

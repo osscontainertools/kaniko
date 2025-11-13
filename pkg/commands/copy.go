@@ -217,7 +217,7 @@ func (cr *CachingCopyCommand) ExecuteCommand(config *v1.Config, buildArgs *docke
 	var err error
 
 	if cr.img == nil {
-		return errors.New(fmt.Sprintf("cached command image is nil %v", cr.String()))
+		return fmt.Errorf("cached command image is nil %v", cr.String())
 	}
 
 	layers, err := cr.img.Layers()
@@ -226,7 +226,7 @@ func (cr *CachingCopyCommand) ExecuteCommand(config *v1.Config, buildArgs *docke
 	}
 
 	if len(layers) != 1 {
-		return errors.New(fmt.Sprintf("expected %d layers but got %d", 1, len(layers)))
+		return fmt.Errorf("expected %d layers but got %d", 1, len(layers))
 	}
 
 	cr.layer = layers[0]

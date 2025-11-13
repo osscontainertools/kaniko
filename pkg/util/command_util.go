@@ -353,7 +353,7 @@ func GetActiveUserGroup(configUser string, chownStr string, replacementEnvs []st
 	}
 	uid32, gid32, err := getUIDAndGIDFunc(user.Uid, user.Gid)
 	if err != nil {
-		return DoNotChangeUID, DoNotChangeGID, fmt.Errorf("Failed parsing uid and gid %s:%s: %w", user.Uid, user.Gid, err)
+		return DoNotChangeUID, DoNotChangeGID, fmt.Errorf("failed parsing uid and gid %s:%s: %w", user.Uid, user.Gid, err)
 	}
 	uid, gid := int64(uid32), int64(gid32)
 

@@ -19,7 +19,6 @@ package commands
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -95,6 +94,9 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					}()
 				}
 				err = swapDir(cacheDir, m.Target)
+				if err != nil {
+					return err
+				}
 				defer func() {
 					err := swapDir(m.Target, cacheDir)
 					if err != nil {
@@ -148,8 +150,11 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 				continue
 			}
 			oldPath := os.Getenv("PATH")
+			err := os.Setenv("PATH", entry[1])
+			if err != nil {
+				return err
+			}
 			defer os.Setenv("PATH", oldPath)
-			os.Setenv("PATH", entry[1])
 			path, err := exec.LookPath(newCommand[0])
 			if err == nil {
 				newCommand[0] = path
@@ -287,7 +292,7 @@ func (cr *CachingRunCommand) ExecuteCommand(config *v1.Config, buildArgs *docker
 	var err error
 
 	if cr.img == nil {
-		return errors.New(fmt.Sprintf("command image is nil %v", cr.String()))
+		return fmt.Errorf("command image is nil %v", cr.String())
 	}
 
 	layers, err := cr.img.Layers()
@@ -296,7 +301,7 @@ func (cr *CachingRunCommand) ExecuteCommand(config *v1.Config, buildArgs *docker
 	}
 
 	if len(layers) != 1 {
-		return errors.New(fmt.Sprintf("expected %d layers but got %d", 1, len(layers)))
+		return fmt.Errorf("expected %d layers but got %d", 1, len(layers))
 	}
 
 	cr.layer = layers[0]

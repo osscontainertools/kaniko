@@ -353,7 +353,7 @@ func writeImageOutputs(image v1.Image, destRefs []name.Tag) error {
 // if opts.CacheRepo doesn't exist, infer the cache from the given destination
 func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath string, createdBy string) error {
 	var layerOpts []tarball.LayerOption
-	if opts.CompressedCaching == true {
+	if opts.CompressedCaching {
 		layerOpts = append(layerOpts, tarball.WithCompressedCaching)
 	}
 

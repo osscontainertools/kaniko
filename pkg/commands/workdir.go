@@ -17,7 +17,6 @@ limitations under the License.
 package commands
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -137,7 +136,7 @@ func (wr *CachingWorkdirCommand) ExecuteCommand(config *v1.Config, buildArgs *do
 	logrus.Infof("Found cached layer, extracting to filesystem")
 
 	if wr.img == nil {
-		return errors.New(fmt.Sprintf("command image is nil %v", wr.String()))
+		return fmt.Errorf("command image is nil %v", wr.String())
 	}
 
 	layers, err := wr.img.Layers()
@@ -146,7 +145,7 @@ func (wr *CachingWorkdirCommand) ExecuteCommand(config *v1.Config, buildArgs *do
 	}
 
 	if len(layers) > 1 {
-		return errors.New(fmt.Sprintf("expected %d layers but got %d", 1, len(layers)))
+		return fmt.Errorf("expected %d layers but got %d", 1, len(layers))
 	} else if len(layers) == 0 {
 		// an empty image in cache indicates that no directory was created by WORKDIR
 		return nil

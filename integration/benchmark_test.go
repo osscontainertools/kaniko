@@ -91,10 +91,10 @@ func TestSnapshotBenchmark(t *testing.T) {
 func newResult(t *testing.T, f string) result {
 	var current map[string]time.Duration
 	jsonFile, err := os.Open(f)
-	defer jsonFile.Close()
 	if err != nil {
 		t.Errorf("could not read benchmark file %s", f)
 	}
+	defer jsonFile.Close()
 	byteValue, _ := io.ReadAll(jsonFile)
 	if err := json.Unmarshal(byteValue, &current); err != nil {
 		t.Errorf("could not unmarshal benchmark file")
@@ -141,7 +141,7 @@ func TestSnapshotBenchmarkGcloud(t *testing.T) {
 					return
 				}
 				r := newResult(t, filepath.Join(dir, "results"))
-				t.Log(fmt.Sprintf("%d,%f,%f,%f, %f", num, r.totalBuildTime, r.walkingFiles, r.resolvingFiles, r.hashingFiles))
+				t.Logf("%d,%f,%f,%f, %f", num, r.totalBuildTime, r.walkingFiles, r.resolvingFiles, r.hashingFiles)
 				wg.Done()
 				defer os.Remove(dir)
 				defer os.Chdir(cwd)

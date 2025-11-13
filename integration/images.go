@@ -197,7 +197,7 @@ func checkArgsNotPrinted(dockerfile string, out []byte) error {
 		argSplitted := strings.Split(arg, "=")
 		if len(argSplitted) == 2 {
 			if idx := bytes.Index(out, []byte(argSplitted[1])); idx >= 0 {
-				return fmt.Errorf("Argument value %s for argument %s displayed in output", argSplitted[1], argSplitted[0])
+				return fmt.Errorf("argument value %s for argument %s displayed in output", argSplitted[1], argSplitted[0])
 			}
 		} else if len(argSplitted) == 1 {
 			if envs, ok := envsMap[dockerfile]; ok {
@@ -205,7 +205,7 @@ func checkArgsNotPrinted(dockerfile string, out []byte) error {
 					envSplitted := strings.Split(env, "=")
 					if len(envSplitted) == 2 {
 						if idx := bytes.Index(out, []byte(envSplitted[1])); idx >= 0 {
-							return fmt.Errorf("Argument value %s for argument %s displayed in output", envSplitted[1], argSplitted[0])
+							return fmt.Errorf("argument value %s for argument %s displayed in output", envSplitted[1], argSplitted[0])
 						}
 					}
 				}
@@ -247,7 +247,7 @@ func FindDockerFiles(dir, dockerfilesPattern string) ([]string, error) {
 	fmt.Printf("finding docker images with pattern %v\n", pattern)
 	allDockerfiles, err := filepath.Glob(pattern)
 	if err != nil {
-		return []string{}, fmt.Errorf("Failed to find docker files with pattern %s: %w", dockerfilesPattern, err)
+		return []string{}, fmt.Errorf("failed to find docker files with pattern %s: %w", dockerfilesPattern, err)
 	}
 
 	var dockerfiles []string
@@ -362,7 +362,7 @@ func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfile
 
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
-		return fmt.Errorf("Failed to build image %s with docker command \"%s\": %w %s", dockerImage, dockerCmd.Args, err, string(out))
+		return fmt.Errorf("failed to build image %s with docker command \"%s\": %w %s", dockerImage, dockerCmd.Args, err, string(out))
 	}
 	t.Logf("Build image for Dockerfile %s as %s. docker build output: %s \n", dockerfile, dockerImage, out)
 	return nil
@@ -433,19 +433,18 @@ func populateVolumeCache() error {
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
 	warmerCmd := exec.Command("docker",
-		append([]string{
+		[]string{
 			"run", "--net=host",
 			"-v", os.Getenv("HOME") + "/.config/gcloud:/root/.config/gcloud",
 			"-v", cwd + ":/workspace",
 			WarmerImage,
 			"-c", cacheDir,
 			"-i", baseImageToCache,
-		},
-		)...,
+		}...,
 	)
 
 	if _, err := RunCommandWithoutTest(warmerCmd); err != nil {
-		return fmt.Errorf("Failed to warm kaniko cache: %w", err)
+		return fmt.Errorf("failed to warm kaniko cache: %w", err)
 	}
 
 	return nil
@@ -461,7 +460,10 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 
 	benchmarkEnv := "BENCHMARK_FILE=false"
 	if b, err := strconv.ParseBool(os.Getenv("BENCHMARK")); err == nil && b {
-		os.Mkdir("benchmarks", 0o755)
+		err := os.Mkdir("benchmarks", 0o755)
+		if err != nil {
+			return err
+		}
 		benchmarkEnv = "BENCHMARK_FILE=/workspace/benchmarks/" + dockerfile
 	}
 	kanikoImage := GetVersionedKanikoImage(imageRepo, dockerfile, version)
@@ -482,25 +484,23 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 		cacheFlag,
 		"--cache-repo", cacheRepo,
 		"--cache-dir", cacheDir)
-	for _, v := range args {
-		dockerRunFlags = append(dockerRunFlags, v)
-	}
+	dockerRunFlags = append(dockerRunFlags, args...)
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
 	out, err := RunCommandWithoutTest(kanikoCmd)
 	logf(string(out))
 
 	if err != nil {
-		return fmt.Errorf("Failed to build cached image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
+		return fmt.Errorf("failed to build cached image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
 	}
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
 		if err := outputCheck(dockerfile, out); err != nil {
-			return fmt.Errorf("Output check failed for image %s with kaniko command : %w", kanikoImage, err)
+			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
 	if outputCheck := warmerOutputChecks[dockerfile]; outputCheck != nil {
 		if err := outputCheck(dockerfile, out); err != nil {
-			return fmt.Errorf("Output check failed for image %s with kaniko command : %w", kanikoImage, err)
+			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
 	if err := checkNoWarnings(dockerfile, out); err != nil {
@@ -518,20 +518,19 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 	kanikoImage := GetKanikoImage(imageRepo, "test_relative_"+dockerfile)
 
 	dockerCmd := exec.Command("docker",
-		append([]string{
+		[]string{
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
 			"./context",
-		},
-		)...,
+		}...,
 	)
 
 	timer := timing.Start(dockerfile + "_docker")
 	out, err := RunCommandWithoutTest(dockerCmd)
 	timing.DefaultRun.Stop(timer)
 	if err != nil {
-		return fmt.Errorf("Failed to build image %s with docker command \"%s\": %w %s", dockerImage, dockerCmd.Args, err, string(out))
+		return fmt.Errorf("failed to build image %s with docker command \"%s\": %w %s", dockerImage, dockerCmd.Args, err, string(out))
 	}
 
 	dockerRunFlags := []string{"run", "--net=host", "-v", cwd + ":/workspace"}
@@ -553,12 +552,12 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 
 	if err != nil {
 		return fmt.Errorf(
-			"Failed to build relative path image %s with kaniko command \"%s\": %w",
+			"failed to build relative path image %s with kaniko command \"%s\": %w",
 			kanikoImage, kanikoCmd.Args, err)
 	}
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
 		if err := outputCheck(dockerfile, out); err != nil {
-			return fmt.Errorf("Output check failed for image %s with kaniko command : %w", kanikoImage, err)
+			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
 	if err := checkNoWarnings(dockerfile, out); err != nil {
@@ -638,11 +637,11 @@ func buildKanikoImage(
 	logf(string(out))
 
 	if err != nil {
-		return "", fmt.Errorf("Failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
+		return "", fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
 	}
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
 		if err := outputCheck(dockerfile, out); err != nil {
-			return "", fmt.Errorf("Output check failed for image %s with kaniko command : %w", kanikoImage, err)
+			return "", fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
 	if err := checkNoWarnings(dockerfile, out); err != nil {

@@ -79,7 +79,7 @@ func (t *Tar) Close() {
 func (t *Tar) AddFileToTar(p string) error {
 	i, err := os.Lstat(p)
 	if err != nil {
-		return fmt.Errorf("Failed to get file info for %s: %w", p, err)
+		return fmt.Errorf("failed to get file info for %s: %w", p, err)
 	}
 	linkDst := ""
 	if i.Mode()&os.ModeSymlink != 0 {
