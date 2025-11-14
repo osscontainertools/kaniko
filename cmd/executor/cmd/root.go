@@ -306,6 +306,8 @@ func addKanikoOptionsFlags() {
 	RootCmd.PersistentFlags().BoolVarP(&opts.PreserveContext, "preserve-context", "", false, "Preserve build context across build stages by taking a snapshot of the full filesystem before build and restore it after we switch stages. Restores in the end too if passed together with 'cleanup'")
 	RootCmd.PersistentFlags().BoolVarP(&opts.Materialize, "materialize", "", false, "Guarantee that the final state of the file system corresponds to what was specified as the build target, even if we have 100% cache hitrate and wouldn't need to unpack any layers")
 	RootCmd.PersistentFlags().VarP(&opts.CredentialHelpers, "credential-helpers", "", "Use these credential helpers automatically, select from (env, google, ecr, acr, gitlab). Set it repeatedly for multiple helpers, defaults to all, set it to empty string to deactivate.")
+	opts.Secrets = make(map[string]string)
+	RootCmd.PersistentFlags().VarP(&opts.Secrets, "secret", "", "Set build secrets in key=value format. Set it repeatedly for multiple secrets.")
 
 	// Deprecated flags.
 	RootCmd.PersistentFlags().StringVarP(&opts.SnapshotModeDeprecated, "snapshotMode", "", "", "This flag is deprecated. Please use '--snapshot-mode'.")

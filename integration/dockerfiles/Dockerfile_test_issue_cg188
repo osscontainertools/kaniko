@@ -1,0 +1,7 @@
+FROM busybox
+
+# we can mount a secret to a target file
+RUN --mount=type=secret,id=netrc,target=/root/.netrc \
+    SECRET=`cat /root/.netrc` \
+    && echo $SECRET | tee /out.txt \
+    && [ $SECRET = "blubb" ]
