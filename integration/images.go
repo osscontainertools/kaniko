@@ -79,17 +79,20 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_1039":                 {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_2066":                 {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_1837":                 {"FF_KANIKO_SQUASH_STAGES=0"},
+	"Dockerfile_test_issue_cg188":                {"SECRET=blubb"},
 }
 
 var KanikoEnv = []string{
 	"FF_KANIKO_COPY_AS_ROOT=1",
 	"FF_KANIKO_OCI_STAGES=1",
 	"FF_KANIKO_IGNORE_CACHED_MANIFEST=1",
+	"FF_KANIKO_RUN_MOUNT_SECRET=1",
 }
 
 // Arguments to build Dockerfiles with when building with docker
 var additionalDockerFlagsMap = map[string][]string{
-	"Dockerfile_test_target": {"--target=second"},
+	"Dockerfile_test_target":      {"--target=second"},
+	"Dockerfile_test_issue_cg188": {"--secret=id=netrc,env=SECRET"},
 }
 
 // Arguments to build Dockerfiles with when building with kaniko
@@ -111,6 +114,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_volume_3":               {"--skip-unused-stages=false"},
 	"Dockerfile_test_multistage":             {"--skip-unused-stages=false"},
 	"Dockerfile_test_copy_root_multistage":   {"--skip-unused-stages=false"},
+	"Dockerfile_test_issue_cg188":            {"--secret=netrc=blubb"},
 }
 
 // Arguments to diffoci when comparing dockerfiles
