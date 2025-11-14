@@ -107,6 +107,38 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 						reterr = err
 					}
 				}()
+				if m.Mode != nil {
+					err = os.Chmod(m.Target, os.FileMode(*m.Mode))
+					if err != nil {
+						return err
+					}
+					defer func() {
+						err := os.Chmod(m.Target, os.FileMode(0755))
+						if err != nil {
+							reterr = err
+						}
+					}()
+				}
+				if m.UID != nil || m.GID != nil {
+					uid := 0
+					if m.UID != nil {
+						uid = int(*m.UID)
+					}
+					gid := 0
+					if m.GID != nil {
+						gid = int(*m.GID)
+					}
+					err = os.Chown(m.Target, uid, gid)
+					if err != nil {
+						return err
+					}
+					defer func() {
+						err = os.Chown(m.Target, 0, 0)
+						if err != nil {
+							reterr = err
+						}
+					}()
+				}
 			default:
 				logrus.Warnf("Kaniko does not support '--mount=type=%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", m.Type)
 			}
