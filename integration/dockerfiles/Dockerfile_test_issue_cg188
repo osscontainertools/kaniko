@@ -1,0 +1,5 @@
+FROM busybox
+
+# we can mount a secret to a target as specificed
+RUN --mount=type=secret,id=netrc,target=/root/.netrc \
+    cat /root/.netrc
