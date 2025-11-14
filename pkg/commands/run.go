@@ -38,6 +38,7 @@ import (
 type RunCommand struct {
 	BaseCommand
 	cmd      *instructions.RunCommand
+	secrets  map[string]string
 	shdCache bool
 }
 
@@ -51,17 +52,18 @@ func (r *RunCommand) IsArgsEnvsRequiredInCache() bool {
 }
 
 func (r *RunCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
-	return runCommandWithFlags(config, buildArgs, r.cmd)
+	return runCommandWithFlags(config, buildArgs, r.cmd, r.secrets)
 }
 
-func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand) (reterr error) {
+func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand, secrets map[string]string) (reterr error) {
 	ff_cache := kConfig.EnvBoolDefault("FF_KANIKO_RUN_MOUNT_CACHE", true)
+	ff_secret := kConfig.EnvBool("FF_KANIKO_RUN_MOUNT_SECRET")
 	for _, f := range cmdRun.FlagsUsed {
-		if !(ff_cache && f == "mount") {
+		if !((ff_cache || ff_secret) && f == "mount") {
 			logrus.Warnf("#969 kaniko does not support '--%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", f)
 		}
 	}
-	if ff_cache && len(cmdRun.FlagsUsed) > 0 {
+	if (ff_cache || ff_secret) && len(cmdRun.FlagsUsed) > 0 {
 		replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 		expand := func(word string) (string, error) {
 			return util.ResolveEnvironmentReplacement(word, replacementEnvs, false)
@@ -71,8 +73,9 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 			return err
 		}
 		for _, m := range instructions.GetMounts(cmdRun) {
-			switch m.Type {
-			case instructions.MountTypeCache:
+			switch {
+			// https://docs.docker.com/reference/dockerfile/#run---mounttypecache
+			case m.Type == instructions.MountTypeCache && ff_cache:
 				cacheId := m.CacheID
 				if cacheId == "" {
 					cacheId = filepath.Clean(m.Target)
@@ -137,6 +140,69 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 							reterr = err
 						}
 					}()
+				}
+			// https://docs.docker.com/reference/dockerfile/#run---mounttypesecret
+			case m.Type == instructions.MountTypeSecret && ff_secret:
+				secretId := m.CacheID
+				if secretId == "" {
+					secretId = filepath.Base(m.Target)
+					if secretId == "." || secretId == string(filepath.Separator) {
+						return fmt.Errorf("failed to produce secretId for: %s", m.Target)
+					}
+				}
+				s, ok := secrets[secretId]
+				if !ok {
+					if m.Required {
+						return fmt.Errorf("secret not defined: %s", secretId)
+					} else {
+						logrus.Infof("skip mounting %q as it is not available", secretId)
+						continue
+					}
+				}
+				target := m.Target
+				if target == "" {
+					target = fmt.Sprintf("/run/secrets/%s", secretId)
+				}
+				parent := filepath.Dir(target)
+				created, err := ensureDir(parent)
+				if err != nil {
+					return err
+				}
+				if created != "" {
+					defer func() {
+						err := os.RemoveAll(created)
+						if err != nil {
+							reterr = err
+						}
+					}()
+				}
+				mode := os.FileMode(0400)
+				if m.Mode != nil {
+					mode = os.FileMode(*m.Mode)
+				}
+				err = os.WriteFile(target, []byte(s), mode)
+				if err != nil {
+					return err
+				}
+				defer func() {
+					err := os.Remove(target)
+					if err != nil {
+						reterr = err
+					}
+				}()
+				if m.UID != nil || m.GID != nil {
+					uid := 0
+					if m.UID != nil {
+						uid = int(*m.UID)
+					}
+					gid := 0
+					if m.GID != nil {
+						gid = int(*m.GID)
+					}
+					err = os.Chown(target, uid, gid)
+					if err != nil {
+						return err
+					}
 				}
 			default:
 				logrus.Warnf("Kaniko does not support '--mount=type=%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", m.Type)
