@@ -74,8 +74,11 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 		for _, m := range instructions.GetMounts(cmdRun) {
 			switch m.Type {
 			case instructions.MountTypeCache:
-				normalized := filepath.Clean(m.Target)
-				h := sha256.Sum256([]byte(normalized))
+				cacheId := m.CacheID
+				if cacheId == "" {
+					cacheId = filepath.Clean(m.Target)
+				}
+				h := sha256.Sum256([]byte(cacheId))
 				targetHash := hex.EncodeToString(h[:])
 				cacheDir := filepath.Join(kConfig.KanikoCacheDir, targetHash)
 				err = os.MkdirAll(cacheDir, 0755)

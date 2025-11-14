@@ -1,11 +1,19 @@
 FROM busybox
 
+# we can mount a cache directory to a target as specificed
 RUN --mount=type=cache,target=/tmp/bli/bla/ \
     touch /tmp/bli/bla/blubb
 
+# but after RUN the cache gets unmounted automatically
 RUN ls -la /tmp/ \
     && test ! -f /tmp/bli/bla/blubb
 
+# if an id is specified it is used as cache-key
+RUN --mount=type=cache,id=1234,target=/tmp/bli/bla \
+    ls -la /tmp/bli/bla/ \
+    && test ! -f /tmp/bli/bla/blubb
+
+# otherwise the target path is used
 RUN --mount=type=cache,target=/tmp/bli/bla \
     ls -la /tmp/bli/bla/ \
     && test -f /tmp/bli/bla/blubb
