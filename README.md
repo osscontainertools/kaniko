@@ -56,6 +56,7 @@ expect - see [Known Issues](#known-issues).
       - [Caching Layers](#caching-layers)
       - [Caching Base Images](#caching-base-images)
     - [Pushing to Different Registries](#pushing-to-different-registries)
+      - [Credential Provider Priorities](#credential-provider-priorities)
       - [Pushing to Docker Hub](#pushing-to-docker-hub)
       - [Pushing to Google GCR](#pushing-to-google-gcr)
       - [Pushing to GCR using Workload Identity](#pushing-to-gcr-using-workload-identity)
@@ -620,6 +621,11 @@ kaniko uses Docker credential helpers to push images to a registry.
 kaniko comes with support for GCR, Docker `config.json` and Amazon ECR, but
 configuring another credential helper should allow pushing to a different
 registry.
+
+#### Credential Provider Priorities
+
+By default kaniko will configure all built-in credential providers for you. These are `[default, env, google, ecr, acr, gitlab]`.
+You can (de)-activate credential helpers via the [`--credential-helpers`](#flag---credential-helpers) flag. The `default` credential helper will always be active and itself handles two sources: `DOCKER_AUTH_CONFIG` environment variable and `/kaniko/.docker/config.json` file, where priority is always given to `DOCKER_AUTH_CONFIG` and therefore can shadow credentials configured in the config file. If you want to disable `DOCKER_AUTH_CONFIG` you have to unset the environment variable explicitly `unset DOCKER_AUTH_CONFIG` prior to calling kaniko.
 
 #### Pushing to Docker Hub
 

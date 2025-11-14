@@ -17,7 +17,10 @@ limitations under the License.
 package creds
 
 import (
+	"fmt"
 	"io"
+	"os"
+	"strings"
 
 	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
@@ -25,18 +28,32 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
 
 // GetKeychain returns a keychain for accessing container registries.
 func GetKeychain(opts *config.RegistryOptions) authn.Keychain {
 	var helpers []string
+	var prios []string
+
+	_, ok := os.LookupEnv("DOCKER_AUTH_CONFIG")
+	if ok {
+		prios = append(prios, "env:DOCKER_AUTH_CONFIG")
+	}
+
+	cf := util.DockerConfLocation()
+	_, err := os.Lstat(cf)
+	if err == nil {
+		prios = append(prios, fmt.Sprintf("file:%s", cf))
+	}
 
 	if len(opts.CredentialHelpers) == 0 {
 		helpers = []string{"env", "google", "ecr", "acr", "gitlab"}
 	} else {
 		helpers = opts.CredentialHelpers
 	}
+	prios = append(prios, helpers...)
 
 	keychains := []authn.Keychain{authn.DefaultKeychain}
 	for _, source := range helpers {
@@ -72,5 +89,6 @@ func GetKeychain(opts *config.RegistryOptions) authn.Keychain {
 		}
 	}
 
+	logrus.Infof("credential providers by priority: [%s]", strings.Join(prios, ", "))
 	return authn.NewMultiKeychain(keychains...)
 }
