@@ -1,0 +1,8 @@
+FROM busybox
+
+# 3224: Spawn a short-lived child
+# then check if it became a zombie
+RUN (sleep 0.1 &) ; \
+    sleep 0.1; \
+    ps -o pid,ppid,stat,comm; \
+    ! ps -o pid,ppid,stat,comm | grep -q Z
