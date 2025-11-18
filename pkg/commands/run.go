@@ -63,6 +63,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 			logrus.Warnf("#969 kaniko does not support '--%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", f)
 		}
 	}
+	var secretEnvs []string
 	if (ff_cache || ff_secret) && len(cmdRun.FlagsUsed) > 0 {
 		replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 		expand := func(word string) (string, error) {
@@ -159,49 +160,53 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 						continue
 					}
 				}
-				target := m.Target
-				if target == "" {
-					target = fmt.Sprintf("/run/secrets/%s", secretId)
-				}
-				parent := filepath.Dir(target)
-				created, err := ensureDir(parent)
-				if err != nil {
-					return err
-				}
-				if created != "" {
+				if m.Env != nil {
+					secretEnvs = append(secretEnvs, fmt.Sprintf("%s=%s", *m.Env, s))
+				} else {
+					target := m.Target
+					if target == "" {
+						target = fmt.Sprintf("/run/secrets/%s", secretId)
+					}
+					parent := filepath.Dir(target)
+					created, err := ensureDir(parent)
+					if err != nil {
+						return err
+					}
+					if created != "" {
+						defer func() {
+							err := os.RemoveAll(created)
+							if err != nil {
+								reterr = err
+							}
+						}()
+					}
+					mode := os.FileMode(0400)
+					if m.Mode != nil {
+						mode = os.FileMode(*m.Mode)
+					}
+					err = os.WriteFile(target, []byte(s), mode)
+					if err != nil {
+						return err
+					}
 					defer func() {
-						err := os.RemoveAll(created)
+						err := os.Remove(target)
 						if err != nil {
 							reterr = err
 						}
 					}()
-				}
-				mode := os.FileMode(0400)
-				if m.Mode != nil {
-					mode = os.FileMode(*m.Mode)
-				}
-				err = os.WriteFile(target, []byte(s), mode)
-				if err != nil {
-					return err
-				}
-				defer func() {
-					err := os.Remove(target)
-					if err != nil {
-						reterr = err
-					}
-				}()
-				if m.UID != nil || m.GID != nil {
-					uid := 0
-					if m.UID != nil {
-						uid = int(*m.UID)
-					}
-					gid := 0
-					if m.GID != nil {
-						gid = int(*m.GID)
-					}
-					err = os.Chown(target, uid, gid)
-					if err != nil {
-						return err
+					if m.UID != nil || m.GID != nil {
+						uid := 0
+						if m.UID != nil {
+							uid = int(*m.UID)
+						}
+						gid := 0
+						if m.GID != nil {
+							gid = int(*m.GID)
+						}
+						err = os.Chown(target, uid, gid)
+						if err != nil {
+							return err
+						}
 					}
 				}
 			default:
@@ -210,10 +215,10 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 
 		}
 	}
-	return runCommandInExec(config, buildArgs, cmdRun)
+	return runCommandInExec(config, buildArgs, cmdRun, secretEnvs)
 }
 
-func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand) error {
+func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand, secretEnvs []string) error {
 	var newCommand []string
 	if cmdRun.PrependShell {
 		// This is the default shell on Linux
@@ -294,7 +299,7 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 		return fmt.Errorf("adding default HOME variable: %w", err)
 	}
 
-	cmd.Env = env
+	cmd.Env = append(env, secretEnvs...)
 
 	logrus.Infof("Running: %s", cmd.Args)
 	if err := cmd.Start(); err != nil {
