@@ -1,8 +1,8 @@
 FROM busybox
 
 # we can mount a secret to a target file
-RUN --mount=type=secret,id=netrc,target=/root/.netrc \
-    SECRET=`cat /root/.netrc` \
+RUN --mount=type=secret,id=netrc \
+    SECRET=`cat /run/secrets/netrc` \
     && echo $SECRET | tee /out1.txt \
     && [ $SECRET = "blubb" ]
 
@@ -12,4 +12,12 @@ ENV SECRET=whatever
 # when they are mounted into an environment variable
 RUN --mount=type=secret,id=netrc,env=SECRET \
     echo $SECRET | tee /out2.txt \
+    && [ $SECRET = "blubb" ]
+
+# or both when they are mounted into an environment variable
+RUN --mount=type=secret,id=netrc,env=SECRET,target=/root/.netrc \
+    SECRET1=`cat /root/.netrc` \
+    && echo $SECRET1 | tee /out3.txt \
+    && [ $SECRET1 = "blubb" ] \
+    && echo $SECRET | tee /out4.txt \
     && [ $SECRET = "blubb" ]

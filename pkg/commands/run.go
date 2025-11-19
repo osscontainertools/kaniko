@@ -162,7 +162,8 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				}
 				if m.Env != nil {
 					secretEnvs = append(secretEnvs, fmt.Sprintf("%s=%s", *m.Env, s))
-				} else {
+				}
+				if m.Env == nil || m.Target != "" {
 					target := m.Target
 					if target == "" {
 						target = fmt.Sprintf("/run/secrets/%s", secretId)
