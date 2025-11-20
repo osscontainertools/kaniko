@@ -1,3 +1,43 @@
+# v1.26.2 Release 2025-11-20
+
+## What's Changed
+### Security
+* golang.org/x/crypto 0.44.0: CVE-2025-47914 CVE-2025-58181
+
+### Usability
+* fix harbor authentication: https://github.com/osscontainertools/kaniko/pull/369
+
+### Maintenance
+* chore(deps): bump github.com/moby/moby/api from 1.52.0-beta.4 to  1.52.0: https://github.com/osscontainertools/kaniko/pull/367 https://github.com/osscontainertools/kaniko/pull/377
+* chore(deps): bump golang.org/x/sync from 0.17.0 to 0.18.0: https://github.com/osscontainertools/kaniko/pull/374
+* chore(deps): bump golang.org/x/sys from 0.37.0 to 0.38.0: https://github.com/osscontainertools/kaniko/pull/373
+* chore(deps): bump github.com/awslabs/amazon-ecr-credential-helper/ecr-login from 0.10.1 to 0.11.0: https://github.com/osscontainertools/kaniko/pull/376
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.31.17 to 1.31.20: https://github.com/osscontainertools/kaniko/pull/375 https://github.com/osscontainertools/kaniko/pull/383 https://github.com/osscontainertools/kaniko/pull/386
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.20.4 to 1.20.7: https://github.com/osscontainertools/kaniko/pull/375 https://github.com/osscontainertools/kaniko/pull/383 https://github.com/osscontainertools/kaniko/pull/386
+* chore(deps): bump google.golang.org/api from 0.255.0 to 0.256.0: https://github.com/osscontainertools/kaniko/pull/384
+* chore(deps): bump golang.org/x/net from 0.46.0 to 0.47.0: https://github.com/osscontainertools/kaniko/pull/385
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.90.0 to 1.90.2: https://github.com/osscontainertools/kaniko/pull/383 https://github.com/osscontainertools/kaniko/pull/386
+* chore(deps): bump github.com/moby/buildkit from 0.25.2 to 0.26.1: https://github.com/osscontainertools/kaniko/pull/387 https://github.com/osscontainertools/kaniko/pull/395
+* chore(deps): bump cloud.google.com/go/storage from 1.57.1 to 1.57.2: https://github.com/osscontainertools/kaniko/pull/395
+* chore(deps): bump actions/checkout from 5.0.0 to 5.0.1 in the actions group: https://github.com/osscontainertools/kaniko/pull/396
+* chore(deps): bump golang.org/x/crypto from 0.44.0 to 0.45.0: https://github.com/osscontainertools/kaniko/pull/397
+* chore(deps): bump actions/setup-go from 6.0.0 to 6.1.0 in the actions group: https://github.com/osscontainertools/kaniko/pull/398
+* chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.39.6 to 1.40.0: https://github.com/osscontainertools/kaniko/pull/401
+
+### Fork Related
+* update security overview: https://github.com/osscontainertools/kaniko/pull/366
+* ci: rework, use GHCR as primary, separate dev builds from release: by @babs in https://github.com/osscontainertools/kaniko/pull/368 https://github.com/osscontainertools/kaniko/pull/371
+* mz393: readd maximize disk space: https://github.com/osscontainertools/kaniko/pull/392
+
+### Refactorings
+* Replace github.com/pkg/errors with stdlib errors: by @BobDu in https://github.com/osscontainertools/kaniko/pull/370
+* staticcheck: global aws endpoint resolver is deprecated: https://github.com/osscontainertools/kaniko/pull/378
+* staticcheck: archive.Compression is deprecated: https://github.com/osscontainertools/kaniko/pull/380
+* staticcheck: xattrs is deprecated: https://github.com/osscontainertools/kaniko/pull/379
+* unittests should call makeKanikoStages directly: https://github.com/osscontainertools/kaniko/pull/356
+* staticcheck: code quality: https://github.com/osscontainertools/kaniko/pull/372
+
+
 # v1.26.1 Release 2025-11-07
 ## Community Update
 Please welcome our new maintainers: @0hlov3 @babs @BobDu and @nejch
