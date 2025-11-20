@@ -27,10 +27,10 @@
 ### Fork Related
 * update security overview: https://github.com/osscontainertools/kaniko/pull/366
 * ci: rework, use GHCR as primary, separate dev builds from release: by @babs in https://github.com/osscontainertools/kaniko/pull/368 https://github.com/osscontainertools/kaniko/pull/371
-* mz393: readd maximize disk space: https://github.com/osscontainertools/kaniko/pull/392
+* readd maximize disk space: https://github.com/osscontainertools/kaniko/pull/392
 
 ### Refactorings
-* Replace github.com/pkg/errors with stdlib errors: by @BobDu in https://github.com/osscontainertools/kaniko/pull/370
+* replace github.com/pkg/errors with stdlib errors: by @BobDu in https://github.com/osscontainertools/kaniko/pull/370
 * staticcheck: global aws endpoint resolver is deprecated: https://github.com/osscontainertools/kaniko/pull/378
 * staticcheck: archive.Compression is deprecated: https://github.com/osscontainertools/kaniko/pull/380
 * staticcheck: xattrs is deprecated: https://github.com/osscontainertools/kaniko/pull/379
