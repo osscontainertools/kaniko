@@ -77,7 +77,7 @@
 * cleanup unused release script: by @BobDu in https://github.com/osscontainertools/kaniko/pull/347
 * publish images to ghcr: by @babs in https://github.com/osscontainertools/kaniko/pull/329 https://github.com/osscontainertools/kaniko/pull/353
 * ci: rework, use GHCR as primary, separate dev builds from release: by @babs in https://github.com/osscontainertools/kaniko/pull/368 https://github.com/osscontainertools/kaniko/pull/371
-* Replace github.com/pkg/errors with stdlib errors: by @BobDu in https://github.com/osscontainertools/kaniko/pull/370
+* replace github.com/pkg/errors with stdlib errors: by @BobDu in https://github.com/osscontainertools/kaniko/pull/370
 
 for a more detailed view you can refer to our [Changelog](./CHANGELOG.md) or [release notes](https://github.com/osscontainertools/kaniko/releases)
 
