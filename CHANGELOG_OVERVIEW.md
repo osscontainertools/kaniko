@@ -5,6 +5,7 @@
 * containerd-v2 v2.1.1: GHSA-m6hq-p25p-ffr2 GHSA-pwhc-rpq9-4c8w
 * selinux v1.12.0: GHSA-cgrx-mc8f-2prm
 * remove binary artifacts: by @tlk in https://github.com/mzihlmann/kaniko/pull/54
+* golang.org/x/crypto 0.44.0: CVE-2025-47914 CVE-2025-58181
 ### Bugfixes
 * cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3
 * cache collision under rename: by @SJrX in https://github.com/mzihlmann/kaniko/pull/62
@@ -63,6 +64,7 @@
 * add env credential helper: https://github.com/mzihlmann/kaniko/pull/236 https://github.com/mzihlmann/kaniko/pull/249
 * allow skip push cache: https://github.com/osscontainertools/kaniko/pull/268
 * `FF_KANIKO_NEW_CACHE_LAYOUT=true` organize kaniko dir: https://github.com/osscontainertools/kaniko/pull/285
+* fix harbor authentication: https://github.com/osscontainertools/kaniko/pull/369
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
 * 🔗 update ENV syntax in Dockerfile: by @babs in https://github.com/mzihlmann/kaniko/pull/60
@@ -74,6 +76,8 @@
 * update docs: by @6543 in https://github.com/osscontainertools/kaniko/pull/300
 * cleanup unused release script: by @BobDu in https://github.com/osscontainertools/kaniko/pull/347
 * publish images to ghcr: by @babs in https://github.com/osscontainertools/kaniko/pull/329 https://github.com/osscontainertools/kaniko/pull/353
+* ci: rework, use GHCR as primary, separate dev builds from release: by @babs in https://github.com/osscontainertools/kaniko/pull/368 https://github.com/osscontainertools/kaniko/pull/371
+* Replace github.com/pkg/errors with stdlib errors: by @BobDu in https://github.com/osscontainertools/kaniko/pull/370
 
 for a more detailed view you can refer to our [Changelog](./CHANGELOG.md) or [release notes](https://github.com/osscontainertools/kaniko/releases)
 
