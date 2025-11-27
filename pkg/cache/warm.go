@@ -270,7 +270,7 @@ type OciWarmer struct {
 func (w *OciWarmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error) {
 	cacheRef, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
-		return v1.Hash{}, fmt.Errorf("Failed to verify image name: %s: %w", image, err)
+		return v1.Hash{}, fmt.Errorf("failed to verify image name: %s: %w", image, err)
 	}
 
 	// mz320: If we have a digest reference, we can try a cache lookup directly.
@@ -296,12 +296,12 @@ func (w *OciWarmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, err
 
 	img, err := w.Remote(image, opts.RegistryOptions, opts.CustomPlatform)
 	if err != nil || img == nil {
-		return v1.Hash{}, fmt.Errorf("Failed to retrieve image: %s: %w", image, err)
+		return v1.Hash{}, fmt.Errorf("failed to retrieve image: %s: %w", image, err)
 	}
 
 	digest, err := img.Digest()
 	if err != nil {
-		return v1.Hash{}, fmt.Errorf("Failed to retrieve digest: %s: %w", image, err)
+		return v1.Hash{}, fmt.Errorf("failed to retrieve digest: %s: %w", image, err)
 	}
 
 	if !opts.Force {
@@ -322,14 +322,14 @@ func (w *OciWarmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, err
 
 	p, err := layout.Write(w.TmpDir, empty.Index)
 	if err != nil {
-		return v1.Hash{}, fmt.Errorf("Failed to create ocilayout for: %s: %w", image, err)
+		return v1.Hash{}, fmt.Errorf("failed to create ocilayout for: %s: %w", image, err)
 	}
 
 	err = p.AppendImage(img, layout.WithAnnotations(map[string]string{
 		"org.opencontainers.image.ref.name": cacheRef.Name(),
 	}))
 	if err != nil {
-		return v1.Hash{}, fmt.Errorf("Failed to append image %s to ocilayout: %w", image, err)
+		return v1.Hash{}, fmt.Errorf("failed to append image %s to ocilayout: %w", image, err)
 	}
 
 	return digest, nil
