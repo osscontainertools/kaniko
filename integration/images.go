@@ -555,26 +555,24 @@ func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTes
 		"--cache-run-layers=false",
 		"--no-push-cache",
 	)
-	for _, v := range args {
-		dockerRunFlags = append(dockerRunFlags, v)
-	}
+	dockerRunFlags = append(dockerRunFlags, args...)
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
 	out, err := RunCommandWithoutTest(kanikoCmd)
 	logf(string(out))
 
 	if err != nil {
-		return fmt.Errorf("Failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
+		return fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
 	}
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
 		if err := outputCheck(dockerfile, out); err != nil {
-			return fmt.Errorf("Output check failed for image %s with kaniko command : %w", kanikoImage, err)
+			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
 	if cache {
 		if outputCheck := warmerOutputChecks[dockerfile]; outputCheck != nil {
 			if err := outputCheck(dockerfile, out); err != nil {
-				return fmt.Errorf("Output check failed for image %s with kaniko command : %w", kanikoImage, err)
+				return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 			}
 		}
 	}
