@@ -73,8 +73,11 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 		for _, m := range instructions.GetMounts(cmdRun) {
 			switch m.Type {
 			case instructions.MountTypeCache:
-				normalized := filepath.Clean(m.Target)
-				h := sha256.Sum256([]byte(normalized))
+				cacheId := m.CacheID
+				if cacheId == "" {
+					cacheId = filepath.Clean(m.Target)
+				}
+				h := sha256.Sum256([]byte(cacheId))
 				targetHash := hex.EncodeToString(h[:])
 				cacheDir := filepath.Join(kConfig.KanikoCacheDir, targetHash)
 				err = os.MkdirAll(cacheDir, 0755)
@@ -103,6 +106,38 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 						reterr = err
 					}
 				}()
+				if m.Mode != nil {
+					err = os.Chmod(m.Target, os.FileMode(*m.Mode))
+					if err != nil {
+						return err
+					}
+					defer func() {
+						err := os.Chmod(m.Target, os.FileMode(0755))
+						if err != nil {
+							reterr = err
+						}
+					}()
+				}
+				if m.UID != nil || m.GID != nil {
+					uid := 0
+					if m.UID != nil {
+						uid = int(*m.UID)
+					}
+					gid := 0
+					if m.GID != nil {
+						gid = int(*m.GID)
+					}
+					err = os.Chown(m.Target, uid, gid)
+					if err != nil {
+						return err
+					}
+					defer func() {
+						err = os.Chown(m.Target, 0, 0)
+						if err != nil {
+							reterr = err
+						}
+					}()
+				}
 			default:
 				logrus.Warnf("Kaniko does not support '--mount=type=%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", m.Type)
 			}

@@ -1,11 +1,29 @@
 FROM busybox
 
+# we can mount a cache directory to a target as specificed
 RUN --mount=type=cache,target=/tmp/bli/bla/ \
     touch /tmp/bli/bla/blubb
 
+# but after RUN the cache gets unmounted automatically
 RUN ls -la /tmp/ \
     && test ! -f /tmp/bli/bla/blubb
 
+# if an id is specified it is used as cache-key
+RUN --mount=type=cache,id=1234,target=/tmp/bli/bla \
+    ls -la /tmp/bli/bla/ \
+    && test ! -f /tmp/bli/bla/blubb
+
+# otherwise the target path is used
 RUN --mount=type=cache,target=/tmp/bli/bla \
     ls -la /tmp/bli/bla/ \
     && test -f /tmp/bli/bla/blubb
+
+# we can control uid:gid:mode for our mount folder
+RUN --mount=type=cache,target=/tmp/bli/bla,uid=1000,gid=1000,mode=0700 \
+    out=`stat -c '%u:%g:%A' /tmp/bli/bla` \
+    && echo $out | tee /stat1.txt \
+    && [ $out = "1000:1000:drwx------" ]
+
+# but these permissions get reset correctly to the defaults
+RUN --mount=type=cache,target=/tmp/bli/bla \
+    stat -c '%u %g %A' /tmp/bli/bla | tee /stat2.txt
