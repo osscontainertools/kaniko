@@ -30,6 +30,7 @@ type RunMarkerCommand struct {
 	BaseCommand
 	cmd      *instructions.RunCommand
 	Files    []string
+	secrets  map[string]string
 	shdCache bool
 }
 
@@ -40,7 +41,7 @@ func (r *RunMarkerCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfi
 	if err != nil {
 		return err
 	}
-	if err := runCommandWithFlags(config, buildArgs, r.cmd); err != nil {
+	if err := runCommandWithFlags(config, buildArgs, r.cmd, r.secrets); err != nil {
 		return err
 	}
 	_, r.Files, err = util.GetFSInfoMap("/", prevFilesMap)
