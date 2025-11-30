@@ -106,6 +106,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--registry-mirror`](#flag---registry-mirror)
       - [Flag `--skip-default-registry-fallback`](#flag---skip-default-registry-fallback)
       - [Flag `--reproducible`](#flag---reproducible)
+      - [Flag `--secret`](#flag---secret)
       - [Flag `--single-snapshot`](#flag---single-snapshot)
       - [Flag `--skip-push-permission-check`](#flag---skip-push-permission-check)
       - [Flag `--skip-tls-verify`](#flag---skip-tls-verify)
@@ -126,6 +127,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_SQUASH_STAGES`](#flag-ff_kaniko_squash_stages)
       - [Flag `FF_KANIKO_IGNORE_CACHED_MANIFEST`](#flag-ff_kaniko_ignore_cached_manifest)
       - [Flag `FF_KANIKO_RUN_MOUNT_CACHE`](#flag-ff_kaniko_run_mount_cache)
+      - [Flag `FF_KANIKO_RUN_MOUNT_SECRET`](#flag-ff_kaniko_run_mount_secret)
       - [Flag `FF_KANIKO_NEW_CACHE_LAYOUT`](#flag-ff_kaniko_new_cache_layout)
       - [Flag `FF_KANIKO_OCI_STAGES`](#flag-ff_kaniko_oci_stages)
       - [Flag `FF_KANIKO_DISABLE_HTTP2`](#flag-ff_kaniko_disable_http2)
@@ -1213,6 +1215,12 @@ is ignored.
 Set this flag to strip timestamps out of the built image and make it
 reproducible.
 
+#### Flag `--secret`
+
+Set this flag as `--secret key=value` to configure build-secrets to be used during the build.
+> [!IMPORTANT]
+> secrets are **not stored securely** internally and you must consider them exposed.
+
 #### Flag `--single-snapshot`
 
 This flag takes a single snapshot of the filesystem at the end of the build, so
@@ -1345,6 +1353,16 @@ RUN --mount=type=cache,target=/var/lib/apt/lists/ \
 ```
 Defaults to `true`.
 Will be deprecated in `v1.27.0`.
+
+#### Flag `FF_KANIKO_RUN_MOUNT_SECRET`
+
+Set this flag to `true` to implement secret mounts in `RUN` statements, ie.
+```dockerfile
+RUN --mount=type=secret,id=netrc,target=/root/.netrc \
+  uv pip install -r requirements.txt
+```
+Defaults to `false`.
+Becomes default in `v1.27.0`.
 
 #### Flag `FF_KANIKO_NEW_CACHE_LAYOUT`
 
