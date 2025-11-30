@@ -155,7 +155,7 @@ def get_regexs():
     regexs["year"] = re.compile(r'YEAR')
     # dates can be any year [2000-2099] company holder names can be anything
     regexs["date"] = re.compile(r'(20\d\d)')
-    regexs["company"] = re.compile(r"Google LLC|Google, Inc\.|Martin Zihlmann")
+    regexs["company"] = re.compile(r"Google LLC|Google, Inc\.|OSS Container Tools")
     # strip // go:build \n\n build constraints
     regexs["go_build_constraints_go"] = re.compile(r"^(?://go:build[^\n]*\n)+", re.MULTILINE)
     # strip // +build \n\n build constraints

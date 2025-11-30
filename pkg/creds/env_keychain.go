@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Martin Zihlmann
+Copyright 2025 OSS Container Tools
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
