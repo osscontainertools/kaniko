@@ -429,9 +429,7 @@ func resolveSecrets() error {
 			if err != nil {
 				return err
 			}
-			// TODO: CopyFile makes sure we don't copy any files in .dockerignore
-			// this might come to bite us as secrets are pretty certain to land there
-			_, err = util.CopyFile(s.Src, destPath, util.FileContext{}, util.DoNotChangeUID, util.DoNotChangeGID, fs.FileMode(0o600), true)
+			err = util.CopyFileInternal(s.Src, destPath, util.FileContext{})
 			if err != nil {
 				return fmt.Errorf("copying secret %s: %w", s.Src, err)
 			}
@@ -455,12 +453,12 @@ func resolveEnvironmentBuildArgs(arguments []string, resolver func(string) strin
 // copy Dockerfile to /kaniko/Dockerfile so that if it's specified in the .dockerignore
 // it won't be copied into the image
 func copyDockerfile() error {
-	if _, err := util.CopyFile(opts.DockerfilePath, config.DockerfilePath, util.FileContext{}, util.DoNotChangeUID, util.DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
+	if err := util.CopyFileInternal(opts.DockerfilePath, config.DockerfilePath, util.FileContext{}); err != nil {
 		return fmt.Errorf("copying dockerfile: %w", err)
 	}
 	dockerignorePath := opts.DockerfilePath + ".dockerignore"
 	if util.FilepathExists(dockerignorePath) {
-		if _, err := util.CopyFile(dockerignorePath, config.DockerfilePath+".dockerignore", util.FileContext{}, util.DoNotChangeUID, util.DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
+		if err := util.CopyFileInternal(dockerignorePath, config.DockerfilePath+".dockerignore", util.FileContext{}); err != nil {
 			return fmt.Errorf("copying Dockerfile.dockerignore: %w", err)
 		}
 	}
