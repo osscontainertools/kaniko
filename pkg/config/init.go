@@ -73,6 +73,9 @@ var KanikoSwapDir = fmt.Sprintf("%s/swap/", KanikoDir)
 // DockerConfigDir is a where registry credentials are stored
 var DockerConfigDir = fmt.Sprintf("%s/.docker/", KanikoDir)
 
+// KanikoSecretsDir is a where user defined secrets are stored
+var KanikoSecretsDir = fmt.Sprintf("%s/secrets/", KanikoDir)
+
 var MountInfoPath string
 
 func init() {

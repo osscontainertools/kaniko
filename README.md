@@ -1235,7 +1235,7 @@ reproducible.
 
 #### Flag `--secret`
 
-Set this flag as `--secret key=value` to configure build-secrets to be used during the build.
+Set this flag as `--secret id=MY_SECRET[,src=/file][,env=VAR][,type=file|env]` to configure build-secrets to be used during the build.
 > [!IMPORTANT]
 > secrets are **not stored securely** internally and you must consider them exposed.
 
