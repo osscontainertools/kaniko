@@ -34,6 +34,9 @@ expect - see [Known Issues](#known-issues).
 
 - [kaniko - Build Images In Kubernetes](#kaniko---build-images-in-kubernetes)
   - [Community](#community)
+  - [Sponsorships](#sponsorships)
+    - [Corporations](#corporations)
+    - [Individuals](#individuals)
   - [Alternatives](#alternatives)
   - [Releases](#releases)
   - [How does kaniko work?](#how-does-kaniko-work)
@@ -162,6 +165,21 @@ issue](https://github.com/osscontainertools/kaniko/issues/new/choose).
 Some community members can be found on [#kaniko on Kubernetes
 Slack](https://kubernetes.slack.com/messages/CQDCHGX7Y/) but there is no active
 monitoring, regular availability, or access to older discussions.
+
+## Sponsorships
+We are grateful to the organizations and individuals who support our project.
+
+### Corporations
+[<img src="docs/sponsors/l3montree-logo.svg" alt="L3montree" width="250">](https://l3montree.com)
+
+**[L3montree](https://l3montree.com)**
+
+We thank L3montree for their generous support and commitment to open-source sustainability.
+
+### Individuals
+**[Sped0n](https://github.com/Sped0n)**
+
+We are grateful for your support.
 
 ## Alternatives
 
