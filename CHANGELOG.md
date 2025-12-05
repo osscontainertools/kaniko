@@ -1,3 +1,42 @@
+# v1.26.3 Release 2025-12-05
+## Community Update
+We thank our sponsor **[L3montree](https://l3montree.com)** for their generous support and commitment to open-source sustainability.
+
+@brandon1024 made their first contribution in https://github.com/osscontainertools/kaniko/pull/407
+
+## What's Changed
+### Security
+* go stdlib v1.25.4: CVE-2025-61729 CVE-2025-61727
+
+### Standardization
+* cache mount option implements additional flags: https://github.com/osscontainertools/kaniko/pull/390
+* `FF_KANIKO_RUN_MOUNT_SECRET=false` secret mounts: https://github.com/osscontainertools/kaniko/pull/391 https://github.com/osscontainertools/kaniko/pull/409
+
+### Usability
+* new subcommand `executor login` to authenticate with a registry: by @brandon1024 in https://github.com/osscontainertools/kaniko/pull/407
+
+### Maintenance
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.31.20 to 1.32.3: https://github.com/osscontainertools/kaniko/pull/400 https://github.com/osscontainertools/kaniko/pull/406 https://github.com/osscontainertools/kaniko/pull/408 https://github.com/osscontainertools/kaniko/pull/418
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.20.7 to 1.20.13: https://github.com/osscontainertools/kaniko/pull/399 https://github.com/osscontainertools/kaniko/pull/406 https://github.com/osscontainertools/kaniko/pull/408 https://github.com/osscontainertools/kaniko/pull/418
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.90.2 to 1.92.1: https://github.com/osscontainertools/kaniko/pull/399 https://github.com/osscontainertools/kaniko/pull/408
+* chore(deps): bump github.com/moby/buildkit from 0.26.1 to 0.26.2: https://github.com/osscontainertools/kaniko/pull/399
+* chore(deps): bump actions/checkout from 5.0.1 to 6.0.1: https://github.com/osscontainertools/kaniko/pull/405 https://github.com/osscontainertools/kaniko/pull/415
+* chore(deps): bump github.com/go-git/go-git/v5 from 5.16.3 to 5.16.4: https://github.com/osscontainertools/kaniko/pull/406
+* chore(deps): bump github.com/google/go-containerregistry from 0.20.6 to 0.20.7: https://github.com/osscontainertools/kaniko/pull/408
+* chore(deps): bump github.com/docker/cli from 29.0.3+incompatible to 29.1.2+incompatible: https://github.com/osscontainertools/kaniko/pull/411 https://github.com/osscontainertools/kaniko/pull/418
+* chore(deps): bump step-security/harden-runner from 2.13.2 to 2.13.3 in the actions group: https://github.com/osscontainertools/kaniko/pull/412
+* chore(deps): bump google.golang.org/api from 0.256.0 to 0.257.0: https://github.com/osscontainertools/kaniko/pull/417
+* chore(deps): bump golang from 1.25.4 to 1.25.5: https://github.com/osscontainertools/kaniko/pull/414
+* chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.40.0 to 1.40.1: https://github.com/osscontainertools/kaniko/pull/418
+* chore(deps): bump github.com/spf13/cobra from 1.10.1 to 1.10.2: https://github.com/osscontainertools/kaniko/pull/418
+* chore(deps): bump cloud.google.com/go/storage from 1.57.2 to 1.58.0: https://github.com/osscontainertools/kaniko/pull/421
+
+### Fork Related
+* docs update: https://github.com/osscontainertools/kaniko/pull/403
+* sponsorships: https://github.com/osscontainertools/kaniko/pull/413
+* ci: rework for clarity: by @babs in https://github.com/osscontainertools/kaniko/pull/419
+
+
 # v1.26.2 Release 2025-11-20
 
 ## What's Changed
