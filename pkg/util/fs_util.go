@@ -805,6 +805,28 @@ func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod fs.Fi
 	return false, CopyCapabilities(src, dest)
 }
 
+func CopyFileInternal(src, dest string, context FileContext) error {
+	fi, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	logrus.Debugf("Copying file %s to %s", src, dest)
+	srcFile, err := FSys.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+	uid := uint32(fi.Sys().(*syscall.Stat_t).Uid)
+	gid := uint32(fi.Sys().(*syscall.Stat_t).Gid)
+	mode := fi.Mode()
+
+	err = CreateFile(dest, srcFile, mode, uid, gid)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func NewFileContextFromDockerfile(dockerfilePath, buildcontext string) (FileContext, error) {
 	fileContext := FileContext{Root: buildcontext}
 	excludedFiles, err := getExcludedFiles(dockerfilePath, buildcontext)

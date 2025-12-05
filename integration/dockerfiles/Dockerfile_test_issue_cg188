@@ -1,4 +1,4 @@
-FROM busybox
+FROM busybox AS first
 
 # we can mount a secret to a target file
 RUN --mount=type=secret,id=netrc \
@@ -21,3 +21,10 @@ RUN --mount=type=secret,id=netrc,env=SECRET,target=/root/.netrc \
     && [ $SECRET1 = "blubb" ] \
     && echo $SECRET | tee /out4.txt \
     && [ $SECRET = "blubb" ]
+
+# and the secret is persisted in multistage builds
+FROM first AS second
+RUN --mount=type=secret,id=netrc \
+    SECRET=`cat /run/secrets/netrc` \
+    && echo $SECRET | tee /out5.txt \
+    && [ "$SECRET" = "blubb" ]

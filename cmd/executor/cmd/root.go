@@ -151,6 +151,9 @@ var RootCmd = &cobra.Command{
 			if err := resolveDockerfilePath(); err != nil {
 				return fmt.Errorf("error resolving dockerfile path: %w", err)
 			}
+			if err := resolveSecrets(); err != nil {
+				return fmt.Errorf("error resolving secrets: %w", err)
+			}
 			if len(opts.Destinations) == 0 && opts.ImageNameDigestFile != "" {
 				return errors.New("you must provide --destination if setting ImageNameDigestFile")
 			}
@@ -306,7 +309,7 @@ func addKanikoOptionsFlags() {
 	RootCmd.Flags().BoolVarP(&opts.PreserveContext, "preserve-context", "", false, "Preserve build context across build stages by taking a snapshot of the full filesystem before build and restore it after we switch stages. Restores in the end too if passed together with 'cleanup'")
 	RootCmd.Flags().BoolVarP(&opts.Materialize, "materialize", "", false, "Guarantee that the final state of the file system corresponds to what was specified as the build target, even if we have 100% cache hitrate and wouldn't need to unpack any layers")
 	RootCmd.Flags().VarP(&opts.CredentialHelpers, "credential-helpers", "", "Use these credential helpers automatically, select from (env, google, ecr, acr, gitlab). Set it repeatedly for multiple helpers, defaults to all, set it to empty string to deactivate.")
-	opts.Secrets = make(map[string]string)
+	opts.Secrets = make(config.SecretOptions)
 	RootCmd.Flags().VarP(&opts.Secrets, "secret", "", "Set build secrets in key=value format. Set it repeatedly for multiple secrets.")
 
 	// Deprecated flags.
@@ -410,6 +413,32 @@ func resolveDockerfilePath() error {
 	return errors.New("please provide a valid path to a Dockerfile within the build context with --dockerfile")
 }
 
+func resolveSecrets() error {
+	for k, s := range opts.Secrets {
+		if s.Type == "env" {
+			_, ok := os.LookupEnv(s.Src)
+			if !ok {
+				return fmt.Errorf("environment variable for secret %q not set: %s", k, s.Src)
+			}
+		} else {
+			// In multistage builds the original secret file might be deleted between stages.
+			// We therefore safeguard it across stages by copying it into /kaniko.
+			// We are not allowed to move it as it might be mounted into the container.
+			destPath := filepath.Join(config.KanikoSecretsDir, k)
+			err := os.MkdirAll(config.KanikoSecretsDir, 0700)
+			if err != nil {
+				return err
+			}
+			err = util.CopyFileInternal(s.Src, destPath, util.FileContext{})
+			if err != nil {
+				return fmt.Errorf("copying secret %s: %w", s.Src, err)
+			}
+			s.Src = destPath
+		}
+	}
+	return nil
+}
+
 // resolveEnvironmentBuildArgs replace build args without value by the same named environment variable
 func resolveEnvironmentBuildArgs(arguments []string, resolver func(string) string) {
 	for index, argument := range arguments {
@@ -424,12 +453,12 @@ func resolveEnvironmentBuildArgs(arguments []string, resolver func(string) strin
 // copy Dockerfile to /kaniko/Dockerfile so that if it's specified in the .dockerignore
 // it won't be copied into the image
 func copyDockerfile() error {
-	if _, err := util.CopyFile(opts.DockerfilePath, config.DockerfilePath, util.FileContext{}, util.DoNotChangeUID, util.DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
+	if err := util.CopyFileInternal(opts.DockerfilePath, config.DockerfilePath, util.FileContext{}); err != nil {
 		return fmt.Errorf("copying dockerfile: %w", err)
 	}
 	dockerignorePath := opts.DockerfilePath + ".dockerignore"
 	if util.FilepathExists(dockerignorePath) {
-		if _, err := util.CopyFile(dockerignorePath, config.DockerfilePath+".dockerignore", util.FileContext{}, util.DoNotChangeUID, util.DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
+		if err := util.CopyFileInternal(dockerignorePath, config.DockerfilePath+".dockerignore", util.FileContext{}); err != nil {
 			return fmt.Errorf("copying Dockerfile.dockerignore: %w", err)
 		}
 	}

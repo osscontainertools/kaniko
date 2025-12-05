@@ -53,3 +53,38 @@ func TestKanikoGitOptions(t *testing.T) {
 		}, g)
 	})
 }
+
+func TestKanikoSecretOptions(t *testing.T) {
+	t.Run("regular file", func(t *testing.T) {
+		var s = SecretOptions{}
+		testutil.CheckError(t, false, s.Set("id=blubb"))
+		testutil.CheckError(t, false, s.Set("id=blubb2,src=/blubb"))
+		testutil.CheckError(t, false, s.Set("id=blubb3,source=/blubb"))
+		testutil.CheckDeepEqual(t, SecretOptions{
+			"blubb":  {Type: "file", Src: "blubb"},
+			"blubb2": {Type: "file", Src: "/blubb"},
+			"blubb3": {Type: "file", Src: "/blubb"},
+		}, s)
+	})
+
+	t.Run("environment variable", func(t *testing.T) {
+		var s = SecretOptions{}
+		t.Setenv("SECRET", "blubb")
+		testutil.CheckError(t, false, s.Set("id=SECRET"))
+		testutil.CheckError(t, false, s.Set("id=blubb,env=blubb"))
+		testutil.CheckError(t, false, s.Set("id=blubb2,type=env,src=blubb"))
+		testutil.CheckDeepEqual(t, SecretOptions{
+			"SECRET": {Type: "env", Src: "SECRET"},
+			"blubb":  {Type: "env", Src: "blubb"},
+			"blubb2": {Type: "env", Src: "blubb"},
+		}, s)
+	})
+
+	t.Run("illegal combinations", func(t *testing.T) {
+		var s = SecretOptions{}
+		testutil.CheckError(t, true, s.Set("src=blubb"))
+		testutil.CheckError(t, true, s.Set("id=blubb,src=blubb,env=blubb"))
+		testutil.CheckError(t, true, s.Set("id=blubb,type=file,env=blubb"))
+		testutil.CheckDeepEqual(t, SecretOptions{}, s)
+	})
+}

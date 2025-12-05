@@ -97,7 +97,7 @@ type KanikoOptions struct {
 	SkipPushPermissionCheck      bool
 	PreserveContext              bool
 	Materialize                  bool
-	Secrets                      keyValueArg
+	Secrets                      SecretOptions
 }
 
 type KanikoGitOptions struct {
@@ -206,4 +206,110 @@ func EnvBoolDefault(key string, def bool) bool {
 		return def
 	}
 	return ok
+}
+
+type SecretOption struct {
+	Type string
+	Src  string
+}
+
+type SecretOptions map[string]SecretOption
+
+func (k *SecretOptions) Type() string {
+	return "secret"
+}
+
+func (s *SecretOptions) String() string {
+	if len(*s) == 0 {
+		return "id=MY_SECRET[,src=/file][,env=VAR][,type=file|env]"
+	}
+	parts := []string{}
+	for k, sec := range *s {
+		if sec.Type == "env" {
+			parts = append(parts, fmt.Sprintf("id=%s,type=env,env=%s", k, sec.Src))
+
+		} else {
+			parts = append(parts, fmt.Sprintf("id=%s,type=file,src=%s", k, sec.Src))
+		}
+	}
+	return strings.Join(parts, "; ")
+}
+
+// parsing --secret analogous to buildx reference
+// https://docs.docker.com/reference/cli/docker/buildx/build/#secret
+func (s *SecretOptions) Set(val string) error {
+	var sec struct {
+		ID   string
+		Type string
+		Src  string
+		Env  string
+	}
+	parts := strings.Split(val, ",")
+	for _, part := range parts {
+		kv := strings.SplitN(part, "=", 2)
+
+		if len(kv) != 2 {
+			return fmt.Errorf("invalid secret format: %q", part)
+		}
+
+		k, v := kv[0], kv[1]
+
+		switch k {
+		case "id":
+			sec.ID = v
+		case "type":
+			if v != "file" && v != "env" {
+				return fmt.Errorf("invalid secret type: %q (file|env)", v)
+			}
+			sec.Type = v
+		case "src", "source":
+			sec.Src = v
+		case "env":
+			sec.Env = v
+		default:
+			return fmt.Errorf("unknown key %q in secret", k)
+		}
+	}
+
+	if sec.ID == "" {
+		return errors.New("secret requires id=ID")
+	}
+
+	if sec.Src != "" && sec.Env != "" {
+		return fmt.Errorf("only one of src or env may be specified")
+	}
+
+	if sec.Type == "file" && sec.Env != "" {
+		return fmt.Errorf("env cannot be specified for file type secrets")
+	}
+
+	if sec.Type == "env" && sec.Src != "" {
+		sec.Env = sec.Src
+		sec.Src = ""
+	}
+
+	if sec.Type == "" {
+		if sec.Env != "" {
+			sec.Type = "env"
+		} else if sec.Src != "" {
+			sec.Type = "file"
+		} else if _, ok := os.LookupEnv(sec.ID); ok {
+			sec.Type = "env"
+			sec.Env = sec.ID
+		} else {
+			sec.Type = "file"
+			sec.Src = sec.ID
+		}
+	}
+
+	if _, exists := (*s)[sec.ID]; exists {
+		return fmt.Errorf("secret with ID %q is already defined", sec.ID)
+	}
+
+	if sec.Type == "env" {
+		(*s)[sec.ID] = SecretOption{Type: "env", Src: sec.Env}
+	} else {
+		(*s)[sec.ID] = SecretOption{Type: "file", Src: sec.Src}
+	}
+	return nil
 }

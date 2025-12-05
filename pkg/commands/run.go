@@ -28,6 +28,7 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/pkg/config"
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
@@ -38,7 +39,7 @@ import (
 type RunCommand struct {
 	BaseCommand
 	cmd      *instructions.RunCommand
-	secrets  map[string]string
+	secrets  config.SecretOptions
 	shdCache bool
 }
 
@@ -55,7 +56,7 @@ func (r *RunCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 	return runCommandWithFlags(config, buildArgs, r.cmd, r.secrets)
 }
 
-func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand, secrets map[string]string) (reterr error) {
+func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand, secrets config.SecretOptions) (reterr error) {
 	ff_cache := kConfig.EnvBoolDefault("FF_KANIKO_RUN_MOUNT_CACHE", true)
 	ff_secret := kConfig.EnvBool("FF_KANIKO_RUN_MOUNT_SECRET")
 	for _, f := range cmdRun.FlagsUsed {
@@ -160,8 +161,29 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 						continue
 					}
 				}
+				var secretData []byte
+				if s.Type == "env" {
+					val, ok := os.LookupEnv(s.Src)
+					if !ok {
+						return fmt.Errorf("environment variable for secret %q not set: %s", secretId, s.Src)
+					}
+					secretData = []byte(val)
+					val = ""
+				} else {
+					secretData, err = os.ReadFile(s.Src)
+					if err != nil {
+						return fmt.Errorf("failed to read secret file %q for %q: %w", s.Src, secretId, err)
+					}
+				}
+				defer func() {
+					// null the memory section that contained the secret
+					for i := range secretData {
+						secretData[i] = 0
+					}
+					secretData = nil
+				}()
 				if m.Env != nil {
-					secretEnvs = append(secretEnvs, fmt.Sprintf("%s=%s", *m.Env, s))
+					secretEnvs = append(secretEnvs, fmt.Sprintf("%s=%s", *m.Env, string(secretData)))
 				}
 				if m.Env == nil || m.Target != "" {
 					target := m.Target
@@ -185,7 +207,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					if m.Mode != nil {
 						mode = os.FileMode(*m.Mode)
 					}
-					err = os.WriteFile(target, []byte(s), mode)
+					err = os.WriteFile(target, secretData, mode)
 					if err != nil {
 						return err
 					}

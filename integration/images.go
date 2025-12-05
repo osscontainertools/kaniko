@@ -114,7 +114,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_volume_3":               {"--skip-unused-stages=false"},
 	"Dockerfile_test_multistage":             {"--skip-unused-stages=false"},
 	"Dockerfile_test_copy_root_multistage":   {"--skip-unused-stages=false"},
-	"Dockerfile_test_issue_cg188":            {"--secret=netrc=blubb"},
+	"Dockerfile_test_issue_cg188":            {"--secret=id=netrc,env=SECRET"},
 }
 
 // Arguments to diffoci when comparing dockerfiles

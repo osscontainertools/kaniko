@@ -21,6 +21,7 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
@@ -65,7 +66,7 @@ type DockerCommand interface {
 	IsArgsEnvsRequiredInCache() bool
 }
 
-func GetCommand(cmd instructions.Command, fileContext util.FileContext, secrets map[string]string, useNewRun bool, cacheCopy bool, cacheRun bool) (DockerCommand, error) {
+func GetCommand(cmd instructions.Command, fileContext util.FileContext, secrets config.SecretOptions, useNewRun bool, cacheCopy bool, cacheRun bool) (DockerCommand, error) {
 	switch c := cmd.(type) {
 	case *instructions.RunCommand:
 		if useNewRun {
