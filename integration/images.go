@@ -143,6 +143,8 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_issue_mz155": {"--semantic=false", "--ignore-history", "--ignore-file-meta-format", "--ignore-file-atime", "--ignore-file-ctime", "--extra-ignore-files=tmp/"},
 	// We enforce predefined ARGs are identical by dumping them to a file
 	"TestRun/test_Dockerfile_test_pre_defined_build_args": {"--extra-ignore-file-content=false"},
+	// Kaniko skips chown/chmod for ignored paths (proc, sys, dev) so permissions may differ
+	"TestRun/test_Dockerfile_test_apk_install_root": {"--extra-ignore-file-permissions"},
 }
 
 // output check to do when building with kaniko
@@ -173,6 +175,22 @@ var outputChecks = map[string]func(string, []byte) error{
 		if strings.Contains(string(out), s) {
 			return fmt.Errorf("output must not contain %s", s)
 		}
+		return nil
+	},
+	"Dockerfile_test_apk_install_root": func(_ string, out []byte) error {
+		errorPatterns := []string{
+			"operation not permitted",
+			"chown /proc",
+			"chown /sys",
+			"chown /dev",
+		}
+
+		for _, pattern := range errorPatterns {
+			if strings.Contains(string(out), pattern) {
+				return fmt.Errorf("output must not contain error pattern %q", pattern)
+			}
+		}
+
 		return nil
 	},
 }
