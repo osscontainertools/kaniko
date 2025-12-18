@@ -691,6 +691,10 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 			return nil, fmt.Errorf("copying dir: %w", err)
 		}
 		destPath := filepath.Join(dest, file)
+		if CheckIgnoreList(destPath) {
+			logrus.Debugf("Skipping copy for ignored path: %s", destPath)
+			continue
+		}
 		if file == "." {
 			logrus.Tracef("Creating directory %s", destPath)
 

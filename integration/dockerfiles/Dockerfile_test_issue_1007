@@ -1,0 +1,23 @@
+FROM alpine AS build
+
+RUN apk add --no-scripts --initdb \
+  --keys-dir /etc/apk/keys \
+  --repositories-file /etc/apk/repositories \
+  --root /installroot \
+  alpine-baselayout bash
+
+RUN ls -la /installroot/ && \
+    test -d /installroot/proc && \
+    test -d /installroot/sys && \
+    test -d /installroot/dev
+
+FROM scratch as final
+
+# 1007: COPYing root (/) implictly copies system directories, ie.
+# /sys, /proc, /dev etc. As they can't be written to on the runner, they are
+# on kaniko's ignore list for unpacking and snapshotting operations.
+# kaniko v1.26.3 would not use the ignore list during COPY though,
+# which would result in 'operation not permitted' errors for the cmd below.
+COPY --from=build /installroot /
+
+CMD ["/bin/bash"]
