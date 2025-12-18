@@ -691,6 +691,10 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 			return nil, fmt.Errorf("copying dir: %w", err)
 		}
 		destPath := filepath.Join(dest, file)
+		if CheckIgnoreList(destPath) {
+			logrus.Debugf("Skipping copy for ignored path: %s", destPath)
+			continue
+		}
 		if file == "." {
 			logrus.Tracef("Creating directory %s", destPath)
 
@@ -934,12 +938,6 @@ func MkdirAllWithPermissions(path string, mode os.FileMode, uid, gid int64) erro
 			uint64(math.MaxUint32),
 		)
 	}
-
-	if CheckIgnoreList(path) {
-		logrus.Debugf("Skipping chown/chmod for ignored path: %s", path)
-		return nil
-	}
-
 	if err := os.Chown(path, int(uid), int(gid)); err != nil {
 		return err
 	}
@@ -947,11 +945,6 @@ func MkdirAllWithPermissions(path string, mode os.FileMode, uid, gid int64) erro
 }
 
 func setFilePermissions(path string, mode os.FileMode, uid, gid int) error {
-	if CheckIgnoreList(path) {
-		logrus.Debugf("Skipping permissions for ignored path: %s", path)
-		return nil
-	}
-
 	if err := os.Chown(path, uid, gid); err != nil {
 		return err
 	}
