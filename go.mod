@@ -32,7 +32,7 @@ require (
 )
 
 require (
-	github.com/GoogleCloudPlatform/docker-credential-gcr/v2 v2.1.30
+	github.com/GoogleCloudPlatform/docker-credential-gcr/v2 v2.1.31
 	github.com/containerd/platforms v1.0.0-rc.2
 	github.com/moby/go-archive v0.2.0
 	github.com/moby/moby/api v1.52.0
