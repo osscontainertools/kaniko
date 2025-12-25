@@ -190,7 +190,7 @@ Their focus is to keep dependencies up to date and patch security issues, keepin
 
 ## Releases
 
-kaniko releases are published as images on docker hub [martizih/kaniko](https://hub.docker.com/r/martizih/kaniko) and [ghcr.io/osscontainertools/kaniko](https://github.com/orgs/osscontainertools/packages/container/package/kaniko)
+kaniko releases are published as images on [ghcr.io/osscontainertools/kaniko](https://github.com/orgs/osscontainertools/packages/container/package/kaniko) and on Docker Hub as [martizih/kaniko](https://hub.docker.com/r/martizih/kaniko).
 
 Release notes and source code archives are available on the [releases
 section](https://github.com/osscontainertools/kaniko/releases).
@@ -1446,7 +1446,7 @@ kaniko images are signed for versions >= 1.24.1 using
 
 To verify a public image, install [cosign](https://github.com/sigstore/cosign)
 and use keyless verification with github actions issuer.
-Note that to images after v1.26.0 you require cosign v3.
+Note that to verify images after v1.26.0 you require cosign v3.
 
 ```
 $ cosign verify \
