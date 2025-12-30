@@ -87,6 +87,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_OCI_STAGES=1",
 	"FF_KANIKO_RUN_MOUNT_SECRET=1",
 	"FF_KANIKO_OCI_WARMER=1",
+	"FF_KANIKO_RUN_VIA_TINI=1",
 }
 
 var WarmerEnv = []string{
