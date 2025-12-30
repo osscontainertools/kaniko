@@ -17,6 +17,7 @@ limitations under the License.
 package buildcontext
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -27,7 +28,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/util/bucket"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 )
 
 // GCS struct for Google Cloud Storage processing
