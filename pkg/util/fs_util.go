@@ -38,7 +38,6 @@ import (
 	"github.com/moby/patternmatcher/ignorefile"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/timing"
-	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -772,15 +771,14 @@ func MoveDir(src, dest string) error {
 	}
 
 	if errors.Is(err, syscall.EXDEV) {
-		// Cross-device move: copy + delete
-		opts := otiai10Cpy.Options{
-			PreserveTimes:     true,
-			PreserveOwner:     true,
-			PermissionControl: otiai10Cpy.PerservePermission,
-			FS:                FSys,
-		}
-		err = otiai10Cpy.Copy(src, dest, opts)
+		// Cross-device move: copy then delete.
+		// skipIgnoreList=true because src/dest may be under /kaniko (e.g. swap dir).
+		// DoNotChangeUID/GID preserves source ownership; useDefaultChmod=true preserves permissions.
+		files, err := RelativeFiles("", src)
 		if err != nil {
+			return err
+		}
+		if _, err = copyDirInner(files, src, dest, FileContext{}, DoNotChangeUID, DoNotChangeGID, 0, true, true); err != nil {
 			return err
 		}
 
@@ -1102,28 +1100,20 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 			return err
 		}
 		return os.Symlink(link, destFile)
+	} else if fi.IsDir() {
+		err := os.MkdirAll(destFile, 0o755)
+		if err != nil {
+			return err
+		}
+		if _, err := CopyDir(src, destFile, FileContext{}, DoNotChangeUID, DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
+			return fmt.Errorf("copying dir: %w", err)
+		}
+	} else {
+		if _, err := CopyFile(src, destFile, FileContext{}, DoNotChangeUID, DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
+			return fmt.Errorf("copying file: %w", err)
+		}
 	}
-	opts := otiai10Cpy.Options{
-		PreserveTimes: true,
-		Skip: func(info os.FileInfo, src, dest string) (bool, error) {
-			return strings.HasSuffix(src, config.KanikoDir), nil
-		},
-		FS: FSys,
-	}
-	if err := otiai10Cpy.Copy(src, destFile, opts); err != nil {
-		return fmt.Errorf("copying file: %w", err)
-	}
-	if err := CopyOwnership(src, destDir, root); err != nil {
-		return fmt.Errorf("copying ownership: %w", err)
-	}
-	if err := os.Chmod(destFile, fi.Mode()); err != nil {
-		return fmt.Errorf("copying file mode: %w", err)
-	}
-	if err := CopyTimestamps(src, destFile); err != nil {
-		return fmt.Errorf("copying file timestamps: %w", err)
-	}
-
-	return CopyCapabilities(src, destFile)
+	return nil
 }
 
 // CopyOwnership copies the file or directory ownership recursively at src to dest
