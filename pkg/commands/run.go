@@ -28,7 +28,6 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
-	"github.com/osscontainertools/kaniko/pkg/config"
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
@@ -39,7 +38,7 @@ import (
 type RunCommand struct {
 	BaseCommand
 	cmd      *instructions.RunCommand
-	secrets  config.SecretOptions
+	secrets  kConfig.SecretOptions
 	shdCache bool
 }
 
@@ -56,7 +55,7 @@ func (r *RunCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 	return runCommandWithFlags(config, buildArgs, r.cmd, r.secrets)
 }
 
-func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand, secrets config.SecretOptions) (reterr error) {
+func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand, secrets kConfig.SecretOptions) (reterr error) {
 	ff_cache := kConfig.EnvBoolDefault("FF_KANIKO_RUN_MOUNT_CACHE", true)
 	ff_secret := kConfig.EnvBool("FF_KANIKO_RUN_MOUNT_SECRET")
 	for _, f := range cmdRun.FlagsUsed {
