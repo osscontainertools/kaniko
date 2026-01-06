@@ -93,6 +93,9 @@ ENTRYPOINT ["/kaniko/warmer"]
 FROM kaniko-base AS kaniko-executor
 
 COPY --from=builder /src/out/executor /kaniko/executor
+ARG TARGETARCH
+ARG TINI_VERSION=v0.19.0
+ADD --chmod=+x https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-${TARGETARCH} /kaniko/tini
 
 ENTRYPOINT ["/kaniko/executor"]
 

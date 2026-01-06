@@ -76,6 +76,8 @@ var DockerConfigDir = fmt.Sprintf("%s/.docker/", KanikoDir)
 // KanikoSecretsDir is a where user defined secrets are stored
 var KanikoSecretsDir = fmt.Sprintf("%s/secrets/", KanikoDir)
 
+var TiniExec = fmt.Sprintf("%s/tini", KanikoDir)
+
 var MountInfoPath string
 
 func init() {

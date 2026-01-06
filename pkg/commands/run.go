@@ -293,6 +293,10 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 	logrus.Infof("Cmd: %s", newCommand[0])
 	logrus.Infof("Args: %s", newCommand[1:])
 
+	if kConfig.EnvBool("FF_KANIKO_RUN_VIA_TINI") {
+		newCommand = append([]string{kConfig.TiniExec, "-s", "--"}, newCommand...)
+	}
+
 	cmd := exec.Command(newCommand[0], newCommand[1:]...)
 
 	cmd.Dir = setWorkDirIfExists(config.WorkingDir)
