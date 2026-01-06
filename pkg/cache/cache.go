@@ -195,7 +195,11 @@ func LocalSource(opts *config.CacheOptions, cacheKey string) (v1.Image, error) {
 	}
 
 	logrus.Infof("Found %s in local cache", cacheKey)
-	return cachedImageFromPath(path)
+	if config.EnvBool("FF_KANIKO_OCI_WARMER") {
+		return ociCachedImageFromPath(path)
+	} else {
+		return cachedImageFromPath(path)
+	}
 }
 
 // cachedImage represents a v1.Tarball that is cached locally in a CAS.
@@ -254,4 +258,29 @@ func cachedImageFromPath(p string) (v1.Image, error) {
 		Image:  imgTar,
 		mfst:   mfst,
 	}, nil
+}
+
+func ociCachedImageFromPath(tarPath string) (v1.Image, error) {
+	p, err := layout.FromPath(tarPath)
+	if err != nil {
+		return nil, err
+	}
+	idx, err := p.ImageIndex()
+	if err != nil {
+		return nil, err
+	}
+	idxManifest, err := idx.IndexManifest()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(idxManifest.Manifests) == 0 {
+		return nil, fmt.Errorf("no images found in OCI layout")
+	}
+	if len(idxManifest.Manifests) > 1 {
+		return nil, fmt.Errorf("expected one image, found %d", len(idxManifest.Manifests))
+	}
+
+	hash := idxManifest.Manifests[0].Digest
+	return p.Image(hash)
 }
