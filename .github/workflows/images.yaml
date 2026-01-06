@@ -21,10 +21,10 @@ jobs:
     concurrency:
       # If a previous run is ongoing with the same head_ref (it's a run on the
       # same PR) then cancel it to save time. If it isn't a PR, only cancel the
-      # previous run if it's on the same commit SHA. This prevents a run for a
-      # commit push from cancelling a previous commit push's build, since we
-      # want an image built and tagged for each commit.
-      group: build-images-${{ matrix.image }}-${{ github.head_ref || github.sha }}
+      # previous run if it's on the same commit SHA and workflow ref. This prevents
+      # a run for a commit push or release tag from cancelling a previous commit
+      # push's build, since we want an image built and tagged for each commit.
+      group: build-images-${{ matrix.image }}-${{ github.ref }}-${{ github.head_ref || github.sha }}
       cancel-in-progress: true
 
     permissions:
