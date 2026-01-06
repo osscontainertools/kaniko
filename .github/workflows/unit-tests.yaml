@@ -33,3 +33,9 @@ jobs:
           check-latest: true
 
       - run: make test
+
+      - name: Run staticcheck 
+        uses: dominikh/staticcheck-action@v1.4.0
+        with:
+          install-go: false
+          version: 'latest'
