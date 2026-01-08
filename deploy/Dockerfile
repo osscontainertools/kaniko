@@ -49,6 +49,61 @@ COPY . .
 RUN make out/executor out/warmer \
     && rm -rf /root/.cache
 
+# Build static tini
+ARG BUILDPLATFORM
+FROM --platform=$BUILDPLATFORM debian:trixie-slim AS tini-builder
+ARG BUILDARCH
+ARG TARGETARCH
+
+ARG DEBIAN_FRONTEND=noninteractive
+RUN <<EOF
+set -eux
+case "${TARGETARCH}" in
+    "${BUILDARCH}") GCC=gcc LIBC=libc6-dev ;;
+    amd64) GCC=gcc-x86-64-linux-gnu LIBC=libc6-dev-amd64-cross ;;
+    arm64) GCC=gcc-aarch64-linux-gnu LIBC=libc6-dev-arm64-cross ;;
+    s390x) GCC=gcc-s390x-linux-gnu LIBC=libc6-dev-s390x-cross ;;
+    riscv64) GCC=gcc-riscv64-linux-gnu LIBC=libc6-dev-riscv64-cross ;;
+    ppc64le) GCC=gcc-powerpc64le-linux-gnu LIBC=libc6-dev-ppc64el-cross ;;
+    *) echo "unsupported arch: ${TARGETARCH}" >&2; exit 1 ;;
+esac
+apt update
+apt install --no-install-recommends -y \
+    ca-certificates \
+    git \
+    make \
+    cmake \
+    $GCC \
+    $LIBC
+rm -rf /var/lib/apt/lists/*
+EOF
+
+ARG TINI_VERSION=v0.19.0
+RUN <<EOF
+set -eux
+case "${TARGETARCH}" in
+    "${BUILDARCH}") CC=gcc ;;
+    amd64) CC=x86_64-linux-gnu-gcc ;;
+    arm64) CC=aarch64-linux-gnu-gcc ;;
+    s390x) CC=s390x-linux-gnu-gcc ;;
+    riscv64) CC=riscv64-linux-gnu-gcc ;;
+    ppc64le) CC=powerpc64le-linux-gnu-gcc ;;
+    *) echo "unsupported arch: ${TARGETARCH}" >&2; exit 1 ;;
+esac
+git clone --branch ${TINI_VERSION} --depth 1 https://github.com/krallin/tini.git
+mkdir -p tini/build
+cd tini/build
+cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DMINIMAL=ON \
+    -DTINI_STATIC=ON \
+    -DCMAKE_C_COMPILER=${CC}
+make -j4 tini-static
+mv tini-static /
+cd ..
+rm -rf build
+EOF
+
 # Generate latest ca-certificates
 ARG BUILDPLATFORM
 FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS certs
@@ -93,9 +148,7 @@ ENTRYPOINT ["/kaniko/warmer"]
 FROM kaniko-base AS kaniko-executor
 
 COPY --from=builder /src/out/executor /kaniko/executor
-ARG TARGETARCH
-ARG TINI_VERSION=v0.19.0
-ADD --chmod=+x https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-${TARGETARCH} /kaniko/tini
+COPY --from=tini-builder /tini-static /kaniko/tini
 
 ENTRYPOINT ["/kaniko/executor"]
 
