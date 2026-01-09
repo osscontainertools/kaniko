@@ -20,6 +20,7 @@
 * `FF_KANIKO_IGNORE_CACHED_MANIFEST=false` ignore potentially invalid cached manifest files: by @luxurine in https://github.com/osscontainertools/kaniko/pull/267
 * don't reuse interstage dependencies: https://github.com/osscontainertools/kaniko/pull/286
 * image-index digests causes warmer cache misses: https://github.com/osscontainertools/kaniko/pull/321
+* Skip chown/chmod for paths in ignore list: by @mesaglio in https://github.com/osscontainertools/kaniko/pull/435
 ### Standardization
 * sticky bit gets lost on COPY: https://github.com/mzihlmann/kaniko/pull/45
 * COPY with restrictive chmod makes directory inacessible: https://github.com/mzihlmann/kaniko/pull/80
@@ -35,6 +36,7 @@
 * skip-unused-stages invalidates numeric references: https://github.com/osscontainertools/kaniko/pull/306
 * cache mount option implements additional flags: https://github.com/osscontainertools/kaniko/pull/390
 * `FF_KANIKO_RUN_MOUNT_SECRET=false` secret mounts: https://github.com/osscontainertools/kaniko/pull/391 https://github.com/osscontainertools/kaniko/pull/409
+* `FF_KANIKO_RUN_VIA_TINI=false` reap zombie processes: https://github.com/osscontainertools/kaniko/pull/211 https://github.com/osscontainertools/kaniko/pull/450
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
 * ignore labels on base image for cache: https://github.com/mzihlmann/kaniko/pull/2
@@ -49,6 +51,7 @@
 * recompute whether a stage must be saved: https://github.com/osscontainertools/kaniko/pull/335
 * port digest optimization to warmer: https://github.com/osscontainertools/kaniko/pull/325
 * `FF_KANIKO_DISABLE_HTTP2=false` stop forcing http/2.0: https://github.com/osscontainertools/kaniko/pull/340
+* `FF_KANIKO_OCI_WARMER=false` ocilayout warmer: https://github.com/osscontainertools/kaniko/pull/307
 ### Usability
 * if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
 * kaniko learned `--preserve-context` to preserve the build-context across multi-stage builds: https://github.com/mzihlmann/kaniko/pull/28
@@ -81,6 +84,7 @@
 * publish images to ghcr: by @babs in https://github.com/osscontainertools/kaniko/pull/329 https://github.com/osscontainertools/kaniko/pull/353
 * ci: rework, use GHCR as primary, separate dev builds from release: by @babs in https://github.com/osscontainertools/kaniko/pull/368 https://github.com/osscontainertools/kaniko/pull/371
 * replace github.com/pkg/errors with stdlib errors: by @BobDu in https://github.com/osscontainertools/kaniko/pull/370
+* chore(ci): run staticcheck: by @nejch in https://github.com/osscontainertools/kaniko/pull/445
 
 for a more detailed view you can refer to our [Changelog](./CHANGELOG.md) or [release notes](https://github.com/osscontainertools/kaniko/releases)
 
