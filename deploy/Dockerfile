@@ -82,6 +82,20 @@ ENV DOCKER_CONFIG=/kaniko/.docker/
 ENV DOCKER_CREDENTIAL_GCR_CONFIG=/kaniko/.config/gcloud/docker_credential_gcr_config.json
 WORKDIR /workspace
 
+# mz446: there is no tini binary release on riscv64
+FROM kaniko-base AS kaniko-base-tini
+ARG TARGETARCH
+ARG TINI_VERSION=v0.19.0
+ADD --chmod=+x \
+    https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-${TARGETARCH} \
+    /kaniko/tini
+FROM kaniko-base-tini AS kaniko-base-amd64
+FROM kaniko-base-tini AS kaniko-base-arm64
+FROM kaniko-base-tini AS kaniko-base-s390x
+FROM kaniko-base-tini AS kaniko-base-ppc64le
+FROM kaniko-base AS kaniko-base-riscv64
+FROM kaniko-base-${TARGETARCH} AS kaniko-base-2
+
 ### FINAL STAGES ###
 
 FROM kaniko-base AS kaniko-warmer
@@ -90,12 +104,9 @@ COPY --from=builder /src/out/warmer /kaniko/warmer
 
 ENTRYPOINT ["/kaniko/warmer"]
 
-FROM kaniko-base AS kaniko-executor
+FROM kaniko-base-2 AS kaniko-executor
 
 COPY --from=builder /src/out/executor /kaniko/executor
-ARG TARGETARCH
-ARG TINI_VERSION=v0.19.0
-ADD --chmod=+x https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-${TARGETARCH} /kaniko/tini
 
 ENTRYPOINT ["/kaniko/executor"]
 
