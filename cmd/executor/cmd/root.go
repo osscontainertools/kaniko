@@ -133,8 +133,10 @@ var RootCmd = &cobra.Command{
 				dir = opts.KanikoDir
 			}
 
-			if err := checkKanikoDir(dir); err != nil {
-				return err
+			if dir != config.KanikoExeDir {
+				if err := moveKanikoDir(dir); err != nil {
+					return err
+				}
 			}
 
 			resolveEnvironmentBuildArgs(opts.BuildArgs, os.Getenv)
@@ -327,26 +329,23 @@ func addHiddenFlags(cmd *cobra.Command) {
 	cmd.Flags().MarkHidden("bucket")
 }
 
-// checkKanikoDir will check whether the executor is operating in the default '/kaniko' directory,
-// conducting the relevant operations if it is not
-func checkKanikoDir(dir string) error {
-	if dir != config.KanikoExeDir {
-
-		// The destination directory may be across a different partition, so we cannot simply rename/move the directory in this case.
-		if _, err := util.CopyDir(config.KanikoExeDir, dir, util.FileContext{}, util.DoNotChangeUID, util.DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
-			return err
-		}
-
-		if err := os.RemoveAll(config.KanikoExeDir); err != nil {
-			return err
-		}
-		config.KanikoExeDir = dir
-
-		// After remove DefaultKankoPath, the DOKCER_CONFIG env will point to a non-exist dir, so we should update DOCKER_CONFIG env to new dir
-		if err := os.Setenv("DOCKER_CONFIG", filepath.Join(dir, "/.docker")); err != nil {
-			return err
-		}
+// moveKanikoDir will move the entire kanikoDir and to a new location
+func moveKanikoDir(dir string) error {
+	// The destination directory may be across a different partition, so we cannot simply rename/move the directory in this case.
+	if _, err := util.CopyDir(config.KanikoExeDir, dir, util.FileContext{}, util.DoNotChangeUID, util.DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
+		return err
 	}
+
+	if err := os.RemoveAll(config.KanikoExeDir); err != nil {
+		return err
+	}
+	config.KanikoExeDir = dir
+
+	// After remove DefaultKankoPath, the DOKCER_CONFIG env will point to a non-exist dir, so we should update DOCKER_CONFIG env to new dir
+	if err := os.Setenv("DOCKER_CONFIG", filepath.Join(dir, "/.docker")); err != nil {
+		return err
+	}
+
 	return nil
 }
 
