@@ -93,34 +93,25 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					return err
 				}
 				if created != "" {
-					defer func() {
-						err := os.RemoveAll(created)
-						if err != nil {
-							reterr = err
-						}
-					}()
+					defer assignIfNil(&reterr, func() error {
+						return os.RemoveAll(created)
+					})
 				}
 				err = swapDir(cacheDir, m.Target)
 				if err != nil {
 					return err
 				}
-				defer func() {
-					err := swapDir(m.Target, cacheDir)
-					if err != nil {
-						reterr = err
-					}
-				}()
+				defer assignIfNil(&reterr, func() error {
+					return swapDir(m.Target, cacheDir)
+				})
 				if m.Mode != nil {
 					err = os.Chmod(m.Target, os.FileMode(*m.Mode))
 					if err != nil {
 						return err
 					}
-					defer func() {
-						err := os.Chmod(m.Target, os.FileMode(0755))
-						if err != nil {
-							reterr = err
-						}
-					}()
+					defer assignIfNil(&reterr, func() error {
+						return os.Chmod(m.Target, os.FileMode(0755))
+					})
 				}
 				if m.UID != nil || m.GID != nil {
 					uid := 0
@@ -135,12 +126,9 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					if err != nil {
 						return err
 					}
-					defer func() {
-						err = os.Chown(m.Target, 0, 0)
-						if err != nil {
-							reterr = err
-						}
-					}()
+					defer assignIfNil(&reterr, func() error {
+						return os.Chown(m.Target, 0, 0)
+					})
 				}
 			// https://docs.docker.com/reference/dockerfile/#run---mounttypesecret
 			case m.Type == instructions.MountTypeSecret && ff_secret:
@@ -195,12 +183,9 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 						return err
 					}
 					if created != "" {
-						defer func() {
-							err := os.RemoveAll(created)
-							if err != nil {
-								reterr = err
-							}
-						}()
+						defer assignIfNil(&reterr, func() error {
+							return os.RemoveAll(created)
+						})
 					}
 					mode := os.FileMode(0400)
 					if m.Mode != nil {
@@ -210,12 +195,9 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					if err != nil {
 						return err
 					}
-					defer func() {
-						err := os.Remove(target)
-						if err != nil {
-							reterr = err
-						}
-					}()
+					defer assignIfNil(&reterr, func() error {
+						return os.Remove(target)
+					})
 					if m.UID != nil || m.GID != nil {
 						uid := 0
 						if m.UID != nil {
@@ -524,4 +506,10 @@ func ensureDir(target string) (string, error) {
 	}
 
 	return firstCreated, nil
+}
+
+func assignIfNil(dst *error, fn func() error) {
+	if err := fn(); err != nil && *dst == nil {
+		*dst = err
+	}
 }
