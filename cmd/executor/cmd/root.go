@@ -128,7 +128,7 @@ var RootCmd = &cobra.Command{
 
 			// Command line flag takes precedence over the KANIKO_DIR environment variable.
 			dir := config.KanikoDir
-			if opts.KanikoDir != constants.DefaultKanikoPath {
+			if opts.KanikoDir != "" {
 				dir = opts.KanikoDir
 			}
 
@@ -264,7 +264,7 @@ func addKanikoOptionsFlags() {
 	RootCmd.Flags().BoolVar(&opts.PushIgnoreImmutableTagErrors, "push-ignore-immutable-tag-errors", false, "If true, known tag immutability errors are ignored and the push finishes with success.")
 	RootCmd.Flags().IntVar(&opts.ImageFSExtractRetry, "image-fs-extract-retry", 0, "Number of retries for image FS extraction")
 	RootCmd.Flags().IntVar(&opts.ImageDownloadRetry, "image-download-retry", 0, "Number of retries for downloading the remote image")
-	RootCmd.Flags().StringVarP(&opts.KanikoDir, "kaniko-dir", "", constants.DefaultKanikoPath, "Path to the kaniko directory, this takes precedence over the KANIKO_DIR environment variable.")
+	RootCmd.Flags().StringVarP(&opts.KanikoDir, "kaniko-dir", "", "", "Path to the kaniko directory, this takes precedence over the KANIKO_DIR environment variable.")
 	RootCmd.Flags().StringVarP(&opts.TarPath, "tar-path", "", "", "Path to save the image in as a tarball instead of pushing")
 	RootCmd.Flags().BoolVarP(&opts.SingleSnapshot, "single-snapshot", "", false, "Take a single snapshot at the end of the build.")
 	RootCmd.Flags().BoolVarP(&opts.Reproducible, "reproducible", "", false, "Strip timestamps out of the image to make it reproducible")
