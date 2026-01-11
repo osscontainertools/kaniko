@@ -330,14 +330,14 @@ func addHiddenFlags(cmd *cobra.Command) {
 // checkKanikoDir will check whether the executor is operating in the default '/kaniko' directory,
 // conducting the relevant operations if it is not
 func checkKanikoDir(dir string) error {
-	if dir != constants.DefaultKanikoPath {
+	if dir != config.KanikoExeDir {
 
 		// The destination directory may be across a different partition, so we cannot simply rename/move the directory in this case.
-		if _, err := util.CopyDir(constants.DefaultKanikoPath, dir, util.FileContext{}, util.DoNotChangeUID, util.DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
+		if _, err := util.CopyDir(config.KanikoExeDir, dir, util.FileContext{}, util.DoNotChangeUID, util.DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
 			return err
 		}
 
-		if err := os.RemoveAll(constants.DefaultKanikoPath); err != nil {
+		if err := os.RemoveAll(config.KanikoExeDir); err != nil {
 			return err
 		}
 		// After remove DefaultKankoPath, the DOKCER_CONFIG env will point to a non-exist dir, so we should update DOCKER_CONFIG env to new dir
