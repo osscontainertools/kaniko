@@ -132,8 +132,11 @@ var RootCmd = &cobra.Command{
 				dir = opts.KanikoDir
 			}
 
-			if err := checkKanikoDir(dir); err != nil {
-				return err
+			if dir != config.KanikoExeDir {
+				err := moveKanikoDir(config.KanikoExeDir, dir)
+				if err != nil {
+					return err
+				}
 			}
 
 			resolveEnvironmentBuildArgs(opts.BuildArgs, os.Getenv)
@@ -326,34 +329,31 @@ func addHiddenFlags(cmd *cobra.Command) {
 	cmd.Flags().MarkHidden("bucket")
 }
 
-// checkKanikoDir will check whether the executor is operating in the default '/kaniko' directory,
-// conducting the relevant operations if it is not
-func checkKanikoDir(dir string) error {
-	if dir != config.KanikoExeDir {
+// moveKanikoDir will move the entire kanikoDir and to a new location
+func moveKanikoDir(src, target string) error {
+	err := util.MoveDir(src, target)
+	if err != nil {
+		return err
+	}
 
-		err := util.MoveDir(config.KanikoExeDir, dir)
-		if err != nil {
-			return err
-		}
-
-		// Update any env var pointing to the old Kaniko path
-		for _, e := range os.Environ() {
-			parts := strings.SplitN(e, "=", 2)
-			key, val := parts[0], parts[1]
-			// avoid replacing variables that happen to start with the same text
-			// but actually point to a different directory. like `/kaniko2`
-			if rest, ok := strings.CutPrefix(val, config.KanikoExeDir+"/"); ok {
-				// Case: starts with /kaniko/
-				newVal := val + "/" + rest
-				os.Setenv(key, newVal)
-				logrus.Infof("updating env: %s=%s", key, newVal)
-			} else if val == config.KanikoExeDir {
-				// Case: exactly /kaniko
-				os.Setenv(key, dir)
-				logrus.Infof("updating env: %s=%s", key, dir)
-			}
+	// Update any env var pointing to the old Kaniko path
+	for _, e := range os.Environ() {
+		parts := strings.SplitN(e, "=", 2)
+		key, val := parts[0], parts[1]
+		// avoid replacing variables that happen to start with the same text
+		// but actually point to a different directory. like `/kaniko2`
+		if rest, ok := strings.CutPrefix(val, src+"/"); ok {
+			// Case: starts with /kaniko/
+			newVal := val + "/" + rest
+			os.Setenv(key, newVal)
+			logrus.Infof("updating env: %s=%s", key, newVal)
+		} else if val == src {
+			// Case: exactly /kaniko
+			os.Setenv(key, target)
+			logrus.Infof("updating env: %s=%s", key, target)
 		}
 	}
+
 	return nil
 }
 
