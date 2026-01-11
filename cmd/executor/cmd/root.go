@@ -329,9 +329,9 @@ func addHiddenFlags(cmd *cobra.Command) {
 // checkKanikoDir will check whether the executor is operating in the default '/kaniko' directory,
 // conducting the relevant operations if it is not
 func checkKanikoDir(dir string) error {
-	if dir != constants.DefaultKanikoPath {
+	if dir != config.KanikoExeDir {
 
-		err := util.MoveDir(constants.DefaultKanikoPath, dir)
+		err := util.MoveDir(config.KanikoExeDir, dir)
 		if err != nil {
 			return err
 		}
@@ -342,12 +342,12 @@ func checkKanikoDir(dir string) error {
 			key, val := parts[0], parts[1]
 			// avoid replacing variables that happen to start with the same text
 			// but actually point to a different directory. like `/kaniko2`
-			if rest, ok := strings.CutPrefix(val, constants.DefaultKanikoPath+"/"); ok {
+			if rest, ok := strings.CutPrefix(val, config.KanikoExeDir+"/"); ok {
 				// Case: starts with /kaniko/
 				newVal := val + "/" + rest
 				os.Setenv(key, newVal)
 				logrus.Infof("updating env: %s=%s", key, newVal)
-			} else if val == constants.DefaultKanikoPath {
+			} else if val == config.KanikoExeDir {
 				// Case: exactly /kaniko
 				os.Setenv(key, dir)
 				logrus.Infof("updating env: %s=%s", key, dir)
