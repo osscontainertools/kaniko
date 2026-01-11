@@ -724,7 +724,7 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 }
 
 // DoBuild executes building the Dockerfile
-func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
+func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	t := timing.Start("Total Build Time")
 	digestToCacheKey := make(map[string]string)
 	stageIdxToDigest := make(map[int]string)
@@ -790,6 +790,29 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 		if err = util.DeleteFilesystem(); err != nil {
 			return nil, err
 		}
+	}
+
+	if opts.Cleanup {
+		defer assignIfNil(&retErr, func() error {
+			if err = util.DeleteFilesystem(); err != nil {
+				return err
+			}
+			err = config.Cleanup()
+			if err != nil {
+				return err
+			}
+			if opts.PreserveContext {
+				if tarball == "" {
+					return fmt.Errorf("context snapshot is missing")
+				}
+				_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
+				if err != nil {
+					return fmt.Errorf("failed to unpack context snapshot: %w", err)
+				}
+				logrus.Info("Context restored")
+			}
+			return nil
+		})
 	}
 
 	for _, stage := range kanikoStages {
@@ -859,25 +882,6 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 			if len(opts.Annotations) > 0 {
 				sourceImage = mutate.Annotations(sourceImage, opts.Annotations).(v1.Image)
 			}
-			if opts.Cleanup {
-				if err = util.DeleteFilesystem(); err != nil {
-					return nil, err
-				}
-				err = config.Cleanup()
-				if err != nil {
-					return nil, err
-				}
-				if opts.PreserveContext {
-					if tarball == "" {
-						return nil, fmt.Errorf("context snapshot is missing")
-					}
-					_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
-					if err != nil {
-						return nil, fmt.Errorf("failed to unpack context snapshot: %w", err)
-					}
-					logrus.Info("Context restored")
-				}
-			}
 			timing.DefaultRun.Stop(t)
 			return sourceImage, nil
 		}
@@ -921,6 +925,12 @@ func DoBuild(opts *config.KanikoOptions) (v1.Image, error) {
 	}
 
 	return nil, err
+}
+
+func assignIfNil(dst *error, fn func() error) {
+	if err := fn(); err != nil && *dst == nil {
+		*dst = err
+	}
 }
 
 // filesToSave returns all the files matching the given pattern in deps.
