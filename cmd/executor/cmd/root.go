@@ -134,7 +134,7 @@ var RootCmd = &cobra.Command{
 			}
 
 			if dir != config.KanikoExeDir {
-				if err := moveKanikoDir(dir); err != nil {
+				if err := moveKanikoDir(config.KanikoExeDir, dir); err != nil {
 					return err
 				}
 			}
@@ -330,18 +330,18 @@ func addHiddenFlags(cmd *cobra.Command) {
 }
 
 // moveKanikoDir will move the entire kanikoDir and to a new location
-func moveKanikoDir(dir string) error {
+func moveKanikoDir(src, target string) error {
 	// The destination directory may be across a different partition, so we cannot simply rename/move the directory in this case.
-	if _, err := util.CopyDir(config.KanikoExeDir, dir, util.FileContext{}, util.DoNotChangeUID, util.DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
+	if _, err := util.CopyDir(src, target, util.FileContext{}, util.DoNotChangeUID, util.DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
 		return err
 	}
 
-	if err := os.RemoveAll(config.KanikoExeDir); err != nil {
+	if err := os.RemoveAll(src); err != nil {
 		return err
 	}
 
 	// After remove DefaultKankoPath, the DOKCER_CONFIG env will point to a non-exist dir, so we should update DOCKER_CONFIG env to new dir
-	if err := os.Setenv("DOCKER_CONFIG", filepath.Join(dir, "/.docker")); err != nil {
+	if err := os.Setenv("DOCKER_CONFIG", filepath.Join(target, "/.docker")); err != nil {
 		return err
 	}
 
