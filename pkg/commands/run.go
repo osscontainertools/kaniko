@@ -19,6 +19,7 @@ package commands
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -470,17 +471,17 @@ func swapDir(pathA, pathB string) (err error) {
 	if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("expected directory %q to not exist (1), but it does", tmp)
 	}
-	err = os.Rename(pathA, tmp)
+	err = util.MoveDir(pathA, tmp)
 	if err != nil {
 		return fmt.Errorf("failed to rename (1) %s -> %s: %w", pathA, tmp, err)
 	}
 
-	err = os.Rename(pathB, pathA)
+	err = util.MoveDir(pathB, pathA)
 	if err != nil {
 		return fmt.Errorf("failed to rename (2) %s -> %s: %w", pathB, pathA, err)
 	}
 
-	err = os.Rename(tmp, pathB)
+	err = util.MoveDir(tmp, pathB)
 	if err != nil {
 		return fmt.Errorf("failed to rename (3) %s -> %s: %w", tmp, pathB, err)
 	}

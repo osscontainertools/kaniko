@@ -38,7 +38,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/util/proc"
-	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -331,18 +330,8 @@ func addHiddenFlags(cmd *cobra.Command) {
 // conducting the relevant operations if it is not
 func checkKanikoDir(dir string) error {
 	if dir != constants.DefaultKanikoPath {
-		opts := otiai10Cpy.Options{
-			PreserveTimes:     true,
-			PreserveOwner:     true,
-			PermissionControl: otiai10Cpy.PerservePermission,
-			FS:                util.FSys,
-		}
-		err := otiai10Cpy.Copy(constants.DefaultKanikoPath, dir, opts)
-		if err != nil {
-			return err
-		}
 
-		err = os.RemoveAll(constants.DefaultKanikoPath)
+		err := util.MoveDir(constants.DefaultKanikoPath, dir)
 		if err != nil {
 			return err
 		}

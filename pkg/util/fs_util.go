@@ -746,6 +746,30 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 	return copiedFiles, nil
 }
 
+func MoveDir(src, dest string) error {
+	err := os.Rename(src, dest)
+	if err == nil {
+		return nil
+	}
+
+	if errors.Is(err, syscall.EXDEV) {
+		// Cross-device move: copy + delete
+		_, err = CopyDir(src, dest, FileContext{}, DoNotChangeUID, DoNotChangeGID, fs.FileMode(0o600), true)
+		if err != nil {
+			return err
+		}
+
+		err = os.RemoveAll(src)
+		if err != nil {
+			return err
+		}
+	} else {
+		return err
+	}
+
+	return nil
+}
+
 // CopySymlink copies the symlink at src to dest.
 func CopySymlink(src, dest string, context FileContext) (bool, error) {
 	if context.ExcludesFile(src) {
