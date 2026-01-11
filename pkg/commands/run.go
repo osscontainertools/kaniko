@@ -466,6 +466,10 @@ func swapDir(pathA, pathB string) (err error) {
 	}
 	tmp := kConfig.KanikoSwapDir
 
+	_, err = os.Stat(tmp)
+	if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("expected directory %q to not exist (1), but it does", tmp)
+	}
 	err = os.Rename(pathA, tmp)
 	if err != nil {
 		return fmt.Errorf("failed to rename (1) %s -> %s: %w", pathA, tmp, err)
@@ -481,6 +485,10 @@ func swapDir(pathA, pathB string) (err error) {
 		return fmt.Errorf("failed to rename (3) %s -> %s: %w", tmp, pathB, err)
 	}
 
+	_, err = os.Stat(tmp)
+	if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("expected directory %q to not exist (2), but it does", tmp)
+	}
 	return nil
 }
 
