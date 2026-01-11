@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -93,4 +94,40 @@ var MountInfoPath string
 func init() {
 	RootDir = constants.RootDir
 	MountInfoPath = constants.MountInfoPath
+}
+
+func Cleanup() error {
+	err := os.Remove(DockerfilePath)
+	if err != nil {
+		return err
+	}
+	err = os.RemoveAll(KanikoIntermediateStagesDir)
+	if err != nil {
+		return err
+	}
+	err = os.RemoveAll(BuildContextDir)
+	if err != nil {
+		return err
+	}
+	if EnvBoolDefault("FF_KANIKO_NEW_CACHE_LAYOUT", true) {
+		err = os.RemoveAll(KanikoInterStageDepsDir)
+		if err != nil {
+			return err
+		}
+	}
+	if EnvBoolDefault("FF_KANIKO_NEW_CACHE_LAYOUT", true) {
+		err = os.RemoveAll(KanikoLayersDir)
+		if err != nil {
+			return err
+		}
+	}
+	err = os.RemoveAll(KanikoSecretsDir)
+	if err != nil {
+		return err
+	}
+	_, err = os.Stat(KanikoSwapDir)
+	if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("expected directory %q to not exist, but it does", KanikoSwapDir)
+	}
+	return nil
 }
