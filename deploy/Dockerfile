@@ -86,7 +86,7 @@ WORKDIR /workspace
 FROM kaniko-base AS kaniko-base-tini
 ARG TARGETARCH
 ARG TINI_VERSION=v0.19.0
-ADD --chmod=+x \
+ADD --chmod=555 \
     https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-${TARGETARCH} \
     /kaniko/tini
 FROM kaniko-base-tini AS kaniko-base-amd64
