@@ -129,12 +129,14 @@ var RootCmd = &cobra.Command{
 
 			// Command line flag takes precedence over the KANIKO_DIR environment variable.
 			dir := config.KanikoDir
-			if opts.KanikoDir != constants.DefaultKanikoPath {
+			if opts.KanikoDir != "" {
 				dir = opts.KanikoDir
 			}
 
-			if err := checkKanikoDir(dir); err != nil {
-				return err
+			if dir != config.KanikoExeDir {
+				if err := moveKanikoDir(config.KanikoExeDir, dir); err != nil {
+					return err
+				}
 			}
 
 			resolveEnvironmentBuildArgs(opts.BuildArgs, os.Getenv)
@@ -265,7 +267,7 @@ func addKanikoOptionsFlags() {
 	RootCmd.Flags().BoolVar(&opts.PushIgnoreImmutableTagErrors, "push-ignore-immutable-tag-errors", false, "If true, known tag immutability errors are ignored and the push finishes with success.")
 	RootCmd.Flags().IntVar(&opts.ImageFSExtractRetry, "image-fs-extract-retry", 0, "Number of retries for image FS extraction")
 	RootCmd.Flags().IntVar(&opts.ImageDownloadRetry, "image-download-retry", 0, "Number of retries for downloading the remote image")
-	RootCmd.Flags().StringVarP(&opts.KanikoDir, "kaniko-dir", "", constants.DefaultKanikoPath, "Path to the kaniko directory, this takes precedence over the KANIKO_DIR environment variable.")
+	RootCmd.Flags().StringVarP(&opts.KanikoDir, "kaniko-dir", "", "", "Path to the kaniko directory, this takes precedence over the KANIKO_DIR environment variable.")
 	RootCmd.Flags().StringVarP(&opts.TarPath, "tar-path", "", "", "Path to save the image in as a tarball instead of pushing")
 	RootCmd.Flags().BoolVarP(&opts.SingleSnapshot, "single-snapshot", "", false, "Take a single snapshot at the end of the build.")
 	RootCmd.Flags().BoolVarP(&opts.Reproducible, "reproducible", "", false, "Strip timestamps out of the image to make it reproducible")
@@ -327,24 +329,22 @@ func addHiddenFlags(cmd *cobra.Command) {
 	cmd.Flags().MarkHidden("bucket")
 }
 
-// checkKanikoDir will check whether the executor is operating in the default '/kaniko' directory,
-// conducting the relevant operations if it is not
-func checkKanikoDir(dir string) error {
-	if dir != constants.DefaultKanikoPath {
-
-		// The destination directory may be across a different partition, so we cannot simply rename/move the directory in this case.
-		if _, err := util.CopyDir(constants.DefaultKanikoPath, dir, util.FileContext{}, util.DoNotChangeUID, util.DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
-			return err
-		}
-
-		if err := os.RemoveAll(constants.DefaultKanikoPath); err != nil {
-			return err
-		}
-		// After remove DefaultKankoPath, the DOKCER_CONFIG env will point to a non-exist dir, so we should update DOCKER_CONFIG env to new dir
-		if err := os.Setenv("DOCKER_CONFIG", filepath.Join(dir, "/.docker")); err != nil {
-			return err
-		}
+// moveKanikoDir will move the entire kanikoDir and to a new location
+func moveKanikoDir(src, target string) error {
+	// The destination directory may be across a different partition, so we cannot simply rename/move the directory in this case.
+	if _, err := util.CopyDir(src, target, util.FileContext{}, util.DoNotChangeUID, util.DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
+		return err
 	}
+
+	if err := os.RemoveAll(src); err != nil {
+		return err
+	}
+
+	// After remove DefaultKankoPath, the DOKCER_CONFIG env will point to a non-exist dir, so we should update DOCKER_CONFIG env to new dir
+	if err := os.Setenv("DOCKER_CONFIG", filepath.Join(target, "/.docker")); err != nil {
+		return err
+	}
+
 	return nil
 }
 
