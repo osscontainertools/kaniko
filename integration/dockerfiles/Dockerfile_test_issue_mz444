@@ -1,0 +1,15 @@
+# mz444: Kaniko always supported the KANIKO_DIR environment variable,
+# which can be used to relocate kaniko folder after boot.
+# This is useful for bootstrapping kaniko itself. However, kaniko v1.26.4
+# does not support being installed to a completely different location in the image.
+
+# In this test we verify that kaniko now can handle being installed in /opt/kaniko
+# instead. For that we first build an executor image
+FROM scratch AS kaniko
+COPY --from=executor-image /kaniko /opt/kaniko
+ENV SSL_CERT_DIR=/opt/kaniko/ssl/certs
+ENTRYPOINT ["/opt/kaniko/executor"]
+
+# And then verify that if we build with this executor the /kaniko dir is indeed empty
+FROM busybox:latest
+RUN [ ! -d /kaniko ]

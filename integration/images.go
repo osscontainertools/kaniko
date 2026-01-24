@@ -48,6 +48,7 @@ const (
 	cacheDir         = "/workspace/cache"
 	baseImageToCache = "debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56"
 
+	ExecutorImageMoved   = "executor-image-moved"
 	ExecutorImageTainted = "executor-image-tainted"
 )
 
@@ -105,6 +106,7 @@ var additionalDockerFlagsMap = map[string][]string{
 
 // Override which kaniko executor image to use for a specific test
 var executorImages = map[string]string{
+	"Dockerfile_test_issue_mz444": ExecutorImageMoved,
 	"Dockerfile_test_issue_mz455": ExecutorImageTainted,
 }
 
