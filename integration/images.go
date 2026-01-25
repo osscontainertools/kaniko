@@ -47,6 +47,8 @@ const (
 	buildContextPath = "/workspace"
 	cacheDir         = "/workspace/cache"
 	baseImageToCache = "debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56"
+
+	ExecutorImageMoved = "executor-image-moved"
 )
 
 // Arguments to build Dockerfiles with, used for both docker and kaniko builds
@@ -98,6 +100,16 @@ var WarmerEnv = []string{
 var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_target":      {"--target=second"},
 	"Dockerfile_test_issue_cg188": {"--secret=id=netrc,env=SECRET"},
+}
+
+// Override which kaniko executor image to use for a specific test
+var executorImages = map[string]string{
+	"Dockerfile_test_issue_mz444": ExecutorImageMoved,
+}
+
+// Override where kaniko is located for a specific test
+var kanikoDirs = map[string]string{
+	"Dockerfile_test_issue_mz444": "/opt/kaniko",
 }
 
 // Arguments to build Dockerfiles with when building with kaniko
@@ -498,8 +510,12 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 	for _, envVariable := range KanikoEnv {
 		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
+	executorImage := ExecutorImage
+	if exec, ok := executorImages[dockerfile]; ok {
+		executorImage = exec
+	}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
-	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
+	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", path.Join(buildContextPath, dockerfilesPath, dockerfile),
 		"-d", kanikoImage,
 		"-c", buildContextPath,
@@ -546,8 +562,12 @@ func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTes
 	for _, envVariable := range KanikoEnv {
 		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
+	executorImage := ExecutorImage
+	if exec, ok := executorImages[dockerfile]; ok {
+		executorImage = exec
+	}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
-	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
+	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", path.Join(buildContextPath, dockerfilesPath, dockerfile),
 		"-d", kanikoImage,
 		"-c", buildContextPath,
@@ -611,8 +631,12 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 	for _, envVariable := range KanikoEnv {
 		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
+	executorImage := ExecutorImage
+	if exec, ok := executorImages[dockerfile]; ok {
+		executorImage = exec
+	}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
-	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
+	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
 		"-c", buildContextPath)
@@ -658,8 +682,14 @@ func buildKanikoImage(
 	if err != nil {
 		return "", err
 	}
+
+	kanikoDir := "/kaniko"
+	if dir, ok := kanikoDirs[dockerfile]; ok {
+		kanikoDir = dir
+	}
+
 	if b, err := strconv.ParseBool(os.Getenv("BENCHMARK")); err == nil && b {
-		benchmarkEnv = "BENCHMARK_FILE=/kaniko/benchmarks/" + dockerfile
+		benchmarkEnv = fmt.Sprintf("BENCHMARK_FILE=%s/benchmarks/%s", kanikoDir, dockerfile)
 		if shdUpload {
 			benchmarkFile := path.Join(benchmarkDir, dockerfile)
 			fileName := fmt.Sprintf("run_%s_%s", time.Now().Format("2006-01-02-15:04"), dockerfile)
@@ -680,7 +710,7 @@ func buildKanikoImage(
 		"run", "--net=host",
 		"-e", benchmarkEnv,
 		"-v", contextDir + ":/workspace:ro",
-		"-v", benchmarkDir + ":/kaniko/benchmarks",
+		"-v", benchmarkDir + ":" + kanikoDir + "/benchmarks",
 	}
 
 	for _, envVariable := range KanikoEnv {
@@ -699,7 +729,12 @@ func buildKanikoImage(
 		kanikoDockerfilePath = path.Join(buildContextPath, "Dockerfile")
 	}
 
-	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
+	executorImage := ExecutorImage
+	if exec, ok := executorImages[dockerfile]; ok {
+		executorImage = exec
+	}
+
+	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", kanikoDockerfilePath,
 		"-d", kanikoImage,
 	)
