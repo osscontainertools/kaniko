@@ -386,7 +386,7 @@ func filterOnBuild(cmds []instructions.Command) []instructions.Command {
 	return out
 }
 
-func squash(a, b config.KanikoStage) config.KanikoStage {
+func Squash(a, b config.KanikoStage) config.KanikoStage {
 	acmds := filterOnBuild(a.Commands)
 	return config.KanikoStage{
 		Stage: instructions.Stage{
@@ -462,7 +462,7 @@ func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages
 				// We squash the base stage into the current stage because,
 				// no one else depends on the base stage so it can be freely moved,
 				// the current stage might depend on other stages so it is not safe to move it.
-				stages[i] = squash(sb, s)
+				stages[i] = Squash(sb, s)
 				stagesDependencies[s.BaseImageIndex] = 0
 			}
 		}
