@@ -967,7 +967,7 @@ ie. in order to support custom built kaniko images.
 
 #### Flag `--cleanup`
 
-Set this flag to clean the filesystem at the end of the build.
+Set this flag to clean the filesystem and kaniko's working directory at the end of the build.
 
 #### Flag `--compression`
 
