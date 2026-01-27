@@ -19,7 +19,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -39,6 +38,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/util/proc"
+	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -331,18 +331,38 @@ func addHiddenFlags(cmd *cobra.Command) {
 // conducting the relevant operations if it is not
 func checkKanikoDir(dir string) error {
 	if dir != constants.DefaultKanikoPath {
-
-		// The destination directory may be across a different partition, so we cannot simply rename/move the directory in this case.
-		if _, err := util.CopyDir(constants.DefaultKanikoPath, dir, util.FileContext{}, util.DoNotChangeUID, util.DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
+		opts := otiai10Cpy.Options{
+			PreserveTimes:     true,
+			PreserveOwner:     true,
+			PermissionControl: otiai10Cpy.PerservePermission,
+			FS:                util.FSys,
+		}
+		err := otiai10Cpy.Copy(constants.DefaultKanikoPath, dir, opts)
+		if err != nil {
 			return err
 		}
 
-		if err := os.RemoveAll(constants.DefaultKanikoPath); err != nil {
+		err = os.RemoveAll(constants.DefaultKanikoPath)
+		if err != nil {
 			return err
 		}
-		// After remove DefaultKankoPath, the DOKCER_CONFIG env will point to a non-exist dir, so we should update DOCKER_CONFIG env to new dir
-		if err := os.Setenv("DOCKER_CONFIG", filepath.Join(dir, "/.docker")); err != nil {
-			return err
+
+		// Update any env var pointing to the old Kaniko path
+		for _, e := range os.Environ() {
+			parts := strings.SplitN(e, "=", 2)
+			key, val := parts[0], parts[1]
+			// avoid replacing variables that happen to start with the same text
+			// but actually point to a different directory. like `/kaniko2`
+			if rest, ok := strings.CutPrefix(val, constants.DefaultKanikoPath+"/"); ok {
+				// Case: starts with /kaniko/
+				newVal := val + "/" + rest
+				os.Setenv(key, newVal)
+				logrus.Infof("updating env: %s=%s", key, newVal)
+			} else if val == constants.DefaultKanikoPath {
+				// Case: exactly /kaniko
+				os.Setenv(key, dir)
+				logrus.Infof("updating env: %s=%s", key, dir)
+			}
 		}
 	}
 	return nil
