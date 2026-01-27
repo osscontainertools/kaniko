@@ -19,7 +19,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -332,12 +331,8 @@ func addHiddenFlags(cmd *cobra.Command) {
 func checkKanikoDir(dir string) error {
 	if dir != constants.DefaultKanikoPath {
 
-		// The destination directory may be across a different partition, so we cannot simply rename/move the directory in this case.
-		if _, err := util.CopyDir(constants.DefaultKanikoPath, dir, util.FileContext{}, util.DoNotChangeUID, util.DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
-			return err
-		}
-
-		if err := os.RemoveAll(constants.DefaultKanikoPath); err != nil {
+		err := util.MoveDir(constants.DefaultKanikoPath, dir)
+		if err != nil {
 			return err
 		}
 		// After remove DefaultKankoPath, the DOKCER_CONFIG env will point to a non-exist dir, so we should update DOCKER_CONFIG env to new dir
