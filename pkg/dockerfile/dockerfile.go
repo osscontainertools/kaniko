@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -197,17 +198,28 @@ func extractValFromQuotes(val string) (string, error) {
 	return val[1 : len(val)-1], nil
 }
 
-// targetStage returns the index of the target stage kaniko is trying to build
-func targetStage(stages []instructions.Stage, target string) (int, error) {
-	if target == "" {
-		return len(stages) - 1, nil
+// targetStage returns the indexes of the target stages kaniko is trying to build
+// stages are returned in ascending order and unique
+func targetStages(stages []instructions.Stage, targets []string) ([]int, error) {
+	if len(targets) == 0 {
+		return []int{len(stages) - 1}, nil
 	}
-	for i, stage := range stages {
-		if strings.EqualFold(stage.Name, target) {
-			return i, nil
+	var result []int
+	for _, target := range targets {
+		found := false
+		for i, stage := range stages {
+			if strings.EqualFold(stage.Name, target) {
+				result = append(result, i)
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("%q is not a valid target build stage", target)
 		}
 	}
-	return -1, fmt.Errorf("%s is not a valid target build stage", target)
+	slices.Sort(result)
+	return slices.Compact(result), nil
 }
 
 // ParseCommands parses an array of commands into an array of instructions.Command; used for onbuild
@@ -281,7 +293,7 @@ func resolveStagesArgs(stages []instructions.Stage, args []string) error {
 }
 
 func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, metaArgs []instructions.ArgCommand) ([]config.KanikoStage, error) {
-	targetStage, err := targetStage(stages, opts.Target)
+	targetStages, err := targetStages(stages, opts.Target)
 	if err != nil {
 		return nil, fmt.Errorf("error finding target stage: %w", err)
 	}
@@ -289,7 +301,8 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	if err := resolveStagesArgs(stages, args); err != nil {
 		return nil, fmt.Errorf("resolving args: %w", err)
 	}
-	stages = stages[:targetStage+1]
+	final := targetStages[len(targetStages)-1]
+	stages = stages[:final+1]
 
 	stageByName := make(map[string]int)
 	for idx, s := range stages {
@@ -303,8 +316,10 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	// stages if the references are exactly 1 and there are no COPY references
 	stagesDependencies := make([]int, len(stages))
 	copyDependencies := make([]int, len(stages))
-	stagesDependencies[targetStage] = 1
-	for i := targetStage; i >= 0; i-- {
+	for _, x := range targetStages {
+		stagesDependencies[x] = 1
+	}
+	for i := final; i >= 0; i-- {
 		if stagesDependencies[i] == 0 && copyDependencies[i] == 0 && opts.SkipUnusedStages {
 			continue
 		}
@@ -352,7 +367,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			BaseImageIndex:         baseImageIndex,
 			BaseImageStoredLocally: baseImageStoredLocally,
 			SaveStage:              saveStage(i, stages),
-			Final:                  i == targetStage,
+			Final:                  i == final,
 			MetaArgs:               metaArgs,
 			Index:                  i,
 		}
