@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/testutil"
@@ -46,6 +47,17 @@ func readDirectory(dirName string) ([]fs.FileInfo, error) {
 	return testDir, err
 }
 
+func DoBuildDiscard(opts *config.KanikoOptions) error {
+	images := make(chan v1.Image)
+	go func() {
+		for range images {
+			// discard
+		}
+	}()
+	defer close(images)
+	return DoBuild(opts, images)
+}
+
 func TestCopyCommand_Multistage(t *testing.T) {
 	t.Run("copy a file across multistage", func(t *testing.T) {
 		testDir, fn := setupMultistageTests(t)
@@ -63,7 +75,7 @@ COPY --from=first copied/bam.txt output/bam.txt`
 			SrcContext:     filepath.Join(testDir, "workspace"),
 			SnapshotMode:   constants.SnapshotModeFull,
 		}
-		_, err := DoBuild(opts)
+		err := DoBuildDiscard(opts)
 		testutil.CheckNoError(t, err)
 		// Check Image has one layer bam.txt
 		files, err := readDirectory(filepath.Join(testDir, "output"))
@@ -91,7 +103,7 @@ COPY --from=first copied/bam.txt output/`
 			SrcContext:     filepath.Join(testDir, "workspace"),
 			SnapshotMode:   constants.SnapshotModeFull,
 		}
-		_, err := DoBuild(opts)
+		err := DoBuildDiscard(opts)
 		testutil.CheckNoError(t, err)
 		files, err := readDirectory(filepath.Join(testDir, "output"))
 		if err != nil {
@@ -117,7 +129,7 @@ COPY --from=first copied another`
 			SrcContext:     filepath.Join(testDir, "workspace"),
 			SnapshotMode:   constants.SnapshotModeFull,
 		}
-		_, err := DoBuild(opts)
+		err := DoBuildDiscard(opts)
 		testutil.CheckNoError(t, err)
 		// Check Image has one layer bam.txt
 		files, err := readDirectory(filepath.Join(testDir, "another"))
@@ -152,7 +164,7 @@ COPY --from=first / output/`
 			SrcContext:     filepath.Join(testDir, "workspace"),
 			SnapshotMode:   constants.SnapshotModeFull,
 		}
-		_, err := DoBuild(opts)
+		err := DoBuildDiscard(opts)
 		testutil.CheckNoError(t, err)
 
 		filesUnderRoot, err := os.ReadDir(filepath.Join(testDir, "output/"))
