@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -192,17 +193,28 @@ func extractValFromQuotes(val string) (string, error) {
 	return val[1 : len(val)-1], nil
 }
 
-// targetStage returns the index of the target stage kaniko is trying to build
-func targetStage(stages []instructions.Stage, target string) (int, error) {
-	if target == "" {
-		return len(stages) - 1, nil
+// targetStage returns the indexes of the target stages kaniko is trying to build
+// stages are returned in ascending order and unique
+func targetStages(stages []instructions.Stage, targets []string) ([]int, error) {
+	if len(targets) == 0 {
+		return []int{len(stages) - 1}, nil
 	}
-	for i, stage := range stages {
-		if strings.EqualFold(stage.Name, target) {
-			return i, nil
+	var result []int
+	for _, target := range targets {
+		found := false
+		for i, stage := range stages {
+			if strings.EqualFold(stage.Name, target) {
+				result = append(result, i)
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("%q is not a valid target build stage", target)
 		}
 	}
-	return -1, fmt.Errorf("%s is not a valid target build stage", target)
+	slices.Sort(result)
+	return slices.Compact(result), nil
 }
 
 // ParseCommands parses an array of commands into an array of instructions.Command; used for onbuild
@@ -276,7 +288,7 @@ func resolveStagesArgs(stages []instructions.Stage, args []string) error {
 }
 
 func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, metaArgs []instructions.ArgCommand) ([]config.KanikoStage, error) {
-	targetStage, err := targetStage(stages, opts.Target)
+	targetStages, err := targetStages(stages, opts.Target)
 	if err != nil {
 		return nil, fmt.Errorf("error finding target stage: %w", err)
 	}
@@ -285,6 +297,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		return nil, fmt.Errorf("resolving args: %w", err)
 	}
 	var kanikoStages []config.KanikoStage
+	final := targetStages[len(targetStages)-1]
 	for index, stage := range stages {
 		if len(stage.Name) > 0 {
 			logrus.Infof("Resolved base name of %s to %s", stage.Name, stage.BaseName)
@@ -307,17 +320,17 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			BaseImageIndex:         baseImageIndex,
 			BaseImageStoredLocally: (baseImageIndex != -1),
 			SaveStage:              saveStage(index, stages),
-			Final:                  index == targetStage,
+			Final:                  index == final,
 			MetaArgs:               metaArgs,
 			Index:                  index,
 		})
-		if index == targetStage {
+		if index == final {
 			break
 		}
 	}
 	if opts.SkipUnusedStages {
 		ffSquashStages := config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true)
-		kanikoStages = skipUnusedStages(kanikoStages, targetStage, ffSquashStages)
+		kanikoStages = skipUnusedStages(kanikoStages, targetStages, ffSquashStages)
 	}
 	return kanikoStages, nil
 }
@@ -410,9 +423,10 @@ func squash(a, b config.KanikoStage) config.KanikoStage {
 }
 
 // skipUnusedStages returns the list of used stages, filters out unused stages and optionally squashes them together.
-func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages bool) []config.KanikoStage {
+func skipUnusedStages(stages []config.KanikoStage, targetStages []int, squashStages bool) []config.KanikoStage {
 	stageByName := make(map[string]int)
-	stages = stages[:targetStage+1]
+	final := targetStages[len(targetStages)-1]
+	stages = stages[:final+1]
 
 	for idx, s := range stages {
 		if s.Name != "" {
@@ -424,9 +438,11 @@ func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages
 	// stages if the references are exactly 1 and there are no COPY references
 	stagesDependencies := make([]int, len(stages))
 	copyDependencies := make([]int, len(stages))
-	stagesDependencies[targetStage] = 1
+	for _, x := range targetStages {
+		stagesDependencies[x] = 1
+	}
 
-	for i := targetStage; i >= 0; i-- {
+	for i := final; i >= 0; i-- {
 		if stagesDependencies[i] == 0 && copyDependencies[i] == 0 {
 			continue
 		}
