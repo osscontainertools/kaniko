@@ -209,11 +209,28 @@ var RootCmd = &cobra.Command{
 		if err := os.Chdir("/"); err != nil {
 			exit(fmt.Errorf("error changing to root dir: %w", err))
 		}
-		image, err := executor.DoBuild(opts)
-		if err != nil {
+
+		images := make(chan v1.Image)
+		buildErrs := make(chan error, 1)
+		go func() {
+			defer close(buildErrs)
+			defer close(images)
+			buildErrs <- executor.DoBuild(opts, images)
+		}()
+
+		pushErrs := make(chan error, 1)
+		go func() {
+			defer close(pushErrs)
+			for img := range images {
+				pushErrs <- executor.DoPush(img, opts)
+			}
+		}()
+
+		if err := <-buildErrs; err != nil {
 			exit(fmt.Errorf("error building image: %w", err))
 		}
-		if err := executor.DoPush(image, opts); err != nil {
+
+		if err := <-pushErrs; err != nil {
 			exit(fmt.Errorf("error pushing image: %w", err))
 		}
 
