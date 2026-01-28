@@ -304,9 +304,17 @@ func Test_targetStage(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			target, err := targetStage(stages, test.target)
+			var targs []string
+			if test.target != "" {
+				targs = []string{test.target}
+			}
+			targets, err := targetStages(stages, targs)
 			testutil.CheckError(t, test.shouldErr, err)
 			if !test.shouldErr {
+				if len(targets) != 1 {
+					t.Errorf("Expected one target, received %d", len(targets))
+				}
+				target := targets[0]
 				if target != test.targetIndex {
 					t.Errorf("got incorrect target, expected %d got %d", test.targetIndex, target)
 				}
