@@ -20,7 +20,7 @@ require (
 	github.com/google/go-containerregistry v0.20.7
 	github.com/google/slowjam v1.1.2
 	github.com/minio/highwayhash v1.0.3
-	github.com/moby/buildkit v0.27.0
+	github.com/moby/buildkit v0.27.1
 	github.com/otiai10/copy v1.14.1
 	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/afero v1.15.0
@@ -88,7 +88,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
-	github.com/klauspost/compress v1.18.2 // indirect
+	github.com/klauspost/compress v1.18.3 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/moby/patternmatcher v0.6.0
 	github.com/moby/sys/sequential v0.6.0 // indirect

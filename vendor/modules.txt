@@ -653,7 +653,7 @@ github.com/jbenet/go-context/io
 # github.com/kevinburke/ssh_config v1.2.0
 ## explicit
 github.com/kevinburke/ssh_config
-# github.com/klauspost/compress v1.18.2
+# github.com/klauspost/compress v1.18.3
 ## explicit; go 1.23
 github.com/klauspost/compress
 github.com/klauspost/compress/fse
@@ -675,7 +675,7 @@ github.com/mitchellh/go-homedir
 # github.com/mitchellh/mapstructure v1.5.0
 ## explicit; go 1.14
 github.com/mitchellh/mapstructure
-# github.com/moby/buildkit v0.27.0
+# github.com/moby/buildkit v0.27.1
 ## explicit; go 1.25.0
 github.com/moby/buildkit/frontend/dockerfile/command
 github.com/moby/buildkit/frontend/dockerfile/instructions
