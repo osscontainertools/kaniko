@@ -93,21 +93,21 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 	targets := opts.Destinations
 	// When no push and no push cache are set, we don't need to check permissions
 	if opts.SkipPushPermissionCheck {
-		targets = []string{}
+		targets[config.DefaultDestinationKey] = []string{}
 	} else if opts.NoPush && opts.NoPushCache {
-		targets = []string{}
+		targets[config.DefaultDestinationKey] = []string{}
 	} else if opts.NoPush && !opts.NoPushCache {
 		// When no push is set, we want to check permissions for the cache repo
 		// instead of the destinations
 		if isOCILayout(opts.CacheRepo) {
-			targets = []string{} // no need to check push permissions if we're just writing to disk
+			targets[config.DefaultDestinationKey] = []string{} // no need to check push permissions if we're just writing to disk
 		} else {
-			targets = []string{opts.CacheRepo}
+			targets[config.DefaultDestinationKey] = []string{opts.CacheRepo}
 		}
 	}
 
 	checked := map[string]bool{}
-	for _, destination := range targets {
+	for _, destination := range targets[config.DefaultDestinationKey] {
 		destRef, err := name.NewTag(destination, name.WeakValidation)
 		if err != nil {
 			return fmt.Errorf("getting tag for destination: %w", err)
@@ -176,7 +176,7 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 	var digestByteArray []byte
 	var builder strings.Builder
 
-	if !opts.NoPush && len(opts.Destinations) == 0 {
+	if !opts.NoPush && len(opts.Destinations[config.DefaultDestinationKey]) == 0 {
 		return errors.New("must provide at least one destination to push")
 	}
 
@@ -205,14 +205,14 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		}
 	}
 
-	if opts.NoPush && len(opts.Destinations) == 0 {
+	if opts.NoPush && len(opts.Destinations[config.DefaultDestinationKey]) == 0 {
 		if opts.TarPath != "" {
 			setDummyDestinations(opts)
 		}
 	}
 
 	destRefs := []name.Tag{}
-	for _, destination := range opts.Destinations {
+	for _, destination := range opts.Destinations[config.DefaultDestinationKey] {
 		destRef, err := name.NewTag(destination, name.WeakValidation)
 		if err != nil {
 			return fmt.Errorf("getting tag for destination: %w", err)
@@ -400,7 +400,7 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 	cacheOpts := *opts
 	cacheOpts.TarPath = ""              // tarPath doesn't make sense for Docker layers
 	cacheOpts.NoPush = opts.NoPushCache // we do not want to push cache if --no-push-cache is set.
-	cacheOpts.Destinations = []string{cache}
+	cacheOpts.Destinations[config.DefaultDestinationKey] = []string{cache}
 	cacheOpts.InsecureRegistries = opts.InsecureRegistries
 	cacheOpts.SkipTLSVerifyRegistries = opts.SkipTLSVerifyRegistries
 	if isOCILayout(cache) {
@@ -413,5 +413,5 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 // setDummyDestinations sets the dummy destinations required to generate new
 // tag names for tarPath in DoPush.
 func setDummyDestinations(opts *config.KanikoOptions) {
-	opts.Destinations = DummyDestinations
+	opts.Destinations[config.DefaultDestinationKey] = DummyDestinations
 }

@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -54,7 +55,7 @@ type RegistryOptions struct {
 type KanikoOptions struct {
 	RegistryOptions
 	CacheOptions
-	Destinations                 multiArg
+	Destinations                 Destinations
 	BuildArgs                    multiArg
 	Labels                       multiArg
 	Annotations                  keyValueArg
@@ -313,4 +314,51 @@ func (s *SecretOptions) Set(val string) error {
 		(*s)[sec.ID] = SecretOption{Type: "file", Src: sec.Src}
 	}
 	return nil
+}
+
+type Destinations map[string][]string
+
+const DefaultDestinationKey = "__default__"
+
+func (d *Destinations) String() string {
+	if d == nil || len(*d) == 0 {
+		return ""
+	}
+
+	var parts []string
+	for k, vals := range *d {
+		if k == DefaultDestinationKey {
+			for _, v := range vals {
+				parts = append(parts, fmt.Sprintf("%s", v))
+			}
+		} else {
+			for _, v := range vals {
+				parts = append(parts, fmt.Sprintf("%s=%s", k, v))
+			}
+		}
+	}
+
+	sort.Strings(parts)
+	return strings.Join(parts, ",")
+}
+
+func (d *Destinations) Set(s string) error {
+	key := DefaultDestinationKey
+	val := s
+
+	if strings.Contains(s, "=") {
+		parts := strings.SplitN(s, "=", 2)
+		if parts[0] == "" || parts[1] == "" {
+			return fmt.Errorf("invalid destination format %q, expected key=value", s)
+		}
+		key = parts[0]
+		val = parts[1]
+	}
+
+	(*d)[key] = append((*d)[key], val)
+	return nil
+}
+
+func (d *Destinations) Type() string {
+	return "destination"
 }
