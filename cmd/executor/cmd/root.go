@@ -156,10 +156,10 @@ var RootCmd = &cobra.Command{
 			if err := resolveSecrets(); err != nil {
 				return fmt.Errorf("error resolving secrets: %w", err)
 			}
-			if len(opts.Destinations) == 0 && opts.ImageNameDigestFile != "" {
+			if len(opts.Destinations[config.DefaultDestinationKey]) == 0 && opts.ImageNameDigestFile != "" {
 				return errors.New("you must provide --destination if setting ImageNameDigestFile")
 			}
-			if len(opts.Destinations) == 0 && opts.ImageNameTagDigestFile != "" {
+			if len(opts.Destinations[config.DefaultDestinationKey]) == 0 && opts.ImageNameTagDigestFile != "" {
 				return errors.New("you must provide --destination if setting ImageNameTagDigestFile")
 			}
 			// Update ignored paths
@@ -272,6 +272,7 @@ func AddKanikoOptionsFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().StringVarP(&opts.SrcContext, "context", "c", "/workspace/", "Path to the dockerfile build context.")
 	cmd.Flags().StringVarP(&ctxSubPath, "context-sub-path", "", "", "Sub path within the given context.")
 	cmd.Flags().StringVarP(&opts.Bucket, "bucket", "b", "", "Name of the GCS bucket from which to access build context as tarball.")
+	opts.Destinations = make(map[string][]string)
 	cmd.Flags().VarP(&opts.Destinations, "destination", "d", "Registry the final image should be pushed to. Set it repeatedly for multiple destinations.")
 	cmd.Flags().StringVarP(&opts.SnapshotMode, "snapshot-mode", "", "full", "Change the file attributes inspected during snapshotting")
 	cmd.Flags().StringVarP(&opts.CustomPlatform, "custom-platform", "", "", "Specify the build platform if different from the current host")

@@ -205,7 +205,7 @@ func TestImageNameDigestFile(t *testing.T) {
 
 	opts := config.KanikoOptions{
 		NoPush:              true,
-		Destinations:        []string{"gcr.io/foo/bar:latest", "bob/image"},
+		Destinations:        map[string][]string{config.DefaultDestinationKey: {"gcr.io/foo/bar:latest", "bob/image"}},
 		ImageNameDigestFile: "tmpFile",
 	}
 
@@ -234,8 +234,9 @@ func TestDoPushWithOpts(t *testing.T) {
 		{
 			name: "no push with tarPath without destinations",
 			opts: config.KanikoOptions{
-				NoPush:  true,
-				TarPath: tarPath,
+				NoPush:       true,
+				TarPath:      tarPath,
+				Destinations: map[string][]string{},
 			},
 			expectedErr: false,
 		}, {
@@ -243,7 +244,7 @@ func TestDoPushWithOpts(t *testing.T) {
 			opts: config.KanikoOptions{
 				NoPush:       true,
 				TarPath:      tarPath,
-				Destinations: []string{"image"},
+				Destinations: map[string][]string{config.DefaultDestinationKey: {"image"}},
 			},
 			expectedErr: false,
 		}, {
@@ -251,7 +252,7 @@ func TestDoPushWithOpts(t *testing.T) {
 			opts: config.KanikoOptions{
 				NoPush:       true,
 				TarPath:      tarPath,
-				Destinations: []string{},
+				Destinations: map[string][]string{config.DefaultDestinationKey: {}},
 			},
 			expectedErr: false,
 		}, {
@@ -259,7 +260,7 @@ func TestDoPushWithOpts(t *testing.T) {
 			opts: config.KanikoOptions{
 				NoPush:       false,
 				TarPath:      tarPath,
-				Destinations: []string{},
+				Destinations: map[string][]string{config.DefaultDestinationKey: {}},
 			},
 			expectedErr: true,
 		}} {
@@ -298,7 +299,7 @@ func TestImageNameTagDigestFile(t *testing.T) {
 
 	opts := config.KanikoOptions{
 		NoPush:                 true,
-		Destinations:           []string{"gcr.io/foo/bar:123", "bob/image"},
+		Destinations:           map[string][]string{config.DefaultDestinationKey: {"gcr.io/foo/bar:123", "bob/image"}},
 		ImageNameTagDigestFile: "tmpFile",
 	}
 
@@ -397,7 +398,7 @@ func TestCheckPushPermissions(t *testing.T) {
 			newOsFs = afero.NewMemMapFs()
 			opts := config.KanikoOptions{
 				CacheRepo:    test.cacheRepo,
-				Destinations: test.destinations,
+				Destinations: map[string][]string{config.DefaultDestinationKey: test.destinations},
 				NoPush:       test.noPush,
 				NoPushCache:  test.noPushCache,
 			}
@@ -435,7 +436,7 @@ func TestSkipPushPermission(t *testing.T) {
 			newOsFs = afero.NewMemMapFs()
 			opts := config.KanikoOptions{
 				CacheRepo:               test.cacheRepo,
-				Destinations:            test.destinations,
+				Destinations:            map[string][]string{config.DefaultDestinationKey: test.destinations},
 				NoPush:                  test.noPush,
 				NoPushCache:             test.noPushCache,
 				SkipPushPermissionCheck: test.skipPushPermission,
