@@ -303,9 +303,17 @@ func Test_targetStage(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			target, err := targetStage(stages, test.target)
+			var targs []string
+			if test.target != "" {
+				targs = []string{test.target}
+			}
+			targets, err := targetStages(stages, targs)
 			testutil.CheckError(t, test.shouldErr, err)
 			if !test.shouldErr {
+				if len(targets) != 1 {
+					t.Errorf("Expected one target, received %d", len(targets))
+				}
+				target := targets[0]
 				if target != test.targetIndex {
 					t.Errorf("got incorrect target, expected %d got %d", test.targetIndex, target)
 				}
@@ -588,7 +596,11 @@ func Test_SkipingUnusedStages(t *testing.T) {
 		stages, _, err := Parse([]byte(test.dockerfile))
 		testutil.CheckError(t, false, err)
 		for _, target := range test.targets {
-			opts := config.KanikoOptions{SkipUnusedStages: true, Target: target}
+			var targets []string
+			if target != "" {
+				targets = []string{target}
+			}
+			opts := config.KanikoOptions{SkipUnusedStages: true, Target: targets}
 			kanikoStages, err := MakeKanikoStages(&opts, stages, []instructions.ArgCommand{})
 			testutil.CheckError(t, false, err)
 			actualSourceCodes := []string{}
@@ -663,7 +675,11 @@ func Test_SquashStages(t *testing.T) {
 		stages, _, err := Parse([]byte(test.dockerfile))
 		testutil.CheckError(t, false, err)
 		for _, target := range test.targets {
-			opts := config.KanikoOptions{SkipUnusedStages: true, Target: target}
+			var targets []string
+			if target != "" {
+				targets = []string{target}
+			}
+			opts := config.KanikoOptions{SkipUnusedStages: true, Target: targets}
 			kanikoStages, err := MakeKanikoStages(&opts, stages, []instructions.ArgCommand{})
 			testutil.CheckError(t, false, err)
 			actualSourceCodes := []string{}
