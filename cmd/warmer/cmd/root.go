@@ -28,10 +28,10 @@ import (
 	"github.com/containerd/platforms"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/logging"
 	"github.com/osscontainertools/kaniko/pkg/util"
+	"github.com/osscontainertools/kaniko/pkg/warmer"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -102,7 +102,7 @@ var RootCmd = &cobra.Command{
 				exit(fmt.Errorf("failed to create cache directory: %w", err))
 			}
 		}
-		if err := cache.WarmCache(opts); err != nil {
+		if err := warmer.WarmCache(opts); err != nil {
 			exit(fmt.Errorf("failed warming cache: %w", err))
 		}
 
