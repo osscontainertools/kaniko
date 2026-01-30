@@ -19,6 +19,7 @@ package commands
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -93,34 +94,25 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					return err
 				}
 				if created != "" {
-					defer func() {
-						err := os.RemoveAll(created)
-						if err != nil {
-							reterr = err
-						}
-					}()
+					defer assignIfNil(&reterr, func() error {
+						return os.RemoveAll(created)
+					})
 				}
 				err = swapDir(cacheDir, m.Target)
 				if err != nil {
 					return err
 				}
-				defer func() {
-					err := swapDir(m.Target, cacheDir)
-					if err != nil {
-						reterr = err
-					}
-				}()
+				defer assignIfNil(&reterr, func() error {
+					return swapDir(m.Target, cacheDir)
+				})
 				if m.Mode != nil {
 					err = os.Chmod(m.Target, os.FileMode(*m.Mode))
 					if err != nil {
 						return err
 					}
-					defer func() {
-						err := os.Chmod(m.Target, os.FileMode(0755))
-						if err != nil {
-							reterr = err
-						}
-					}()
+					defer assignIfNil(&reterr, func() error {
+						return os.Chmod(m.Target, os.FileMode(0755))
+					})
 				}
 				if m.UID != nil || m.GID != nil {
 					uid := 0
@@ -135,12 +127,9 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					if err != nil {
 						return err
 					}
-					defer func() {
-						err = os.Chown(m.Target, 0, 0)
-						if err != nil {
-							reterr = err
-						}
-					}()
+					defer assignIfNil(&reterr, func() error {
+						return os.Chown(m.Target, 0, 0)
+					})
 				}
 			// https://docs.docker.com/reference/dockerfile/#run---mounttypesecret
 			case m.Type == instructions.MountTypeSecret && ff_secret:
@@ -195,12 +184,9 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 						return err
 					}
 					if created != "" {
-						defer func() {
-							err := os.RemoveAll(created)
-							if err != nil {
-								reterr = err
-							}
-						}()
+						defer assignIfNil(&reterr, func() error {
+							return os.RemoveAll(created)
+						})
 					}
 					mode := os.FileMode(0400)
 					if m.Mode != nil {
@@ -210,12 +196,9 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					if err != nil {
 						return err
 					}
-					defer func() {
-						err := os.Remove(target)
-						if err != nil {
-							reterr = err
-						}
-					}()
+					defer assignIfNil(&reterr, func() error {
+						return os.Remove(target)
+					})
 					if m.UID != nil || m.GID != nil {
 						uid := 0
 						if m.UID != nil {
@@ -484,21 +467,29 @@ func swapDir(pathA, pathB string) (err error) {
 	}
 	tmp := kConfig.KanikoSwapDir
 
-	err = os.Rename(pathA, tmp)
+	_, err = os.Stat(tmp)
+	if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("expected directory %q to not exist (1), but it does", tmp)
+	}
+	err = util.MoveDir(pathA, tmp)
 	if err != nil {
 		return fmt.Errorf("failed to rename (1) %s -> %s: %w", pathA, tmp, err)
 	}
 
-	err = os.Rename(pathB, pathA)
+	err = util.MoveDir(pathB, pathA)
 	if err != nil {
 		return fmt.Errorf("failed to rename (2) %s -> %s: %w", pathB, pathA, err)
 	}
 
-	err = os.Rename(tmp, pathB)
+	err = util.MoveDir(tmp, pathB)
 	if err != nil {
 		return fmt.Errorf("failed to rename (3) %s -> %s: %w", tmp, pathB, err)
 	}
 
+	_, err = os.Stat(tmp)
+	if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("expected directory %q to not exist (2), but it does", tmp)
+	}
 	return nil
 }
 
@@ -524,4 +515,10 @@ func ensureDir(target string) (string, error) {
 	}
 
 	return firstCreated, nil
+}
+
+func assignIfNil(dst *error, fn func() error) {
+	if err := fn(); err != nil && *dst == nil {
+		*dst = err
+	}
 }
