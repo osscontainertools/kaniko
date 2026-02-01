@@ -26,6 +26,7 @@ type KanikoStage struct {
 	BaseName               string
 	Commands               []instructions.Command
 	BaseImageIndex         int
+	Push                   bool
 	Final                  bool
 	BaseImageStoredLocally bool
 	SaveStage              bool

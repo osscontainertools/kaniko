@@ -199,7 +199,6 @@ func extractValFromQuotes(val string) (string, error) {
 }
 
 // targetStage returns the indexes of the target stages kaniko is trying to build
-// stages are returned in ascending order and unique
 func targetStages(stages []instructions.Stage, targets []string) ([]int, error) {
 	if len(targets) == 0 {
 		return []int{len(stages) - 1}, nil
@@ -218,8 +217,7 @@ func targetStages(stages []instructions.Stage, targets []string) ([]int, error) 
 			return nil, fmt.Errorf("%q is not a valid target build stage", target)
 		}
 	}
-	slices.Sort(result)
-	return slices.Compact(result), nil
+	return result, nil
 }
 
 // ParseCommands parses an array of commands into an array of instructions.Command; used for onbuild
@@ -297,12 +295,16 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	if err != nil {
 		return nil, fmt.Errorf("error finding target stage: %w", err)
 	}
+	pushStage := targetStages[0]
+	slices.Sort(targetStages)
+	targetStages = slices.Compact(targetStages)
+	finalStage := targetStages[len(targetStages)-1]
+
 	args := unifyArgs(metaArgs, opts.BuildArgs)
 	if err := resolveStagesArgs(stages, args); err != nil {
 		return nil, fmt.Errorf("resolving args: %w", err)
 	}
-	final := targetStages[len(targetStages)-1]
-	stages = stages[:final+1]
+	stages = stages[:finalStage+1]
 
 	stageByName := make(map[string]int)
 	for idx, s := range stages {
@@ -319,7 +321,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	for _, x := range targetStages {
 		stagesDependencies[x] = 1
 	}
-	for i := final; i >= 0; i-- {
+	for i := finalStage; i >= 0; i-- {
 		if stagesDependencies[i] == 0 && copyDependencies[i] == 0 && opts.SkipUnusedStages {
 			continue
 		}
@@ -367,7 +369,8 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			BaseImageIndex:         baseImageIndex,
 			BaseImageStoredLocally: baseImageStoredLocally,
 			SaveStage:              saveStage(i, stages),
-			Final:                  i == final,
+			Push:                   i == pushStage,
+			Final:                  i == finalStage,
 			MetaArgs:               metaArgs,
 			Index:                  i,
 		}
@@ -469,6 +472,7 @@ func squash(a, b config.KanikoStage) config.KanikoStage {
 		BaseName:               a.BaseName,
 		Commands:               append(acmds, b.Commands...),
 		BaseImageIndex:         a.BaseImageIndex,
+		Push:                   b.Push,
 		Final:                  b.Final,
 		BaseImageStoredLocally: a.BaseImageStoredLocally,
 		SaveStage:              b.SaveStage,
