@@ -24,6 +24,7 @@ import (
 type KanikoStage struct {
 	instructions.Stage
 	BaseImageIndex         int
+	Push                   bool
 	Final                  bool
 	BaseImageStoredLocally bool
 	SaveStage              bool

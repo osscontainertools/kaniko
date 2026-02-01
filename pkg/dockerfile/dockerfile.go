@@ -194,7 +194,6 @@ func extractValFromQuotes(val string) (string, error) {
 }
 
 // targetStage returns the indexes of the target stages kaniko is trying to build
-// stages are returned in ascending order and unique
 func targetStages(stages []instructions.Stage, targets []string) ([]int, error) {
 	if len(targets) == 0 {
 		return []int{len(stages) - 1}, nil
@@ -213,8 +212,7 @@ func targetStages(stages []instructions.Stage, targets []string) ([]int, error) 
 			return nil, fmt.Errorf("%q is not a valid target build stage", target)
 		}
 	}
-	slices.Sort(result)
-	return slices.Compact(result), nil
+	return result, nil
 }
 
 // ParseCommands parses an array of commands into an array of instructions.Command; used for onbuild
@@ -292,12 +290,16 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	if err != nil {
 		return nil, fmt.Errorf("error finding target stage: %w", err)
 	}
+	pushStage := targetStages[0]
+	slices.Sort(targetStages)
+	targetStages = slices.Compact(targetStages)
+	finalStage := targetStages[len(targetStages)-1]
+
 	args := unifyArgs(metaArgs, opts.BuildArgs)
 	if err := resolveStagesArgs(stages, args); err != nil {
 		return nil, fmt.Errorf("resolving args: %w", err)
 	}
 	var kanikoStages []config.KanikoStage
-	final := targetStages[len(targetStages)-1]
 	for index, stage := range stages {
 		if len(stage.Name) > 0 {
 			logrus.Infof("Resolved base name of %s to %s", stage.Name, stage.BaseName)
@@ -320,11 +322,12 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			BaseImageIndex:         baseImageIndex,
 			BaseImageStoredLocally: (baseImageIndex != -1),
 			SaveStage:              saveStage(index, stages),
-			Final:                  index == final,
+			Push:                   index == pushStage,
+			Final:                  index == finalStage,
 			MetaArgs:               metaArgs,
 			Index:                  index,
 		})
-		if index == final {
+		if index == finalStage {
 			break
 		}
 	}
@@ -414,6 +417,7 @@ func squash(a, b config.KanikoStage) config.KanikoStage {
 			Comments:   append(a.Comments, b.Comments...),
 		},
 		BaseImageIndex:         a.BaseImageIndex,
+		Push:                   b.Push,
 		Final:                  b.Final,
 		BaseImageStoredLocally: a.BaseImageStoredLocally,
 		SaveStage:              b.SaveStage,
