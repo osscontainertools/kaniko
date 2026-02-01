@@ -736,8 +736,13 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 	return depGraph, nil
 }
 
+type ImageChannel struct {
+	Stage string
+	Image v1.Image
+}
+
 // DoBuild executes building the Dockerfile
-func DoBuild(opts *config.KanikoOptions, images chan<- v1.Image) error {
+func DoBuild(opts *config.KanikoOptions, images chan<- ImageChannel) error {
 	t := timing.Start("Total Build Time")
 	digestToCacheKey := make(map[string]string)
 	stageIdxToDigest := make(map[int]string)
@@ -888,7 +893,10 @@ func DoBuild(opts *config.KanikoOptions, images chan<- v1.Image) error {
 				}
 			}
 			timing.DefaultRun.Stop(t)
-			images <- sourceImage
+			images <- ImageChannel{
+				Stage: stage.Stage.Name,
+				Image: sourceImage,
+			}
 			return nil
 		}
 		if stage.SaveStage {
