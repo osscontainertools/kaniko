@@ -1304,8 +1304,8 @@ want to save the image as tarball only you also need to set `--no-push`.
 
 #### Flag `--target`
 
-Set this flag to indicate which build stage is the target build stage.
-If not set we implicitly target the last stage.
+Set this flag to indicate which stages to build. If multiple targets are configured the first in the list is pushed.
+If not set we implicitly target the last stage of  the Dockerfile.
 
 #### Flag `--use-new-run`
 
