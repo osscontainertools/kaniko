@@ -171,12 +171,12 @@ func writeDigestFile(path string, digestByteArray []byte) error {
 // DoPush is responsible for pushing image to the destinations specified in opts.
 // A dummy destination would be set when --no-push is set to true and --tar-path
 // is not empty with empty --destinations.
-func DoPush(image v1.Image, opts *config.KanikoOptions) error {
+func DoPush(image v1.Image, stage string, opts *config.KanikoOptions) error {
 	t := timing.Start("Total Push Time")
 	var digestByteArray []byte
 	var builder strings.Builder
 
-	if !opts.NoPush && len(opts.Destinations[config.DefaultDestinationKey]) == 0 {
+	if !opts.NoPush && len(opts.Destinations[stage]) == 0 {
 		return errors.New("must provide at least one destination to push")
 	}
 
@@ -205,14 +205,14 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		}
 	}
 
-	if opts.NoPush && len(opts.Destinations[config.DefaultDestinationKey]) == 0 {
+	if opts.NoPush && len(opts.Destinations[stage]) == 0 {
 		if opts.TarPath != "" {
 			setDummyDestinations(opts)
 		}
 	}
 
 	destRefs := []name.Tag{}
-	for _, destination := range opts.Destinations[config.DefaultDestinationKey] {
+	for _, destination := range opts.Destinations[stage] {
 		destRef, err := name.NewTag(destination, name.WeakValidation)
 		if err != nil {
 			return fmt.Errorf("getting tag for destination: %w", err)
@@ -407,7 +407,7 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 		cacheOpts.OCILayoutPath = strings.TrimPrefix(cache, "oci:")
 		cacheOpts.NoPush = true
 	}
-	return DoPush(empty, &cacheOpts)
+	return DoPush(empty, config.DefaultDestinationKey, &cacheOpts)
 }
 
 // setDummyDestinations sets the dummy destinations required to generate new

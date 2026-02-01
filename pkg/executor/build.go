@@ -791,8 +791,13 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 	return retErr
 }
 
+type ImageChannel struct {
+	Stage string
+	Image v1.Image
+}
+
 // DoBuild executes building the Dockerfile
-func DoBuild(opts *config.KanikoOptions, images chan<- v1.Image) (retErr error) {
+func DoBuild(opts *config.KanikoOptions, images chan<- ImageChannel) (retErr error) {
 	t := timing.Start("Total Build Time")
 	digestToCacheKey := make(map[string]string)
 
@@ -951,7 +956,10 @@ func DoBuild(opts *config.KanikoOptions, images chan<- v1.Image) (retErr error) 
 			if len(opts.Annotations) > 0 {
 				sourceImage = mutate.Annotations(sourceImage, opts.Annotations).(v1.Image)
 			}
-			images <- sourceImage
+			images <- ImageChannel{
+				Stage: stage.Stage.Name,
+				Image: sourceImage,
+			}
 		}
 		if stage.Final {
 			timing.DefaultRun.Stop(t)

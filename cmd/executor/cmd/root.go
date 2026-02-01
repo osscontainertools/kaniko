@@ -210,7 +210,7 @@ var RootCmd = &cobra.Command{
 			exit(fmt.Errorf("error changing to root dir: %w", err))
 		}
 
-		images := make(chan v1.Image)
+		images := make(chan executor.ImageChannel)
 		buildErrs := make(chan error, 1)
 		go func() {
 			defer close(buildErrs)
@@ -222,7 +222,7 @@ var RootCmd = &cobra.Command{
 		go func() {
 			defer close(pushErrs)
 			for img := range images {
-				pushErrs <- executor.DoPush(img, opts)
+				pushErrs <- executor.DoPush(img.Image, img.Stage, opts)
 			}
 		}()
 
