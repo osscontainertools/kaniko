@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2018 Google LLC
+# Copyright 2026 OSS Container Tools
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,27 +23,8 @@ GREEN='\033[0;32m'
 RESET='\033[0m'
 
 echo "Running go tests..."
-export KANIKO_DIR="/kaniko"
-go test -cover -coverprofile=out/coverage.out -v -timeout 120s `go list ./... | grep -v vendor | grep -v golden | grep -v integration` | sed ''/PASS/s//$(printf "${GREEN}PASS${RESET}")/'' | sed ''/FAIL/s//$(printf "${RED}FAIL${RESET}")/''
+go test -cover -coverprofile=out/coverage.out -v -timeout 120s `go list ./... | grep golden`| sed ''/PASS/s//$(printf "${GREEN}PASS${RESET}")/'' | sed ''/FAIL/s//$(printf "${RED}FAIL${RESET}")/''
 GO_TEST_EXIT_CODE=${PIPESTATUS[0]}
 if [[ ${GO_TEST_EXIT_CODE} -ne 0 ]]; then
     exit "${GO_TEST_EXIT_CODE}"
 fi
-
-echo "Running validation scripts..."
-scripts=(
-    "${DIR}/../hack/boilerplate.sh"
-    "${DIR}/../hack/gofmt.sh"
-)
-fail=0
-for s in "${scripts[@]}"
-do
-    echo "RUN ${s}"
-    if "${s}"; then
-        echo -e "${GREEN}PASSED${RESET} ${s}"
-    else
-        echo -e "${RED}FAILED${RESET} ${s}"
-        fail=1
-    fi
-done
-exit "${fail}"

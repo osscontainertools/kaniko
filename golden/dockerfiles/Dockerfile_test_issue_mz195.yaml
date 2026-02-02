@@ -1,0 +1,113 @@
+dockerfile: |-
+  FROM debian:12.10 AS first-stage
+
+  FROM first-stage AS second-stage
+
+  FROM first-stage AS third-stage
+  RUN touch test
+
+  # When we want to squash the 4th stage
+  # into the 2nd we must reorder the stages
+  # as otherwise the dependency on the 3rd stage
+  # could not be fulfilled.
+  FROM second-stage AS fourth-stage
+  COPY --from=third-stage test test
+
+  # When we optimize stages out this should not
+  # impact squashing logic at all
+  FROM debian:12.10 as noise
+  FROM fourth-stage AS fifth-stage
+tests:
+  - args: ["--no-push"]
+    # TODO: clean after first-stage is unnecesary
+    plan: &normal |-
+      FROM debian:12.10 AS first-stage
+      SAVE STAGE /kaniko/stages/0
+      CLEAN
+
+      FROM first-stage (/kaniko/stages/0) AS third-stage
+      RUN touch test
+      SAVE FILES [test] /kaniko/deps/2
+      CLEAN
+
+      FROM first-stage (/kaniko/stages/0) AS fifth-stage
+      COPY --from=third-stage test test
+  - args: ["--target=fifth-stage", "--no-push"]
+    plan: *normal
+  - args: ["--destination=registry"]
+    plan: |-
+      FROM debian:12.10 AS first-stage
+      SAVE STAGE /kaniko/stages/0
+      CLEAN
+
+      FROM first-stage (/kaniko/stages/0) AS third-stage
+      RUN touch test
+      SAVE FILES [test] /kaniko/deps/2
+      CLEAN
+
+      FROM first-stage (/kaniko/stages/0) AS fifth-stage
+      COPY --from=third-stage test test
+      PUSH [registry]
+  - args: ["--skip-unused-stages=false", "--no-push"]
+    plan: |-
+      FROM debian:12.10 AS first-stage
+      SAVE STAGE /kaniko/stages/0
+      CLEAN
+
+      FROM first-stage (/kaniko/stages/0) AS second-stage
+      SAVE STAGE /kaniko/stages/1
+      CLEAN
+
+      FROM first-stage (/kaniko/stages/0) AS third-stage
+      RUN touch test
+      SAVE FILES [test] /kaniko/deps/2
+      CLEAN
+
+      FROM second-stage (/kaniko/stages/1) AS fourth-stage
+      COPY --from=third-stage test test
+      SAVE STAGE /kaniko/stages/3
+      CLEAN
+
+      FROM debian:12.10 AS noise
+      CLEAN
+
+      FROM fourth-stage (/kaniko/stages/3) AS fifth-stage
+  - args: ["--no-push"]
+    env:
+      FF_KANIKO_SQUASH_STAGES: "0"
+    plan: |-
+      FROM debian:12.10 AS first-stage
+      SAVE STAGE /kaniko/stages/0
+      CLEAN
+
+      FROM first-stage (/kaniko/stages/0) AS second-stage
+      SAVE STAGE /kaniko/stages/1
+      CLEAN
+
+      FROM first-stage (/kaniko/stages/0) AS third-stage
+      RUN touch test
+      SAVE FILES [test] /kaniko/deps/2
+      CLEAN
+
+      FROM second-stage (/kaniko/stages/1) AS fourth-stage
+      COPY --from=third-stage test test
+      SAVE STAGE /kaniko/stages/3
+      CLEAN
+
+      FROM fourth-stage (/kaniko/stages/3) AS fifth-stage
+  - args: ["--target=fourth-stage", "--no-push"]
+    plan: |-
+      FROM debian:12.10 AS first-stage
+      SAVE STAGE /kaniko/stages/0
+      CLEAN
+
+      FROM first-stage (/kaniko/stages/0) AS third-stage
+      RUN touch test
+      SAVE FILES [test] /kaniko/deps/2
+      CLEAN
+
+      FROM first-stage (/kaniko/stages/0) AS fourth-stage
+      COPY --from=third-stage test test
+  - args: ["--target=noise", "--no-push"]
+    plan: |-
+      FROM debian:12.10 AS noise
