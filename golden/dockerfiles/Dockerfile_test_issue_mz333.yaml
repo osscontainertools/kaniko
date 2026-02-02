@@ -1,0 +1,24 @@
+dockerfile: |-
+  FROM busybox AS base
+  RUN touch blubb
+  # mz333: When dropping the `ignored` stage
+  # we no longer have a reason to store this here
+  # `base` stage as a tarball. Prior to  v1.26.1 kaniko
+  # would not recognize this optimization and store it anyways.
+
+  FROM base AS ignored
+
+  FROM scratch AS final
+  COPY --from=base blubb .
+tests:
+  - args: ["--no-push"]
+    plan: |-
+      FROM busybox AS base
+      RUN touch blubb
+      SAVE FILES [blubb] /kaniko/deps/0
+      CLEAN
+
+      FROM scratch AS final
+      COPY --from=base blubb .
+
+
