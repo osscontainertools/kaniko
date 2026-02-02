@@ -454,7 +454,7 @@ func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages
 	}
 
 	for i, s := range stages {
-		if squashStages && stagesDependencies[i] > 0 {
+		if squashStages && (stagesDependencies[i] > 0 || copyDependencies[i] > 0) {
 			if s.BaseImageStoredLocally && stagesDependencies[s.BaseImageIndex] == 1 && copyDependencies[s.BaseImageIndex] == 0 {
 				sb := stages[s.BaseImageIndex]
 				// squash stages[i] into stages[i].BaseName
