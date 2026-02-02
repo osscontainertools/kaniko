@@ -313,6 +313,7 @@ func addKanikoOptionsFlags() {
 	RootCmd.Flags().VarP(&opts.CredentialHelpers, "credential-helpers", "", "Use these credential helpers automatically, select from (env, google, ecr, acr, gitlab). Set it repeatedly for multiple helpers, defaults to all, set it to empty string to deactivate.")
 	opts.Secrets = make(config.SecretOptions)
 	RootCmd.Flags().VarP(&opts.Secrets, "secret", "", "Set build secrets in key=value format. Set it repeatedly for multiple secrets.")
+	RootCmd.Flags().BoolVarP(&opts.Dryrun, "dryrun", "", false, "Whether to only run a plan")
 
 	// Deprecated flags.
 	RootCmd.Flags().StringVarP(&opts.SnapshotModeDeprecated, "snapshotMode", "", "", "This flag is deprecated. Please use '--snapshot-mode'.")

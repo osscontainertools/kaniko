@@ -723,6 +723,23 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 	return depGraph, nil
 }
 
+func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext) error {
+	for _, s := range stages {
+		fmt.Printf("FROM %s AS %s\n", s.BaseName, s.Name)
+		for _, c := range s.Commands {
+			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
+			if err != nil {
+				return err
+			}
+			if command == nil {
+				continue
+			}
+			fmt.Printf("%s\n", command)
+		}
+	}
+	return nil
+}
+
 // DoBuild executes building the Dockerfile
 func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	t := timing.Start("Total Build Time")
@@ -743,6 +760,10 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	fileContext, err := util.NewFileContextFromDockerfile(opts.DockerfilePath, opts.SrcContext)
 	if err != nil {
 		return nil, err
+	}
+
+	if opts.Dryrun {
+		return nil, RenderStages(kanikoStages, opts, fileContext)
 	}
 
 	// Some stages may refer to other random images, not previous stages
