@@ -333,7 +333,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	}
 	if opts.SkipUnusedStages {
 		ffSquashStages := config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true)
-		kanikoStages = skipUnusedStages(kanikoStages, targetStages, ffSquashStages)
+		kanikoStages = skipUnusedStages(kanikoStages, targetStages, pushStage, ffSquashStages)
 	}
 	return kanikoStages, nil
 }
@@ -427,7 +427,7 @@ func squash(a, b config.KanikoStage) config.KanikoStage {
 }
 
 // skipUnusedStages returns the list of used stages, filters out unused stages and optionally squashes them together.
-func skipUnusedStages(stages []config.KanikoStage, targetStages []int, squashStages bool) []config.KanikoStage {
+func skipUnusedStages(stages []config.KanikoStage, targetStages []int, pushStage int, squashStages bool) []config.KanikoStage {
 	stageByName := make(map[string]int)
 	final := targetStages[len(targetStages)-1]
 	stages = stages[:final+1]
@@ -440,14 +440,19 @@ func skipUnusedStages(stages []config.KanikoStage, targetStages []int, squashSta
 
 	// We now "count" references, it is only safe to squash
 	// stages if the references are exactly 1 and there are no COPY references
+	buildTargets := make([]bool, len(stages))
 	stagesDependencies := make([]int, len(stages))
 	copyDependencies := make([]int, len(stages))
 	for _, x := range targetStages {
-		stagesDependencies[x] = 1
+		// buildTargets we just need to visit, but they
+		// can be squashed together, we don't care.
+		buildTargets[x] = true
 	}
+	// push stage cannot be squashed
+	stagesDependencies[pushStage] = 1
 
 	for i := final; i >= 0; i-- {
-		if stagesDependencies[i] == 0 && copyDependencies[i] == 0 {
+		if !buildTargets[i] && stagesDependencies[i] == 0 && copyDependencies[i] == 0 {
 			continue
 		}
 		s := stages[i]
@@ -474,7 +479,7 @@ func skipUnusedStages(stages []config.KanikoStage, targetStages []int, squashSta
 	}
 
 	for i, s := range stages {
-		if squashStages && stagesDependencies[i] > 0 {
+		if squashStages && (buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0) {
 			if s.BaseImageStoredLocally && stagesDependencies[s.BaseImageIndex] == 1 && copyDependencies[s.BaseImageIndex] == 0 {
 				sb := stages[s.BaseImageIndex]
 				// squash stages[i] into stages[i].BaseName
@@ -490,7 +495,7 @@ func skipUnusedStages(stages []config.KanikoStage, targetStages []int, squashSta
 
 	var onlyUsedStages []config.KanikoStage
 	for i, s := range stages {
-		if stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
+		if buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
 			s.SaveStage = stagesDependencies[i] > 0
 			onlyUsedStages = append(onlyUsedStages, s)
 		}
