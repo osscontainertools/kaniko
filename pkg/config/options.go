@@ -98,6 +98,7 @@ type KanikoOptions struct {
 	PreserveContext              bool
 	Materialize                  bool
 	Secrets                      SecretOptions
+	Dryrun                       bool
 }
 
 type KanikoGitOptions struct {
