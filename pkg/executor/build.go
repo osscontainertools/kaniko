@@ -723,9 +723,24 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 	return depGraph, nil
 }
 
-func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext) error {
+func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string) error {
+	if opts.PreserveContext {
+		fmt.Println("SAVE CONTEXT")
+	}
+	if opts.PreCleanup {
+		fmt.Println("CLEAN")
+	}
 	for _, s := range stages {
-		fmt.Printf("FROM %s AS %s\n", s.BaseName, s.Name)
+		if s.BaseImageStoredLocally {
+			fmt.Printf("FROM %s (%s%d)", s.BaseName, config.KanikoIntermediateStagesDir, s.BaseImageIndex)
+		} else {
+			fmt.Printf("FROM %s", s.BaseName)
+		}
+		if s.Name != "" {
+			fmt.Printf(" AS %s\n", s.Name)
+		} else {
+			fmt.Println("")
+		}
 		for _, c := range s.Commands {
 			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
 			if err != nil {
@@ -736,7 +751,29 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 			}
 			fmt.Printf("%s\n", command)
 		}
+		if s.Final {
+			if !opts.NoPush {
+				fmt.Printf("PUSH %v\n", opts.Destinations)
+			}
+			if opts.Cleanup {
+				fmt.Println("CLEAN")
+			}
+			return nil
+		}
+		if s.SaveStage {
+			fmt.Printf("SAVE STAGE %s%d\n", config.KanikoIntermediateStagesDir, s.Index)
+		}
+		filesToSave := crossStageDependencies[s.Index]
+		if len(filesToSave) > 0 {
+			fmt.Printf("SAVE FILES %v %s%d\n", filesToSave, config.KanikoInterStageDepsDir, s.Index)
+		}
+		fmt.Println("CLEAN")
+		fmt.Println("")
+		if opts.PreserveContext && !opts.PreCleanup {
+			fmt.Println("RESTORE CONTEXT")
+		}
 	}
+	logrus.Panic("unreachable - we should always have a final stage")
 	return nil
 }
 
@@ -762,14 +799,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		return nil, err
 	}
 
-	if opts.Dryrun {
-		return nil, RenderStages(kanikoStages, opts, fileContext)
-	}
-
-	// Some stages may refer to other random images, not previous stages
-	if err := fetchExtraStages(kanikoStages, opts); err != nil {
-		return nil, err
-	}
 	crossStageDependencies, err := CalculateDependencies(kanikoStages, opts, stageNameToIdx)
 	if err != nil {
 		return nil, err
@@ -779,6 +808,15 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	if len(kanikoStages) == 0 {
 		logrus.Panic("no stages to build")
 	}
+	if opts.Dryrun {
+		return nil, RenderStages(kanikoStages, opts, fileContext, crossStageDependencies)
+	}
+
+	// Some stages may refer to other random images, not previous stages
+	if err := fetchExtraStages(kanikoStages, opts); err != nil {
+		return nil, err
+	}
+
 	lastStage := kanikoStages[len(kanikoStages)-1]
 	var args = dockerfile.NewBuildArgs(opts.BuildArgs)
 	err = args.InitPredefinedArgs(opts.CustomPlatform, lastStage.Stage.Name)
