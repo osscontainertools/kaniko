@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -764,6 +765,8 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 			fmt.Printf("SAVE STAGE %s%d\n", config.KanikoIntermediateStagesDir, s.Index)
 		}
 		filesToSave := crossStageDependencies[s.Index]
+		slices.Sort(filesToSave)
+		filesToSave = slices.Compact(filesToSave)
 		if len(filesToSave) > 0 {
 			fmt.Printf("SAVE FILES %v %s%d\n", filesToSave, config.KanikoInterStageDepsDir, s.Index)
 		}
