@@ -29,7 +29,6 @@ tests:
       PUSH [registry]
   - args: ["--target=final", "--target=build", "--destination=registry"]
     # TODO: clean after "base" stage is unnecesary
-    # TODO: saving the "build" stage is unnecessary
     plan: |-
       FROM debian:12.10 AS base
       RUN install
@@ -38,7 +37,6 @@ tests:
 
       FROM base (/kaniko/stages/0) AS build
       RUN compile
-      SAVE STAGE /kaniko/stages/1
       SAVE FILES [output] /kaniko/deps/1
       CLEAN
 
@@ -49,7 +47,6 @@ tests:
   - args: ["--target=final", "--target=test", "--destination=registry"]
     # TODO: clean after "base" stage is unnecesary
     # TODO: saving the "final" stage is unnecessary
-    # INVESTIGATE: why is the build stage (correctly) not saved here but in the test above?
     # TODO: clean after "final" stage is unnecesary
     plan: |-
       FROM debian:12.10 AS base

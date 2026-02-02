@@ -316,13 +316,18 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	kanikoStages := make([]config.KanikoStage, len(stages))
 	// We now "count" references, it is only safe to squash
 	// stages if the references are exactly 1 and there are no COPY references
+	buildTargets := make([]bool, len(stages))
 	stagesDependencies := make([]int, len(stages))
 	copyDependencies := make([]int, len(stages))
 	for _, x := range targetStages {
-		stagesDependencies[x] = 1
+		// buildTargets we just need to visit, but they
+		// can be squashed together, we don't care.
+		buildTargets[x] = 1
 	}
+	// push stage cannot be squashed
+	stagesDependencies[pushStage] = 1
 	for i := finalStage; i >= 0; i-- {
-		if stagesDependencies[i] == 0 && copyDependencies[i] == 0 && opts.SkipUnusedStages {
+		if !buildTargets[i] && stagesDependencies[i] == 0 && copyDependencies[i] == 0 {
 			continue
 		}
 		stage := stages[i]
@@ -378,7 +383,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	if opts.SkipUnusedStages && config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true) {
 		for i, s := range kanikoStages {
 			if stagesDependencies[i] > 0 {
-				if s.BaseImageStoredLocally && stagesDependencies[s.BaseImageIndex] == 1 && copyDependencies[s.BaseImageIndex] == 0 {
+				if s.BaseImageStoredLocally && (buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0) {
 					sb := kanikoStages[s.BaseImageIndex]
 					// squash stages[i] into stages[i].BaseName
 					logrus.Infof("Squashing stages: %s into %s", s.Name, sb.Name)
@@ -394,7 +399,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	if opts.SkipUnusedStages {
 		var onlyUsedStages []config.KanikoStage
 		for i, s := range kanikoStages {
-			if stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
+			if buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
 				s.SaveStage = stagesDependencies[i] > 0
 				onlyUsedStages = append(onlyUsedStages, s)
 			}
