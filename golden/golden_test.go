@@ -19,6 +19,8 @@ package plan
 import (
 	"bytes"
 	"errors"
+	"flag"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -67,10 +69,21 @@ func renderCommand(env map[string]string, args []string) string {
 	return strings.Join(parts, " ")
 }
 
+var dockerfilesPattern string
+
+func TestMain(m *testing.M) {
+	// adds the possibility to run a single dockerfile.
+	flag.StringVar(&dockerfilesPattern, "dockerfiles-pattern", "Dockerfile_test*", "The pattern to match dockerfiles with")
+	flag.Parse()
+	exitCode := m.Run()
+	os.Exit(exitCode)
+}
+
 func TestRun(t *testing.T) {
 	logrus.SetLevel(logrus.WarnLevel)
 
-	allDockerfiles, err := filepath.Glob("dockerfiles/*.yaml")
+	pattern := fmt.Sprintf("dockerfiles/%s.yaml", dockerfilesPattern)
+	allDockerfiles, err := filepath.Glob(pattern)
 	if err != nil {
 		t.Fatal(err)
 	}
