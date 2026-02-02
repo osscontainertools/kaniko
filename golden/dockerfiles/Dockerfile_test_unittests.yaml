@@ -141,7 +141,7 @@ tests:
       FROM debian:12.10 AS base
       COPY . .
       SAVE STAGE /kaniko/stages/0
-      SAVE FILES [context/foo context/b*] /kaniko/deps/0
+      SAVE FILES [context/b* context/foo] /kaniko/deps/0
       CLEAN
 
       FROM scratch AS second
@@ -163,7 +163,7 @@ tests:
       FROM debian:12.10 AS base
       COPY . .
       SAVE STAGE /kaniko/stages/0
-      SAVE FILES [context/foo context/b*] /kaniko/deps/0
+      SAVE FILES [context/b* context/foo] /kaniko/deps/0
       CLEAN
 
       FROM scratch AS second
