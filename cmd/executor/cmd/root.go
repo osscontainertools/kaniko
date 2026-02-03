@@ -154,10 +154,10 @@ var RootCmd = &cobra.Command{
 			if err := resolveSecrets(); err != nil {
 				return fmt.Errorf("error resolving secrets: %w", err)
 			}
-			if len(opts.Destinations) == 0 && opts.ImageNameDigestFile != "" {
+			if len(opts.Destinations[config.DefaultDestinationKey]) == 0 && opts.ImageNameDigestFile != "" {
 				return errors.New("you must provide --destination if setting ImageNameDigestFile")
 			}
-			if len(opts.Destinations) == 0 && opts.ImageNameTagDigestFile != "" {
+			if len(opts.Destinations[config.DefaultDestinationKey]) == 0 && opts.ImageNameTagDigestFile != "" {
 				return errors.New("you must provide --destination if setting ImageNameTagDigestFile")
 			}
 			// Update ignored paths
@@ -207,11 +207,28 @@ var RootCmd = &cobra.Command{
 		if err := os.Chdir("/"); err != nil {
 			exit(fmt.Errorf("error changing to root dir: %w", err))
 		}
-		image, err := executor.DoBuild(opts)
-		if err != nil {
+
+		images := make(chan executor.ImageChannel)
+		buildErrs := make(chan error, 1)
+		go func() {
+			defer close(buildErrs)
+			defer close(images)
+			buildErrs <- executor.DoBuild(opts, images)
+		}()
+
+		pushErrs := make(chan error, 1)
+		go func() {
+			defer close(pushErrs)
+			for img := range images {
+				pushErrs <- executor.DoPush(img.Image, img.Stage, opts)
+			}
+		}()
+
+		if err := <-buildErrs; err != nil {
 			exit(fmt.Errorf("error building image: %w", err))
 		}
-		if err := executor.DoPush(image, opts); err != nil {
+
+		if err := <-pushErrs; err != nil {
 			exit(fmt.Errorf("error pushing image: %w", err))
 		}
 
@@ -253,6 +270,7 @@ func addKanikoOptionsFlags() {
 	RootCmd.Flags().StringVarP(&opts.SrcContext, "context", "c", "/workspace/", "Path to the dockerfile build context.")
 	RootCmd.Flags().StringVarP(&ctxSubPath, "context-sub-path", "", "", "Sub path within the given context.")
 	RootCmd.Flags().StringVarP(&opts.Bucket, "bucket", "b", "", "Name of the GCS bucket from which to access build context as tarball.")
+	opts.Destinations = make(map[string][]string)
 	RootCmd.Flags().VarP(&opts.Destinations, "destination", "d", "Registry the final image should be pushed to. Set it repeatedly for multiple destinations.")
 	RootCmd.Flags().StringVarP(&opts.SnapshotMode, "snapshot-mode", "", "full", "Change the file attributes inspected during snapshotting")
 	RootCmd.Flags().StringVarP(&opts.CustomPlatform, "custom-platform", "", "", "Specify the build platform if different from the current host")
@@ -269,7 +287,7 @@ func addKanikoOptionsFlags() {
 	RootCmd.Flags().StringVarP(&opts.TarPath, "tar-path", "", "", "Path to save the image in as a tarball instead of pushing")
 	RootCmd.Flags().BoolVarP(&opts.SingleSnapshot, "single-snapshot", "", false, "Take a single snapshot at the end of the build.")
 	RootCmd.Flags().BoolVarP(&opts.Reproducible, "reproducible", "", false, "Strip timestamps out of the image to make it reproducible")
-	RootCmd.Flags().StringVarP(&opts.Target, "target", "", "", "Set the target build stage to build")
+	RootCmd.Flags().StringSliceVarP(&opts.Target, "target", "", []string{}, "Set the target stages to build")
 	RootCmd.Flags().BoolVarP(&opts.NoPush, "no-push", "", false, "Do not push the image to the registry")
 	RootCmd.Flags().BoolVarP(&opts.NoPushCache, "no-push-cache", "", false, "Do not push the cache layers to the registry")
 	RootCmd.Flags().StringVarP(&opts.CacheRepo, "cache-repo", "", "", "Specify a repository to use as a cache, otherwise one will be inferred from the destination provided; when prefixed with 'oci:' the repository will be written in OCI image layout format at the path provided")
