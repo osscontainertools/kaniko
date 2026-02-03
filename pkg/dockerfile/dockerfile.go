@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -192,17 +193,26 @@ func extractValFromQuotes(val string) (string, error) {
 	return val[1 : len(val)-1], nil
 }
 
-// targetStage returns the index of the target stage kaniko is trying to build
-func targetStage(stages []instructions.Stage, target string) (int, error) {
-	if target == "" {
-		return len(stages) - 1, nil
+// targetStage returns the indexes of the target stages kaniko is trying to build
+func targetStages(stages []instructions.Stage, targets []string) ([]int, error) {
+	if len(targets) == 0 {
+		return []int{len(stages) - 1}, nil
 	}
-	for i, stage := range stages {
-		if strings.EqualFold(stage.Name, target) {
-			return i, nil
+	var result []int
+	for _, target := range targets {
+		found := false
+		for i, stage := range stages {
+			if strings.EqualFold(stage.Name, target) {
+				result = append(result, i)
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("%q is not a valid target build stage", target)
 		}
 	}
-	return -1, fmt.Errorf("%s is not a valid target build stage", target)
+	return result, nil
 }
 
 // ParseCommands parses an array of commands into an array of instructions.Command; used for onbuild
@@ -276,10 +286,15 @@ func resolveStagesArgs(stages []instructions.Stage, args []string) error {
 }
 
 func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, metaArgs []instructions.ArgCommand) ([]config.KanikoStage, error) {
-	targetStage, err := targetStage(stages, opts.Target)
+	targetStages, err := targetStages(stages, opts.Target)
 	if err != nil {
 		return nil, fmt.Errorf("error finding target stage: %w", err)
 	}
+	pushStage := targetStages[0]
+	slices.Sort(targetStages)
+	targetStages = slices.Compact(targetStages)
+	finalStage := targetStages[len(targetStages)-1]
+
 	args := unifyArgs(metaArgs, opts.BuildArgs)
 	if err := resolveStagesArgs(stages, args); err != nil {
 		return nil, fmt.Errorf("resolving args: %w", err)
@@ -307,17 +322,18 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			BaseImageIndex:         baseImageIndex,
 			BaseImageStoredLocally: (baseImageIndex != -1),
 			SaveStage:              saveStage(index, stages),
-			Final:                  index == targetStage,
+			Push:                   index == pushStage,
+			Final:                  index == finalStage,
 			MetaArgs:               metaArgs,
 			Index:                  index,
 		})
-		if index == targetStage {
+		if index == finalStage {
 			break
 		}
 	}
 	if opts.SkipUnusedStages {
 		ffSquashStages := config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true)
-		kanikoStages = skipUnusedStages(kanikoStages, targetStage, ffSquashStages)
+		kanikoStages = skipUnusedStages(kanikoStages, targetStages, pushStage, ffSquashStages)
 	}
 	return kanikoStages, nil
 }
@@ -401,6 +417,7 @@ func squash(a, b config.KanikoStage) config.KanikoStage {
 			Comments:   append(a.Comments, b.Comments...),
 		},
 		BaseImageIndex:         a.BaseImageIndex,
+		Push:                   b.Push,
 		Final:                  b.Final,
 		BaseImageStoredLocally: a.BaseImageStoredLocally,
 		SaveStage:              b.SaveStage,
@@ -410,9 +427,10 @@ func squash(a, b config.KanikoStage) config.KanikoStage {
 }
 
 // skipUnusedStages returns the list of used stages, filters out unused stages and optionally squashes them together.
-func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages bool) []config.KanikoStage {
+func skipUnusedStages(stages []config.KanikoStage, targetStages []int, pushStage int, squashStages bool) []config.KanikoStage {
 	stageByName := make(map[string]int)
-	stages = stages[:targetStage+1]
+	final := targetStages[len(targetStages)-1]
+	stages = stages[:final+1]
 
 	for idx, s := range stages {
 		if s.Name != "" {
@@ -422,12 +440,19 @@ func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages
 
 	// We now "count" references, it is only safe to squash
 	// stages if the references are exactly 1 and there are no COPY references
+	buildTargets := make([]bool, len(stages))
 	stagesDependencies := make([]int, len(stages))
 	copyDependencies := make([]int, len(stages))
-	stagesDependencies[targetStage] = 1
+	for _, x := range targetStages {
+		// buildTargets we just need to visit, but they
+		// can be squashed together, we don't care.
+		buildTargets[x] = true
+	}
+	// push stage cannot be squashed
+	stagesDependencies[pushStage] = 1
 
-	for i := targetStage; i >= 0; i-- {
-		if stagesDependencies[i] == 0 && copyDependencies[i] == 0 {
+	for i := final; i >= 0; i-- {
+		if !buildTargets[i] && stagesDependencies[i] == 0 && copyDependencies[i] == 0 {
 			continue
 		}
 		s := stages[i]
@@ -454,7 +479,7 @@ func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages
 	}
 
 	for i, s := range stages {
-		if squashStages && stagesDependencies[i] > 0 {
+		if squashStages && (buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0) {
 			if s.BaseImageStoredLocally && stagesDependencies[s.BaseImageIndex] == 1 && copyDependencies[s.BaseImageIndex] == 0 {
 				sb := stages[s.BaseImageIndex]
 				// squash stages[i] into stages[i].BaseName
@@ -470,7 +495,7 @@ func skipUnusedStages(stages []config.KanikoStage, targetStage int, squashStages
 
 	var onlyUsedStages []config.KanikoStage
 	for i, s := range stages {
-		if stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
+		if buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
 			s.SaveStage = stagesDependencies[i] > 0
 			onlyUsedStages = append(onlyUsedStages, s)
 		}

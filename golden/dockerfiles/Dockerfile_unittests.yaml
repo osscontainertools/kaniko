@@ -1,0 +1,220 @@
+# Dockerfile without CopyFrom
+dockerfile: |-
+  FROM alpine:3.11 AS base-dev
+  RUN echo dev > /hi
+  FROM alpine:3.11 AS base-prod
+  RUN echo prod > /hi
+  FROM base-dev as final-stage
+  RUN cat /hi
+tests:
+  - &base
+    args: ["--target=base-dev", "--no-push"]
+    plan: |-
+      FROM alpine:3.11 AS base-dev
+      RUN echo dev > /hi
+  - <<: *base
+    env:
+      FF_KANIKO_SQUASH_STAGES: "0"
+  - &prod
+    args: ["--target=base-prod", "--no-push"]
+    plan: |-
+      FROM alpine:3.11 AS base-prod
+      RUN echo prod > /hi
+  - <<: *prod
+    env:
+      FF_KANIKO_SQUASH_STAGES: "0"
+  - args: ["--no-push"]
+    plan: |-
+      FROM alpine:3.11 AS final-stage
+      RUN echo dev > /hi
+      RUN cat /hi
+  - args: ["--no-push"]
+    env:
+      FF_KANIKO_SQUASH_STAGES: "0"
+    plan: |-
+      FROM alpine:3.11 AS base-dev
+      RUN echo dev > /hi
+      SAVE STAGE /kaniko/stages/0
+      CLEAN
+
+      FROM base-dev (/kaniko/stages/0) AS final-stage
+      RUN cat /hi
+---
+# Dockerfile with CopyFrom
+dockerfile: |-			
+  FROM alpine:3.11 AS base-dev
+  RUN echo dev > /hi
+  FROM alpine:3.11 AS base-prod
+  RUN echo prod > /hi
+  FROM alpine:3.11
+  COPY --from=base-prod /hi /finalhi
+  RUN cat /finalhi
+tests:
+  - args: ["--target=base-dev", "--no-push"]
+    plan: |-
+      FROM alpine:3.11 AS base-dev
+      RUN echo dev > /hi
+  - args: ["--target=base-prod", "--no-push"]
+    plan: |-
+      FROM alpine:3.11 AS base-prod
+      RUN echo prod > /hi
+  - args: ["--no-push"]
+    plan: |-
+      FROM alpine:3.11 AS base-prod
+      RUN echo prod > /hi
+      SAVE FILES [/hi] /kaniko/deps/1
+      CLEAN
+
+      FROM alpine:3.11
+      COPY --from=base-prod /hi /finalhi
+      RUN cat /finalhi
+---
+# Dockerfile with two CopyFrom
+dockerfile: |-			
+  FROM alpine:3.11 AS base-dev
+  RUN echo dev > /hi
+  FROM alpine:3.11 AS base-prod
+  RUN echo prod > /hi
+  FROM alpine:3.11
+  COPY --from=base-dev /hi /finalhidev
+  COPY --from=base-prod /hi /finalhiprod
+  RUN cat /finalhidev
+  RUN cat /finalhiprod
+tests:
+  - args: ["--target=base-dev", "--no-push"]
+    plan: |-
+      FROM alpine:3.11 AS base-dev
+      RUN echo dev > /hi
+  - args: ["--target=base-prod", "--no-push"]
+    plan: |-
+      FROM alpine:3.11 AS base-prod
+      RUN echo prod > /hi
+  - args: ["--no-push"]
+    plan: |-
+      FROM alpine:3.11 AS base-dev
+      RUN echo dev > /hi
+      SAVE FILES [/hi] /kaniko/deps/0
+      CLEAN
+
+      FROM alpine:3.11 AS base-prod
+      RUN echo prod > /hi
+      SAVE FILES [/hi] /kaniko/deps/1
+      CLEAN
+
+      FROM alpine:3.11
+      COPY --from=base-dev /hi /finalhidev
+      COPY --from=base-prod /hi /finalhiprod
+      RUN cat /finalhidev
+      RUN cat /finalhiprod
+---
+# Dockerfile with two CopyFrom and Arg
+dockerfile: |-
+  FROM debian:12.10 as base
+  COPY . .
+  FROM scratch as second
+  ENV foopath context/foo
+  COPY --from=0 $foopath context/b* /foo/
+  FROM second as third
+  COPY --from=base /context/foo /new/foo
+  FROM base as fourth
+  # Make sure that we snapshot intermediate images correctly
+  RUN date > /date
+  ENV foo bar
+  # This base image contains symlinks with relative paths to ignored directories
+  # We need to test they're extracted correctly
+  FROM fedora@sha256:c4cc32b09c6ae3f1353e7e33a8dda93dc41676b923d6d89afa996b421cc5aa48
+  FROM fourth
+  ARG file=/foo2
+  COPY --from=second /foo ${file}
+  COPY --from=debian:10.13 /etc/os-release /new
+tests:
+  - &base
+    args: ["--target=base", "--no-push"]
+    plan: |-
+      FROM debian:12.10 AS base
+      COPY . .
+  - <<: *base
+    env:
+      FF_KANIKO_SQUASH_STAGES: "0"
+  - args: ["--no-push"]
+    plan: |-
+      FROM debian:12.10 AS base
+      COPY . .
+      SAVE STAGE /kaniko/stages/0
+      SAVE FILES [context/foo context/b*] /kaniko/deps/0
+      CLEAN
+
+      FROM scratch AS second
+      ENV foopath context/foo
+      COPY --from=0 $foopath context/b* /foo/
+      SAVE FILES [/foo] /kaniko/deps/1
+      CLEAN
+
+      FROM base (/kaniko/stages/0)
+      RUN date > /date
+      ENV foo bar
+      ARG file=/foo2
+      COPY --from=second /foo ${file}
+      COPY --from=debian:10.13 /etc/os-release /new
+  - args: ["--no-push"]
+    env:
+      FF_KANIKO_SQUASH_STAGES: "0"
+    plan: |-
+      FROM debian:12.10 AS base
+      COPY . .
+      SAVE STAGE /kaniko/stages/0
+      SAVE FILES [context/foo context/b*] /kaniko/deps/0
+      CLEAN
+
+      FROM scratch AS second
+      ENV foopath context/foo
+      COPY --from=0 $foopath context/b* /foo/
+      SAVE FILES [/foo] /kaniko/deps/1
+      CLEAN
+
+      FROM base (/kaniko/stages/0) AS fourth
+      RUN date > /date
+      ENV foo bar
+      SAVE STAGE /kaniko/stages/3
+      CLEAN
+
+      FROM fourth (/kaniko/stages/3)
+      ARG file=/foo2
+      COPY --from=second /foo ${file}
+      COPY --from=debian:10.13 /etc/os-release /new
+---
+# Dockerfile without Final Dependencies
+dockerfile: |-
+  FROM alpine:3.11
+  FROM debian:12.10 as base
+  RUN echo foo > /foo
+  FROM debian:12.10 as fizz
+  RUN echo fizz >> /fizz
+  COPY --from=base /foo /fizz
+  FROM alpine:3.11 as buzz
+  RUN echo buzz > /buzz
+  FROM alpine:3.11 as final
+  RUN echo bar > /bar
+tests:
+  - args: ["--target=final", "--no-push"]
+    plan: |-
+      FROM alpine:3.11 AS final
+      RUN echo bar > /bar
+  - args: ["--target=buzz", "--no-push"]
+    plan: |-
+      FROM alpine:3.11 AS buzz
+      RUN echo buzz > /buzz
+  - args: ["--target=fizz", "--no-push"]
+    plan: |-
+      FROM debian:12.10 AS base
+      RUN echo foo > /foo
+      SAVE FILES [/foo] /kaniko/deps/1
+      CLEAN
+
+      FROM debian:12.10 AS fizz
+      RUN echo fizz >> /fizz
+      COPY --from=base /foo /fizz
+  - args: ["--no-push"]
+    plan: |-
+      FROM alpine:3.11 AS final
+      RUN echo bar > /bar

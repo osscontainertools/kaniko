@@ -75,6 +75,9 @@ test: out/executor
 test-with-coverage: test
 	go tool cover -html=out/coverage.out
 
+.PHONY: golden
+golden: out/executor
+	@ ./scripts/golden.sh
 
 .PHONY: integration-test
 integration-test:

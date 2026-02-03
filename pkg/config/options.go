@@ -70,7 +70,7 @@ type KanikoOptions struct {
 	TarPath                      string
 	TarPathDeprecated            string
 	KanikoDir                    string
-	Target                       string
+	Target                       []string
 	CacheRepo                    string
 	DigestFile                   string
 	ImageNameDigestFile          string
@@ -98,6 +98,7 @@ type KanikoOptions struct {
 	PreserveContext              bool
 	Materialize                  bool
 	Secrets                      SecretOptions
+	Dryrun                       bool
 }
 
 type KanikoGitOptions struct {
