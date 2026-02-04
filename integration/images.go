@@ -103,11 +103,6 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_cg188": {"--secret=id=netrc,env=SECRET"},
 }
 
-// Override where kaniko is located for a specific test
-var kanikoDirs = map[string]string{
-	"Dockerfile_test_issue_mz473": "/kaniko2",
-}
-
 // Override which kaniko executor image to use for a specific test
 var executorImages = map[string]string{
 	"Dockerfile_test_issue_mz455": ExecutorImageTainted,
@@ -684,13 +679,8 @@ func buildKanikoImage(
 		return "", err
 	}
 
-	kanikoDir := "/kaniko"
-	if dir, ok := kanikoDirs[dockerfile]; ok {
-		kanikoDir = dir
-	}
-
 	if b, err := strconv.ParseBool(os.Getenv("BENCHMARK")); err == nil && b {
-		benchmarkEnv = fmt.Sprintf("BENCHMARK_FILE=%s/benchmarks/%s", kanikoDir, dockerfile)
+		benchmarkEnv = fmt.Sprintf("BENCHMARK_FILE=/benchmarks/%s", dockerfile)
 		if shdUpload {
 			benchmarkFile := path.Join(benchmarkDir, dockerfile)
 			fileName := fmt.Sprintf("run_%s_%s", time.Now().Format("2006-01-02-15:04"), dockerfile)
@@ -711,7 +701,7 @@ func buildKanikoImage(
 		"run", "--net=host",
 		"-e", benchmarkEnv,
 		"-v", contextDir + ":/workspace:ro",
-		"-v", benchmarkDir + ":" + kanikoDir + "/benchmarks",
+		"-v", benchmarkDir + ":" + "/benchmarks",
 	}
 
 	for _, envVariable := range KanikoEnv {
