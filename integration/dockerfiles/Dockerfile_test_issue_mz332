@@ -1,0 +1,8 @@
+ARG IMAGE_REPO
+FROM busybox:latest AS base
+RUN touch /blubb
+
+FROM doesnt:exist
+
+FROM ${IMAGE_REPO}onbuild-copy:latest
+RUN ls -lah /blubb

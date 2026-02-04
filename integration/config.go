@@ -26,6 +26,7 @@ type integrationTestConfig struct {
 	gcsBucket          string
 	imageRepo          string
 	onbuildBaseImage   string
+	onbuildCopyImage   string
 	hardlinkBaseImage  string
 	serviceAccount     string
 	dockerMajorVersion int

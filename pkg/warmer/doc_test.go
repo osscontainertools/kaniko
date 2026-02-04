@@ -14,12 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cache
+package warmer
 
 import (
 	"bytes"
 	"log"
 
+	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/image/remote"
 )
@@ -29,7 +30,7 @@ func ExampleWarmer_Warm() {
 	manifestBuf := new(bytes.Buffer)
 	w := &Warmer{
 		Remote:         remote.RetrieveRemoteImage,
-		Local:          LocalSource,
+		Local:          cache.LocalSource,
 		TarWriter:      tarBuf,
 		ManifestWriter: manifestBuf,
 	}
@@ -38,7 +39,7 @@ func ExampleWarmer_Warm() {
 
 	digest, err := w.Warm("ubuntu:latest", options)
 	if err != nil {
-		if !IsAlreadyCached(err) {
+		if !cache.IsAlreadyCached(err) {
 			log.Fatal(err)
 		}
 	}

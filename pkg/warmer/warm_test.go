@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cache
+package warmer
 
 import (
 	"bytes"
@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/fakes"
 )
@@ -39,7 +40,7 @@ func Test_Warmer_Warm_not_in_cache(t *testing.T) {
 			return fakes.FakeImage{}, nil
 		},
 		Local: func(_ *config.CacheOptions, _ string) (v1.Image, error) {
-			return nil, NotFoundErr{}
+			return nil, cache.NotFoundErr{}
 		},
 		TarWriter:      tarBuf,
 		ManifestWriter: manifestBuf,
@@ -76,7 +77,7 @@ func Test_Warmer_Warm_in_cache_not_expired(t *testing.T) {
 	opts := &config.WarmerOptions{}
 
 	_, err := cw.Warm(image, opts)
-	if !IsAlreadyCached(err) {
+	if !cache.IsAlreadyCached(err) {
 		t.Errorf("expected error to be already cached err but was %v", err)
 		t.FailNow()
 	}
@@ -95,7 +96,7 @@ func Test_Warmer_Warm_in_cache_expired(t *testing.T) {
 			return fakes.FakeImage{}, nil
 		},
 		Local: func(_ *config.CacheOptions, _ string) (v1.Image, error) {
-			return fakes.FakeImage{}, ExpiredErr{}
+			return fakes.FakeImage{}, cache.ExpiredErr{}
 		},
 		TarWriter:      tarBuf,
 		ManifestWriter: manifestBuf,
@@ -104,7 +105,7 @@ func Test_Warmer_Warm_in_cache_expired(t *testing.T) {
 	opts := &config.WarmerOptions{}
 
 	_, err := cw.Warm(image, opts)
-	if !IsAlreadyCached(err) {
+	if !cache.IsAlreadyCached(err) {
 		t.Errorf("expected error to be already cached err but was %v", err)
 		t.FailNow()
 	}

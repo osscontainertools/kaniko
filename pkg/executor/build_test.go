@@ -32,7 +32,6 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
-	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/cache"
@@ -212,31 +211,24 @@ func Test_stageBuilder_shouldTakeSnapshot(t *testing.T) {
 }
 
 func TestCalculateDependencies(t *testing.T) {
-	type args struct {
-		dockerfile     string
-		mockInitConfig func(partial.WithConfigFile, *config.KanikoOptions) (*v1.ConfigFile, error)
-	}
 	tests := []struct {
-		name string
-		args args
-		want map[int][]string
+		name       string
+		dockerfile string
+		want       map[int][]string
 	}{
 		{
 			name: "no deps",
-			args: args{
-				dockerfile: `
+			dockerfile: `
 FROM debian as stage1
 RUN foo
 FROM stage1
 RUN bar
 `,
-			},
 			want: map[int][]string{},
 		},
 		{
 			name: "args",
-			args: args{
-				dockerfile: `
+			dockerfile: `
 ARG myFile=foo
 FROM debian as stage1
 RUN foo
@@ -245,28 +237,24 @@ ARG myFile
 COPY --from=stage1 /tmp/$myFile.txt .
 RUN bar
 `,
-			},
 			want: map[int][]string{
 				0: {"/tmp/foo.txt"},
 			},
 		},
 		{
 			name: "simple deps",
-			args: args{
-				dockerfile: `
+			dockerfile: `
 FROM debian as stage1
 FROM alpine
 COPY --from=stage1 /foo /bar
 `,
-			},
 			want: map[int][]string{
 				0: {"/foo"},
 			},
 		},
 		{
 			name: "two sets deps",
-			args: args{
-				dockerfile: `
+			dockerfile: `
 FROM debian as stage1
 FROM ubuntu as stage2
 RUN foo
@@ -274,7 +262,6 @@ COPY --from=stage1 /foo /bar
 FROM alpine
 COPY --from=stage2 /bar /bat
 `,
-			},
 			want: map[int][]string{
 				0: {"/foo"},
 				1: {"/bar"},
@@ -282,8 +269,7 @@ COPY --from=stage2 /bar /bat
 		},
 		{
 			name: "double deps",
-			args: args{
-				dockerfile: `
+			dockerfile: `
 FROM debian as stage1
 FROM ubuntu as stage2
 RUN foo
@@ -291,15 +277,13 @@ COPY --from=stage1 /foo /bar
 FROM alpine
 COPY --from=stage1 /baz /bat
 `,
-			},
 			want: map[int][]string{
 				0: {"/foo", "/baz"},
 			},
 		},
 		{
 			name: "envs in deps",
-			args: args{
-				dockerfile: `
+			dockerfile: `
 FROM debian as stage1
 FROM ubuntu as stage2
 RUN foo
@@ -309,7 +293,6 @@ COPY --from=stage1 /foo/$key1 /foo/$key2 /bar
 FROM alpine
 COPY --from=stage2 /bar /bat
 `,
-			},
 			want: map[int][]string{
 				0: {"/foo/val1", "/foo/val2"},
 				1: {"/bar"},
@@ -317,8 +300,7 @@ COPY --from=stage2 /bar /bat
 		},
 		{
 			name: "envs from base image in deps",
-			args: args{
-				dockerfile: `
+			dockerfile: `
 FROM debian as stage1
 ENV key1 baseval1
 FROM stage1 as stage2
@@ -328,7 +310,6 @@ COPY --from=stage1 /foo/$key1 /foo/$key2 /bar
 FROM alpine
 COPY --from=stage2 /bar /bat
 `,
-			},
 			want: map[int][]string{
 				0: {"/foo/baseval1", "/foo/val2"},
 				1: {"/bar"},
@@ -336,16 +317,7 @@ COPY --from=stage2 /bar /bat
 		},
 		{
 			name: "one image has onbuild config",
-			args: args{
-				mockInitConfig: func(img partial.WithConfigFile, opts *config.KanikoOptions) (*v1.ConfigFile, error) {
-					cfg, err := img.ConfigFile()
-					// if image is "alpine" then add ONBUILD to its config
-					if cfg != nil && cfg.Architecture != "" {
-						cfg.Config.OnBuild = []string{"COPY --from=builder /app /app"}
-					}
-					return cfg, err
-				},
-				dockerfile: `
+			dockerfile: `
 FROM scratch as builder
 RUN foo
 FROM alpine as second
@@ -354,7 +326,6 @@ COPY --from=builder /foo /bar
 FROM scratch as target
 COPY --from=second /bar /bat
 `,
-			},
 			want: map[int][]string{
 				0: {"/app", "/foo"},
 				1: {"/bar"},
@@ -363,14 +334,22 @@ COPY --from=second /bar /bat
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.args.mockInitConfig != nil {
-				original := initializeConfig
-				defer func() { initializeConfig = original }()
-				initializeConfig = tt.args.mockInitConfig
+			original := dockerfile.GetRemoteOnBuild
+			defer func() {
+				dockerfile.GetRemoteOnBuild = original
+			}()
+			dockerfile.GetRemoteOnBuild = func(baseName string, metaArgs []instructions.ArgCommand, opts *config.KanikoOptions) ([]string, error) {
+				switch baseName {
+				case "alpine":
+					// if image is "alpine" then add ONBUILD to its config
+					return []string{"COPY --from=builder /app /app"}, nil
+				default:
+					return []string{}, nil
+				}
 			}
 
 			f, _ := os.CreateTemp("", "")
-			os.WriteFile(f.Name(), []byte(tt.args.dockerfile), 0755)
+			os.WriteFile(f.Name(), []byte(tt.dockerfile), 0755)
 			opts := &config.KanikoOptions{
 				DockerfilePath: f.Name(),
 				CustomPlatform: platforms.Format(platforms.Normalize(platforms.DefaultSpec())),
@@ -1060,7 +1039,7 @@ func Test_stageBuilder_build(t *testing.T) {
 			}
 			copyCommandCacheKey := hash
 			dockerFile := fmt.Sprintf(`
-		FROM ubuntu:16.04
+		FROM scratch
 		COPY %s foo.txt
 		`, filename)
 			f, _ := os.CreateTemp("", "")
@@ -1126,7 +1105,7 @@ func Test_stageBuilder_build(t *testing.T) {
 				t.Errorf("couldn't create hash %v", err)
 			}
 			dockerFile := fmt.Sprintf(`
-FROM ubuntu:16.04
+FROM scratch
 COPY %s foo.txt
 `, filename)
 			f, _ := os.CreateTemp("", "")
@@ -1204,7 +1183,7 @@ COPY %s foo.txt
 			}
 
 			dockerFile := fmt.Sprintf(`
-FROM ubuntu:16.04
+FROM scratch
 RUN foobar
 COPY %s bar.txt
 `, filename)
@@ -1278,7 +1257,7 @@ COPY %s bar.txt
 			}
 
 			dockerFile := fmt.Sprintf(`
-FROM ubuntu:16.04
+FROM scratch
 COPY %s bar.txt
 RUN foobar
 `, filename)
