@@ -1,0 +1,18 @@
+# mz455: In kaniko v1.26.4, cache mounts used rename() to swap cache directories in and out.
+# This fails if the directories have to be moved across filesystems.
+# Since kaniko's FROM, COPY, and other commands do not create new overlay filesystems,
+# we rely on the underlying Docker runner to provide this separation.
+# This is achieved by “tainting” the kaniko image itself: By adding a leftover directory
+# in the Kaniko image and then booting into it, we ensure that the working directory
+# and the tainted directory reside on different filesystems.
+FROM executor-image AS kaniko
+
+# We create the directory by using WORKDIR, since we don't have a shell available.
+WORKDIR /var/lib/apt/list/blubb
+WORKDIR /
+
+FROM busybox:latest
+
+# In kaniko v1.26.4, this now fails because rename() cannot move directories across filesystems.
+RUN --mount=type=cache,target=/var/lib/apt/list \
+    [ -z "$(ls -A /var/lib/apt/list)" ]
