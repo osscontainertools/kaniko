@@ -80,6 +80,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_2066":                 {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_1837":                 {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_cg188":                {"SECRET=blubb"},
+	"Dockerfile_test_issue_mz473":                {"KANIKO_DIR=/kaniko2"},
 }
 
 var KanikoEnv = []string{
@@ -98,6 +99,11 @@ var WarmerEnv = []string{
 var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_target":      {"--target=second"},
 	"Dockerfile_test_issue_cg188": {"--secret=id=netrc,env=SECRET"},
+}
+
+// Override where kaniko is located for a specific test
+var kanikoDirs = map[string]string{
+	"Dockerfile_test_issue_mz473": "/kaniko2",
 }
 
 // Arguments to build Dockerfiles with when building with kaniko
@@ -658,8 +664,14 @@ func buildKanikoImage(
 	if err != nil {
 		return "", err
 	}
+
+	kanikoDir := "/kaniko"
+	if dir, ok := kanikoDirs[dockerfile]; ok {
+		kanikoDir = dir
+	}
+
 	if b, err := strconv.ParseBool(os.Getenv("BENCHMARK")); err == nil && b {
-		benchmarkEnv = "BENCHMARK_FILE=/kaniko/benchmarks/" + dockerfile
+		benchmarkEnv = fmt.Sprintf("BENCHMARK_FILE=%s/benchmarks/%s", kanikoDir, dockerfile)
 		if shdUpload {
 			benchmarkFile := path.Join(benchmarkDir, dockerfile)
 			fileName := fmt.Sprintf("run_%s_%s", time.Now().Format("2006-01-02-15:04"), dockerfile)
@@ -680,7 +692,7 @@ func buildKanikoImage(
 		"run", "--net=host",
 		"-e", benchmarkEnv,
 		"-v", contextDir + ":/workspace:ro",
-		"-v", benchmarkDir + ":/kaniko/benchmarks",
+		"-v", benchmarkDir + ":" + kanikoDir + "/benchmarks",
 	}
 
 	for _, envVariable := range KanikoEnv {
