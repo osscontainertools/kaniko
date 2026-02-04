@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2018 Google LLC
+# Copyright 2026 OSS Container Tools
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,27 +22,21 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 RESET='\033[0m'
 
+FLAGS=(
+  "-cover"
+  "-coverprofile=out/coverage.out"
+  "-timeout=120s"
+  "-v"
+)
+EXTRA_FLAGS=()
+
+if [[ -n ${DOCKERFILE_PATTERN} ]]; then
+  EXTRA_FLAGS+=("--dockerfiles-pattern=${DOCKERFILE_PATTERN}")
+fi
+
 echo "Running go tests..."
-go test -cover -coverprofile=out/coverage.out -v -timeout 120s `go list ./... | grep -v vendor | grep -v golden | grep -v integration` | sed ''/PASS/s//$(printf "${GREEN}PASS${RESET}")/'' | sed ''/FAIL/s//$(printf "${RED}FAIL${RESET}")/''
+go test ${FLAGS[@]} ./golden/... ${EXTRA_FLAGS[@]} | sed ''/PASS/s//$(printf "${GREEN}PASS${RESET}")/'' | sed ''/FAIL/s//$(printf "${RED}FAIL${RESET}")/''
 GO_TEST_EXIT_CODE=${PIPESTATUS[0]}
 if [[ ${GO_TEST_EXIT_CODE} -ne 0 ]]; then
     exit "${GO_TEST_EXIT_CODE}"
 fi
-
-echo "Running validation scripts..."
-scripts=(
-    "${DIR}/../hack/boilerplate.sh"
-    "${DIR}/../hack/gofmt.sh"
-)
-fail=0
-for s in "${scripts[@]}"
-do
-    echo "RUN ${s}"
-    if "${s}"; then
-        echo -e "${GREEN}PASSED${RESET} ${s}"
-    else
-        echo -e "${RED}FAILED${RESET} ${s}"
-        fail=1
-    fi
-done
-exit "${fail}"

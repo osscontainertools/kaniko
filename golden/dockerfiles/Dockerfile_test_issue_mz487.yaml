@@ -1,0 +1,31 @@
+dockerfile: |-
+    FROM alpine AS base
+    RUN install
+
+    FROM base AS intermediate
+    RUN install more
+
+    # mz487: in kaniko v1.26.1-v1.26.4 we had a regression whereby
+    # the build stage would not be squashed into the intermediate stage,
+    # as it was a pure CopyDependency.
+    FROM intermediate AS build
+    RUN compile
+
+    FROM base AS final
+    COPY --from=build output output
+tests:
+  - args: ["--no-push"]
+    plan: |-
+      FROM alpine AS base
+      RUN install
+      SAVE STAGE /kaniko/stages/0
+      CLEAN
+
+      FROM base (/kaniko/stages/0) AS build
+      RUN install more
+      RUN compile
+      SAVE FILES [output] /kaniko/deps/2
+      CLEAN
+
+      FROM base (/kaniko/stages/0) AS final
+      COPY --from=build output output
