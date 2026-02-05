@@ -134,6 +134,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_NEW_CACHE_LAYOUT`](#flag-ff_kaniko_new_cache_layout)
       - [Flag `FF_KANIKO_OCI_STAGES`](#flag-ff_kaniko_oci_stages)
       - [Flag `FF_KANIKO_DISABLE_HTTP2`](#flag-ff_kaniko_disable_http2)
+      - [Flag `FF_KANIKO_OCI_WARMER`](#flag-ff_kaniko_oci_warmer)
       - [Flag `FF_KANIKO_RUN_VIA_TINI`](#flag-ff_kaniko_run_via_tini)
     - [Debug Image](#debug-image)
   - [Security](#security)
@@ -1271,7 +1272,7 @@ multiple times for multiple registries.
 
 Builds only used stages.  If set to `false` it builds all stages, even the unnecessary ones until it reaches the target stage / end of Dockerfile.
 Defaults to `true`.
-Will be deprecated in `v1.27.0`.
+Will be deprecated in `v1.27.0`, if we manage to implement multi-target builds by then.
 
 #### Flag `--snapshot-mode`
 
@@ -1400,6 +1401,13 @@ Becomes default in `v1.27.0`.
 We noticed that there is a significant performance gap when using http/2.0 together with gitlab registry. Set this flag to `true` to enforce http/1.1 protocol, the same behaviour as if setting `GODEBUG="http2client=0"`.
 Defaults to `false`.
 Currently no plans to activate.
+
+#### Flag `FF_KANIKO_OCI_WARMER`
+
+Warmer stores images in a tarball via go-containerregistry. However, this approach creates two problems. The tarball writer only supports dockerv2 mediatype, so building from warmer cache might result in a different output image than building from remote, as we forcefully rewrite all images to that mediatype. Secondly, the performance/usability of that approach is suboptimal, as we either store the manifest in a separate file, causing consistency issues or recalculate upon load (see [`FF_KANIKO_IGNORE_CACHED_MANIFEST`](#flag-ff_kaniko_ignore_cached_manifest)). With this change we use ocilayout instead. Ocilayout folders support arbitrary mediatypes and store the manifest alongside the image data.
+Set this flag to `true` to store warmer cache images as ocilayout. Note that this flag has to be passed to both warmer and executor. Note that currently there is no mutex lock mechanism yet, so it does not support multiple parallel writes.
+Defaults to `false`.
+Becomes default in `v1.27.0`, if we manage to resolve the mutex lock issue by then.
 
 #### Flag `FF_KANIKO_RUN_VIA_TINI`
 

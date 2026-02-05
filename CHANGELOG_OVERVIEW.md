@@ -37,7 +37,7 @@
 * `FF_KANIKO_RUN_MOUNT_SECRET=false` secret mounts: https://github.com/osscontainertools/kaniko/pull/391 https://github.com/osscontainertools/kaniko/pull/409
 * `FF_KANIKO_RUN_VIA_TINI=false` reap zombie processes: https://github.com/osscontainertools/kaniko/pull/211 https://github.com/osscontainertools/kaniko/pull/450
 * Skip chown/chmod for paths in ignore list: by @mesaglio in https://github.com/osscontainertools/kaniko/pull/435
-* resolve remote ONBUILD instructions: https://github.com/osscontainertools/kaniko/pull/354
+* resolve remote `ONBUILD` instructions: https://github.com/osscontainertools/kaniko/pull/354
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
 * ignore labels on base image for cache: https://github.com/mzihlmann/kaniko/pull/2
