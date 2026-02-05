@@ -17,9 +17,11 @@ limitations under the License.
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/sirupsen/logrus"
@@ -93,4 +95,69 @@ var MountInfoPath string
 func init() {
 	RootDir = constants.RootDir
 	MountInfoPath = constants.MountInfoPath
+}
+
+// Same as os.RemoveAll, but asserts that we don't delete / or /kaniko.
+// This should be impossible at runtime and would indicate a programming mistake.
+func safeRemove(target string) error {
+	targetInfo, err := os.Stat(target)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to stat %q: %w", target, err)
+	}
+	rootInfo, err := os.Stat(RootDir)
+	if err != nil {
+		return fmt.Errorf("failed to stat %q: %w", RootDir, err)
+	}
+	kanikoInfo, err := os.Stat(KanikoDir)
+	if err != nil {
+		return fmt.Errorf("failed to stat %q: %w", KanikoDir, err)
+	}
+	if os.SameFile(targetInfo, rootInfo) {
+		logrus.Fatalf("refusing to remove /")
+	}
+	if os.SameFile(targetInfo, kanikoInfo) {
+		logrus.Fatalf("refusing to remove %q", KanikoDir)
+	}
+	if !strings.HasPrefix(target, KanikoDir+"/") {
+		logrus.Fatalf("refusing to remove %q outside %q", target, KanikoDir)
+	}
+	return os.RemoveAll(target)
+}
+
+func Cleanup() error {
+	err := safeRemove(DockerfilePath)
+	if err != nil {
+		return err
+	}
+	err = safeRemove(KanikoIntermediateStagesDir)
+	if err != nil {
+		return err
+	}
+	err = safeRemove(BuildContextDir)
+	if err != nil {
+		return err
+	}
+	if EnvBoolDefault("FF_KANIKO_NEW_CACHE_LAYOUT", true) {
+		err = safeRemove(KanikoInterStageDepsDir)
+		if err != nil {
+			return err
+		}
+		err = safeRemove(KanikoLayersDir)
+		if err != nil {
+			return err
+		}
+	}
+	err = safeRemove(KanikoSecretsDir)
+	if err != nil {
+		return err
+	}
+	_, err = os.Stat(KanikoSwapDir)
+	if err == nil {
+		return fmt.Errorf("expected directory %q to not exist, but it does", KanikoSwapDir)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to stat %q: %w", KanikoSwapDir, err)
+	}
+	return nil
 }
