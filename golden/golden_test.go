@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package plan
+package golden
 
 import (
 	"bytes"
@@ -139,7 +139,10 @@ func TestRun(t *testing.T) {
 
 							var buf bytes.Buffer
 							oldStdout := os.Stdout
-							r, w, _ := os.Pipe()
+							r, w, err := os.Pipe()
+							if err != nil {
+								t.Error(err)
+							}
 							os.Stdout = w
 							_, err = executor.DoBuild(&opts)
 							if err != nil {

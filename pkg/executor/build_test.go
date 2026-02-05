@@ -278,7 +278,7 @@ FROM alpine
 COPY --from=stage1 /baz /bat
 `,
 			want: map[int][]string{
-				0: {"/foo", "/baz"},
+				0: {"/baz", "/foo"},
 			},
 		},
 		{

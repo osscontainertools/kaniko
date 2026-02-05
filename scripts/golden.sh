@@ -13,10 +13,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+set -euo pipefail
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
-#set -e
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -30,13 +29,11 @@ FLAGS=(
 )
 EXTRA_FLAGS=()
 
-if [[ -n ${DOCKERFILE_PATTERN} ]]; then
+if [[ -n ${DOCKERFILE_PATTERN:-} ]]; then
   EXTRA_FLAGS+=("--dockerfiles-pattern=${DOCKERFILE_PATTERN}")
 fi
 
 echo "Running go tests..."
-go test ${FLAGS[@]} ./golden/... ${EXTRA_FLAGS[@]} | sed ''/PASS/s//$(printf "${GREEN}PASS${RESET}")/'' | sed ''/FAIL/s//$(printf "${RED}FAIL${RESET}")/''
-GO_TEST_EXIT_CODE=${PIPESTATUS[0]}
-if [[ ${GO_TEST_EXIT_CODE} -ne 0 ]]; then
-    exit "${GO_TEST_EXIT_CODE}"
-fi
+go test ${FLAGS[@]} ./golden/... ${EXTRA_FLAGS[@]} \
+  | sed ''/PASS/s//$(printf "${GREEN}PASS${RESET}")/'' \
+  | sed ''/FAIL/s//$(printf "${RED}FAIL${RESET}")/''

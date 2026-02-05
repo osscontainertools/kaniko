@@ -721,6 +721,10 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 		}
 		images[s.Index] = image
 	}
+	for i := range depGraph {
+		slices.Sort(depGraph[i])
+		depGraph[i] = slices.Compact(depGraph[i])
+	}
 	return depGraph, nil
 }
 
@@ -765,8 +769,6 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 			fmt.Printf("SAVE STAGE %s%d\n", config.KanikoIntermediateStagesDir, s.Index)
 		}
 		filesToSave := crossStageDependencies[s.Index]
-		slices.Sort(filesToSave)
-		filesToSave = slices.Compact(filesToSave)
 		if len(filesToSave) > 0 {
 			fmt.Printf("SAVE FILES %v %s%d\n", filesToSave, config.KanikoInterStageDepsDir, s.Index)
 		}
