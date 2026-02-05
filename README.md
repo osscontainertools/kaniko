@@ -84,6 +84,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--custom-platform`](#flag---custom-platform)
       - [Flag `--digest-file`](#flag---digest-file)
       - [Flag `--dockerfile`](#flag---dockerfile)
+      - [Flag `--dryrun`](#flag---dryrun)
       - [Flag `--force`](#flag---force)
       - [Flag `--git`](#flag---git)
       - [Flag `--image-name-with-digest-file`](#flag---image-name-with-digest-file)
@@ -1029,6 +1030,10 @@ the digest to that file, which is picked up by Kubernetes automatically as the
 #### Flag `--dockerfile`
 
 Path to the dockerfile to be built. (default "Dockerfile")
+
+#### Flag `--dryrun`
+
+Instead of buliding the docker image, just print a plan of what kaniko would do.
 
 #### Flag `--force`
 
