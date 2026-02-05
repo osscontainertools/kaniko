@@ -344,7 +344,7 @@ func moveKanikoDir(src, target string) error {
 		// but actually point to a different directory. like `/kaniko2`
 		if rest, ok := strings.CutPrefix(val, src+"/"); ok {
 			// Case: starts with /kaniko/
-			newVal := val + "/" + rest
+			newVal := target + "/" + rest
 			os.Setenv(key, newVal)
 			logrus.Infof("updating env: %s=%s", key, newVal)
 		} else if val == src {
