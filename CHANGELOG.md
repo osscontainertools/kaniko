@@ -1,13 +1,49 @@
+# v1.26.5 Release 2026-02-05
+## Community Update
+* @Bixilon made their first contribution in https://github.com/osscontainertools/kaniko/pull/458
+
+## What's Changed
+### Security
+* go stdlib v1.25.5: CVE-2025-61726 CVE-2025-61728 CVE-2025-61730 CVE-2025-68121
+
+### Bugfixes
+* dockerfile: don't use +x for chmod: by @Bixilon in https://github.com/osscontainertools/kaniko/pull/458
+* fix KANIKO_DIR bootstrapping: https://github.com/osscontainertools/kaniko/pull/475
+* cache mount fails to rename across filesystems: https://github.com/osscontainertools/kaniko/pull/455
+* cleanup kaniko workspace on failure too: https://github.com/osscontainertools/kaniko/pull/453
+
+### Standardization
+* resolve remote ONBUILD instructions: https://github.com/osscontainertools/kaniko/pull/354
+
+### Usability
+* dynamically determine kanikoDir: https://github.com/osscontainertools/kaniko/pull/454
+
+### Maintenance
+* chore(deps): bump cloud.google.com/go/storage from 1.58.0 to 1.59.2: https://github.com/osscontainertools/kaniko/pull/457 https://github.com/osscontainertools/kaniko/pull/461 https://github.com/osscontainertools/kaniko/pull/482
+* chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.41.0 to 1.41.1: https://github.com/osscontainertools/kaniko/pull/456
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.32.6 to 1.32.7: https://github.com/osscontainertools/kaniko/pull/456
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.20.18 to 1.21.1: https://github.com/osscontainertools/kaniko/pull/456 https://github.com/osscontainertools/kaniko/pull/467 https://github.com/osscontainertools/kaniko/pull/482
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.95.0 to 1.96.0: https://github.com/osscontainertools/kaniko/pull/456 https://github.com/osscontainertools/kaniko/pull/482
+* chore(deps): bump actions/setup-go from 6.1.0 to 6.2.0: https://github.com/osscontainertools/kaniko/pull/459
+* chore(deps): bump github.com/Azure/azure-sdk-for-go/sdk/storage/azblob from 1.6.3 to 1.6.4: https://github.com/osscontainertools/kaniko/pull/460
+* chore(deps): bump google.golang.org/api from 0.259.0 to 0.265.0: https://github.com/osscontainertools/kaniko/pull/462 https://github.com/osscontainertools/kaniko/pull/469 https://github.com/osscontainertools/kaniko/pull/472 https://github.com/osscontainertools/kaniko/pull/479 https://github.com/osscontainertools/kaniko/pull/484 https://github.com/osscontainertools/kaniko/pull/490
+* chore(deps): bump github.com/sirupsen/logrus from 1.9.3 to 1.9.4: https://github.com/osscontainertools/kaniko/pull/463
+* chore(deps): bump github.com/docker/cli from 29.1.4+incompatible to 29.2.1+incompatible: https://github.com/osscontainertools/kaniko/pull/465 https://github.com/osscontainertools/kaniko/pull/478 https://github.com/osscontainertools/kaniko/pull/489
+* chore(deps): bump actions/checkout from 6.0.1 to 6.0.2: https://github.com/osscontainertools/kaniko/pull/471
+* chore(deps): bump golang from 1.25.5 to 1.25.7: https://github.com/osscontainertools/kaniko/pull/466 https://github.com/osscontainertools/kaniko/pull/491
+* chore(deps): bump github.com/moby/buildkit from 0.26.3 to 0.27.1: https://github.com/osscontainertools/kaniko/pull/470 https://github.com/osscontainertools/kaniko/pull/483
+* chore(deps): bump step-security/harden-runner from 2.14.0 to 2.14.1: https://github.com/osscontainertools/kaniko/pull/476
+* chore(deps): bump github.com/moby/moby/api from 1.52.0 to 1.53.0: https://github.com/osscontainertools/kaniko/pull/477
+* chore(deps): bump imjasonh/setup-crane from 0.4 to 0.5: https://github.com/osscontainertools/kaniko/pull/492
+
 # v1.26.4 Release 2026-01-09
 ## Community Update
 * @mesaglio made their first contribution in https://github.com/osscontainertools/kaniko/pull/435
 * @nejch made their first contribution in https://github.com/osscontainertools/kaniko/pull/445
 
 ## What's Changed
-### Bugfixes
-* Skip chown/chmod for paths in ignore list: by @mesaglio in https://github.com/osscontainertools/kaniko/pull/435
-
 ### Standardization
+* Skip chown/chmod for paths in ignore list: by @mesaglio in https://github.com/osscontainertools/kaniko/pull/435
 * `FF_KANIKO_RUN_VIA_TINI=false` reap zombie processes: https://github.com/osscontainertools/kaniko/pull/211 https://github.com/osscontainertools/kaniko/pull/450
 
 ### Performance
@@ -21,7 +57,7 @@
 * chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.32.3 to 1.32.6: https://github.com/osscontainertools/kaniko/pull/427 https://github.com/osscontainertools/kaniko/pull/431 https://github.com/osscontainertools/kaniko/pull/434
 * chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.20.13 to 1.20.18: https://github.com/osscontainertools/kaniko/pull/427 https://github.com/osscontainertools/kaniko/pull/431 https://github.com/osscontainertools/kaniko/pull/433 https://github.com/osscontainertools/kaniko/pull/434 https://github.com/osscontainertools/kaniko/pull/441
 * chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.93.0 to 1.95.0: https://github.com/osscontainertools/kaniko/pull/427 https://github.com/osscontainertools/kaniko/pull/431 https://github.com/osscontainertools/kaniko/pull/433 https://github.com/osscontainertools/kaniko/pull/441
-* chore(deps): bump step-security/harden-runner from 2.13.3 to 2.14.0 in the actions group: https://github.com/osscontainertools/kaniko/pull/430
+* chore(deps): bump step-security/harden-runner from 2.13.3 to 2.14.0: https://github.com/osscontainertools/kaniko/pull/430
 * chore(deps): bump github.com/docker/cli from 29.1.2+incompatible to 29.1.4+incompatible: https://github.com/osscontainertools/kaniko/pull/432 https://github.com/osscontainertools/kaniko/pull/451
 * chore(deps): github.com/moby/buildkit from 0.26.2 to 0.26.3: https://github.com/osscontainertools/kaniko/pull/434
 * chore(deps): bump google.golang.org/api from 0.257.0 to 0.259.0: https://github.com/osscontainertools/kaniko/pull/436 https://github.com/osscontainertools/kaniko/pull/447
@@ -64,7 +100,7 @@ We thank our sponsor **[L3montree](https://l3montree.com)** for their generous s
 * chore(deps): bump github.com/go-git/go-git/v5 from 5.16.3 to 5.16.4: https://github.com/osscontainertools/kaniko/pull/406
 * chore(deps): bump github.com/google/go-containerregistry from 0.20.6 to 0.20.7: https://github.com/osscontainertools/kaniko/pull/408
 * chore(deps): bump github.com/docker/cli from 29.0.3+incompatible to 29.1.2+incompatible: https://github.com/osscontainertools/kaniko/pull/411 https://github.com/osscontainertools/kaniko/pull/418
-* chore(deps): bump step-security/harden-runner from 2.13.2 to 2.13.3 in the actions group: https://github.com/osscontainertools/kaniko/pull/412
+* chore(deps): bump step-security/harden-runner from 2.13.2 to 2.13.3: https://github.com/osscontainertools/kaniko/pull/412
 * chore(deps): bump google.golang.org/api from 0.256.0 to 0.257.0: https://github.com/osscontainertools/kaniko/pull/417
 * chore(deps): bump golang from 1.25.4 to 1.25.5: https://github.com/osscontainertools/kaniko/pull/414
 * chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.40.0 to 1.40.1: https://github.com/osscontainertools/kaniko/pull/418
@@ -98,9 +134,9 @@ We thank our sponsor **[L3montree](https://l3montree.com)** for their generous s
 * chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.90.0 to 1.90.2: https://github.com/osscontainertools/kaniko/pull/383 https://github.com/osscontainertools/kaniko/pull/386
 * chore(deps): bump github.com/moby/buildkit from 0.25.2 to 0.26.1: https://github.com/osscontainertools/kaniko/pull/387 https://github.com/osscontainertools/kaniko/pull/395
 * chore(deps): bump cloud.google.com/go/storage from 1.57.1 to 1.57.2: https://github.com/osscontainertools/kaniko/pull/395
-* chore(deps): bump actions/checkout from 5.0.0 to 5.0.1 in the actions group: https://github.com/osscontainertools/kaniko/pull/396
+* chore(deps): bump actions/checkout from 5.0.0 to 5.0.1: https://github.com/osscontainertools/kaniko/pull/396
 * chore(deps): bump golang.org/x/crypto from 0.44.0 to 0.45.0: https://github.com/osscontainertools/kaniko/pull/397
-* chore(deps): bump actions/setup-go from 6.0.0 to 6.1.0 in the actions group: https://github.com/osscontainertools/kaniko/pull/398
+* chore(deps): bump actions/setup-go from 6.0.0 to 6.1.0: https://github.com/osscontainertools/kaniko/pull/398
 * chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.39.6 to 1.40.0: https://github.com/osscontainertools/kaniko/pull/401
 
 ### Fork Related
@@ -143,14 +179,14 @@ Also many thanks to @Ashex @ehfd and @YevheniiSemendiak for reporting the issues
 * chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.19.12 to 1.20.4: https://github.com/osscontainertools/kaniko/pull/317 https://github.com/osscontainertools/kaniko/pull/327 https://github.com/osscontainertools/kaniko/pull/331 https://github.com/osscontainertools/kaniko/pull/341 https://github.com/osscontainertools/kaniko/pull/344 https://github.com/osscontainertools/kaniko/pull/349 https://github.com/osscontainertools/kaniko/pull/359 https://github.com/osscontainertools/kaniko/pull/363
 * chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.88.4 to 1.90.0: https://github.com/osscontainertools/kaniko/pull/317 https://github.com/osscontainertools/kaniko/pull/327 https://github.com/osscontainertools/kaniko/pull/331 https://github.com/osscontainertools/kaniko/pull/344 https://github.com/osscontainertools/kaniko/pull/359 https://github.com/osscontainertools/kaniko/pull/363
 * chore(deps): bump sigstore/cosign-installer from 3.10.0 to 4.0.0: https://github.com/osscontainertools/kaniko/pull/318 https://github.com/osscontainertools/kaniko/pull/349
-* chore(deps): bump github.com/Azure/azure-sdk-for-go/sdk/storage/azblob from 1.6.2 to 1.6.3 in the gomod group: https://github.com/osscontainertools/kaniko/pull/319
+* chore(deps): bump github.com/Azure/azure-sdk-for-go/sdk/storage/azblob from 1.6.2 to 1.6.3: https://github.com/osscontainertools/kaniko/pull/319
 * chore(deps): bump google.golang.org/api from 0.252.0 to 0.255.0: https://github.com/osscontainertools/kaniko/pull/328 https://github.com/osscontainertools/kaniko/pull/345 https://github.com/osscontainertools/kaniko/pull/361
-* chore(deps): bump cloud.google.com/go/storage from 1.57.0 to 1.57.1 in the gomod group: https://github.com/osscontainertools/kaniko/pull/346
+* chore(deps): bump cloud.google.com/go/storage from 1.57.0 to 1.57.1: https://github.com/osscontainertools/kaniko/pull/346
 * chore(deps): bump github.com/moby/moby/api from 1.52.0-beta.2 to 1.52.0-beta.4: https://github.com/osscontainertools/kaniko/pull/348 https://github.com/osscontainertools/kaniko/pull/357
 * chore(deps): bump github.com/moby/buildkit from 0.25.1 to 0.25.2: https://github.com/osscontainertools/kaniko/pull/359
 * chore(deps): bump github.com/containerd/platforms from 1.0.0-rc.1 to 1.0.0-rc.2: https://github.com/osscontainertools/kaniko/pull/360
-* chore(deps): bump step-security/harden-runner from 2.13.1 to 2.13.2 in the actions group: https://github.com/osscontainertools/kaniko/pull/358
-* chore(deps): bump docker/setup-qemu-action from 3.6.0 to 3.7.0 in the actions group: https://github.com/osscontainertools/kaniko/pull/358
+* chore(deps): bump step-security/harden-runner from 2.13.1 to 2.13.2: https://github.com/osscontainertools/kaniko/pull/358
+* chore(deps): bump docker/setup-qemu-action from 3.6.0 to 3.7.0: https://github.com/osscontainertools/kaniko/pull/358
 * chore(deps): bump golang from 1.25.3 to 1.25.4: https://github.com/osscontainertools/kaniko/pull/362
 
 ### Fork Related
@@ -257,11 +293,11 @@ Please also notify us by [filing a new issue](https://github.com/osscontainertoo
 * add env credential helper: https://github.com/mzihlmann/kaniko/pull/236 https://github.com/mzihlmann/kaniko/pull/249
 
 ### Maintenance
-* chore(deps): bump github.com/spf13/pflag from 1.0.9 to 1.0.10 in the gomod group: https://github.com/mzihlmann/kaniko/pull/225
+* chore(deps): bump github.com/spf13/pflag from 1.0.9 to 1.0.10: https://github.com/mzihlmann/kaniko/pull/225
 * chore(deps): bump github.com/moby/buildkit from 0.23.2 to 0.24.0: https://github.com/mzihlmann/kaniko/pull/226
 * chore(deps): bump github.com/docker/docker from 28.3.3+incompatible to 28.4.0+incompatible: https://github.com/mzihlmann/kaniko/pull/228
 * chore(deps): bump actions/setup-go from 5.5.0 to 6.0.0: https://github.com/mzihlmann/kaniko/pull/227
-* chore(deps): bump golang from 1.25.0 to 1.25.1 in /deploy: https://github.com/mzihlmann/kaniko/pull/229
+* chore(deps): bump golang from 1.25.0 to 1.25.1: https://github.com/mzihlmann/kaniko/pull/229
 * chore(deps): bump golang.org/x/oauth2 from 0.30.0 to 0.31.0: https://github.com/mzihlmann/kaniko/pull/232
 * chore(deps): bump golang.org/x/sys from 0.35.0 to 0.36.0: https://github.com/mzihlmann/kaniko/pull/233
 * chore(deps): bump golang.org/x/sync from 0.16.0 to 0.17.0: https://github.com/mzihlmann/kaniko/pull/234
@@ -272,9 +308,9 @@ Please also notify us by [filing a new issue](https://github.com/osscontainertoo
 * chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.87.3 to 1.88.1: https://github.com/mzihlmann/kaniko/pull/238 https://github.com/mzihlmann/kaniko/pull/246
 * chore(deps): bump google.golang.org/api from 0.248.0 to 0.249.0: https://github.com/mzihlmann/kaniko/pull/240
 * chore(deps): bump golang.org/x/net from 0.43.0 to 0.44.0: https://github.com/mzihlmann/kaniko/pull/242
-* chore(deps): bump step-security/harden-runner from 2.13.0 to 2.13.1 in the actions group: https://github.com/mzihlmann/kaniko/pull/244
-* chore(deps): bump sigstore/cosign-installer from 3.9.2 to 3.10.0 in the actions group: https://github.com/mzihlmann/kaniko/pull/250
-* chore(deps): bump cloud.google.com/go/storage from 1.56.1 to 1.56.2 in the gomod group: https://github.com/mzihlmann/kaniko/pull/251
+* chore(deps): bump step-security/harden-runner from 2.13.0 to 2.13.1: https://github.com/mzihlmann/kaniko/pull/244
+* chore(deps): bump sigstore/cosign-installer from 3.9.2 to 3.10.0: https://github.com/mzihlmann/kaniko/pull/250
+* chore(deps): bump cloud.google.com/go/storage from 1.56.1 to 1.56.2: https://github.com/mzihlmann/kaniko/pull/251
 
 ### Fork Related
 * update readme: https://github.com/mzihlmann/kaniko/pull/223 https://github.com/mzihlmann/kaniko/pull/253
@@ -306,7 +342,7 @@ Please also notify us by [filing a new issue](https://github.com/osscontainertoo
 * chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.31.1 to 1.31.6: https://github.com/mzihlmann/kaniko/pull/193 https://github.com/mzihlmann/kaniko/pull/207 https://github.com/mzihlmann/kaniko/pull/205 https://github.com/mzihlmann/kaniko/pull/210 https://github.com/mzihlmann/kaniko/pull/217
 * chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.87.0 to 1.87.3: https://github.com/mzihlmann/kaniko/pull/193 https://github.com/mzihlmann/kaniko/pull/205 https://github.com/mzihlmann/kaniko/pull/217
 * chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/manager from 1.18.5 to 1.19.4: https://github.com/mzihlmann/kaniko/pull/194 https://github.com/mzihlmann/kaniko/pull/207 https://github.com/mzihlmann/kaniko/pull/205 https://github.com/mzihlmann/kaniko/pull/210 https://github.com/mzihlmann/kaniko/pull/217
-* chore(deps): bump github.com/spf13/pflag from 1.0.7 to 1.0.9 in the gomod group: https://github.com/mzihlmann/kaniko/pull/218
+* chore(deps): bump github.com/spf13/pflag from 1.0.7 to 1.0.9: https://github.com/mzihlmann/kaniko/pull/218
 * chore(deps): bump github.com/spf13/cobra from 1.9.1 to 1.10.1: https://github.com/mzihlmann/kaniko/pull/219
 
 ### Fork Related
@@ -332,7 +368,7 @@ Please also notify us by [filing a new issue](https://github.com/osscontainertoo
 * chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.86.0 to 1.87.0: https://github.com/mzihlmann/kaniko/pull/175
 * chore(deps): bump golang from 1.24.6 to 1.25.0: https://github.com/mzihlmann/kaniko/pull/182
 * chore(deps): bump google.golang.org/api from 0.246.0 to 0.248.0: https://github.com/mzihlmann/kaniko/pull/179 https://github.com/mzihlmann/kaniko/pull/186
-* chore(deps): bump cloud.google.com/go/storage from 1.56.0 to 1.56.1 in the gomod group: https://github.com/mzihlmann/kaniko/pull/188
+* chore(deps): bump cloud.google.com/go/storage from 1.56.0 to 1.56.1: https://github.com/mzihlmann/kaniko/pull/188
 
 ### Fork Related
 * pass feature flag into integration tests correctly: https://github.com/mzihlmann/kaniko/pull/173
