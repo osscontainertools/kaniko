@@ -19,18 +19,28 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/osscontainertools/kaniko/pkg/constants"
+	"github.com/sirupsen/logrus"
 )
 
 var RootDir string
 
 // KanikoDir is the path to the Kaniko directory
+var KanikoExeDir = func() string {
+	exePath, err := os.Executable()
+	if err != nil {
+		logrus.Fatalf("couldn't determine location of kaniko exe")
+	}
+	return filepath.Dir(exePath)
+}()
+
 var KanikoDir = func() string {
 	if kd, ok := os.LookupEnv("KANIKO_DIR"); ok {
 		return kd
 	}
-	return constants.DefaultKanikoPath
+	return KanikoExeDir
 }()
 
 // DockerfilePath is the path the Dockerfile is copied to

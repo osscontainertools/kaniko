@@ -178,6 +178,9 @@ func buildRequiredImages() error {
 		name:    "Pushing hardlink base image",
 		command: []string{"docker", "push", config.hardlinkBaseImage},
 	}, {
+		name:    "Building kaniko image with moved kaniko dir",
+		command: []string{"docker", "build", "-t", ExecutorImageMoved, "-f", fmt.Sprintf("%s/Dockerfile_test_issue_mz444", dockerfilesPath), "--target", "kaniko", "."},
+	}, {
 		name:    "Building kaniko image with leftover stuff in the filesystem",
 		command: []string{"docker", "build", "-t", ExecutorImageTainted, "-f", fmt.Sprintf("%s/Dockerfile_test_issue_mz455", dockerfilesPath), "--target", "kaniko", "."},
 	}}

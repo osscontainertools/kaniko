@@ -128,12 +128,15 @@ var RootCmd = &cobra.Command{
 
 			// Command line flag takes precedence over the KANIKO_DIR environment variable.
 			dir := config.KanikoDir
-			if opts.KanikoDir != constants.DefaultKanikoPath {
+			if opts.KanikoDir != "" {
 				dir = opts.KanikoDir
 			}
 
-			if err := checkKanikoDir(dir); err != nil {
-				return err
+			if dir != config.KanikoExeDir {
+				err := moveKanikoDir(config.KanikoExeDir, dir)
+				if err != nil {
+					return err
+				}
 			}
 
 			resolveEnvironmentBuildArgs(opts.BuildArgs, os.Getenv)
@@ -264,7 +267,7 @@ func addKanikoOptionsFlags() {
 	RootCmd.Flags().BoolVar(&opts.PushIgnoreImmutableTagErrors, "push-ignore-immutable-tag-errors", false, "If true, known tag immutability errors are ignored and the push finishes with success.")
 	RootCmd.Flags().IntVar(&opts.ImageFSExtractRetry, "image-fs-extract-retry", 0, "Number of retries for image FS extraction")
 	RootCmd.Flags().IntVar(&opts.ImageDownloadRetry, "image-download-retry", 0, "Number of retries for downloading the remote image")
-	RootCmd.Flags().StringVarP(&opts.KanikoDir, "kaniko-dir", "", constants.DefaultKanikoPath, "Path to the kaniko directory, this takes precedence over the KANIKO_DIR environment variable.")
+	RootCmd.Flags().StringVarP(&opts.KanikoDir, "kaniko-dir", "", "", "Path to the kaniko directory, this takes precedence over the KANIKO_DIR environment variable.")
 	RootCmd.Flags().StringVarP(&opts.TarPath, "tar-path", "", "", "Path to save the image in as a tarball instead of pushing")
 	RootCmd.Flags().BoolVarP(&opts.SingleSnapshot, "single-snapshot", "", false, "Take a single snapshot at the end of the build.")
 	RootCmd.Flags().BoolVarP(&opts.Reproducible, "reproducible", "", false, "Strip timestamps out of the image to make it reproducible")
@@ -326,34 +329,31 @@ func addHiddenFlags(cmd *cobra.Command) {
 	cmd.Flags().MarkHidden("bucket")
 }
 
-// checkKanikoDir will check whether the executor is operating in the default '/kaniko' directory,
-// conducting the relevant operations if it is not
-func checkKanikoDir(dir string) error {
-	if dir != constants.DefaultKanikoPath {
+// moveKanikoDir will move the entire kanikoDir and to a new location
+func moveKanikoDir(src, target string) error {
+	err := util.MoveDir(src, target)
+	if err != nil {
+		return err
+	}
 
-		err := util.MoveDir(constants.DefaultKanikoPath, dir)
-		if err != nil {
-			return err
-		}
-
-		// Update any env var pointing to the old Kaniko path
-		for _, e := range os.Environ() {
-			parts := strings.SplitN(e, "=", 2)
-			key, val := parts[0], parts[1]
-			// avoid replacing variables that happen to start with the same text
-			// but actually point to a different directory. like `/kaniko2`
-			if rest, ok := strings.CutPrefix(val, constants.DefaultKanikoPath+"/"); ok {
-				// Case: starts with /kaniko/
-				newVal := val + "/" + rest
-				os.Setenv(key, newVal)
-				logrus.Infof("updating env: %s=%s", key, newVal)
-			} else if val == constants.DefaultKanikoPath {
-				// Case: exactly /kaniko
-				os.Setenv(key, dir)
-				logrus.Infof("updating env: %s=%s", key, dir)
-			}
+	// Update any env var pointing to the old Kaniko path
+	for _, e := range os.Environ() {
+		parts := strings.SplitN(e, "=", 2)
+		key, val := parts[0], parts[1]
+		// avoid replacing variables that happen to start with the same text
+		// but actually point to a different directory. like `/kaniko2`
+		if rest, ok := strings.CutPrefix(val, src+"/"); ok {
+			// Case: starts with /kaniko/
+			newVal := target + "/" + rest
+			os.Setenv(key, newVal)
+			logrus.Infof("updating env: %s=%s", key, newVal)
+		} else if val == src {
+			// Case: exactly /kaniko
+			os.Setenv(key, target)
+			logrus.Infof("updating env: %s=%s", key, target)
 		}
 	}
+
 	return nil
 }
 
