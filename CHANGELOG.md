@@ -1,19 +1,21 @@
 # v1.26.5 Release 2026-02-05
 ## Community Update
-* @Bixilon made their first contribution in https://github.com/osscontainertools/kaniko/pull/458
+@Bixilon made their first contribution in https://github.com/osscontainertools/kaniko/pull/458
+
+Also many thanks to @BlackTurtle123 and @xathon for reporting the issues fixed in this release.
 
 ## What's Changed
 ### Security
 * go stdlib v1.25.5: CVE-2025-61726 CVE-2025-61728 CVE-2025-61730 CVE-2025-68121
 
 ### Bugfixes
-* dockerfile: don't use +x for chmod: by @Bixilon in https://github.com/osscontainertools/kaniko/pull/458
-* fix KANIKO_DIR bootstrapping: https://github.com/osscontainertools/kaniko/pull/475
+* dockerfile: don't use `+x` for chmod: by @Bixilon in https://github.com/osscontainertools/kaniko/pull/458
+* fix `KANIKO_DIR` bootstrapping: https://github.com/osscontainertools/kaniko/pull/475
 * cache mount fails to rename across filesystems: https://github.com/osscontainertools/kaniko/pull/455
 * cleanup kaniko workspace on failure too: https://github.com/osscontainertools/kaniko/pull/453
 
 ### Standardization
-* resolve remote ONBUILD instructions: https://github.com/osscontainertools/kaniko/pull/354
+* resolve remote `ONBUILD` instructions: https://github.com/osscontainertools/kaniko/pull/354
 
 ### Usability
 * dynamically determine kanikoDir: https://github.com/osscontainertools/kaniko/pull/454
