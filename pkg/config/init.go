@@ -98,36 +98,37 @@ func init() {
 
 func Cleanup() error {
 	err := os.Remove(DockerfilePath)
-	if err != nil {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	err = os.RemoveAll(KanikoIntermediateStagesDir)
-	if err != nil {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	err = os.RemoveAll(BuildContextDir)
-	if err != nil {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	if EnvBoolDefault("FF_KANIKO_NEW_CACHE_LAYOUT", true) {
 		err = os.RemoveAll(KanikoInterStageDepsDir)
-		if err != nil {
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
-	}
-	if EnvBoolDefault("FF_KANIKO_NEW_CACHE_LAYOUT", true) {
+
 		err = os.RemoveAll(KanikoLayersDir)
-		if err != nil {
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
 	}
 	err = os.RemoveAll(KanikoSecretsDir)
-	if err != nil {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	_, err = os.Stat(KanikoSwapDir)
-	if !errors.Is(err, os.ErrNotExist) {
+	if err == nil {
 		return fmt.Errorf("expected directory %q to not exist, but it does", KanikoSwapDir)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to stat %q: %w", KanikoSwapDir, err)
 	}
 	return nil
 }
