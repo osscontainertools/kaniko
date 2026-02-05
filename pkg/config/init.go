@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/sirupsen/logrus"
@@ -96,32 +97,60 @@ func init() {
 	MountInfoPath = constants.MountInfoPath
 }
 
+// Same as os.RemoveAll, but asserts that we don't delete / or /kaniko.
+// This should be impossible at runtime and would indicate a programming mistake.
+func safeRemove(target string) error {
+	targetInfo, err := os.Stat(target)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to stat %q: %w", target, err)
+	}
+	rootInfo, err := os.Stat(RootDir)
+	if err != nil {
+		return fmt.Errorf("failed to stat %q: %w", RootDir, err)
+	}
+	kanikoInfo, err := os.Stat(KanikoDir)
+	if err != nil {
+		return fmt.Errorf("failed to stat %q: %w", KanikoDir, err)
+	}
+	if os.SameFile(targetInfo, rootInfo) {
+		logrus.Fatalf("refusing to remove /")
+	}
+	if os.SameFile(targetInfo, kanikoInfo) {
+		logrus.Fatalf("refusing to remove %q", KanikoDir)
+	}
+	if !strings.HasPrefix(target, KanikoDir+"/") {
+		logrus.Fatalf("refusing to remove %q outside %q", target, KanikoDir)
+	}
+	return os.RemoveAll(target)
+}
+
 func Cleanup() error {
-	err := os.Remove(DockerfilePath)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
+	err := safeRemove(DockerfilePath)
+	if err != nil {
 		return err
 	}
-	err = os.RemoveAll(KanikoIntermediateStagesDir)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
+	err = safeRemove(KanikoIntermediateStagesDir)
+	if err != nil {
 		return err
 	}
-	err = os.RemoveAll(BuildContextDir)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
+	err = safeRemove(BuildContextDir)
+	if err != nil {
 		return err
 	}
 	if EnvBoolDefault("FF_KANIKO_NEW_CACHE_LAYOUT", true) {
-		err = os.RemoveAll(KanikoInterStageDepsDir)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
+		err = safeRemove(KanikoInterStageDepsDir)
+		if err != nil {
 			return err
 		}
-
-		err = os.RemoveAll(KanikoLayersDir)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
+		err = safeRemove(KanikoLayersDir)
+		if err != nil {
 			return err
 		}
 	}
-	err = os.RemoveAll(KanikoSecretsDir)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
+	err = safeRemove(KanikoSecretsDir)
+	if err != nil {
 		return err
 	}
 	_, err = os.Stat(KanikoSwapDir)
