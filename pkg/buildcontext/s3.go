@@ -25,7 +25,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
-	s3manager "github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
@@ -58,7 +58,7 @@ func (s *S3) UnpackTarFromBuildContext() (string, error) {
 			options.UsePathStyle = forcePath
 		}
 	})
-	downloader := s3manager.NewDownloader(client)
+	downloader := transfermanager.New(client)
 	directory := kConfig.BuildContextDir
 	tarPath := filepath.Join(directory, constants.ContextTar)
 	if err := os.MkdirAll(directory, 0750); err != nil {
@@ -68,11 +68,11 @@ func (s *S3) UnpackTarFromBuildContext() (string, error) {
 	if err != nil {
 		return directory, err
 	}
-	_, err = downloader.Download(context.TODO(), file,
-		&s3.GetObjectInput{
-			Bucket: aws.String(bucket),
-			Key:    aws.String(item),
-		})
+	_, err = downloader.DownloadObject(context.TODO(), &transfermanager.DownloadObjectInput{
+		Bucket:   aws.String(bucket),
+		Key:      aws.String(item),
+		WriterAt: file,
+	})
 	if err != nil {
 		return directory, err
 	}
