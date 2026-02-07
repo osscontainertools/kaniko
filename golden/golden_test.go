@@ -141,7 +141,7 @@ func TestRun(t *testing.T) {
 							oldStdout := os.Stdout
 							r, w, _ := os.Pipe()
 							os.Stdout = w
-							_, err = executor.DoBuild(&opts)
+							err = executor.DoBuild(&opts, nil)
 							if err != nil {
 								t.Error(err)
 							}
