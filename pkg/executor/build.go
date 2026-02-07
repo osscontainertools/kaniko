@@ -742,7 +742,7 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 			printf("%s\n", command)
 		}
 		if s.Push && !opts.NoPush {
-			printf("PUSH %v\n", opts.Destinations)
+			printf("PUSH %v\n", opts.Destinations["__default__"])
 		}
 		if s.Final {
 			if opts.Cleanup {
