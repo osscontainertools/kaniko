@@ -9,34 +9,34 @@ var Tests = types.GoldenTests{
 		{
 			Args: []string{"--no-push"},
 			// TODO: clean after first-stage is unnecesary
-			Plan: "normal.txt",
+			Plan: "normal",
 		},
 		{
 			Args: []string{"--no-push", "--target=fifth-stage"},
-			Plan: "normal.txt",
+			Plan: "normal",
 		},
 		{
 			Args: []string{"--destination=registry"},
-			Plan: "push.txt",
+			Plan: "push",
 		},
 		{
 			Args: []string{"--skip-unused-stages=false", "--no-push"},
-			Plan: "noskip.txt",
+			Plan: "noskip",
 		},
 		{
 			Args: []string{"--no-push"},
 			Env: map[string]string{
 				"FF_KANIKO_SQUASH_STAGES": "0",
 			},
-			Plan: "nosquash.txt",
+			Plan: "nosquash",
 		},
 		{
 			Args: []string{"--no-push", "--target=fourth-stage"},
-			Plan: "fourth.txt",
+			Plan: "fourth",
 		},
 		{
 			Args: []string{"--no-push", "--target=noise"},
-			Plan: "noise.txt",
+			Plan: "noise",
 		},
 	},
 }

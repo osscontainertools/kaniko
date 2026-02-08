@@ -9,36 +9,36 @@ var Tests = []types.GoldenTests{
 		Tests: []types.GoldenTest{
 			{
 				Args: []string{"--no-push", "--target=base-dev"},
-				Plan: "wo_copyfrom_dev.txt",
+				Plan: "wo_copyfrom_dev",
 			},
 			{
 				Args: []string{"--no-push", "--target=base-dev"},
 				Env: map[string]string{
 					"FF_KANIKO_SQUASH_STAGES": "0",
 				},
-				Plan: "wo_copyfrom_dev.txt",
+				Plan: "wo_copyfrom_dev",
 			},
 			{
 				Args: []string{"--no-push", "--target=base-prod"},
-				Plan: "wo_copyfrom_prod.txt",
+				Plan: "wo_copyfrom_prod",
 			},
 			{
 				Args: []string{"--no-push", "--target=base-prod"},
 				Env: map[string]string{
 					"FF_KANIKO_SQUASH_STAGES": "0",
 				},
-				Plan: "wo_copyfrom_prod.txt",
+				Plan: "wo_copyfrom_prod",
 			},
 			{
 				Args: []string{"--no-push"},
-				Plan: "wo_copyfrom_final.txt",
+				Plan: "wo_copyfrom_final",
 			},
 			{
 				Args: []string{"--no-push"},
 				Env: map[string]string{
 					"FF_KANIKO_SQUASH_STAGES": "0",
 				},
-				Plan: "wo_copyfrom_final_nosquash.txt",
+				Plan: "wo_copyfrom_final_nosquash",
 			},
 		},
 	},
@@ -48,15 +48,15 @@ var Tests = []types.GoldenTests{
 		Tests: []types.GoldenTest{
 			{
 				Args: []string{"--no-push", "--target=base-dev"},
-				Plan: "wo_copyfrom_dev.txt",
+				Plan: "wo_copyfrom_dev",
 			},
 			{
 				Args: []string{"--no-push", "--target=base-prod"},
-				Plan: "wo_copyfrom_prod.txt",
+				Plan: "wo_copyfrom_prod",
 			},
 			{
 				Args: []string{"--no-push"},
-				Plan: "copyfrom_final.txt",
+				Plan: "copyfrom_final",
 			},
 		},
 	},
@@ -66,15 +66,15 @@ var Tests = []types.GoldenTests{
 		Tests: []types.GoldenTest{
 			{
 				Args: []string{"--no-push", "--target=base-dev"},
-				Plan: "wo_copyfrom_dev.txt",
+				Plan: "wo_copyfrom_dev",
 			},
 			{
 				Args: []string{"--no-push", "--target=base-prod"},
-				Plan: "wo_copyfrom_prod.txt",
+				Plan: "wo_copyfrom_prod",
 			},
 			{
 				Args: []string{"--no-push"},
-				Plan: "two_copyfrom_final.txt",
+				Plan: "two_copyfrom_final",
 			},
 		},
 	},
@@ -84,25 +84,25 @@ var Tests = []types.GoldenTests{
 		Tests: []types.GoldenTest{
 			{
 				Args: []string{"--no-push", "--target=base"},
-				Plan: "two_copyfrom_and_arg_base.txt",
+				Plan: "two_copyfrom_and_arg_base",
 			},
 			{
 				Args: []string{"--no-push", "--target=base"},
 				Env: map[string]string{
 					"FF_KANIKO_SQUASH_STAGES": "0",
 				},
-				Plan: "two_copyfrom_and_arg_base.txt",
+				Plan: "two_copyfrom_and_arg_base",
 			},
 			{
 				Args: []string{"--no-push"},
-				Plan: "two_copyfrom_and_arg_final.txt",
+				Plan: "two_copyfrom_and_arg_final",
 			},
 			{
 				Args: []string{"--no-push"},
 				Env: map[string]string{
 					"FF_KANIKO_SQUASH_STAGES": "0",
 				},
-				Plan: "two_copyfrom_and_arg_final_no_squash.txt",
+				Plan: "two_copyfrom_and_arg_final_no_squash",
 			},
 		},
 	},
@@ -112,19 +112,19 @@ var Tests = []types.GoldenTests{
 		Tests: []types.GoldenTest{
 			{
 				Args: []string{"--no-push", "--target=final"},
-				Plan: "final_wo_deps_final.txt",
+				Plan: "final_wo_deps_final",
 			},
 			{
 				Args: []string{"--no-push", "--target=buzz"},
-				Plan: "final_wo_deps_buzz.txt",
+				Plan: "final_wo_deps_buzz",
 			},
 			{
 				Args: []string{"--no-push", "--target=fizz"},
-				Plan: "final_wo_deps_fizz.txt",
+				Plan: "final_wo_deps_fizz",
 			},
 			{
 				Args: []string{"--no-push"},
-				Plan: "final_wo_deps_final.txt",
+				Plan: "final_wo_deps_final",
 			},
 		},
 	},
@@ -136,7 +136,7 @@ var Tests = []types.GoldenTests{
 			// There is no need to run the command twice.
 			{
 				Args: []string{"--no-push"},
-				Plan: "multiple_copy.txt",
+				Plan: "multiple_copy",
 			},
 		},
 	},
@@ -147,7 +147,7 @@ var Tests = []types.GoldenTests{
 			// TODO: alias stages get fully unrolled instead of inlined.
 			{
 				Args: []string{"--no-push"},
-				Plan: "alias.txt",
+				Plan: "alias",
 			},
 		},
 	},
@@ -157,11 +157,11 @@ var Tests = []types.GoldenTests{
 		Tests: []types.GoldenTest{
 			{
 				Args: []string{"--no-push"},
-				Plan: "global_arg.txt",
+				Plan: "global_arg",
 			},
 			{
 				Args: []string{"--no-push", "--target=stage1"},
-				Plan: "global_arg_stage1.txt",
+				Plan: "global_arg_stage1",
 			},
 		},
 	},

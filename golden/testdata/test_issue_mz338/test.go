@@ -8,7 +8,7 @@ var Tests = types.GoldenTests{
 	Tests: []types.GoldenTest{
 		{
 			Args: []string{"--no-push"},
-			Plan: "plan.txt",
+			Plan: "plan",
 		},
 	},
 }
