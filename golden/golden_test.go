@@ -65,8 +65,10 @@ var allTests = map[string][]types.GoldenTests{
 	"test_issue_mz338": {testissuemz338.Tests},
 	"test_unittests":   testunittests.Tests,
 }
+var update bool
 
 func TestMain(m *testing.M) {
+	flag.BoolVar(&update, "update", false, "Whether to update expected output instead of testing it")
 	flag.Parse()
 	exitCode := m.Run()
 	os.Exit(exitCode)
@@ -117,18 +119,27 @@ func TestRun(t *testing.T) {
 							w.Close()
 							os.Stdout = oldStdout
 							_, _ = io.Copy(&buf, r)
-							output := strings.Trim(buf.String(), "\n")
 
 							planPath := filepath.Join(testDir, "plans", test.Plan)
-							expectedPlan, err := os.ReadFile(planPath)
-							if err != nil {
-								t.Fatal(err)
-							}
-							expected := strings.Trim(string(expectedPlan), "\n")
 
-							if diff := cmp.Diff(expected, output); diff != "" {
-								t.Errorf("plan mismatch (-expected +got):\n%s", diff)
+							if update {
+								err = os.WriteFile(planPath, buf.Bytes(), 0644)
+								if err != nil {
+									t.Fatal(err)
+								}
+							} else {
+								output := strings.Trim(buf.String(), "\n")
+								expectedPlan, err := os.ReadFile(planPath)
+								if err != nil {
+									t.Fatal(err)
+								}
+								expected := strings.Trim(string(expectedPlan), "\n")
+
+								if diff := cmp.Diff(expected, output); diff != "" {
+									t.Errorf("plan mismatch (-expected +got):\n%s", diff)
+								}
 							}
+
 						})
 					}
 				})
