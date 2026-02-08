@@ -19,7 +19,6 @@ package golden
 import (
 	"bytes"
 	"flag"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -101,27 +100,17 @@ func TestRun(t *testing.T) {
 							}
 							err := exec.ParseFlags(append(args, test.Args...))
 							if err != nil {
-								t.Error(err)
+								t.Fatal(err)
 							}
 							cmd.ValidateFlags(&opts)
 
 							var buf bytes.Buffer
-							oldStdout := os.Stdout
-							r, w, err := os.Pipe()
+							_, err = executor.DoBuild(&opts, &buf)
 							if err != nil {
 								t.Error(err)
 							}
-							os.Stdout = w
-							_, err = executor.DoBuild(&opts)
-							if err != nil {
-								t.Error(err)
-							}
-							w.Close()
-							os.Stdout = oldStdout
-							_, _ = io.Copy(&buf, r)
 
 							planPath := filepath.Join(testDir, "plans", test.Plan)
-
 							if update {
 								err = os.WriteFile(planPath, buf.Bytes(), 0644)
 								if err != nil {
@@ -139,7 +128,6 @@ func TestRun(t *testing.T) {
 									t.Errorf("plan mismatch (-expected +got):\n%s", diff)
 								}
 							}
-
 						})
 					}
 				})

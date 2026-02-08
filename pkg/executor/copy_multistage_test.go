@@ -18,6 +18,7 @@ package executor
 
 import (
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -63,7 +64,7 @@ COPY --from=first copied/bam.txt output/bam.txt`
 			SrcContext:     filepath.Join(testDir, "workspace"),
 			SnapshotMode:   constants.SnapshotModeFull,
 		}
-		_, err := DoBuild(opts)
+		_, err := DoBuild(opts, io.Discard)
 		testutil.CheckNoError(t, err)
 		// Check Image has one layer bam.txt
 		files, err := readDirectory(filepath.Join(testDir, "output"))
@@ -91,7 +92,7 @@ COPY --from=first copied/bam.txt output/`
 			SrcContext:     filepath.Join(testDir, "workspace"),
 			SnapshotMode:   constants.SnapshotModeFull,
 		}
-		_, err := DoBuild(opts)
+		_, err := DoBuild(opts, io.Discard)
 		testutil.CheckNoError(t, err)
 		files, err := readDirectory(filepath.Join(testDir, "output"))
 		if err != nil {
@@ -117,7 +118,7 @@ COPY --from=first copied another`
 			SrcContext:     filepath.Join(testDir, "workspace"),
 			SnapshotMode:   constants.SnapshotModeFull,
 		}
-		_, err := DoBuild(opts)
+		_, err := DoBuild(opts, io.Discard)
 		testutil.CheckNoError(t, err)
 		// Check Image has one layer bam.txt
 		files, err := readDirectory(filepath.Join(testDir, "another"))
@@ -152,7 +153,7 @@ COPY --from=first / output/`
 			SrcContext:     filepath.Join(testDir, "workspace"),
 			SnapshotMode:   constants.SnapshotModeFull,
 		}
-		_, err := DoBuild(opts)
+		_, err := DoBuild(opts, io.Discard)
 		testutil.CheckNoError(t, err)
 
 		filesUnderRoot, err := os.ReadDir(filepath.Join(testDir, "output/"))
