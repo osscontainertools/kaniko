@@ -1,0 +1,6 @@
+FROM docker.io/astral/uv:0.10.0 AS uv
+SAVE FILES [/uv /uvx] /kaniko/deps/0
+CLEAN
+
+FROM python:3.12-slim-bookworm
+COPY --from=uv /uv /uvx /bin/
