@@ -1,0 +1,11 @@
+# Using an ARG inside a COPY --from is currently not supported in
+# docker spec. As a workaround they suggest having such an alias stage.
+# As a result this is a common pattern.
+ARG UV_VERSION=0.10.0
+FROM docker.io/astral/uv:${UV_VERSION} AS uv
+
+FROM python:3.12-slim-bookworm
+
+# However this alias stage doesn't need to be snapshotted
+# as we can directly infer it here instead.
+COPY --from=uv /uv /uvx /bin/

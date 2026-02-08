@@ -128,4 +128,41 @@ var Tests = []types.GoldenTests{
 			},
 		},
 	},
+	{
+		Name:       "test_unittests_multiple_copy",
+		Dockerfile: "Dockerfile.multiple_copy",
+		Tests: []types.GoldenTest{
+			// TODO: if we overwrite the target of a COPY later-on
+			// There is no need to run the command twice.
+			{
+				Args: []string{"--no-push"},
+				Plan: "multiple_copy.txt",
+			},
+		},
+	},
+	{
+		Name:       "test_unittests_alias",
+		Dockerfile: "Dockerfile.alias",
+		Tests: []types.GoldenTest{
+			// TODO: alias stages get fully unrolled instead of inlined.
+			{
+				Args: []string{"--no-push"},
+				Plan: "alias.txt",
+			},
+		},
+	},
+	{
+		Name:       "test_unittests_global_arg",
+		Dockerfile: "Dockerfile.global_arg",
+		Tests: []types.GoldenTest{
+			{
+				Args: []string{"--no-push"},
+				Plan: "global_arg.txt",
+			},
+			{
+				Args: []string{"--no-push", "--target=stage1"},
+				Plan: "global_arg_stage1.txt",
+			},
+		},
+	},
 }

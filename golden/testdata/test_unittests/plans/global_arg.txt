@@ -1,0 +1,2 @@
+FROM alpine:3.11 AS stage2
+RUN echo "stage2" > /stage2.txt

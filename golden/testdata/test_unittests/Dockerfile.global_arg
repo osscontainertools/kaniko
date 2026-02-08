@@ -1,0 +1,6 @@
+ARG BASE_VERSION=3.11
+FROM alpine:${BASE_VERSION} AS stage1
+RUN echo "stage1" > /stage1.txt
+
+FROM alpine:${BASE_VERSION} AS stage2
+RUN echo "stage2" > /stage2.txt
