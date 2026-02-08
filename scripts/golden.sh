@@ -32,6 +32,9 @@ EXTRA_FLAGS=()
 if [[ -n ${DOCKERFILE_PATTERN:-} ]]; then
   EXTRA_FLAGS+=("--dockerfiles-pattern=${DOCKERFILE_PATTERN}")
 fi
+if [[ -n ${UPDATE:-} ]]; then
+  EXTRA_FLAGS+=("--update")
+fi
 
 echo "Running go tests..."
 export KANIKO_DIR="/kaniko"
