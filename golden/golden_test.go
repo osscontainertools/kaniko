@@ -18,36 +18,26 @@ package golden
 
 import (
 	"bytes"
-	"errors"
 	"flag"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
+	testissuemz195 "github.com/osscontainertools/kaniko/golden/dockerfiles/test_issue_mz195"
+	testissuemz333 "github.com/osscontainertools/kaniko/golden/dockerfiles/test_issue_mz333"
+	testissuemz338 "github.com/osscontainertools/kaniko/golden/dockerfiles/test_issue_mz338"
+	testunittests "github.com/osscontainertools/kaniko/golden/dockerfiles/test_unittests"
+	"github.com/osscontainertools/kaniko/golden/types"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/executor"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"go.yaml.in/yaml/v4"
 )
-
-type GoldenTest struct {
-	Args []string          `yaml:"args"`
-	Env  map[string]string `yaml:"env,omitempty"`
-	Plan string            `yaml:"plan"`
-}
-
-type GoldenTests struct {
-	Dockerfile string       `yaml:"dockerfile"`
-	Tests      []GoldenTest `yaml:"tests"`
-}
 
 func renderCommand(env map[string]string, args []string) string {
 	var parts []string
@@ -69,11 +59,14 @@ func renderCommand(env map[string]string, args []string) string {
 	return strings.Join(parts, " ")
 }
 
-var dockerfilesPattern string
+var allTests = map[string][]types.GoldenTests{
+	"test_issue_mz195": {testissuemz195.Tests},
+	"test_issue_mz333": {testissuemz333.Tests},
+	"test_issue_mz338": {testissuemz338.Tests},
+	"test_unittests":   testunittests.Tests,
+}
 
 func TestMain(m *testing.M) {
-	// adds the possibility to run a single dockerfile.
-	flag.StringVar(&dockerfilesPattern, "dockerfiles-pattern", "Dockerfile_test*", "The pattern to match dockerfiles with")
 	flag.Parse()
 	exitCode := m.Run()
 	os.Exit(exitCode)
@@ -82,40 +75,13 @@ func TestMain(m *testing.M) {
 func TestRun(t *testing.T) {
 	logrus.SetLevel(logrus.WarnLevel)
 
-	pattern := fmt.Sprintf("dockerfiles/%s.yaml", dockerfilesPattern)
-	allDockerfiles, err := filepath.Glob(pattern)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, dockerfile := range allDockerfiles {
-		t.Run(filepath.Base(dockerfile), func(t *testing.T) {
-			data, err := os.ReadFile(dockerfile)
-			if err != nil {
-				t.Fatal(err)
-			}
-			dec := yaml.NewDecoder(bytes.NewReader(data))
-			var allDocs []GoldenTests
-			for {
-				var doc GoldenTests
-				err := dec.Decode(&doc)
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						break
-					}
-					t.Fatal(err)
-				}
-				allDocs = append(allDocs, doc)
-			}
-			for idx, doc := range allDocs {
-				t.Run(strconv.Itoa(idx), func(t *testing.T) {
-					tmpDir := t.TempDir()
-					dockerfilePath := filepath.Join(tmpDir, "Dockerfile")
-					err = os.WriteFile(dockerfilePath, []byte(doc.Dockerfile), 0644)
-					if err != nil {
-						t.Fatal(err)
-					}
-
-					for _, test := range doc.Tests {
+	for testName, testSuites := range allTests {
+		t.Run(testName, func(t *testing.T) {
+			testDir := filepath.Join("dockerfiles", testName)
+			for _, testSuite := range testSuites {
+				t.Run(testSuite.Name, func(t *testing.T) {
+					dockerfilePath := filepath.Join(testDir, testSuite.Dockerfile)
+					for _, test := range testSuite.Tests {
 						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
 							for k, v := range test.Env {
 								t.Setenv(k, v)
@@ -131,7 +97,7 @@ func TestRun(t *testing.T) {
 								"--dryrun",
 								"--dockerfile=" + dockerfilePath,
 							}
-							err = exec.ParseFlags(append(args, test.Args...))
+							err := exec.ParseFlags(append(args, test.Args...))
 							if err != nil {
 								t.Error(err)
 							}
@@ -152,8 +118,15 @@ func TestRun(t *testing.T) {
 							os.Stdout = oldStdout
 							_, _ = io.Copy(&buf, r)
 							output := strings.Trim(buf.String(), "\n")
-							plan := strings.Trim(test.Plan, "\n")
-							if diff := cmp.Diff(output, plan); diff != "" {
+
+							planPath := filepath.Join(testDir, "plans", test.Plan)
+							expectedPlan, err := os.ReadFile(planPath)
+							if err != nil {
+								t.Fatal(err)
+							}
+							expected := strings.Trim(string(expectedPlan), "\n")
+
+							if diff := cmp.Diff(expected, output); diff != "" {
 								t.Errorf("plan mismatch (-expected +got):\n%s", diff)
 							}
 						})

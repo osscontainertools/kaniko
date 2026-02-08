@@ -1,0 +1,2 @@
+FROM alpine:3.11 AS base-prod
+RUN echo prod > /hi

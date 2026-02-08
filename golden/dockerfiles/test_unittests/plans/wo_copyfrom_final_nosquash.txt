@@ -1,0 +1,7 @@
+FROM alpine:3.11 AS base-dev
+RUN echo dev > /hi
+SAVE STAGE /kaniko/stages/0
+CLEAN
+
+FROM base-dev (/kaniko/stages/0) AS final-stage
+RUN cat /hi
