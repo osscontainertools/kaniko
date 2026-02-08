@@ -29,8 +29,8 @@ FLAGS=(
 )
 EXTRA_FLAGS=()
 
-if [[ -n ${DOCKERFILE_PATTERN:-} ]]; then
-  EXTRA_FLAGS+=("--dockerfiles-pattern=${DOCKERFILE_PATTERN}")
+if [[ -n ${TESTS:-} ]]; then
+  EXTRA_FLAGS+=("-run TestRun/${TESTS}")
 fi
 if [[ -n ${UPDATE:-} ]]; then
   EXTRA_FLAGS+=("--update")
