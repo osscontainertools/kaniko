@@ -36,7 +36,6 @@ require (
 	github.com/containerd/platforms v1.0.0-rc.2
 	github.com/moby/go-archive v0.2.0
 	github.com/moby/moby/api v1.53.0
-	go.yaml.in/yaml/v4 v4.0.0-rc.4
 )
 
 require github.com/googleapis/enterprise-certificate-proxy v0.3.11 // indirect

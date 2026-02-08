@@ -1,0 +1,7 @@
+FROM busybox AS base
+RUN touch blubb
+SAVE FILES [blubb] /kaniko/deps/0
+CLEAN
+
+FROM scratch AS final
+COPY --from=base blubb .
