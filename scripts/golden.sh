@@ -38,6 +38,6 @@ fi
 
 echo "Running go tests..."
 export KANIKO_DIR="/kaniko"
-go test ${FLAGS[@]} ./golden/... ${EXTRA_FLAGS[@]} \
+go test ${FLAGS[@]} ./golden/golden_test.go ${EXTRA_FLAGS[@]} \
   | sed ''/PASS/s//$(printf "${GREEN}PASS${RESET}")/'' \
   | sed ''/FAIL/s//$(printf "${RED}FAIL${RESET}")/''
