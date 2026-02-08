@@ -28,10 +28,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
-	testissuemz195 "github.com/osscontainertools/kaniko/golden/dockerfiles/test_issue_mz195"
-	testissuemz333 "github.com/osscontainertools/kaniko/golden/dockerfiles/test_issue_mz333"
-	testissuemz338 "github.com/osscontainertools/kaniko/golden/dockerfiles/test_issue_mz338"
-	testunittests "github.com/osscontainertools/kaniko/golden/dockerfiles/test_unittests"
+	testissuemz195 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz195"
+	testissuemz333 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz333"
+	testissuemz338 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz338"
+	testunittests "github.com/osscontainertools/kaniko/golden/testdata/test_unittests"
 	"github.com/osscontainertools/kaniko/golden/types"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/executor"
@@ -79,7 +79,7 @@ func TestRun(t *testing.T) {
 
 	for testName, testSuites := range allTests {
 		t.Run(testName, func(t *testing.T) {
-			testDir := filepath.Join("dockerfiles", testName)
+			testDir := filepath.Join("testdata", testName)
 			for _, testSuite := range testSuites {
 				t.Run(testSuite.Name, func(t *testing.T) {
 					dockerfilePath := filepath.Join(testDir, testSuite.Dockerfile)
