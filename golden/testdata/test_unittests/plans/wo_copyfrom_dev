@@ -1,2 +1,3 @@
 FROM alpine:3.11 AS base-dev
+UNPACK alpine:3.11
 RUN echo dev > /hi

@@ -1,3 +1,4 @@
 FROM alpine:3.11 AS final-stage
+UNPACK alpine:3.11
 RUN echo dev > /hi
 RUN cat /hi

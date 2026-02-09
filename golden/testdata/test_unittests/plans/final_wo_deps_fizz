@@ -1,8 +1,10 @@
 FROM debian:12.10 AS base
+UNPACK debian:12.10
 RUN echo foo > /foo
 SAVE FILES [/foo] /kaniko/deps/1
 CLEAN
 
 FROM debian:12.10 AS fizz
+UNPACK debian:12.10
 RUN echo fizz >> /fizz
 COPY --from=base /foo /fizz
