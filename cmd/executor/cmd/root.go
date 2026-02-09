@@ -209,7 +209,7 @@ var RootCmd = &cobra.Command{
 		if err := os.Chdir("/"); err != nil {
 			exit(fmt.Errorf("error changing to root dir: %w", err))
 		}
-		image, err := executor.DoBuild(opts, os.Stdout)
+		image, err := executor.DoBuild(opts)
 		if err != nil {
 			exit(fmt.Errorf("error building image: %w", err))
 		}

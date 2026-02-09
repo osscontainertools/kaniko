@@ -729,23 +729,28 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 	return depGraph, nil
 }
 
-func RenderStages(w io.Writer, stages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string) error {
+// for testing
+var (
+	Out io.Writer = os.Stdout
+)
+
+func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string) error {
 	if opts.PreserveContext {
-		fmt.Fprintln(w, "SAVE CONTEXT")
+		fmt.Fprintln(Out, "SAVE CONTEXT")
 	}
 	if opts.PreCleanup {
-		fmt.Fprintln(w, "CLEAN")
+		fmt.Fprintln(Out, "CLEAN")
 	}
 	for _, s := range stages {
 		if s.BaseImageStoredLocally {
-			fmt.Fprintf(w, "FROM %s (%s%d)", s.BaseName, config.KanikoIntermediateStagesDir, s.BaseImageIndex)
+			fmt.Fprintf(Out, "FROM %s (%s%d)", s.BaseName, config.KanikoIntermediateStagesDir, s.BaseImageIndex)
 		} else {
-			fmt.Fprintf(w, "FROM %s", s.BaseName)
+			fmt.Fprintf(Out, "FROM %s", s.BaseName)
 		}
 		if s.Name != "" {
-			fmt.Fprintf(w, " AS %s\n", s.Name)
+			fmt.Fprintf(Out, " AS %s\n", s.Name)
 		} else {
-			fmt.Fprintln(w, "")
+			fmt.Fprintln(Out, "")
 		}
 		for _, c := range s.Commands {
 			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
@@ -755,28 +760,28 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, opts *config.KanikoO
 			if command == nil {
 				continue
 			}
-			fmt.Fprintf(w, "%s\n", command)
+			fmt.Fprintf(Out, "%s\n", command)
 		}
 		if s.Final {
 			if !opts.NoPush {
-				fmt.Fprintf(w, "PUSH %v\n", opts.Destinations)
+				fmt.Fprintf(Out, "PUSH %v\n", opts.Destinations)
 			}
 			if opts.Cleanup {
-				fmt.Fprintln(w, "CLEAN")
+				fmt.Fprintln(Out, "CLEAN")
 			}
 			return nil
 		}
 		if s.SaveStage {
-			fmt.Fprintf(w, "SAVE STAGE %s%d\n", config.KanikoIntermediateStagesDir, s.Index)
+			fmt.Fprintf(Out, "SAVE STAGE %s%d\n", config.KanikoIntermediateStagesDir, s.Index)
 		}
 		filesToSave := crossStageDependencies[s.Index]
 		if len(filesToSave) > 0 {
-			fmt.Fprintf(w, "SAVE FILES %v %s%d\n", filesToSave, config.KanikoInterStageDepsDir, s.Index)
+			fmt.Fprintf(Out, "SAVE FILES %v %s%d\n", filesToSave, config.KanikoInterStageDepsDir, s.Index)
 		}
-		fmt.Fprintln(w, "CLEAN")
-		fmt.Fprintln(w, "")
+		fmt.Fprintln(Out, "CLEAN")
+		fmt.Fprintln(Out, "")
 		if opts.PreserveContext && !opts.PreCleanup {
-			fmt.Fprintln(w, "RESTORE CONTEXT")
+			fmt.Fprintln(Out, "RESTORE CONTEXT")
 		}
 	}
 	logrus.Panic("unreachable - we should always have a final stage")
@@ -784,7 +789,7 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, opts *config.KanikoO
 }
 
 // DoBuild executes building the Dockerfile
-func DoBuild(opts *config.KanikoOptions, w io.Writer) (image v1.Image, retErr error) {
+func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	t := timing.Start("Total Build Time")
 	digestToCacheKey := make(map[string]string)
 	stageIdxToDigest := make(map[int]string)
@@ -815,7 +820,7 @@ func DoBuild(opts *config.KanikoOptions, w io.Writer) (image v1.Image, retErr er
 		logrus.Panic("no stages to build")
 	}
 	if opts.Dryrun {
-		return nil, RenderStages(w, kanikoStages, opts, fileContext, crossStageDependencies)
+		return nil, RenderStages(kanikoStages, opts, fileContext, crossStageDependencies)
 	}
 
 	// Some stages may refer to other random images, not previous stages

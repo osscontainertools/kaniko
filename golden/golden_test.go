@@ -105,7 +105,8 @@ func TestRun(t *testing.T) {
 							cmd.ValidateFlags(&opts)
 
 							var buf bytes.Buffer
-							_, err = executor.DoBuild(&opts, &buf)
+							executor.Out = &buf
+							_, err = executor.DoBuild(&opts)
 							if err != nil {
 								t.Error(err)
 							}
