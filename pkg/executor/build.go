@@ -742,15 +742,15 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 		fmt.Fprintln(Out, "CLEAN")
 	}
 	for _, s := range stages {
-		if s.BaseImageStoredLocally {
-			fmt.Fprintf(Out, "FROM %s (%s%d)", s.BaseName, config.KanikoIntermediateStagesDir, s.BaseImageIndex)
-		} else {
-			fmt.Fprintf(Out, "FROM %s", s.BaseName)
-		}
 		if s.Name != "" {
-			fmt.Fprintf(Out, " AS %s\n", s.Name)
+			fmt.Fprintf(Out, "FROM %s AS %s\n", s.BaseName, s.Name)
 		} else {
-			fmt.Fprintln(Out, "")
+			fmt.Fprintf(Out, "FROM %s\n", s.BaseName)
+		}
+		if s.BaseImageStoredLocally {
+			fmt.Fprintf(Out, "UNPACK %s%d\n", config.KanikoIntermediateStagesDir, s.BaseImageIndex)
+		} else {
+			fmt.Fprintf(Out, "UNPACK %s\n", s.BaseName)
 		}
 		for _, c := range s.Commands {
 			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)

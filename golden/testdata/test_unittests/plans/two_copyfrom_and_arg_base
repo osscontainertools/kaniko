@@ -1,2 +1,3 @@
 FROM debian:12.10 AS base
+UNPACK debian:12.10
 COPY . .

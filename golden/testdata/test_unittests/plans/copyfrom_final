@@ -1,8 +1,10 @@
 FROM alpine:3.11 AS base-prod
+UNPACK alpine:3.11
 RUN echo prod > /hi
 SAVE FILES [/hi] /kaniko/deps/1
 CLEAN
 
 FROM alpine:3.11
+UNPACK alpine:3.11
 COPY --from=base-prod /hi /finalhi
 RUN cat /finalhi
