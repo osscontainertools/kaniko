@@ -57,8 +57,11 @@ func Test_StandardImage(t *testing.T) {
 		return nil, nil
 	}
 	RetrieveRemoteImage = mock
+	s := stages[0]
 	actual, err := RetrieveSourceImage(config.KanikoStage{
-		Stage: stages[0],
+		Name:     s.Name,
+		BaseName: s.BaseName,
+		Commands: s.Commands,
 	}, &config.KanikoOptions{})
 	testutil.CheckErrorAndDeepEqual(t, false, err, nil, actual)
 }
@@ -68,8 +71,11 @@ func Test_ScratchImage(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	s := stages[1]
 	actual, err := RetrieveSourceImage(config.KanikoStage{
-		Stage: stages[1],
+		Name:     s.Name,
+		BaseName: s.BaseName,
+		Commands: s.Commands,
 	}, &config.KanikoOptions{})
 	expected := empty.Image
 	testutil.CheckErrorAndDeepEqual(t, false, err, expected, actual)
@@ -88,10 +94,13 @@ func Test_TarImage(t *testing.T) {
 		return nil, nil
 	}
 	retrieveTarImage = mock
+	s := stages[2]
 	actual, err := RetrieveSourceImage(config.KanikoStage{
+		Name:                   s.Name,
+		BaseName:               s.BaseName,
+		Commands:               s.Commands,
 		BaseImageStoredLocally: true,
 		BaseImageIndex:         0,
-		Stage:                  stages[2],
 	}, &config.KanikoOptions{})
 	testutil.CheckErrorAndDeepEqual(t, false, err, nil, actual)
 }
@@ -101,8 +110,11 @@ func Test_ScratchImageFromMirror(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	s := stages[1]
 	actual, err := RetrieveSourceImage(config.KanikoStage{
-		Stage: stages[1],
+		Name:     s.Name,
+		BaseName: s.BaseName,
+		Commands: s.Commands,
 	}, &config.KanikoOptions{
 		RegistryOptions: config.RegistryOptions{
 			RegistryMirrors: []string{"mirror.gcr.io"},
