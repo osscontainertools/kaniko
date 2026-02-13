@@ -83,7 +83,6 @@ func (g *Git) UnpackTarFromBuildContext() (string, error) {
 			// Handle any non-branch refs separately. First, clone the repo HEAD, and
 			// then fetch and check out the fetchRef.
 			fetchRef = parts[1]
-			checkoutRef = fetchRef
 		} else {
 			// Plain branch name like "main", will be cloned directly
 			options.ReferenceName = plumbing.ReferenceName(parts[1])
@@ -112,6 +111,13 @@ func (g *Git) UnpackTarFromBuildContext() (string, error) {
 		})
 		if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 			return directory, err
+		}
+		if checkoutRef == "" {
+			ref, err := r.Reference(plumbing.ReferenceName(fetchRef), true)
+			if err != nil {
+				return directory, err
+			}
+			checkoutRef = ref.Hash().String()
 		}
 	}
 
