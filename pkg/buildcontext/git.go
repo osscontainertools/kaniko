@@ -76,13 +76,11 @@ func (g *Git) UnpackTarFromBuildContext() (string, error) {
 			// Fetch the sha in case it is an ephemeral commit - ie. merged results pipeline
 			fetchRef = parts[1]
 			checkoutRef = fetchRef
-		} else if strings.HasPrefix(parts[1], "refs/heads/") {
+		} else if strings.HasPrefix(parts[1], "refs/heads/") ||
+			strings.HasPrefix(parts[0], "github.com/") && strings.HasPrefix(parts[1], "refs/pull/") ||
+			strings.HasPrefix(parts[0], "gitlab.com/") && strings.HasPrefix(parts[1], "refs/merge-requests/") {
 			// Full branch ref will be cloned directly
-			options.ReferenceName = plumbing.ReferenceName(parts[1])
-		} else if strings.HasPrefix(parts[0], "github.com/") && strings.HasPrefix(parts[1], "refs/pull/") {
 			// For github, pull-request refs can be cloned like branches directly
-			options.ReferenceName = plumbing.ReferenceName(parts[1])
-		} else if strings.HasPrefix(parts[0], "gitlab.com/") && strings.HasPrefix(parts[1], "refs/merge-requests/") {
 			// For gitlab, merge-request refs can be cloned like branches directly
 			options.ReferenceName = plumbing.ReferenceName(parts[1])
 		} else if strings.HasPrefix(parts[1], "refs/") {
