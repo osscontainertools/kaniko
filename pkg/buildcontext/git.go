@@ -79,6 +79,12 @@ func (g *Git) UnpackTarFromBuildContext() (string, error) {
 		} else if strings.HasPrefix(parts[1], "refs/heads/") {
 			// Full branch ref will be cloned directly
 			options.ReferenceName = plumbing.ReferenceName(parts[1])
+		} else if strings.HasPrefix(parts[0], "github.com/") && strings.HasPrefix(parts[1], "refs/pull/") {
+			// For github, pull-request refs can be cloned like branches directly
+			options.ReferenceName = plumbing.ReferenceName(parts[1])
+		} else if strings.HasPrefix(parts[0], "gitlab.com/") && strings.HasPrefix(parts[1], "refs/merge-requests/") {
+			// For gitlab, merge-request refs can be cloned like branches directly
+			options.ReferenceName = plumbing.ReferenceName(parts[1])
 		} else if strings.HasPrefix(parts[1], "refs/") {
 			// Handle any non-branch refs separately. First, clone the repo HEAD, and
 			// then fetch and check out the fetchRef.
