@@ -2,7 +2,7 @@ FROM busybox AS base
 RUN touch blubb
 # mz333: When dropping the `ignored` stage
 # we no longer have a reason to store this here
-# `base` stage as a tarball. Prior to mz333 kaniko
+# `base` stage as a tarball. Prior to  v1.26.1 kaniko
 # would not recognize this optimization and store it anyways.
 
 FROM base AS ignored

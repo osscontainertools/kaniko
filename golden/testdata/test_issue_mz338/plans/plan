@@ -1,0 +1,6 @@
+FROM alpine
+UNPACK alpine
+RUN rm -rf /blubb
+RUN touch /blubb
+RUN ls -lah /blubb
+ONBUILD RUN echo blubb
