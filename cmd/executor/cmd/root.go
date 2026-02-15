@@ -443,6 +443,8 @@ func resolveSecrets() error {
 				return fmt.Errorf("copying secret %s: %w", s.Src, err)
 			}
 			s.Src = destPath
+			// mz511: we need to write back to the dict to persist the update
+			opts.Secrets[k] = s
 		}
 	}
 	return nil
