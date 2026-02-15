@@ -1,0 +1,18 @@
+FROM debian:12.10 AS base
+RUN install
+SAVE STAGE /kaniko/stages/0
+CLEAN
+
+FROM base (/kaniko/stages/0) AS build
+RUN compile
+SAVE FILES [output] /kaniko/deps/1
+CLEAN
+
+FROM base (/kaniko/stages/0) AS final
+COPY --from=build output output
+PUSH [registry]
+SAVE STAGE /kaniko/stages/2
+CLEAN
+
+FROM final (/kaniko/stages/2) AS test
+RUN test
