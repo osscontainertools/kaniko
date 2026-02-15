@@ -1,11 +1,12 @@
 FROM debian
 
+RUN mkdir /context
 USER nobody
 
-# Fails on main@ad721d2 before #108:
+# mz108: Fails on kaniko v1.24.3
 # When we COPY --chmod on top of an existing folder,
 # the chmod only affects existing files,
 # but is ignored on existing folders
 COPY --chmod=400 context/ /context
 COPY --chmod=755 context/ /context
-RUN ls -la /context
+RUN ls -la /context/workspace
