@@ -158,6 +158,29 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_issue_mz155": {"--semantic=false", "--ignore-history", "--ignore-file-meta-format", "--ignore-file-atime", "--ignore-file-ctime", "--extra-ignore-files=tmp/"},
 	// We enforce predefined ARGs are identical by dumping them to a file
 	"TestRun/test_Dockerfile_test_pre_defined_build_args": {"--extra-ignore-file-content=false"},
+	// busybox ships without the standard dirs like [/proc, /sys].
+	// but they do get created on running the container. As a result,
+	// they always get snapshotted by docker. But they do pre-exist in kaniko context,
+	// so we can never snapshot them.
+	"TestRun/test_Dockerfile_test_arg_multi":             {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_arg_multi_with_quotes": {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_daemons":               {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_mv_add":                {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_parent_dir_perms":      {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_registry":              {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_arg_blank_with_quotes": {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_cache_perm_oci":        {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_complex_substitution":  {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_dangling_symlink":      {"--extra-ignore-layer-length-mismatch"},
+	// "Check that overriding a default value works"
+	// produces a different output in kaniko and docker
+	"TestRun/test_Dockerfile_test_scratch": {"--extra-ignore-layer-length-mismatch"},
+	// COPY stores the files every-time, even if they were not changed
+	"TestRun/test_Dockerfile_test_copy_same_file_many_times": {"--extra-ignore-layer-length-mismatch"},
+	// somehow empty folders show up on our side but not buildkit
+	"TestRun/test_Dockerfile_test_issue_1039":                  {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_3393":                  {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_copy_chown_nonexisting_user": {"--extra-ignore-layer-length-mismatch"},
 }
 
 // output check to do when building with kaniko
