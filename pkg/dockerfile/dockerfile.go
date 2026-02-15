@@ -322,7 +322,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	for _, x := range targetStages {
 		// buildTargets we just need to visit, but they
 		// can be squashed together, we don't care.
-		buildTargets[x] = 1
+		buildTargets[x] = true
 	}
 	// push stage cannot be squashed
 	stagesDependencies[pushStage] = 1
