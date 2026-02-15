@@ -734,23 +734,29 @@ var (
 	Out io.Writer = os.Stdout
 )
 
-func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string) error {
+func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string) (retErr error) {
+	printf := func(format string, args ...interface{}) {
+		if retErr == nil {
+			_, retErr = fmt.Fprintf(Out, format, args...)
+		}
+	}
+
 	if opts.PreserveContext {
-		fmt.Fprintln(Out, "SAVE CONTEXT")
+		printf("SAVE CONTEXT\n")
 	}
 	if opts.PreCleanup {
-		fmt.Fprintln(Out, "CLEAN")
+		printf("CLEAN\n")
 	}
 	for _, s := range stages {
 		if s.Name != "" {
-			fmt.Fprintf(Out, "FROM %s AS %s\n", s.BaseName, s.Name)
+			printf("FROM %s AS %s\n", s.BaseName, s.Name)
 		} else {
-			fmt.Fprintf(Out, "FROM %s\n", s.BaseName)
+			printf("FROM %s\n", s.BaseName)
 		}
 		if s.BaseImageStoredLocally {
-			fmt.Fprintf(Out, "UNPACK %s%d\n", config.KanikoIntermediateStagesDir, s.BaseImageIndex)
+			printf("UNPACK %s%d\n", config.KanikoIntermediateStagesDir, s.BaseImageIndex)
 		} else {
-			fmt.Fprintf(Out, "UNPACK %s\n", s.BaseName)
+			printf("UNPACK %s\n", s.BaseName)
 		}
 		for _, c := range s.Commands {
 			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
@@ -760,32 +766,31 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 			if command == nil {
 				continue
 			}
-			fmt.Fprintf(Out, "%s\n", command)
+			printf("%s\n", command)
 		}
 		if s.Final {
 			if !opts.NoPush {
-				fmt.Fprintf(Out, "PUSH %v\n", opts.Destinations)
+				printf("PUSH %v\n", opts.Destinations)
 			}
 			if opts.Cleanup {
-				fmt.Fprintln(Out, "CLEAN")
+				print("CLEAN\n")
 			}
-			return nil
+			return retErr
 		}
 		if s.SaveStage {
-			fmt.Fprintf(Out, "SAVE STAGE %s%d\n", config.KanikoIntermediateStagesDir, s.Index)
+			printf("SAVE STAGE %s%d\n", config.KanikoIntermediateStagesDir, s.Index)
 		}
 		filesToSave := crossStageDependencies[s.Index]
 		if len(filesToSave) > 0 {
-			fmt.Fprintf(Out, "SAVE FILES %v %s%d\n", filesToSave, config.KanikoInterStageDepsDir, s.Index)
+			printf("SAVE FILES %v %s%d\n", filesToSave, config.KanikoInterStageDepsDir, s.Index)
 		}
-		fmt.Fprintln(Out, "CLEAN")
-		fmt.Fprintln(Out, "")
+		printf("CLEAN\n\n")
 		if opts.PreserveContext && !opts.PreCleanup {
-			fmt.Fprintln(Out, "RESTORE CONTEXT")
+			printf("RESTORE CONTEXT\n\n")
 		}
 	}
 	logrus.Panic("unreachable - we should always have a final stage")
-	return nil
+	return retErr
 }
 
 // DoBuild executes building the Dockerfile

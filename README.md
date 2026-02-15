@@ -1033,7 +1033,7 @@ Path to the dockerfile to be built. (default "Dockerfile")
 
 #### Flag `--dryrun`
 
-Instead of buliding the docker image, just print a plan of what kaniko would do.
+Instead of building the docker image, just print a plan of what kaniko would do.
 
 #### Flag `--force`
 
