@@ -328,9 +328,7 @@ func (d *Destinations) String() string {
 	var parts []string
 	for k, vals := range *d {
 		if k == DefaultDestinationKey {
-			for _, v := range vals {
-				parts = append(parts, fmt.Sprintf("%s", v))
-			}
+			parts = append(parts, vals...)
 		} else {
 			for _, v := range vals {
 				parts = append(parts, fmt.Sprintf("%s=%s", k, v))
