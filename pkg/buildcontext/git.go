@@ -71,19 +71,24 @@ func (g *Git) UnpackTarFromBuildContext() (string, error) {
 	var fetchRef string
 	var checkoutRef string
 	if len(parts) > 1 {
-		if plumbing.IsHash(parts[1]) || !strings.HasPrefix(parts[1], "refs/pull/") {
+		if plumbing.IsHash(parts[1]) {
+			// Commit SHA
+			// Fetch the sha in case it is an ephemeral commit - ie. merged results pipeline
+			fetchRef = parts[1]
+			checkoutRef = fetchRef
+		} else if strings.HasPrefix(parts[1], "refs/heads/") ||
+			strings.HasPrefix(parts[0], "github.com/") && strings.HasPrefix(parts[1], "refs/pull/") ||
+			strings.HasPrefix(parts[0], "gitlab.com/") && strings.HasPrefix(parts[1], "refs/merge-requests/") {
+			// Full branch ref will be cloned directly
+			// For github, pull-request refs can be cloned like branches directly
+			// For gitlab, merge-request refs can be cloned like branches directly
+			options.ReferenceName = plumbing.ReferenceName(parts[1])
+		} else if strings.HasPrefix(parts[1], "refs/") {
 			// Handle any non-branch refs separately. First, clone the repo HEAD, and
 			// then fetch and check out the fetchRef.
 			fetchRef = parts[1]
-			if plumbing.IsHash(parts[1]) {
-				checkoutRef = fetchRef
-			} else {
-				// The ReferenceName still needs to be present in the options passed
-				// to the clone operation for non-hash references of private repositories.
-				options.ReferenceName = plumbing.ReferenceName(fetchRef)
-			}
 		} else {
-			// Branches will be cloned directly.
+			// Plain branch name like "main", will be cloned directly
 			options.ReferenceName = plumbing.ReferenceName(parts[1])
 		}
 	}
@@ -110,6 +115,13 @@ func (g *Git) UnpackTarFromBuildContext() (string, error) {
 		})
 		if err != nil && !errors.Is(err, git.NoErrAlreadyUpToDate) {
 			return directory, err
+		}
+		if checkoutRef == "" {
+			ref, err := r.Reference(plumbing.ReferenceName(fetchRef), true)
+			if err != nil {
+				return directory, err
+			}
+			checkoutRef = ref.Hash().String()
 		}
 	}
 
