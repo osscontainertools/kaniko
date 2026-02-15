@@ -700,7 +700,13 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 
 			mode := os.FileMode(0755)
 			if !useDefaultChmod && config.EnvBool("FF_KANIKO_COPY_CHOWN_ON_IMPLICIT_DIRS") {
-				mode = chmod
+				// mz507: Here we want to implement chmod on implicit dirs to be
+				// compatible with buildkit. buildkit's mkdir does not whiteout the umask.
+				// As ours does we have to apply the umask here beforehand.
+				old := syscall.Umask(0)
+				syscall.Umask(old)
+				umask := os.FileMode(old)
+				mode = chmod & ^umask
 			}
 
 			uid, gid := DetermineTargetFileOwnership(fi, uid, gid)
