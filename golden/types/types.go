@@ -1,5 +1,5 @@
 /*
-Copyright 2018 Google LLC
+Copyright 2026 OSS Container Tools
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,20 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package types
 
-import (
-	"github.com/moby/buildkit/frontend/dockerfile/instructions"
-)
+type GoldenTest struct {
+	Args []string
+	Env  map[string]string
+	Plan string
+}
 
-// KanikoStage wraps a stage of the Dockerfile and provides extra information
-type KanikoStage struct {
-	instructions.Stage
-	BaseImageIndex         int
-	Push                   bool
-	Final                  bool
-	BaseImageStoredLocally bool
-	SaveStage              bool
-	MetaArgs               []instructions.ArgCommand
-	Index                  int
+type GoldenTests struct {
+	Name       string
+	Dockerfile string
+	Tests      []GoldenTest
 }

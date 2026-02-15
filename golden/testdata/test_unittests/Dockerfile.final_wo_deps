@@ -1,0 +1,10 @@
+FROM alpine:3.11
+FROM debian:12.10 as base
+RUN echo foo > /foo
+FROM debian:12.10 as fizz
+RUN echo fizz >> /fizz
+COPY --from=base /foo /fizz
+FROM alpine:3.11 as buzz
+RUN echo buzz > /buzz
+FROM alpine:3.11 as final
+RUN echo bar > /bar

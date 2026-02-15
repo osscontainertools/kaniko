@@ -84,6 +84,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--custom-platform`](#flag---custom-platform)
       - [Flag `--digest-file`](#flag---digest-file)
       - [Flag `--dockerfile`](#flag---dockerfile)
+      - [Flag `--dryrun`](#flag---dryrun)
       - [Flag `--force`](#flag---force)
       - [Flag `--git`](#flag---git)
       - [Flag `--image-name-with-digest-file`](#flag---image-name-with-digest-file)
@@ -1029,6 +1030,10 @@ the digest to that file, which is picked up by Kubernetes automatically as the
 
 Path to the dockerfile to be built. (default "Dockerfile")
 
+#### Flag `--dryrun`
+
+Instead of buliding the docker image, just print a plan of what kaniko would do.
+
 #### Flag `--force`
 
 Force building outside of a container
@@ -1298,8 +1303,8 @@ want to save the image as tarball only you also need to set `--no-push`.
 
 #### Flag `--target`
 
-Set this flag to indicate which build stage is the target build stage.
-If not set we implicitly target the last stage.
+Set this flag to indicate which stages to build. If multiple targets are configured the first in the list is pushed.
+If not set we implicitly target the last stage of  the Dockerfile.
 
 #### Flag `--use-new-run`
 

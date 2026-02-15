@@ -1,0 +1,7 @@
+FROM alpine:3.11 AS base-dev
+RUN echo dev > /hi
+FROM alpine:3.11 AS base-prod
+RUN echo prod > /hi
+FROM alpine:3.11
+COPY --from=base-prod /hi /finalhi
+RUN cat /finalhi
