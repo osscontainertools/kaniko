@@ -84,6 +84,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_1837":                 {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_cg188":                {"SECRET=blubb"},
 	"Dockerfile_test_issue_mz473":                {"KANIKO_DIR=/kaniko2"},
+	"Dockerfile_test_issue_mz511":                {"FF_KANIKO_SQUASH_STAGES=0"},
 }
 
 var KanikoEnv = []string{
@@ -102,6 +103,7 @@ var WarmerEnv = []string{
 var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_target":      {"--target=second"},
 	"Dockerfile_test_issue_cg188": {"--secret=id=netrc,env=SECRET"},
+	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=context/foo"},
 }
 
 // Override which kaniko executor image to use for a specific test
@@ -130,6 +132,9 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_multistage":             {"--skip-unused-stages=false"},
 	"Dockerfile_test_copy_root_multistage":   {"--skip-unused-stages=false"},
 	"Dockerfile_test_issue_cg188":            {"--secret=id=netrc,env=SECRET"},
+	// mz511: we're using /etc/nsswitch.conf because it pre-exists
+	// in the kaniko image and can therefore safely be deleted.
+	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=/etc/nsswitch.conf"},
 }
 
 // Arguments to diffoci when comparing dockerfiles
