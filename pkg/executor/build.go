@@ -956,9 +956,11 @@ func DoBuild(opts *config.KanikoOptions, images chan<- ImageChannel) (retErr err
 			if len(opts.Annotations) > 0 {
 				sourceImage = mutate.Annotations(sourceImage, opts.Annotations).(v1.Image)
 			}
-			images <- ImageChannel{
-				Stage: stage.Stage.Name,
-				Image: sourceImage,
+			if images != nil {
+				images <- ImageChannel{
+					Stage: stage.Stage.Name,
+					Image: sourceImage,
+				}
 			}
 		}
 		if stage.Final {
