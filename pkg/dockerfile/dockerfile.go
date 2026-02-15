@@ -382,8 +382,8 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	}
 	if opts.SkipUnusedStages && config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true) {
 		for i, s := range kanikoStages {
-			if stagesDependencies[i] > 0 {
-				if s.BaseImageStoredLocally && (buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0) {
+			if buildTargets[i] || stagesDependencies[i] > 0 {
+				if s.BaseImageStoredLocally && stagesDependencies[s.BaseImageIndex] == 1 && copyDependencies[s.BaseImageIndex] == 0 {
 					sb := kanikoStages[s.BaseImageIndex]
 					// squash stages[i] into stages[i].BaseName
 					logrus.Infof("Squashing stages: %s into %s", s.Name, sb.Name)
