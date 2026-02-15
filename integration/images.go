@@ -163,6 +163,10 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_issue_mz155": {"--semantic=false", "--ignore-history", "--ignore-file-meta-format", "--ignore-file-atime", "--ignore-file-ctime", "--extra-ignore-files=tmp/"},
 	// We enforce predefined ARGs are identical by dumping them to a file
 	"TestRun/test_Dockerfile_test_pre_defined_build_args": {"--extra-ignore-file-content=false"},
+	// mz511: We delete the builtin file /etc/nsswitch.conf to verify that secrets are persisted
+	// But we discovered a new issue with this. For builtins, buildkit will emit "whiteout" files,
+	// to remember that it was removed, we don't. So we end up with a diff in the resulting image.
+	"TestRun/test_Dockerfile_test_issue_mz511": {"--extra-ignore-files=etc/.wh.nsswitch.conf"},
 }
 
 // output check to do when building with kaniko
