@@ -327,7 +327,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	// push stage cannot be squashed
 	stagesDependencies[pushStage] = 1
 	for i := finalStage; i >= 0; i-- {
-		if !buildTargets[i] && stagesDependencies[i] == 0 && copyDependencies[i] == 0 {
+		if !buildTargets[i] && stagesDependencies[i] == 0 && copyDependencies[i] == 0 && opts.SkipUnusedStages {
 			continue
 		}
 		stage := stages[i]
