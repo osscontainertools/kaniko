@@ -108,7 +108,7 @@ func TestRun(t *testing.T) {
 
 							var buf bytes.Buffer
 							executor.Out = &buf
-							_, err = executor.DoBuild(&opts)
+							err = executor.DoBuild(&opts, nil)
 							if err != nil {
 								t.Error(err)
 							}
