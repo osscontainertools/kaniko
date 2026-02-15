@@ -698,8 +698,13 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 		if file == "." {
 			logrus.Tracef("Creating directory %s", destPath)
 
+			mode := os.FileMode(0755)
+			if !useDefaultChmod && config.EnvBool("FF_KANIKO_COPY_CHOWN_ON_IMPLICIT_DIRS") {
+				mode = chmod
+			}
+
 			uid, gid := DetermineTargetFileOwnership(fi, uid, gid)
-			if err := MkdirAllWithPermissions(destPath, 0755, uid, gid); err != nil {
+			if err := MkdirAllWithPermissions(destPath, mode, uid, gid); err != nil {
 				return nil, err
 			}
 		} else if fi.IsDir() {
