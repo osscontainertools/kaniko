@@ -1,13 +1,16 @@
 FROM debian:12.10 AS base
+UNPACK debian:12.10
 RUN install
 SAVE STAGE /kaniko/stages/0
 CLEAN
 
-FROM base (/kaniko/stages/0) AS build
+FROM base AS build
+UNPACK /kaniko/stages/0
 RUN compile
 SAVE FILES [output] /kaniko/deps/1
 CLEAN
 
-FROM base (/kaniko/stages/0) AS final
+FROM base AS final
+UNPACK /kaniko/stages/0
 COPY --from=build output output
 PUSH [registry]
