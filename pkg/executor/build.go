@@ -773,7 +773,7 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 				printf("PUSH %v\n", opts.Destinations)
 			}
 			if opts.Cleanup {
-				print("CLEAN\n")
+				printf("CLEAN\n")
 			}
 			return retErr
 		}
