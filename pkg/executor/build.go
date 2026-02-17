@@ -901,11 +901,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		logrus.Panic("no stages to build")
 	}
 
-	// Some stages may refer to other random images, not previous stages
-	if err := fetchExtraStages(kanikoStages, opts); err != nil {
-		return nil, err
-	}
-
 	lastStage := kanikoStages[len(kanikoStages)-1]
 	var args = dockerfile.NewBuildArgs(opts.BuildArgs)
 	err = args.InitPredefinedArgs(opts.CustomPlatform, lastStage.Stage.Name)
@@ -979,6 +974,11 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 	if opts.Dryrun {
 		return nil, RenderStages(stageBuilders, opts, fileContext, crossStageDependencies)
+	}
+
+	// Some stages may refer to other random images, not previous stages
+	if err := fetchExtraStages(kanikoStages, opts); err != nil {
+		return nil, err
 	}
 
 	var tarball string
