@@ -84,6 +84,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_1837":                 {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_cg188":                {"SECRET=blubb"},
 	"Dockerfile_test_issue_mz473":                {"KANIKO_DIR=/kaniko2"},
+	"Dockerfile_test_issue_mz511":                {"FF_KANIKO_SQUASH_STAGES=0"},
 }
 
 var KanikoEnv = []string{
@@ -102,6 +103,7 @@ var WarmerEnv = []string{
 var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_target":      {"--target=second"},
 	"Dockerfile_test_issue_cg188": {"--secret=id=netrc,env=SECRET"},
+	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=context/foo"},
 }
 
 // Override which kaniko executor image to use for a specific test
@@ -130,6 +132,9 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_multistage":             {"--skip-unused-stages=false"},
 	"Dockerfile_test_copy_root_multistage":   {"--skip-unused-stages=false"},
 	"Dockerfile_test_issue_cg188":            {"--secret=id=netrc,env=SECRET"},
+	// mz511: we're using /etc/nsswitch.conf because it pre-exists
+	// in the kaniko image and can therefore safely be deleted.
+	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=/etc/nsswitch.conf"},
 }
 
 // Arguments to diffoci when comparing dockerfiles
@@ -158,6 +163,10 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_issue_mz155": {"--semantic=false", "--ignore-history", "--ignore-file-meta-format", "--ignore-file-atime", "--ignore-file-ctime", "--extra-ignore-files=tmp/"},
 	// We enforce predefined ARGs are identical by dumping them to a file
 	"TestRun/test_Dockerfile_test_pre_defined_build_args": {"--extra-ignore-file-content=false"},
+	// mz511: We delete the builtin file /etc/nsswitch.conf to verify that secrets are persisted
+	// But we discovered a new issue with this. For builtins, buildkit will emit "whiteout" files,
+	// to remember that it was removed, we don't. So we end up with a diff in the resulting image.
+	"TestRun/test_Dockerfile_test_issue_mz511": {"--extra-ignore-files=etc/.wh.nsswitch.conf"},
 }
 
 // output check to do when building with kaniko
