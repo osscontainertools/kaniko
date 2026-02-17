@@ -10,5 +10,5 @@ COPY --chmod=400 context/ /some/nested/context
 
 # mz507: We can no longer grade the output here
 # as buildkit changed their behaviour on v0.21
-# and we follow suit with the FF_KANIKO_COPY_CHOWN_ON_IMPLICIT_DIRS
+# and we follow suit with the FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS
 # RUN ls -la /some/nested/context

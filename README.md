@@ -136,7 +136,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_DISABLE_HTTP2`](#flag-ff_kaniko_disable_http2)
       - [Flag `FF_KANIKO_OCI_WARMER`](#flag-ff_kaniko_oci_warmer)
       - [Flag `FF_KANIKO_RUN_VIA_TINI`](#flag-ff_kaniko_run_via_tini)
-      - [Flag `FF_KANIKO_COPY_CHOWN_ON_IMPLICIT_DIRS`](#flag-ff_kaniko_copy_chown_on_implicit_dirs)
+      - [Flag `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS`](#flag-ff_kaniko_copy_chmod_on_implicit_dirs)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1418,10 +1418,10 @@ Note that for this feature to work the tini binary must be available as `/kaniko
 Defaults to `false`.
 Becomes default in `v1.27.0`.
 
-#### Flag `FF_KANIKO_COPY_CHOWN_ON_IMPLICIT_DIRS`
+#### Flag `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS`
 
 When files are copied into a non-existing directory, both kaniko and buildkit will create the directory and all required parent directories implicitly. If chmod option is given, buildkit will apply the chmod not only on the copied files & folders, but on all implicit parent dirs too. Kaniko will use regular folder permissions (0755) on parent directories instead and only apply the chmod on the explicitly created files & folders.
-Set this flag to `true` to implement COPY chown like buildkit. Defaults to `false`.
+Set this flag to `true` to implement COPY chmod like buildkit. Defaults to `false`.
 Currently no plans to activate.
 
 ### Debug Image
