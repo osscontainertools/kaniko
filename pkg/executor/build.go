@@ -728,7 +728,7 @@ var (
 	Out io.Writer = os.Stdout
 )
 
-func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string) (retErr error) {
+func RenderStages(stages []*stageBuilder, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string) (retErr error) {
 	printf := func(format string, args ...interface{}) {
 		if retErr == nil {
 			_, retErr = fmt.Fprintf(Out, format, args...)
@@ -742,27 +742,20 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 		printf("CLEAN\n")
 	}
 	for _, s := range stages {
-		if s.Name != "" {
-			printf("FROM %s AS %s\n", s.BaseName, s.Name)
+		if s.stage.Name != "" {
+			printf("FROM %s AS %s\n", s.stage.BaseName, s.stage.Name)
 		} else {
-			printf("FROM %s\n", s.BaseName)
+			printf("FROM %s\n", s.stage.BaseName)
 		}
-		if s.BaseImageStoredLocally {
-			printf("UNPACK %s%d\n", config.KanikoIntermediateStagesDir, s.BaseImageIndex)
+		if s.stage.BaseImageStoredLocally {
+			printf("UNPACK %s%d\n", config.KanikoIntermediateStagesDir, s.stage.BaseImageIndex)
 		} else {
-			printf("UNPACK %s\n", s.BaseName)
+			printf("UNPACK %s\n", s.stage.BaseName)
 		}
-		for _, c := range s.Commands {
-			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
-			if err != nil {
-				return err
-			}
-			if command == nil {
-				continue
-			}
-			printf("%s\n", command)
+		for _, c := range s.cmds {
+			printf("%s\n", c.String())
 		}
-		if s.Final {
+		if s.stage.Final {
 			if !opts.NoPush {
 				printf("PUSH %v\n", opts.Destinations)
 			}
@@ -771,12 +764,12 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 			}
 			return retErr
 		}
-		if s.SaveStage {
-			printf("SAVE STAGE %s%d\n", config.KanikoIntermediateStagesDir, s.Index)
+		if s.stage.SaveStage {
+			printf("SAVE STAGE %s%d\n", config.KanikoIntermediateStagesDir, s.stage.Index)
 		}
-		filesToSave := crossStageDependencies[s.Index]
+		filesToSave := crossStageDependencies[s.stage.Index]
 		if len(filesToSave) > 0 {
-			printf("SAVE FILES %v %s%d\n", filesToSave, config.KanikoInterStageDepsDir, s.Index)
+			printf("SAVE FILES %v %s%d\n", filesToSave, config.KanikoInterStageDepsDir, s.stage.Index)
 		}
 		printf("CLEAN\n\n")
 		if opts.PreserveContext && !opts.PreCleanup {
@@ -791,7 +784,8 @@ func MakeStageBuilders(stages []config.KanikoStage, opts *config.KanikoOptions, 
 	images := make(map[int]v1.Image)
 	stageIdxToCacheKey := make(map[int]string)
 
-	var stageBuilders []*stageBuilder
+	lastStage := stages[len(stages)-1]
+	stageBuilders := make([]*stageBuilder, lastStage.Index+1)
 
 	for _, s := range stages {
 		ba := dockerfile.NewBuildArgs(opts.BuildArgs)
@@ -835,7 +829,7 @@ func MakeStageBuilders(stages []config.KanikoStage, opts *config.KanikoOptions, 
 			return nil, errors.Wrap(err, "failed to optimize instructions")
 		}
 		images[s.Index] = image
-		stageBuilders = append(stageBuilders, sb)
+		stageBuilders[s.Index] = sb
 		stageIdxToCacheKey[s.Index] = sb.finalCacheKey
 	}
 	return stageBuilders, nil
@@ -906,9 +900,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	if len(kanikoStages) == 0 {
 		logrus.Panic("no stages to build")
 	}
-	if opts.Dryrun {
-		return nil, RenderStages(kanikoStages, opts, fileContext, crossStageDependencies)
-	}
 
 	// Some stages may refer to other random images, not previous stages
 	if err := fetchExtraStages(kanikoStages, opts); err != nil {
@@ -935,6 +926,9 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 	for i := len(stageBuilders) - 1; i >= 0; i-- {
 		s := stageBuilders[i]
+		if s == nil {
+			continue
+		}
 		if stagesDependencies[s.stage.Index] == 0 && copyDependencies[s.stage.Index] == 0 {
 			continue
 		}
@@ -951,27 +945,41 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 	}
 
-	for _, s := range stageBuilders {
-		if s.stage.BaseImageStoredLocally && stagesDependencies[s.stage.BaseImageIndex] == 1 && copyDependencies[s.stage.BaseImageIndex] == 0 {
-			sb := stageBuilders[s.stage.BaseImageIndex]
-			// squash stages[i] into stages[i].BaseName
-			logrus.Infof("Squashing stages: %s into %s", s.stage.Name, sb.stage.Name)
-			// We squash the base stage into the current stage because,
-			// no one else depends on the base stage so it can be freely moved,
-			// the current stage might depend on other stages so it is not safe to move it.
-			stageBuilders[s.stage.Index] = squash(sb, s)
-			stagesDependencies[s.stage.BaseImageIndex] = 0
+	if opts.SkipUnusedStages && config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true) {
+		for _, s := range stageBuilders {
+			if s == nil {
+				continue
+			}
+			if s.stage.BaseImageStoredLocally && stagesDependencies[s.stage.BaseImageIndex] == 1 && copyDependencies[s.stage.BaseImageIndex] == 0 {
+				sb := stageBuilders[s.stage.BaseImageIndex]
+				// squash stages[i] into stages[i].BaseName
+				logrus.Infof("Squashing stages: %s into %s", s.stage.Name, sb.stage.Name)
+				// We squash the base stage into the current stage because,
+				// no one else depends on the base stage so it can be freely moved,
+				// the current stage might depend on other stages so it is not safe to move it.
+				stageBuilders[s.stage.Index] = squash(sb, s)
+				stagesDependencies[s.stage.BaseImageIndex] = 0
+			}
 		}
 	}
 
-	var onlyUsedStages []*stageBuilder
-	for _, s := range stageBuilders {
-		if stagesDependencies[s.stage.Index] > 0 || copyDependencies[s.stage.Index] > 0 {
-			s.stage.SaveStage = stagesDependencies[s.stage.Index] > 0
-			onlyUsedStages = append(onlyUsedStages, s)
+	if opts.SkipUnusedStages {
+		var onlyUsedStages []*stageBuilder
+		for _, s := range stageBuilders {
+			if s == nil {
+				continue
+			}
+			if stagesDependencies[s.stage.Index] > 0 || copyDependencies[s.stage.Index] > 0 {
+				s.stage.SaveStage = stagesDependencies[s.stage.Index] > 0
+				onlyUsedStages = append(onlyUsedStages, s)
+			}
 		}
+		stageBuilders = onlyUsedStages
 	}
-	stageBuilders = onlyUsedStages
+
+	if opts.Dryrun {
+		return nil, RenderStages(stageBuilders, opts, fileContext, crossStageDependencies)
+	}
 
 	var tarball string
 	err = util.InitIgnoreList()
