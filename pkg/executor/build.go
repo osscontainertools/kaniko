@@ -922,56 +922,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		return nil, err
 	}
 
-	var tarball string
-	err = util.InitIgnoreList()
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize ignore list: %w", err)
-	}
-	if opts.PreserveContext {
-		if len(kanikoStages) > 1 || opts.PreCleanup || opts.Cleanup {
-			logrus.Info("Creating snapshot of build context")
-			snapshotter, err := makeSnapshotter(opts)
-			if err != nil {
-				return nil, err
-			}
-
-			tarball, err = snapshotter.TakeSnapshotFS()
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			logrus.Info("Skipping context snapshot as no-one requires it")
-		}
-	}
-	if opts.PreCleanup {
-		if err = util.DeleteFilesystem(); err != nil {
-			return nil, err
-		}
-	}
-
-	if opts.Cleanup {
-		defer assignIfNil(&retErr, func() error {
-			if err = util.DeleteFilesystem(); err != nil {
-				return err
-			}
-			err = config.Cleanup()
-			if err != nil {
-				return err
-			}
-			if opts.PreserveContext {
-				if tarball == "" {
-					return fmt.Errorf("context snapshot is missing")
-				}
-				_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
-				if err != nil {
-					return fmt.Errorf("failed to unpack context snapshot: %w", err)
-				}
-				logrus.Info("Context restored")
-			}
-			return nil
-		})
-	}
-
 	stageBuilders, err := MakeStageBuilders(kanikoStages, opts, args, crossStageDependencies, digestToCacheKey, stageNameToIdx, fileContext)
 	if err != nil {
 		return nil, err
@@ -1022,6 +972,56 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 	}
 	stageBuilders = onlyUsedStages
+
+	var tarball string
+	err = util.InitIgnoreList()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize ignore list: %w", err)
+	}
+	if opts.PreserveContext {
+		if len(kanikoStages) > 1 || opts.PreCleanup || opts.Cleanup {
+			logrus.Info("Creating snapshot of build context")
+			snapshotter, err := makeSnapshotter(opts)
+			if err != nil {
+				return nil, err
+			}
+
+			tarball, err = snapshotter.TakeSnapshotFS()
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			logrus.Info("Skipping context snapshot as no-one requires it")
+		}
+	}
+	if opts.PreCleanup {
+		if err = util.DeleteFilesystem(); err != nil {
+			return nil, err
+		}
+	}
+
+	if opts.Cleanup {
+		defer assignIfNil(&retErr, func() error {
+			if err = util.DeleteFilesystem(); err != nil {
+				return err
+			}
+			err = config.Cleanup()
+			if err != nil {
+				return err
+			}
+			if opts.PreserveContext {
+				if tarball == "" {
+					return fmt.Errorf("context snapshot is missing")
+				}
+				_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
+				if err != nil {
+					return fmt.Errorf("failed to unpack context snapshot: %w", err)
+				}
+				logrus.Info("Context restored")
+			}
+			return nil
+		})
+	}
 
 	for _, sb := range stageBuilders {
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
