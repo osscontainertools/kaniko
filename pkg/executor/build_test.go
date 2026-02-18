@@ -278,7 +278,7 @@ FROM alpine
 COPY --from=stage1 /baz /bat
 `,
 			want: map[int][]string{
-				0: {"/foo", "/baz"},
+				0: {"/baz", "/foo"},
 			},
 		},
 		{
@@ -901,7 +901,7 @@ func Test_stageBuilder_build(t *testing.T) {
 		image              v1.Image
 		config             *v1.ConfigFile
 		stage              config.KanikoStage
-		crossStageDeps     map[int][]string
+		crossStageDeps     bool
 		mockGetFSFromImage func(root string, img v1.Image, extract util.ExtractFunction) ([]string, error)
 		shouldInitSnapshot bool
 	}
@@ -1419,7 +1419,7 @@ RUN foobar
 			description:    "fs unpacked",
 			opts:           &config.KanikoOptions{InitialFSUnpacked: true},
 			stage:          config.KanikoStage{Index: 0},
-			crossStageDeps: map[int][]string{0: {"some-dep"}},
+			crossStageDeps: true,
 			mockGetFSFromImage: func(root string, img v1.Image, extract util.ExtractFunction) ([]string, error) {
 				return nil, fmt.Errorf("getFSFromImage shouldn't be called if fs is already unpacked")
 			},
@@ -1487,7 +1487,10 @@ RUN foobar
 				defer func() { getFSFromImage = original }()
 				getFSFromImage = tc.mockGetFSFromImage
 			}
-			err := sb.build()
+			digestToCacheKey := map[string]string{
+				"some-digest": "some-cache-key",
+			}
+			err := sb.build(digestToCacheKey)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -1647,12 +1650,6 @@ func Test_stageBuild_populateCompositeKeyForCopyCommand(t *testing.T) {
 
 					sb := &stageBuilder{
 						fileContext: fc,
-						stageIdxToDigest: map[int]string{
-							0: "some-digest",
-						},
-						digestToCacheKey: map[string]string{
-							"some-digest": "some-cache-key",
-						},
 					}
 
 					ck := CompositeCache{}
@@ -1738,9 +1735,7 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 		fileContext      util.FileContext
 		cmds             []commands.DockerCommand
 		args             *dockerfile.BuildArgs
-		crossStageDeps   map[int][]string
-		digestToCacheKey map[string]string
-		stageIdxToDigest map[int]string
+		crossStageDeps   bool
 		snapshotter      snapShotter
 		layerCache       cache.LayerCache
 		pushLayerToCache cachePusher
@@ -1830,8 +1825,6 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 				cmds:             tt.fields.cmds,
 				args:             tt.fields.args,
 				crossStageDeps:   tt.fields.crossStageDeps,
-				digestToCacheKey: tt.fields.digestToCacheKey,
-				stageIdxToDigest: tt.fields.stageIdxToDigest,
 				snapshotter:      tt.fields.snapshotter,
 				layerCache:       tt.fields.layerCache,
 				pushLayerToCache: tt.fields.pushLayerToCache,
@@ -1868,9 +1861,7 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 		fileContext      util.FileContext
 		cmds             []commands.DockerCommand
 		args             *dockerfile.BuildArgs
-		crossStageDeps   map[int][]string
-		digestToCacheKey map[string]string
-		stageIdxToDigest map[int]string
+		crossStageDeps   bool
 		snapshotter      snapShotter
 		layerCache       cache.LayerCache
 		pushLayerToCache cachePusher
@@ -1977,8 +1968,6 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 				cmds:             tt.fields.cmds,
 				args:             tt.fields.args,
 				crossStageDeps:   tt.fields.crossStageDeps,
-				digestToCacheKey: tt.fields.digestToCacheKey,
-				stageIdxToDigest: tt.fields.stageIdxToDigest,
 				snapshotter:      tt.fields.snapshotter,
 				layerCache:       tt.fields.layerCache,
 				pushLayerToCache: tt.fields.pushLayerToCache,

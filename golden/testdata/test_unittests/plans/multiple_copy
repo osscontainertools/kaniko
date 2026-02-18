@@ -1,0 +1,13 @@
+FROM alpine:3.11 AS builder
+UNPACK alpine:3.11
+RUN echo "file1" > /file1.txt
+RUN echo "file2" > /file2.txt
+SAVE FILES [/file1.txt /file2.txt] /kaniko/deps/0
+CLEAN
+
+FROM alpine:3.11
+UNPACK alpine:3.11
+COPY --from=builder /file1.txt /dest1/
+COPY --from=builder /file2.txt /dest2/
+COPY --from=builder /file1.txt /dest3/
+COPY --from=builder /file1.txt /dest3/
