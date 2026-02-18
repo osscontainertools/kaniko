@@ -776,59 +776,6 @@ func RenderStages(stages []*stageBuilder, opts *config.KanikoOptions, fileContex
 	return retErr
 }
 
-func MakeStageBuilders(stages []config.KanikoStage, opts *config.KanikoOptions, args *dockerfile.BuildArgs, crossStageDeps map[int][]string, dcm map[string]string, stageNameToIdx map[string]int, fileContext util.FileContext) ([]*stageBuilder, error) {
-	images := make(map[int]v1.Image)
-	stageIdxToCacheKey := make(map[int]string)
-
-	lastStage := stages[len(stages)-1]
-	stageBuilders := make([]*stageBuilder, lastStage.Index+1)
-
-	for _, s := range stages {
-		ba := dockerfile.NewBuildArgs(opts.BuildArgs)
-		ba.AddMetaArgs(s.MetaArgs)
-		var image v1.Image
-		var err error
-		if s.BaseImageStoredLocally {
-			image = images[s.BaseImageIndex]
-		} else if s.Name == constants.NoBaseImage {
-			image = empty.Image
-		} else {
-			image, err = image_util.RetrieveSourceImage(s, opts)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		sb, err := newStageBuilder(
-			image,
-			args, opts, s,
-			crossStageDeps,
-			stageNameToIdx,
-			fileContext)
-		if err != nil {
-			return nil, err
-		}
-
-		args = sb.args
-		// Set the initial cache key to be the base image digest, the build args and the SrcContext.
-		var compositeKey *CompositeCache
-		if cacheKey, ok := dcm[sb.baseImageDigest]; ok {
-			compositeKey = NewCompositeCache(cacheKey)
-		} else {
-			compositeKey = NewCompositeCache(sb.baseImageDigest)
-		}
-
-		// Apply optimizations to the instructions.
-		if err := sb.optimize(*compositeKey, sb.cf.Config); err != nil {
-			return nil, errors.Wrap(err, "failed to optimize instructions")
-		}
-		images[s.Index] = image
-		stageBuilders[s.Index] = sb
-		stageIdxToCacheKey[s.Index] = sb.finalCacheKey
-	}
-	return stageBuilders, nil
-}
-
 func filterOnBuild(cmds []commands.DockerCommand) []commands.DockerCommand {
 	var out []commands.DockerCommand
 	for _, c := range cmds {
@@ -899,9 +846,52 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		return nil, err
 	}
 
-	stageBuilders, err := MakeStageBuilders(kanikoStages, opts, args, crossStageDependencies, digestToCacheKey, stageNameToIdx, fileContext)
-	if err != nil {
-		return nil, err
+	images := make(map[int]v1.Image)
+	stageIdxToCacheKey := make(map[int]string)
+
+	stageBuilders := make([]*stageBuilder, lastStage.Index+1)
+	for _, s := range kanikoStages {
+		ba := dockerfile.NewBuildArgs(opts.BuildArgs)
+		ba.AddMetaArgs(s.MetaArgs)
+		var image v1.Image
+		var err error
+		if s.BaseImageStoredLocally {
+			image = images[s.BaseImageIndex]
+		} else if s.Name == constants.NoBaseImage {
+			image = empty.Image
+		} else {
+			image, err = image_util.RetrieveSourceImage(s, opts)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		sb, err := newStageBuilder(
+			image,
+			args, opts, s,
+			crossStageDependencies,
+			stageNameToIdx,
+			fileContext)
+		if err != nil {
+			return nil, err
+		}
+
+		args = sb.args
+		// Set the initial cache key to be the base image digest, the build args and the SrcContext.
+		var compositeKey *CompositeCache
+		if cacheKey, ok := digestToCacheKey[sb.baseImageDigest]; ok {
+			compositeKey = NewCompositeCache(cacheKey)
+		} else {
+			compositeKey = NewCompositeCache(sb.baseImageDigest)
+		}
+
+		// Apply optimizations to the instructions.
+		if err := sb.optimize(*compositeKey, sb.cf.Config); err != nil {
+			return nil, errors.Wrap(err, "failed to optimize instructions")
+		}
+		images[s.Index] = image
+		stageBuilders[s.Index] = sb
+		stageIdxToCacheKey[s.Index] = sb.finalCacheKey
 	}
 
 	// We now "count" references, it is only safe to squash
