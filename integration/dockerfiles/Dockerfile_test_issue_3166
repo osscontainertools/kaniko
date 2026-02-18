@@ -2,9 +2,13 @@ FROM debian
 
 USER nobody
 
-# Fails on main@1d2bff5 before #3166:
+# 3166: Fails on kaniko v1.24.3
 # When we COPY --chmod a folder, the chmod is not only
 # applied to the contents of the copy, but all implicitly created
 # directories too, including the top-level directory.
 COPY --chmod=400 context/ /some/nested/context
-RUN ls -la /some/nested/context
+
+# mz507: We can no longer grade the output here
+# as buildkit changed their behaviour on v0.21
+# and we follow suit with the FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS
+# RUN ls -la /some/nested/context
