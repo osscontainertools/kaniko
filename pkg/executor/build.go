@@ -69,12 +69,27 @@ type snapShotter interface {
 // preparedStage contains all fields necessary to do cache inspection
 type preparedStage struct {
 	stage config.KanikoStage
+	image v1.Image
 	cmds  []commands.DockerCommand
 }
 
-func makePreparedStages(kanikoStages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext) ([]preparedStage, error) {
-	var preparedStages []preparedStage
+func makePreparedStages(kanikoStages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext) ([]*preparedStage, error) {
+	lastStage := kanikoStages[len(kanikoStages)-1]
+	preparedStages := make([]*preparedStage, lastStage.Index+1)
+	images := make([]v1.Image, lastStage.Index+1)
 	for _, stage := range kanikoStages {
+		var image v1.Image
+		var err error
+		if stage.BaseImageStoredLocally {
+			image = images[stage.BaseImageIndex]
+		} else if stage.Name == constants.NoBaseImage {
+			image = empty.Image
+		} else {
+			image, err = image_util.RetrieveSourceImage(stage, opts)
+			if err != nil {
+				return nil, err
+			}
+		}
 		var cmds []commands.DockerCommand
 		for _, cmd := range stage.Commands {
 			command, err := commands.GetCommand(cmd, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
@@ -86,10 +101,12 @@ func makePreparedStages(kanikoStages []config.KanikoStage, opts *config.KanikoOp
 			}
 			cmds = append(cmds, command)
 		}
-		preparedStages = append(preparedStages, preparedStage{
+		preparedStages[stage.Index] = &preparedStage{
 			stage: stage,
-			cmds:  nil,
-		})
+			image: image,
+			cmds:  cmds,
+		}
+		images[stage.Index] = image
 	}
 	return preparedStages, nil
 }
@@ -188,12 +205,12 @@ func makeSnapshotter(opts *config.KanikoOptions) (*snapshot.Snapshotter, error) 
 }
 
 // newStageBuilder returns a new type stageBuilder which contains all the information required to build the stage
-func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *config.KanikoOptions, stage config.KanikoStage, crossStageDeps map[int][]string, stageNameToIdx map[string]int, fileContext util.FileContext) (*stageBuilder, error) {
+func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, stage preparedStage, crossStageDeps map[int][]string, stageNameToIdx map[string]int, fileContext util.FileContext) (*stageBuilder, error) {
 	_opts := *opts
-	if !stage.Final {
+	if !stage.stage.Final {
 		_opts.Labels = []string{}
 	}
-	imageConfig, err := initializeConfig(sourceImage, &_opts)
+	imageConfig, err := initializeConfig(stage.image, &_opts)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +220,7 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 		return nil, err
 	}
 
-	man, err := sourceImage.Manifest()
+	man, err := stage.image.Manifest()
 	if err != nil {
 		return nil, err
 	}
@@ -212,14 +229,14 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 		ann[k] = ""
 	}
 
-	cf, err := sourceImage.ConfigFile()
+	cf, err := stage.image.ConfigFile()
 	if err != nil {
 		return nil, err
 	}
 	cfg := *cf
 	cfg.Created = v1.Time{}
 	cfg.Config.Labels = map[string]string{}
-	sourceImageReproducible, err := mutate.ConfigFile(sourceImage, &cfg)
+	sourceImageReproducible, err := mutate.ConfigFile(stage.image, &cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -230,28 +247,18 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 		return nil, err
 	}
 	s := &stageBuilder{
-		stage:            stage,
-		image:            sourceImage,
+		stage:            stage.stage,
+		image:            stage.image,
 		cf:               imageConfig,
 		snapshotter:      snapshotter,
 		baseImageDigest:  digest.String(),
 		opts:             opts,
 		fileContext:      fileContext,
 		args:             args.Clone(),
-		crossStageDeps:   len(crossStageDeps[stage.Index]) > 0,
+		crossStageDeps:   len(crossStageDeps[stage.stage.Index]) > 0,
 		layerCache:       newLayerCache(opts),
 		pushLayerToCache: pushLayerToCache,
-	}
-
-	for _, cmd := range s.stage.Commands {
-		command, err := commands.GetCommand(cmd, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
-		if err != nil {
-			return nil, err
-		}
-		if command == nil {
-			continue
-		}
-		s.cmds = append(s.cmds, command)
+		cmds:             stage.cmds,
 	}
 	s.args.AddMetaArgs(s.stage.MetaArgs)
 	return s, nil
@@ -332,71 +339,6 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	return compositeKey, nil
 }
 
-func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config) error {
-	if !s.opts.Cache {
-		return nil
-	}
-	var buildArgs = s.args.Clone()
-	// Restore build args back to their original values
-	defer func() {
-		s.args = buildArgs
-	}()
-
-	stopCache := false
-	// Possibly replace commands with their cached implementations.
-	// We walk through all the commands, running any commands that only operate on metadata.
-	// We throw the metadata away after, but we need it to properly track command dependencies
-	// for things like COPY ${FOO} or RUN commands that use environment variables.
-	for i, command := range s.cmds {
-		if command == nil {
-			continue
-		}
-		files, err := command.FilesUsedFromContext(&cfg, s.args)
-		if err != nil {
-			return fmt.Errorf("failed to get files used from context: %w", err)
-		}
-
-		compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, cfg.Env)
-		if err != nil {
-			return err
-		}
-
-		logrus.Debugf("Optimize: composite key for command %v %v", command.String(), compositeKey)
-		ck, err := compositeKey.Hash()
-		if err != nil {
-			return fmt.Errorf("failed to hash composite key: %w", err)
-		}
-
-		logrus.Debugf("Optimize: cache key for command %v %v", command.String(), ck)
-		s.finalCacheKey = ck
-
-		if command.ShouldCacheOutput() && !stopCache {
-			img, err := s.layerCache.RetrieveLayer(ck)
-
-			if err != nil {
-				logrus.Debugf("Failed to retrieve layer: %s", err)
-				logrus.Infof("No cached layer found for cmd %s", command.String())
-				logrus.Debugf("Key missing was: %s", compositeKey.Key())
-				stopCache = true
-				continue
-			}
-
-			if cacheCmd := command.CacheCommand(img); cacheCmd != nil {
-				logrus.Infof("Using caching version of cmd: %s", command.String())
-				s.cmds[i] = cacheCmd
-			}
-		}
-
-		// Mutate the config for any commands that require it.
-		if command.MetadataOnly() {
-			if err := command.ExecuteCommand(&cfg, s.args); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 	// Set the initial cache key to be the base image digest, the build args and the SrcContext.
 	var compositeKey *CompositeCache
@@ -404,11 +346,6 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 		compositeKey = NewCompositeCache(cacheKey)
 	} else {
 		compositeKey = NewCompositeCache(s.baseImageDigest)
-	}
-
-	// Apply optimizations to the instructions.
-	if err := s.optimize(*compositeKey, s.cf.Config); err != nil {
-		return fmt.Errorf("failed to optimize instructions: %w", err)
 	}
 
 	// Unpack file system to root if we need to.
@@ -819,7 +756,7 @@ var (
 	Out io.Writer = os.Stdout
 )
 
-func RenderStages(stages []*stageBuilder, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string) (retErr error) {
+func RenderStages(stages []*preparedStage, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string) (retErr error) {
 	printf := func(format string, args ...interface{}) {
 		if retErr == nil {
 			_, retErr = fmt.Fprintf(Out, format, args...)
@@ -833,6 +770,9 @@ func RenderStages(stages []*stageBuilder, opts *config.KanikoOptions, fileContex
 		printf("CLEAN\n")
 	}
 	for _, s := range stages {
+		if s == nil {
+			continue
+		}
 		if s.stage.Name != "" {
 			printf("FROM %s AS %s\n", s.stage.BaseName, s.stage.Name)
 		} else {
@@ -884,22 +824,11 @@ func filterOnBuild(cmds []commands.DockerCommand) []commands.DockerCommand {
 	return out
 }
 
-func squash(a, b *stageBuilder) *stageBuilder {
+func squash(a, b *preparedStage) *preparedStage {
 	acmds := filterOnBuild(a.cmds)
-	return &stageBuilder{
-		stage:            dockerfile.Squash(a.stage, b.stage),
-		image:            a.image,
-		cf:               a.cf,
-		baseImageDigest:  a.baseImageDigest,
-		finalCacheKey:    b.finalCacheKey,
-		opts:             a.opts,
-		fileContext:      a.fileContext,
-		cmds:             append(acmds, b.cmds...),
-		args:             a.args,
-		crossStageDeps:   b.crossStageDeps,
-		snapshotter:      a.snapshotter,
-		layerCache:       a.layerCache,
-		pushLayerToCache: a.pushLayerToCache,
+	return &preparedStage{
+		stage: dockerfile.Squash(a.stage, b.stage),
+		cmds:  append(acmds, b.cmds...),
 	}
 }
 
@@ -946,52 +875,67 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		return nil, err
 	}
 
-	images := make(map[int]v1.Image)
 	stageIdxToCacheKey := make(map[int]string)
 
-	stageBuilders := make([]*stageBuilder, lastStage.Index+1)
-	for _, s := range kanikoStages {
+	preparedStages, err := makePreparedStages(kanikoStages, opts, fileContext)
+	for _, s := range preparedStages {
+		if s == nil {
+			continue
+		}
 		ba := dockerfile.NewBuildArgs(opts.BuildArgs)
-		ba.AddMetaArgs(s.MetaArgs)
-		var image v1.Image
-		var err error
-		if s.BaseImageStoredLocally {
-			image = images[s.BaseImageIndex]
-		} else if s.Name == constants.NoBaseImage {
-			image = empty.Image
-		} else {
-			image, err = image_util.RetrieveSourceImage(s, opts)
-			if err != nil {
-				return nil, err
-			}
+		ba.AddMetaArgs(s.stage.MetaArgs)
+
+		man, err := s.image.Manifest()
+		if err != nil {
+			return nil, err
+		}
+		ann := map[string]string{}
+		for k := range man.Annotations {
+			ann[k] = ""
 		}
 
-		sb, err := newStageBuilder(
-			image,
-			args, opts, s,
-			crossStageDependencies,
-			stageNameToIdx,
-			fileContext)
+		cf, err := s.image.ConfigFile()
+		if err != nil {
+			return nil, err
+		}
+		cfg := *cf
+		cfg.Created = v1.Time{}
+		cfg.Config.Labels = map[string]string{}
+		sourceImageReproducible, err := mutate.ConfigFile(s.image, &cfg)
 		if err != nil {
 			return nil, err
 		}
 
-		args = sb.args
+		sourceImageReproducible = mutate.Annotations(sourceImageReproducible, ann).(v1.Image)
+		digest, err := sourceImageReproducible.Digest()
+		if err != nil {
+			return nil, err
+		}
+		baseImageDigest := digest.String()
+
 		// Set the initial cache key to be the base image digest, the build args and the SrcContext.
 		var compositeKey *CompositeCache
-		if cacheKey, ok := digestToCacheKey[sb.baseImageDigest]; ok {
+		if cacheKey, ok := digestToCacheKey[baseImageDigest]; ok {
 			compositeKey = NewCompositeCache(cacheKey)
 		} else {
-			compositeKey = NewCompositeCache(sb.baseImageDigest)
+			compositeKey = NewCompositeCache(baseImageDigest)
+		}
+
+		_opts := *opts
+		if !s.stage.Final {
+			_opts.Labels = []string{}
+		}
+		imageConfig, err := initializeConfig(s.image, &_opts)
+		if err != nil {
+			return nil, err
 		}
 
 		// Apply optimizations to the instructions.
-		if err := sb.optimize(*compositeKey, sb.cf.Config); err != nil {
+		finalCacheKey, err := s.optimize(*compositeKey, imageConfig.Config, opts, args)
+		if err != nil {
 			return nil, errors.Wrap(err, "failed to optimize instructions")
 		}
-		images[s.Index] = image
-		stageBuilders[s.Index] = sb
-		stageIdxToCacheKey[s.Index] = sb.finalCacheKey
+		stageIdxToCacheKey[s.stage.Index] = finalCacheKey
 	}
 
 	// We now "count" references, it is only safe to squash
@@ -1000,8 +944,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	copyDependencies := make(map[int]int)
 	stagesDependencies[lastStage.Index] = 1
 
-	for i := len(stageBuilders) - 1; i >= 0; i-- {
-		s := stageBuilders[i]
+	for i := len(preparedStages) - 1; i >= 0; i-- {
+		s := preparedStages[i]
 		if s == nil {
 			continue
 		}
@@ -1022,26 +966,26 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 
 	if opts.SkipUnusedStages && config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true) {
-		for _, s := range stageBuilders {
+		for _, s := range preparedStages {
 			if s == nil {
 				continue
 			}
 			if s.stage.BaseImageStoredLocally && stagesDependencies[s.stage.BaseImageIndex] == 1 && copyDependencies[s.stage.BaseImageIndex] == 0 {
-				sb := stageBuilders[s.stage.BaseImageIndex]
+				sb := preparedStages[s.stage.BaseImageIndex]
 				// squash stages[i] into stages[i].BaseName
 				logrus.Infof("Squashing stages: %s into %s", s.stage.Name, sb.stage.Name)
 				// We squash the base stage into the current stage because,
 				// no one else depends on the base stage so it can be freely moved,
 				// the current stage might depend on other stages so it is not safe to move it.
-				stageBuilders[s.stage.Index] = squash(sb, s)
+				preparedStages[s.stage.Index] = squash(sb, s)
 				stagesDependencies[s.stage.BaseImageIndex] = 0
 			}
 		}
 	}
 
 	if opts.SkipUnusedStages {
-		var onlyUsedStages []*stageBuilder
-		for _, s := range stageBuilders {
+		var onlyUsedStages []*preparedStage
+		for _, s := range preparedStages {
 			if s == nil {
 				continue
 			}
@@ -1050,11 +994,11 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				onlyUsedStages = append(onlyUsedStages, s)
 			}
 		}
-		stageBuilders = onlyUsedStages
+		preparedStages = onlyUsedStages
 	}
 
 	if opts.Dryrun {
-		return nil, RenderStages(stageBuilders, opts, fileContext, crossStageDependencies)
+		return nil, RenderStages(preparedStages, opts, fileContext, crossStageDependencies)
 	}
 
 	// Some stages may refer to other random images, not previous stages
@@ -1112,7 +1056,16 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		})
 	}
 
-	for _, sb := range stageBuilders {
+	for _, stage := range preparedStages {
+		if stage == nil {
+			continue
+		}
+		sb, err := newStageBuilder(
+			args, opts, *stage,
+			crossStageDependencies,
+			stageNameToIdx,
+			fileContext)
+
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
 			sb.stage.BaseName, sb.stage.Index, sb.stage.BaseImageIndex)
 
