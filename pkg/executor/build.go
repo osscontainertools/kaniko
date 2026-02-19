@@ -1084,8 +1084,6 @@ func fetchExtraStages(stages []config.KanikoStage, opts *config.KanikoOptions) e
 	t := timing.Start("Fetching Extra Stages")
 	defer timing.DefaultRun.Stop(t)
 
-	var names []string
-
 	for _, s := range stages {
 		for _, cmd := range s.Commands {
 			c, ok := cmd.(*instructions.CopyCommand)
@@ -1094,14 +1092,13 @@ func fetchExtraStages(stages []config.KanikoStage, opts *config.KanikoOptions) e
 			}
 
 			// FROMs at this point are guaranteed to be either an integer referring to a previous stage,
-			// the name of a previous stage, or a name of a remote image.
+			// or a name of a remote image.
 
-			// If it is an integer stage index, validate that it is actually a previous index
-			if fromIndex, err := strconv.Atoi(c.From); err == nil && s.Index > fromIndex && fromIndex >= 0 {
-				continue
-			}
-			// Check if the name is the alias of a previous stage
-			if fromPreviousStage(c, names) {
+			if fromIndex, err := strconv.Atoi(c.From); err == nil {
+				// If it is an integer stage index, validate that it is actually a previous index
+				if s.Index <= fromIndex || fromIndex < 0 {
+					return fmt.Errorf("%s refers to invalid stage: %d", c.String(), fromIndex)
+				}
 				continue
 			}
 
@@ -1118,21 +1115,8 @@ func fetchExtraStages(stages []config.KanikoStage, opts *config.KanikoOptions) e
 				return err
 			}
 		}
-		// Store the name of the current stage in the list with names, if applicable.
-		if s.Name != "" {
-			names = append(names, s.Name)
-		}
 	}
 	return nil
-}
-
-func fromPreviousStage(copyCommand *instructions.CopyCommand, previousStageNames []string) bool {
-	for _, previousStageName := range previousStageNames {
-		if previousStageName == copyCommand.From {
-			return true
-		}
-	}
-	return false
 }
 
 func extractImageToDependencyDir(name string, image v1.Image) error {
@@ -1214,7 +1198,6 @@ func ResolveCrossStageInstructions(stages []config.KanikoStage) map[string]int {
 		if stage.Name != "" {
 			nameToIndex[stage.Name] = stage.Index
 		}
-		dockerfile.ResolveCrossStageCommands(stage.Commands, nameToIndex)
 	}
 
 	logrus.Debugf("Built stage name to index map: %v", nameToIndex)

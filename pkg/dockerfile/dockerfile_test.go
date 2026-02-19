@@ -235,7 +235,7 @@ func Test_GetOnBuildInstructions(t *testing.T) {
 			if len(cmds) != len(test.expCommands) {
 				t.Fatalf("Expected %d commands, got %d", len(test.expCommands), len(cmds))
 			}
-			ResolveCrossStageCommands(cmds, test.stageToIdx)
+			resolveCrossStageCommands(cmds, test.stageToIdx)
 
 			for i, cmd := range cmds {
 				if reflect.TypeOf(cmd) != reflect.TypeOf(test.expCommands[i]) {
