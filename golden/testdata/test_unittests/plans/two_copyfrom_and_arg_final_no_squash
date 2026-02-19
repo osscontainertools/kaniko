@@ -1,0 +1,26 @@
+FROM debian:12.10 AS base
+UNPACK debian:12.10
+COPY . .
+SAVE STAGE /kaniko/stages/0
+SAVE FILES [context/b* context/foo] /kaniko/deps/0
+CLEAN
+
+FROM scratch AS second
+UNPACK scratch
+ENV foopath context/foo
+COPY --from=0 $foopath context/b* /foo/
+SAVE FILES [/foo] /kaniko/deps/1
+CLEAN
+
+FROM base AS fourth
+UNPACK /kaniko/stages/0
+RUN date > /date
+ENV foo bar
+SAVE STAGE /kaniko/stages/3
+CLEAN
+
+FROM fourth
+UNPACK /kaniko/stages/3
+ARG file=/foo2
+COPY --from=second /foo ${file}
+COPY --from=debian:10.13 /etc/os-release /new

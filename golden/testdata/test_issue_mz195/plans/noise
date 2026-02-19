@@ -1,0 +1,2 @@
+FROM debian:12.10 AS noise
+UNPACK debian:12.10

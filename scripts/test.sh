@@ -24,7 +24,7 @@ RESET='\033[0m'
 
 echo "Running go tests..."
 export KANIKO_DIR="/kaniko"
-go test -cover -coverprofile=out/coverage.out -v -timeout 120s `go list ./... | grep -v vendor | grep -v integration` | sed ''/PASS/s//$(printf "${GREEN}PASS${RESET}")/'' | sed ''/FAIL/s//$(printf "${RED}FAIL${RESET}")/''
+go test -cover -coverprofile=out/coverage.out -v -timeout 120s `go list ./... | grep -v vendor | grep -v golden | grep -v integration` | sed ''/PASS/s//$(printf "${GREEN}PASS${RESET}")/'' | sed ''/FAIL/s//$(printf "${RED}FAIL${RESET}")/''
 GO_TEST_EXIT_CODE=${PIPESTATUS[0]}
 if [[ ${GO_TEST_EXIT_CODE} -ne 0 ]]; then
     exit "${GO_TEST_EXIT_CODE}"

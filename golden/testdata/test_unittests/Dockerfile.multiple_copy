@@ -1,0 +1,11 @@
+FROM alpine:3.11 AS builder
+RUN echo "file1" > /file1.txt
+RUN echo "file2" > /file2.txt
+
+FROM alpine:3.11
+COPY --from=builder /file1.txt /dest1/
+COPY --from=builder /file2.txt /dest2/
+# Copy the same file
+COPY --from=builder /file1.txt /dest3/
+# Copy the same file to the same destination
+COPY --from=builder /file1.txt /dest3/
