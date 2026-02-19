@@ -72,7 +72,6 @@ type stageBuilder struct {
 	cf               *v1.ConfigFile
 	baseImageDigest  string
 	finalCacheKey    string
-	opts             *config.KanikoOptions
 	fileContext      util.FileContext
 	cmds             []commands.DockerCommand
 	args             *dockerfile.BuildArgs
@@ -144,7 +143,6 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		cf:               imageConfig,
 		snapshotter:      snapshotter,
 		baseImageDigest:  digest.String(),
-		opts:             opts,
 		fileContext:      fileContext,
 		args:             args.Clone(),
 		crossStageDeps:   len(crossStageDeps[stage.Index]) > 0,
@@ -243,8 +241,8 @@ func (s *stageBuilder) populateCompositeKey(command commands.DockerCommand, file
 	return compositeKey, nil
 }
 
-func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config) error {
-	if !s.opts.Cache {
+func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts *config.KanikoOptions) error {
+	if !opts.Cache {
 		return nil
 	}
 	var buildArgs = s.args.Clone()
@@ -308,7 +306,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config) erro
 	return nil
 }
 
-func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
+func (s *stageBuilder) build(digestToCacheKey map[string]string, opts *config.KanikoOptions) error {
 	// Set the initial cache key to be the base image digest, the build args and the SrcContext.
 	var compositeKey *CompositeCache
 	if cacheKey, ok := digestToCacheKey[s.baseImageDigest]; ok {
@@ -318,7 +316,7 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 	}
 
 	// Apply optimizations to the instructions.
-	if err := s.optimize(*compositeKey, s.cf.Config); err != nil {
+	if err := s.optimize(*compositeKey, s.cf.Config, opts); err != nil {
 		return fmt.Errorf("failed to optimize instructions: %w", err)
 	}
 
@@ -334,10 +332,10 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 	if s.crossStageDeps {
 		shouldUnpack = true
 	}
-	if s.stage.Final && s.opts.Materialize {
+	if s.stage.Final && opts.Materialize {
 		shouldUnpack = true
 	}
-	if s.stage.Index == 0 && s.opts.InitialFSUnpacked {
+	if s.stage.Index == 0 && opts.InitialFSUnpacked {
 		shouldUnpack = false
 	}
 
@@ -349,7 +347,7 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 			return err
 		}
 
-		if err := util.Retry(retryFunc, s.opts.ImageFSExtractRetry, 1000); err != nil {
+		if err := util.Retry(retryFunc, opts.ImageFSExtractRetry, 1000); err != nil {
 			return fmt.Errorf("failed to get filesystem from image: %w", err)
 		}
 
@@ -359,7 +357,7 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 	}
 
 	initSnapshotTaken := false
-	if s.opts.SingleSnapshot {
+	if opts.SingleSnapshot {
 		if err := s.initSnapshotWithTimings(); err != nil {
 			return err
 		}
@@ -380,9 +378,9 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 			return fmt.Errorf("failed to get files used from context: %w", err)
 		}
 
-		if s.opts.Cache {
+		if opts.Cache {
 			*compositeKey, err = s.populateCompositeKey(command, files, *compositeKey, s.args, s.cf.Config.Env)
-			if err != nil && s.opts.Cache {
+			if err != nil && opts.Cache {
 				return err
 			}
 		}
@@ -412,7 +410,7 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 		files = command.FilesToSnapshot()
 		timing.DefaultRun.Stop(t)
 
-		if !s.shouldTakeSnapshot(index, command.MetadataOnly()) {
+		if !s.shouldTakeSnapshot(index, command.MetadataOnly(), opts) {
 			logrus.Debugf("Build: skipping snapshot for [%v]", command.String())
 			continue
 		}
@@ -424,17 +422,17 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 				// We continue to handle this case here as users might still have cache entries lying around
 				logrus.Info("No files were changed, appending empty layer to config. No layer added to image.")
 			} else {
-				if err := s.saveLayerToImage(layer, command.String()); err != nil {
+				if err := s.saveLayerToImage(layer, command.String(), opts); err != nil {
 					return fmt.Errorf("failed to save layer: %w", err)
 				}
 			}
 		} else {
-			tarPath, err := s.takeSnapshot(files, command.ShouldDetectDeletedFiles())
+			tarPath, err := s.takeSnapshot(files, command.ShouldDetectDeletedFiles(), opts)
 			if err != nil {
 				return fmt.Errorf("failed to take snapshot: %w", err)
 			}
 
-			if s.opts.Cache {
+			if opts.Cache {
 				logrus.Debugf("Build: composite key for command %v %v", command.String(), compositeKey)
 				ck, err := compositeKey.Hash()
 				if err != nil {
@@ -444,13 +442,13 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 				logrus.Debugf("Build: cache key for command %v %v", command.String(), ck)
 
 				// Push layer to cache (in parallel) now along with new config file
-				if command.ShouldCacheOutput() && !s.opts.NoPushCache {
+				if command.ShouldCacheOutput() && !opts.NoPushCache {
 					cacheGroup.Go(func() error {
-						return s.pushLayerToCache(s.opts, ck, tarPath, command.String())
+						return s.pushLayerToCache(opts, ck, tarPath, command.String())
 					})
 				}
 			}
-			if err := s.saveSnapshotToImage(command.String(), tarPath); err != nil {
+			if err := s.saveSnapshotToImage(command.String(), tarPath, opts); err != nil {
 				return fmt.Errorf("failed to save snapshot to image: %w", err)
 			}
 		}
@@ -463,12 +461,12 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 	return nil
 }
 
-func (s *stageBuilder) takeSnapshot(files []string, shdDelete bool) (string, error) {
+func (s *stageBuilder) takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions) (string, error) {
 	var snapshot string
 	var err error
 
 	t := timing.Start("Snapshotting FS")
-	if files == nil || s.opts.SingleSnapshot {
+	if files == nil || opts.SingleSnapshot {
 		snapshot, err = s.snapshotter.TakeSnapshotFS()
 	} else {
 		// Volumes are very weird. They get snapshotted in the next command.
@@ -479,16 +477,16 @@ func (s *stageBuilder) takeSnapshot(files []string, shdDelete bool) (string, err
 	return snapshot, err
 }
 
-func (s *stageBuilder) shouldTakeSnapshot(index int, isMetadatCmd bool) bool {
+func (s *stageBuilder) shouldTakeSnapshot(index int, isMetadatCmd bool, opts *config.KanikoOptions) bool {
 	isLastCommand := index == len(s.cmds)-1
 
 	// We only snapshot the very end with single snapshot mode on.
-	if s.opts.SingleSnapshot {
+	if opts.SingleSnapshot {
 		return isLastCommand
 	}
 
 	// Always take snapshots if we're using the cache.
-	if s.opts.Cache {
+	if opts.Cache {
 		return true
 	}
 
@@ -496,8 +494,8 @@ func (s *stageBuilder) shouldTakeSnapshot(index int, isMetadatCmd bool) bool {
 	return !isMetadatCmd
 }
 
-func (s *stageBuilder) saveSnapshotToImage(createdBy string, tarPath string) error {
-	layer, err := s.saveSnapshotToLayer(tarPath)
+func (s *stageBuilder) saveSnapshotToImage(createdBy string, tarPath string, opts *config.KanikoOptions) error {
+	layer, err := s.saveSnapshotToLayer(tarPath, opts)
 	if err != nil {
 		return err
 	}
@@ -506,22 +504,22 @@ func (s *stageBuilder) saveSnapshotToImage(createdBy string, tarPath string) err
 		return nil
 	}
 
-	return s.saveLayerToImage(layer, createdBy)
+	return s.saveLayerToImage(layer, createdBy, opts)
 }
 
-func (s *stageBuilder) saveSnapshotToLayer(tarPath string) (v1.Layer, error) {
+func (s *stageBuilder) saveSnapshotToLayer(tarPath string, opts *config.KanikoOptions) (v1.Layer, error) {
 	if tarPath == "" {
 		return nil, nil
 	}
 
-	layerOpts := s.getLayerOptionFromOpts()
+	layerOpts := s.getLayerOptionFromOpts(opts)
 	imageMediaType, err := s.image.MediaType()
 	if err != nil {
 		return nil, err
 	}
 	// Only appending MediaType for OCI images as the default is docker
 	if extractMediaTypeVendor(imageMediaType) == types.OCIVendorPrefix {
-		if s.opts.Compression == config.ZStd {
+		if opts.Compression == config.ZStd {
 			layerOpts = append(layerOpts, tarball.WithCompression("zstd"), tarball.WithMediaType(types.OCILayerZStd))
 		} else {
 			layerOpts = append(layerOpts, tarball.WithMediaType(types.OCILayer))
@@ -536,15 +534,15 @@ func (s *stageBuilder) saveSnapshotToLayer(tarPath string) (v1.Layer, error) {
 	return layer, nil
 }
 
-func (s *stageBuilder) getLayerOptionFromOpts() []tarball.LayerOption {
+func (s *stageBuilder) getLayerOptionFromOpts(opts *config.KanikoOptions) []tarball.LayerOption {
 	var layerOpts []tarball.LayerOption
 
-	if s.opts.CompressedCaching {
+	if opts.CompressedCaching {
 		layerOpts = append(layerOpts, tarball.WithCompressedCaching)
 	}
 
-	if s.opts.CompressionLevel > 0 {
-		layerOpts = append(layerOpts, tarball.WithCompressionLevel(s.opts.CompressionLevel))
+	if opts.CompressionLevel > 0 {
+		layerOpts = append(layerOpts, tarball.WithCompressionLevel(opts.CompressionLevel))
 	}
 	return layerOpts
 }
@@ -590,7 +588,7 @@ func convertMediaType(mt types.MediaType) types.MediaType {
 	}
 }
 
-func (s *stageBuilder) convertLayerMediaType(layer v1.Layer) (v1.Layer, error) {
+func (s *stageBuilder) convertLayerMediaType(layer v1.Layer, opts *config.KanikoOptions) (v1.Layer, error) {
 	layerMediaType, err := layer.MediaType()
 	if err != nil {
 		return nil, err
@@ -600,11 +598,11 @@ func (s *stageBuilder) convertLayerMediaType(layer v1.Layer) (v1.Layer, error) {
 		return nil, err
 	}
 	if extractMediaTypeVendor(layerMediaType) != extractMediaTypeVendor(imageMediaType) {
-		layerOpts := s.getLayerOptionFromOpts()
+		layerOpts := s.getLayerOptionFromOpts(opts)
 		targetMediaType := convertMediaType(layerMediaType)
 
 		if extractMediaTypeVendor(imageMediaType) == types.OCIVendorPrefix {
-			if s.opts.Compression == config.ZStd {
+			if opts.Compression == config.ZStd {
 				targetMediaType = types.OCILayerZStd
 				layerOpts = append(layerOpts, tarball.WithCompression("zstd"))
 			}
@@ -624,9 +622,9 @@ func (s *stageBuilder) convertLayerMediaType(layer v1.Layer) (v1.Layer, error) {
 	return layer, nil
 }
 
-func (s *stageBuilder) saveLayerToImage(layer v1.Layer, createdBy string) error {
+func (s *stageBuilder) saveLayerToImage(layer v1.Layer, createdBy string, opts *config.KanikoOptions) error {
 	var err error
-	layer, err = s.convertLayerMediaType(layer)
+	layer, err = s.convertLayerMediaType(layer, opts)
 	if err != nil {
 		return err
 	}
@@ -899,7 +897,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return nil, err
 		}
 		args = sb.args
-		if err := sb.build(digestToCacheKey); err != nil {
+		if err := sb.build(digestToCacheKey, opts); err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
 		}
 

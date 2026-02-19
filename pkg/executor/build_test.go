@@ -203,10 +203,9 @@ func Test_stageBuilder_shouldTakeSnapshot(t *testing.T) {
 			}
 			s := &stageBuilder{
 				stage: tt.fields.stage,
-				opts:  tt.fields.opts,
 				cmds:  tt.fields.cmds,
 			}
-			if got := s.shouldTakeSnapshot(tt.args.index, tt.args.metadataOnly); got != tt.want {
+			if got := s.shouldTakeSnapshot(tt.args.index, tt.args.metadataOnly, tt.fields.opts); got != tt.want {
 				t.Errorf("stageBuilder.shouldTakeSnapshot() = %v, want %v", got, tt.want)
 			}
 		})
@@ -600,7 +599,7 @@ func Test_stageBuilder_optimize(t *testing.T) {
 			cf := &v1.ConfigFile{}
 			snap := &fakeSnapShotter{}
 			lc := &fakeLayerCache{retrieve: tc.retrieve}
-			sb := &stageBuilder{opts: tc.opts, cf: cf, snapshotter: snap, layerCache: lc,
+			sb := &stageBuilder{cf: cf, snapshotter: snap, layerCache: lc,
 				args: dockerfile.NewBuildArgs([]string{})}
 			ck := CompositeCache{}
 			file, err := os.CreateTemp("", "foo")
@@ -612,7 +611,7 @@ func Test_stageBuilder_optimize(t *testing.T) {
 				cacheCommand: MockCachedDockerCommand{},
 			}
 			sb.cmds = []commands.DockerCommand{command}
-			err = sb.optimize(ck, cf.Config)
+			err = sb.optimize(ck, cf.Config, tc.opts)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -1466,7 +1465,6 @@ RUN foobar
 			sb := &stageBuilder{
 				args:        dockerfile.NewBuildArgs([]string{}), //required or code will panic
 				image:       tc.image,
-				opts:        tc.opts,
 				cf:          cf,
 				snapshotter: snap,
 				layerCache:  lc,
@@ -1492,7 +1490,7 @@ RUN foobar
 			digestToCacheKey := map[string]string{
 				"some-digest": "some-cache-key",
 			}
-			err := sb.build(digestToCacheKey)
+			err := sb.build(digestToCacheKey, tc.opts)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -1822,7 +1820,6 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 				cf:               tt.fields.cf,
 				baseImageDigest:  tt.fields.baseImageDigest,
 				finalCacheKey:    tt.fields.finalCacheKey,
-				opts:             tt.fields.opts,
 				fileContext:      tt.fields.fileContext,
 				cmds:             tt.fields.cmds,
 				args:             tt.fields.args,
@@ -1831,7 +1828,7 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 				layerCache:       tt.fields.layerCache,
 				pushLayerToCache: tt.fields.pushLayerToCache,
 			}
-			got, err := s.saveSnapshotToLayer(tt.args.tarPath)
+			got, err := s.saveSnapshotToLayer(tt.args.tarPath, tt.fields.opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("stageBuilder.saveSnapshotToLayer() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1965,7 +1962,6 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 				cf:               tt.fields.cf,
 				baseImageDigest:  tt.fields.baseImageDigest,
 				finalCacheKey:    tt.fields.finalCacheKey,
-				opts:             tt.fields.opts,
 				fileContext:      tt.fields.fileContext,
 				cmds:             tt.fields.cmds,
 				args:             tt.fields.args,
@@ -1974,7 +1970,7 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 				layerCache:       tt.fields.layerCache,
 				pushLayerToCache: tt.fields.pushLayerToCache,
 			}
-			got, err := s.convertLayerMediaType(tt.args.layer)
+			got, err := s.convertLayerMediaType(tt.args.layer, tt.fields.opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("stageBuilder.convertLayerMediaType() error = %v, wantErr %v", err, tt.wantErr)
 				return
