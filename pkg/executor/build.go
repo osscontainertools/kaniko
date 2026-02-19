@@ -47,7 +47,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/snapshot"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
@@ -933,7 +932,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		// Apply optimizations to the instructions.
 		finalCacheKey, err := s.optimize(*compositeKey, imageConfig.Config, opts, args)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to optimize instructions")
+			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
 		}
 		stageIdxToCacheKey[s.stage.Index] = finalCacheKey
 	}
