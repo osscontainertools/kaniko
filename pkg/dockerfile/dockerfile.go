@@ -231,25 +231,6 @@ func ParseCommands(cmdArray []string) ([]instructions.Command, error) {
 	return cmds, nil
 }
 
-// SaveStage returns true if the current stage will be needed later in the Dockerfile
-func saveStage(index int, stages []instructions.Stage) bool {
-	currentStageName := stages[index].Name
-
-	for stageIndex, stage := range stages {
-		if stageIndex <= index {
-			continue
-		}
-
-		if strings.ToLower(stage.BaseName) == currentStageName {
-			if stage.BaseName != "" {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
 // ResolveCrossStageCommands resolves any calls to previous stages with names to indices
 // Ex. --from=secondStage should be --from=1 for easier processing later on
 // As third party library lowers stage name in FROM instruction, this function resolves stage case insensitively.
@@ -332,16 +313,14 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		}
 		stage.Commands = append(cmds, stage.Commands...)
 		resolveCrossStageCommands(stage.Commands, stageByName)
-		if opts.SkipUnusedStages {
-			if baseImageStoredLocally {
-				stagesDependencies[baseImageIndex]++
-			}
-			for _, c := range stage.Commands {
-				switch cmd := c.(type) {
-				case *instructions.CopyCommand:
-					if copyFromIndex, err := strconv.Atoi(cmd.From); err == nil {
-						copyDependencies[copyFromIndex]++
-					}
+		if baseImageStoredLocally {
+			stagesDependencies[baseImageIndex]++
+		}
+		for _, c := range stage.Commands {
+			switch cmd := c.(type) {
+			case *instructions.CopyCommand:
+				if copyFromIndex, err := strconv.Atoi(cmd.From); err == nil {
+					copyDependencies[copyFromIndex]++
 				}
 			}
 		}
@@ -351,7 +330,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			Commands:               stage.Commands,
 			BaseImageIndex:         baseImageIndex,
 			BaseImageStoredLocally: baseImageStoredLocally,
-			SaveStage:              saveStage(i, stages),
+			SaveStage:              stagesDependencies[i] > 0,
 			Final:                  i == targetStage,
 			MetaArgs:               metaArgs,
 			Index:                  i,
