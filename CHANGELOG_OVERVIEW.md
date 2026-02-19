@@ -6,6 +6,8 @@
 * selinux v1.12.0: GHSA-cgrx-mc8f-2prm
 * remove binary artifacts: by @tlk in https://github.com/mzihlmann/kaniko/pull/54
 * golang.org/x/crypto 0.44.0: CVE-2025-47914 CVE-2025-58181
+* github.com/go-git/go-git/v5 5.16.0: CVE-2026-25934
+
 ### Bugfixes
 * cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3
 * cache collision under rename: by @SJrX in https://github.com/mzihlmann/kaniko/pull/62
@@ -20,6 +22,8 @@
 * `FF_KANIKO_IGNORE_CACHED_MANIFEST=false` ignore potentially invalid cached manifest files: by @luxurine in https://github.com/osscontainertools/kaniko/pull/267
 * don't reuse interstage dependencies: https://github.com/osscontainertools/kaniko/pull/286
 * image-index digests causes warmer cache misses: https://github.com/osscontainertools/kaniko/pull/321
+* refs/pull is not a valid branchname: https://github.com/osscontainertools/kaniko/pull/509
+
 ### Standardization
 * sticky bit gets lost on COPY: https://github.com/mzihlmann/kaniko/pull/45
 * COPY with restrictive chmod makes directory inacessible: https://github.com/mzihlmann/kaniko/pull/80
@@ -38,6 +42,8 @@
 * `FF_KANIKO_RUN_VIA_TINI=false` reap zombie processes: https://github.com/osscontainertools/kaniko/pull/211 https://github.com/osscontainertools/kaniko/pull/450
 * Skip chown/chmod for paths in ignore list: by @mesaglio in https://github.com/osscontainertools/kaniko/pull/435
 * resolve remote `ONBUILD` instructions: https://github.com/osscontainertools/kaniko/pull/354
+* `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=false` add buildkit compatibility mode: https://github.com/osscontainertools/kaniko/pull/510
+
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
 * ignore labels on base image for cache: https://github.com/mzihlmann/kaniko/pull/2
@@ -46,6 +52,7 @@
 * WORKDIR learned to cache its potential output layer: https://github.com/mzihlmann/kaniko/pull/22 https://github.com/mzihlmann/kaniko/pull/23
 * ADD learned to cache its output layer: https://github.com/mzihlmann/kaniko/pull/24
 * whiteout annotations to prevent cache misses through `--annotation`: https://github.com/mzihlmann/kaniko/pull/209
+
 ### Performance
 * `FF_KANIKO_SQUASH_STAGES=true` squash stages together, speeding up build: https://github.com/mzihlmann/kaniko/pull/141 https://github.com/osscontainertools/kaniko/pull/283
 * `FF_KANIKO_OCI_STAGES=false` use ocilayout instead of tarballs during stage transitions: https://github.com/mzihlmann/kaniko/pull/303
@@ -53,6 +60,7 @@
 * port digest optimization to warmer: https://github.com/osscontainertools/kaniko/pull/325
 * `FF_KANIKO_DISABLE_HTTP2=false` stop forcing http/2.0: https://github.com/osscontainertools/kaniko/pull/340
 * `FF_KANIKO_OCI_WARMER=false` ocilayout warmer: https://github.com/osscontainertools/kaniko/pull/307
+
 ### Usability
 * if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
 * kaniko learned `--preserve-context` to preserve the build-context across multi-stage builds: https://github.com/mzihlmann/kaniko/pull/28
@@ -73,6 +81,7 @@
 * fix harbor authentication: https://github.com/osscontainertools/kaniko/pull/369
 * new subcommand `executor login` to authenticate with a registry: by @brandon1024 in https://github.com/osscontainertools/kaniko/pull/407
 * cleanup kaniko workspace on failure too: https://github.com/osscontainertools/kaniko/pull/453
+
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
 * 🔗 update ENV syntax in Dockerfile: by @babs in https://github.com/mzihlmann/kaniko/pull/60
