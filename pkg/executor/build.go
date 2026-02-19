@@ -410,7 +410,8 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string, opts *config.Ka
 		files = command.FilesToSnapshot()
 		timing.DefaultRun.Stop(t)
 
-		if !s.shouldTakeSnapshot(index, command.MetadataOnly(), opts) {
+		isLastCommand := index == len(s.cmds)-1
+		if !shouldTakeSnapshot(command.MetadataOnly(), isLastCommand, opts) {
 			logrus.Debugf("Build: skipping snapshot for [%v]", command.String())
 			continue
 		}
@@ -477,9 +478,7 @@ func (s *stageBuilder) takeSnapshot(files []string, shdDelete bool, opts *config
 	return snapshot, err
 }
 
-func (s *stageBuilder) shouldTakeSnapshot(index int, isMetadatCmd bool, opts *config.KanikoOptions) bool {
-	isLastCommand := index == len(s.cmds)-1
-
+func shouldTakeSnapshot(isMetadatCmd bool, isLastCommand bool, opts *config.KanikoOptions) bool {
 	// We only snapshot the very end with single snapshot mode on.
 	if opts.SingleSnapshot {
 		return isLastCommand
@@ -495,7 +494,12 @@ func (s *stageBuilder) shouldTakeSnapshot(index int, isMetadatCmd bool, opts *co
 }
 
 func (s *stageBuilder) saveSnapshotToImage(createdBy string, tarPath string, opts *config.KanikoOptions) error {
-	layer, err := s.saveSnapshotToLayer(tarPath, opts)
+	imageMediaType, err := s.image.MediaType()
+	if err != nil {
+		return err
+	}
+
+	layer, err := saveSnapshotToLayer(tarPath, imageMediaType, opts)
 	if err != nil {
 		return err
 	}
@@ -507,16 +511,13 @@ func (s *stageBuilder) saveSnapshotToImage(createdBy string, tarPath string, opt
 	return s.saveLayerToImage(layer, createdBy, opts)
 }
 
-func (s *stageBuilder) saveSnapshotToLayer(tarPath string, opts *config.KanikoOptions) (v1.Layer, error) {
+func saveSnapshotToLayer(tarPath string, imageMediaType types.MediaType, opts *config.KanikoOptions) (v1.Layer, error) {
 	if tarPath == "" {
 		return nil, nil
 	}
 
-	layerOpts := s.getLayerOptionFromOpts(opts)
-	imageMediaType, err := s.image.MediaType()
-	if err != nil {
-		return nil, err
-	}
+	layerOpts := getLayerOptionFromOpts(opts)
+
 	// Only appending MediaType for OCI images as the default is docker
 	if extractMediaTypeVendor(imageMediaType) == types.OCIVendorPrefix {
 		if opts.Compression == config.ZStd {
@@ -534,7 +535,7 @@ func (s *stageBuilder) saveSnapshotToLayer(tarPath string, opts *config.KanikoOp
 	return layer, nil
 }
 
-func (s *stageBuilder) getLayerOptionFromOpts(opts *config.KanikoOptions) []tarball.LayerOption {
+func getLayerOptionFromOpts(opts *config.KanikoOptions) []tarball.LayerOption {
 	var layerOpts []tarball.LayerOption
 
 	if opts.CompressedCaching {
@@ -588,17 +589,13 @@ func convertMediaType(mt types.MediaType) types.MediaType {
 	}
 }
 
-func (s *stageBuilder) convertLayerMediaType(layer v1.Layer, opts *config.KanikoOptions) (v1.Layer, error) {
+func convertLayerMediaType(layer v1.Layer, imageMediaType types.MediaType, opts *config.KanikoOptions) (v1.Layer, error) {
 	layerMediaType, err := layer.MediaType()
 	if err != nil {
 		return nil, err
 	}
-	imageMediaType, err := s.image.MediaType()
-	if err != nil {
-		return nil, err
-	}
 	if extractMediaTypeVendor(layerMediaType) != extractMediaTypeVendor(imageMediaType) {
-		layerOpts := s.getLayerOptionFromOpts(opts)
+		layerOpts := getLayerOptionFromOpts(opts)
 		targetMediaType := convertMediaType(layerMediaType)
 
 		if extractMediaTypeVendor(imageMediaType) == types.OCIVendorPrefix {
@@ -623,8 +620,11 @@ func (s *stageBuilder) convertLayerMediaType(layer v1.Layer, opts *config.Kaniko
 }
 
 func (s *stageBuilder) saveLayerToImage(layer v1.Layer, createdBy string, opts *config.KanikoOptions) error {
-	var err error
-	layer, err = s.convertLayerMediaType(layer, opts)
+	imageMediaType, err := s.image.MediaType()
+	if err != nil {
+		return err
+	}
+	layer, err = convertLayerMediaType(layer, imageMediaType, opts)
 	if err != nil {
 		return err
 	}

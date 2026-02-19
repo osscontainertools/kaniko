@@ -205,7 +205,8 @@ func Test_stageBuilder_shouldTakeSnapshot(t *testing.T) {
 				stage: tt.fields.stage,
 				cmds:  tt.fields.cmds,
 			}
-			if got := s.shouldTakeSnapshot(tt.args.index, tt.args.metadataOnly, tt.fields.opts); got != tt.want {
+			isLastCommand := tt.args.index == len(s.cmds)-1
+			if got := shouldTakeSnapshot(tt.args.metadataOnly, isLastCommand, tt.fields.opts); got != tt.want {
 				t.Errorf("stageBuilder.shouldTakeSnapshot() = %v, want %v", got, tt.want)
 			}
 		})
@@ -937,6 +938,7 @@ func Test_stageBuilder_build(t *testing.T) {
 				pushedCacheKeys:   []string{hash},
 				commands:          []commands.DockerCommand{command},
 				rootDir:           dir,
+				image:             fakeImage{},
 			}
 		}(),
 		func() testcase {
@@ -970,6 +972,7 @@ func Test_stageBuilder_build(t *testing.T) {
 				pushedCacheKeys:   []string{},
 				commands:          []commands.DockerCommand{command},
 				rootDir:           dir,
+				image:             fakeImage{},
 			}
 		}(),
 		func() testcase {
@@ -1003,20 +1006,24 @@ func Test_stageBuilder_build(t *testing.T) {
 				pushedCacheKeys:   []string{},
 				commands:          []commands.DockerCommand{command},
 				rootDir:           dir,
+				image:             fakeImage{},
 			}
 		}(),
 		{
 			description: "use new run",
 			opts:        &config.KanikoOptions{RunV2: true},
+			image:       fakeImage{},
 		},
 		{
 			description:        "single snapshot",
 			opts:               &config.KanikoOptions{SingleSnapshot: true},
 			shouldInitSnapshot: true,
+			image:              fakeImage{},
 		},
 		{
 			description: "fake command cache disabled and key not in cache",
 			opts:        &config.KanikoOptions{Cache: false},
+			image:       fakeImage{},
 		},
 		{
 			description: "fake command cache disabled and key in cache",
@@ -1024,6 +1031,7 @@ func Test_stageBuilder_build(t *testing.T) {
 			layerCache: &fakeLayerCache{
 				retrieve: true,
 			},
+			image: fakeImage{},
 		},
 		func() testcase {
 			dir, filenames := tempDirAndFile(t)
@@ -1332,6 +1340,7 @@ RUN foobar
 					keySequence: []string{hash},
 				},
 				rootDir: dir,
+				image:   fakeImage{},
 			}
 		}(),
 		func() testcase {
@@ -1370,6 +1379,7 @@ RUN foobar
 				expectedCacheKeys: []string{hash},
 				commands:          []commands.DockerCommand{command},
 				rootDir:           dir,
+				image:             fakeImage{},
 			}
 		}(),
 		func() testcase {
@@ -1415,6 +1425,7 @@ RUN foobar
 				pushedCacheKeys:   []string{hash2},
 				commands:          []commands.DockerCommand{command},
 				rootDir:           dir,
+				image:             fakeImage{},
 			}
 		}(),
 		{
@@ -1425,6 +1436,7 @@ RUN foobar
 			mockGetFSFromImage: func(root string, img v1.Image, extract util.ExtractFunction) ([]string, error) {
 				return nil, fmt.Errorf("getFSFromImage shouldn't be called if fs is already unpacked")
 			},
+			image: fakeImage{},
 		},
 	}
 	for _, tc := range testCases {
@@ -1828,7 +1840,11 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 				layerCache:       tt.fields.layerCache,
 				pushLayerToCache: tt.fields.pushLayerToCache,
 			}
-			got, err := s.saveSnapshotToLayer(tt.args.tarPath, tt.fields.opts)
+			imageMediaType, err := s.image.MediaType()
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := saveSnapshotToLayer(tt.args.tarPath, imageMediaType, tt.fields.opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("stageBuilder.saveSnapshotToLayer() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1970,7 +1986,11 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 				layerCache:       tt.fields.layerCache,
 				pushLayerToCache: tt.fields.pushLayerToCache,
 			}
-			got, err := s.convertLayerMediaType(tt.args.layer, tt.fields.opts)
+			imageMediaType, err := s.image.MediaType()
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := convertLayerMediaType(tt.args.layer, imageMediaType, tt.fields.opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("stageBuilder.convertLayerMediaType() error = %v, wantErr %v", err, tt.wantErr)
 				return
