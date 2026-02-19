@@ -612,7 +612,7 @@ func Test_stageBuilder_optimize(t *testing.T) {
 				cacheCommand: MockCachedDockerCommand{},
 			}
 			sb.cmds = []commands.DockerCommand{command}
-			_, err = sb.optimize(ck, cf.Config, tc.opts)
+			_, err = sb.optimize(ck, cf.Config, tc.opts, util.FileContext{})
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -849,7 +849,6 @@ func Test_stageBuilder_populateCompositeKey(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			sb := &stageBuilder{fileContext: util.FileContext{Root: "workspace"}}
 			ck := CompositeCache{}
 
 			instructions1, err := dockerfile.ParseCommands([]string{tc.cmd1.command.String()})
@@ -857,8 +856,8 @@ func Test_stageBuilder_populateCompositeKey(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			fc1 := util.FileContext{Root: "workspace"}
-			dockerCommand1, err := commands.GetCommand(instructions1[0], fc1, config.SecretOptions{}, false, true, true)
+			fc := util.FileContext{Root: "workspace"}
+			dockerCommand1, err := commands.GetCommand(instructions1[0], fc, config.SecretOptions{}, false, true, true)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -868,17 +867,16 @@ func Test_stageBuilder_populateCompositeKey(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			fc2 := util.FileContext{Root: "workspace"}
-			dockerCommand2, err := commands.GetCommand(instructions[0], fc2, config.SecretOptions{}, false, true, true)
+			dockerCommand2, err := commands.GetCommand(instructions[0], fc, config.SecretOptions{}, false, true, true)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			ck1, err := sb.populateCompositeKey(dockerCommand1, []string{}, ck, tc.cmd1.args, tc.cmd1.env)
+			ck1, err := populateCompositeKey(dockerCommand1, []string{}, ck, tc.cmd1.args, tc.cmd1.env, fc)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
-			ck2, err := sb.populateCompositeKey(dockerCommand2, []string{}, ck, tc.cmd2.args, tc.cmd2.env)
+			ck2, err := populateCompositeKey(dockerCommand2, []string{}, ck, tc.cmd2.args, tc.cmd2.env, fc)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -1502,7 +1500,7 @@ RUN foobar
 			digestToCacheKey := map[string]string{
 				"some-digest": "some-cache-key",
 			}
-			_, err := sb.build(digestToCacheKey, tc.opts)
+			_, err := sb.build(digestToCacheKey, tc.opts, util.FileContext{})
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -1660,17 +1658,14 @@ func Test_stageBuild_populateCompositeKeyForCopyCommand(t *testing.T) {
 						cmd = copyCommand.(*commands.CopyCommand).CacheCommand(nil)
 					}
 
-					sb := &stageBuilder{
-						fileContext: fc,
-					}
-
 					ck := CompositeCache{}
-					ck, err = sb.populateCompositeKey(
+					ck, err = populateCompositeKey(
 						cmd,
 						[]string{},
 						ck,
 						dockerfile.NewBuildArgs([]string{}),
 						[]string{},
+						fc,
 					)
 					if err != nil {
 						t.Fatal(err)
@@ -1743,7 +1738,6 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 		cf               *v1.ConfigFile
 		baseImageDigest  string
 		opts             *config.KanikoOptions
-		fileContext      util.FileContext
 		cmds             []commands.DockerCommand
 		args             *dockerfile.BuildArgs
 		crossStageDeps   bool
@@ -1830,7 +1824,6 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 				image:            tt.fields.image,
 				cf:               tt.fields.cf,
 				baseImageDigest:  tt.fields.baseImageDigest,
-				fileContext:      tt.fields.fileContext,
 				cmds:             tt.fields.cmds,
 				args:             tt.fields.args,
 				crossStageDeps:   tt.fields.crossStageDeps,
@@ -1870,7 +1863,6 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 		cf               *v1.ConfigFile
 		baseImageDigest  string
 		opts             *config.KanikoOptions
-		fileContext      util.FileContext
 		cmds             []commands.DockerCommand
 		args             *dockerfile.BuildArgs
 		crossStageDeps   bool
@@ -1974,7 +1966,6 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 				image:            tt.fields.image,
 				cf:               tt.fields.cf,
 				baseImageDigest:  tt.fields.baseImageDigest,
-				fileContext:      tt.fields.fileContext,
 				cmds:             tt.fields.cmds,
 				args:             tt.fields.args,
 				crossStageDeps:   tt.fields.crossStageDeps,

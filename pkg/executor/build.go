@@ -71,7 +71,6 @@ type stageBuilder struct {
 	image            v1.Image
 	cf               *v1.ConfigFile
 	baseImageDigest  string
-	fileContext      util.FileContext
 	cmds             []commands.DockerCommand
 	args             *dockerfile.BuildArgs
 	crossStageDeps   bool
@@ -142,7 +141,6 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		cf:               imageConfig,
 		snapshotter:      snapshotter,
 		baseImageDigest:  digest.String(),
-		fileContext:      fileContext,
 		args:             args.Clone(),
 		crossStageDeps:   len(crossStageDeps[stage.Index]) > 0,
 		layerCache:       newLayerCache(opts),
@@ -211,7 +209,7 @@ func isOCILayout(path string) bool {
 	return strings.HasPrefix(path, "oci:")
 }
 
-func (s *stageBuilder) populateCompositeKey(command commands.DockerCommand, files []string, compositeKey CompositeCache, args *dockerfile.BuildArgs, env []string) (CompositeCache, error) {
+func populateCompositeKey(command commands.DockerCommand, files []string, compositeKey CompositeCache, args *dockerfile.BuildArgs, env []string, fileContext util.FileContext) (CompositeCache, error) {
 	// First replace all the environment variables or args in the command
 	replacementEnvs := args.ReplacementEnvs(env)
 	// The sort order of `replacementEnvs` is basically undefined, sort it
@@ -233,14 +231,14 @@ func (s *stageBuilder) populateCompositeKey(command commands.DockerCommand, file
 	compositeKey.AddKey(command.String())
 
 	for _, f := range files {
-		if err := compositeKey.AddPath(f, s.fileContext); err != nil {
+		if err := compositeKey.AddPath(f, fileContext); err != nil {
 			return compositeKey, err
 		}
 	}
 	return compositeKey, nil
 }
 
-func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts *config.KanikoOptions) (string, error) {
+func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts *config.KanikoOptions, fileContext util.FileContext) (string, error) {
 	if !opts.Cache {
 		return "", nil
 	}
@@ -265,7 +263,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 			return "", fmt.Errorf("failed to get files used from context: %w", err)
 		}
 
-		compositeKey, err = s.populateCompositeKey(command, files, compositeKey, s.args, cfg.Env)
+		compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, cfg.Env, fileContext)
 		if err != nil {
 			return "", err
 		}
@@ -306,7 +304,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 	return finalCacheKey, nil
 }
 
-func (s *stageBuilder) build(digestToCacheKey map[string]string, opts *config.KanikoOptions) (string, error) {
+func (s *stageBuilder) build(digestToCacheKey map[string]string, opts *config.KanikoOptions, fileContext util.FileContext) (string, error) {
 	// Set the initial cache key to be the base image digest, the build args and the SrcContext.
 	var compositeKey *CompositeCache
 	if cacheKey, ok := digestToCacheKey[s.baseImageDigest]; ok {
@@ -316,7 +314,7 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string, opts *config.Ka
 	}
 
 	// Apply optimizations to the instructions.
-	finalCacheKey, err := s.optimize(*compositeKey, s.cf.Config, opts)
+	finalCacheKey, err := s.optimize(*compositeKey, s.cf.Config, opts, fileContext)
 	if err != nil {
 		return "", fmt.Errorf("failed to optimize instructions: %w", err)
 	}
@@ -380,7 +378,7 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string, opts *config.Ka
 		}
 
 		if opts.Cache {
-			*compositeKey, err = s.populateCompositeKey(command, files, *compositeKey, s.args, s.cf.Config.Env)
+			*compositeKey, err = populateCompositeKey(command, files, *compositeKey, s.args, s.cf.Config.Env, fileContext)
 			if err != nil && opts.Cache {
 				return "", err
 			}
@@ -898,7 +896,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return nil, err
 		}
 		args = sb.args
-		finalCacheKey, err := sb.build(digestToCacheKey, opts)
+		finalCacheKey, err := sb.build(digestToCacheKey, opts, fileContext)
 		if err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
 		}
