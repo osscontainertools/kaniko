@@ -271,7 +271,7 @@ func AddKanikoOptionsFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().StringVarP(&opts.TarPath, "tar-path", "", "", "Path to save the image in as a tarball instead of pushing")
 	cmd.Flags().BoolVarP(&opts.SingleSnapshot, "single-snapshot", "", false, "Take a single snapshot at the end of the build.")
 	cmd.Flags().BoolVarP(&opts.Reproducible, "reproducible", "", false, "Strip timestamps out of the image to make it reproducible")
-	cmd.Flags().StringSliceVarP(&opts.Target, "target", "", []string{}, "Set the target stages to build, the first in the denotes the stage to be pushed")
+	cmd.Flags().StringSliceVarP(&opts.Target, "target", "", []string{}, "Set the target stages to build, the first in the list denotes the stage to be pushed")
 	cmd.Flags().BoolVarP(&opts.NoPush, "no-push", "", false, "Do not push the image to the registry")
 	cmd.Flags().BoolVarP(&opts.NoPushCache, "no-push-cache", "", false, "Do not push the cache layers to the registry")
 	cmd.Flags().StringVarP(&opts.CacheRepo, "cache-repo", "", "", "Specify a repository to use as a cache, otherwise one will be inferred from the destination provided; when prefixed with 'oci:' the repository will be written in OCI image layout format at the path provided")

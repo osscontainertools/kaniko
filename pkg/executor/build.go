@@ -787,7 +787,7 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 			printf("RESTORE CONTEXT\n\n")
 		}
 	}
-	logrus.Panic("unreachable - we should always have a final stage")
+	logrus.Panic("Unreachable Code: we should always have a final stage")
 	return retErr
 }
 
