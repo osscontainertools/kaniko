@@ -1,3 +1,40 @@
+# v1.26.6 Release 2026-02-19
+## Community Update
+Many thanks to @Mynacol for reporting an issue fixed in this release.
+
+### Security
+* github.com/go-git/go-git/v5 5.16.4: CVE-2026-25934
+
+### Bugfixes
+* refs/pull is not a valid branchname: https://github.com/osscontainertools/kaniko/pull/509
+* persist secret files: https://github.com/osscontainertools/kaniko/pull/512
+
+### Standardization
+* `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=false` add buildkit compatibility mode: https://github.com/osscontainertools/kaniko/pull/510
+
+### Maintenance
+* chore(deps): bump golang.org/x/sys from 0.40.0 to 0.41.0: https://github.com/osscontainertools/kaniko/pull/498
+* chore(deps): bump step-security/harden-runner from 2.14.1 to 2.14.2 in the actions group: https://github.com/osscontainertools/kaniko/pull/499
+* chore(deps): bump github.com/go-git/go-git/v5 from 5.16.4 to 5.16.5 in the gomod group: https://github.com/osscontainertools/kaniko/pull/500
+* chore(deps): bump google.golang.org/api from 0.265.0 to 0.267.0: https://github.com/osscontainertools/kaniko/pull/503 https://github.com/osscontainertools/kaniko/pull/514
+* chore(deps): bump cloud.google.com/go/storage from 1.59.2 to 1.60.0: https://github.com/osscontainertools/kaniko/pull/502
+* chore(deps): bump golang from 1.25.7 to 1.26.0 in /deploy: https://github.com/osscontainertools/kaniko/pull/501
+* chore(deps): bump docker/build-push-action from 6.18.0 to 6.19.2 in the actions group: https://github.com/osscontainertools/kaniko/pull/504 https://github.com/osscontainertools/kaniko/pull/505 https://github.com/osscontainertools/kaniko/pull/506
+* chore(deps): bump github.com/GoogleCloudPlatform/docker-credential-gcr/v2 from 2.1.31 to 2.1.32: https://github.com/osscontainertools/kaniko/pull/513
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.32.7 to 1.32.9: https://github.com/osscontainertools/kaniko/pull/513 https://github.com/osscontainertools/kaniko/pull/515
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager from 0.1.2 to 0.1.4: https://github.com/osscontainertools/kaniko/pull/513 https://github.com/osscontainertools/kaniko/pull/515
+
+### Fork Related
+* golden tests: https://github.com/osscontainertools/kaniko/pull/486
+* update docs: https://github.com/osscontainertools/kaniko/pull/495
+* rollback & freeze docker version in integration tests: https://github.com/osscontainertools/kaniko/pull/508
+
+### Refactorings
+* cache lookahead refactoring: https://github.com/osscontainertools/kaniko/pull/330
+* move resolveCrossStageCommands forwards: https://github.com/osscontainertools/kaniko/pull/337
+* staticcheck: github.com/aws/aws-sdk-go-v2/feature/s3/manager is deprecated: https://github.com/osscontainertools/kaniko/pull/497
+
+
 # v1.26.5 Release 2026-02-05
 ## Community Update
 @Bixilon made their first contribution in https://github.com/osscontainertools/kaniko/pull/458
@@ -37,6 +74,7 @@ Also many thanks to @BlackTurtle123 and @xathon for reporting the issues fixed i
 * chore(deps): bump step-security/harden-runner from 2.14.0 to 2.14.1: https://github.com/osscontainertools/kaniko/pull/476
 * chore(deps): bump github.com/moby/moby/api from 1.52.0 to 1.53.0: https://github.com/osscontainertools/kaniko/pull/477
 * chore(deps): bump imjasonh/setup-crane from 0.4 to 0.5: https://github.com/osscontainertools/kaniko/pull/492
+
 
 # v1.26.4 Release 2026-01-09
 ## Community Update
