@@ -71,7 +71,6 @@ type stageBuilder struct {
 	image            v1.Image
 	cf               *v1.ConfigFile
 	baseImageDigest  string
-	finalCacheKey    string
 	fileContext      util.FileContext
 	cmds             []commands.DockerCommand
 	args             *dockerfile.BuildArgs
@@ -241,9 +240,9 @@ func (s *stageBuilder) populateCompositeKey(command commands.DockerCommand, file
 	return compositeKey, nil
 }
 
-func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts *config.KanikoOptions) error {
+func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts *config.KanikoOptions) (string, error) {
 	if !opts.Cache {
-		return nil
+		return "", nil
 	}
 	var buildArgs = s.args.Clone()
 	// Restore build args back to their original values
@@ -252,6 +251,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 	}()
 
 	stopCache := false
+	finalCacheKey := ""
 	// Possibly replace commands with their cached implementations.
 	// We walk through all the commands, running any commands that only operate on metadata.
 	// We throw the metadata away after, but we need it to properly track command dependencies
@@ -262,22 +262,22 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 		}
 		files, err := command.FilesUsedFromContext(&cfg, s.args)
 		if err != nil {
-			return fmt.Errorf("failed to get files used from context: %w", err)
+			return "", fmt.Errorf("failed to get files used from context: %w", err)
 		}
 
 		compositeKey, err = s.populateCompositeKey(command, files, compositeKey, s.args, cfg.Env)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		logrus.Debugf("Optimize: composite key for command %v %v", command.String(), compositeKey)
 		ck, err := compositeKey.Hash()
 		if err != nil {
-			return fmt.Errorf("failed to hash composite key: %w", err)
+			return "", fmt.Errorf("failed to hash composite key: %w", err)
 		}
 
 		logrus.Debugf("Optimize: cache key for command %v %v", command.String(), ck)
-		s.finalCacheKey = ck
+		finalCacheKey = ck
 
 		if command.ShouldCacheOutput() && !stopCache {
 			img, err := s.layerCache.RetrieveLayer(ck)
@@ -299,14 +299,14 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 		// Mutate the config for any commands that require it.
 		if command.MetadataOnly() {
 			if err := command.ExecuteCommand(&cfg, s.args); err != nil {
-				return err
+				return "", err
 			}
 		}
 	}
-	return nil
+	return finalCacheKey, nil
 }
 
-func (s *stageBuilder) build(digestToCacheKey map[string]string, opts *config.KanikoOptions) error {
+func (s *stageBuilder) build(digestToCacheKey map[string]string, opts *config.KanikoOptions) (string, error) {
 	// Set the initial cache key to be the base image digest, the build args and the SrcContext.
 	var compositeKey *CompositeCache
 	if cacheKey, ok := digestToCacheKey[s.baseImageDigest]; ok {
@@ -316,8 +316,9 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string, opts *config.Ka
 	}
 
 	// Apply optimizations to the instructions.
-	if err := s.optimize(*compositeKey, s.cf.Config, opts); err != nil {
-		return fmt.Errorf("failed to optimize instructions: %w", err)
+	finalCacheKey, err := s.optimize(*compositeKey, s.cf.Config, opts)
+	if err != nil {
+		return "", fmt.Errorf("failed to optimize instructions: %w", err)
 	}
 
 	// Unpack file system to root if we need to.
@@ -348,7 +349,7 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string, opts *config.Ka
 		}
 
 		if err := util.Retry(retryFunc, opts.ImageFSExtractRetry, 1000); err != nil {
-			return fmt.Errorf("failed to get filesystem from image: %w", err)
+			return "", fmt.Errorf("failed to get filesystem from image: %w", err)
 		}
 
 		timing.DefaultRun.Stop(t)
@@ -359,7 +360,7 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string, opts *config.Ka
 	initSnapshotTaken := false
 	if opts.SingleSnapshot {
 		if err := s.initSnapshotWithTimings(); err != nil {
-			return err
+			return "", err
 		}
 		initSnapshotTaken = true
 	}
@@ -375,13 +376,13 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string, opts *config.Ka
 		// If the command uses files from the context, add them.
 		files, err := command.FilesUsedFromContext(&s.cf.Config, s.args)
 		if err != nil {
-			return fmt.Errorf("failed to get files used from context: %w", err)
+			return "", fmt.Errorf("failed to get files used from context: %w", err)
 		}
 
 		if opts.Cache {
 			*compositeKey, err = s.populateCompositeKey(command, files, *compositeKey, s.args, s.cf.Config.Env)
 			if err != nil && opts.Cache {
-				return err
+				return "", err
 			}
 		}
 
@@ -399,13 +400,13 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string, opts *config.Ka
 			// Take initial snapshot if command does not expect to return
 			// a list of files.
 			if err := s.initSnapshotWithTimings(); err != nil {
-				return err
+				return "", err
 			}
 			initSnapshotTaken = true
 		}
 
 		if err := command.ExecuteCommand(&s.cf.Config, s.args); err != nil {
-			return fmt.Errorf("failed to execute command: %w", err)
+			return "", fmt.Errorf("failed to execute command: %w", err)
 		}
 		files = command.FilesToSnapshot()
 		timing.DefaultRun.Stop(t)
@@ -424,20 +425,20 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string, opts *config.Ka
 				logrus.Info("No files were changed, appending empty layer to config. No layer added to image.")
 			} else {
 				if err := s.saveLayerToImage(layer, command.String(), opts); err != nil {
-					return fmt.Errorf("failed to save layer: %w", err)
+					return "", fmt.Errorf("failed to save layer: %w", err)
 				}
 			}
 		} else {
 			tarPath, err := s.takeSnapshot(files, command.ShouldDetectDeletedFiles(), opts)
 			if err != nil {
-				return fmt.Errorf("failed to take snapshot: %w", err)
+				return "", fmt.Errorf("failed to take snapshot: %w", err)
 			}
 
 			if opts.Cache {
 				logrus.Debugf("Build: composite key for command %v %v", command.String(), compositeKey)
 				ck, err := compositeKey.Hash()
 				if err != nil {
-					return fmt.Errorf("failed to hash composite key: %w", err)
+					return "", fmt.Errorf("failed to hash composite key: %w", err)
 				}
 
 				logrus.Debugf("Build: cache key for command %v %v", command.String(), ck)
@@ -450,7 +451,7 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string, opts *config.Ka
 				}
 			}
 			if err := s.saveSnapshotToImage(command.String(), tarPath, opts); err != nil {
-				return fmt.Errorf("failed to save snapshot to image: %w", err)
+				return "", fmt.Errorf("failed to save snapshot to image: %w", err)
 			}
 		}
 	}
@@ -459,7 +460,7 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string, opts *config.Ka
 		logrus.Warnf("Error uploading layer to cache: %s", err)
 	}
 
-	return nil
+	return finalCacheKey, nil
 }
 
 func (s *stageBuilder) takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions) (string, error) {
@@ -897,7 +898,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return nil, err
 		}
 		args = sb.args
-		if err := sb.build(digestToCacheKey, opts); err != nil {
+		finalCacheKey, err := sb.build(digestToCacheKey, opts)
+		if err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
 		}
 
@@ -930,8 +932,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 		logrus.Debugf("Mapping stage idx %v to digest %v", sb.stage.Index, d.String())
 
-		digestToCacheKey[d.String()] = sb.finalCacheKey
-		logrus.Debugf("Mapping digest %v to cachekey %v", d.String(), sb.finalCacheKey)
+		digestToCacheKey[d.String()] = finalCacheKey
+		logrus.Debugf("Mapping digest %v to cachekey %v", d.String(), finalCacheKey)
 
 		if stage.Final {
 			sourceImage, err = mutate.CreatedAt(sourceImage, v1.Time{Time: time.Now()})

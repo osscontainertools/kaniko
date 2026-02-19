@@ -612,7 +612,7 @@ func Test_stageBuilder_optimize(t *testing.T) {
 				cacheCommand: MockCachedDockerCommand{},
 			}
 			sb.cmds = []commands.DockerCommand{command}
-			err = sb.optimize(ck, cf.Config, tc.opts)
+			_, err = sb.optimize(ck, cf.Config, tc.opts)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -1502,7 +1502,7 @@ RUN foobar
 			digestToCacheKey := map[string]string{
 				"some-digest": "some-cache-key",
 			}
-			err := sb.build(digestToCacheKey, tc.opts)
+			_, err := sb.build(digestToCacheKey, tc.opts)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -1742,7 +1742,6 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 		image            v1.Image
 		cf               *v1.ConfigFile
 		baseImageDigest  string
-		finalCacheKey    string
 		opts             *config.KanikoOptions
 		fileContext      util.FileContext
 		cmds             []commands.DockerCommand
@@ -1831,7 +1830,6 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 				image:            tt.fields.image,
 				cf:               tt.fields.cf,
 				baseImageDigest:  tt.fields.baseImageDigest,
-				finalCacheKey:    tt.fields.finalCacheKey,
 				fileContext:      tt.fields.fileContext,
 				cmds:             tt.fields.cmds,
 				args:             tt.fields.args,
@@ -1871,7 +1869,6 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 		image            v1.Image
 		cf               *v1.ConfigFile
 		baseImageDigest  string
-		finalCacheKey    string
 		opts             *config.KanikoOptions
 		fileContext      util.FileContext
 		cmds             []commands.DockerCommand
@@ -1977,7 +1974,6 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 				image:            tt.fields.image,
 				cf:               tt.fields.cf,
 				baseImageDigest:  tt.fields.baseImageDigest,
-				finalCacheKey:    tt.fields.finalCacheKey,
 				fileContext:      tt.fields.fileContext,
 				cmds:             tt.fields.cmds,
 				args:             tt.fields.args,
