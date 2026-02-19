@@ -2,6 +2,7 @@
 ## Community Update
 Many thanks to @Mynacol for reporting an issue fixed in this release.
 
+## What's Changed
 ### Security
 * github.com/go-git/go-git/v5 5.16.4: CVE-2026-25934
 
