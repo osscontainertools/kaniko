@@ -67,8 +67,7 @@ type snapShotter interface {
 
 // stageBuilder contains all fields necessary to build one stage of a Dockerfile
 type stageBuilder struct {
-	index            int
-	final            bool
+	stage            config.KanikoStage
 	image            v1.Image
 	cf               *v1.ConfigFile
 	baseImageDigest  string
@@ -140,8 +139,7 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		return nil, err
 	}
 	s := &stageBuilder{
-		index:            stage.Index,
-		final:            stage.Final,
+		stage:            stage,
 		image:            sourceImage,
 		cf:               imageConfig,
 		snapshotter:      snapshotter,
@@ -336,10 +334,10 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 	if s.crossStageDeps {
 		shouldUnpack = true
 	}
-	if s.final && s.opts.Materialize {
+	if s.stage.Final && s.opts.Materialize {
 		shouldUnpack = true
 	}
-	if s.index == 0 && s.opts.InitialFSUnpacked {
+	if s.stage.Index == 0 && s.opts.InitialFSUnpacked {
 		shouldUnpack = false
 	}
 
@@ -932,7 +930,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if err != nil {
 			return nil, err
 		}
-		logrus.Debugf("Mapping stage idx %v to digest %v", sb.index, d.String())
+		logrus.Debugf("Mapping stage idx %v to digest %v", sb.stage.Index, d.String())
 
 		digestToCacheKey[d.String()] = sb.finalCacheKey
 		logrus.Debugf("Mapping digest %v to cachekey %v", d.String(), sb.finalCacheKey)

@@ -202,8 +202,9 @@ func Test_stageBuilder_shouldTakeSnapshot(t *testing.T) {
 				tt.fields.opts = &config.KanikoOptions{}
 			}
 			s := &stageBuilder{
-				opts: tt.fields.opts,
-				cmds: tt.fields.cmds,
+				stage: tt.fields.stage,
+				opts:  tt.fields.opts,
+				cmds:  tt.fields.cmds,
 			}
 			if got := s.shouldTakeSnapshot(tt.args.index, tt.args.metadataOnly); got != tt.want {
 				t.Errorf("stageBuilder.shouldTakeSnapshot() = %v, want %v", got, tt.want)
@@ -1463,7 +1464,6 @@ RUN foobar
 			}
 			keys := []string{}
 			sb := &stageBuilder{
-				index:       tc.stage.Index,
 				args:        dockerfile.NewBuildArgs([]string{}), //required or code will panic
 				image:       tc.image,
 				opts:        tc.opts,
@@ -1728,8 +1728,6 @@ func Test_ResolveCrossStageInstructions(t *testing.T) {
 func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 	dir, files := tempDirAndFile(t)
 	type fields struct {
-		Index            int
-		Final            bool
 		stage            config.KanikoStage
 		image            v1.Image
 		cf               *v1.ConfigFile
@@ -1819,8 +1817,7 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &stageBuilder{
-				index:            tt.fields.stage.Index,
-				final:            tt.fields.stage.Final,
+				stage:            tt.fields.stage,
 				image:            tt.fields.image,
 				cf:               tt.fields.cf,
 				baseImageDigest:  tt.fields.baseImageDigest,
@@ -1857,8 +1854,7 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 
 func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 	type fields struct {
-		Index            int
-		Final            bool
+		stage            config.KanikoStage
 		image            v1.Image
 		cf               *v1.ConfigFile
 		baseImageDigest  string
@@ -1964,8 +1960,7 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &stageBuilder{
-				index:            tt.fields.Index,
-				final:            tt.fields.Final,
+				stage:            tt.fields.stage,
 				image:            tt.fields.image,
 				cf:               tt.fields.cf,
 				baseImageDigest:  tt.fields.baseImageDigest,
