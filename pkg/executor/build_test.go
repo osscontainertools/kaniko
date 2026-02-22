@@ -1476,10 +1476,12 @@ RUN foobar
 				image:       tc.image,
 				cf:          cf,
 				snapshotter: snap,
-				pushLayerToCache: func(_ *config.KanikoOptions, cacheKey, _, _ string) error {
-					keys = append(keys, cacheKey)
-					return nil
-				},
+			}
+			originalPushCache := pushCache
+			defer func() { pushCache = originalPushCache }()
+			pushCache = func(_ *config.KanikoOptions, cacheKey, _, _ string) error {
+				keys = append(keys, cacheKey)
+				return nil
 			}
 			sb.cmds = tc.commands
 			for key, value := range tc.args {
@@ -1741,16 +1743,15 @@ func Test_ResolveCrossStageInstructions(t *testing.T) {
 func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 	dir, files := tempDirAndFile(t)
 	type fields struct {
-		stage            config.KanikoStage
-		image            v1.Image
-		cf               *v1.ConfigFile
-		baseImageDigest  string
-		opts             *config.KanikoOptions
-		cmds             []commands.DockerCommand
-		args             *dockerfile.BuildArgs
-		crossStageDeps   bool
-		snapshotter      snapShotter
-		pushLayerToCache cachePusher
+		stage           config.KanikoStage
+		image           v1.Image
+		cf              *v1.ConfigFile
+		baseImageDigest string
+		opts            *config.KanikoOptions
+		cmds            []commands.DockerCommand
+		args            *dockerfile.BuildArgs
+		crossStageDeps  bool
+		snapshotter     snapShotter
 	}
 	type args struct {
 		tarPath string
@@ -1827,15 +1828,14 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &stageBuilder{
-				stage:            tt.fields.stage,
-				image:            tt.fields.image,
-				cf:               tt.fields.cf,
-				baseImageDigest:  tt.fields.baseImageDigest,
-				cmds:             tt.fields.cmds,
-				args:             tt.fields.args,
-				crossStageDeps:   tt.fields.crossStageDeps,
-				snapshotter:      tt.fields.snapshotter,
-				pushLayerToCache: tt.fields.pushLayerToCache,
+				stage:           tt.fields.stage,
+				image:           tt.fields.image,
+				cf:              tt.fields.cf,
+				baseImageDigest: tt.fields.baseImageDigest,
+				cmds:            tt.fields.cmds,
+				args:            tt.fields.args,
+				crossStageDeps:  tt.fields.crossStageDeps,
+				snapshotter:     tt.fields.snapshotter,
 			}
 			imageMediaType, err := s.image.MediaType()
 			if err != nil {
@@ -1864,16 +1864,15 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 
 func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 	type fields struct {
-		stage            config.KanikoStage
-		image            v1.Image
-		cf               *v1.ConfigFile
-		baseImageDigest  string
-		opts             *config.KanikoOptions
-		cmds             []commands.DockerCommand
-		args             *dockerfile.BuildArgs
-		crossStageDeps   bool
-		snapshotter      snapShotter
-		pushLayerToCache cachePusher
+		stage           config.KanikoStage
+		image           v1.Image
+		cf              *v1.ConfigFile
+		baseImageDigest string
+		opts            *config.KanikoOptions
+		cmds            []commands.DockerCommand
+		args            *dockerfile.BuildArgs
+		crossStageDeps  bool
+		snapshotter     snapShotter
 	}
 	type args struct {
 		layer v1.Layer
@@ -1967,15 +1966,14 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &stageBuilder{
-				stage:            tt.fields.stage,
-				image:            tt.fields.image,
-				cf:               tt.fields.cf,
-				baseImageDigest:  tt.fields.baseImageDigest,
-				cmds:             tt.fields.cmds,
-				args:             tt.fields.args,
-				crossStageDeps:   tt.fields.crossStageDeps,
-				snapshotter:      tt.fields.snapshotter,
-				pushLayerToCache: tt.fields.pushLayerToCache,
+				stage:           tt.fields.stage,
+				image:           tt.fields.image,
+				cf:              tt.fields.cf,
+				baseImageDigest: tt.fields.baseImageDigest,
+				cmds:            tt.fields.cmds,
+				args:            tt.fields.args,
+				crossStageDeps:  tt.fields.crossStageDeps,
+				snapshotter:     tt.fields.snapshotter,
 			}
 			imageMediaType, err := s.image.MediaType()
 			if err != nil {

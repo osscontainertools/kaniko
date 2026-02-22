@@ -56,9 +56,9 @@ var (
 	initializeConfig             = initConfig
 	getFSFromImage               = util.GetFSFromImage
 	mkdirPermissions os.FileMode = 0644
+	pushCache                    = pushLayerToCache
 )
 
-type cachePusher func(*config.KanikoOptions, string, string, string) error
 type snapShotter interface {
 	Init() error
 	TakeSnapshotFS() (string, error)
@@ -67,15 +67,14 @@ type snapShotter interface {
 
 // stageBuilder contains all fields necessary to build one stage of a Dockerfile
 type stageBuilder struct {
-	stage            config.KanikoStage
-	image            v1.Image
-	cf               *v1.ConfigFile
-	baseImageDigest  string
-	cmds             []commands.DockerCommand
-	args             *dockerfile.BuildArgs
-	crossStageDeps   bool
-	snapshotter      snapShotter
-	pushLayerToCache cachePusher
+	stage           config.KanikoStage
+	image           v1.Image
+	cf              *v1.ConfigFile
+	baseImageDigest string
+	cmds            []commands.DockerCommand
+	args            *dockerfile.BuildArgs
+	crossStageDeps  bool
+	snapshotter     snapShotter
 }
 
 func makeSnapshotter(opts *config.KanikoOptions) (*snapshot.Snapshotter, error) {
@@ -135,14 +134,13 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		return nil, err
 	}
 	s := &stageBuilder{
-		stage:            stage,
-		image:            sourceImage,
-		cf:               imageConfig,
-		snapshotter:      snapshotter,
-		baseImageDigest:  digest.String(),
-		args:             args.Clone(),
-		crossStageDeps:   len(crossStageDeps[stage.Index]) > 0,
-		pushLayerToCache: pushLayerToCache,
+		stage:           stage,
+		image:           sourceImage,
+		cf:              imageConfig,
+		snapshotter:     snapshotter,
+		baseImageDigest: digest.String(),
+		args:            args.Clone(),
+		crossStageDeps:  len(crossStageDeps[stage.Index]) > 0,
 	}
 
 	for _, cmd := range stage.Commands {
@@ -428,7 +426,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				// Push layer to cache (in parallel) now along with new config file
 				if command.ShouldCacheOutput() && !opts.NoPushCache {
 					cacheGroup.Go(func() error {
-						return s.pushLayerToCache(opts, ck, tarPath, command.String())
+						return pushCache(opts, ck, tarPath, command.String())
 					})
 				}
 			}
