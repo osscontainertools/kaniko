@@ -399,7 +399,8 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				// We continue to handle this case here as users might still have cache entries lying around
 				logrus.Info("No files were changed, appending empty layer to config. No layer added to image.")
 			} else {
-				if err := s.saveLayerToImage(layer, command.String(), opts); err != nil {
+				s.image, err = saveLayerToImage(s.image, layer, command.String(), opts)
+				if err != nil {
 					return fmt.Errorf("failed to save layer: %w", err)
 				}
 			}
@@ -425,7 +426,8 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 					})
 				}
 			}
-			if err := s.saveSnapshotToImage(command.String(), tarPath, opts); err != nil {
+			s.image, err = saveSnapshotToImage(s.image, command.String(), tarPath, opts)
+			if err != nil {
 				return fmt.Errorf("failed to save snapshot to image: %w", err)
 			}
 		}
@@ -469,22 +471,22 @@ func shouldTakeSnapshot(isMetadatCmd bool, isLastCommand bool, opts *config.Kani
 	return !isMetadatCmd
 }
 
-func (s *stageBuilder) saveSnapshotToImage(createdBy string, tarPath string, opts *config.KanikoOptions) error {
-	imageMediaType, err := s.image.MediaType()
+func saveSnapshotToImage(image v1.Image, createdBy string, tarPath string, opts *config.KanikoOptions) (v1.Image, error) {
+	imageMediaType, err := image.MediaType()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	layer, err := saveSnapshotToLayer(tarPath, imageMediaType, opts)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if layer == nil {
-		return nil
+		return image, nil
 	}
 
-	return s.saveLayerToImage(layer, createdBy, opts)
+	return saveLayerToImage(image, layer, createdBy, opts)
 }
 
 func saveSnapshotToLayer(tarPath string, imageMediaType types.MediaType, opts *config.KanikoOptions) (v1.Layer, error) {
@@ -595,14 +597,14 @@ func convertLayerMediaType(layer v1.Layer, imageMediaType types.MediaType, opts 
 	return layer, nil
 }
 
-func (s *stageBuilder) saveLayerToImage(layer v1.Layer, createdBy string, opts *config.KanikoOptions) error {
-	imageMediaType, err := s.image.MediaType()
+func saveLayerToImage(image v1.Image, layer v1.Layer, createdBy string, opts *config.KanikoOptions) (v1.Image, error) {
+	imageMediaType, err := image.MediaType()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	layer, err = convertLayerMediaType(layer, imageMediaType, opts)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Images in google/go-containerregistry don't support adding unique layers
@@ -614,14 +616,14 @@ func (s *stageBuilder) saveLayerToImage(layer v1.Layer, createdBy string, opts *
 	// referencing a blob that has been "overwritten".
 	diffID, err := layer.DiffID()
 	if err != nil {
-		return fmt.Errorf("checking layer diffID failed: %w", err)
+		return nil, fmt.Errorf("checking layer diffID failed: %w", err)
 	}
-	if el, err := s.image.LayerByDiffID(diffID); err == nil {
+	if el, err := image.LayerByDiffID(diffID); err == nil {
 		logrus.Debugf("Layer already exists in image, using existing layer: %s", diffID)
 		layer = el
 	}
 
-	s.image, err = mutate.Append(s.image,
+	return mutate.Append(image,
 		mutate.Addendum{
 			Layer: layer,
 			History: v1.History{
@@ -630,7 +632,6 @@ func (s *stageBuilder) saveLayerToImage(layer v1.Layer, createdBy string, opts *
 			},
 		},
 	)
-	return err
 }
 
 func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptions, stageNameToIdx map[string]int) (map[int][]string, error) {
