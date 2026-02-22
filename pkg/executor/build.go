@@ -456,7 +456,7 @@ func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, sn
 	return snapshot, err
 }
 
-func shouldTakeSnapshot(isMetadatCmd bool, isLastCommand bool, opts *config.KanikoOptions) bool {
+func shouldTakeSnapshot(isMetadataCmd bool, isLastCommand bool, opts *config.KanikoOptions) bool {
 	// We only snapshot the very end with single snapshot mode on.
 	if opts.SingleSnapshot {
 		return isLastCommand
@@ -468,7 +468,7 @@ func shouldTakeSnapshot(isMetadatCmd bool, isLastCommand bool, opts *config.Kani
 	}
 
 	// if command is a metadata command, do not snapshot.
-	return !isMetadatCmd
+	return !isMetadataCmd
 }
 
 func saveSnapshotToImage(image v1.Image, createdBy string, tarPath string, opts *config.KanikoOptions) (v1.Image, error) {
