@@ -74,7 +74,6 @@ type stageBuilder struct {
 	cmds            []commands.DockerCommand
 	args            *dockerfile.BuildArgs
 	crossStageDeps  bool
-	snapshotter     snapShotter
 }
 
 func makeSnapshotter(opts *config.KanikoOptions) (*snapshot.Snapshotter, error) {
@@ -98,11 +97,6 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		_opts.Labels = []string{}
 	}
 	imageConfig, err := initializeConfig(sourceImage, &_opts)
-	if err != nil {
-		return nil, err
-	}
-
-	snapshotter, err := makeSnapshotter(opts)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +131,6 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		stage:           stage,
 		image:           sourceImage,
 		cf:              imageConfig,
-		snapshotter:     snapshotter,
 		baseImageDigest: digest.String(),
 		args:            args.Clone(),
 		crossStageDeps:  len(crossStageDeps[stage.Index]) > 0,
@@ -300,7 +293,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 	return finalCacheKey, nil
 }
 
-func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext) error {
+func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter) error {
 	// Unpack file system to root if we need to.
 	shouldUnpack := false
 	for _, cmd := range s.cmds {
@@ -339,9 +332,11 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 
 	initSnapshotTaken := false
 	if opts.SingleSnapshot {
-		if err := s.initSnapshotWithTimings(); err != nil {
+		t := timing.Start("Initial FS snapshot")
+		if err := snapshotter.Init(); err != nil {
 			return err
 		}
+		timing.DefaultRun.Stop(t)
 		initSnapshotTaken = true
 	}
 
@@ -379,9 +374,11 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		if !initSnapshotTaken && !isCacheCommand && !command.ProvidesFilesToSnapshot() {
 			// Take initial snapshot if command does not expect to return
 			// a list of files.
-			if err := s.initSnapshotWithTimings(); err != nil {
+			t := timing.Start("Initial FS snapshot")
+			if err := snapshotter.Init(); err != nil {
 				return err
 			}
+			timing.DefaultRun.Stop(t)
 			initSnapshotTaken = true
 		}
 
@@ -409,7 +406,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				}
 			}
 		} else {
-			tarPath, err := s.takeSnapshot(files, command.ShouldDetectDeletedFiles(), opts)
+			tarPath, err := takeSnapshot(files, command.ShouldDetectDeletedFiles(), opts, snapshotter)
 			if err != nil {
 				return fmt.Errorf("failed to take snapshot: %w", err)
 			}
@@ -443,17 +440,17 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	return nil
 }
 
-func (s *stageBuilder) takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions) (string, error) {
+func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, snapshotter snapShotter) (string, error) {
 	var snapshot string
 	var err error
 
 	t := timing.Start("Snapshotting FS")
 	if files == nil || opts.SingleSnapshot {
-		snapshot, err = s.snapshotter.TakeSnapshotFS()
+		snapshot, err = snapshotter.TakeSnapshotFS()
 	} else {
 		// Volumes are very weird. They get snapshotted in the next command.
 		files = append(files, util.Volumes()...)
-		snapshot, err = s.snapshotter.TakeSnapshot(files, shdDelete)
+		snapshot, err = snapshotter.TakeSnapshot(files, shdDelete)
 	}
 	timing.DefaultRun.Stop(t)
 	return snapshot, err
@@ -819,14 +816,13 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize ignore list: %w", err)
 	}
+	snapshotter, err := makeSnapshotter(opts)
+	if err != nil {
+		return nil, err
+	}
 	if opts.PreserveContext {
 		if len(kanikoStages) > 1 || opts.PreCleanup || opts.Cleanup {
 			logrus.Info("Creating snapshot of build context")
-			snapshotter, err := makeSnapshotter(opts)
-			if err != nil {
-				return nil, err
-			}
-
 			tarball, err = snapshotter.TakeSnapshotFS()
 			if err != nil {
 				return nil, err
@@ -891,7 +887,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 
 		args = sb.args
-		err = sb.build(*compositeKey, opts, fileContext)
+		err = sb.build(*compositeKey, opts, fileContext, snapshotter)
 		if err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
 		}
@@ -1187,13 +1183,4 @@ func ResolveCrossStageInstructions(stages []config.KanikoStage) map[string]int {
 
 	logrus.Debugf("Built stage name to index map: %v", nameToIndex)
 	return nameToIndex
-}
-
-func (s stageBuilder) initSnapshotWithTimings() error {
-	t := timing.Start("Initial FS snapshot")
-	if err := s.snapshotter.Init(); err != nil {
-		return err
-	}
-	timing.DefaultRun.Stop(t)
-	return nil
 }

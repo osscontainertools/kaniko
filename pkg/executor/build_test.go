@@ -598,9 +598,8 @@ func Test_stageBuilder_optimize(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cf := &v1.ConfigFile{}
-			snap := &fakeSnapShotter{}
 			lc := &fakeLayerCache{retrieve: tc.retrieve}
-			sb := &stageBuilder{cf: cf, snapshotter: snap, args: dockerfile.NewBuildArgs([]string{})}
+			sb := &stageBuilder{cf: cf, args: dockerfile.NewBuildArgs([]string{})}
 			ck := CompositeCache{}
 			file, err := os.CreateTemp("", "foo")
 			if err != nil {
@@ -1472,10 +1471,9 @@ RUN foobar
 			}
 			keys := []string{}
 			sb := &stageBuilder{
-				args:        dockerfile.NewBuildArgs([]string{}), //required or code will panic
-				image:       tc.image,
-				cf:          cf,
-				snapshotter: snap,
+				args:  dockerfile.NewBuildArgs([]string{}), //required or code will panic
+				image: tc.image,
+				cf:    cf,
 			}
 			originalPushCache := pushCache
 			defer func() { pushCache = originalPushCache }()
@@ -1510,7 +1508,7 @@ RUN foobar
 			if err != nil {
 				t.Errorf("failed to optimize instructions: %v", err)
 			}
-			err = sb.build(*compositeKey, tc.opts, util.FileContext{})
+			err = sb.build(*compositeKey, tc.opts, util.FileContext{}, snap)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -1751,7 +1749,6 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 		cmds            []commands.DockerCommand
 		args            *dockerfile.BuildArgs
 		crossStageDeps  bool
-		snapshotter     snapShotter
 	}
 	type args struct {
 		tarPath string
@@ -1835,7 +1832,6 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 				cmds:            tt.fields.cmds,
 				args:            tt.fields.args,
 				crossStageDeps:  tt.fields.crossStageDeps,
-				snapshotter:     tt.fields.snapshotter,
 			}
 			imageMediaType, err := s.image.MediaType()
 			if err != nil {
@@ -1872,7 +1868,6 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 		cmds            []commands.DockerCommand
 		args            *dockerfile.BuildArgs
 		crossStageDeps  bool
-		snapshotter     snapShotter
 	}
 	type args struct {
 		layer v1.Layer
@@ -1973,7 +1968,6 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 				cmds:            tt.fields.cmds,
 				args:            tt.fields.args,
 				crossStageDeps:  tt.fields.crossStageDeps,
-				snapshotter:     tt.fields.snapshotter,
 			}
 			imageMediaType, err := s.image.MediaType()
 			if err != nil {
