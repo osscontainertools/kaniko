@@ -1491,15 +1491,7 @@ RUN foobar
 				defer func() { getFSFromImage = original }()
 				getFSFromImage = tc.mockGetFSFromImage
 			}
-			digestToCacheKey := map[string]string{
-				"some-digest": "some-cache-key",
-			}
-			var compositeKey *CompositeCache
-			if cacheKey, ok := digestToCacheKey[sb.baseImageDigest]; ok {
-				compositeKey = NewCompositeCache(cacheKey)
-			} else {
-				compositeKey = NewCompositeCache(sb.baseImageDigest)
-			}
+			compositeKey := NewCompositeCache(sb.baseImageDigest)
 			_, err := sb.optimize(*compositeKey, sb.cf.Config, tc.opts, util.FileContext{}, lc)
 			if err != nil {
 				t.Errorf("failed to optimize instructions: %v", err)
