@@ -1737,14 +1737,9 @@ func Test_ResolveCrossStageInstructions(t *testing.T) {
 func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 	dir, files := tempDirAndFile(t)
 	type fields struct {
-		Index           int
-		Final           bool
-		image           v1.Image
-		cf              *v1.ConfigFile
-		baseImageDigest string
-		opts            *config.KanikoOptions
-		cmds            []commands.DockerCommand
-		args            *dockerfile.BuildArgs
+		Index int
+		Final bool
+		image v1.Image
 	}
 	type args struct {
 		tarPath string
@@ -1752,6 +1747,7 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 	tests := []struct {
 		name              string
 		fields            fields
+		opts              config.KanikoOptions
 		args              args
 		expectedMediaType types.MediaType
 		expectedDiff      v1.Hash
@@ -1762,7 +1758,6 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 			name: "oci image",
 			fields: fields{
 				image: ociFakeImage{},
-				opts:  &config.KanikoOptions{},
 			},
 			args: args{
 				tarPath: filepath.Join(dir, files[0]),
@@ -1781,7 +1776,6 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 			name: "docker image",
 			fields: fields{
 				image: fakeImage{},
-				opts:  &config.KanikoOptions{},
 			},
 			args: args{
 				tarPath: filepath.Join(dir, files[0]),
@@ -1800,9 +1794,9 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 			name: "oci image, zstd compression",
 			fields: fields{
 				image: ociFakeImage{},
-				opts: &config.KanikoOptions{
-					Compression: config.ZStd,
-				},
+			},
+			opts: config.KanikoOptions{
+				Compression: config.ZStd,
 			},
 			args: args{
 				tarPath: filepath.Join(dir, files[0]),
@@ -1821,19 +1815,13 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &stageBuilder{
-				index:           tt.fields.Index,
-				final:           tt.fields.Final,
-				image:           tt.fields.image,
-				cf:              tt.fields.cf,
-				baseImageDigest: tt.fields.baseImageDigest,
-				cmds:            tt.fields.cmds,
-				args:            tt.fields.args,
+				image: tt.fields.image,
 			}
 			imageMediaType, err := s.image.MediaType()
 			if err != nil {
 				t.Fatal(err)
 			}
-			got, err := saveSnapshotToLayer(tt.args.tarPath, imageMediaType, tt.fields.opts)
+			got, err := saveSnapshotToLayer(tt.args.tarPath, imageMediaType, &tt.opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("stageBuilder.saveSnapshotToLayer() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1856,14 +1844,9 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 
 func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 	type fields struct {
-		Index           int
-		Final           bool
-		image           v1.Image
-		cf              *v1.ConfigFile
-		baseImageDigest string
-		opts            *config.KanikoOptions
-		cmds            []commands.DockerCommand
-		args            *dockerfile.BuildArgs
+		Index int
+		Final bool
+		image v1.Image
 	}
 	type args struct {
 		layer v1.Layer
@@ -1871,6 +1854,7 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 	tests := []struct {
 		name              string
 		fields            fields
+		opts              config.KanikoOptions
 		args              args
 		expectedMediaType types.MediaType
 		wantErr           bool
@@ -1903,7 +1887,6 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 			name: "oci image w/ convertable docker layer",
 			fields: fields{
 				image: ociFakeImage{},
-				opts:  &config.KanikoOptions{},
 			},
 			args: args{
 				layer: fakeLayer{
@@ -1916,9 +1899,9 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 			name: "oci image w/ convertable docker layer and zstd compression",
 			fields: fields{
 				image: ociFakeImage{},
-				opts: &config.KanikoOptions{
-					Compression: config.ZStd,
-				},
+			},
+			opts: config.KanikoOptions{
+				Compression: config.ZStd,
 			},
 			args: args{
 				layer: fakeLayer{
@@ -1931,7 +1914,6 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 			name: "docker image and oci zstd layer",
 			fields: fields{
 				image: dockerFakeImage{},
-				opts:  &config.KanikoOptions{},
 			},
 			args: args{
 				layer: fakeLayer{
@@ -1944,7 +1926,6 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 			name: "docker image w/ uncovertable oci image",
 			fields: fields{
 				image: dockerFakeImage{},
-				opts:  &config.KanikoOptions{},
 			},
 			args: args{
 				layer: fakeLayer{
@@ -1957,19 +1938,13 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &stageBuilder{
-				index:           tt.fields.Index,
-				final:           tt.fields.Final,
-				image:           tt.fields.image,
-				cf:              tt.fields.cf,
-				baseImageDigest: tt.fields.baseImageDigest,
-				cmds:            tt.fields.cmds,
-				args:            tt.fields.args,
+				image: tt.fields.image,
 			}
 			imageMediaType, err := s.image.MediaType()
 			if err != nil {
 				t.Fatal(err)
 			}
-			got, err := convertLayerMediaType(tt.args.layer, imageMediaType, tt.fields.opts)
+			got, err := convertLayerMediaType(tt.args.layer, imageMediaType, &tt.opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("stageBuilder.convertLayerMediaType() error = %v, wantErr %v", err, tt.wantErr)
 				return
