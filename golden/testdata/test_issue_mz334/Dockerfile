@@ -1,0 +1,13 @@
+FROM busybox AS first
+RUN touch /blubb
+
+FROM first AS second
+RUN touch /bla
+
+FROM second AS third
+RUN touch /bli
+
+FROM second AS final
+COPY --from=first /blubb /blubb
+COPY --from=third /bli /bli
+RUN ls -lah /blubb

@@ -18,4 +18,7 @@ COPY --from=third-stage test test
 SAVE STAGE /kaniko/stages/3
 CLEAN
 
+FROM debian:12.10 AS noise
+CLEAN
+
 FROM fourth-stage AS fifth-stage
