@@ -868,7 +868,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
 			stage.BaseName, stage.Index, stage.BaseImageIndex)
 
-		// Set the initial cache key to be the base image digest, the build args and the SrcContext.
+		// Set the initial cache key to be the base image digest
 		var compositeKey *CompositeCache
 		if cacheKey, ok := digestToCacheKey[sb.baseImageDigest]; ok {
 			compositeKey = NewCompositeCache(cacheKey)
