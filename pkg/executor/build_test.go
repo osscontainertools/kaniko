@@ -600,8 +600,7 @@ func Test_stageBuilder_optimize(t *testing.T) {
 			cf := &v1.ConfigFile{}
 			snap := &fakeSnapShotter{}
 			lc := &fakeLayerCache{retrieve: tc.retrieve}
-			sb := &stageBuilder{cf: cf, snapshotter: snap, layerCache: lc,
-				args: dockerfile.NewBuildArgs([]string{})}
+			sb := &stageBuilder{cf: cf, snapshotter: snap, args: dockerfile.NewBuildArgs([]string{})}
 			ck := CompositeCache{}
 			file, err := os.CreateTemp("", "foo")
 			if err != nil {
@@ -612,7 +611,7 @@ func Test_stageBuilder_optimize(t *testing.T) {
 				cacheCommand: MockCachedDockerCommand{},
 			}
 			sb.cmds = []commands.DockerCommand{command}
-			_, err = sb.optimize(ck, cf.Config, tc.opts, util.FileContext{})
+			_, err = sb.optimize(ck, cf.Config, tc.opts, util.FileContext{}, lc)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -1477,7 +1476,6 @@ RUN foobar
 				image:       tc.image,
 				cf:          cf,
 				snapshotter: snap,
-				layerCache:  lc,
 				pushLayerToCache: func(_ *config.KanikoOptions, cacheKey, _, _ string) error {
 					keys = append(keys, cacheKey)
 					return nil
@@ -1506,7 +1504,7 @@ RUN foobar
 			} else {
 				compositeKey = NewCompositeCache(sb.baseImageDigest)
 			}
-			_, err := sb.optimize(*compositeKey, sb.cf.Config, tc.opts, util.FileContext{})
+			_, err := sb.optimize(*compositeKey, sb.cf.Config, tc.opts, util.FileContext{}, lc)
 			if err != nil {
 				t.Errorf("failed to optimize instructions: %v", err)
 			}
@@ -1752,7 +1750,6 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 		args             *dockerfile.BuildArgs
 		crossStageDeps   bool
 		snapshotter      snapShotter
-		layerCache       cache.LayerCache
 		pushLayerToCache cachePusher
 	}
 	type args struct {
@@ -1838,7 +1835,6 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 				args:             tt.fields.args,
 				crossStageDeps:   tt.fields.crossStageDeps,
 				snapshotter:      tt.fields.snapshotter,
-				layerCache:       tt.fields.layerCache,
 				pushLayerToCache: tt.fields.pushLayerToCache,
 			}
 			imageMediaType, err := s.image.MediaType()
@@ -1877,7 +1873,6 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 		args             *dockerfile.BuildArgs
 		crossStageDeps   bool
 		snapshotter      snapShotter
-		layerCache       cache.LayerCache
 		pushLayerToCache cachePusher
 	}
 	type args struct {
@@ -1980,7 +1975,6 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 				args:             tt.fields.args,
 				crossStageDeps:   tt.fields.crossStageDeps,
 				snapshotter:      tt.fields.snapshotter,
-				layerCache:       tt.fields.layerCache,
 				pushLayerToCache: tt.fields.pushLayerToCache,
 			}
 			imageMediaType, err := s.image.MediaType()

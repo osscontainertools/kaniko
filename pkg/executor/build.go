@@ -75,7 +75,6 @@ type stageBuilder struct {
 	args             *dockerfile.BuildArgs
 	crossStageDeps   bool
 	snapshotter      snapShotter
-	layerCache       cache.LayerCache
 	pushLayerToCache cachePusher
 }
 
@@ -143,7 +142,6 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		baseImageDigest:  digest.String(),
 		args:             args.Clone(),
 		crossStageDeps:   len(crossStageDeps[stage.Index]) > 0,
-		layerCache:       newLayerCache(opts),
 		pushLayerToCache: pushLayerToCache,
 	}
 
@@ -238,7 +236,7 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	return compositeKey, nil
 }
 
-func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts *config.KanikoOptions, fileContext util.FileContext) (string, error) {
+func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache) (string, error) {
 	if !opts.Cache {
 		return "", nil
 	}
@@ -278,7 +276,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 		finalCacheKey = ck
 
 		if command.ShouldCacheOutput() && !stopCache {
-			img, err := s.layerCache.RetrieveLayer(ck)
+			img, err := layerCache.RetrieveLayer(ck)
 
 			if err != nil {
 				logrus.Debugf("Failed to retrieve layer: %s", err)
@@ -889,7 +887,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 
 		// Apply optimizations to the instructions.
-		finalCacheKey, err := sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext)
+		finalCacheKey, err := sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts))
 		if err != nil {
 			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
 		}
