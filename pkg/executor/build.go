@@ -73,7 +73,6 @@ type stageBuilder struct {
 	baseImageDigest string
 	cmds            []commands.DockerCommand
 	args            *dockerfile.BuildArgs
-	crossStageDeps  bool
 }
 
 func makeSnapshotter(opts *config.KanikoOptions) (*snapshot.Snapshotter, error) {
@@ -86,7 +85,7 @@ func makeSnapshotter(opts *config.KanikoOptions) (*snapshot.Snapshotter, error) 
 }
 
 // newStageBuilder returns a new type stageBuilder which contains all the information required to build the stage
-func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, stage config.KanikoStage, crossStageDeps map[int][]string, stageNameToIdx map[string]int, fileContext util.FileContext) (*stageBuilder, error) {
+func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, stage config.KanikoStage, stageNameToIdx map[string]int, fileContext util.FileContext) (*stageBuilder, error) {
 	sourceImage, err := image_util.RetrieveSourceImage(stage, opts)
 	if err != nil {
 		return nil, err
@@ -133,7 +132,6 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		cf:              imageConfig,
 		baseImageDigest: digest.String(),
 		args:            args.Clone(),
-		crossStageDeps:  len(crossStageDeps[stage.Index]) > 0,
 	}
 
 	for _, cmd := range stage.Commands {
@@ -293,7 +291,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 	return finalCacheKey, nil
 }
 
-func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter) error {
+func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool) error {
 	// Unpack file system to root if we need to.
 	shouldUnpack := false
 	for _, cmd := range s.cmds {
@@ -303,7 +301,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			break
 		}
 	}
-	if s.crossStageDeps {
+	if crossStageDeps {
 		shouldUnpack = true
 	}
 	if s.stage.Final && opts.Materialize {
@@ -863,7 +861,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	for _, stage := range kanikoStages {
 		sb, err := newStageBuilder(
 			args, opts, stage,
-			crossStageDependencies,
 			stageNameToIdx,
 			fileContext)
 		if err != nil {
@@ -887,7 +884,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 
 		args = sb.args
-		err = sb.build(*compositeKey, opts, fileContext, snapshotter)
+		crossStageDeps := len(crossStageDependencies[stage.Index]) > 0
+		err = sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps)
 		if err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
 		}

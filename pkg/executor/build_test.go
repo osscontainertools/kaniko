@@ -1489,7 +1489,6 @@ RUN foobar
 			if tc.rootDir != "" {
 				config.RootDir = tc.rootDir
 			}
-			sb.crossStageDeps = tc.crossStageDeps
 			if tc.mockGetFSFromImage != nil {
 				original := getFSFromImage
 				defer func() { getFSFromImage = original }()
@@ -1508,7 +1507,7 @@ RUN foobar
 			if err != nil {
 				t.Errorf("failed to optimize instructions: %v", err)
 			}
-			err = sb.build(*compositeKey, tc.opts, util.FileContext{}, snap)
+			err = sb.build(*compositeKey, tc.opts, util.FileContext{}, snap, tc.crossStageDeps)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -1748,7 +1747,6 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 		opts            *config.KanikoOptions
 		cmds            []commands.DockerCommand
 		args            *dockerfile.BuildArgs
-		crossStageDeps  bool
 	}
 	type args struct {
 		tarPath string
@@ -1831,7 +1829,6 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 				baseImageDigest: tt.fields.baseImageDigest,
 				cmds:            tt.fields.cmds,
 				args:            tt.fields.args,
-				crossStageDeps:  tt.fields.crossStageDeps,
 			}
 			imageMediaType, err := s.image.MediaType()
 			if err != nil {
@@ -1867,7 +1864,6 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 		opts            *config.KanikoOptions
 		cmds            []commands.DockerCommand
 		args            *dockerfile.BuildArgs
-		crossStageDeps  bool
 	}
 	type args struct {
 		layer v1.Layer
@@ -1967,7 +1963,6 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 				baseImageDigest: tt.fields.baseImageDigest,
 				cmds:            tt.fields.cmds,
 				args:            tt.fields.args,
-				crossStageDeps:  tt.fields.crossStageDeps,
 			}
 			imageMediaType, err := s.image.MediaType()
 			if err != nil {
