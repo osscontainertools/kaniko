@@ -7,8 +7,18 @@ var Tests = types.GoldenTests{
 	Dockerfile: "Dockerfile",
 	Tests: []types.GoldenTest{
 		{
-			Args: []string{"--no-push"},
-			Plan: "plan",
+			Args:        []string{"--no-push", "--cache", "--cache-copy-layers"},
+			KeySequence: []string{},
+			Plan:        "plan",
+		},
+		{
+			Args: []string{"--no-push", "--cache", "--cache-copy-layers"},
+			KeySequence: []string{
+				"b0db5c4dc0ee6072dc9f3e18194c1cf4745367521c6a6bb4a8ebb269be5e7c82",
+				"d9bc52c744d2c8b71b7cddc067835bb19cbd1c4582ccc7c080c21cab0e738902",
+				"5d60f8ab2a0f13a3b795b4129fd35f0d31312a7eead176f4786d07d08d7b1887",
+			},
+			Plan: "cached",
 		},
 	},
 }

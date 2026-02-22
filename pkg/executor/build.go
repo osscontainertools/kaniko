@@ -53,10 +53,11 @@ import (
 
 // for testing
 var (
-	initializeConfig             = initConfig
-	getFSFromImage               = util.GetFSFromImage
-	mkdirPermissions os.FileMode = 0644
-	pushCache                    = pushLayerToCache
+	initializeConfig                  = initConfig
+	getFSFromImage                    = util.GetFSFromImage
+	mkdirPermissions os.FileMode      = 0644
+	pushCache                         = pushLayerToCache
+	FakeCache        cache.LayerCache = nil
 )
 
 type snapShotter interface {
@@ -73,6 +74,8 @@ type stageBuilder struct {
 	baseImageDigest string
 	cmds            []commands.DockerCommand
 	args            *dockerfile.BuildArgs
+	cacheKeys       []string
+	cacheHits       []bool
 }
 
 func makeSnapshotter(opts *config.KanikoOptions) (*snapshot.Snapshotter, error) {
@@ -139,6 +142,8 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 		}
 		s.cmds = append(s.cmds, command)
 	}
+	s.cacheKeys = make([]string, len(s.cmds))
+	s.cacheHits = make([]bool, len(s.cmds))
 	s.args.AddMetaArgs(stage.MetaArgs)
 	return s, nil
 }
@@ -177,6 +182,9 @@ func initConfig(img partial.WithConfigFile, opts *config.KanikoOptions) (*v1.Con
 }
 
 func newLayerCache(opts *config.KanikoOptions) cache.LayerCache {
+	if opts.Dryrun && FakeCache != nil {
+		return FakeCache
+	}
 	if isOCILayout(opts.CacheRepo) {
 		return &cache.LayoutCache{
 			Opts: opts,
@@ -256,6 +264,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 
 		logrus.Debugf("Optimize: cache key for command %v %v", command.String(), ck)
 		finalCacheKey = ck
+		s.cacheKeys[i] = ck
 
 		if command.ShouldCacheOutput() && !stopCache {
 			img, err := layerCache.RetrieveLayer(ck)
@@ -268,6 +277,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 				continue
 			}
 
+			s.cacheHits[i] = true
 			if cacheCmd := command.CacheCommand(img); cacheCmd != nil {
 				logrus.Infof("Using caching version of cmd: %s", command.String())
 				s.cmds[i] = cacheCmd
@@ -725,7 +735,16 @@ func RenderStages(stages []*stageBuilder, opts *config.KanikoOptions, fileContex
 		} else {
 			printf("UNPACK %s\n", s.stage.BaseName)
 		}
-		for _, c := range s.cmds {
+		for idx, c := range s.cmds {
+			if opts.Cache {
+				if ck := s.cacheKeys[idx]; ck != "" {
+					if s.cacheHits[idx] {
+						printf("CACHE HIT: %s\n", ck)
+					} else {
+						printf("CACHE MISS: %s\n", ck)
+					}
+				}
+			}
 			printf("%s\n", c.String())
 		}
 		if s.stage.Final {
@@ -775,6 +794,8 @@ func squash(a, b *stageBuilder) *stageBuilder {
 		baseImageDigest: a.baseImageDigest,
 		cmds:            append(acmds, b.cmds...),
 		args:            a.args,
+		cacheKeys:       append(a.cacheKeys, b.cacheKeys...),
+		cacheHits:       append(a.cacheHits, b.cacheHits...),
 	}
 }
 
