@@ -85,12 +85,7 @@ func makeSnapshotter(opts *config.KanikoOptions) (*snapshot.Snapshotter, error) 
 }
 
 // newStageBuilder returns a new type stageBuilder which contains all the information required to build the stage
-func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, stage config.KanikoStage, fileContext util.FileContext) (*stageBuilder, error) {
-	sourceImage, err := image_util.RetrieveSourceImage(stage, opts)
-	if err != nil {
-		return nil, err
-	}
-
+func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *config.KanikoOptions, stage config.KanikoStage, fileContext util.FileContext) (*stageBuilder, error) {
 	_opts := *opts
 	if !stage.Final {
 		_opts.Labels = []string{}
@@ -218,7 +213,9 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	compositeKey.AddKey(command.String())
 
 	for _, f := range files {
-		compositeKey.AddKey(f)
+		if err := compositeKey.AddPath(f, fileContext); err != nil {
+			return compositeKey, err
+		}
 	}
 	return compositeKey, nil
 }
@@ -820,10 +817,21 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		return nil, err
 	}
 
+	images := make([]v1.Image, lastStage.Index+1)
 	builderStages := make([]*stageBuilder, lastStage.Index+1)
 	baseStageToCacheKey := make([]string, lastStage.Index+1)
 	for _, stage := range kanikoStages {
+		var sourceImage v1.Image
+		if stage.BaseImageStoredLocally {
+			sourceImage = images[stage.BaseImageIndex]
+		} else {
+			sourceImage, err = image_util.RetrieveSourceImage(stage, opts)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get sourceImage: %w", err)
+			}
+		}
 		sb, err := newStageBuilder(
+			sourceImage,
 			args, opts, stage,
 			fileContext)
 		if err != nil {
@@ -842,6 +850,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 		builderStages[sb.stage.Index] = sb
 		baseStageToCacheKey[sb.stage.Index] = finalCacheKey
+		images[sb.stage.Index] = sb.image
 	}
 
 	// We now "count" references, it is only safe to squash
