@@ -93,6 +93,9 @@ func TestRun(t *testing.T) {
 							}
 
 							opts := config.KanikoOptions{}
+							executor.FakeCache = &executor.FakeLayerCache{
+								KeySequence: test.KeySequence,
+							}
 							exec := &cobra.Command{
 								Use: "kaniko",
 							}
