@@ -213,9 +213,7 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	compositeKey.AddKey(command.String())
 
 	for _, f := range files {
-		if err := compositeKey.AddPath(f, fileContext); err != nil {
-			return compositeKey, err
-		}
+		compositeKey.AddKey(f)
 	}
 	return compositeKey, nil
 }
