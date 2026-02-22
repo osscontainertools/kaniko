@@ -202,8 +202,7 @@ func Test_stageBuilder_shouldTakeSnapshot(t *testing.T) {
 				tt.fields.opts = &config.KanikoOptions{}
 			}
 			s := &stageBuilder{
-				stage: tt.fields.stage,
-				cmds:  tt.fields.cmds,
+				cmds: tt.fields.cmds,
 			}
 			isLastCommand := tt.args.index == len(s.cmds)-1
 			if got := shouldTakeSnapshot(tt.args.metadataOnly, isLastCommand, tt.fields.opts); got != tt.want {
@@ -1738,7 +1737,8 @@ func Test_ResolveCrossStageInstructions(t *testing.T) {
 func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 	dir, files := tempDirAndFile(t)
 	type fields struct {
-		stage           config.KanikoStage
+		Index           int
+		Final           bool
 		image           v1.Image
 		cf              *v1.ConfigFile
 		baseImageDigest string
@@ -1821,7 +1821,8 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &stageBuilder{
-				stage:           tt.fields.stage,
+				index:           tt.fields.Index,
+				final:           tt.fields.Final,
 				image:           tt.fields.image,
 				cf:              tt.fields.cf,
 				baseImageDigest: tt.fields.baseImageDigest,
@@ -1855,7 +1856,8 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 
 func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 	type fields struct {
-		stage           config.KanikoStage
+		Index           int
+		Final           bool
 		image           v1.Image
 		cf              *v1.ConfigFile
 		baseImageDigest string
@@ -1955,7 +1957,8 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &stageBuilder{
-				stage:           tt.fields.stage,
+				index:           tt.fields.Index,
+				final:           tt.fields.Final,
 				image:           tt.fields.image,
 				cf:              tt.fields.cf,
 				baseImageDigest: tt.fields.baseImageDigest,
