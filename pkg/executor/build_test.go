@@ -1737,9 +1737,8 @@ func Test_ResolveCrossStageInstructions(t *testing.T) {
 func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 	dir, files := tempDirAndFile(t)
 	type fields struct {
-		Index int
-		Final bool
 		image v1.Image
+		opts  config.KanikoOptions
 	}
 	type args struct {
 		tarPath string
@@ -1747,7 +1746,6 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 	tests := []struct {
 		name              string
 		fields            fields
-		opts              config.KanikoOptions
 		args              args
 		expectedMediaType types.MediaType
 		expectedDiff      v1.Hash
@@ -1794,9 +1792,9 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 			name: "oci image, zstd compression",
 			fields: fields{
 				image: ociFakeImage{},
-			},
-			opts: config.KanikoOptions{
-				Compression: config.ZStd,
+				opts: config.KanikoOptions{
+					Compression: config.ZStd,
+				},
 			},
 			args: args{
 				tarPath: filepath.Join(dir, files[0]),
@@ -1814,16 +1812,13 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &stageBuilder{
-				image: tt.fields.image,
-			}
-			imageMediaType, err := s.image.MediaType()
+			imageMediaType, err := tt.fields.image.MediaType()
 			if err != nil {
 				t.Fatal(err)
 			}
-			got, err := saveSnapshotToLayer(tt.args.tarPath, imageMediaType, &tt.opts)
+			got, err := saveSnapshotToLayer(tt.args.tarPath, imageMediaType, &tt.fields.opts)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("stageBuilder.saveSnapshotToLayer() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("saveSnapshotToLayer() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if mt, _ := got.MediaType(); mt != tt.expectedMediaType {
@@ -1844,9 +1839,8 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 
 func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 	type fields struct {
-		Index int
-		Final bool
 		image v1.Image
+		opts  config.KanikoOptions
 	}
 	type args struct {
 		layer v1.Layer
@@ -1854,7 +1848,6 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 	tests := []struct {
 		name              string
 		fields            fields
-		opts              config.KanikoOptions
 		args              args
 		expectedMediaType types.MediaType
 		wantErr           bool
@@ -1899,9 +1892,9 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 			name: "oci image w/ convertable docker layer and zstd compression",
 			fields: fields{
 				image: ociFakeImage{},
-			},
-			opts: config.KanikoOptions{
-				Compression: config.ZStd,
+				opts: config.KanikoOptions{
+					Compression: config.ZStd,
+				},
 			},
 			args: args{
 				layer: fakeLayer{
@@ -1937,22 +1930,19 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := &stageBuilder{
-				image: tt.fields.image,
-			}
-			imageMediaType, err := s.image.MediaType()
+			imageMediaType, err := tt.fields.image.MediaType()
 			if err != nil {
 				t.Fatal(err)
 			}
-			got, err := convertLayerMediaType(tt.args.layer, imageMediaType, &tt.opts)
+			got, err := convertLayerMediaType(tt.args.layer, imageMediaType, &tt.fields.opts)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("stageBuilder.convertLayerMediaType() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("convertLayerMediaType() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if err == nil {
 				mt, _ := got.MediaType()
 				if mt != tt.expectedMediaType {
-					t.Errorf("stageBuilder.convertLayerMediaType() = %v, want %v", mt, tt.expectedMediaType)
+					t.Errorf("convertLayerMediaType() = %v, want %v", mt, tt.expectedMediaType)
 				}
 			}
 		})
