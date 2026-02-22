@@ -366,9 +366,7 @@ COPY --from=second /bar /bat
 			if err != nil {
 				t.Errorf("Failed to parse stages to Kaniko Stages: %s", err)
 			}
-			stageNameToIdx := ResolveCrossStageInstructions(kanikoStages)
-
-			got, err := CalculateDependencies(kanikoStages, opts, stageNameToIdx)
+			got, err := CalculateDependencies(kanikoStages, opts)
 			if err != nil {
 				t.Errorf("got error: %s,", err)
 			}
