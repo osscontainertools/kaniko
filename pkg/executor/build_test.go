@@ -1500,7 +1500,17 @@ RUN foobar
 			digestToCacheKey := map[string]string{
 				"some-digest": "some-cache-key",
 			}
-			_, err := sb.build(digestToCacheKey, tc.opts, util.FileContext{})
+			var compositeKey *CompositeCache
+			if cacheKey, ok := digestToCacheKey[sb.baseImageDigest]; ok {
+				compositeKey = NewCompositeCache(cacheKey)
+			} else {
+				compositeKey = NewCompositeCache(sb.baseImageDigest)
+			}
+			_, err := sb.optimize(*compositeKey, sb.cf.Config, tc.opts, util.FileContext{})
+			if err != nil {
+				t.Errorf("failed to optimize instructions: %v", err)
+			}
+			err = sb.build(*compositeKey, tc.opts, util.FileContext{})
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
