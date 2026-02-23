@@ -931,7 +931,6 @@ func Test_stageBuilder_build(t *testing.T) {
 				pushedCacheKeys:   []string{hash},
 				commands:          []commands.DockerCommand{command},
 				rootDir:           dir,
-				image:             fakeImage{},
 			}
 		}(),
 		func() testcase {
@@ -965,7 +964,6 @@ func Test_stageBuilder_build(t *testing.T) {
 				pushedCacheKeys:   []string{},
 				commands:          []commands.DockerCommand{command},
 				rootDir:           dir,
-				image:             fakeImage{},
 			}
 		}(),
 		func() testcase {
@@ -999,24 +997,20 @@ func Test_stageBuilder_build(t *testing.T) {
 				pushedCacheKeys:   []string{},
 				commands:          []commands.DockerCommand{command},
 				rootDir:           dir,
-				image:             fakeImage{},
 			}
 		}(),
 		{
 			description: "use new run",
 			opts:        &config.KanikoOptions{RunV2: true},
-			image:       fakeImage{},
 		},
 		{
 			description:        "single snapshot",
 			opts:               &config.KanikoOptions{SingleSnapshot: true},
 			shouldInitSnapshot: true,
-			image:              fakeImage{},
 		},
 		{
 			description: "fake command cache disabled and key not in cache",
 			opts:        &config.KanikoOptions{Cache: false},
-			image:       fakeImage{},
 		},
 		{
 			description: "fake command cache disabled and key in cache",
@@ -1024,7 +1018,6 @@ func Test_stageBuilder_build(t *testing.T) {
 			layerCache: &fakeLayerCache{
 				retrieve: true,
 			},
-			image: fakeImage{},
 		},
 		func() testcase {
 			dir, filenames := tempDirAndFile(t)
@@ -1333,7 +1326,6 @@ RUN foobar
 					keySequence: []string{hash},
 				},
 				rootDir: dir,
-				image:   fakeImage{},
 			}
 		}(),
 		func() testcase {
@@ -1372,7 +1364,6 @@ RUN foobar
 				expectedCacheKeys: []string{hash},
 				commands:          []commands.DockerCommand{command},
 				rootDir:           dir,
-				image:             fakeImage{},
 			}
 		}(),
 		func() testcase {
@@ -1418,7 +1409,6 @@ RUN foobar
 				pushedCacheKeys:   []string{hash2},
 				commands:          []commands.DockerCommand{command},
 				rootDir:           dir,
-				image:             fakeImage{},
 			}
 		}(),
 		{
@@ -1429,7 +1419,6 @@ RUN foobar
 			mockGetFSFromImage: func(root string, img v1.Image, extract util.ExtractFunction) ([]string, error) {
 				return nil, fmt.Errorf("getFSFromImage shouldn't be called if fs is already unpacked")
 			},
-			image: fakeImage{},
 		},
 	}
 	for _, tc := range testCases {
@@ -1467,9 +1456,13 @@ RUN foobar
 				lc = &fakeLayerCache{}
 			}
 			keys := []string{}
+			_image := tc.image
+			if _image == nil {
+				_image = fakeImage{}
+			}
 			sb := &stageBuilder{
 				args:  dockerfile.NewBuildArgs([]string{}), //required or code will panic
-				image: tc.image,
+				image: _image,
 				cf:    cf,
 			}
 			originalPushCache := pushCache
