@@ -569,8 +569,12 @@ func convertMediaType(mt types.MediaType) types.MediaType {
 	}
 }
 
-func convertLayerMediaType(layer v1.Layer, imageMediaType types.MediaType, opts *config.KanikoOptions) (v1.Layer, error) {
+func convertLayerMediaType(layer v1.Layer, image v1.Image, opts *config.KanikoOptions) (v1.Layer, error) {
 	layerMediaType, err := layer.MediaType()
+	if err != nil {
+		return nil, err
+	}
+	imageMediaType, err := image.MediaType()
 	if err != nil {
 		return nil, err
 	}
@@ -600,11 +604,7 @@ func convertLayerMediaType(layer v1.Layer, imageMediaType types.MediaType, opts 
 }
 
 func saveLayerToImage(image v1.Image, layer v1.Layer, createdBy string, opts *config.KanikoOptions) (v1.Image, error) {
-	imageMediaType, err := image.MediaType()
-	if err != nil {
-		return nil, err
-	}
-	layer, err = convertLayerMediaType(layer, imageMediaType, opts)
+	layer, err := convertLayerMediaType(layer, image, opts)
 	if err != nil {
 		return nil, err
 	}

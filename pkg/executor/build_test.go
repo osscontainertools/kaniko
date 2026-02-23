@@ -1922,11 +1922,7 @@ func Test_stageBuilder_convertLayerMediaType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			imageMediaType, err := tt.fields.image.MediaType()
-			if err != nil {
-				t.Fatal(err)
-			}
-			got, err := convertLayerMediaType(tt.args.layer, imageMediaType, &tt.fields.opts)
+			got, err := convertLayerMediaType(tt.args.layer, tt.fields.image, &tt.fields.opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("convertLayerMediaType() error = %v, wantErr %v", err, tt.wantErr)
 				return
