@@ -355,6 +355,8 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			Final:                  i == targetStage,
 			MetaArgs:               metaArgs,
 			Index:                  i,
+			Unpack:                 true,
+			Clean:                  true,
 		}
 	}
 	if opts.SkipUnusedStages && config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true) {
@@ -382,6 +384,14 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			}
 		}
 		kanikoStages = onlyUsedStages
+	}
+	if config.EnvBool("FF_KANIKO_SKIP_INTERSTAGE_CLEANUP") {
+		for i := range kanikoStages {
+			if i > 0 && kanikoStages[i].BaseImageIndex == kanikoStages[i-1].Index {
+				kanikoStages[i-1].Clean = false
+				kanikoStages[i].Unpack = false
+			}
+		}
 	}
 	return kanikoStages, nil
 }
@@ -459,5 +469,7 @@ func squash(a, b config.KanikoStage) config.KanikoStage {
 		SaveStage:              b.SaveStage,
 		MetaArgs:               append(a.MetaArgs, b.MetaArgs...),
 		Index:                  b.Index,
+		Unpack:                 a.Unpack,
+		Clean:                  b.Clean,
 	}
 }

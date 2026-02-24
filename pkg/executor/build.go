@@ -69,6 +69,8 @@ type snapShotter interface {
 type stageBuilder struct {
 	index            int
 	final            bool
+	unpack           bool
+	clean            bool
 	image            v1.Image
 	cf               *v1.ConfigFile
 	baseImageDigest  string
@@ -142,6 +144,8 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 	s := &stageBuilder{
 		index:            stage.Index,
 		final:            stage.Final,
+		unpack:           stage.Unpack,
+		clean:            stage.Clean,
 		image:            sourceImage,
 		cf:               imageConfig,
 		snapshotter:      snapshotter,
@@ -339,7 +343,7 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 	if s.final && s.opts.Materialize {
 		shouldUnpack = true
 	}
-	if s.index == 0 && s.opts.InitialFSUnpacked {
+	if s.index == 0 && s.opts.InitialFSUnpacked || !s.unpack {
 		shouldUnpack = false
 	}
 
@@ -751,10 +755,12 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 		} else {
 			printf("FROM %s\n", s.BaseName)
 		}
-		if s.BaseImageStoredLocally {
-			printf("UNPACK %s%d\n", config.KanikoIntermediateStagesDir, s.BaseImageIndex)
-		} else {
-			printf("UNPACK %s\n", s.BaseName)
+		if s.Unpack {
+			if s.BaseImageStoredLocally {
+				printf("UNPACK %s%d\n", config.KanikoIntermediateStagesDir, s.BaseImageIndex)
+			} else {
+				printf("UNPACK %s\n", s.BaseName)
+			}
 		}
 		for _, c := range s.Commands {
 			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
@@ -782,9 +788,13 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 		if len(filesToSave) > 0 {
 			printf("SAVE FILES %v %s%d\n", filesToSave, config.KanikoInterStageDepsDir, s.Index)
 		}
-		printf("CLEAN\n\n")
-		if opts.PreserveContext && !opts.PreCleanup {
-			printf("RESTORE CONTEXT\n\n")
+		if s.Clean {
+			printf("CLEAN\n\n")
+			if opts.PreserveContext && !opts.PreCleanup {
+				printf("RESTORE CONTEXT\n\n")
+			}
+		} else {
+			printf("\n")
 		}
 	}
 	logrus.Panic("unreachable - we should always have a final stage")
@@ -978,18 +988,20 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 
 		// Delete the filesystem
-		if err := util.DeleteFilesystem(); err != nil {
-			return nil, fmt.Errorf("deleting file system after stage %d: %w", stage.Index, err)
-		}
-		if opts.PreserveContext && !opts.PreCleanup {
-			if tarball == "" {
-				return nil, fmt.Errorf("context snapshot is missing")
+		if sb.clean {
+			if err := util.DeleteFilesystem(); err != nil {
+				return nil, fmt.Errorf("deleting file system after stage %d: %w", stage.Index, err)
 			}
-			_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
-			if err != nil {
-				return nil, fmt.Errorf("failed to unpack context snapshot: %w", err)
+			if opts.PreserveContext && !opts.PreCleanup {
+				if tarball == "" {
+					return nil, fmt.Errorf("context snapshot is missing")
+				}
+				_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
+				if err != nil {
+					return nil, fmt.Errorf("failed to unpack context snapshot: %w", err)
+				}
+				logrus.Info("Context restored")
 			}
-			logrus.Info("Context restored")
 		}
 	}
 
