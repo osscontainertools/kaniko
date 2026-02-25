@@ -18,7 +18,7 @@ require (
 	github.com/docker/cli v29.2.1+incompatible
 	github.com/docker/docker-credential-helpers v0.9.5
 	github.com/ePirat/docker-credential-gitlabci v1.0.0
-	github.com/go-git/go-billy/v5 v5.7.0
+	github.com/go-git/go-billy/v5 v5.8.0
 	github.com/go-git/go-git/v5 v5.16.5
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.7.0
