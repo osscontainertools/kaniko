@@ -85,6 +85,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_cg188":                {"SECRET=blubb"},
 	"Dockerfile_test_issue_mz473":                {"KANIKO_DIR=/kaniko2"},
 	"Dockerfile_test_issue_mz511":                {"FF_KANIKO_SQUASH_STAGES=0"},
+	"Dockerfile_test_issue_mz529":                {"FF_KANIKO_SQUASH_STAGES=0"},
 }
 
 var KanikoEnv = []string{
@@ -136,6 +137,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	// mz511: we're using /etc/nsswitch.conf because it pre-exists
 	// in the kaniko image and can therefore safely be deleted.
 	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=/etc/nsswitch.conf"},
+	"Dockerfile_test_issue_mz529": {"--cleanup"},
 }
 
 // Arguments to diffoci when comparing dockerfiles

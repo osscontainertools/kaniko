@@ -1,0 +1,13 @@
+# mz529: in kaniko v1.26.5 kaniko learned to cleanup the
+# kaniko-dir after build. This was done because if a script tries
+# to retry the build, having leftovers in kaniko-dir leads to failed builds.
+# However, the kaniko-dir was cleaned after build, but before push.
+# So now regular builds that simply try to run through once failed.
+FROM busybox AS base
+
+RUN touch test
+
+# Somehow this issue is only observable if we have multistage builds.
+FROM base
+
+RUN touch blubb
