@@ -554,7 +554,7 @@ Kaniko's approach to buliding docker images is unique. It doesn't build up and s
 
 The good news is, it's all technically possible, but it's a bit more involved than building other images.
 
-The first problem we face is that the kaniko binaries are installed in `/kaniko` directory. Which means that this directory must also be ignored during snapshots, less we would leak our build tool into any image we produce. But this also means that kaniko by default can't build a kaniko image with the binaries installed in `/kaniko` directory. Luckily there is an override for that, that allows us to move all the binaries to a different location before the build ie. `--kaniko-dir=/kaniko2`.
+The first problem we face is that the kaniko binaries are installed in `/kaniko` directory. Which means that this directory must also be ignored during snapshots, lest we would leak our build tool into any image we produce. But this also means that kaniko by default can't build a kaniko image with the binaries installed in `/kaniko` directory. Luckily there is an override for that, that allows us to move all the binaries to a different location before the build ie. `--kaniko-dir=/kaniko2`.
 
 The second problem only affects build using the `debug` image, ie. gitlab-runner. The shell that is spawned in the debug image is in `/busybox`, similarly we can't snapshot files in that directory. Unfortunately there is no override to move those binaries. But with a bit creativity we can create a bootstrap image that has the shell installed into a different location ie. `/busybox2` and then use that bootstrap image to build the actual new debug image.
 
@@ -1178,8 +1178,8 @@ Expected format is
 
 #### Flag `--registry-map`
 
-Set this flag if you want to remap registries references. Usefull for air gap
-environement for example. You can use this flag more than once, if you want to
+Set this flag if you want to remap registries references. Useful for air gap
+environment for example. You can use this flag more than once, if you want to
 set multiple mirrors for a given registry. You can mention several remap in a
 single flag too, separated by semi-colon. If an image is not found on the first
 mirror, Kaniko will try the next mirror(s), and at the end fallback on the
@@ -1201,7 +1201,7 @@ are:
 - `index.docker.io=docker-io.mirrors.corp.net;index.docker.io=mirror.gcr.io;gcr.io=127.0.0.1`
   will try `docker-io.mirrors.corp.net` then `mirror.gcr.io` for
   `index.docker.io` and `127.0.0.1` for `gcr.io`
-- `docker.io=harbor.provate.io/theproject`
+- `docker.io=harbor.private.io/theproject`
 
 #### Flag `--registry-mirror`
 
@@ -1222,7 +1222,7 @@ are:
 - `127.0.0.1`
 - `192.168.0.1:5000`
 - `mycompany-docker-virtual.jfrog.io`
-- `harbor.provate.io/theproject`
+- `harbor.private.io/theproject`
 
 #### Flag `--skip-default-registry-fallback`
 
@@ -1343,7 +1343,7 @@ image filesystem. Defaults to `0`.
 
 Set this flag to the number of retries that should happen when downloading the
 remote image. Consecutive retries occur with exponential backoff and an initial
-delay of 1 second. Defaults to 0`.
+delay of 1 second. Defaults to `0`.
 
 ### Feature Flags
 
@@ -1617,7 +1617,7 @@ For simplicity's sake we deliberately refrained from using versioned tagged
 images (all builds will be tagged as "latest") in the previous examples, as we
 feel like this adds to much platform and workflow specific code.
 
-Nethertheless, for anyone interested in how we handle (dynamic) versioning in
+Nevertheless, for anyone interested in how we handle (dynamic) versioning in
 GitLab, here is a short rundown:
 
 - If you are only interested in building tagged releases, you can simply use the
