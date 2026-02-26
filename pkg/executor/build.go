@@ -964,7 +964,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			}
 		}
 
-		filesToSave, err := filesToSave(crossStageDependencies[stage.Index])
+		files, err := filesToSave(crossStageDependencies[stage.Index])
 		if err != nil {
 			return nil, err
 		}
@@ -974,7 +974,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return nil, fmt.Errorf("to create workspace for stage %d: %w",
 				stage.Index, err)
 		}
-		for _, p := range filesToSave {
+		for _, p := range files {
 			logrus.Infof("Saving file %s for later use", p)
 			if err := util.CopyFileOrSymlink(p, dstDir, config.RootDir); err != nil {
 				return nil, fmt.Errorf("could not save file: %w", err)
