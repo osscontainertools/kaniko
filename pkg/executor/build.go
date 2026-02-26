@@ -356,7 +356,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 
 		if opts.Cache {
 			compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, s.cf.Config.Env, fileContext)
-			if err != nil && opts.Cache {
+			if err != nil {
 				return err
 			}
 		}
