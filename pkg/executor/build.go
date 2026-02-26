@@ -920,8 +920,12 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			configFile.OS = runtime.GOOS
 			configFile.Architecture = runtime.GOARCH
 		} else {
-			configFile.OS = strings.Split(opts.CustomPlatform, "/")[0]
-			configFile.Architecture = strings.Split(opts.CustomPlatform, "/")[1]
+			os, arch, ok := strings.Cut(opts.CustomPlatform, "/")
+			if !ok {
+				return nil, fmt.Errorf("invalid platform format %q, expected os/arch", opts.CustomPlatform)
+			}
+			configFile.OS = os
+			configFile.Architecture = arch
 		}
 		sourceImage, err = mutate.ConfigFile(sourceImage, configFile)
 		if err != nil {
