@@ -993,7 +993,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 	}
 
-	return nil, err
+	logrus.Panic("unreachable - we should always have a final stage")
+	return nil, nil
 }
 
 func assignIfNil(dst *error, fn func() error) {
