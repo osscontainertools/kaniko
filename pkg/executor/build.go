@@ -55,7 +55,7 @@ import (
 var (
 	initializeConfig             = initConfig
 	getFSFromImage               = util.GetFSFromImage
-	mkdirPermissions os.FileMode = 0644
+	mkdirPermissions os.FileMode = 0755
 )
 
 type cachePusher func(*config.KanikoOptions, string, string, string) error
