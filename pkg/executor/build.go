@@ -893,13 +893,12 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			crossStageDependencies,
 			stageNameToIdx,
 			fileContext)
-
-		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
-			stage.BaseName, stage.Index, stage.BaseImageIndex)
-
 		if err != nil {
 			return nil, err
 		}
+
+		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
+			stage.BaseName, stage.Index, stage.BaseImageIndex)
 		args = sb.args
 		if err := sb.build(digestToCacheKey); err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
