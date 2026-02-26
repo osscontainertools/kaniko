@@ -1221,17 +1221,6 @@ $ cosign verify \
   martizih/kaniko:latest
 ```
 
-## Kaniko Builds - Profiling
-
-If your builds are taking long, we recently added support to analyze kaniko
-function calls using [Slow Jam](https://github.com/google/slowjam) To start
-profiling,
-
-1. Add an environment variable `STACKLOG_PATH` to your
-   [pod definition](https://github.com/osscontainertools/kaniko/blob/master/examples/pod-build-profile.yaml#L15).
-2. If you are using the kaniko `debug` image, you can copy the file in the
-   `pre-stop` container lifecycle hook.
-
 ## Creating Multi-arch Container Manifests Using Kaniko and Manifest-tool
 
 While Kaniko itself currently does not support creating multi-arch manifests
