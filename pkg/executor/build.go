@@ -384,7 +384,7 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 
 		if s.opts.Cache {
 			*compositeKey, err = s.populateCompositeKey(command, files, *compositeKey, s.args, s.cf.Config.Env)
-			if err != nil && s.opts.Cache {
+			if err != nil {
 				return err
 			}
 		}
