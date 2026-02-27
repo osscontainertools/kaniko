@@ -32,6 +32,7 @@ import (
 	"syscall"
 	"time"
 
+	securejoin "github.com/cyphar/filepath-securejoin"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/go-archive"
 	"github.com/moby/patternmatcher"
@@ -187,12 +188,22 @@ func GetFSFromLayers(root string, layers []v1.Layer, opts ...FSOpt) ([]string, e
 			}
 
 			cleanedName := filepath.Clean(hdr.Name)
+			if cleanedName == ".." || strings.HasPrefix(cleanedName, "../") {
+				return nil, fmt.Errorf("tar entry %q is not allowed: references parent directory", hdr.Name)
+			}
 			path := filepath.Join(root, cleanedName)
 			base := filepath.Base(path)
-			dir := filepath.Dir(path)
 
 			if strings.HasPrefix(base, archive.WhiteoutPrefix) {
-				logrus.Tracef("Whiting out %s", path)
+				// SecureJoin resolves symlinks and ensures the result stays
+				// within root, which is needed because this code path calls
+				// os.RemoveAll.
+				securePath, err := securejoin.SecureJoin(root, cleanedName)
+				if err != nil {
+					return nil, fmt.Errorf("resolving whiteout path for %q: %w", hdr.Name, err)
+				}
+				dir := filepath.Dir(securePath)
+				logrus.Tracef("Whiting out %s", securePath)
 
 				name := strings.TrimPrefix(base, archive.WhiteoutPrefix)
 				path := filepath.Join(dir, name)
@@ -298,7 +309,20 @@ func UnTar(r io.Reader, dest string) ([]string, error) {
 }
 
 func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader) error {
-	path := filepath.Join(dest, cleanedName)
+	if cleanedName == ".." || strings.HasPrefix(cleanedName, "../") {
+		return fmt.Errorf("tar entry %q is not allowed: references parent directory", hdr.Name)
+	}
+
+	path, err := securejoin.SecureJoin(dest, cleanedName)
+	if err != nil {
+		// During layer extraction, symlink chains may be incomplete,
+		// causing ELOOP. Fall back to the lexical path — the OS will
+		// encounter the same resolution failure if the path is used.
+		if !errors.Is(err, syscall.ELOOP) {
+			return fmt.Errorf("resolving path for %q: %w", hdr.Name, err)
+		}
+		path = filepath.Join(dest, cleanedName)
+	}
 	base := filepath.Base(path)
 	dir := filepath.Dir(path)
 	mode := hdr.FileInfo().Mode()
@@ -394,13 +418,30 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 				return fmt.Errorf("error removing %s to make way for new link: %w", hdr.Name, err)
 			}
 		}
-		link := filepath.Clean(filepath.Join(dest, hdr.Linkname))
+		cleanedLink := filepath.Clean(hdr.Linkname)
+		if cleanedLink == ".." || strings.HasPrefix(cleanedLink, "../") {
+			return fmt.Errorf("hardlink target %q is not allowed: references parent directory", hdr.Linkname)
+		}
+		link, err := securejoin.SecureJoin(dest, hdr.Linkname)
+		if err != nil {
+			return fmt.Errorf("invalid hardlink target %q: %w", hdr.Linkname, err)
+		}
 		if err := os.Link(link, path); err != nil {
 			return err
 		}
 
 	case tar.TypeSymlink:
 		logrus.Tracef("Symlink from %s to %s", hdr.Linkname, path)
+		// Resolve the symlink target relative to the entry's parent directory
+		// to get the effective path from the extraction root, then verify it
+		// stays within the destination.
+		effectivePath := filepath.Clean(filepath.Join(filepath.Dir(cleanedName), hdr.Linkname))
+		if filepath.IsAbs(hdr.Linkname) {
+			effectivePath = filepath.Clean(hdr.Linkname)
+		}
+		if effectivePath == ".." || strings.HasPrefix(effectivePath, "../") {
+			return fmt.Errorf("symlink target %q resolves outside destination", hdr.Linkname)
+		}
 		// The base directory for a symlink may not exist before it is created.
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return err

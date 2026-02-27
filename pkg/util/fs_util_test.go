@@ -820,6 +820,262 @@ func TestExtractFile(t *testing.T) {
 	}
 }
 
+func TestExtractFile_PathTraversal(t *testing.T) {
+	defaultTestTime, err := time.Parse(time.RFC3339, "1912-06-23T00:00:00Z")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("regular file with dotdot", func(t *testing.T) {
+		dest := t.TempDir()
+		hdr := fileHeader("../outside.txt", "data", 0o644, defaultTestTime)
+		err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader([]byte("data")))
+		if err == nil {
+			t.Fatal("expected error for parent directory reference, got nil")
+		}
+		if _, statErr := os.Stat(filepath.Join(dest, "..", "outside.txt")); statErr == nil {
+			t.Fatal("file was written outside dest")
+		}
+	})
+
+	t.Run("directory with dotdot", func(t *testing.T) {
+		dest := t.TempDir()
+		hdr := dirHeader("../outsidedir", 0o755)
+		err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
+		if err == nil {
+			t.Fatal("expected error for parent directory reference, got nil")
+		}
+	})
+
+	t.Run("nested dotdot", func(t *testing.T) {
+		dest := t.TempDir()
+		hdr := fileHeader("foo/../../outside.txt", "data", 0o644, defaultTestTime)
+		err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader([]byte("data")))
+		if err == nil {
+			t.Fatal("expected error for parent directory reference, got nil")
+		}
+	})
+
+	t.Run("hardlink target outside dest", func(t *testing.T) {
+		dest := t.TempDir()
+		legitimateHdr := fileHeader("./legit.txt", "hello", 0o644, defaultTestTime)
+		if err := ExtractFile(dest, legitimateHdr, filepath.Clean(legitimateHdr.Name), bytes.NewReader([]byte("hello"))); err != nil {
+			t.Fatal(err)
+		}
+		hdr := hardlinkHeader("./link", "../somefile")
+		err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
+		if err == nil {
+			t.Fatal("expected error for hardlink target outside dest, got nil")
+		}
+		if !strings.Contains(err.Error(), "references parent directory") {
+			t.Fatalf("expected 'references parent directory' in error, got: %v", err)
+		}
+	})
+
+	t.Run("hardlink with absolute target is confined", func(t *testing.T) {
+		dest := t.TempDir()
+		// Create a file inside dest so there is something to link to after
+		// securejoin confines the absolute path.
+		legitimateHdr := fileHeader("etc/passwd", "confined", 0o644, defaultTestTime)
+		if err := ExtractFile(dest, legitimateHdr, filepath.Clean(legitimateHdr.Name), bytes.NewReader([]byte("confined"))); err != nil {
+			t.Fatal(err)
+		}
+		// Hardlink with absolute target — securejoin should confine it to dest.
+		hdr := hardlinkHeader("./link", "/etc/passwd")
+		err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
+		if err != nil {
+			t.Fatalf("hardlink with absolute target should be confined, not rejected: %v", err)
+		}
+		// The link must resolve inside dest, not to the real /etc/passwd.
+		got, err := os.ReadFile(filepath.Join(dest, "link"))
+		if err != nil {
+			t.Fatalf("reading link: %v", err)
+		}
+		if string(got) != "confined" {
+			t.Fatalf("link content = %q, want %q (should point inside dest)", got, "confined")
+		}
+	})
+
+	t.Run("file through symlink is confined", func(t *testing.T) {
+		dest := t.TempDir()
+		outsideDir := t.TempDir()
+
+		// Create a symlink inside dest that points outside.
+		symlinkHdr := linkHeader("./extlink", outsideDir)
+		err := ExtractFile(dest, symlinkHdr, filepath.Clean(symlinkHdr.Name), bytes.NewReader(nil))
+		if err != nil {
+			t.Fatalf("symlink creation should succeed (absolute target is allowed): %v", err)
+		}
+
+		// Verify the symlink was actually created on disk.
+		target, err := os.Readlink(filepath.Join(dest, "extlink"))
+		if err != nil {
+			t.Fatalf("symlink was not created: %v", err)
+		}
+		if target != outsideDir {
+			t.Fatalf("symlink target = %q, want %q", target, outsideDir)
+		}
+
+		// Try to write a file through the symlink.
+		writeHdr := fileHeader("./extlink/written.txt", "data", 0o644, defaultTestTime)
+		_ = ExtractFile(dest, writeHdr, filepath.Clean(writeHdr.Name), bytes.NewReader([]byte("data")))
+
+		// The file must not appear outside dest.
+		if _, statErr := os.Stat(filepath.Join(outsideDir, "written.txt")); statErr == nil {
+			t.Fatal("file was written outside dest through symlink")
+		}
+	})
+
+	t.Run("symlink target outside dest via relative path", func(t *testing.T) {
+		dest := t.TempDir()
+		hdr := linkHeader("./link", "../outside")
+		err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
+		if err == nil {
+			t.Fatal("expected error for symlink target outside dest, got nil")
+		}
+		if !strings.Contains(err.Error(), "resolves outside destination") {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("absolute symlink target resolves within dest", func(t *testing.T) {
+		dest := t.TempDir()
+		hdr := linkHeader("./link", "/subdir/target")
+		err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
+		if err != nil {
+			t.Fatalf("absolute symlink within dest should be allowed: %v", err)
+		}
+	})
+
+	t.Run("relative symlink within dest is allowed", func(t *testing.T) {
+		dest := t.TempDir()
+		os.MkdirAll(filepath.Join(dest, "foo"), 0o755)
+		hdr := linkHeader("./foo/link", "../bar")
+		err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
+		if err != nil {
+			t.Fatalf("symlink within dest should be allowed: %v", err)
+		}
+	})
+
+	t.Run("legitimate file succeeds", func(t *testing.T) {
+		dest := t.TempDir()
+		hdr := fileHeader("./subdir/file.txt", "content", 0o644, defaultTestTime)
+		err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader([]byte("content")))
+		if err != nil {
+			t.Fatalf("legitimate extraction should succeed: %v", err)
+		}
+		got, err := os.ReadFile(filepath.Join(dest, "subdir", "file.txt"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != "content" {
+			t.Fatalf("file contents = %q, want %q", got, "content")
+		}
+	})
+}
+
+func TestUnTar_PathTraversal(t *testing.T) {
+	makeTar := func(t *testing.T, hdrs ...tar.Header) *bytes.Buffer {
+		t.Helper()
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		for _, hdr := range hdrs {
+			h := hdr
+			if err := tw.WriteHeader(&h); err != nil {
+				t.Fatal(err)
+			}
+			if h.Size > 0 {
+				if _, err := tw.Write(make([]byte, h.Size)); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		if err := tw.Close(); err != nil {
+			t.Fatal(err)
+		}
+		return &buf
+	}
+
+	t.Run("entry with dotdot is rejected", func(t *testing.T) {
+		buf := makeTar(t, tar.Header{
+			Name: "../outside.txt", Size: 5, Mode: 0o644, Typeflag: tar.TypeReg,
+		})
+		dest := t.TempDir()
+		if _, err := UnTar(buf, dest); err == nil {
+			t.Fatal("expected error for parent directory reference, got nil")
+		}
+		// Verify no file was written outside dest.
+		if _, err := os.Stat(filepath.Join(dest, "..", "outside.txt")); err == nil {
+			t.Fatal("file was written outside dest")
+		}
+	})
+
+	t.Run("symlink with dotdot target is rejected", func(t *testing.T) {
+		buf := makeTar(t, tar.Header{
+			Name: "ext-link", Typeflag: tar.TypeSymlink, Linkname: "../../etc/passwd",
+		})
+		dest := t.TempDir()
+		if _, err := UnTar(buf, dest); err == nil {
+			t.Fatal("expected error for symlink with dotdot target, got nil")
+		}
+	})
+
+	t.Run("hardlink with dotdot target is rejected", func(t *testing.T) {
+		buf := makeTar(t,
+			tar.Header{
+				Name: "legit.txt", Size: 5, Mode: 0o644, Typeflag: tar.TypeReg,
+				Uid: os.Getuid(), Gid: os.Getgid(),
+			},
+			tar.Header{
+				Name: "link", Typeflag: tar.TypeLink, Linkname: "../etc/passwd",
+			},
+		)
+		dest := t.TempDir()
+		if _, err := UnTar(buf, dest); err == nil {
+			t.Fatal("expected error for hardlink with dotdot target, got nil")
+		}
+	})
+
+	t.Run("file through symlink is confined", func(t *testing.T) {
+		outsideDir := t.TempDir()
+		dest := t.TempDir()
+
+		// Tar contains a symlink pointing to an absolute path outside dest,
+		// followed by a file written under that symlink name.
+		buf := makeTar(t,
+			tar.Header{
+				Name: "extlink", Typeflag: tar.TypeSymlink, Linkname: outsideDir,
+			},
+			tar.Header{
+				Name: "extlink/written.txt", Size: 5, Mode: 0o644, Typeflag: tar.TypeReg,
+				Uid: os.Getuid(), Gid: os.Getgid(),
+			},
+		)
+		// Extraction may or may not return an error; either way the file
+		// must not appear outside dest.
+		UnTar(buf, dest)
+
+		if _, err := os.Stat(filepath.Join(outsideDir, "written.txt")); err == nil {
+			t.Fatal("file was written outside dest through symlink")
+		}
+	})
+
+	t.Run("legitimate entries succeed", func(t *testing.T) {
+		buf := makeTar(t, tar.Header{
+			Name: "subdir/file.txt", Size: 5, Mode: 0o644, Typeflag: tar.TypeReg,
+			Uid: os.Getuid(), Gid: os.Getgid(),
+		})
+		dest := t.TempDir()
+		files, err := UnTar(buf, dest)
+		if err != nil {
+			t.Fatalf("legitimate extraction should succeed: %v", err)
+		}
+		if len(files) != 1 {
+			t.Fatalf("expected 1 file, got %d", len(files))
+		}
+	})
+}
+
 func TestCopySymlink(t *testing.T) {
 	type tc struct {
 		name       string
