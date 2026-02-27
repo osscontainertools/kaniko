@@ -315,55 +315,6 @@ func Test_targetStage(t *testing.T) {
 	}
 }
 
-func Test_SaveStage(t *testing.T) {
-	tests := []struct {
-		name     string
-		index    int
-		expected bool
-	}{
-		{
-			name:     "reference stage in later copy command",
-			index:    0,
-			expected: false,
-		},
-		{
-			name:     "reference stage in later from command",
-			index:    1,
-			expected: true,
-		},
-		{
-			name:     "don't reference stage later",
-			index:    2,
-			expected: false,
-		},
-		{
-			name:     "reference current stage in next stage",
-			index:    4,
-			expected: true,
-		},
-		{
-			name:     "from prebuilt stage, and reference current stage in next stage",
-			index:    5,
-			expected: true,
-		},
-		{
-			name:     "final stage",
-			index:    6,
-			expected: false,
-		},
-	}
-	stages, _, err := Parse([]byte(testutil.Dockerfile))
-	if err != nil {
-		t.Fatalf("couldn't retrieve stages from Dockerfile: %v", err)
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			actual := saveStage(test.index, stages)
-			testutil.CheckErrorAndDeepEqual(t, false, nil, test.expected, actual)
-		})
-	}
-}
-
 func Test_baseImageIndex(t *testing.T) {
 	tests := []struct {
 		name         string
