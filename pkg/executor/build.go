@@ -869,10 +869,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			if err = util.DeleteFilesystem(); err != nil {
 				return err
 			}
-			err = config.Cleanup()
-			if err != nil {
-				return err
-			}
 			if opts.PreserveContext {
 				if tarball == "" {
 					return fmt.Errorf("context snapshot is missing")
