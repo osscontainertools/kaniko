@@ -226,9 +226,9 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	return compositeKey, nil
 }
 
-func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache) (string, error) {
+func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache) error {
 	if !opts.Cache {
-		return "", nil
+		return nil
 	}
 	var buildArgs = s.args.Clone()
 	// Restore build args back to their original values
@@ -237,7 +237,6 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 	}()
 
 	stopCache := false
-	finalCacheKey := ""
 	// Possibly replace commands with their cached implementations.
 	// We walk through all the commands, running any commands that only operate on metadata.
 	// We throw the metadata away after, but we need it to properly track command dependencies
@@ -248,22 +247,21 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 		}
 		files, err := command.FilesUsedFromContext(&cfg, s.args)
 		if err != nil {
-			return "", fmt.Errorf("failed to get files used from context: %w", err)
+			return fmt.Errorf("failed to get files used from context: %w", err)
 		}
 
 		compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, cfg.Env, fileContext)
 		if err != nil {
-			return "", err
+			return err
 		}
 
 		logrus.Debugf("Optimize: composite key for command %v %v", command.String(), compositeKey)
 		ck, err := compositeKey.Hash()
 		if err != nil {
-			return "", fmt.Errorf("failed to hash composite key: %w", err)
+			return fmt.Errorf("failed to hash composite key: %w", err)
 		}
 
 		logrus.Debugf("Optimize: cache key for command %v %v", command.String(), ck)
-		finalCacheKey = ck
 		s.cacheKeys[i] = ck
 
 		if command.ShouldCacheOutput() && !stopCache {
@@ -287,11 +285,11 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 		// Mutate the config for any commands that require it.
 		if command.MetadataOnly() {
 			if err := command.ExecuteCommand(&cfg, s.args); err != nil {
-				return "", err
+				return err
 			}
 		}
 	}
-	return finalCacheKey, nil
+	return nil
 }
 
 func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool) error {
@@ -863,9 +861,16 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			}
 		}
 		compositeKey := NewCompositeCache(cacheKey)
-		finalCacheKey, err := sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts))
+		err = sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts))
 		if err != nil {
 			return nil, err
+		}
+		if len(sb.cacheKeys) != len(sb.cmds) || len(sb.cacheHits) != len(sb.cmds) {
+			logrus.Panic("Unreachable Code: telemetry data should exist for each command")
+		}
+		finalCacheKey := ""
+		if len(sb.cacheKeys) > 0 {
+			finalCacheKey = sb.cacheKeys[len(sb.cacheKeys)-1]
 		}
 		builderStages[sb.stage.Index] = sb
 		baseStageToCacheKey[sb.stage.Index] = finalCacheKey

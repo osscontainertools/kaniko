@@ -608,7 +608,9 @@ func Test_stageBuilder_optimize(t *testing.T) {
 				cacheCommand: MockCachedDockerCommand{},
 			}
 			sb.cmds = []commands.DockerCommand{command}
-			_, err = sb.optimize(ck, cf.Config, tc.opts, util.FileContext{}, lc)
+			sb.cacheKeys = make([]string, len(sb.cmds))
+			sb.cacheHits = make([]bool, len(sb.cmds))
+			err = sb.optimize(ck, cf.Config, tc.opts, util.FileContext{}, lc)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -1216,7 +1218,7 @@ COPY %s bar.txt
 				rootDir:     dir,
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
 				layerCache: &FakeLayerCache{
-					keySequence: []string{hash1},
+					KeySequence: []string{hash1},
 					img:         image,
 				},
 				image: image,
@@ -1290,7 +1292,7 @@ RUN foobar
 				rootDir:     dir,
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
 				layerCache: &FakeLayerCache{
-					keySequence: []string{runHash},
+					KeySequence: []string{runHash},
 					img:         image,
 				},
 				image:             image,
@@ -1331,7 +1333,7 @@ RUN foobar
 				// layer key needs to be read.
 				layerCache: &FakeLayerCache{
 					img:         &fakeImage{ImageLayers: []v1.Layer{fakeLayer{}}},
-					keySequence: []string{hash},
+					KeySequence: []string{hash},
 				},
 				rootDir: dir,
 				image:   fakeImage{},
@@ -1368,7 +1370,7 @@ RUN foobar
 				// layer key that exists
 				layerCache: &FakeLayerCache{
 					img:         &fakeImage{ImageLayers: []v1.Layer{fakeLayer{}}},
-					keySequence: []string{hash},
+					KeySequence: []string{hash},
 				},
 				expectedCacheKeys: []string{hash},
 				commands:          []commands.DockerCommand{command},
@@ -1413,7 +1415,7 @@ RUN foobar
 				// layer for arg=value already exists
 				layerCache: &FakeLayerCache{
 					img:         &fakeImage{ImageLayers: []v1.Layer{fakeLayer{}}},
-					keySequence: []string{hash1},
+					KeySequence: []string{hash1},
 				},
 				expectedCacheKeys: []string{hash2},
 				pushedCacheKeys:   []string{hash2},
@@ -1480,6 +1482,8 @@ RUN foobar
 				return nil
 			}
 			sb.cmds = tc.commands
+			sb.cacheKeys = make([]string, len(sb.cmds))
+			sb.cacheHits = make([]bool, len(sb.cmds))
 			for key, value := range tc.args {
 				sb.args.AddArg(key, &value)
 			}
@@ -1493,7 +1497,7 @@ RUN foobar
 				getFSFromImage = tc.mockGetFSFromImage
 			}
 			compositeKey := NewCompositeCache(sb.baseImageDigest)
-			_, err := sb.optimize(*compositeKey, sb.cf.Config, tc.opts, util.FileContext{}, lc)
+			err := sb.optimize(*compositeKey, sb.cf.Config, tc.opts, util.FileContext{}, lc)
 			if err != nil {
 				t.Errorf("failed to optimize instructions: %v", err)
 			}
