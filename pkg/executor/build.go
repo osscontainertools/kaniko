@@ -55,7 +55,7 @@ import (
 var (
 	initializeConfig             = initConfig
 	getFSFromImage               = util.GetFSFromImage
-	mkdirPermissions os.FileMode = 0644
+	mkdirPermissions os.FileMode = 0755
 )
 
 type cachePusher func(*config.KanikoOptions, string, string, string) error
@@ -384,7 +384,7 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 
 		if s.opts.Cache {
 			*compositeKey, err = s.populateCompositeKey(command, files, *compositeKey, s.args, s.cf.Config.Env)
-			if err != nil && s.opts.Cache {
+			if err != nil {
 				return err
 			}
 		}
@@ -893,13 +893,12 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			crossStageDependencies,
 			stageNameToIdx,
 			fileContext)
-
-		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
-			stage.BaseName, stage.Index, stage.BaseImageIndex)
-
 		if err != nil {
 			return nil, err
 		}
+
+		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
+			stage.BaseName, stage.Index, stage.BaseImageIndex)
 		args = sb.args
 		if err := sb.build(digestToCacheKey); err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
@@ -920,8 +919,12 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			configFile.OS = runtime.GOOS
 			configFile.Architecture = runtime.GOARCH
 		} else {
-			configFile.OS = strings.Split(opts.CustomPlatform, "/")[0]
-			configFile.Architecture = strings.Split(opts.CustomPlatform, "/")[1]
+			os, arch, ok := strings.Cut(opts.CustomPlatform, "/")
+			if !ok {
+				return nil, fmt.Errorf("invalid platform format %q, expected os/arch", opts.CustomPlatform)
+			}
+			configFile.OS = os
+			configFile.Architecture = arch
 		}
 		sourceImage, err = mutate.ConfigFile(sourceImage, configFile)
 		if err != nil {
@@ -960,7 +963,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			}
 		}
 
-		filesToSave, err := filesToSave(crossStageDependencies[stage.Index])
+		files, err := filesToSave(crossStageDependencies[stage.Index])
 		if err != nil {
 			return nil, err
 		}
@@ -970,7 +973,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return nil, fmt.Errorf("to create workspace for stage %d: %w",
 				stage.Index, err)
 		}
-		for _, p := range filesToSave {
+		for _, p := range files {
 			logrus.Infof("Saving file %s for later use", p)
 			if err := util.CopyFileOrSymlink(p, dstDir, config.RootDir); err != nil {
 				return nil, fmt.Errorf("could not save file: %w", err)
@@ -993,7 +996,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 	}
 
-	return nil, err
+	logrus.Panic("unreachable - we should always have a final stage")
+	return nil, nil
 }
 
 func assignIfNil(dst *error, fn func() error) {
