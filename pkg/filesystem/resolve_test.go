@@ -17,7 +17,6 @@ limitations under the License.
 package filesystem
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -238,7 +237,7 @@ func Test_resolveSymlinkAncestor(t *testing.T) {
 
 		expected := linkDir
 
-		actual, err := resolveSymlinkAncestor(fmt.Sprintf("%s/", linkDir))
+		actual, err := resolveSymlinkAncestor(linkDir + "/")
 		if err != nil {
 			t.Errorf("expected err to be nil but was %s", err)
 		}

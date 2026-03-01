@@ -81,7 +81,7 @@ func TestSyscallCredentials(t *testing.T) {
 		{
 			name: "existing username with non-existing gid",
 			args: args{
-				userStr: fmt.Sprintf("%s:50000", currentUser.Username),
+				userStr: currentUser.Username + ":50000",
 			},
 			want: &syscall.Credential{
 				Uid:    currentUserUID32,

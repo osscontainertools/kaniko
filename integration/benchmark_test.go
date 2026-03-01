@@ -165,7 +165,7 @@ func runInGcloud(dir string, num int) (string, error) {
 	}
 
 	// grab gcs and to temp dir and return
-	tmpDir, err := os.MkdirTemp("", fmt.Sprintf("%d", num))
+	tmpDir, err := os.MkdirTemp("", strconv.Itoa(num))
 	if err != nil {
 		return "", err
 	}

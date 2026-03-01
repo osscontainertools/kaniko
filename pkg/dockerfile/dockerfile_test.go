@@ -17,7 +17,6 @@ limitations under the License.
 package dockerfile
 
 import (
-	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -430,7 +429,7 @@ func Test_ResolveStagesArgs(t *testing.T) {
 			} else {
 				expectedImage = "ubuntu:16.04"
 			}
-			buildArgs := []string{fmt.Sprintf("IMAGE=%s", buildArgImage), fmt.Sprintf("LAST_STAGE_VARIANT=%s", buildArgLastVariant)}
+			buildArgs := []string{"IMAGE=" + buildArgImage, "LAST_STAGE_VARIANT=" + buildArgLastVariant}
 
 			stages, metaArgs, err := Parse([]byte(dockerfile))
 			if err != nil {
@@ -460,7 +459,7 @@ func Test_ResolveStagesArgs(t *testing.T) {
 					actualSourceCode:   stages[stagesLen-1].SourceCode,
 					actualBaseName:     stages[stagesLen-1].BaseName,
 					expectedSourceCode: "FROM base-${LAST_STAGE_VARIANT}",
-					expectedBaseName:   fmt.Sprintf("base-%s", buildArgLastVariant),
+					expectedBaseName:   "base-" + buildArgLastVariant,
 				},
 			}
 			for _, test := range tests {

@@ -17,6 +17,7 @@ limitations under the License.
 package executor
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -876,7 +877,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			}
 			if opts.PreserveContext {
 				if tarball == "" {
-					return fmt.Errorf("context snapshot is missing")
+					return errors.New("context snapshot is missing")
 				}
 				_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
 				if err != nil {
@@ -983,7 +984,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 		if opts.PreserveContext && !opts.PreCleanup {
 			if tarball == "" {
-				return nil, fmt.Errorf("context snapshot is missing")
+				return nil, errors.New("context snapshot is missing")
 			}
 			_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
 			if err != nil {

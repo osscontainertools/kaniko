@@ -17,7 +17,6 @@ limitations under the License.
 package creds
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -45,7 +44,7 @@ func GetKeychain(opts *config.RegistryOptions) authn.Keychain {
 	cf := util.DockerConfLocation()
 	_, err := os.Lstat(cf)
 	if err == nil {
-		prios = append(prios, fmt.Sprintf("file:%s", cf))
+		prios = append(prios, "file:"+cf)
 	}
 
 	if len(opts.CredentialHelpers) == 0 {

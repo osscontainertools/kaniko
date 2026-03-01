@@ -18,7 +18,6 @@ package integration
 
 import (
 	"compress/gzip"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -56,7 +55,7 @@ func TestBuildWithStdin(t *testing.T) {
 		t.Fatalf("Failed to Chdir on %s: %v", testDir, err)
 	}
 
-	tarPath := fmt.Sprintf("%s.tar.gz", dockerfile)
+	tarPath := dockerfile + ".tar.gz"
 
 	var wg sync.WaitGroup
 	wg.Add(1)

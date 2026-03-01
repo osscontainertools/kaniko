@@ -18,6 +18,7 @@ package buildcontext
 
 import (
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"os"
 
@@ -40,7 +41,7 @@ func (t *Tar) UnpackTarFromBuildContext() (string, error) {
 	if t.context == "stdin" {
 		fi, _ := os.Stdin.Stat()
 		if (fi.Mode() & os.ModeCharDevice) != 0 {
-			return "", fmt.Errorf("no data found.. don't forget to add the '--interactive, -i' flag")
+			return "", errors.New("no data found.. don't forget to add the '--interactive, -i' flag")
 		}
 		logrus.Infof("To simulate EOF and exit, press 'Ctrl+D'")
 		// if launched through docker in interactive mode and without piped data

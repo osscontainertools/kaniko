@@ -176,7 +176,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				if m.Env == nil || m.Target != "" {
 					target := m.Target
 					if target == "" {
-						target = fmt.Sprintf("/run/secrets/%s", secretId)
+						target = "/run/secrets/" + secretId
 					}
 					parent := filepath.Dir(target)
 					created, err := ensureDir(parent)
@@ -236,14 +236,16 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 		cmd := strings.Join(cmdRun.CmdLine, " ")
 
 		// Heredocs
-		if len(cmdRun.Files) == 1 && cmd == fmt.Sprintf("<<%s", cmdRun.Files[0].Name) {
+		if len(cmdRun.Files) == 1 && cmd == "<<"+cmdRun.Files[0].Name {
 			// 1713: if we encounter a line like 'RUN <<EOF',
 			// we implicitly want the file body to be executed as a script
 			cmd += " sh"
 		}
+		var cmdSb244 strings.Builder
 		for _, h := range cmdRun.Files {
-			cmd += "\n" + h.Data + h.Name
+			cmdSb244.WriteString("\n" + h.Data + h.Name)
 		}
+		cmd += cmdSb244.String()
 
 		newCommand = append(shell, cmd)
 	} else {
@@ -461,7 +463,7 @@ func setWorkDirIfExists(workdir string) string {
 
 func swapDir(pathA, pathB string) (err error) {
 	if pathA == "" || pathB == "" {
-		return fmt.Errorf("paths must not be empty")
+		return errors.New("paths must not be empty")
 	}
 	tmp := kConfig.KanikoSwapDir
 

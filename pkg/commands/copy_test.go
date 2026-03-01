@@ -19,12 +19,12 @@ package commands
 import (
 	"archive/tar"
 	"errors"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -403,7 +403,7 @@ func Test_resolveIfSymlink(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			res, e := resolveIfSymlink(c.destPath)
 			if !errors.Is(e, c.err) {
 				t.Errorf("%s: expected %v but got %v", c.destPath, c.err, e)
@@ -998,7 +998,7 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 
 		cmd := CopyCommand{
 			cmd: &instructions.CopyCommand{
-				SourcesAndDest: instructions.SourcesAndDest{SourcePaths: []string{fmt.Sprintf("%s/bam.txt", srcDir)}, DestPath: linkedDest},
+				SourcesAndDest: instructions.SourcesAndDest{SourcePaths: []string{srcDir + "/bam.txt"}, DestPath: linkedDest},
 			},
 			fileContext: util.FileContext{Root: testDir},
 		}
@@ -1046,7 +1046,7 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 
 		cmd := CopyCommand{
 			cmd: &instructions.CopyCommand{
-				SourcesAndDest: instructions.SourcesAndDest{SourcePaths: []string{fmt.Sprintf("%s/bam.txt", srcDir)}, DestPath: testDir},
+				SourcesAndDest: instructions.SourcesAndDest{SourcePaths: []string{srcDir + "/bam.txt"}, DestPath: testDir},
 				Chown:          "alice:group",
 			},
 			fileContext: util.FileContext{Root: testDir},
@@ -1091,7 +1091,7 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 
 		cmd := CopyCommand{
 			cmd: &instructions.CopyCommand{
-				SourcesAndDest: instructions.SourcesAndDest{SourcePaths: []string{fmt.Sprintf("%s/bam.txt", srcDir)}, DestPath: testDir},
+				SourcesAndDest: instructions.SourcesAndDest{SourcePaths: []string{srcDir + "/bam.txt"}, DestPath: testDir},
 				Chown:          "missing:missing",
 			},
 			fileContext: util.FileContext{Root: testDir},

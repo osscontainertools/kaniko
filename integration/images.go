@@ -365,7 +365,7 @@ func (*DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfilesP
 	for _, arg := range argsMap[dockerfile] {
 		buildArgs = append(buildArgs, buildArgFlag, arg)
 	}
-	buildArgs = append(buildArgs, buildArgFlag, fmt.Sprintf("IMAGE_REPO=%s", imageRepo))
+	buildArgs = append(buildArgs, buildArgFlag, "IMAGE_REPO="+imageRepo)
 
 	// build docker image
 	additionalFlags := append(buildArgs, additionalDockerFlagsMap[dockerfile]...)
@@ -418,7 +418,7 @@ func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrat
 	for _, arg := range argsMap[dockerfile] {
 		buildArgs = append(buildArgs, buildArgFlag, arg)
 	}
-	buildArgs = append(buildArgs, buildArgFlag, fmt.Sprintf("IMAGE_REPO=%s", config.imageRepo))
+	buildArgs = append(buildArgs, buildArgFlag, "IMAGE_REPO="+config.imageRepo)
 
 	timer := timing.Start(dockerfile + "_docker")
 	if err := d.BuildDockerImage(t, imageRepo, dockerfilesPath, dockerfile, contextDir); err != nil {
@@ -674,7 +674,7 @@ func buildKanikoImage(
 	}
 
 	if b, err := strconv.ParseBool(os.Getenv("BENCHMARK")); err == nil && b {
-		benchmarkEnv = fmt.Sprintf("BENCHMARK_FILE=/benchmarks/%s", dockerfile)
+		benchmarkEnv = "BENCHMARK_FILE=/benchmarks/" + dockerfile
 		if shdUpload {
 			benchmarkFile := path.Join(benchmarkDir, dockerfile)
 			fileName := fmt.Sprintf("run_%s_%s", time.Now().Format("2006-01-02-15:04"), dockerfile)

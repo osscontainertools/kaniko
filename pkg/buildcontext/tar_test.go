@@ -19,7 +19,6 @@ package buildcontext
 import (
 	"bytes"
 	"compress/gzip"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -59,9 +58,9 @@ func TestBuildWithLocalTar(t *testing.T) {
 		t.Fatalf("Failed to Chdir on %s: %v", testDir, err)
 	}
 
-	validTarPath := fmt.Sprintf("%s.tar.gz", validDockerfile)
-	invalidTarPath := fmt.Sprintf("%s.tar.gz", invalidDockerfile)
-	nonExistingTarPath := fmt.Sprintf("%s.tar.gz", nonExistingDockerfile)
+	validTarPath := validDockerfile + ".tar.gz"
+	invalidTarPath := invalidDockerfile + ".tar.gz"
+	nonExistingTarPath := nonExistingDockerfile + ".tar.gz"
 
 	var wg sync.WaitGroup
 	wg.Add(1)

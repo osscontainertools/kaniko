@@ -74,7 +74,7 @@ func Test_makeTransport(t *testing.T) {
 		},
 		{
 			name: "SkipTLSVerifyRegistries set with other registry",
-			opts: config.RegistryOptions{SkipTLSVerifyRegistries: []string{fmt.Sprintf("other.%s", registryName)}},
+			opts: config.RegistryOptions{SkipTLSVerifyRegistries: []string{"other." + registryName}},
 			check: func(config *tls.Config, pool *mockedCertPool, err error) {
 				if config.InsecureSkipVerify {
 					t.Error("makeTransport().TLSClientConfig.InsecureSkipVerify set while SkipTLSVerifyRegistries not set with registry name")
@@ -110,7 +110,7 @@ func Test_makeTransport(t *testing.T) {
 		},
 		{
 			name: "RegistriesClientCertificates set for another registry",
-			opts: config.RegistryOptions{RegistriesClientCertificates: map[string]string{fmt.Sprintf("other.%s", registryName): "/path/to/client/certificate.cert,/path/to/key.key,/path/to/extra.crt"}},
+			opts: config.RegistryOptions{RegistriesClientCertificates: map[string]string{"other." + registryName: "/path/to/client/certificate.cert,/path/to/key.key,/path/to/extra.crt"}},
 			check: func(config *tls.Config, pool *mockedCertPool, err error) {
 				if len(config.Certificates) != 0 {
 					t.Error("makeTransport().RegistriesClientCertificates certificate loaded for other registry")

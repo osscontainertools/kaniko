@@ -19,6 +19,7 @@ package executor
 import (
 	"archive/tar"
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -1460,7 +1461,7 @@ RUN foobar
 			stage:          config.KanikoStage{Index: 0},
 			crossStageDeps: true,
 			mockGetFSFromImage: func(_ string, img v1.Image, extract util.ExtractFunction) ([]string, error) {
-				return nil, fmt.Errorf("getFSFromImage shouldn't be called if fs is already unpacked")
+				return nil, errors.New("getFSFromImage shouldn't be called if fs is already unpacked")
 			},
 		},
 	}

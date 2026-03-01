@@ -787,7 +787,7 @@ func Test_GetUIDAndGIDFromString(t *testing.T) {
 		{
 			testname: "only uid",
 			args: args{
-				userGroupStr: fmt.Sprintf("%d", currentUserUID),
+				userGroupStr: strconv.FormatUint(currentUserUID, 10),
 			},
 			expected: expected{
 				userID:  expectedCurrentUser.userID,
