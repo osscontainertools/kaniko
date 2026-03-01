@@ -151,11 +151,14 @@ func TestSnapshotBenchmarkGcloud(t *testing.T) {
 }
 
 func runInGcloud(dir string, num int) (string, error) {
-	os.Chdir(dir)
+	err := os.Chdir(dir)
+	if err != nil {
+		return "", err
+	}
 	cmd := exec.Command("gcloud", "builds",
 		"submit", "--config=cloudbuild.yaml",
 		fmt.Sprintf("--substitutions=_COUNT=%d", num))
-	_, err := RunCommandWithoutTest(cmd)
+	_, err = RunCommandWithoutTest(cmd)
 	if err != nil {
 		return "", err
 	}

@@ -1520,7 +1520,10 @@ func logBenchmarks(benchmark string) error {
 		if err != nil {
 			return err
 		}
-		f.WriteString(timing.Summary())
+		_, err = f.WriteString(timing.Summary())
+		if err != nil {
+			return err
+		}
 		defer f.Close()
 	}
 	return nil

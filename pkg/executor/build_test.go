@@ -351,7 +351,10 @@ COPY --from=second /bar /bat
 			}
 
 			f, _ := os.CreateTemp("", "")
-			os.WriteFile(f.Name(), []byte(tt.dockerfile), 0o755)
+			err := os.WriteFile(f.Name(), []byte(tt.dockerfile), 0o755)
+			if err != nil {
+				t.Error(err)
+			}
 			opts := &config.KanikoOptions{
 				DockerfilePath: f.Name(),
 				CustomPlatform: platforms.Format(platforms.Normalize(platforms.DefaultSpec())),
@@ -431,7 +434,10 @@ func Test_filesToSave(t *testing.T) {
 				if err != nil {
 					t.Errorf("error making file: %s", err)
 				}
-				fp.Close()
+				err = fp.Close()
+				if err != nil {
+					t.Error(err)
+				}
 			}
 
 			got, err := filesToSave(tt.args)
@@ -908,7 +914,10 @@ func Test_stageBuilder_build(t *testing.T) {
 			filePath := filepath.Join(dir, file)
 			ch := NewCompositeCache("", "meow")
 
-			ch.AddPath(filePath, util.FileContext{})
+			err := ch.AddPath(filePath, util.FileContext{})
+			if err != nil {
+				t.Error(err)
+			}
 			hash, err := ch.Hash()
 			if err != nil {
 				t.Errorf("couldn't create hash %v", err)
@@ -938,7 +947,10 @@ func Test_stageBuilder_build(t *testing.T) {
 			filePath := filepath.Join(dir, file)
 			ch := NewCompositeCache("", "meow")
 
-			ch.AddPath(filePath, util.FileContext{})
+			err := ch.AddPath(filePath, util.FileContext{})
+			if err != nil {
+				t.Error(err)
+			}
 			hash, err := ch.Hash()
 			if err != nil {
 				t.Errorf("couldn't create hash %v", err)
@@ -971,7 +983,10 @@ func Test_stageBuilder_build(t *testing.T) {
 			filePath := filepath.Join(dir, file)
 			ch := NewCompositeCache("", "meow")
 
-			ch.AddPath(filePath, util.FileContext{})
+			err := ch.AddPath(filePath, util.FileContext{})
+			if err != nil {
+				t.Error(err)
+			}
 			hash, err := ch.Hash()
 			if err != nil {
 				t.Errorf("couldn't create hash %v", err)
@@ -1026,7 +1041,10 @@ func Test_stageBuilder_build(t *testing.T) {
 			tarContent := generateTar(t, dir, filename)
 
 			ch := NewCompositeCache("", fmt.Sprintf("COPY %s foo.txt", filename))
-			ch.AddPath(filepath, util.FileContext{})
+			err := ch.AddPath(filepath, util.FileContext{})
+			if err != nil {
+				t.Error(err)
+			}
 
 			hash, err := ch.Hash()
 			if err != nil {
@@ -1038,7 +1056,10 @@ func Test_stageBuilder_build(t *testing.T) {
 		COPY %s foo.txt
 		`, filename)
 			f, _ := os.CreateTemp("", "")
-			os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
+			err = os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
+			if err != nil {
+				t.Error(err)
+			}
 			opts := &config.KanikoOptions{
 				DockerfilePath:  f.Name(),
 				Cache:           true,
@@ -1092,7 +1113,10 @@ func Test_stageBuilder_build(t *testing.T) {
 			destDir := t.TempDir()
 			filePath := filepath.Join(dir, filename)
 			ch := NewCompositeCache("", fmt.Sprintf("COPY %s foo.txt", filename))
-			ch.AddPath(filePath, util.FileContext{})
+			err := ch.AddPath(filePath, util.FileContext{})
+			if err != nil {
+				t.Error(err)
+			}
 
 			hash, err := ch.Hash()
 			if err != nil {
@@ -1103,7 +1127,10 @@ FROM scratch
 COPY %s foo.txt
 `, filename)
 			f, _ := os.CreateTemp("", "")
-			os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
+			err = os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
+			if err != nil {
+				t.Error(err)
+			}
 			opts := &config.KanikoOptions{
 				DockerfilePath:  f.Name(),
 				Cache:           true,
@@ -1157,7 +1184,10 @@ COPY %s foo.txt
 			}
 
 			ch.AddKey(fmt.Sprintf("COPY %s bar.txt", filename))
-			ch.AddPath(filePath, util.FileContext{})
+			err = ch.AddPath(filePath, util.FileContext{})
+			if err != nil {
+				t.Error(err)
+			}
 
 			hash2, err := ch.Hash()
 			if err != nil {
@@ -1181,7 +1211,10 @@ RUN foobar
 COPY %s bar.txt
 `, filename)
 			f, _ := os.CreateTemp("", "")
-			os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
+			err = os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
+			if err != nil {
+				t.Error(err)
+			}
 			opts := &config.KanikoOptions{
 				DockerfilePath: f.Name(),
 			}
@@ -1254,7 +1287,10 @@ COPY %s bar.txt
 RUN foobar
 `, filename)
 			f, _ := os.CreateTemp("", "")
-			os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
+			err = os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
+			if err != nil {
+				t.Error(err)
+			}
 			opts := &config.KanikoOptions{
 				DockerfilePath: f.Name(),
 			}

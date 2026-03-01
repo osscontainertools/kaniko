@@ -112,7 +112,10 @@ func TestWorkdirCommand(t *testing.T) {
 			snapshotFiles: nil,
 		}
 		buildArgs := dockerfile.NewBuildArgs([]string{})
-		cmd.ExecuteCommand(cfg, buildArgs)
+		err := cmd.ExecuteCommand(cfg, buildArgs)
+		if err != nil {
+			t.Error(err)
+		}
 		testutil.CheckErrorAndDeepEqual(t, false, nil, test.expectedPath, cfg.WorkingDir)
 		testutil.CheckErrorAndDeepEqual(t, false, nil, test.snapshotFiles, cmd.snapshotFiles)
 	}
