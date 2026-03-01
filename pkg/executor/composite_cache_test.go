@@ -20,7 +20,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"reflect"
 	"testing"
 
 	"github.com/osscontainertools/kaniko/pkg/util"
