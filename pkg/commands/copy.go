@@ -47,7 +47,7 @@ type CopyCommand struct {
 
 func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
 	// Resolve from
-	uid, gid := int64(-1), int64(-1)
+	var uid, gid int64
 	var err error
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 	if c.cmd.From != "" {
