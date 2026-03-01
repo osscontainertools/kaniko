@@ -4,14 +4,14 @@ This tutorial is for beginners who want to start using kaniko and aims to establ
 
 ## Table of Content
 
-1. [Prerequisities](#Prerequisities)
+1. [Prerequisites](#Prerequisites)
 2. [Prepare config files for kaniko](#Prepare-config-files-for-kaniko)
 3. [Prepare the local mounted directory](#Prepare-the-local-mounted-directory)
 4. [Create a Secret that holds your authorization token](#Create-a-Secret-that-holds-your-authorization-token)
 5. [Create resources in kubernetes](#Create-resources-in-kubernetes)
 6. [Pull the image and test](#Pull-the-image-and-test)
 
-## Prerequisities
+## Prerequisites
 
 - A Kubernetes Cluster. You could use [Minikube](https://kubernetes.io/docs/setup/minikube/) to deploy kubernetes locally, or use kubernetes service from cloud provider like [Azure Kubernetes Service](https://azure.microsoft.com/en-us/services/kubernetes-service/).
 - A [dockerhub](https://hub.docker.com/) account to push built image public.
@@ -122,4 +122,4 @@ Status: Downloaded newer image for debuggy/helloworld:latest
 hello
 ```
 
-Congratulation! You have gone through the hello world successfully, please refer to project for more details.
+Congratulations! You have gone through the hello world successfully, please refer to project for more details.
