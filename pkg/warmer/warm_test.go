@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package warmer
+package warmer_test
 
 import (
 	"bytes"
@@ -25,6 +25,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/fakes"
+	"github.com/osscontainertools/kaniko/pkg/warmer"
 )
 
 const (
@@ -35,7 +36,7 @@ func Test_Warmer_Warm_not_in_cache(t *testing.T) {
 	tarBuf := new(bytes.Buffer)
 	manifestBuf := new(bytes.Buffer)
 
-	cw := &Warmer{
+	cw := &warmer.Warmer{
 		Remote: func(_ string, _ config.RegistryOptions, _ string) (v1.Image, error) {
 			return fakes.FakeImage{}, nil
 		},
@@ -63,7 +64,7 @@ func Test_Warmer_Warm_in_cache_not_expired(t *testing.T) {
 	tarBuf := new(bytes.Buffer)
 	manifestBuf := new(bytes.Buffer)
 
-	cw := &Warmer{
+	cw := &warmer.Warmer{
 		Remote: func(_ string, _ config.RegistryOptions, _ string) (v1.Image, error) {
 			return fakes.FakeImage{}, nil
 		},
@@ -91,7 +92,7 @@ func Test_Warmer_Warm_in_cache_expired(t *testing.T) {
 	tarBuf := new(bytes.Buffer)
 	manifestBuf := new(bytes.Buffer)
 
-	cw := &Warmer{
+	cw := &warmer.Warmer{
 		Remote: func(_ string, _ config.RegistryOptions, _ string) (v1.Image, error) {
 			return fakes.FakeImage{}, nil
 		},
@@ -133,7 +134,7 @@ LABEL maintainer="alexezio"
 	}
 
 	opts := &config.WarmerOptions{DockerfilePath: tmpfile.Name()}
-	baseNames, err := ParseDockerfile(opts)
+	baseNames, err := warmer.ParseDockerfile(opts)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -166,7 +167,7 @@ LABEL maintainer="alexezio"
 	}
 
 	opts := &config.WarmerOptions{DockerfilePath: tmpfile.Name()}
-	baseNames, err := ParseDockerfile(opts)
+	baseNames, err := warmer.ParseDockerfile(opts)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -200,7 +201,7 @@ FROM nginx:$NGINX_VERSION-alpine-slim
 	}
 
 	opts := &config.WarmerOptions{DockerfilePath: tmpfile.Name(), BuildArgs: []string{"version=1.20"}}
-	baseNames, err := ParseDockerfile(opts)
+	baseNames, err := warmer.ParseDockerfile(opts)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -214,7 +215,7 @@ FROM nginx:$NGINX_VERSION-alpine-slim
 
 func TestParseDockerfile_MissingsDockerfile(t *testing.T) {
 	opts := &config.WarmerOptions{DockerfilePath: "dummy-nowhere"}
-	baseNames, err := ParseDockerfile(opts)
+	baseNames, err := warmer.ParseDockerfile(opts)
 	if err == nil {
 		t.Fatal("expected an error, got nil")
 	}
@@ -238,7 +239,7 @@ func TestParseDockerfile_InvalidsDockerfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	opts := &config.WarmerOptions{DockerfilePath: tmpfile.Name()}
-	baseNames, err := ParseDockerfile(opts)
+	baseNames, err := warmer.ParseDockerfile(opts)
 	if err == nil {
 		t.Fatal("expected an error, got nil")
 	}
