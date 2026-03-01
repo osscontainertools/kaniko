@@ -633,7 +633,8 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 	buildArgs = append(buildArgs, buildArgFlag, "IMAGE_REPO="+config.imageRepo)
 
 	timer := timing.Start(dockerfile + "_docker")
-	if err := d.BuildDockerImage(t, imageRepo, dockerfilesPath, dockerfile, contextDir); err != nil {
+	err := d.BuildDockerImage(t, imageRepo, dockerfilesPath, dockerfile, contextDir)
+	if err != nil {
 		return err
 	}
 
@@ -703,7 +704,8 @@ func (*DockerFileBuilder) buildCachedImage(logf logger, config *integrationTestC
 	cacheFlag := "--cache=true"
 
 	benchmarkEnv := "BENCHMARK_FILE=false"
-	if b, err := strconv.ParseBool(os.Getenv("BENCHMARK")); err == nil && b {
+	b, err := strconv.ParseBool(os.Getenv("BENCHMARK"))
+	if err == nil && b {
 		err := os.Mkdir("benchmarks", 0o755)
 		if err != nil {
 			return err
@@ -758,7 +760,8 @@ func (*DockerFileBuilder) buildCachedImage(logf logger, config *integrationTestC
 		return fmt.Errorf("failed to build cached image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
 	}
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
-		if err := outputCheck(dockerfile, out); err != nil {
+		err := outputCheck(dockerfile, out)
+		if err != nil {
 			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
@@ -770,7 +773,8 @@ func (*DockerFileBuilder) buildCachedImage(logf logger, config *integrationTestC
 		}
 	}
 	if outputCheck := warmerOutputChecks[dockerfile]; outputCheck != nil {
-		if err := outputCheck(dockerfile, out); err != nil {
+		err := outputCheck(dockerfile, out)
+		if err != nil {
 			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
@@ -843,13 +847,15 @@ func (*DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTestC
 		return fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
 	}
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
-		if err := outputCheck(dockerfile, out); err != nil {
+		err := outputCheck(dockerfile, out)
+		if err != nil {
 			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
 	if cache {
 		if outputCheck := warmerOutputChecks[dockerfile]; outputCheck != nil {
-			if err := outputCheck(dockerfile, out); err != nil {
+			err := outputCheck(dockerfile, out)
+			if err != nil {
 				return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 			}
 		}
@@ -910,7 +916,8 @@ func (*DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, docker
 			kanikoImage, kanikoCmd.Args, err)
 	}
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
-		if err := outputCheck(dockerfile, out); err != nil {
+		err := outputCheck(dockerfile, out)
+		if err != nil {
 			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
@@ -944,7 +951,8 @@ func buildKanikoImage(
 		return "", err
 	}
 
-	if b, err := strconv.ParseBool(os.Getenv("BENCHMARK")); err == nil && b {
+	b, err := strconv.ParseBool(os.Getenv("BENCHMARK"))
+	if err == nil && b {
 		benchmarkEnv = "BENCHMARK_FILE=/benchmarks/" + dockerfile
 		if shdUpload {
 			benchmarkFile := path.Join(benchmarkDir, dockerfile)
@@ -1024,7 +1032,8 @@ func buildKanikoImage(
 		return "", fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
 	}
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
-		if err := outputCheck(dockerfile, out); err != nil {
+		err := outputCheck(dockerfile, out)
+		if err != nil {
 			return "", fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}

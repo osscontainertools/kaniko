@@ -38,7 +38,8 @@ var (
 
 func Test_IsLocalTarArchive(t *testing.T) {
 	testDir := t.TempDir()
-	if err := setUpFilesAndTars(testDir); err != nil {
+	err := setUpFilesAndTars(testDir)
+	if err != nil {
 		t.Fatal(err)
 	}
 	// Test we get the correct result for regular files
@@ -93,7 +94,8 @@ func setUpFilesAndTars(testDir string) error {
 		regularFiles[1]: "something",
 		regularFiles[2]: "here",
 	}
-	if err := testutil.SetupFiles(testDir, regularFilesAndContents); err != nil {
+	err := testutil.SetupFiles(testDir, regularFilesAndContents)
+	if err != nil {
 		return err
 	}
 
@@ -125,7 +127,8 @@ func createTar(testdir string, writer io.Writer) error {
 	defer t.Close()
 	for _, regFile := range regularFiles {
 		filePath := filepath.Join(testdir, regFile)
-		if err := t.AddFileToTar(filePath); err != nil {
+		err := t.AddFileToTar(filePath)
+		if err != nil {
 			return err
 		}
 	}

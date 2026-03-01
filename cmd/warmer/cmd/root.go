@@ -55,7 +55,8 @@ func init() {
 var RootCmd = &cobra.Command{
 	Use: "cache warmer",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {
+		err := logging.Configure(logLevel, logFormat, logTimestamp)
+		if err != nil {
 			return err
 		}
 
@@ -88,7 +89,8 @@ var RootCmd = &cobra.Command{
 		}
 
 		if opts.DockerfilePath != "" {
-			if err := validateDockerfilePath(); err != nil {
+			err := validateDockerfilePath()
+			if err != nil {
 				return fmt.Errorf("error validating dockerfile path: %w", err)
 			}
 		}
@@ -102,7 +104,8 @@ var RootCmd = &cobra.Command{
 				exit(fmt.Errorf("failed to create cache directory: %w", err))
 			}
 		}
-		if err := warmer.WarmCache(opts); err != nil {
+		err := warmer.WarmCache(opts)
+		if err != nil {
 			exit(fmt.Errorf("failed warming cache: %w", err))
 		}
 	},

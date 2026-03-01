@@ -585,7 +585,8 @@ func createUncompressedTar(fileContents map[string]string, tarFileName, testDir 
 	defer t.Close()
 	for file := range fileContents {
 		filePath := filepath.Join(testDir, file)
-		if err := t.AddFileToTar(filePath); err != nil {
+		err := t.AddFileToTar(filePath)
+		if err != nil {
 			return err
 		}
 	}
@@ -779,7 +780,8 @@ func TestExtractFile(t *testing.T) {
 			defer os.RemoveAll(r)
 
 			for _, hdr := range tc.hdrs {
-				if err := ExtractFile(r, hdr, filepath.Clean(hdr.Name), bytes.NewReader(tc.contents)); err != nil {
+				err := ExtractFile(r, hdr, filepath.Clean(hdr.Name), bytes.NewReader(tc.contents))
+				if err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -1252,7 +1254,8 @@ func TestCopySymlink(t *testing.T) {
 			}
 
 			if tc.beforeLink != nil {
-				if err := tc.beforeLink(r); err != nil {
+				err := tc.beforeLink(r)
+				if err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -1478,7 +1481,8 @@ func Test_GetFSFromLayers_with_whiteouts_include_whiteout_enabled(t *testing.T) 
 				Size: int64(len("Hello World\n")),
 			}
 
-			if err := tw.WriteHeader(hdr); err != nil {
+			err := tw.WriteHeader(hdr)
+			if err != nil {
 				t.Fatal(err)
 			}
 
@@ -1487,7 +1491,8 @@ func Test_GetFSFromLayers_with_whiteouts_include_whiteout_enabled(t *testing.T) 
 			}
 		}
 
-		if err := tw.Close(); err != nil {
+		err := tw.Close()
+		if err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -1590,7 +1595,8 @@ func Test_GetFSFromLayers_with_whiteouts_include_whiteout_disabled(t *testing.T)
 				Size: int64(len("Hello world\n")),
 			}
 
-			if err := tw.WriteHeader(hdr); err != nil {
+			err := tw.WriteHeader(hdr)
+			if err != nil {
 				t.Fatal(err)
 			}
 
@@ -1599,7 +1605,8 @@ func Test_GetFSFromLayers_with_whiteouts_include_whiteout_disabled(t *testing.T)
 			}
 		}
 
-		if err := tw.Close(); err != nil {
+		err := tw.Close()
+		if err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -1696,7 +1703,8 @@ func Test_GetFSFromLayers_ignorelist(t *testing.T) {
 				Size: int64(len(string(fileContents))),
 			}
 
-			if err := tw.WriteHeader(hdr); err != nil {
+			err := tw.WriteHeader(hdr)
+			if err != nil {
 				t.Fatal(err)
 			}
 
@@ -1705,7 +1713,8 @@ func Test_GetFSFromLayers_ignorelist(t *testing.T) {
 			}
 		}
 
-		if err := tw.Close(); err != nil {
+		err := tw.Close()
+		if err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -1839,7 +1848,8 @@ func Test_GetFSFromLayers(t *testing.T) {
 			Size: int64(len("Hello world\n")),
 		}
 
-		if err := tw.WriteHeader(hdr); err != nil {
+		err := tw.WriteHeader(hdr)
+		if err != nil {
 			t.Fatal(err)
 		}
 
@@ -1962,7 +1972,8 @@ func Test_setFileTimes(t *testing.T) {
 
 	p := filepath.Join(testDir, "foo.txt")
 
-	if err := os.WriteFile(p, []byte("meow"), 0o777); err != nil {
+	err := os.WriteFile(p, []byte("meow"), 0o777)
+	if err != nil {
 		t.Fatal(err)
 	}
 

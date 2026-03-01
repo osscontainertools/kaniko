@@ -634,7 +634,8 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		}
 	}
 
-	if err := cacheGroup.Wait(); err != nil {
+	err = cacheGroup.Wait()
+	if err != nil {
 		logrus.Warnf("Error uploading layer to cache: %s", err)
 	}
 
@@ -909,7 +910,8 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 					depGraph[i] = append(depGraph[i], resolved...)
 				}
 			case *instructions.EnvCommand:
-				if err := util.UpdateConfigEnv(cmd.Env, &cfg.Config, ba.ReplacementEnvs(cfg.Config.Env)); err != nil {
+				err := util.UpdateConfigEnv(cmd.Env, &cfg.Config, ba.ReplacementEnvs(cfg.Config.Env))
+				if err != nil {
 					return nil, err
 				}
 				image, err = mutate.Config(image, cfg.Config)
@@ -1156,14 +1158,16 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 	}
 	if opts.PreCleanup {
-		if err = util.DeleteFilesystem(); err != nil {
+		err = util.DeleteFilesystem()
+		if err != nil {
 			return nil, err
 		}
 	}
 
 	if opts.Cleanup {
 		defer assignIfNil(&retErr, func() error {
-			if err = util.DeleteFilesystem(); err != nil {
+			err = util.DeleteFilesystem()
+			if err != nil {
 				return err
 			}
 			if opts.PreserveContext {
@@ -1306,7 +1310,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return pushImage, nil
 		}
 		if stage.SaveStage {
-			if err := saveStageAsTarball(strconv.Itoa(stage.Index), sourceImage); err != nil {
+			err := saveStageAsTarball(strconv.Itoa(stage.Index), sourceImage)
+			if err != nil {
 				return nil, err
 			}
 		}
@@ -1323,7 +1328,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 		for _, p := range files {
 			logrus.Infof("Saving file %s for later use", p)
-			if err := util.CopyFileOrSymlink(p, dstDir, config.RootDir); err != nil {
+			err := util.CopyFileOrSymlink(p, dstDir, config.RootDir)
+			if err != nil {
 				return nil, fmt.Errorf("could not save file: %w", err)
 			}
 		}
@@ -1351,7 +1357,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 }
 
 func assignIfNil(dst *error, fn func() error) {
-	if err := fn(); err != nil && *dst == nil {
+	err := fn()
+	if err != nil && *dst == nil {
 		*dst = err
 	}
 }

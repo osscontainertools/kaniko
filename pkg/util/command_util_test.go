@@ -354,7 +354,8 @@ var updateConfigEnvTests = []struct {
 func Test_UpdateConfigEnvTests(t *testing.T) {
 	for _, test := range updateConfigEnvTests {
 		t.Run(test.name, func(t *testing.T) {
-			if err := UpdateConfigEnv(test.envVars, test.config, test.replacementEnvs); err != nil {
+			err := UpdateConfigEnv(test.envVars, test.config, test.replacementEnvs)
+			if err != nil {
 				t.Fatalf("error updating config with env vars: %s", err)
 			}
 			testutil.CheckDeepEqual(t, test.expectedEnv, test.config.Env)

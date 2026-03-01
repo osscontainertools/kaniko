@@ -53,7 +53,8 @@ func (h *HTTPSTar) UnpackTarFromBuildContext() (directory string, err error) {
 		return "", err
 	}
 	defer func() {
-		if closeErr := resp.Body.Close(); err == nil && closeErr != nil {
+		closeErr := resp.Body.Close()
+		if err == nil && closeErr != nil {
 			err = closeErr
 		}
 	}()

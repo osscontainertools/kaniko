@@ -308,7 +308,8 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	finalStage := targetStages[len(targetStages)-1]
 
 	args := unifyArgs(metaArgs, opts.BuildArgs)
-	if err := resolveStagesArgs(stages, args); err != nil {
+	err = resolveStagesArgs(stages, args)
+	if err != nil {
 		return nil, fmt.Errorf("resolving args: %w", err)
 	}
 	stages = stages[:finalStage+1]

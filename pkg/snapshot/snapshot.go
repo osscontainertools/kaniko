@@ -219,12 +219,14 @@ func (s *Snapshotter) scanFullFilesystem() (filesToSnapshot []string, filesToDel
 
 	// Add files to the layered map
 	for _, file := range filesToAdd {
-		if err := s.l.Add(file); err != nil {
+		err := s.l.Add(file)
+		if err != nil {
 			return nil, nil, fmt.Errorf("unable to add file %s to layered map: %w", file, err)
 		}
 	}
 	for file := range deletedPaths {
-		if err := s.l.AddDelete(file); err != nil {
+		err := s.l.AddDelete(file)
+		if err != nil {
 			return nil, nil, fmt.Errorf("unable to whiteout file %s in layered map: %w", file, err)
 		}
 	}
@@ -280,13 +282,15 @@ func writeToTar(t util.Tar, files, whiteouts []string) error {
 	}
 
 	for _, path := range files {
-		if err := addParentDirectories(t, addedPaths, path); err != nil {
+		err := addParentDirectories(t, addedPaths, path)
+		if err != nil {
 			return err
 		}
 		if _, pathAdded := addedPaths[path]; pathAdded {
 			continue
 		}
-		if err := t.AddFileToTar(path); err != nil {
+		err = t.AddFileToTar(path)
+		if err != nil {
 			return err
 		}
 		addedPaths[path] = true
@@ -317,7 +321,8 @@ func addParentDirectories(t util.Tar, addedPaths map[string]bool, path string) e
 		if _, pathAdded := addedPaths[parentPath]; pathAdded {
 			continue
 		}
-		if err := t.AddFileToTar(parentPath); err != nil {
+		err := t.AddFileToTar(parentPath)
+		if err != nil {
 			return err
 		}
 		addedPaths[parentPath] = true

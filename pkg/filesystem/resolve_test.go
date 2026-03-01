@@ -62,19 +62,23 @@ func Test_ResolvePaths(t *testing.T) {
 				fLink := filepath.Join(dir, "link", f)
 				fTarget := filepath.Join(dir, "target", f)
 
-				if err := os.MkdirAll(filepath.Dir(fTarget), 0o777); err != nil {
+				err := os.MkdirAll(filepath.Dir(fTarget), 0o777)
+				if err != nil {
 					t.Fatal(err)
 				}
 
-				if err := os.WriteFile(fTarget, []byte{}, 0o777); err != nil {
+				err = os.WriteFile(fTarget, []byte{}, 0o777)
+				if err != nil {
 					t.Fatal(err)
 				}
 
-				if err := os.MkdirAll(filepath.Dir(fLink), 0o777); err != nil {
+				err = os.MkdirAll(filepath.Dir(fLink), 0o777)
+				if err != nil {
 					t.Fatal(err)
 				}
 
-				if err := os.Symlink(fTarget, fLink); err != nil {
+				err = os.Symlink(fTarget, fLink)
+				if err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -185,13 +189,15 @@ func Test_resolveSymlinkAncestor(t *testing.T) {
 
 		targetDir := filepath.Join(testDir, "bar", "baz")
 
-		if err := os.MkdirAll(targetDir, 0o777); err != nil {
+		err := os.MkdirAll(targetDir, 0o777)
+		if err != nil {
 			t.Fatal(err)
 		}
 
 		targetPath := filepath.Join(targetDir, "bam.txt")
 
-		if err := os.WriteFile(targetPath, []byte("meow"), 0o777); err != nil {
+		err = os.WriteFile(targetPath, []byte("meow"), 0o777)
+		if err != nil {
 			t.Fatal(err)
 		}
 

@@ -111,7 +111,8 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		fileContext: a.fileContext,
 	}
 
-	if err := copyCmd.ExecuteCommand(config, buildArgs); err != nil {
+	err = copyCmd.ExecuteCommand(config, buildArgs)
+	if err != nil {
 		return fmt.Errorf("executing copy command: %w", err)
 	}
 	a.snapshotFiles = append(a.snapshotFiles, copyCmd.snapshotFiles...)
