@@ -811,6 +811,7 @@ func verifyBuildWith(t *testing.T, cache, dockerfile string) {
 }
 
 func TestRelativePaths(t *testing.T) {
+	t.Parallel()
 	dockerfile := "Dockerfile_relative_copy"
 
 	t.Run("test_relative_"+dockerfile, func(t *testing.T) {
