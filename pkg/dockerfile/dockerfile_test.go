@@ -17,7 +17,6 @@ limitations under the License.
 package dockerfile
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -235,7 +234,7 @@ func Test_GetOnBuildInstructions(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cmds, err := ParseCommands(test.cfg.OnBuild)
 			if err != nil {
-				errors.New("Failed to parse config for on-build instructions")
+				t.Error("Failed to parse config for on-build instructions")
 			}
 			if len(cmds) != len(test.expCommands) {
 				t.Fatalf("Expected %d commands, got %d", len(test.expCommands), len(cmds))
