@@ -111,7 +111,7 @@ type KanikoGitOptions struct {
 
 var ErrInvalidGitFlag = errors.New("invalid git flag, must be in the key=value format")
 
-func (k *KanikoGitOptions) Type() string {
+func (*KanikoGitOptions) Type() string {
 	return "gitoptions"
 }
 
@@ -178,7 +178,7 @@ func (c *Compression) Set(v string) error {
 	}
 }
 
-func (c *Compression) Type() string {
+func (*Compression) Type() string {
 	return "compression"
 }
 
@@ -216,7 +216,7 @@ type SecretOption struct {
 
 type SecretOptions map[string]SecretOption
 
-func (k *SecretOptions) Type() string {
+func (*SecretOptions) Type() string {
 	return "secret"
 }
 

@@ -228,8 +228,14 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 				tag = ":" + destRef.TagStr()
 			}
 			imageName := []byte(destRef.Repository.Name() + tag + "@")
-			builder.Write(append(imageName, digestByteArray...))
-			builder.WriteString("\n")
+			_, err = builder.Write(append(imageName, digestByteArray...))
+			if err != nil {
+				return err
+			}
+			_, err = builder.WriteString("\n")
+			if err != nil {
+				return err
+			}
 		}
 		destRefs = append(destRefs, destRef)
 	}
@@ -384,13 +390,13 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 		return fmt.Errorf("getting cache destination: %w", err)
 	}
 	logrus.Infof("Pushing layer %s to cache now", cache)
-	empty := empty.Image
-	empty, err = mutate.CreatedAt(empty, v1.Time{Time: time.Now()})
+	img := empty.Image
+	img, err = mutate.CreatedAt(img, v1.Time{Time: time.Now()})
 	if err != nil {
 		return fmt.Errorf("setting empty image created time: %w", err)
 	}
 
-	empty, err = mutate.Append(empty,
+	img, err = mutate.Append(img,
 		mutate.Addendum{
 			Layer: layer,
 			History: v1.History{
@@ -412,7 +418,7 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 		cacheOpts.OCILayoutPath = strings.TrimPrefix(cache, "oci:")
 		cacheOpts.NoPush = true
 	}
-	return DoPush(empty, &cacheOpts)
+	return DoPush(img, &cacheOpts)
 }
 
 const cachePointerLabel = "kaniko.cache.pointer-target"

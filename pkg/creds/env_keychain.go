@@ -28,15 +28,15 @@ type envCredentialsHelper struct{}
 
 var EnvCredentialsHelper = &envCredentialsHelper{}
 
-func (ech *envCredentialsHelper) Add(c *credentials.Credentials) error {
+func (*envCredentialsHelper) Add(_ *credentials.Credentials) error {
 	return errors.New("unsupported operation")
 }
 
-func (ech *envCredentialsHelper) Delete(serverURL string) error {
+func (*envCredentialsHelper) Delete(_ string) error {
 	return errors.New("unsupported operation")
 }
 
-func (ech *envCredentialsHelper) Get(serverURL string) (string, string, error) {
+func (*envCredentialsHelper) Get(serverURL string) (user string, password string, err error) {
 	hostname := strings.ToUpper(strings.ReplaceAll(serverURL, "-", "_"))
 	fqdn := strings.Split(hostname, ".")
 	for idx := range fqdn {
@@ -53,6 +53,6 @@ func (ech *envCredentialsHelper) Get(serverURL string) (string, string, error) {
 	return "", "", errors.New("no matching env var set")
 }
 
-func (ech *envCredentialsHelper) List() (map[string]string, error) {
+func (*envCredentialsHelper) List() (map[string]string, error) {
 	return nil, errors.New("unsupported operation")
 }

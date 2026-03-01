@@ -36,16 +36,16 @@ type GCS struct {
 }
 
 func (g *GCS) UnpackTarFromBuildContext() (string, error) {
-	bucketName, filepath, err := bucket.GetNameAndFilepathFromURI(g.context)
+	bucketName, file, err := bucket.GetNameAndFilepathFromURI(g.context)
 	if err != nil {
 		return "", fmt.Errorf("getting bucketname and filepath from context: %w", err)
 	}
-	return kConfig.BuildContextDir, unpackTarFromGCSBucket(bucketName, filepath, kConfig.BuildContextDir)
+	return kConfig.BuildContextDir, unpackTarFromGCSBucket(bucketName, file, kConfig.BuildContextDir)
 }
 
 func UploadToBucket(r io.Reader, dest string) error {
 	ctx := context.Background()
-	bucketName, filepath, err := bucket.GetNameAndFilepathFromURI(dest)
+	bucketName, file, err := bucket.GetNameAndFilepathFromURI(dest)
 	if err != nil {
 		return fmt.Errorf("getting bucketname and filepath from dest: %w", err)
 	}
@@ -53,7 +53,7 @@ func UploadToBucket(r io.Reader, dest string) error {
 	if err != nil {
 		return err
 	}
-	return bucket.Upload(ctx, bucketName, filepath, r, client)
+	return bucket.Upload(ctx, bucketName, file, r, client)
 }
 
 // unpackTarFromGCSBucket unpacks the context.tar.gz file in the given bucket to the given directory

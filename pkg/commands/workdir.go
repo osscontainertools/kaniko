@@ -183,6 +183,6 @@ func (wr *CachingWorkdirCommand) String() string {
 	return wr.cmd.String()
 }
 
-func (wr *CachingWorkdirCommand) MetadataOnly() bool {
+func (*CachingWorkdirCommand) MetadataOnly() bool {
 	return false
 }

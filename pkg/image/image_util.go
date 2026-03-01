@@ -88,6 +88,7 @@ func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, b
 		} else {
 			return tarballImage(baseImageIndex)
 		}
+		return retrieveTarImage(baseImageIndex)
 	}
 
 	// Finally, check if local caching is enabled

@@ -32,51 +32,51 @@ const image string = "debian"
 // mockImage mocks the v1.Image interface
 type mockImage struct{}
 
-func (m *mockImage) ConfigFile() (*v1.ConfigFile, error) {
+func (*mockImage) ConfigFile() (*v1.ConfigFile, error) {
 	return nil, nil
 }
 
-func (m *mockImage) ConfigName() (v1.Hash, error) {
+func (*mockImage) ConfigName() (v1.Hash, error) {
 	return v1.Hash{}, nil
 }
 
-func (m *mockImage) Descriptor() (*v1.Descriptor, error) {
+func (*mockImage) Descriptor() (*v1.Descriptor, error) {
 	return nil, nil
 }
 
-func (m *mockImage) Digest() (v1.Hash, error) {
+func (*mockImage) Digest() (v1.Hash, error) {
 	return v1.Hash{}, nil
 }
 
-func (m *mockImage) LayerByDigest(v1.Hash) (v1.Layer, error) {
+func (*mockImage) LayerByDigest(v1.Hash) (v1.Layer, error) {
 	return nil, nil
 }
 
-func (m *mockImage) LayerByDiffID(v1.Hash) (v1.Layer, error) {
+func (*mockImage) LayerByDiffID(v1.Hash) (v1.Layer, error) {
 	return nil, nil
 }
 
-func (m *mockImage) Layers() ([]v1.Layer, error) {
+func (*mockImage) Layers() ([]v1.Layer, error) {
 	return nil, nil
 }
 
-func (m *mockImage) Manifest() (*v1.Manifest, error) {
+func (*mockImage) Manifest() (*v1.Manifest, error) {
 	return nil, nil
 }
 
-func (m *mockImage) MediaType() (types.MediaType, error) {
+func (*mockImage) MediaType() (types.MediaType, error) {
 	return "application/vnd.oci.descriptor.v1+json", nil
 }
 
-func (m *mockImage) RawManifest() ([]byte, error) {
+func (*mockImage) RawManifest() ([]byte, error) {
 	return nil, nil
 }
 
-func (m *mockImage) RawConfigFile() ([]byte, error) {
+func (*mockImage) RawConfigFile() ([]byte, error) {
 	return nil, nil
 }
 
-func (m *mockImage) Size() (int64, error) {
+func (*mockImage) Size() (int64, error) {
 	return 0, nil
 }
 
@@ -194,7 +194,7 @@ func Test_RetrieveRemoteImage_skipFallback(t *testing.T) {
 		SkipDefaultRegistryFallback: false,
 	}
 
-	remoteImageFunc = func(ref name.Reference, options ...remote.Option) (v1.Image, error) {
+	remoteImageFunc = func(ref name.Reference, _ ...remote.Option) (v1.Image, error) {
 		if ref.Context().Registry.Name() == registryMirror {
 			return nil, errors.New("no image found")
 		}
@@ -203,7 +203,7 @@ func Test_RetrieveRemoteImage_skipFallback(t *testing.T) {
 	}
 
 	if _, err := RetrieveRemoteImage(image, opts, ""); err != nil {
-		t.Fatalf("Expected call to succeed because fallback to default registry")
+		t.Fatal("Expected call to succeed because fallback to default registry")
 	}
 
 	opts.SkipDefaultRegistryFallback = true
@@ -220,7 +220,7 @@ func Test_RetryRetrieveRemoteImageSucceeds(t *testing.T) {
 		ImageDownloadRetry: 2,
 	}
 	attempts := 0
-	remoteImageFunc = func(ref name.Reference, options ...remote.Option) (v1.Image, error) {
+	remoteImageFunc = func(_ name.Reference, _ ...remote.Option) (v1.Image, error) {
 		if attempts < 2 {
 			attempts++
 			return nil, errors.New("no image found")
@@ -241,7 +241,7 @@ func Test_NoRetryRetrieveRemoteImageFails(t *testing.T) {
 		ImageDownloadRetry: 0,
 	}
 	attempts := 0
-	remoteImageFunc = func(ref name.Reference, options ...remote.Option) (v1.Image, error) {
+	remoteImageFunc = func(_ name.Reference, _ ...remote.Option) (v1.Image, error) {
 		if attempts < 1 {
 			attempts++
 			return nil, errors.New("no image found")

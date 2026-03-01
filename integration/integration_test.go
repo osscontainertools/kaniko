@@ -295,7 +295,7 @@ func getBranchCommitAndURL() (branch, commit, url string) {
 	}
 	log.Printf("repo=%q / commit=%q / branch=%q", repo, commit, branch)
 	url = "github.com/" + repo
-	return
+	return branch, commit, url
 }
 
 func DockerGitRepo(url string, commit string, branch string) string {
@@ -537,7 +537,7 @@ func TestBuildSkipFallback(t *testing.T) {
 
 	_, err := RunCommandWithoutTest(kanikoCmd)
 	if err == nil {
-		t.Errorf("Build should fail after using skip-default-registry-fallback and registry-mirror fail to pull")
+		t.Error("Build should fail after using skip-default-registry-fallback and registry-mirror fail to pull")
 	}
 }
 
@@ -1228,7 +1228,7 @@ func TestExitCodePropagation(t *testing.T) {
 			"-t", dockerImage,
 			"-f", dockerfile,
 		}
-		dockerCmd := exec.Command("docker", append(dockerFlags, context)...)
+		dockerCmd := exec.Command("docker", append(dockerFlags, ctx)...)
 		dockerCmd.Env = append(dockerCmd.Env, "DOCKER_BUILDKIT=0")
 
 		out, kanikoErr := RunCommandWithoutTest(dockerCmd)

@@ -83,7 +83,7 @@ var workdirTests = []struct {
 }
 
 // For testing
-func mockDir(path string, mode os.FileMode, uid, gid int64) error {
+func mockDir(_ string, _ os.FileMode, _, _ int64) error {
 	return nil
 }
 

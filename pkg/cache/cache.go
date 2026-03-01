@@ -127,11 +127,11 @@ func (lc *LayoutCache) RetrieveLayer(ck string) (v1.Image, error) {
 	return img, nil
 }
 
-func locateImage(path string) (v1.Image, error) {
+func locateImage(filepath string) (v1.Image, error) {
 	var img v1.Image
-	layoutPath, err := layout.FromPath(path)
+	layoutPath, err := layout.FromPath(filepath)
 	if err != nil {
-		return nil, fmt.Errorf("constructing layout path from %s: %w", path, err)
+		return nil, fmt.Errorf("constructing layout path from %s: %w", filepath, err)
 	}
 	index, err := layoutPath.ImageIndex()
 	if err != nil {
@@ -178,9 +178,8 @@ func LocalSource(opts *config.CacheOptions, cacheKey string) (v1.Image, error) {
 		return nil, nil
 	}
 
-	path := path.Join(cache, cacheKey)
-
-	fi, err := os.Stat(path)
+	p := path.Join(cache, cacheKey)
+	fi, err := os.Stat(p)
 	if err != nil {
 		msg := fmt.Sprintf("No file found for cache key %v %v", cacheKey, err)
 		logrus.Debug(msg)
@@ -197,10 +196,9 @@ func LocalSource(opts *config.CacheOptions, cacheKey string) (v1.Image, error) {
 
 	logrus.Infof("Found %s in local cache", cacheKey)
 	if config.EnvBool("FF_KANIKO_OCI_WARMER") {
-		return ociCachedImageFromPath(path)
-	} else {
-		return cachedImageFromPath(path)
+		return ociCachedImageFromPath(p)
 	}
+	return cachedImageFromPath(p)
 }
 
 // cachedImage represents a v1.Tarball that is cached locally in a CAS.

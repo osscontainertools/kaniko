@@ -150,7 +150,7 @@ func TestHeaderAdded(t *testing.T) {
 
 type mockRoundTripper struct{}
 
-func (m *mockRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+func (*mockRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	ua := r.UserAgent()
 	return &http.Response{Body: io.NopCloser(bytes.NewBufferString(ua))}, nil
 }
@@ -325,7 +325,7 @@ func resetCalledCount() {
 	checkPushPermsCallCount = 0
 }
 
-func fakeCheckPushPermission(ref name.Reference, kc authn.Keychain, t http.RoundTripper) error {
+func fakeCheckPushPermission(_ name.Reference, _ authn.Keychain, _ http.RoundTripper) error {
 	checkPushPermsCallCount++
 	return nil
 }

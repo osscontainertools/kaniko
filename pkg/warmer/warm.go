@@ -268,6 +268,13 @@ func (w *Warmer) Resolve(image string, opts *config.WarmerOptions) (name.Referen
 				oldKey = cacheKey
 				oldErr = err
 			}
+			// mz320: But in case it is a cache miss, not all hope is lost.
+			// It could have also been the digest for an image-index.
+			// The thin wrapper that only points to the image-manifests for different archs.
+			// Unfortunately we can't tell a-priori and we only store the image manifests as keys.
+			// Therefore we don't return and instead try a remote lookup again.
+			oldKey = cacheKey
+			oldErr = err
 		}
 	}
 
@@ -361,6 +368,13 @@ func (w *OciWarmer) Resolve(image string, opts *config.WarmerOptions) (name.Refe
 				oldKey = cacheKey
 				oldErr = err
 			}
+			// mz320: But in case it is a cache miss, not all hope is lost.
+			// It could have also been the digest for an image-index.
+			// The thin wrapper that only points to the image-manifests for different archs.
+			// Unfortunately we can't tell a-priori and we only store the image manifests as keys.
+			// Therefore we don't return and instead try a remote lookup again.
+			oldKey = cacheKey
+			oldErr = err
 		}
 	}
 

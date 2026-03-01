@@ -1587,8 +1587,8 @@ func tempDirAndFile(t *testing.T) (string, []string) {
 
 	dir := t.TempDir()
 	for _, filename := range filenames {
-		filepath := filepath.Join(dir, filename)
-		err := os.WriteFile(filepath, []byte(`meow`), 0o777)
+		file := filepath.Join(dir, filename)
+		err := os.WriteFile(file, []byte(`meow`), 0o777)
 		if err != nil {
 			t.Errorf("could not create temp file %v", err)
 		}
