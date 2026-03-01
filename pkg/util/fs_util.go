@@ -531,10 +531,7 @@ func RelativeFiles(fp string, root string) ([]string, error) {
 func ParentDirectories(path string) []string {
 	dir := filepath.Clean(path)
 	var paths []string
-	for {
-		if dir == filepath.Clean(config.RootDir) || dir == "" || dir == "." {
-			break
-		}
+	for !(dir == filepath.Clean(config.RootDir) || dir == "" || dir == ".") {
 		dir, _ = filepath.Split(dir)
 		dir = filepath.Clean(dir)
 		paths = append([]string{dir}, paths...)
@@ -1198,10 +1195,7 @@ func createParentDirectory(path string, uid int, gid int) error {
 
 		dir := baseDir
 		dirs := []string{baseDir}
-		for {
-			if dir == "/" || dir == "." || dir == "" {
-				break
-			}
+		for !(dir == "/" || dir == "." || dir == "") {
 			dir = filepath.Dir(dir)
 			dirs = append(dirs, dir)
 		}
@@ -1380,7 +1374,7 @@ func GetFSInfoMap(dir string, existing map[string]os.FileInfo) (map[string]os.Fi
 func isSame(fi1, fi2 os.FileInfo) bool {
 	return fi1.Mode() == fi2.Mode() &&
 		// file modification time
-		fi1.ModTime() == fi2.ModTime() &&
+		fi1.ModTime().Equal(fi2.ModTime()) &&
 		// file size
 		fi1.Size() == fi2.Size() &&
 		// file user id

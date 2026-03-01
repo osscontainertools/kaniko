@@ -101,7 +101,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		}
 	}
 	// With the remaining "normal" sources, create and execute a standard copy command
-	heredocs := a.cmd.SourcesAndDest.SourceContents
+	heredocs := a.cmd.SourceContents
 	if len(unresolvedSrcs) == 0 && len(heredocs) == 0 {
 		return nil
 	}
