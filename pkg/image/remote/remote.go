@@ -51,7 +51,6 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 
 	if newRegURLs, found := opts.RegistryMaps[ref.Context().RegistryStr()]; found {
 		for _, registryMapping := range newRegURLs {
-
 			regToMapTo, repositoryPrefix := parseRegistryMapping(registryMapping)
 
 			insecurePull := opts.InsecurePull || opts.InsecureRegistries.Contains(regToMapTo)

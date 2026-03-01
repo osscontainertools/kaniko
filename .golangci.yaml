@@ -11,6 +11,7 @@ linters:
     - unconvert
     - unparam
     - wastedassign
+    - whitespace
 
 formatters:
   enable:
