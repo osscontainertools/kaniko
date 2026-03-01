@@ -1459,7 +1459,7 @@ RUN foobar
 			opts:           &config.KanikoOptions{InitialFSUnpacked: true},
 			stage:          config.KanikoStage{Index: 0},
 			crossStageDeps: true,
-			mockGetFSFromImage: func(root string, img v1.Image, extract util.ExtractFunction) ([]string, error) {
+			mockGetFSFromImage: func(_ string, img v1.Image, extract util.ExtractFunction) ([]string, error) {
 				return nil, fmt.Errorf("getFSFromImage shouldn't be called if fs is already unpacked")
 			},
 		},
@@ -1595,8 +1595,8 @@ func tempDirAndFile(t *testing.T) (string, []string) {
 
 	dir := t.TempDir()
 	for _, filename := range filenames {
-		filepath := filepath.Join(dir, filename)
-		err := os.WriteFile(filepath, []byte(`meow`), 0o777)
+		file := filepath.Join(dir, filename)
+		err := os.WriteFile(file, []byte(`meow`), 0o777)
 		if err != nil {
 			t.Errorf("could not create temp file %v", err)
 		}

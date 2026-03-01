@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os/user"
@@ -573,7 +574,7 @@ func TestGetUserGroup(t *testing.T) {
 				if userStr == "some" && groupStr == "key" {
 					return 10, 100, nil
 				}
-				return 0, 0, fmt.Errorf("did not resolve environment variable")
+				return 0, 0, errors.New("did not resolve environment variable")
 			},
 			expectedU: 10,
 			expectedG: 100,
@@ -581,7 +582,7 @@ func TestGetUserGroup(t *testing.T) {
 		{
 			description: "empty chown string",
 			mockIDGetter: func(string, string) (uint32, uint32, error) {
-				return 0, 0, fmt.Errorf("should not be called")
+				return 0, 0, errors.New("should not be called")
 			},
 			expectedU: -1,
 			expectedG: -1,

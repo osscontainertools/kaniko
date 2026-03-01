@@ -18,6 +18,7 @@ package warmer_test
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"testing"
 
@@ -84,7 +85,7 @@ func Test_Warmer_Warm_in_cache_not_expired(t *testing.T) {
 	}
 
 	if len(tarBuf.Bytes()) != 0 {
-		t.Errorf("expected nothing to be written")
+		errors.New("expected nothing to be written")
 	}
 }
 
@@ -112,7 +113,7 @@ func Test_Warmer_Warm_in_cache_expired(t *testing.T) {
 	}
 
 	if len(tarBuf.Bytes()) != 0 {
-		t.Errorf("expected nothing to be written")
+		t.Error("expected nothing to be written")
 	}
 }
 

@@ -17,6 +17,7 @@ limitations under the License.
 package testutil
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/user"
@@ -106,7 +107,7 @@ func CheckNoError(t *testing.T, err error) {
 
 func checkErr(shouldErr bool, err error) error {
 	if err == nil && shouldErr {
-		return fmt.Errorf("expected error, but returned none")
+		return errors.New("expected error, but returned none")
 	}
 	if err != nil && !shouldErr {
 		return fmt.Errorf("unexpected error: %w", err)

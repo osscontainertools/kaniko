@@ -110,9 +110,8 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 func remapRepository(repo name.Repository, regToMapTo string, repositoryPrefix string, insecurePull bool) (name.Repository, error) {
 	if insecurePull {
 		return name.NewRepository(repositoryPrefix+repo.RepositoryStr(), name.WithDefaultRegistry(regToMapTo), name.WeakValidation, name.Insecure)
-	} else {
-		return name.NewRepository(repositoryPrefix+repo.RepositoryStr(), name.WithDefaultRegistry(regToMapTo), name.WeakValidation)
 	}
+	return name.NewRepository(repositoryPrefix+repo.RepositoryStr(), name.WithDefaultRegistry(regToMapTo), name.WeakValidation)
 }
 
 func setNewRepository(ref name.Reference, newRepo name.Repository) name.Reference {
@@ -160,7 +159,7 @@ func remoteOptions(registryName string, opts config.RegistryOptions, customPlatf
 
 // Parse the registry mapping
 // example: regMapping = "registry.example.com/subdir1/subdir2" will return registry.example.com and subdir1/subdir2/
-func parseRegistryMapping(regMapping string) (string, string) {
+func parseRegistryMapping(regMapping string) (url string, path string) {
 	// Split the registry mapping by first slash
 	regURL, repositoryPrefix, _ := strings.Cut(regMapping, "/")
 

@@ -62,7 +62,7 @@ func (v *VolumeCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.
 	return nil
 }
 
-func (v *VolumeCommand) FilesToSnapshot() []string {
+func (*VolumeCommand) FilesToSnapshot() []string {
 	return []string{}
 }
 

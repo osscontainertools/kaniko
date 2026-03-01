@@ -293,11 +293,11 @@ func Test_CachingRunCommand_ExecuteCommand(t *testing.T) {
 					config, buildArgs,
 				)
 				if err != nil {
-					t.Errorf("failed to get files used from context from command")
+					t.Error("failed to get files used from context from command")
 				}
 
 				if len(cmdFiles) != 0 {
-					t.Errorf("expected files used from context to be empty but was not")
+					t.Error("expected files used from context to be empty but was not")
 				}
 			}
 

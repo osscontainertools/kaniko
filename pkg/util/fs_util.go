@@ -1036,7 +1036,7 @@ func IsSymlink(fi os.FileInfo) bool {
 	return fi.Mode()&os.ModeSymlink != 0
 }
 
-var ErrNotSymLink = fmt.Errorf("not a symlink")
+var ErrNotSymLink = errors.New("not a symlink")
 
 func GetSymLink(path string) (string, error) {
 	if err := getSymlink(path); err != nil {

@@ -19,6 +19,7 @@ package integration
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -211,7 +212,7 @@ var warmerOutputChecks = map[string]func(string, []byte) error{
 
 func checkNoWarnings(_ string, out []byte) error {
 	if strings.Contains(string(out), "WARN") {
-		return fmt.Errorf("output must not contain WARN")
+		return errors.New("output must not contain WARN")
 	}
 	return nil
 }
@@ -356,7 +357,7 @@ func addServiceAccountFlags(flags []string, serviceAccount string) []string {
 	return flags
 }
 
-func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfilesPath, dockerfile, contextDir string) error {
+func (*DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfilesPath, dockerfile, contextDir string) error {
 	t.Logf("Building image for Dockerfile %s\n", dockerfile)
 
 	buildArgs := make([]string, 0, 2*(len(argsMap[dockerfile])+1))
@@ -483,7 +484,7 @@ func populateVolumeCache(logf logger, serviceAccount string) error {
 }
 
 // buildCachedImage builds the image for testing caching via kaniko where version is the nth time this image has been built
-func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTestConfig, cacheRepo, dockerfilesPath, dockerfile string, version int, args []string) error {
+func (*DockerFileBuilder) buildCachedImage(logf logger, config *integrationTestConfig, cacheRepo, dockerfilesPath, dockerfile string, version int, args []string) error {
 	imageRepo, serviceAccount := config.imageRepo, config.serviceAccount
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
@@ -509,8 +510,8 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
 	executorImage := ExecutorImage
-	if exec, ok := executorImages[dockerfile]; ok {
-		executorImage = exec
+	if _executorImage, ok := executorImages[dockerfile]; ok {
+		executorImage = _executorImage
 	}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
@@ -539,14 +540,11 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
-	if err := checkNoWarnings(dockerfile, out); err != nil {
-		return err
-	}
-	return nil
+	return checkNoWarnings(dockerfile, out)
 }
 
 // buildCachedImage builds the image for testing caching via kaniko warmer cache where version is the nth time this image has been built
-func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTestConfig, dockerfilesPath, dockerfile string, version int, args []string, cache bool) error {
+func (*DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTestConfig, dockerfilesPath, dockerfile string, version int, args []string, cache bool) error {
 	imageRepo, serviceAccount := config.imageRepo, config.serviceAccount
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
@@ -561,8 +559,8 @@ func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTes
 		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
 	executorImage := ExecutorImage
-	if exec, ok := executorImages[dockerfile]; ok {
-		executorImage = exec
+	if _executorImage, ok := executorImages[dockerfile]; ok {
+		executorImage = _executorImage
 	}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
@@ -595,14 +593,11 @@ func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTes
 			}
 		}
 	}
-	if err := checkNoWarnings(dockerfile, out); err != nil {
-		return err
-	}
-	return nil
+	return checkNoWarnings(dockerfile, out)
 }
 
 // buildRelativePathsImage builds the images for testing passing relatives paths to Kaniko
-func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dockerfile, serviceAccount, buildContextPath string) error {
+func (*DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dockerfile, serviceAccount, buildContextPath string) error {
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
 
@@ -630,8 +625,8 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
 	executorImage := ExecutorImage
-	if exec, ok := executorImages[dockerfile]; ok {
-		executorImage = exec
+	if _executorImage, ok := executorImages[dockerfile]; ok {
+		executorImage = _executorImage
 	}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
@@ -656,10 +651,7 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
-	if err := checkNoWarnings(dockerfile, out); err != nil {
-		return err
-	}
-	return nil
+	return checkNoWarnings(dockerfile, out)
 }
 
 func buildKanikoImage(

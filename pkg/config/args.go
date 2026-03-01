@@ -42,7 +42,7 @@ func (b *multiArg) Set(value string) error {
 }
 
 // The third is Type() string
-func (b *multiArg) Type() string {
+func (*multiArg) Type() string {
 	return "multi-arg type"
 }
 
@@ -75,7 +75,7 @@ func (a *keyValueArg) Set(value string) error {
 }
 
 // The third is Type() string
-func (a *keyValueArg) Type() string {
+func (*keyValueArg) Type() string {
 	return "key-value-arg type"
 }
 
@@ -116,6 +116,6 @@ func (c *multiKeyMultiValueArg) Set(value string) error {
 	return c.parseKV(value)
 }
 
-func (c *multiKeyMultiValueArg) Type() string {
+func (*multiKeyMultiValueArg) Type() string {
 	return "key-multi-value-arg type"
 }

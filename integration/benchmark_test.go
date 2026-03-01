@@ -97,7 +97,7 @@ func newResult(t *testing.T, f string) result {
 	defer jsonFile.Close()
 	byteValue, _ := io.ReadAll(jsonFile)
 	if err := json.Unmarshal(byteValue, &current); err != nil {
-		t.Errorf("could not unmarshal benchmark file")
+		t.Error("could not unmarshal benchmark file")
 	}
 	r := result{}
 	if c, ok := current["Resolving Paths"]; ok {

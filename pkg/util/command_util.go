@@ -435,11 +435,11 @@ func getUIDAndGIDFromString(userGroupString string) (uint32, uint32, error) {
 }
 
 func getUIDAndGID(userStr string, groupStr string) (uint32, uint32, error) {
-	user, err := LookupUser(userStr)
+	usr, err := LookupUser(userStr)
 	if err != nil {
 		return 0, 0, err
 	}
-	uid32, err := getUID(user.Uid)
+	uid32, err := getUID(usr.Uid)
 	if err != nil {
 		return 0, 0, err
 	}

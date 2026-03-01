@@ -243,7 +243,7 @@ func getBranchCommitAndURL() (branch, commit, url string) {
 	}
 	log.Printf("repo=%q / commit=%q / branch=%q", repo, commit, branch)
 	url = "github.com/" + repo
-	return
+	return branch, commit, url
 }
 
 func DockerGitRepo(url string, commit string, branch string) string {
@@ -477,7 +477,7 @@ func TestBuildSkipFallback(t *testing.T) {
 
 	_, err := RunCommandWithoutTest(kanikoCmd)
 	if err == nil {
-		t.Errorf("Build should fail after using skip-default-registry-fallback and registry-mirror fail to pull")
+		t.Error("Build should fail after using skip-default-registry-fallback and registry-mirror fail to pull")
 	}
 }
 
@@ -845,8 +845,8 @@ func TestExitCodePropagation(t *testing.T) {
 		t.Fatal("Could not get working dir")
 	}
 
-	context := fmt.Sprintf("%s/testdata/exit-code-propagation", currentDir)
-	dockerfile := fmt.Sprintf("%s/Dockerfile_exit_code_propagation", context)
+	ctx := fmt.Sprintf("%s/testdata/exit-code-propagation", currentDir)
+	dockerfile := fmt.Sprintf("%s/Dockerfile_exit_code_propagation", ctx)
 
 	t.Run("test error code propagation", func(t *testing.T) {
 		t.Parallel()
@@ -857,7 +857,7 @@ func TestExitCodePropagation(t *testing.T) {
 			"-t", dockerImage,
 			"-f", dockerfile,
 		}
-		dockerCmd := exec.Command("docker", append(dockerFlags, context)...)
+		dockerCmd := exec.Command("docker", append(dockerFlags, ctx)...)
 		dockerCmd.Env = append(dockerCmd.Env, "DOCKER_BUILDKIT=0")
 
 		out, kanikoErr := RunCommandWithoutTest(dockerCmd)
@@ -878,7 +878,7 @@ func TestExitCodePropagation(t *testing.T) {
 		}
 
 		// try to build the same image with kaniko the error code should match with the one from the plain docker build
-		contextVolume := fmt.Sprintf("%s:/workspace", context)
+		contextVolume := fmt.Sprintf("%s:/workspace", ctx)
 
 		dockerFlags = []string{
 			"run",

@@ -39,13 +39,11 @@ type WorkdirCommand struct {
 func ToAbsPath(path string, workdir string) string {
 	if filepath.IsAbs(path) {
 		return path
-	} else {
-		if workdir != "" {
-			return filepath.Join(workdir, path)
-		} else {
-			return filepath.Join("/", path)
-		}
 	}
+	if workdir != "" {
+		return filepath.Join(workdir, path)
+	}
+	return filepath.Join("/", path)
 }
 
 // For testing
@@ -181,6 +179,6 @@ func (wr *CachingWorkdirCommand) String() string {
 	return wr.cmd.String()
 }
 
-func (wr *CachingWorkdirCommand) MetadataOnly() bool {
+func (*CachingWorkdirCommand) MetadataOnly() bool {
 	return false
 }

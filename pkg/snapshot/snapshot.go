@@ -95,7 +95,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 	// Get whiteout paths
 	var filesToWhiteout []string
 	if shdCheckDelete {
-		_, deletedFiles, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), func(s string) (bool, error) {
+		_, deletedFiles, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), func(_ string) (bool, error) {
 			return true, nil
 		})
 		if err != nil {
@@ -149,14 +149,14 @@ func (s *Snapshotter) TakeSnapshotFS() (string, error) {
 	return f.Name(), nil
 }
 
-func (s *Snapshotter) getSnashotPathPrefix() string {
+func (*Snapshotter) getSnashotPathPrefix() string {
 	if snapshotPathPrefix == "" {
 		return config.KanikoLayersDir
 	}
 	return snapshotPathPrefix
 }
 
-func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
+func (s *Snapshotter) scanFullFilesystem() (filesToSnapshot []string, filesToDelete []string, err error) {
 	logrus.Info("Taking snapshot of full filesystem...")
 
 	// Some of the operations that follow (e.g. hashing) depend on the file system being synced,

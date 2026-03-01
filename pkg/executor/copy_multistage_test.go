@@ -128,11 +128,11 @@ COPY --from=first copied another`
 		testutil.CheckDeepEqual(t, files[1].Name(), "bam.txt")
 		// TODO fix this
 		// path := filepath.Join(testDir, "output/another", "bam.link")
-		//linkName, err := os.Readlink(path)
-		//if err != nil {
-		//	t.Fatal(err)
-		//}
-		//testutil.CheckDeepEqual(t, linkName, "bam.txt")
+		// linkName, err := os.Readlink(path)
+		// if err != nil {
+		//	 t.Fatal(err)
+		// }
+		// testutil.CheckDeepEqual(t, linkName, "bam.txt")
 	})
 
 	t.Run("copy root across multistage", func(t *testing.T) {
