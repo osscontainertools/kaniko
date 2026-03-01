@@ -162,7 +162,10 @@ func Test_AddCommand(t *testing.T) {
 				},
 				fileContext: fileContext,
 			}
-			c.ExecuteCommand(cfg, buildArgs)
+			err := c.ExecuteCommand(cfg, buildArgs)
+			if err != nil {
+				t.Error(err)
+			}
 
 			expected := []string{}
 			resultDir := filepath.Join(tempDir, "tempAddExecuteTest/")

@@ -201,7 +201,10 @@ func setupMultistageTests(t *testing.T) (string, func()) {
 	if err := os.WriteFile(file, []byte("meow"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	os.Symlink("bam.txt", filepath.Join(workspace, "foo", "bam.link"))
+	err := os.Symlink("bam.txt", filepath.Join(workspace, "foo", "bam.link"))
+	if err != nil {
+		t.Error(err)
+	}
 
 	// Make a file with contents link
 	file = filepath.Join(workspace, "exec")
@@ -212,7 +215,10 @@ func setupMultistageTests(t *testing.T) (string, func()) {
 	if err := os.MkdirAll(filepath.Join(workspace, "bin"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	os.Symlink("../exec", filepath.Join(workspace, "bin", "exec.link"))
+	err = os.Symlink("../exec", filepath.Join(workspace, "bin", "exec.link"))
+	if err != nil {
+		t.Error(err)
+	}
 
 	// set up config
 	config.RootDir = testDir

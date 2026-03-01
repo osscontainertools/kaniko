@@ -695,8 +695,10 @@ func TestCache(t *testing.T) {
 }
 
 func TestWarmer(t *testing.T) {
-	populateVolumeCache(t.Logf, config.serviceAccount)
-
+	err := populateVolumeCache(t.Logf, config.serviceAccount)
+	if err != nil {
+		t.Error(err)
+	}
 	for dockerfile := range imageBuilder.TestWarmerDockerfiles {
 		t.Run("test_warmer_"+dockerfile, func(t *testing.T) {
 			t.Parallel()
@@ -1217,7 +1219,10 @@ func logBenchmarks(benchmark string) error {
 		if err != nil {
 			return err
 		}
-		f.WriteString(timing.Summary())
+		_, err = f.WriteString(timing.Summary())
+		if err != nil {
+			return err
+		}
 		defer f.Close()
 	}
 	return nil

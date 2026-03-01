@@ -61,7 +61,10 @@ func TestDockerConfLocation(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	dir := filepath.Join(tmpDir, "/kaniko/.docker")
-	os.MkdirAll(dir, os.ModePerm)
+	err := os.MkdirAll(dir, os.ModePerm)
+	if err != nil {
+		t.Error(err)
+	}
 	if err := os.Setenv(DockerConfigEnvKey, dir); err != nil {
 		t.Fatalf("Failed to set DOCKER_CONFIG: %v", err)
 	}

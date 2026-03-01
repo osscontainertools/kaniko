@@ -845,9 +845,15 @@ func TestCopySymlink(t *testing.T) {
 			tc := tc
 			t.Parallel()
 			r := t.TempDir()
-			os.MkdirAll(filepath.Join(r, filepath.Dir(tc.linkTarget)), 0o777)
+			err := os.MkdirAll(filepath.Join(r, filepath.Dir(tc.linkTarget)), 0o777)
+			if err != nil {
+				t.Error(err)
+			}
 			tc.linkTarget = filepath.Join(r, tc.linkTarget)
-			os.WriteFile(tc.linkTarget, nil, 0o644)
+			err = os.WriteFile(tc.linkTarget, nil, 0o644)
+			if err != nil {
+				t.Error(err)
+			}
 
 			if tc.beforeLink != nil {
 				if err := tc.beforeLink(r); err != nil {

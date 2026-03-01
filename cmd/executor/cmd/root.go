@@ -346,11 +346,17 @@ func moveKanikoDir(src, target string) error {
 		if rest, ok := strings.CutPrefix(val, src+"/"); ok {
 			// Case: starts with /kaniko/
 			newVal := target + "/" + rest
-			os.Setenv(key, newVal)
+			err = os.Setenv(key, newVal)
+			if err != nil {
+				return err
+			}
 			logrus.Infof("updating env: %s=%s", key, newVal)
 		} else if val == src {
 			// Case: exactly /kaniko
-			os.Setenv(key, target)
+			err = os.Setenv(key, target)
+			if err != nil {
+				return err
+			}
 			logrus.Infof("updating env: %s=%s", key, target)
 		}
 	}

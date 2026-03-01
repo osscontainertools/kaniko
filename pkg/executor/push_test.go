@@ -85,7 +85,10 @@ func TestWriteImageOutputs(t *testing.T) {
 				newOsFs = afero.NewReadOnlyFs(newOsFs) // No files should be written.
 			}
 
-			os.Setenv("BUILDER_OUTPUT", c.env)
+			err = os.Setenv("BUILDER_OUTPUT", c.env)
+			if err != nil {
+				t.Error(err)
+			}
 			if err := writeImageOutputs(img, c.tags); err != nil {
 				t.Fatalf("writeImageOutputs: %v", err)
 			}
@@ -125,7 +128,10 @@ func TestHeaderAdded(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			rt := &withUserAgent{t: &mockRoundTripper{}}
 			if test.upstream != "" {
-				os.Setenv("UPSTREAM_CLIENT_TYPE", test.upstream)
+				err := os.Setenv("UPSTREAM_CLIENT_TYPE", test.upstream)
+				if err != nil {
+					t.Error(err)
+				}
 				defer func() { os.Unsetenv("UPSTREAM_CLIENT_TYPE") }()
 			}
 			req, err := http.NewRequest("GET", "dummy", nil) //nolint:noctx
@@ -399,10 +405,16 @@ func TestCheckPushPermissions(t *testing.T) {
 				NoPushCache:  test.noPushCache,
 			}
 			if test.existingConfig {
-				afero.WriteFile(newOsFs, util.DockerConfLocation(), []byte(""), os.FileMode(0o644))
+				err := afero.WriteFile(newOsFs, util.DockerConfLocation(), []byte(""), os.FileMode(0o644))
+				if err != nil {
+					t.Error(err)
+				}
 				defer newOsFs.Remove(util.DockerConfLocation())
 			}
-			CheckPushPermissions(&opts)
+			err := CheckPushPermissions(&opts)
+			if err != nil {
+				t.Error(err)
+			}
 			if checkPushPermsCallCount != test.checkPushPermsExpectedCallCount {
 				t.Errorf("expected check push permissions call count to be %d but it was %d", test.checkPushPermsExpectedCallCount, checkPushPermsCallCount)
 			}
@@ -441,7 +453,10 @@ func TestSkipPushPermission(t *testing.T) {
 				afero.WriteFile(newOsFs, util.DockerConfLocation(), []byte(""), os.FileMode(0o644))
 				defer newOsFs.Remove(util.DockerConfLocation())
 			}
-			CheckPushPermissions(&opts)
+			err := CheckPushPermissions(&opts)
+			if err != nil {
+				t.Error(err)
+			}
 			if checkPushPermsCallCount != test.checkPushPermsExpectedCallCount {
 				t.Errorf("expected check push permissions call count to be %d but it was %d", test.checkPushPermsExpectedCallCount, checkPushPermsCallCount)
 			}
@@ -453,7 +468,10 @@ func TestHelperProcess(t *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}
-	fmt.Fprintf(os.Stdout, "fake result")
+	_, err := fmt.Fprintf(os.Stdout, "fake result")
+	if err != nil {
+		t.Error(err)
+	}
 	os.Exit(0)
 }
 

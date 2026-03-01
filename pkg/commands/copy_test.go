@@ -89,7 +89,10 @@ func setupTestTemp(t *testing.T) string {
 			if path != srcPath {
 				tempPath := strings.TrimPrefix(path, srcPath)
 				if info.IsDir() {
-					os.MkdirAll(tempDir+"/"+tempPath, 0o777)
+					err = os.MkdirAll(tempDir+"/"+tempPath, 0o777)
+					if err != nil {
+						return err
+					}
 				} else {
 					out, err := os.Create(tempDir + "/" + tempPath)
 					if err != nil {
