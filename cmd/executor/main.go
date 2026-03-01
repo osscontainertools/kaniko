@@ -27,7 +27,8 @@ func main() {
 	s := stacklog.MustStartFromEnv("STACKLOG_PATH")
 	defer s.Stop()
 
-	if err := cmd.RootCmd.Execute(); err != nil {
+	err := cmd.RootCmd.Execute()
+	if err != nil {
 		os.Exit(1)
 	}
 }

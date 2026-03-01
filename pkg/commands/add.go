@@ -80,7 +80,8 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				return err
 			}
 			logrus.Infof("Adding remote URL %s to %s", src, urlDest)
-			if err := util.DownloadFileToDest(src, urlDest, uid, gid, chmod); err != nil {
+			err = util.DownloadFileToDest(src, urlDest, uid, gid, chmod)
+			if err != nil {
 				return fmt.Errorf("downloading remote source file: %w", err)
 			}
 			a.snapshotFiles = append(a.snapshotFiles, urlDest)
@@ -115,7 +116,8 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		fileContext: a.fileContext,
 	}
 
-	if err := copyCmd.ExecuteCommand(config, buildArgs); err != nil {
+	err = copyCmd.ExecuteCommand(config, buildArgs)
+	if err != nil {
 		return fmt.Errorf("executing copy command: %w", err)
 	}
 	a.snapshotFiles = append(a.snapshotFiles, copyCmd.snapshotFiles...)

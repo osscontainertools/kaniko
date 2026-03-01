@@ -284,7 +284,8 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		return nil, fmt.Errorf("error finding target stage: %w", err)
 	}
 	args := unifyArgs(metaArgs, opts.BuildArgs)
-	if err := resolveStagesArgs(stages, args); err != nil {
+	err = resolveStagesArgs(stages, args)
+	if err != nil {
 		return nil, fmt.Errorf("resolving args: %w", err)
 	}
 	stages = stages[:targetStage+1]
@@ -337,7 +338,8 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			for _, c := range stage.Commands {
 				switch cmd := c.(type) {
 				case *instructions.CopyCommand:
-					if copyFromIndex, err := strconv.Atoi(cmd.From); err == nil {
+					copyFromIndex, err := strconv.Atoi(cmd.From)
+					if err == nil {
 						copyDependencies[copyFromIndex]++
 					}
 				}

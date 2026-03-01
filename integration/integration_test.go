@@ -120,7 +120,8 @@ func launchTests(m *testing.M) (int, error) {
 		RunOnInterrupt(deleteFunc)
 		defer deleteFunc()
 	}
-	if err := buildRequiredImages(); err != nil {
+	err := buildRequiredImages()
+	if err != nil {
 		return 1, fmt.Errorf("Error while building images: %w", err)
 	}
 
@@ -663,7 +664,8 @@ func buildImage(t *testing.T, dockerfile string, imageBuilder *DockerFileBuilder
 	t.Helper()
 	t.Logf("Building image '%v'...", dockerfile)
 
-	if err := imageBuilder.BuildImage(t, config, dockerfilesPath, dockerfile); err != nil {
+	err := imageBuilder.BuildImage(t, config, dockerfilesPath, dockerfile)
+	if err != nil {
 		t.Errorf("Error building image: %s", err)
 		t.FailNow()
 	}
@@ -691,7 +693,8 @@ func TestCache(t *testing.T) {
 		})
 	}
 
-	if err := logBenchmarks("benchmark_cache"); err != nil {
+	err := logBenchmarks("benchmark_cache")
+	if err != nil {
 		t.Logf("Failed to create benchmark file: %v", err)
 	}
 }
@@ -711,12 +714,14 @@ func TestWarmer(t *testing.T) {
 			}
 
 			// Build the initial without warmer
-			if err := imageBuilder.buildWarmerImage(t.Logf, config, dockerfilesPath, dockerfile, 0, args, false); err != nil {
+			err := imageBuilder.buildWarmerImage(t.Logf, config, dockerfilesPath, dockerfile, 0, args, false)
+			if err != nil {
 				t.Fatalf("error building cached image for the first time: %v", err)
 			}
 
 			// Build the second with warmer
-			if err := imageBuilder.buildWarmerImage(t.Logf, config, dockerfilesPath, dockerfile, 1, args, true); err != nil {
+			err = imageBuilder.buildWarmerImage(t.Logf, config, dockerfilesPath, dockerfile, 1, args, true)
+			if err != nil {
 				t.Fatalf("error building cached image for the second time: %v", err)
 			}
 
@@ -795,11 +800,13 @@ func verifyBuildWith(t *testing.T, cache, dockerfile string) {
 	}
 
 	// Build the initial image which will cache layers
-	if err := imageBuilder.buildCachedImage(t.Logf, config, cache, dockerfilesPath, dockerfile, 0, args); err != nil {
+	err := imageBuilder.buildCachedImage(t.Logf, config, cache, dockerfilesPath, dockerfile, 0, args)
+	if err != nil {
 		t.Fatalf("error building cached image for the first time: %v", err)
 	}
 	// Build the second image which should pull from the cache
-	if err := imageBuilder.buildCachedImage(t.Logf, config, cache, dockerfilesPath, dockerfile, 1, args); err != nil {
+	err = imageBuilder.buildCachedImage(t.Logf, config, cache, dockerfilesPath, dockerfile, 1, args)
+	if err != nil {
 		t.Fatalf("error building cached image for the second time: %v", err)
 	}
 	// Make sure both images are the same

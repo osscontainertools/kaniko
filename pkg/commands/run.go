@@ -312,7 +312,8 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 	cmd.Env = append(env, secretEnvs...)
 
 	logrus.Infof("Running: %s", cmd.Args)
-	if err := cmd.Start(); err != nil {
+	err = cmd.Start()
+	if err != nil {
 		return fmt.Errorf("starting command: %w", err)
 	}
 
@@ -518,7 +519,8 @@ func ensureDir(target string) (string, error) {
 }
 
 func assignIfNil(dst *error, fn func() error) {
-	if err := fn(); err != nil && *dst == nil {
+	err := fn()
+	if err != nil && *dst == nil {
 		*dst = err
 	}
 }

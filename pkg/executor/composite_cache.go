@@ -96,7 +96,7 @@ func (s *CompositeCache) AddPath(p string, context util.FileContext) error {
 func hashDir(p string, context util.FileContext) (bool, string, error) {
 	sha := sha256.New()
 	empty := true
-	if err := fs.WalkDir(util.FSys, p, func(path string, _ fs.DirEntry, err error) error {
+	err := fs.WalkDir(util.FSys, p, func(path string, _ fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -129,7 +129,8 @@ func hashDir(p string, context util.FileContext) (bool, string, error) {
 		}
 		empty = false
 		return nil
-	}); err != nil {
+	})
+	if err != nil {
 		return false, "", err
 	}
 

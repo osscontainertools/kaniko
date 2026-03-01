@@ -157,7 +157,8 @@ func writeDigestFile(path string, digestByteArray []byte) error {
 
 	parentDir := filepath.Dir(path)
 	if _, err := os.Stat(parentDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(parentDir, 0o700); err != nil {
+		err := os.MkdirAll(parentDir, 0o700)
+		if err != nil {
 			logrus.Debugf("Error creating %s, %s", parentDir, err)
 			return err
 		}
@@ -343,10 +344,11 @@ func writeImageOutputs(image v1.Image, destRefs []name.Tag) error {
 		Digest string `json:"digest"`
 	}
 	for _, r := range destRefs {
-		if err := json.NewEncoder(f).Encode(imageOutput{
+		err := json.NewEncoder(f).Encode(imageOutput{
 			Name:   r.String(),
 			Digest: d.String(),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
 	}

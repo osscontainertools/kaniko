@@ -32,10 +32,12 @@ import (
 func SetupFiles(path string, files map[string]string) error {
 	for p, c := range files {
 		path := filepath.Join(path, p)
-		if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		err := os.MkdirAll(filepath.Dir(path), 0o750)
+		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(path, []byte(c), 0o644); err != nil {
+		err = os.WriteFile(path, []byte(c), 0o644)
+		if err != nil {
 			return err
 		}
 	}

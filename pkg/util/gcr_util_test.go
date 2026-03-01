@@ -29,13 +29,15 @@ const (
 
 func TestDockerConfLocationWithInvalidFileLocation(t *testing.T) {
 	originalDockerConfig := os.Getenv(DockerConfigEnvKey)
-	if err := os.Unsetenv(DockerConfigEnvKey); err != nil {
+	err := os.Unsetenv(DockerConfigEnvKey)
+	if err != nil {
 		t.Fatalf("Failed to unset DOCKER_CONFIG: %v", err)
 	}
 	tmpDir := t.TempDir()
 	random := "fdgdsfrdfgdf-fdfsf-24dsgfd" // replace with a really random string
 	file := filepath.Join(tmpDir, random)  // an random file name, shouldn't exist
-	if err := os.Setenv(DockerConfigEnvKey, file); err != nil {
+	err = os.Setenv(DockerConfigEnvKey, file)
+	if err != nil {
 		t.Fatalf("Failed to unset DOCKER_CONFIG: %v", err)
 	}
 	unset := DockerConfLocation()
@@ -89,11 +91,13 @@ func TestDockerConfLocation(t *testing.T) {
 func restoreOriginalDockerConfigEnv(t *testing.T, originalDockerConfig string) {
 	t.Helper()
 	if originalDockerConfig != "" {
-		if err := os.Setenv(DockerConfigEnvKey, originalDockerConfig); err != nil {
+		err := os.Setenv(DockerConfigEnvKey, originalDockerConfig)
+		if err != nil {
 			t.Fatalf("Failed to set DOCKER_CONFIG back to original value '%s': %v", originalDockerConfig, err)
 		}
 	} else {
-		if err := os.Unsetenv(DockerConfigEnvKey); err != nil {
+		err := os.Unsetenv(DockerConfigEnvKey)
+		if err != nil {
 			t.Fatalf("Failed to unset DOCKER_CONFIG after testing: %v", err)
 		}
 	}

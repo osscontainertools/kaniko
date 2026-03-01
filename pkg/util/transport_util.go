@@ -85,7 +85,8 @@ func MakeTransport(opts config.RegistryOptions, registryName string) (http.Round
 			InsecureSkipVerify: true,
 		}
 	} else if certificatePath := opts.RegistriesCertificates[registryName]; certificatePath != "" {
-		if err := systemCertLoader.append(certificatePath); err != nil {
+		err := systemCertLoader.append(certificatePath)
+		if err != nil {
 			return nil, fmt.Errorf("failed to load certificate %s for %s: %w", certificatePath, registryName, err)
 		}
 		tr.(*http.Transport).TLSClientConfig = &tls.Config{

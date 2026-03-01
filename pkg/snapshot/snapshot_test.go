@@ -601,7 +601,8 @@ func setUpTestDir(t *testing.T) (string, error) {
 		"baz/file":    "testfile",
 	}
 	// Set up initial files
-	if err := testutil.SetupFiles(testDir, files); err != nil {
+	err := testutil.SetupFiles(testDir, files)
+	if err != nil {
 		return "", fmt.Errorf("setting up file system: %w", err)
 	}
 

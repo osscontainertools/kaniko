@@ -423,19 +423,23 @@ func Test_CopyEnvAndWildcards(t *testing.T) {
 
 		dir := filepath.Join(testDir, "bar")
 
-		if err := os.MkdirAll(dir, 0o777); err != nil {
+		err := os.MkdirAll(dir, 0o777)
+		if err != nil {
 			t.Fatal(err)
 		}
 		file := filepath.Join(dir, "bam.txt")
 
-		if err := os.WriteFile(file, []byte("meow"), 0o777); err != nil {
+		err = os.WriteFile(file, []byte("meow"), 0o777)
+		if err != nil {
 			t.Fatal(err)
 		}
 		targetPath := filepath.Join(dir, "dam.txt")
-		if err := os.WriteFile(targetPath, []byte("woof"), 0o777); err != nil {
+		err = os.WriteFile(targetPath, []byte("woof"), 0o777)
+		if err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Symlink("dam.txt", filepath.Join(dir, "sym.link")); err != nil {
+		err = os.Symlink("dam.txt", filepath.Join(dir, "sym.link"))
+		if err != nil {
 			t.Fatal(err)
 		}
 
@@ -530,19 +534,23 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 
 		dir := filepath.Join(testDir, "bar")
 
-		if err := os.MkdirAll(dir, 0o777); err != nil {
+		err := os.MkdirAll(dir, 0o777)
+		if err != nil {
 			t.Fatal(err)
 		}
 		file := filepath.Join(dir, "bam.txt")
 
-		if err := os.WriteFile(file, []byte("meow"), 0o777); err != nil {
+		err = os.WriteFile(file, []byte("meow"), 0o777)
+		if err != nil {
 			t.Fatal(err)
 		}
 		targetPath := filepath.Join(dir, "dam.txt")
-		if err := os.WriteFile(targetPath, []byte("woof"), 0o777); err != nil {
+		err = os.WriteFile(targetPath, []byte("woof"), 0o777)
+		if err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Symlink("dam.txt", filepath.Join(dir, "sym.link")); err != nil {
+		err = os.Symlink("dam.txt", filepath.Join(dir, "sym.link"))
+		if err != nil {
 			t.Fatal(err)
 		}
 

@@ -429,7 +429,8 @@ func Test_filesToSave(t *testing.T) {
 				p := filepath.Join(tmpDir, f)
 				dir := filepath.Dir(p)
 				if dir != "." {
-					if err := os.MkdirAll(dir, 0o755); err != nil {
+					err := os.MkdirAll(dir, 0o755)
+					if err != nil {
 						t.Errorf("error making dir: %s", err)
 					}
 				}

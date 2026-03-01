@@ -35,7 +35,8 @@ func Upload(ctx context.Context, bucketName string, path string, r io.Reader, cl
 	if _, err := io.Copy(w, r); err != nil {
 		return err
 	}
-	if err := w.Close(); err != nil {
+	err := w.Close()
+	if err != nil {
 		return err
 	}
 	return nil

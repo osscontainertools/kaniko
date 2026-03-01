@@ -50,10 +50,12 @@ func Test_ParseStages_ArgValueWithQuotes(t *testing.T) {
 
 	defer os.Remove(tmpfile.Name())
 
-	if _, err := tmpfile.Write([]byte(dockerfile)); err != nil {
+	_, err = tmpfile.Write([]byte(dockerfile))
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := tmpfile.Close(); err != nil {
+	err = tmpfile.Close()
+	if err != nil {
 		t.Fatal(err)
 	}
 
