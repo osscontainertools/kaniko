@@ -19,9 +19,8 @@ package main
 import (
 	"os"
 
-	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
-
 	"github.com/google/slowjam/pkg/stacklog"
+	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
 )
 
 func main() {

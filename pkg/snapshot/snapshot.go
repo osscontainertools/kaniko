@@ -29,7 +29,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/filesystem"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
-
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
