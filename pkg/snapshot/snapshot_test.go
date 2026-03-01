@@ -530,6 +530,7 @@ func TestSnapshotOmitsUnameGname(t *testing.T) {
 }
 
 func setUpTestDir(t *testing.T) (string, error) {
+	t.Helper()
 	testDir := t.TempDir()
 	files := map[string]string{
 		"foo":         "baz1",
@@ -546,6 +547,7 @@ func setUpTestDir(t *testing.T) (string, error) {
 }
 
 func setUpTest(t *testing.T) (string, *Snapshotter, func(), error) {
+	t.Helper()
 	testDir, err := setUpTestDir(t)
 	if err != nil {
 		return "", nil, nil, err

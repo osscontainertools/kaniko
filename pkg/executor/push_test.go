@@ -38,6 +38,7 @@ import (
 )
 
 func mustTag(t *testing.T, s string) name.Tag {
+	t.Helper()
 	tag, err := name.NewTag(s, name.StrictValidation)
 	if err != nil {
 		t.Fatalf("NewTag: %v", err)

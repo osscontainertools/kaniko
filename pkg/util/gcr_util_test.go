@@ -87,6 +87,7 @@ func TestDockerConfLocation(t *testing.T) {
 }
 
 func restoreOriginalDockerConfigEnv(t *testing.T, originalDockerConfig string) {
+	t.Helper()
 	if originalDockerConfig != "" {
 		if err := os.Setenv(DockerConfigEnvKey, originalDockerConfig); err != nil {
 			t.Fatalf("Failed to set DOCKER_CONFIG back to original value '%s': %v", originalDockerConfig, err)

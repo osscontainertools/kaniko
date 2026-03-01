@@ -171,6 +171,7 @@ COPY --from=first / output/`
 }
 
 func setupMultistageTests(t *testing.T) (string, func()) {
+	t.Helper()
 	testDir := t.TempDir()
 
 	// Create workspace with files, dirs, and symlinks

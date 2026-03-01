@@ -693,7 +693,7 @@ func TestLayers(t *testing.T) {
 			dockerImage := GetDockerImage(config.imageRepo, dockerfileTest)
 			kanikoImage := GetKanikoImage(config.imageRepo, dockerfileTest)
 			pushCmd := exec.Command("docker", "push", dockerImage)
-			RunCommand(pushCmd, t)
+			RunCommand(t, pushCmd)
 			checkLayers(t, dockerImage, kanikoImage, offset[dockerfileTest])
 			onBuildDiff(t, dockerImage, kanikoImage)
 		})
@@ -947,6 +947,7 @@ func TestSnapshotModes(t *testing.T) {
 }
 
 func buildImage(t *testing.T, dockerfile string, imageBuilder *DockerFileBuilder) {
+	t.Helper()
 	t.Logf("Building image '%v'...", dockerfile)
 
 	if err := imageBuilder.BuildImage(t, config, dockerfilesPath, dockerfile); err != nil {
@@ -1125,6 +1126,7 @@ func TestWarmerTwice(t *testing.T) {
 }
 
 func verifyBuildWith(t *testing.T, cache, dockerfile string) {
+	t.Helper()
 	args, ok := additionalKanikoFlagsMap[dockerfile]
 	if !ok {
 		args = []string{}

@@ -32,7 +32,8 @@ func RunCommandWithoutTest(cmd *exec.Cmd) ([]byte, error) {
 // RunCommand will run cmd and if it fails will output relevant info for debugging
 // before it fails. It must be run within the context of a test t and if the command
 // fails, it will fail the test. Returns the output from the command.
-func RunCommand(cmd *exec.Cmd, t *testing.T) []byte {
+func RunCommand(t *testing.T, cmd *exec.Cmd) []byte {
+	t.Helper()
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	output, err := cmd.Output()
