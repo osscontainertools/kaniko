@@ -55,15 +55,17 @@ import (
 var (
 	initializeConfig             = initConfig
 	getFSFromImage               = util.GetFSFromImage
-	mkdirPermissions os.FileMode = 0644
+	mkdirPermissions os.FileMode = 0o644
 )
 
-type cachePusher func(*config.KanikoOptions, string, string, string) error
-type snapShotter interface {
-	Init() error
-	TakeSnapshotFS() (string, error)
-	TakeSnapshot([]string, bool) (string, error)
-}
+type (
+	cachePusher func(*config.KanikoOptions, string, string, string) error
+	snapShotter interface {
+		Init() error
+		TakeSnapshotFS() (string, error)
+		TakeSnapshot([]string, bool) (string, error)
+	}
+)
 
 // stageBuilder contains all fields necessary to build one stage of a Dockerfile
 type stageBuilder struct {
@@ -249,7 +251,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config) erro
 	if !s.opts.Cache {
 		return nil
 	}
-	var buildArgs = s.args.Clone()
+	buildArgs := s.args.Clone()
 	// Restore build args back to their original values
 	defer func() {
 		s.args = buildArgs
@@ -285,7 +287,6 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config) erro
 
 		if command.ShouldCacheOutput() && !stopCache {
 			img, err := s.layerCache.RetrieveLayer(ck)
-
 			if err != nil {
 				logrus.Debugf("Failed to retrieve layer: %s", err)
 				logrus.Infof("No cached layer found for cmd %s", command.String())
@@ -831,7 +832,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 
 	lastStage := kanikoStages[len(kanikoStages)-1]
-	var args = dockerfile.NewBuildArgs(opts.BuildArgs)
+	args := dockerfile.NewBuildArgs(opts.BuildArgs)
 	err = args.InitPredefinedArgs(opts.CustomPlatform, lastStage.Name)
 	if err != nil {
 		return nil, err
@@ -1117,7 +1118,7 @@ func extractImageToDependencyDir(name string, image v1.Image) error {
 	t := timing.Start("Extracting Image to Dependency Dir")
 	defer timing.DefaultRun.Stop(t)
 	dependencyDir := filepath.Join(config.KanikoInterStageDepsDir, name)
-	if err := os.MkdirAll(dependencyDir, 0755); err != nil {
+	if err := os.MkdirAll(dependencyDir, 0o755); err != nil {
 		return err
 	}
 	logrus.Debugf("Trying to extract to %s", dependencyDir)
@@ -1134,7 +1135,7 @@ func saveStageAsTarball(path string, image v1.Image) error {
 	}
 	tarPath := filepath.Join(config.KanikoIntermediateStagesDir, path)
 	logrus.Infof("Storing source image from stage %s at path %s", path, tarPath)
-	if err := os.MkdirAll(filepath.Dir(tarPath), 0750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(tarPath), 0o750); err != nil {
 		return err
 	}
 	if config.EnvBool("FF_KANIKO_OCI_STAGES") {

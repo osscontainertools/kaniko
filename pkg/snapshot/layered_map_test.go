@@ -108,7 +108,8 @@ func Test_FlattenPaths(t *testing.T) {
 
 	lm := LayeredMap{
 		adds:    []map[string]string{layers[0]},
-		deletes: []map[string]struct{}{whiteouts[0]}}
+		deletes: []map[string]struct{}{whiteouts[0]},
+	}
 
 	paths := lm.GetCurrentPaths()
 
@@ -126,7 +127,8 @@ func Test_FlattenPaths(t *testing.T) {
 
 	lm = LayeredMap{
 		adds:    []map[string]string{layers[0], layers[1]},
-		deletes: []map[string]struct{}{whiteouts[0], whiteouts[1]}}
+		deletes: []map[string]struct{}{whiteouts[0], whiteouts[1]},
+	}
 	paths = lm.GetCurrentPaths()
 
 	assertPath("a", false)
@@ -135,7 +137,8 @@ func Test_FlattenPaths(t *testing.T) {
 
 	lm = LayeredMap{
 		adds:    []map[string]string{layers[0], layers[1], layers[2]},
-		deletes: []map[string]struct{}{whiteouts[0], whiteouts[1], whiteouts[2]}}
+		deletes: []map[string]struct{}{whiteouts[0], whiteouts[1], whiteouts[2]},
+	}
 	paths = lm.GetCurrentPaths()
 
 	assertPath("a", true)

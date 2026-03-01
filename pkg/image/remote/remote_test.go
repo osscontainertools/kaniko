@@ -30,8 +30,7 @@ import (
 const image string = "debian"
 
 // mockImage mocks the v1.Image interface
-type mockImage struct {
-}
+type mockImage struct{}
 
 func (m *mockImage) ConfigFile() (*v1.ConfigFile, error) {
 	return nil, nil
@@ -208,7 +207,7 @@ func Test_RetrieveRemoteImage_skipFallback(t *testing.T) {
 	}
 
 	opts.SkipDefaultRegistryFallback = true
-	//clean cached image
+	// clean cached image
 	manifestCache = make(map[string]v1.Image)
 
 	if _, err := RetrieveRemoteImage(image, opts, ""); err == nil {

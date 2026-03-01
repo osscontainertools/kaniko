@@ -85,7 +85,6 @@ func TestSnapshotBenchmark(t *testing.T) {
 		t.Logf("%d,%f,%f,%f", d, v.totalBuildTime, v.walkingFiles, v.resolvingFiles)
 		return true
 	})
-
 }
 
 func newResult(t *testing.T, f string) result {

@@ -199,8 +199,8 @@ func (b *BuildArgs) InitPredefinedArgs(customPlatform string, lastStage string) 
 	buildSpec := platforms.Normalize(platforms.DefaultSpec())
 	build := platforms.Format(buildSpec)
 
-	var target = build
-	var targetSpec = buildSpec
+	target := build
+	targetSpec := buildSpec
 	var err error
 	if customPlatform != "" {
 		target = customPlatform
@@ -210,7 +210,7 @@ func (b *BuildArgs) InitPredefinedArgs(customPlatform string, lastStage string) 
 		}
 	}
 
-	var targetStage = "default"
+	targetStage := "default"
 	if lastStage != "" {
 		targetStage = lastStage
 	}

@@ -111,17 +111,17 @@ func TestHeaderAdded(t *testing.T) {
 		name     string
 		upstream string
 		expected string
-	}{{
-		name:     "upstream env variable set",
-		upstream: "skaffold-v0.25.45",
-		expected: "kaniko/unset,skaffold-v0.25.45",
-	}, {
-		name:     "upstream env variable not set",
-		expected: "kaniko/unset",
-	},
+	}{
+		{
+			name:     "upstream env variable set",
+			upstream: "skaffold-v0.25.45",
+			expected: "kaniko/unset,skaffold-v0.25.45",
+		}, {
+			name:     "upstream env variable not set",
+			expected: "kaniko/unset",
+		},
 	}
 	for _, test := range tests {
-
 		t.Run(test.name, func(t *testing.T) {
 			rt := &withUserAgent{t: &mockRoundTripper{}}
 			if test.upstream != "" {
@@ -139,11 +139,9 @@ func TestHeaderAdded(t *testing.T) {
 			testutil.CheckErrorAndDeepEqual(t, false, err, test.expected, string(body))
 		})
 	}
-
 }
 
-type mockRoundTripper struct {
-}
+type mockRoundTripper struct{}
 
 func (m *mockRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	ua := r.UserAgent()
@@ -220,7 +218,6 @@ func TestImageNameDigestFile(t *testing.T) {
 	got, err := os.ReadFile("tmpFile")
 
 	testutil.CheckErrorAndDeepEqual(t, false, err, want, got)
-
 }
 
 func TestDoPushWithOpts(t *testing.T) {
@@ -262,7 +259,8 @@ func TestDoPushWithOpts(t *testing.T) {
 				Destinations: []string{},
 			},
 			expectedErr: true,
-		}} {
+		},
+	} {
 		t.Run(tc.name, func(t *testing.T) {
 			image, err := random.Image(1024, 4)
 			if err != nil {
@@ -280,7 +278,6 @@ func TestDoPushWithOpts(t *testing.T) {
 					t.Error("expected error with opts not found")
 				}
 			}
-
 		})
 	}
 }
@@ -402,7 +399,7 @@ func TestCheckPushPermissions(t *testing.T) {
 				NoPushCache:  test.noPushCache,
 			}
 			if test.existingConfig {
-				afero.WriteFile(newOsFs, util.DockerConfLocation(), []byte(""), os.FileMode(0644))
+				afero.WriteFile(newOsFs, util.DockerConfLocation(), []byte(""), os.FileMode(0o644))
 				defer newOsFs.Remove(util.DockerConfLocation())
 			}
 			CheckPushPermissions(&opts)
@@ -441,7 +438,7 @@ func TestSkipPushPermission(t *testing.T) {
 				SkipPushPermissionCheck: test.skipPushPermission,
 			}
 			if test.existingConfig {
-				afero.WriteFile(newOsFs, util.DockerConfLocation(), []byte(""), os.FileMode(0644))
+				afero.WriteFile(newOsFs, util.DockerConfLocation(), []byte(""), os.FileMode(0o644))
 				defer newOsFs.Remove(util.DockerConfLocation())
 			}
 			CheckPushPermissions(&opts)

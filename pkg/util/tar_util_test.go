@@ -30,9 +30,11 @@ import (
 	"github.com/osscontainertools/kaniko/testutil"
 )
 
-var regularFiles = []string{"file", "file.tar", "file.tar.gz"}
-var uncompressedTars = []string{"uncompressed", "uncompressed.tar"}
-var compressedTars = []string{"compressed", "compressed.tar.gz"}
+var (
+	regularFiles     = []string{"file", "file.tar", "file.tar.gz"}
+	uncompressedTars = []string{"uncompressed", "uncompressed.tar"}
+	compressedTars   = []string{"compressed", "compressed.tar.gz"}
+)
 
 func Test_IsLocalTarArchive(t *testing.T) {
 	testDir := t.TempDir()
@@ -139,7 +141,7 @@ func Test_CreateTarballOfDirectory(t *testing.T) {
 	testutil.CheckError(t, wantErr, err)
 
 	extracedFilesDir := filepath.Join(tmpDir, "extracted")
-	err = os.Mkdir(extracedFilesDir, 0755)
+	err = os.Mkdir(extracedFilesDir, 0o755)
 	if err != nil {
 		t.Error(err)
 		return
@@ -166,7 +168,7 @@ func createFilesInTempDir(t *testing.T, tmpDir string) {
 	for i := 0; i < 2; i++ {
 		fName := filepath.Join(tmpDir, fmt.Sprint(i))
 		content := fmt.Sprintf("hello from %d\n", i)
-		if err := os.WriteFile(fName, []byte(content), 0666); err != nil {
+		if err := os.WriteFile(fName, []byte(content), 0o666); err != nil {
 			t.Error(err)
 			return
 		}

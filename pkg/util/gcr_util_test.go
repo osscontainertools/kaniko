@@ -33,7 +33,7 @@ func TestDockerConfLocationWithInvalidFileLocation(t *testing.T) {
 		t.Fatalf("Failed to unset DOCKER_CONFIG: %v", err)
 	}
 	tmpDir := t.TempDir()
-	random := "fdgdsfrdfgdf-fdfsf-24dsgfd" //replace with a really random string
+	random := "fdgdsfrdfgdf-fdfsf-24dsgfd" // replace with a really random string
 	file := filepath.Join(tmpDir, random)  // an random file name, shouldn't exist
 	if err := os.Setenv(DockerConfigEnvKey, file); err != nil {
 		t.Fatalf("Failed to unset DOCKER_CONFIG: %v", err)

@@ -130,7 +130,7 @@ Meow meow meow meow
 meow meow meow meow
 `
 	for _, name := range fileNames {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0777); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o777); err != nil {
 			return nil, err
 		}
 	}

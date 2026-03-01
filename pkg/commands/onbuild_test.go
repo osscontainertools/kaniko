@@ -67,5 +67,4 @@ func TestExecuteOnbuild(t *testing.T) {
 		err := onbuildCmd.ExecuteCommand(cfg, buildArgs)
 		testutil.CheckErrorAndDeepEqual(t, false, err, test.expectedArray, cfg.OnBuild)
 	}
-
 }

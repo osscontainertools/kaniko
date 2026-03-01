@@ -85,7 +85,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				h := sha256.Sum256([]byte(cacheId))
 				targetHash := hex.EncodeToString(h[:])
 				cacheDir := filepath.Join(kConfig.KanikoCacheDir, targetHash)
-				err = os.MkdirAll(cacheDir, 0755)
+				err = os.MkdirAll(cacheDir, 0o755)
 				if err != nil {
 					return err
 				}
@@ -111,7 +111,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 						return err
 					}
 					defer assignIfNil(&reterr, func() error {
-						return os.Chmod(m.Target, os.FileMode(0755))
+						return os.Chmod(m.Target, os.FileMode(0o755))
 					})
 				}
 				if m.UID != nil || m.GID != nil {
@@ -188,7 +188,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 							return os.RemoveAll(created)
 						})
 					}
-					mode := os.FileMode(0400)
+					mode := os.FileMode(0o400)
 					if m.Mode != nil {
 						mode = os.FileMode(*m.Mode)
 					}
@@ -217,7 +217,6 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 			default:
 				logrus.Warnf("Kaniko does not support '--mount=type=%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", m.Type)
 			}
-
 		}
 	}
 	return runCommandInExec(config, buildArgs, cmdRun, secretEnvs)
@@ -323,7 +322,7 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 		return fmt.Errorf("waiting for process to exit: %w", err)
 	}
 
-	//it's not an error if there are no grandchildren
+	// it's not an error if there are no grandchildren
 	if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil && err.Error() != "no such process" {
 		return err
 	}
@@ -369,7 +368,6 @@ func (r *RunCommand) ProvidesFilesToSnapshot() bool {
 
 // CacheCommand returns true since this command should be cached
 func (r *RunCommand) CacheCommand(img v1.Image) DockerCommand {
-
 	return &CachingRunCommand{
 		img:       img,
 		cmd:       r.cmd,
@@ -494,7 +492,7 @@ func swapDir(pathA, pathB string) (err error) {
 }
 
 func ensureDir(target string) (string, error) {
-	var firstCreated = ""
+	firstCreated := ""
 	curr := target
 	for {
 		_, err := os.Stat(curr)
@@ -509,7 +507,7 @@ func ensureDir(target string) (string, error) {
 		return "", nil
 	}
 
-	err := os.MkdirAll(target, 0755)
+	err := os.MkdirAll(target, 0o755)
 	if err != nil {
 		return "", err
 	}

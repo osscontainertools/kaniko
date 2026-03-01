@@ -182,7 +182,6 @@ func TestGetGitAuth(t *testing.T) {
 			testutil.CheckDeepEqual(t, expectedValue, getGitAuth())
 		})
 	}
-
 }
 
 func clearTestAuthEnv() {

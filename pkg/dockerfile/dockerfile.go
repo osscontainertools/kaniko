@@ -37,9 +37,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	GetRemoteOnBuild = getRemoteOnBuild
-)
+var GetRemoteOnBuild = getRemoteOnBuild
 
 func ParseStages(opts *config.KanikoOptions) ([]instructions.Stage, []instructions.ArgCommand, error) {
 	var err error

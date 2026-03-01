@@ -435,7 +435,7 @@ func resolveSecrets() error {
 			// We therefore safeguard it across stages by copying it into /kaniko.
 			// We are not allowed to move it as it might be mounted into the container.
 			destPath := filepath.Join(config.KanikoSecretsDir, k)
-			err := os.MkdirAll(config.KanikoSecretsDir, 0700)
+			err := os.MkdirAll(config.KanikoSecretsDir, 0o700)
 			if err != nil {
 				return err
 			}

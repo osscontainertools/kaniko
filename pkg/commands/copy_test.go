@@ -89,7 +89,7 @@ func setupTestTemp(t *testing.T) string {
 			if path != srcPath {
 				tempPath := strings.TrimPrefix(path, srcPath)
 				if info.IsDir() {
-					os.MkdirAll(tempDir+"/"+tempPath, 0777)
+					os.MkdirAll(tempDir+"/"+tempPath, 0o777)
 				} else {
 					out, err := os.Create(tempDir + "/" + tempPath)
 					if err != nil {
@@ -159,7 +159,7 @@ func Test_CachingCopyCommand_ExecuteCommand(t *testing.T) {
 	}
 	testCases := []testCase{
 		func() testCase {
-			err = os.WriteFile(filepath.Join(tempDir, "foo.txt"), []byte("meow"), 0644)
+			err = os.WriteFile(filepath.Join(tempDir, "foo.txt"), []byte("meow"), 0o644)
 			if err != nil {
 				t.Errorf("couldn't write tempfile %v", err)
 				t.FailNow()
@@ -173,7 +173,8 @@ func Test_CachingCopyCommand_ExecuteCommand(t *testing.T) {
 				},
 				fileContext: util.FileContext{Root: tempDir},
 				cmd: &instructions.CopyCommand{
-					SourcesAndDest: instructions.SourcesAndDest{SourcePaths: []string{"foo.txt"}, DestPath: ""}},
+					SourcesAndDest: instructions.SourcesAndDest{SourcePaths: []string{"foo.txt"}, DestPath: ""},
+				},
 			}
 			count := 0
 			tc := testCase{
@@ -302,8 +303,10 @@ func TestCopyExecuteCmd(t *testing.T) {
 
 			cmd := CopyCommand{
 				cmd: &instructions.CopyCommand{
-					SourcesAndDest: instructions.SourcesAndDest{SourcePaths: test.sourcesAndDest[0 : len(test.sourcesAndDest)-1],
-						DestPath: test.sourcesAndDest[len(test.sourcesAndDest)-1]},
+					SourcesAndDest: instructions.SourcesAndDest{
+						SourcePaths: test.sourcesAndDest[0 : len(test.sourcesAndDest)-1],
+						DestPath:    test.sourcesAndDest[len(test.sourcesAndDest)-1],
+					},
 				},
 				fileContext: fileContext,
 			}
@@ -425,16 +428,16 @@ func Test_CopyEnvAndWildcards(t *testing.T) {
 
 		dir := filepath.Join(testDir, "bar")
 
-		if err := os.MkdirAll(dir, 0777); err != nil {
+		if err := os.MkdirAll(dir, 0o777); err != nil {
 			t.Fatal(err)
 		}
 		file := filepath.Join(dir, "bam.txt")
 
-		if err := os.WriteFile(file, []byte("meow"), 0777); err != nil {
+		if err := os.WriteFile(file, []byte("meow"), 0o777); err != nil {
 			t.Fatal(err)
 		}
 		targetPath := filepath.Join(dir, "dam.txt")
-		if err := os.WriteFile(targetPath, []byte("woof"), 0777); err != nil {
+		if err := os.WriteFile(targetPath, []byte("woof"), 0o777); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.Symlink("dam.txt", filepath.Join(dir, "sym.link")); err != nil {
@@ -481,7 +484,6 @@ func Test_CopyEnvAndWildcards(t *testing.T) {
 			testutil.CheckDeepEqual(t, expected[i].Name(), f.Name())
 			testutil.CheckDeepEqual(t, expected[i].Mode(), f.Mode())
 		}
-
 	})
 
 	t.Run("copy sources into a dir defined in env variable with no file found", func(t *testing.T) {
@@ -492,7 +494,7 @@ func Test_CopyEnvAndWildcards(t *testing.T) {
 
 		cmd := CopyCommand{
 			cmd: &instructions.CopyCommand{
-				//should only dam and bam be copied
+				// should only dam and bam be copied
 				SourcesAndDest: instructions.SourcesAndDest{SourcePaths: []string{srcDir + "/tam[s]"}, DestPath: "$TARGET_PATH"},
 			},
 			fileContext: util.FileContext{Root: testDir},
@@ -512,12 +514,12 @@ func Test_CopyEnvAndWildcards(t *testing.T) {
 
 		actual, err := readDirectory(targetPath)
 
-		//check it should error out since no files are copied and targetPath is not created
+		// check it should error out since no files are copied and targetPath is not created
 		if err == nil {
 			t.Fatal("expected error no dirrectory but got nil")
 		}
 
-		//actual should empty since no files are copied
+		// actual should empty since no files are copied
 		testutil.CheckDeepEqual(t, 0, len(actual))
 	})
 }
@@ -532,16 +534,16 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 
 		dir := filepath.Join(testDir, "bar")
 
-		if err := os.MkdirAll(dir, 0777); err != nil {
+		if err := os.MkdirAll(dir, 0o777); err != nil {
 			t.Fatal(err)
 		}
 		file := filepath.Join(dir, "bam.txt")
 
-		if err := os.WriteFile(file, []byte("meow"), 0777); err != nil {
+		if err := os.WriteFile(file, []byte("meow"), 0o777); err != nil {
 			t.Fatal(err)
 		}
 		targetPath := filepath.Join(dir, "dam.txt")
-		if err := os.WriteFile(targetPath, []byte("woof"), 0777); err != nil {
+		if err := os.WriteFile(targetPath, []byte("woof"), 0o777); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.Symlink("dam.txt", filepath.Join(dir, "sym.link")); err != nil {
@@ -610,7 +612,8 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 			},
 			fileContext: util.FileContext{
 				Root:          testDir,
-				ExcludedFiles: []string{filepath.Join(srcDir, ignoredFile)}},
+				ExcludedFiles: []string{filepath.Join(srcDir, ignoredFile)},
+			},
 		}
 
 		cfg := &v1.Config{
@@ -697,7 +700,7 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 		defer os.RemoveAll(testDir)
 
 		destDir := filepath.Join(testDir, "dest")
-		if err := os.MkdirAll(destDir, 0777); err != nil {
+		if err := os.MkdirAll(destDir, 0o777); err != nil {
 			t.Fatal(err)
 		}
 
@@ -723,7 +726,6 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 		}
 		testutil.CheckDeepEqual(t, 1, len(files))
 		testutil.CheckDeepEqual(t, files[0].Name(), "bam.txt")
-
 	})
 
 	t.Run("copy symlink file to a dir", func(t *testing.T) {
@@ -769,7 +771,7 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 		testDir, srcDir := setupDirs(t)
 		defer os.RemoveAll(testDir)
 		doesNotExists := filepath.Join(testDir, "dead.txt")
-		if err := os.WriteFile(doesNotExists, []byte("remove me"), 0777); err != nil {
+		if err := os.WriteFile(doesNotExists, []byte("remove me"), 0o777); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.Symlink("../dead.txt", filepath.Join(testDir, srcDir, "dead.link")); err != nil {
@@ -855,11 +857,11 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 		}
 
 		anotherSrc := filepath.Join(testDir, "anotherSrc")
-		if err := os.MkdirAll(anotherSrc, 0777); err != nil {
+		if err := os.MkdirAll(anotherSrc, 0o777); err != nil {
 			t.Fatal(err)
 		}
 		targetPath := filepath.Join(anotherSrc, "target.txt")
-		if err := os.WriteFile(targetPath, []byte("woof"), 0777); err != nil {
+		if err := os.WriteFile(targetPath, []byte("woof"), 0o777); err != nil {
 			t.Fatal(err)
 		}
 		if err := os.Symlink(targetPath, filepath.Join(testDir, srcDir, "zSym.link")); err != nil {
@@ -945,7 +947,7 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 		}
 
 		dest := filepath.Join(testDir, "dest")
-		if err := os.MkdirAll(dest, 0777); err != nil {
+		if err := os.MkdirAll(dest, 0o777); err != nil {
 			t.Fatal(err)
 		}
 		linkedDest := filepath.Join(testDir, "linkDest")
@@ -990,7 +992,7 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 		defer os.RemoveAll(testDir)
 
 		dest := filepath.Join(testDir, "dest")
-		if err := os.MkdirAll(dest, 0777); err != nil {
+		if err := os.MkdirAll(dest, 0o777); err != nil {
 			t.Fatal(err)
 		}
 		linkedDest := filepath.Join(testDir, "linkDest")
@@ -1117,7 +1119,7 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 
 		// Make another dir inside bar with a relative symlink
 		dir := filepath.Join(testDir, srcDir, "another")
-		if err := os.MkdirAll(dir, 0777); err != nil {
+		if err := os.MkdirAll(dir, 0o777); err != nil {
 			t.Fatal(err)
 		}
 		os.Symlink("../bam.txt", filepath.Join(dir, "bam_relative.txt"))

@@ -63,7 +63,7 @@ func (s *Snapshotter) Key() (string, error) {
 // TakeSnapshot takes a snapshot of the specified files, avoiding directories in the ignorelist, and creates
 // a tarball of the changed files. Return contents of the tarball, and whether or not any files were changed
 func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string, error) {
-	err := os.MkdirAll(config.KanikoLayersDir, 0755)
+	err := os.MkdirAll(config.KanikoLayersDir, 0o755)
 	if err != nil {
 		return "", err
 	}
@@ -125,7 +125,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 // TakeSnapshotFS takes a snapshot of the filesystem, avoiding directories in the ignorelist, and creates
 // a tarball of the changed files.
 func (s *Snapshotter) TakeSnapshotFS() (string, error) {
-	err := os.MkdirAll(config.KanikoLayersDir, 0755)
+	err := os.MkdirAll(config.KanikoLayersDir, 0o755)
 	if err != nil {
 		return "", err
 	}
@@ -233,7 +233,6 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 
 // removeObsoleteWhiteouts filters deleted files according to their parents delete status.
 func removeObsoleteWhiteouts(deletedFiles map[string]struct{}) (filesToWhiteout []string) {
-
 	for path := range deletedFiles {
 		// Only add the whiteout if the directory for the file still exists.
 		dir := filepath.Dir(path)

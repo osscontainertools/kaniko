@@ -44,9 +44,7 @@ const (
 	gitAuthTokenEnvKey    = "GIT_TOKEN"
 )
 
-var (
-	supportedGitPullMethods = map[string]bool{gitPullMethodHTTPS: true, gitPullMethodHTTP: true}
-)
+var supportedGitPullMethods = map[string]bool{gitPullMethodHTTPS: true, gitPullMethodHTTP: true}
 
 // Git unifies calls to download and unpack the build context.
 type Git struct {
@@ -152,7 +150,7 @@ func (g *Git) UnpackTarFromBuildContext() (string, error) {
 }
 
 func getGitReferenceName(directory string, url string, branch string) (plumbing.ReferenceName, error) {
-	var remote = git.NewRemote(
+	remote := git.NewRemote(
 		filesystem.NewStorage(
 			osfs.New(directory),
 			cache.NewObjectLRUDefault(),

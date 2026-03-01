@@ -201,17 +201,20 @@ func Test_GetOnBuildInstructions(t *testing.T) {
 	}
 
 	tests := []testCase{
-		{name: "no on-build on config",
+		{
+			name:        "no on-build on config",
 			cfg:         &v1.Config{},
 			stageToIdx:  map[string]int{"builder": 0},
 			expCommands: nil,
 		},
-		{name: "onBuild on config, nothing to resolve",
+		{
+			name:        "onBuild on config, nothing to resolve",
 			cfg:         &v1.Config{OnBuild: []string{"WORKDIR /app"}},
 			stageToIdx:  map[string]int{"builder": 0, "temp": 1},
 			expCommands: []instructions.Command{&instructions.WorkdirCommand{Path: "/app"}},
 		},
-		{name: "onBuild on config, resolve multiple stages",
+		{
+			name:       "onBuild on config, resolve multiple stages",
 			cfg:        &v1.Config{OnBuild: []string{"COPY --from=builder a.txt b.txt", "COPY --from=temp /app /app"}},
 			stageToIdx: map[string]int{"builder": 0, "temp": 1},
 			expCommands: []instructions.Command{
@@ -223,7 +226,8 @@ func Test_GetOnBuildInstructions(t *testing.T) {
 					SourcesAndDest: instructions.SourcesAndDest{SourcePaths: []string{"/app"}, DestPath: "/app"},
 					From:           "1",
 				},
-			}},
+			},
+		},
 	}
 
 	for _, test := range tests {

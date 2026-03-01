@@ -28,33 +28,43 @@ type FakeImage struct {
 func (f FakeImage) Layers() ([]v1.Layer, error) {
 	return nil, nil
 }
+
 func (f FakeImage) MediaType() (types.MediaType, error) {
 	return "", nil
 }
+
 func (f FakeImage) Size() (int64, error) {
 	return 0, nil
 }
+
 func (f FakeImage) ConfigName() (v1.Hash, error) {
 	return v1.Hash{}, nil
 }
+
 func (f FakeImage) ConfigFile() (*v1.ConfigFile, error) {
 	return &v1.ConfigFile{}, nil
 }
+
 func (f FakeImage) RawConfigFile() ([]byte, error) {
 	return []byte{}, nil
 }
+
 func (f FakeImage) Digest() (v1.Hash, error) {
 	return f.Hash, nil
 }
+
 func (f FakeImage) Manifest() (*v1.Manifest, error) {
 	return &v1.Manifest{}, nil
 }
+
 func (f FakeImage) RawManifest() ([]byte, error) {
 	return []byte{}, nil
 }
+
 func (f FakeImage) LayerByDigest(v1.Hash) (v1.Layer, error) {
 	return nil, nil
 }
+
 func (f FakeImage) LayerByDiffID(v1.Hash) (v1.Layer, error) {
 	return nil, nil
 }

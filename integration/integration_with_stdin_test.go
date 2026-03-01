@@ -38,7 +38,7 @@ func TestBuildWithStdin(t *testing.T) {
 	testDir := "test_dir"
 	testDirLongPath := filepath.Join(cwd, testDir)
 
-	if err := os.MkdirAll(testDirLongPath, 0750); err != nil {
+	if err := os.MkdirAll(testDirLongPath, 0o750); err != nil {
 		t.Errorf("Failed to create dir_where_to_extract: %v", err)
 	}
 
@@ -87,10 +87,12 @@ func TestBuildWithStdin(t *testing.T) {
 
 	dockerImage := GetDockerImage(config.imageRepo, dockerfile)
 	dockerCmd := exec.Command("docker",
-		[]string{"build",
+		[]string{
+			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
-			"."}...)
+			".",
+		}...)
 
 	_, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {

@@ -57,23 +57,21 @@ const (
 	RuntimeNotFound ContainerRuntime = "not-found"
 )
 
-var (
-	// ContainerRuntimes contains all the container runtimes.
-	ContainerRuntimes = []ContainerRuntime{
-		RuntimeDocker,
-		RuntimeRkt,
-		RuntimeNspawn,
-		RuntimeLXC,
-		RuntimeLXCLibvirt,
-		RuntimeOpenVZ,
-		RuntimeKubernetes,
-		RuntimeGarden,
-		RuntimePodman,
-		RuntimeGVisor,
-		RuntimeFirejail,
-		RuntimeWSL,
-	}
-)
+// ContainerRuntimes contains all the container runtimes.
+var ContainerRuntimes = []ContainerRuntime{
+	RuntimeDocker,
+	RuntimeRkt,
+	RuntimeNspawn,
+	RuntimeLXC,
+	RuntimeLXCLibvirt,
+	RuntimeOpenVZ,
+	RuntimeKubernetes,
+	RuntimeGarden,
+	RuntimePodman,
+	RuntimeGVisor,
+	RuntimeFirejail,
+	RuntimeWSL,
+}
 
 // GetContainerRuntime returns the container runtime the process is running in.
 // If pid is less than one, it returns the runtime for "self".

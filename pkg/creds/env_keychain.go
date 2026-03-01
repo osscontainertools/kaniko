@@ -26,9 +26,7 @@ import (
 
 type envCredentialsHelper struct{}
 
-var (
-	EnvCredentialsHelper = &envCredentialsHelper{}
-)
+var EnvCredentialsHelper = &envCredentialsHelper{}
 
 func (ech *envCredentialsHelper) Add(c *credentials.Credentials) error {
 	return errors.New("unsupported operation")
