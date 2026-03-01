@@ -10,8 +10,6 @@ linters:
     - copyloopvar
     - makezero
     - wastedassign
-  disable:
-    - errcheck
 
 formatters:
   enable:
