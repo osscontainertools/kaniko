@@ -30,6 +30,7 @@ import (
 	testissuemz195 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz195"
 	testissuemz333 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz333"
 	testissuemz338 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz338"
+	testissuemz480 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz480"
 	testunittests "github.com/osscontainertools/kaniko/golden/testdata/test_unittests"
 	"github.com/osscontainertools/kaniko/golden/types"
 	"github.com/osscontainertools/kaniko/pkg/config"
@@ -62,6 +63,7 @@ var allTests = map[string][]types.GoldenTests{
 	"test_issue_mz195": {testissuemz195.Tests},
 	"test_issue_mz333": {testissuemz333.Tests},
 	"test_issue_mz338": {testissuemz338.Tests},
+	"test_issue_mz480": {testissuemz480.Tests},
 	"test_unittests":   testunittests.Tests,
 }
 var update bool
@@ -106,7 +108,7 @@ func TestRun(t *testing.T) {
 
 							var buf bytes.Buffer
 							executor.Out = &buf
-							_, err = executor.DoBuild(&opts)
+							err = executor.DoBuild(&opts, nil)
 							if err != nil {
 								t.Error(err)
 							}
