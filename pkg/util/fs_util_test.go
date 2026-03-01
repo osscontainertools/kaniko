@@ -799,11 +799,8 @@ func TestExtractFile(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tc := tc
 			t.Parallel()
-			r := ""
-
-			if tc.tmpdir != "" {
-				r = tc.tmpdir
-			} else {
+			r := tc.tmpdir
+			if r == "" {
 				r = t.TempDir()
 			}
 			defer os.RemoveAll(r)
