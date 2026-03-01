@@ -214,7 +214,6 @@ func GetFSFromLayers(root string, layers []v1.Layer, opts ...FSOpt) ([]string, e
 					logrus.Trace("Not including whiteout files")
 					continue
 				}
-
 			}
 
 			if err := cfg.extractFunc(root, hdr, cleanedName, tr); err != nil {

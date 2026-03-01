@@ -65,7 +65,6 @@ func (w *WorkdirCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile
 	// Only create and snapshot the dir if it didn't exist already
 	w.snapshotFiles = []string{}
 	if _, err := os.Stat(config.WorkingDir); os.IsNotExist(err) {
-
 		uid, gid, err := util.GetActiveUserGroup(config.User, "", replacementEnvs)
 		if err != nil {
 			return fmt.Errorf("getting user group: %w", err)

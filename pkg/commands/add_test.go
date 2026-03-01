@@ -103,7 +103,6 @@ func setupAddTest(t *testing.T) string {
 
 	// Create directories with files and then create tar
 	for _, toCreate := range tarFiles {
-
 		err = os.Mkdir(filepath.Join(tempDir, toCreate.directory), 0o755)
 		if err != nil {
 			t.Errorf("couldn't create directory %v", err)

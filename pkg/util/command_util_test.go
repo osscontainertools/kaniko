@@ -133,7 +133,6 @@ func Test_EnvReplacement(t *testing.T) {
 	for _, test := range testEnvReplacement {
 		actualPath, err := ResolveEnvironmentReplacement(test.path, test.envs, test.isFilepath)
 		testutil.CheckErrorAndDeepEqual(t, false, err, test.expectedPath, actualPath)
-
 	}
 }
 
