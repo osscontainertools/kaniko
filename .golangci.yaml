@@ -17,7 +17,6 @@ formatters:
   enable:
     - gci
     - gofmt
-    - golines
     - goimports
     - gofumpt
     - swaggo
