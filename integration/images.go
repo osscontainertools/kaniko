@@ -94,6 +94,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_OCI_WARMER=1",
 	"FF_KANIKO_RUN_VIA_TINI=1",
 	"FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=1",
+	"FF_KANIKO_SKIP_INTERSTAGE_CLEANUP=1",
 }
 
 var WarmerEnv = []string{

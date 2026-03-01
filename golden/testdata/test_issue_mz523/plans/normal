@@ -1,0 +1,22 @@
+FROM debian:12.10 AS first-stage
+UNPACK debian:12.10
+SAVE STAGE /kaniko/stages/0
+CLEAN
+
+FROM first-stage AS second-stage
+UNPACK /kaniko/stages/0
+RUN touch test
+SAVE STAGE /kaniko/stages/1
+SAVE FILES [test] /kaniko/deps/1
+CLEAN
+
+FROM second-stage AS third-stage
+UNPACK /kaniko/stages/1
+RUN touch test2
+SAVE FILES [test2] /kaniko/deps/2
+CLEAN
+
+FROM first-stage AS fourth-stage
+UNPACK /kaniko/stages/0
+COPY --from=second-stage test test
+COPY --from=third-stage test2 test2

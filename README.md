@@ -138,6 +138,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_OCI_WARMER`](#flag-ff_kaniko_oci_warmer)
       - [Flag `FF_KANIKO_RUN_VIA_TINI`](#flag-ff_kaniko_run_via_tini)
       - [Flag `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS`](#flag-ff_kaniko_copy_chmod_on_implicit_dirs)
+      - [Flag `FF_KANIKO_SKIP_INTERSTAGE_CLEANUP`](#flag-ff_kaniko_skip_interstage_cleanup)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1428,6 +1429,12 @@ Becomes default in `v1.27.0`.
 When files are copied into a non-existing directory, both kaniko and buildkit will create the directory and all required parent directories implicitly. If chmod option is given, buildkit will apply the chmod not only on the copied files & folders, but on all implicit parent dirs too. Kaniko will use regular folder permissions (0755) on parent directories instead and only apply the chmod on the explicitly created files & folders.
 Set this flag to `true` to implement COPY chmod like buildkit. Defaults to `false`.
 Currently no plans to activate.
+
+#### Flag `FF_KANIKO_SKIP_INTERSTAGE_CLEANUP`
+
+In multi-stage builds, kaniko always tears down the filesystem and re-unpacks the base image between stages. When a stage's `FROM` resolves to the immediately preceding preceding stage, this round-trip is redundant.
+Set this flag to `true` to skip cleanup when consecutive stages chain directly Defaults to `false`.
+
 
 ### Debug Image
 
