@@ -165,7 +165,7 @@ func (b *BuildArgs) getBuildArg(key string, mapping map[string]*string) (string,
 }
 
 func keysFromMaps(source map[string]*string, builtin map[string]bool) []string {
-	keys := []string{}
+	keys := make([]string, 0, len(source)+len(builtin))
 	for key := range source {
 		keys = append(keys, key)
 	}

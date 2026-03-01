@@ -402,7 +402,7 @@ func unifyArgs(metaArgs []instructions.ArgCommand, buildArgs []string) []string 
 			argsMap[s[0]] = s[1]
 		}
 	}
-	var args []string
+	args := make([]string, 0, len(argsMap))
 	for k, v := range argsMap {
 		args = append(args, fmt.Sprintf("%s=%s", k, v))
 	}

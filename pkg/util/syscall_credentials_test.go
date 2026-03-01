@@ -32,8 +32,8 @@ func TestSyscallCredentials(t *testing.T) {
 	gid, _ := strconv.ParseUint(currentUser.Gid, 10, 32)
 	currentUserGID32 := uint32(gid)
 
-	currentUserGroupIDsU32 := []uint32{}
 	currentUserGroupIDs, _ := currentUser.GroupIds()
+	currentUserGroupIDsU32 := make([]uint32, 0, len(currentUserGroupIDs))
 	for _, id := range currentUserGroupIDs {
 		id32, _ := strconv.ParseUint(id, 10, 32)
 		currentUserGroupIDsU32 = append(currentUserGroupIDsU32, uint32(id32))

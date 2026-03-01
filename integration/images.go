@@ -359,7 +359,7 @@ func addServiceAccountFlags(flags []string, serviceAccount string) []string {
 func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfilesPath, dockerfile, contextDir string) error {
 	t.Logf("Building image for Dockerfile %s\n", dockerfile)
 
-	var buildArgs []string
+	buildArgs := make([]string, 0, 2*(len(argsMap[dockerfile])+1))
 	buildArgFlag := "--build-arg"
 	for _, arg := range argsMap[dockerfile] {
 		buildArgs = append(buildArgs, buildArgFlag, arg)

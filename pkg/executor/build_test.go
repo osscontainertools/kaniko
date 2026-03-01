@@ -1569,7 +1569,7 @@ func assertCacheKeys(t *testing.T, expectedCacheKeys, actualCacheKeys []string, 
 }
 
 func getCommands(fileContext util.FileContext, cmds []instructions.Command, cacheCopy, cacheRun bool) []commands.DockerCommand {
-	outCommands := make([]commands.DockerCommand, 0)
+	outCommands := make([]commands.DockerCommand, 0, len(cmds))
 	for _, c := range cmds {
 		cmd, err := commands.GetCommand(
 			c,

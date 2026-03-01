@@ -82,9 +82,8 @@ func Test_ResolvePaths(t *testing.T) {
 			t.Run("none are ignored", func(t *testing.T) {
 				wl := []util.IgnoreListEntry{}
 
-				inputFiles := []string{}
-				expectedFiles := []string{}
-
+				inputFiles := make([]string, 0, len(files))
+				expectedFiles := make([]string, 0, 2*len(files))
 				for _, f := range files {
 					link := filepath.Join(dir, "link", f)
 					expectedFiles = append(expectedFiles, link)
