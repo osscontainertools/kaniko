@@ -95,7 +95,7 @@ func makeSnapshotter(opts *config.KanikoOptions) (*snapshot.Snapshotter, error) 
 }
 
 // newStageBuilder returns a new type stageBuilder which contains all the information required to build the stage
-func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, stage config.KanikoStage, crossStageDeps map[int][]string, stageNameToIdx map[string]int, fileContext util.FileContext) (*stageBuilder, error) {
+func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, stage config.KanikoStage, crossStageDeps map[int][]string, fileContext util.FileContext) (*stageBuilder, error) {
 	sourceImage, err := image_util.RetrieveSourceImage(stage, opts)
 	if err != nil {
 		return nil, err
@@ -892,7 +892,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		sb, err := newStageBuilder(
 			args, opts, stage,
 			crossStageDependencies,
-			stageNameToIdx,
 			fileContext)
 
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",

@@ -1307,7 +1307,7 @@ func meetsRequirements() bool {
 }
 
 // containerDiff compares the container images image1 and image2.
-func containerDiff(t *testing.T, image1, image2 string, flags ...string) []byte {
+func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	// workaround for container-diff OCI issue https://github.com/GoogleContainerTools/container-diff/issues/389
 	if !strings.HasPrefix(image1, daemonPrefix) {
 		dockerPullCmd := exec.Command("docker", "pull", image1)
@@ -1330,6 +1330,4 @@ func containerDiff(t *testing.T, image1, image2 string, flags ...string) []byte 
 	containerdiffCmd := exec.Command("diffoci", flags...)
 	diff := RunCommand(containerdiffCmd, t)
 	t.Logf("diff = %s", string(diff))
-
-	return diff
 }
