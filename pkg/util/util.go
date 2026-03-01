@@ -44,7 +44,7 @@ const (
 // Hasher returns a hash function, used in snapshotting to determine if a file has changed
 func Hasher() func(string) (string, error) {
 	pool := sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			b := make([]byte, highwayhash.Size*10*1024)
 			return &b
 		},
@@ -209,7 +209,7 @@ func RetryWithResult[T any](operation func() (T, error), retryCount int, initial
 	if err == nil {
 		return result, nil
 	}
-	for i := 0; i < retryCount; i++ {
+	for i := range retryCount {
 		sleepDuration := time.Millisecond * time.Duration(int(math.Pow(2, float64(i)))*initialDelayMilliseconds)
 		logrus.Warnf("Retrying operation after %s due to %v", sleepDuration, err)
 		time.Sleep(sleepDuration)

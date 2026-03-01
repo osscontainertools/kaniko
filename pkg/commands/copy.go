@@ -340,7 +340,7 @@ type AbstractCopyCommand interface {
 }
 
 // CastAbstractCopyCommand tries to convert a command to an AbstractCopyCommand.
-func CastAbstractCopyCommand(cmd interface{}) (AbstractCopyCommand, bool) {
+func CastAbstractCopyCommand(cmd any) (AbstractCopyCommand, bool) {
 	switch v := cmd.(type) {
 	case *CopyCommand:
 		return v, true

@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -278,15 +279,8 @@ func Test_CachingRunCommand_ExecuteCommand(t *testing.T) {
 					t.Errorf("Expected extractFn to be called %v times but was called %v times", 1, *tc.count)
 				}
 				for _, file := range tc.extractedFiles {
-					match := false
 					cmdFiles := c.extractedFiles
-					for _, f := range cmdFiles {
-						if file == f {
-							match = true
-							break
-						}
-					}
-					if !match {
+					if !slices.Contains(cmdFiles, file) {
 						t.Errorf("Expected extracted files to include %v but did not %v", file, cmdFiles)
 					}
 				}

@@ -24,6 +24,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -256,15 +257,8 @@ func Test_CachingCopyCommand_ExecuteCommand(t *testing.T) {
 					t.Errorf("Expected extractFn to be called %v times but was called %v times", tc.expectedCount, *tc.count)
 				}
 				for _, file := range tc.extractedFiles {
-					match := false
 					cFiles := c.FilesToSnapshot()
-					for _, cFile := range cFiles {
-						if file == cFile {
-							match = true
-							break
-						}
-					}
-					if !match {
+					if !slices.Contains(cFiles, file) {
 						t.Errorf("Expected extracted files to include %v but did not %v", file, cFiles)
 					}
 				}

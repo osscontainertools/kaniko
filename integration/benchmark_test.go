@@ -79,7 +79,7 @@ func TestSnapshotBenchmark(t *testing.T) {
 	wg.Wait()
 
 	t.Log("Number of Files,Total Build Time,Walking Filesystem, Resolving Files")
-	timeMap.Range(func(key interface{}, value interface{}) bool {
+	timeMap.Range(func(key any, value any) bool {
 		d, _ := key.(int)
 		v, _ := value.(result)
 		t.Logf("%d,%f,%f,%f", d, v.totalBuildTime, v.walkingFiles, v.resolvingFiles)

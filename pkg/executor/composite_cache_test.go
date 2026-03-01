@@ -20,18 +20,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"reflect"
 	"testing"
 
 	"github.com/osscontainertools/kaniko/pkg/util"
 )
-
-func Test_NewCompositeCache(t *testing.T) {
-	r := NewCompositeCache()
-	if reflect.TypeOf(r).String() != "*executor.CompositeCache" {
-		t.Errorf("expected return to be *executor.CompositeCache but was %v", reflect.TypeOf(r).String())
-	}
-}
 
 func Test_CompositeCache_AddKey(t *testing.T) {
 	keys := []string{

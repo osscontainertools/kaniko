@@ -25,6 +25,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -296,7 +297,7 @@ type DockerFileBuilder struct {
 	TestWarmerDockerfiles   map[string]struct{}
 }
 
-type logger func(string, ...interface{})
+type logger func(string, ...any)
 
 // NewDockerFileBuilder will create a DockerFileBuilder initialized with dockerfiles, which
 // it will assume are all as yet unbuilt.
@@ -437,11 +438,8 @@ func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrat
 
 	additionalKanikoFlags := additionalKanikoFlagsMap[dockerfile]
 	additionalKanikoFlags = append(additionalKanikoFlags, contextFlag, contextPath)
-	for _, d := range reproducibleTests {
-		if d == dockerfile {
-			additionalKanikoFlags = append(additionalKanikoFlags, "--reproducible")
-			break
-		}
+	if slices.Contains(reproducibleTests, dockerfile) {
+		additionalKanikoFlags = append(additionalKanikoFlags, "--reproducible")
 	}
 
 	kanikoImage := GetKanikoImage(imageRepo, dockerfile)

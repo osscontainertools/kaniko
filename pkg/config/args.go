@@ -18,6 +18,7 @@ package config
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -46,12 +47,7 @@ func (b *multiArg) Type() string {
 }
 
 func (b *multiArg) Contains(v string) bool {
-	for _, s := range *b {
-		if s == v {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(*b, v)
 }
 
 // This type is used to supported passing in multiple key=value flags
@@ -109,8 +105,7 @@ func (c *multiKeyMultiValueArg) Set(value string) error {
 		return nil
 	}
 	if strings.Contains(value, ";") {
-		kvpairs := strings.Split(value, ";")
-		for _, kv := range kvpairs {
+		for kv := range strings.SplitSeq(value, ";") {
 			err := c.parseKV(kv)
 			if err != nil {
 				return err
