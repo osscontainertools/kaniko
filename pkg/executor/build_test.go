@@ -1644,7 +1644,7 @@ func Test_stageBuild_populateCompositeKeyForCopyCommand(t *testing.T) {
 
 			for _, useCacheCommand := range []bool{false, true} {
 				t.Run(fmt.Sprintf("CacheCommand=%t", useCacheCommand), func(t *testing.T) {
-					var cmd commands.DockerCommand = copyCommand
+					cmd := copyCommand
 					if useCacheCommand {
 						cmd = copyCommand.(*commands.CopyCommand).CacheCommand(nil)
 					}

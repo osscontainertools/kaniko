@@ -140,7 +140,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 	}
 
 	// Heredocs
-	for _, src := range c.cmd.SourcesAndDest.SourceContents {
+	for _, src := range c.cmd.SourceContents {
 		fullPath := filepath.Join(c.fileContext.Root, src.Path)
 		cwd := config.WorkingDir
 		if cwd == "" {

@@ -114,13 +114,13 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 			continue
 		}
 
-		registryName := destRef.Repository.Registry.Name()
+		registryName := destRef.Registry.Name()
 		if opts.Insecure || opts.InsecureRegistries.Contains(registryName) {
 			newReg, err := name.NewRegistry(registryName, name.WeakValidation, name.Insecure)
 			if err != nil {
 				return fmt.Errorf("getting new insecure registry: %w", err)
 			}
-			destRef.Repository.Registry = newReg
+			destRef.Registry = newReg
 		}
 		rt, err := util.MakeTransport(opts.RegistryOptions, registryName)
 		if err != nil {
@@ -260,13 +260,13 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 
 	// continue pushing unless an error occurs
 	for _, destRef := range destRefs {
-		registryName := destRef.Repository.Registry.Name()
+		registryName := destRef.Registry.Name()
 		if opts.Insecure || opts.InsecureRegistries.Contains(registryName) {
 			newReg, err := name.NewRegistry(registryName, name.WeakValidation, name.Insecure)
 			if err != nil {
 				return fmt.Errorf("getting new insecure registry: %w", err)
 			}
-			destRef.Repository.Registry = newReg
+			destRef.Registry = newReg
 		}
 
 		pushAuth, err := creds.GetKeychain(&opts.RegistryOptions).Resolve(destRef.Context().Registry)
