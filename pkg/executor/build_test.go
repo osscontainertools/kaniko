@@ -83,6 +83,7 @@ func Test_reviewConfig(t *testing.T) {
 }
 
 func stage(t *testing.T, d string) config.KanikoStage {
+	t.Helper()
 	stages, _, err := dockerfile.Parse([]byte(d))
 	if err != nil {
 		t.Fatalf("error parsing dockerfile: %v", err)
@@ -1546,6 +1547,7 @@ RUN foobar
 }
 
 func assertCacheKeys(t *testing.T, expectedCacheKeys, actualCacheKeys []string, description string) {
+	t.Helper()
 	if len(expectedCacheKeys) != len(actualCacheKeys) {
 		t.Errorf("expected to %v %v keys but was %v", description, len(expectedCacheKeys), len(actualCacheKeys))
 	}
@@ -1588,6 +1590,7 @@ func getCommands(fileContext util.FileContext, cmds []instructions.Command, cach
 }
 
 func tempDirAndFile(t *testing.T) (string, []string) {
+	t.Helper()
 	filenames := []string{"bar.txt"}
 
 	dir := t.TempDir()
@@ -1603,6 +1606,7 @@ func tempDirAndFile(t *testing.T) (string, []string) {
 }
 
 func generateTar(t *testing.T, dir string, fileNames ...string) []byte {
+	t.Helper()
 	buf := bytes.NewBuffer([]byte{})
 	writer := tar.NewWriter(buf)
 	defer writer.Close()
@@ -1635,6 +1639,7 @@ func generateTar(t *testing.T, dir string, fileNames ...string) []byte {
 }
 
 func hashCompositeKeys(t *testing.T, ck1 CompositeCache, ck2 CompositeCache) (string, string) {
+	t.Helper()
 	key1, err := ck1.Hash()
 	if err != nil {
 		t.Errorf("could not hash composite key due to %s", err)

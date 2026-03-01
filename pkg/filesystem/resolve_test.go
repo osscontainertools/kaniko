@@ -34,6 +34,7 @@ func Test_ResolvePaths(t *testing.T) {
 		expectedFiles []string,
 		err error,
 	) {
+		t.Helper()
 		if err != nil {
 			t.Errorf("expected err to be nil but was %s", err)
 		}
@@ -180,6 +181,7 @@ func Test_ResolvePaths(t *testing.T) {
 
 func Test_resolveSymlinkAncestor(t *testing.T) {
 	setupDirs := func(t *testing.T) (string, string) {
+		t.Helper()
 		testDir := t.TempDir()
 
 		targetDir := filepath.Join(testDir, "bar", "baz")

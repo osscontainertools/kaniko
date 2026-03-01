@@ -479,10 +479,11 @@ func BenchmarkHasFilepathPrefix(b *testing.B) {
 	}
 }
 
-type checker func(root string, t *testing.T)
+type checker func(t *testing.T, root string)
 
 func fileExists(p string) checker {
-	return func(root string, t *testing.T) {
+	return func(t *testing.T, root string) {
+		t.Helper()
 		_, err := os.Stat(filepath.Join(root, p))
 		if err != nil {
 			t.Fatalf("File %s does not exist", filepath.Join(root, p))
@@ -491,7 +492,8 @@ func fileExists(p string) checker {
 }
 
 func fileMatches(p string, c []byte) checker {
-	return func(root string, t *testing.T) {
+	return func(t *testing.T, root string) {
+		t.Helper()
 		actual, err := os.ReadFile(filepath.Join(root, p))
 		if err != nil {
 			t.Fatalf("error reading file: %s", p)
@@ -503,7 +505,8 @@ func fileMatches(p string, c []byte) checker {
 }
 
 func timesMatch(p string, fTime time.Time) checker {
-	return func(root string, t *testing.T) {
+	return func(t *testing.T, root string) {
+		t.Helper()
 		fi, err := os.Stat(filepath.Join(root, p))
 		if err != nil {
 			t.Fatalf("error statting file %s", p)
@@ -516,7 +519,8 @@ func timesMatch(p string, fTime time.Time) checker {
 }
 
 func permissionsMatch(p string, perms os.FileMode) checker {
-	return func(root string, t *testing.T) {
+	return func(t *testing.T, root string) {
+		t.Helper()
 		fi, err := os.Stat(filepath.Join(root, p))
 		if err != nil {
 			t.Fatalf("error statting file %s", p)
@@ -528,7 +532,8 @@ func permissionsMatch(p string, perms os.FileMode) checker {
 }
 
 func linkPointsTo(src, dst string) checker {
-	return func(root string, t *testing.T) {
+	return func(t *testing.T, root string) {
+		t.Helper()
 		link := filepath.Join(root, src)
 		got, err := os.Readlink(link)
 		if err != nil {
@@ -541,7 +546,8 @@ func linkPointsTo(src, dst string) checker {
 }
 
 func filesAreHardlinks(first, second string) checker {
-	return func(root string, t *testing.T) {
+	return func(t *testing.T, root string) {
+		t.Helper()
 		fi1, err := os.Stat(filepath.Join(root, first))
 		if err != nil {
 			t.Fatalf("error getting file %s", first)
@@ -811,7 +817,7 @@ func TestExtractFile(t *testing.T) {
 				}
 			}
 			for _, checker := range tc.checkers {
-				checker(r, t)
+				checker(t, r)
 			}
 		})
 	}

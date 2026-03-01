@@ -267,6 +267,7 @@ func KanikoGitRepo(url string, commit string, branch string) string {
 }
 
 func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch string) {
+	t.Helper()
 	t.Log("testGitBuildcontextHelper repo", url)
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_test_run_2", integrationPath, dockerfilesPath)
 
@@ -623,7 +624,7 @@ func TestLayers(t *testing.T) {
 			dockerImage := GetDockerImage(config.imageRepo, dockerfileTest)
 			kanikoImage := GetKanikoImage(config.imageRepo, dockerfileTest)
 			pushCmd := exec.Command("docker", "push", dockerImage)
-			RunCommand(pushCmd, t)
+			RunCommand(t, pushCmd)
 			checkLayers(t, dockerImage, kanikoImage, offset[dockerfileTest])
 			onBuildDiff(t, dockerImage, kanikoImage)
 		})
@@ -659,6 +660,7 @@ func TestReplaceFolderWithFileOrLink(t *testing.T) {
 }
 
 func buildImage(t *testing.T, dockerfile string, imageBuilder *DockerFileBuilder) {
+	t.Helper()
 	t.Logf("Building image '%v'...", dockerfile)
 
 	if err := imageBuilder.BuildImage(t, config, dockerfilesPath, dockerfile); err != nil {
@@ -786,6 +788,7 @@ func TestWarmerTwice(t *testing.T) {
 }
 
 func verifyBuildWith(t *testing.T, cache, dockerfile string) {
+	t.Helper()
 	args, ok := additionalKanikoFlagsMap[dockerfile]
 	if !ok {
 		args = []string{}
@@ -1003,6 +1006,7 @@ func getImageManifestAnnotations(t *testing.T, image string) (map[string]string,
 }
 
 func onBuildDiff(t *testing.T, image1, image2 string) {
+	t.Helper()
 	img1, err := getImageConfig(image1)
 	if err != nil {
 		t.Fatalf("Failed to get image config for (%s): %s", image1, err)
@@ -1313,17 +1317,18 @@ func meetsRequirements() bool {
 
 // containerDiff compares the container images image1 and image2.
 func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
+	t.Helper()
 	// workaround for container-diff OCI issue https://github.com/GoogleContainerTools/container-diff/issues/389
 	if !strings.HasPrefix(image1, daemonPrefix) {
 		dockerPullCmd := exec.Command("docker", "pull", image1)
-		out := RunCommand(dockerPullCmd, t)
+		out := RunCommand(t, dockerPullCmd)
 		t.Logf("docker pull cmd output for image1 = %s", string(out))
 		image1 = daemonPrefix + image1
 	}
 
 	if !strings.HasPrefix(image2, daemonPrefix) {
 		dockerPullCmd := exec.Command("docker", "pull", image2)
-		out := RunCommand(dockerPullCmd, t)
+		out := RunCommand(t, dockerPullCmd)
 		t.Logf("docker pull cmd output for image2 = %s", string(out))
 		image2 = daemonPrefix + image2
 	}
@@ -1333,6 +1338,6 @@ func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	flags = append(flags, diffArgsMap[t.Name()]...)
 
 	containerdiffCmd := exec.Command("diffoci", flags...)
-	diff := RunCommand(containerdiffCmd, t)
+	diff := RunCommand(t, containerdiffCmd)
 	t.Logf("diff = %s", string(diff))
 }

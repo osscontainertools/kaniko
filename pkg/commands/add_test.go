@@ -81,6 +81,7 @@ func createTar(tempDir string, toCreate TarList) error {
 }
 
 func setupAddTest(t *testing.T) string {
+	t.Helper()
 	tempDir := t.TempDir()
 
 	err := createFile(tempDir)

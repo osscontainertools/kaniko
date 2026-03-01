@@ -88,6 +88,7 @@ func TestSnapshotBenchmark(t *testing.T) {
 }
 
 func newResult(t *testing.T, f string) result {
+	t.Helper()
 	var current map[string]time.Duration
 	jsonFile, err := os.Open(f)
 	if err != nil {

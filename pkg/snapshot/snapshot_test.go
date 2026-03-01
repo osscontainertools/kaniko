@@ -581,6 +581,7 @@ func setupSymlink(dir string, link string, target string) error {
 }
 
 func sortAndCompareFilepaths(t *testing.T, testDir string, expected []string, actual []string) {
+	t.Helper()
 	expectedFullPaths := make([]string, len(expected))
 	for i, file := range expected {
 		expectedFullPaths[i] = filepath.Join(testDir, file)
@@ -591,6 +592,7 @@ func sortAndCompareFilepaths(t *testing.T, testDir string, expected []string, ac
 }
 
 func setUpTestDir(t *testing.T) (string, error) {
+	t.Helper()
 	testDir := t.TempDir()
 	files := map[string]string{
 		"foo":         "baz1",
@@ -607,6 +609,7 @@ func setUpTestDir(t *testing.T) (string, error) {
 }
 
 func setUpTest(t *testing.T) (string, *Snapshotter, func(), error) {
+	t.Helper()
 	testDir, err := setUpTestDir(t)
 	if err != nil {
 		return "", nil, nil, err

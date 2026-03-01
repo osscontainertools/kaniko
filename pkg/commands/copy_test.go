@@ -75,6 +75,7 @@ var copyTests = []struct {
 }
 
 func setupTestTemp(t *testing.T) string {
+	t.Helper()
 	tempDir := t.TempDir()
 	logrus.Debugf("Tempdir: %s", tempDir)
 
@@ -417,6 +418,7 @@ func Test_resolveIfSymlink(t *testing.T) {
 
 func Test_CopyEnvAndWildcards(t *testing.T) {
 	setupDirs := func(t *testing.T) (string, string) {
+		t.Helper()
 		testDir := t.TempDir()
 
 		dir := filepath.Join(testDir, "bar")
@@ -523,6 +525,7 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 	defer func() { util.FSys = _original }()
 
 	setupDirs := func(t *testing.T) (string, string) {
+		t.Helper()
 		testDir := t.TempDir()
 
 		dir := filepath.Join(testDir, "bar")

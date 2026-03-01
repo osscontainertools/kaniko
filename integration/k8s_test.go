@@ -92,7 +92,7 @@ func TestK8s(t *testing.T) {
 			t.Logf("K8s template %s:\n%s\n", tmpfile.Name(), content)
 
 			kubeCmd := exec.Command("kubectl", "apply", "-f", tmpfile.Name())
-			RunCommand(kubeCmd, t)
+			RunCommand(t, kubeCmd)
 
 			t.Logf("Waiting for K8s kaniko build job to finish: %s\n",
 				"job/kaniko-test-"+job.Name)

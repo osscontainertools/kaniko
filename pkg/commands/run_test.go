@@ -124,6 +124,7 @@ func Test_addDefaultHOME(t *testing.T) {
 }
 
 func prepareTarFixture(t *testing.T, fileNames []string) ([]byte, error) {
+	t.Helper()
 	dir := t.TempDir()
 
 	content := `

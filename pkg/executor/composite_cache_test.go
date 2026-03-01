@@ -148,6 +148,7 @@ func createFilesystemStructure(root string, directories, files []string) error {
 }
 
 func setIgnoreContext(t *testing.T, content string) (util.FileContext, error) {
+	t.Helper()
 	var fileContext util.FileContext
 	dockerIgnoreDir := t.TempDir()
 	err := os.WriteFile(dockerIgnoreDir+".dockerignore", []byte(content), 0o644)
