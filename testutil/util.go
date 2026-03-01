@@ -49,6 +49,7 @@ type CurrentUser struct {
 }
 
 func GetCurrentUser(t *testing.T) CurrentUser {
+	t.Helper()
 	currentUser, err := user.Current()
 	if err != nil {
 		t.Fatalf("Cannot get current user: %s", err)
@@ -91,12 +92,14 @@ func CheckErrorAndDeepEqual(t *testing.T, shouldErr bool, err error, expected, a
 }
 
 func CheckError(t *testing.T, shouldErr bool, err error) {
+	t.Helper()
 	if err := checkErr(shouldErr, err); err != nil {
 		t.Error(err)
 	}
 }
 
 func CheckNoError(t *testing.T, err error) {
+	t.Helper()
 	if err != nil {
 		t.Errorf("%+v", err)
 	}
