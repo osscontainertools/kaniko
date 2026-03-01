@@ -12,6 +12,7 @@ linters:
     - unparam
     - wastedassign
     - whitespace
+    - prealloc
 
 formatters:
   enable:

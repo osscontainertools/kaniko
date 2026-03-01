@@ -315,8 +315,7 @@ func TestSnapshotPreservesFileOrder(t *testing.T) {
 		"xyzzy":   "thud",
 	}
 
-	newFileNames := []string{}
-
+	newFileNames := make([]string, 0, len(newFiles))
 	for fileName := range newFiles {
 		newFileNames = append(newFileNames, fileName)
 	}
@@ -336,7 +335,7 @@ func TestSnapshotPreservesFileOrder(t *testing.T) {
 			t.Fatalf("Error setting up fs: %s", err)
 		}
 
-		filesToSnapshot := []string{}
+		filesToSnapshot := make([]string, 0, len(newFileNames))
 		for _, file := range newFileNames {
 			filesToSnapshot = append(filesToSnapshot, filepath.Join(testDir, file))
 		}
@@ -436,8 +435,7 @@ func TestSnapshotPreservesWhiteoutOrder(t *testing.T) {
 		"xyzzy":   "thud",
 	}
 
-	newFileNames := []string{}
-
+	newFileNames := make([]string, 0, len(newFiles))
 	for fileName := range newFiles {
 		newFileNames = append(newFileNames, fileName)
 	}
@@ -457,7 +455,7 @@ func TestSnapshotPreservesWhiteoutOrder(t *testing.T) {
 			t.Fatalf("Error setting up fs: %s", err)
 		}
 
-		filesToSnapshot := []string{}
+		filesToSnapshot := make([]string, 0, len(newFileNames))
 		for _, file := range newFileNames {
 			filesToSnapshot = append(filesToSnapshot, filepath.Join(testDir, file))
 		}

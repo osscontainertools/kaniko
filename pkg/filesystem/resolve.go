@@ -112,7 +112,7 @@ func filesWithParentDirs(files []string) []string {
 		}
 	}
 
-	newFiles := []string{}
+	newFiles := make([]string, 0, len(filesSet))
 	for file := range filesSet {
 		newFiles = append(newFiles, file)
 	}

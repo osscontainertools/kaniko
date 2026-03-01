@@ -57,7 +57,7 @@ type keyValueArg map[string]string
 // the flag.Value interface...
 // The first method is String() string
 func (a *keyValueArg) String() string {
-	var result []string
+	result := make([]string, 0, len(*a))
 	for key := range *a {
 		result = append(result, fmt.Sprintf("%s=%s", key, (*a)[key]))
 	}
