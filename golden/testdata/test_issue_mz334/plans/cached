@@ -1,4 +1,4 @@
-FROM busybox AS base
+FROM busybox AS first
 UNPACK busybox
 CACHE HIT: b0db5c4dc0ee6072dc9f3e18194c1cf4745367521c6a6bb4a8ebb269be5e7c82
 RUN touch /blubb
@@ -6,7 +6,21 @@ SAVE STAGE /kaniko/stages/0
 SAVE FILES [/blubb] /kaniko/deps/0
 CLEAN
 
-FROM base AS final
-UNPACK /kaniko/stages/0
-COPY --from=base /blubb /blubb
+FROM first AS second
+CACHE HIT: 3576b2d5bfde80d864d0b057a67fea6796fcddc8c0d29875abbce46209d5a5eb
+RUN touch /bla
+SAVE STAGE /kaniko/stages/1
+CLEAN
+
+FROM second AS third
+UNPACK /kaniko/stages/1
+CACHE HIT: 1997ccce84320d3b5363cb02a377748cc30451928a285d98fe8f80161b0b7ab1
+RUN touch /bli
+SAVE FILES [/bli] /kaniko/deps/2
+CLEAN
+
+FROM second AS final
+UNPACK /kaniko/stages/1
+COPY --from=first /blubb /blubb
+COPY --from=third /bli /bli
 RUN ls -lah /blubb
