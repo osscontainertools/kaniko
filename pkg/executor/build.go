@@ -55,7 +55,7 @@ import (
 var (
 	initializeConfig             = initConfig
 	getFSFromImage               = util.GetFSFromImage
-	mkdirPermissions os.FileMode = 0644
+	mkdirPermissions os.FileMode = 0755
 	pushCache                    = pushLayerToCache
 )
 
@@ -356,7 +356,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 
 		if opts.Cache {
 			compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, s.cf.Config.Env, fileContext)
-			if err != nil && opts.Cache {
+			if err != nil {
 				return err
 			}
 		}
@@ -906,8 +906,12 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			configFile.OS = runtime.GOOS
 			configFile.Architecture = runtime.GOARCH
 		} else {
-			configFile.OS = strings.Split(opts.CustomPlatform, "/")[0]
-			configFile.Architecture = strings.Split(opts.CustomPlatform, "/")[1]
+			os, arch, ok := strings.Cut(opts.CustomPlatform, "/")
+			if !ok {
+				return nil, fmt.Errorf("invalid platform format %q, expected os/arch", opts.CustomPlatform)
+			}
+			configFile.OS = os
+			configFile.Architecture = arch
 		}
 		sourceImage, err = mutate.ConfigFile(sourceImage, configFile)
 		if err != nil {
@@ -946,7 +950,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			}
 		}
 
-		filesToSave, err := filesToSave(crossStageDependencies[stage.Index])
+		files, err := filesToSave(crossStageDependencies[stage.Index])
 		if err != nil {
 			return nil, err
 		}
@@ -956,7 +960,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return nil, fmt.Errorf("to create workspace for stage %d: %w",
 				stage.Index, err)
 		}
-		for _, p := range filesToSave {
+		for _, p := range files {
 			logrus.Infof("Saving file %s for later use", p)
 			if err := util.CopyFileOrSymlink(p, dstDir, config.RootDir); err != nil {
 				return nil, fmt.Errorf("could not save file: %w", err)
@@ -979,7 +983,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 	}
 
-	return nil, err
+	logrus.Panic("unreachable - we should always have a final stage")
+	return nil, nil
 }
 
 func assignIfNil(dst *error, fn func() error) {
