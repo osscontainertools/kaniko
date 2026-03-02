@@ -610,7 +610,7 @@ func Test_stageBuilder_optimize(t *testing.T) {
 			sb.cmds = []commands.DockerCommand{command}
 			sb.cacheKeys = make([]string, len(sb.cmds))
 			sb.cacheHits = make([]bool, len(sb.cmds))
-			err = sb.optimize(ck, cf.Config, tc.opts, util.FileContext{}, lc)
+			err = sb.optimize(ck, cf.Config, tc.opts, util.FileContext{}, lc, true)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -1490,7 +1490,7 @@ RUN foobar
 				getFSFromImage = tc.mockGetFSFromImage
 			}
 			compositeKey := NewCompositeCache(sb.baseImageDigest)
-			err := sb.optimize(*compositeKey, sb.cf.Config, tc.opts, util.FileContext{}, lc)
+			err := sb.optimize(*compositeKey, sb.cf.Config, tc.opts, util.FileContext{}, lc, true)
 			if err != nil {
 				t.Errorf("failed to optimize instructions: %v", err)
 			}

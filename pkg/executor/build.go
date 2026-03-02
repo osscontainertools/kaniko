@@ -221,12 +221,14 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	compositeKey.AddKey(command.String())
 
 	for _, f := range files {
-		compositeKey.AddKey(f)
+		if err := compositeKey.AddPath(f, fileContext); err != nil {
+			return compositeKey, err
+		}
 	}
 	return compositeKey, nil
 }
 
-func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache) error {
+func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, hasContext bool) error {
 	if !opts.Cache {
 		return nil
 	}
@@ -247,14 +249,17 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 		}
 		files, err := command.FilesUsedFromContext(&cfg, s.args)
 		if err != nil {
-			return fmt.Errorf("failed to get files used from context: %w", err)
+			if hasContext {
+				return fmt.Errorf("failed to get files used from context: %w", err)
+			} else {
+				break
+			}
 		}
 
 		compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, cfg.Env, fileContext)
 		if err != nil {
 			return err
 		}
-
 		logrus.Debugf("Optimize: composite key for command %v %v", command.String(), compositeKey)
 		ck, err := compositeKey.Hash()
 		if err != nil {
@@ -854,14 +859,19 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if err != nil {
 			return nil, err
 		}
+		builderStages[sb.stage.Index] = sb
+		images[sb.stage.Index] = sourceImage
+
 		cacheKey := sb.baseImageDigest
 		if sb.stage.BaseImageStoredLocally {
-			if key := baseStageToCacheKey[sb.stage.BaseImageIndex]; key != "" {
-				cacheKey = key
+			key := baseStageToCacheKey[sb.stage.BaseImageIndex]
+			if key == "" {
+				continue
 			}
+			cacheKey = key
 		}
 		compositeKey := NewCompositeCache(cacheKey)
-		err = sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts))
+		err = sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts), false)
 		if err != nil {
 			return nil, err
 		}
@@ -872,9 +882,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if len(sb.cacheKeys) > 0 {
 			finalCacheKey = sb.cacheKeys[len(sb.cacheKeys)-1]
 		}
-		builderStages[sb.stage.Index] = sb
 		baseStageToCacheKey[sb.stage.Index] = finalCacheKey
-		images[sb.stage.Index] = sb.image
 	}
 
 	// We now "count" references, it is only safe to squash
@@ -1009,6 +1017,20 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			compositeKey = NewCompositeCache(sb.baseImageDigest)
 		}
 
+		// Apply optimizations to the instructions.
+		err := sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts), true)
+		if err != nil {
+			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
+		}
+		finalCacheKey := ""
+		if len(sb.cacheKeys) > 0 {
+			finalCacheKey = sb.cacheKeys[len(sb.cacheKeys)-1]
+		}
+		if finalCacheKey == "" {
+			logrus.Panic("Unreachable Code: finalCacheKey should exist for each stage")
+		}
+
+		args = sb.args
 		crossStageDeps := len(crossStageDependencies[sb.stage.Index]) > 0
 		err = sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps)
 		if err != nil {
@@ -1041,6 +1063,15 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if err != nil {
 			return nil, err
 		}
+
+		d, err := sourceImage.Digest()
+		if err != nil {
+			return nil, err
+		}
+		logrus.Debugf("Mapping stage idx %v to digest %v", sb.stage.Index, d.String())
+
+		digestToCacheKey[d.String()] = finalCacheKey
+		logrus.Debugf("Mapping digest %v to cachekey %v", d.String(), finalCacheKey)
 
 		if sb.stage.Final {
 			sourceImage, err = mutate.CreatedAt(sourceImage, v1.Time{Time: time.Now()})
