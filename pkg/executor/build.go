@@ -297,26 +297,28 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 	return nil
 }
 
-func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool) error {
-	// Unpack file system to root if we need to.
-	shouldUnpack := false
-	for _, cmd := range s.cmds {
-		if cmd.RequiresUnpackedFS() {
-			logrus.Infof("Unpacking rootfs as cmd %s requires it.", cmd.String())
-			shouldUnpack = true
-			break
-		}
+func shouldUnpackFilesystem(stage *stageBuilder, opts *config.KanikoOptions, crossStageDeps bool) bool {
+	if stage.stage.Index == 0 && opts.InitialFSUnpacked {
+		return false
 	}
 	if crossStageDeps {
-		shouldUnpack = true
+		return true
 	}
-	if s.stage.Final && opts.Materialize {
-		shouldUnpack = true
+	if stage.stage.Final && opts.Materialize {
+		return true
 	}
-	if s.stage.Index == 0 && opts.InitialFSUnpacked {
-		shouldUnpack = false
+	for _, cmd := range stage.cmds {
+		if cmd.RequiresUnpackedFS() {
+			logrus.Infof("Unpacking rootfs as cmd %s requires it.", cmd.String())
+			return true
+		}
 	}
+	return false
+}
 
+func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool) error {
+	// Unpack file system to root if we need to.
+	shouldUnpack := shouldUnpackFilesystem(s, opts, crossStageDeps)
 	if shouldUnpack {
 		t := timing.Start("FS Unpacking")
 
@@ -733,10 +735,14 @@ func RenderStages(stages []*stageBuilder, opts *config.KanikoOptions, fileContex
 		} else {
 			printf("FROM %s\n", s.stage.BaseName)
 		}
-		if s.stage.BaseImageStoredLocally {
-			printf("UNPACK %s%d\n", config.KanikoIntermediateStagesDir, s.stage.BaseImageIndex)
-		} else {
-			printf("UNPACK %s\n", s.stage.BaseName)
+		crossStageDeps := len(crossStageDependencies[s.stage.Index]) > 0
+		shouldUnpack := shouldUnpackFilesystem(s, opts, crossStageDeps)
+		if shouldUnpack {
+			if s.stage.BaseImageStoredLocally {
+				printf("UNPACK %s%d\n", config.KanikoIntermediateStagesDir, s.stage.BaseImageIndex)
+			} else {
+				printf("UNPACK %s\n", s.stage.BaseName)
+			}
 		}
 		for idx, c := range s.cmds {
 			if opts.Cache {
