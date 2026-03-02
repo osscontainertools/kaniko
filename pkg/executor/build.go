@@ -944,7 +944,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 
 		finalCacheKey := ""
-		if len(sb.cacheKeys) > 0 {
+		if opts.Cache && len(sb.cacheKeys) > 0 {
 			finalCacheKey := sb.cacheKeys[len(sb.cacheKeys)-1]
 			if finalCacheKey == "" {
 				logrus.Panic("Unreachable Code: finalCacheKey should exist for each stage")
