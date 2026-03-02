@@ -1,0 +1,16 @@
+FROM alpine AS base
+UNPACK alpine
+RUN install
+SAVE STAGE /kaniko/stages/0
+CLEAN
+
+FROM base AS build
+UNPACK /kaniko/stages/0
+RUN install more
+RUN compile
+SAVE FILES [output] /kaniko/deps/2
+CLEAN
+
+FROM base AS final
+UNPACK /kaniko/stages/0
+COPY --from=build output output
