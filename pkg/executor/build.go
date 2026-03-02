@@ -926,6 +926,12 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if sb == nil {
 			continue
 		}
+		sourceImage, err := image_util.RetrieveSourceImage(sb.stage, opts)
+		if err != nil {
+			return nil, err
+		}
+		sb.image = sourceImage
+
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
 			sb.stage.BaseName, sb.stage.Index, sb.stage.BaseImageIndex)
 
@@ -938,7 +944,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 
 		// Apply optimizations to the instructions.
-		err := sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts), true)
+		err = sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts), true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
 		}
@@ -959,7 +965,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 		reviewConfig(sb.stage, &sb.cf.Config)
 
-		sourceImage, err := mutate.Config(sb.image, sb.cf.Config)
+		sourceImage, err = mutate.Config(sb.image, sb.cf.Config)
 		if err != nil {
 			return nil, err
 		}
