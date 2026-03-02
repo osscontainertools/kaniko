@@ -134,7 +134,7 @@ There are approximately [18 supported Dockerfile commands](https://docs.docker.c
   <tr>
    <td>ADD/COPY
    </td>
-   <td>Files will be copied out of the build context and into the build environment. For multi-step builds, filesu will be saved from the previous build environment so they can be copied into later steps.
+   <td>Files will be copied out of the build context and into the build environment. For multi-step builds, files will be saved from the previous build environment so they can be copied into later steps.
    </td>
   </tr>
   <tr>
