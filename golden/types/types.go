@@ -17,9 +17,10 @@ limitations under the License.
 package types
 
 type GoldenTest struct {
-	Args []string
-	Env  map[string]string
-	Plan string
+	Args        []string
+	Env         map[string]string
+	KeySequence []string
+	Plan        string
 }
 
 type GoldenTests struct {
