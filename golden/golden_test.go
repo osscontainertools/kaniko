@@ -29,6 +29,7 @@ import (
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
 	testissuemz195 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz195"
 	testissuemz333 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz333"
+	testissuemz334 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz334"
 	testissuemz338 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz338"
 	testissuemz487 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz487"
 	testunittests "github.com/osscontainertools/kaniko/golden/testdata/test_unittests"
@@ -62,6 +63,7 @@ func renderCommand(env map[string]string, args []string) string {
 var allTests = map[string][]types.GoldenTests{
 	"test_issue_mz195": {testissuemz195.Tests},
 	"test_issue_mz333": {testissuemz333.Tests},
+	"test_issue_mz334": {testissuemz334.Tests},
 	"test_issue_mz338": {testissuemz338.Tests},
 	"test_issue_mz487": {testissuemz487.Tests},
 	"test_unittests":   testunittests.Tests,
@@ -91,6 +93,9 @@ func TestRun(t *testing.T) {
 							}
 
 							opts := config.KanikoOptions{}
+							executor.FakeCache = &executor.FakeLayerCache{
+								KeySequence: test.KeySequence,
+							}
 							exec := &cobra.Command{
 								Use: "kaniko",
 							}
