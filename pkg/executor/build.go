@@ -1028,10 +1028,11 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
 		}
-		finalCacheKey := ""
-		if len(sb.cacheKeys) > 0 {
-			finalCacheKey = sb.cacheKeys[len(sb.cacheKeys)-1]
+
+		if len(sb.cacheKeys) == 0 {
+			logrus.Panic("Unreachable Code: empty stage")
 		}
+		finalCacheKey := sb.cacheKeys[len(sb.cacheKeys)-1]
 		if finalCacheKey == "" {
 			logrus.Panic("Unreachable Code: finalCacheKey should exist for each stage")
 		}
