@@ -781,33 +781,6 @@ func RenderStages(stages []*stageBuilder, opts *config.KanikoOptions, fileContex
 	return retErr
 }
 
-func filterOnBuild(cmds []commands.DockerCommand) []commands.DockerCommand {
-	var out []commands.DockerCommand
-	for _, c := range cmds {
-		switch cmd := c.(type) {
-		case *commands.OnBuildCommand:
-			// Skip ONBUILD commands
-		default:
-			out = append(out, cmd)
-		}
-	}
-	return out
-}
-
-func squash(a, b *stageBuilder) *stageBuilder {
-	acmds := filterOnBuild(a.cmds)
-	return &stageBuilder{
-		stage:           dockerfile.Squash(a.stage, b.stage),
-		image:           a.image,
-		cf:              a.cf,
-		baseImageDigest: a.baseImageDigest,
-		cmds:            append(acmds, b.cmds...),
-		args:            a.args,
-		cacheKeys:       append(a.cacheKeys, b.cacheKeys...),
-		cacheHits:       append(a.cacheHits, b.cacheHits...),
-	}
-}
-
 // DoBuild executes building the Dockerfile
 func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	t := timing.Start("Total Build Time")
@@ -889,65 +862,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			finalCacheKey = sb.cacheKeys[len(sb.cacheKeys)-1]
 		}
 		baseStageToCacheKey[sb.stage.Index] = finalCacheKey
-	}
-
-	// We now "count" references, it is only safe to squash
-	// stages if the references are exactly 1 and there are no COPY references
-	stagesDependencies := make(map[int]int)
-	copyDependencies := make(map[int]int)
-	stagesDependencies[lastStage.Index] = 1
-
-	for i := len(builderStages) - 1; i >= 0; i-- {
-		s := builderStages[i]
-		if s == nil {
-			continue
-		}
-		if stagesDependencies[s.stage.Index] == 0 && copyDependencies[s.stage.Index] == 0 {
-			continue
-		}
-		if s.stage.BaseImageStoredLocally {
-			stagesDependencies[s.stage.BaseImageIndex]++
-		}
-		for _, c := range s.cmds {
-			switch cmd := c.(type) {
-			case *commands.CopyCommand:
-				if copyFromIndex, err := strconv.Atoi(cmd.From()); err == nil {
-					copyDependencies[copyFromIndex]++
-				}
-			}
-		}
-	}
-
-	if opts.SkipUnusedStages && config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true) {
-		for _, s := range builderStages {
-			if s == nil {
-				continue
-			}
-			if s.stage.BaseImageStoredLocally && stagesDependencies[s.stage.BaseImageIndex] == 1 && copyDependencies[s.stage.BaseImageIndex] == 0 {
-				sb := builderStages[s.stage.BaseImageIndex]
-				// squash stages[i] into stages[i].BaseName
-				logrus.Infof("Squashing stages: %s into %s", s.stage.Name, sb.stage.Name)
-				// We squash the base stage into the current stage because,
-				// no one else depends on the base stage so it can be freely moved,
-				// the current stage might depend on other stages so it is not safe to move it.
-				builderStages[s.stage.Index] = squash(sb, s)
-				stagesDependencies[s.stage.BaseImageIndex] = 0
-			}
-		}
-	}
-
-	if opts.SkipUnusedStages {
-		var onlyUsedStages []*stageBuilder
-		for _, s := range builderStages {
-			if s == nil {
-				continue
-			}
-			if stagesDependencies[s.stage.Index] > 0 || copyDependencies[s.stage.Index] > 0 {
-				s.stage.SaveStage = stagesDependencies[s.stage.Index] > 0
-				onlyUsedStages = append(onlyUsedStages, s)
-			}
-		}
-		builderStages = onlyUsedStages
 	}
 
 	if opts.Dryrun {
@@ -1037,7 +951,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			logrus.Panic("Unreachable Code: finalCacheKey should exist for each stage")
 		}
 
-		args = sb.args
 		crossStageDeps := len(crossStageDependencies[sb.stage.Index]) > 0
 		err = sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps)
 		if err != nil {
