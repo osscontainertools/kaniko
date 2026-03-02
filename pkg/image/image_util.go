@@ -17,10 +17,16 @@ limitations under the License.
 package image
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
 
+	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/layout"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
@@ -28,13 +34,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/image/remote"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
-
-	"github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/empty"
-	"github.com/google/go-containerregistry/pkg/v1/layout"
-	"github.com/google/go-containerregistry/pkg/v1/tarball"
-
 	"github.com/sirupsen/logrus"
 )
 
@@ -74,9 +73,8 @@ func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, b
 	if baseImageStoredLocally {
 		if config.EnvBool("FF_KANIKO_OCI_STAGES") {
 			return ociImage(baseImageIndex)
-		} else {
-			return retrieveTarImage(baseImageIndex)
 		}
+		return retrieveTarImage(baseImageIndex)
 	}
 
 	// Finally, check if local caching is enabled
@@ -124,7 +122,7 @@ func ociImage(index int) (v1.Image, error) {
 	}
 
 	if len(idxManifest.Manifests) == 0 {
-		return nil, fmt.Errorf("no images found in OCI layout")
+		return nil, errors.New("no images found in OCI layout")
 	}
 	if len(idxManifest.Manifests) > 1 {
 		return nil, fmt.Errorf("expected one image, found %d", len(idxManifest.Manifests))

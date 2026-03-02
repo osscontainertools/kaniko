@@ -38,6 +38,7 @@ import (
 )
 
 func mustTag(t *testing.T, s string) name.Tag {
+	t.Helper()
 	tag, err := name.NewTag(s, name.StrictValidation)
 	if err != nil {
 		t.Fatalf("NewTag: %v", err)
@@ -85,7 +86,10 @@ func TestWriteImageOutputs(t *testing.T) {
 				newOsFs = afero.NewReadOnlyFs(newOsFs) // No files should be written.
 			}
 
-			os.Setenv("BUILDER_OUTPUT", c.env)
+			err = os.Setenv("BUILDER_OUTPUT", c.env)
+			if err != nil {
+				t.Error(err)
+			}
 			if err := writeImageOutputs(img, c.tags); err != nil {
 				t.Fatalf("writeImageOutputs: %v", err)
 			}
@@ -111,24 +115,27 @@ func TestHeaderAdded(t *testing.T) {
 		name     string
 		upstream string
 		expected string
-	}{{
-		name:     "upstream env variable set",
-		upstream: "skaffold-v0.25.45",
-		expected: "kaniko/unset,skaffold-v0.25.45",
-	}, {
-		name:     "upstream env variable not set",
-		expected: "kaniko/unset",
-	},
+	}{
+		{
+			name:     "upstream env variable set",
+			upstream: "skaffold-v0.25.45",
+			expected: "kaniko/unset,skaffold-v0.25.45",
+		}, {
+			name:     "upstream env variable not set",
+			expected: "kaniko/unset",
+		},
 	}
 	for _, test := range tests {
-
 		t.Run(test.name, func(t *testing.T) {
 			rt := &withUserAgent{t: &mockRoundTripper{}}
 			if test.upstream != "" {
-				os.Setenv("UPSTREAM_CLIENT_TYPE", test.upstream)
+				err := os.Setenv("UPSTREAM_CLIENT_TYPE", test.upstream)
+				if err != nil {
+					t.Error(err)
+				}
 				defer func() { os.Unsetenv("UPSTREAM_CLIENT_TYPE") }()
 			}
-			req, err := http.NewRequest("GET", "dummy", nil) //nolint:noctx
+			req, err := http.NewRequest(http.MethodGet, "dummy", nil) //nolint:noctx
 			if err != nil {
 				t.Fatalf("culd not create a req due to %s", err)
 			}
@@ -139,13 +146,11 @@ func TestHeaderAdded(t *testing.T) {
 			testutil.CheckErrorAndDeepEqual(t, false, err, test.expected, string(body))
 		})
 	}
-
 }
 
-type mockRoundTripper struct {
-}
+type mockRoundTripper struct{}
 
-func (m *mockRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+func (*mockRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	ua := r.UserAgent()
 	return &http.Response{Body: io.NopCloser(bytes.NewBufferString(ua))}, nil
 }
@@ -220,7 +225,6 @@ func TestImageNameDigestFile(t *testing.T) {
 	got, err := os.ReadFile("tmpFile")
 
 	testutil.CheckErrorAndDeepEqual(t, false, err, want, got)
-
 }
 
 func TestDoPushWithOpts(t *testing.T) {
@@ -262,7 +266,8 @@ func TestDoPushWithOpts(t *testing.T) {
 				Destinations: []string{},
 			},
 			expectedErr: true,
-		}} {
+		},
+	} {
 		t.Run(tc.name, func(t *testing.T) {
 			image, err := random.Image(1024, 4)
 			if err != nil {
@@ -280,7 +285,6 @@ func TestDoPushWithOpts(t *testing.T) {
 					t.Error("expected error with opts not found")
 				}
 			}
-
 		})
 	}
 }
@@ -321,7 +325,7 @@ func resetCalledCount() {
 	checkPushPermsCallCount = 0
 }
 
-func fakeCheckPushPermission(ref name.Reference, kc authn.Keychain, t http.RoundTripper) error {
+func fakeCheckPushPermission(_ name.Reference, _ authn.Keychain, _ http.RoundTripper) error {
 	checkPushPermsCallCount++
 	return nil
 }
@@ -402,10 +406,16 @@ func TestCheckPushPermissions(t *testing.T) {
 				NoPushCache:  test.noPushCache,
 			}
 			if test.existingConfig {
-				afero.WriteFile(newOsFs, util.DockerConfLocation(), []byte(""), os.FileMode(0644))
+				err := afero.WriteFile(newOsFs, util.DockerConfLocation(), []byte(""), os.FileMode(0o644))
+				if err != nil {
+					t.Error(err)
+				}
 				defer newOsFs.Remove(util.DockerConfLocation())
 			}
-			CheckPushPermissions(&opts)
+			err := CheckPushPermissions(&opts)
+			if err != nil {
+				t.Error(err)
+			}
 			if checkPushPermsCallCount != test.checkPushPermsExpectedCallCount {
 				t.Errorf("expected check push permissions call count to be %d but it was %d", test.checkPushPermsExpectedCallCount, checkPushPermsCallCount)
 			}
@@ -441,10 +451,13 @@ func TestSkipPushPermission(t *testing.T) {
 				SkipPushPermissionCheck: test.skipPushPermission,
 			}
 			if test.existingConfig {
-				afero.WriteFile(newOsFs, util.DockerConfLocation(), []byte(""), os.FileMode(0644))
+				afero.WriteFile(newOsFs, util.DockerConfLocation(), []byte(""), os.FileMode(0o644))
 				defer newOsFs.Remove(util.DockerConfLocation())
 			}
-			CheckPushPermissions(&opts)
+			err := CheckPushPermissions(&opts)
+			if err != nil {
+				t.Error(err)
+			}
 			if checkPushPermsCallCount != test.checkPushPermsExpectedCallCount {
 				t.Errorf("expected check push permissions call count to be %d but it was %d", test.checkPushPermsExpectedCallCount, checkPushPermsCallCount)
 			}
@@ -456,7 +469,10 @@ func TestHelperProcess(t *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}
-	fmt.Fprintf(os.Stdout, "fake result")
+	_, err := fmt.Fprintf(os.Stdout, "fake result")
+	if err != nil {
+		t.Error(err)
+	}
 	os.Exit(0)
 }
 

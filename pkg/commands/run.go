@@ -85,7 +85,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				h := sha256.Sum256([]byte(cacheId))
 				targetHash := hex.EncodeToString(h[:])
 				cacheDir := filepath.Join(kConfig.KanikoCacheDir, targetHash)
-				err = os.MkdirAll(cacheDir, 0755)
+				err = os.MkdirAll(cacheDir, 0o755)
 				if err != nil {
 					return err
 				}
@@ -111,7 +111,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 						return err
 					}
 					defer assignIfNil(&reterr, func() error {
-						return os.Chmod(m.Target, os.FileMode(0755))
+						return os.Chmod(m.Target, os.FileMode(0o755))
 					})
 				}
 				if m.UID != nil || m.GID != nil {
@@ -176,7 +176,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				if m.Env == nil || m.Target != "" {
 					target := m.Target
 					if target == "" {
-						target = fmt.Sprintf("/run/secrets/%s", secretId)
+						target = "/run/secrets/" + secretId
 					}
 					parent := filepath.Dir(target)
 					created, err := ensureDir(parent)
@@ -188,7 +188,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 							return os.RemoveAll(created)
 						})
 					}
-					mode := os.FileMode(0400)
+					mode := os.FileMode(0o400)
 					if m.Mode != nil {
 						mode = os.FileMode(*m.Mode)
 					}
@@ -217,7 +217,6 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 			default:
 				logrus.Warnf("Kaniko does not support '--mount=type=%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", m.Type)
 			}
-
 		}
 	}
 	return runCommandInExec(config, buildArgs, cmdRun, secretEnvs)
@@ -237,14 +236,16 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 		cmd := strings.Join(cmdRun.CmdLine, " ")
 
 		// Heredocs
-		if len(cmdRun.Files) == 1 && cmd == fmt.Sprintf("<<%s", cmdRun.Files[0].Name) {
+		if len(cmdRun.Files) == 1 && cmd == "<<"+cmdRun.Files[0].Name {
 			// 1713: if we encounter a line like 'RUN <<EOF',
 			// we implicitly want the file body to be executed as a script
 			cmd += " sh"
 		}
+		var cmdSb244 strings.Builder
 		for _, h := range cmdRun.Files {
-			cmd += "\n" + h.Data + h.Name
+			cmdSb244.WriteString("\n" + h.Data + h.Name)
 		}
+		cmd += cmdSb244.String()
 
 		newCommand = append(shell, cmd)
 	} else {
@@ -311,7 +312,8 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 	cmd.Env = append(env, secretEnvs...)
 
 	logrus.Infof("Running: %s", cmd.Args)
-	if err := cmd.Start(); err != nil {
+	err = cmd.Start()
+	if err != nil {
 		return fmt.Errorf("starting command: %w", err)
 	}
 
@@ -323,7 +325,7 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 		return fmt.Errorf("waiting for process to exit: %w", err)
 	}
 
-	//it's not an error if there are no grandchildren
+	// it's not an error if there are no grandchildren
 	if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil && err.Error() != "no such process" {
 		return err
 	}
@@ -369,7 +371,6 @@ func (r *RunCommand) ProvidesFilesToSnapshot() bool {
 
 // CacheCommand returns true since this command should be cached
 func (r *RunCommand) CacheCommand(img v1.Image) DockerCommand {
-
 	return &CachingRunCommand{
 		img:       img,
 		cmd:       r.cmd,
@@ -463,7 +464,7 @@ func setWorkDirIfExists(workdir string) string {
 
 func swapDir(pathA, pathB string) (err error) {
 	if pathA == "" || pathB == "" {
-		return fmt.Errorf("paths must not be empty")
+		return errors.New("paths must not be empty")
 	}
 	tmp := kConfig.KanikoSwapDir
 
@@ -494,7 +495,7 @@ func swapDir(pathA, pathB string) (err error) {
 }
 
 func ensureDir(target string) (string, error) {
-	var firstCreated = ""
+	firstCreated := ""
 	curr := target
 	for {
 		_, err := os.Stat(curr)
@@ -509,7 +510,7 @@ func ensureDir(target string) (string, error) {
 		return "", nil
 	}
 
-	err := os.MkdirAll(target, 0755)
+	err := os.MkdirAll(target, 0o755)
 	if err != nil {
 		return "", err
 	}
@@ -518,7 +519,8 @@ func ensureDir(target string) (string, error) {
 }
 
 func assignIfNil(dst *error, fn func() error) {
-	if err := fn(); err != nil && *dst == nil {
+	err := fn()
+	if err != nil && *dst == nil {
 		*dst = err
 	}
 }

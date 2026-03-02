@@ -37,9 +37,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	GetRemoteOnBuild = getRemoteOnBuild
-)
+var GetRemoteOnBuild = getRemoteOnBuild
 
 func ParseStages(opts *config.KanikoOptions) ([]instructions.Stage, []instructions.ArgCommand, error) {
 	var err error
@@ -286,7 +284,8 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		return nil, fmt.Errorf("error finding target stage: %w", err)
 	}
 	args := unifyArgs(metaArgs, opts.BuildArgs)
-	if err := resolveStagesArgs(stages, args); err != nil {
+	err = resolveStagesArgs(stages, args)
+	if err != nil {
 		return nil, fmt.Errorf("resolving args: %w", err)
 	}
 	stages = stages[:targetStage+1]
@@ -339,7 +338,8 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			for _, c := range stage.Commands {
 				switch cmd := c.(type) {
 				case *instructions.CopyCommand:
-					if copyFromIndex, err := strconv.Atoi(cmd.From); err == nil {
+					copyFromIndex, err := strconv.Atoi(cmd.From)
+					if err == nil {
 						copyDependencies[copyFromIndex]++
 					}
 				}
@@ -404,7 +404,7 @@ func unifyArgs(metaArgs []instructions.ArgCommand, buildArgs []string) []string 
 			argsMap[s[0]] = s[1]
 		}
 	}
-	var args []string
+	args := make([]string, 0, len(argsMap))
 	for k, v := range argsMap {
 		args = append(args, fmt.Sprintf("%s=%s", k, v))
 	}

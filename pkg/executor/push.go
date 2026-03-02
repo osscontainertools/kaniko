@@ -62,18 +62,16 @@ const (
 	DummyDestination    = "docker.io/unset-repo/unset-image-name"
 )
 
-var (
-	// known tag immutability errors
-	errTagImmutable = []string{
-		// https://cloud.google.com/artifact-registry/docs/docker/troubleshoot#push
-		"The repository has enabled tag immutability",
-		// https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-tag-mutability.html
-		"cannot be overwritten because the tag is immutable",
-	}
-)
+// known tag immutability errors
+var errTagImmutable = []string{
+	// https://cloud.google.com/artifact-registry/docs/docker/troubleshoot#push
+	"The repository has enabled tag immutability",
+	// https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-tag-mutability.html
+	"cannot be overwritten because the tag is immutable",
+}
 
 func (w *withUserAgent) RoundTrip(r *http.Request) (*http.Response, error) {
-	ua := []string{fmt.Sprintf("kaniko/%s", version.Version())}
+	ua := []string{"kaniko/" + version.Version()}
 	if upstream := os.Getenv(UpstreamClientUaKey); upstream != "" {
 		ua = append(ua, upstream)
 	}
@@ -116,13 +114,13 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 			continue
 		}
 
-		registryName := destRef.Repository.Registry.Name()
+		registryName := destRef.Registry.Name()
 		if opts.Insecure || opts.InsecureRegistries.Contains(registryName) {
 			newReg, err := name.NewRegistry(registryName, name.WeakValidation, name.Insecure)
 			if err != nil {
 				return fmt.Errorf("getting new insecure registry: %w", err)
 			}
-			destRef.Repository.Registry = newReg
+			destRef.Registry = newReg
 		}
 		rt, err := util.MakeTransport(opts.RegistryOptions, registryName)
 		if err != nil {
@@ -148,7 +146,7 @@ func getDigest(image v1.Image) ([]byte, error) {
 func writeDigestFile(path string, digestByteArray []byte) error {
 	if strings.HasPrefix(path, "https://") {
 		// Do a HTTP PUT to the URL; this could be a pre-signed URL to S3 or GCS or Azure
-		req, err := http.NewRequest("PUT", path, bytes.NewReader(digestByteArray)) //nolint:noctx
+		req, err := http.NewRequest(http.MethodPut, path, bytes.NewReader(digestByteArray)) //nolint:noctx
 		if err != nil {
 			return err
 		}
@@ -159,13 +157,14 @@ func writeDigestFile(path string, digestByteArray []byte) error {
 
 	parentDir := filepath.Dir(path)
 	if _, err := os.Stat(parentDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(parentDir, 0700); err != nil {
+		err := os.MkdirAll(parentDir, 0o700)
+		if err != nil {
 			logrus.Debugf("Error creating %s, %s", parentDir, err)
 			return err
 		}
 		logrus.Tracef("Created directory %v", parentDir)
 	}
-	return os.WriteFile(path, digestByteArray, 0644)
+	return os.WriteFile(path, digestByteArray, 0o644)
 }
 
 // DoPush is responsible for pushing image to the destinations specified in opts.
@@ -223,8 +222,14 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 				tag = ":" + destRef.TagStr()
 			}
 			imageName := []byte(destRef.Repository.Name() + tag + "@")
-			builder.Write(append(imageName, digestByteArray...))
-			builder.WriteString("\n")
+			_, err = builder.Write(append(imageName, digestByteArray...))
+			if err != nil {
+				return err
+			}
+			_, err = builder.WriteString("\n")
+			if err != nil {
+				return err
+			}
 		}
 		destRefs = append(destRefs, destRef)
 	}
@@ -262,13 +267,13 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 
 	// continue pushing unless an error occurs
 	for _, destRef := range destRefs {
-		registryName := destRef.Repository.Registry.Name()
+		registryName := destRef.Registry.Name()
 		if opts.Insecure || opts.InsecureRegistries.Contains(registryName) {
 			newReg, err := name.NewRegistry(registryName, name.WeakValidation, name.Insecure)
 			if err != nil {
 				return fmt.Errorf("getting new insecure registry: %w", err)
 			}
-			destRef.Repository.Registry = newReg
+			destRef.Registry = newReg
 		}
 
 		pushAuth, err := creds.GetKeychain(&opts.RegistryOptions).Resolve(destRef.Context().Registry)
@@ -339,10 +344,11 @@ func writeImageOutputs(image v1.Image, destRefs []name.Tag) error {
 		Digest string `json:"digest"`
 	}
 	for _, r := range destRefs {
-		if err := json.NewEncoder(f).Encode(imageOutput{
+		err := json.NewEncoder(f).Encode(imageOutput{
 			Name:   r.String(),
 			Digest: d.String(),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
 	}
@@ -379,13 +385,13 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 		return fmt.Errorf("getting cache destination: %w", err)
 	}
 	logrus.Infof("Pushing layer %s to cache now", cache)
-	empty := empty.Image
-	empty, err = mutate.CreatedAt(empty, v1.Time{Time: time.Now()})
+	img := empty.Image
+	img, err = mutate.CreatedAt(img, v1.Time{Time: time.Now()})
 	if err != nil {
 		return fmt.Errorf("setting empty image created time: %w", err)
 	}
 
-	empty, err = mutate.Append(empty,
+	img, err = mutate.Append(img,
 		mutate.Addendum{
 			Layer: layer,
 			History: v1.History{
@@ -407,7 +413,7 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 		cacheOpts.OCILayoutPath = strings.TrimPrefix(cache, "oci:")
 		cacheOpts.NoPush = true
 	}
-	return DoPush(empty, &cacheOpts)
+	return DoPush(img, &cacheOpts)
 }
 
 // setDummyDestinations sets the dummy destinations required to generate new

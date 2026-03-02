@@ -79,7 +79,6 @@ func Test_ValidAzureBlobStorageHost(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			result := ValidAzureBlobStorageHost(test.context)
 			testutil.CheckDeepEqual(t, test.expectedResult, result)
-
 		})
 	}
 }

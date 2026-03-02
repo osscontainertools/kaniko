@@ -20,14 +20,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/osscontainertools/kaniko/pkg/config"
-	"github.com/osscontainertools/kaniko/pkg/creds"
-	"github.com/osscontainertools/kaniko/pkg/util"
-
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-
+	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/creds"
+	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
 
@@ -53,7 +51,6 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 
 	if newRegURLs, found := opts.RegistryMaps[ref.Context().RegistryStr()]; found {
 		for _, registryMapping := range newRegURLs {
-
 			regToMapTo, repositoryPrefix := parseRegistryMapping(registryMapping)
 
 			insecurePull := opts.InsecurePull || opts.InsecureRegistries.Contains(regToMapTo)
@@ -113,9 +110,8 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 func remapRepository(repo name.Repository, regToMapTo string, repositoryPrefix string, insecurePull bool) (name.Repository, error) {
 	if insecurePull {
 		return name.NewRepository(repositoryPrefix+repo.RepositoryStr(), name.WithDefaultRegistry(regToMapTo), name.WeakValidation, name.Insecure)
-	} else {
-		return name.NewRepository(repositoryPrefix+repo.RepositoryStr(), name.WithDefaultRegistry(regToMapTo), name.WeakValidation)
 	}
+	return name.NewRepository(repositoryPrefix+repo.RepositoryStr(), name.WithDefaultRegistry(regToMapTo), name.WeakValidation)
 }
 
 func setNewRepository(ref name.Reference, newRepo name.Repository) name.Reference {
@@ -134,10 +130,10 @@ func setNewRepository(ref name.Reference, newRepo name.Repository) name.Referenc
 func setNewRegistry(ref name.Reference, newReg name.Registry) name.Reference {
 	switch r := ref.(type) {
 	case name.Tag:
-		r.Repository.Registry = newReg
+		r.Registry = newReg
 		return r
 	case name.Digest:
-		r.Repository.Registry = newReg
+		r.Registry = newReg
 		return r
 	default:
 		return ref
@@ -146,7 +142,6 @@ func setNewRegistry(ref name.Reference, newReg name.Registry) name.Reference {
 
 func remoteOptions(registryName string, opts config.RegistryOptions, customPlatform string) []remote.Option {
 	tr, err := util.MakeTransport(opts, registryName)
-
 	// The MakeTransport function will only return errors if there was a problem
 	// with registry certificates (Verification or mTLS)
 	if err != nil {
@@ -164,7 +159,7 @@ func remoteOptions(registryName string, opts config.RegistryOptions, customPlatf
 
 // Parse the registry mapping
 // example: regMapping = "registry.example.com/subdir1/subdir2" will return registry.example.com and subdir1/subdir2/
-func parseRegistryMapping(regMapping string) (string, string) {
+func parseRegistryMapping(regMapping string) (url string, path string) {
 	// Split the registry mapping by first slash
 	regURL, repositoryPrefix, _ := strings.Cut(regMapping, "/")
 

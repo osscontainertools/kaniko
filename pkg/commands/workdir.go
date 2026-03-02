@@ -39,13 +39,11 @@ type WorkdirCommand struct {
 func ToAbsPath(path string, workdir string) string {
 	if filepath.IsAbs(path) {
 		return path
-	} else {
-		if workdir != "" {
-			return filepath.Join(workdir, path)
-		} else {
-			return filepath.Join("/", path)
-		}
 	}
+	if workdir != "" {
+		return filepath.Join(workdir, path)
+	}
+	return filepath.Join("/", path)
 }
 
 // For testing
@@ -65,7 +63,6 @@ func (w *WorkdirCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile
 	// Only create and snapshot the dir if it didn't exist already
 	w.snapshotFiles = []string{}
 	if _, err := os.Stat(config.WorkingDir); os.IsNotExist(err) {
-
 		uid, gid, err := util.GetActiveUserGroup(config.User, "", replacementEnvs)
 		if err != nil {
 			return fmt.Errorf("getting user group: %w", err)
@@ -73,7 +70,7 @@ func (w *WorkdirCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile
 
 		logrus.Infof("Creating directory %s with uid %d and gid %d", config.WorkingDir, uid, gid)
 		w.snapshotFiles = append(w.snapshotFiles, config.WorkingDir)
-		if err := mkdirAllWithPermissions(config.WorkingDir, 0755, uid, gid); err != nil {
+		if err := mkdirAllWithPermissions(config.WorkingDir, 0o755, uid, gid); err != nil {
 			return fmt.Errorf("creating workdir %s: %w", config.WorkingDir, err)
 		}
 	}
@@ -92,7 +89,6 @@ func (w *WorkdirCommand) String() string {
 
 // CacheCommand returns true since this command should be cached
 func (w *WorkdirCommand) CacheCommand(img v1.Image) DockerCommand {
-
 	return &CachingWorkdirCommand{
 		img:       img,
 		cmd:       w.cmd,
@@ -183,6 +179,6 @@ func (wr *CachingWorkdirCommand) String() string {
 	return wr.cmd.String()
 }
 
-func (wr *CachingWorkdirCommand) MetadataOnly() bool {
+func (*CachingWorkdirCommand) MetadataOnly() bool {
 	return false
 }

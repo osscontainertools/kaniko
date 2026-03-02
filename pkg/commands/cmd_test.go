@@ -42,7 +42,6 @@ var cmdTests = []struct {
 }
 
 func TestExecuteCmd(t *testing.T) {
-
 	cfg := &v1.Config{
 		Cmd: nil,
 	}

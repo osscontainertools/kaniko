@@ -29,7 +29,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/filesystem"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
-
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -64,7 +63,7 @@ func (s *Snapshotter) Key() (string, error) {
 // TakeSnapshot takes a snapshot of the specified files, avoiding directories in the ignorelist, and creates
 // a tarball of the changed files. Return contents of the tarball, and whether or not any files were changed
 func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string, error) {
-	err := os.MkdirAll(config.KanikoLayersDir, 0755)
+	err := os.MkdirAll(config.KanikoLayersDir, 0o755)
 	if err != nil {
 		return "", err
 	}
@@ -88,7 +87,8 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 
 	// Add files to current layer.
 	for _, file := range filesToAdd {
-		if err := s.l.Add(file); err != nil {
+		err := s.l.Add(file)
+		if err != nil {
 			return "", fmt.Errorf("unable to add file %s to layered map: %w", file, err)
 		}
 	}
@@ -96,7 +96,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 	// Get whiteout paths
 	var filesToWhiteout []string
 	if shdCheckDelete {
-		_, deletedFiles, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), func(s string) (bool, error) {
+		_, deletedFiles, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), func(_ string) (bool, error) {
 			return true, nil
 		})
 		if err != nil {
@@ -106,7 +106,8 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 		logrus.Debugf("Deleting in layer: %v", deletedFiles)
 		// Whiteout files in current layer.
 		for file := range deletedFiles {
-			if err := s.l.AddDelete(file); err != nil {
+			err := s.l.AddDelete(file)
+			if err != nil {
 				return "", fmt.Errorf("unable to whiteout file %s in layered map: %w", file, err)
 			}
 		}
@@ -126,7 +127,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 // TakeSnapshotFS takes a snapshot of the filesystem, avoiding directories in the ignorelist, and creates
 // a tarball of the changed files.
 func (s *Snapshotter) TakeSnapshotFS() (string, error) {
-	err := os.MkdirAll(config.KanikoLayersDir, 0755)
+	err := os.MkdirAll(config.KanikoLayersDir, 0o755)
 	if err != nil {
 		return "", err
 	}
@@ -150,14 +151,14 @@ func (s *Snapshotter) TakeSnapshotFS() (string, error) {
 	return f.Name(), nil
 }
 
-func (s *Snapshotter) getSnashotPathPrefix() string {
+func (*Snapshotter) getSnashotPathPrefix() string {
 	if snapshotPathPrefix == "" {
 		return config.KanikoLayersDir
 	}
 	return snapshotPathPrefix
 }
 
-func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
+func (s *Snapshotter) scanFullFilesystem() (filesToSnapshot []string, filesToDelete []string, err error) {
 	logrus.Info("Taking snapshot of full filesystem...")
 
 	// Some of the operations that follow (e.g. hashing) depend on the file system being synced,
@@ -213,12 +214,14 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 
 	// Add files to the layered map
 	for _, file := range filesToAdd {
-		if err := s.l.Add(file); err != nil {
+		err := s.l.Add(file)
+		if err != nil {
 			return nil, nil, fmt.Errorf("unable to add file %s to layered map: %w", file, err)
 		}
 	}
 	for file := range deletedPaths {
-		if err := s.l.AddDelete(file); err != nil {
+		err := s.l.AddDelete(file)
+		if err != nil {
 			return nil, nil, fmt.Errorf("unable to whiteout file %s in layered map: %w", file, err)
 		}
 	}
@@ -234,7 +237,6 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 
 // removeObsoleteWhiteouts filters deleted files according to their parents delete status.
 func removeObsoleteWhiteouts(deletedFiles map[string]struct{}) (filesToWhiteout []string) {
-
 	for path := range deletedFiles {
 		// Only add the whiteout if the directory for the file still exists.
 		dir := filepath.Dir(path)
@@ -273,13 +275,15 @@ func writeToTar(t util.Tar, files, whiteouts []string) error {
 	}
 
 	for _, path := range files {
-		if err := addParentDirectories(t, addedPaths, path); err != nil {
+		err := addParentDirectories(t, addedPaths, path)
+		if err != nil {
 			return err
 		}
 		if _, pathAdded := addedPaths[path]; pathAdded {
 			continue
 		}
-		if err := t.AddFileToTar(path); err != nil {
+		err = t.AddFileToTar(path)
+		if err != nil {
 			return err
 		}
 		addedPaths[path] = true
@@ -310,7 +314,8 @@ func addParentDirectories(t util.Tar, addedPaths map[string]bool, path string) e
 		if _, pathAdded := addedPaths[parentPath]; pathAdded {
 			continue
 		}
-		if err := t.AddFileToTar(parentPath); err != nil {
+		err := t.AddFileToTar(parentPath)
+		if err != nil {
 			return err
 		}
 		addedPaths[parentPath] = true

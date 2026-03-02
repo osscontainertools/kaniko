@@ -47,7 +47,7 @@ type CopyCommand struct {
 
 func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
 	// Resolve from
-	uid, gid := int64(-1), int64(-1)
+	var uid, gid int64
 	var err error
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 	if c.cmd.From != "" {
@@ -140,7 +140,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 	}
 
 	// Heredocs
-	for _, src := range c.cmd.SourcesAndDest.SourceContents {
+	for _, src := range c.cmd.SourceContents {
 		fullPath := filepath.Join(c.fileContext.Root, src.Path)
 		cwd := config.WorkingDir
 		if cwd == "" {
@@ -340,7 +340,7 @@ type AbstractCopyCommand interface {
 }
 
 // CastAbstractCopyCommand tries to convert a command to an AbstractCopyCommand.
-func CastAbstractCopyCommand(cmd interface{}) (AbstractCopyCommand, bool) {
+func CastAbstractCopyCommand(cmd any) (AbstractCopyCommand, bool) {
 	switch v := cmd.(type) {
 	case *CopyCommand:
 		return v, true

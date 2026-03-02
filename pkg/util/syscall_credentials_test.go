@@ -32,8 +32,8 @@ func TestSyscallCredentials(t *testing.T) {
 	gid, _ := strconv.ParseUint(currentUser.Gid, 10, 32)
 	currentUserGID32 := uint32(gid)
 
-	currentUserGroupIDsU32 := []uint32{}
 	currentUserGroupIDs, _ := currentUser.GroupIds()
+	currentUserGroupIDsU32 := make([]uint32, 0, len(currentUserGroupIDs))
 	for _, id := range currentUserGroupIDs {
 		id32, _ := strconv.ParseUint(id, 10, 32)
 		currentUserGroupIDsU32 = append(currentUserGroupIDsU32, uint32(id32))
@@ -81,7 +81,7 @@ func TestSyscallCredentials(t *testing.T) {
 		{
 			name: "existing username with non-existing gid",
 			args: args{
-				userStr: fmt.Sprintf("%s:50000", currentUser.Username),
+				userStr: currentUser.Username + ":50000",
 			},
 			want: &syscall.Credential{
 				Uid:    currentUserUID32,

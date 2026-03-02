@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -49,7 +50,6 @@ func NewLayeredMap(h func(string) (string, error)) *LayeredMap {
 
 // Snapshot creates a new layer.
 func (l *LayeredMap) Snapshot() {
-
 	// Save current state of image
 	l.updateCurrentImage()
 
@@ -60,7 +60,6 @@ func (l *LayeredMap) Snapshot() {
 
 // Key returns a hash for added and delted files.
 func (l *LayeredMap) Key() (string, error) {
-
 	var adds map[string]string
 	var deletes map[string]struct{}
 
@@ -93,17 +92,13 @@ func (l *LayeredMap) getCurrentImage() map[string]string {
 	current := map[string]string{}
 
 	// Copy current image paths/hashes.
-	for p, h := range l.currentImage {
-		current[p] = h
-	}
+	maps.Copy(current, l.currentImage)
 
 	// Add the last layer on top.
 	addedFiles := l.adds[len(l.adds)-1]
 	deletedFiles := l.deletes[len(l.deletes)-1]
 
-	for add, hash := range addedFiles {
-		current[add] = hash
-	}
+	maps.Copy(current, addedFiles)
 
 	for del := range deletedFiles {
 		delete(current, del)
@@ -160,7 +155,6 @@ func (l *LayeredMap) Add(s string) error {
 		}
 		return l.hasher(s)
 	}(s)
-
 	if err != nil {
 		return fmt.Errorf("error creating hash for %s: %w", s, err)
 	}

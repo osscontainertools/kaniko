@@ -113,7 +113,7 @@ func TestRun(t *testing.T) {
 
 							planPath := filepath.Join(testDir, "plans", test.Plan)
 							if update {
-								err = os.WriteFile(planPath, buf.Bytes(), 0644)
+								err = os.WriteFile(planPath, buf.Bytes(), 0o644)
 								if err != nil {
 									t.Fatal(err)
 								}

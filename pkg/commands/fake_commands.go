@@ -32,18 +32,23 @@ type fakeLayer struct {
 func (f fakeLayer) Digest() (v1.Hash, error) {
 	return v1.Hash{}, nil
 }
+
 func (f fakeLayer) DiffID() (v1.Hash, error) {
 	return v1.Hash{}, nil
 }
+
 func (f fakeLayer) Compressed() (io.ReadCloser, error) {
 	return nil, nil
 }
+
 func (f fakeLayer) Uncompressed() (io.ReadCloser, error) {
 	return io.NopCloser(bytes.NewReader(f.TarContent)), nil
 }
+
 func (f fakeLayer) Size() (int64, error) {
 	return 0, nil
 }
+
 func (f fakeLayer) MediaType() (types.MediaType, error) {
 	return "", nil
 }
@@ -55,33 +60,43 @@ type fakeImage struct {
 func (f fakeImage) Layers() ([]v1.Layer, error) {
 	return f.ImageLayers, nil
 }
+
 func (f fakeImage) MediaType() (types.MediaType, error) {
 	return "", nil
 }
+
 func (f fakeImage) Size() (int64, error) {
 	return 0, nil
 }
+
 func (f fakeImage) ConfigName() (v1.Hash, error) {
 	return v1.Hash{}, nil
 }
+
 func (f fakeImage) ConfigFile() (*v1.ConfigFile, error) {
 	return &v1.ConfigFile{}, nil
 }
+
 func (f fakeImage) RawConfigFile() ([]byte, error) {
 	return []byte{}, nil
 }
+
 func (f fakeImage) Digest() (v1.Hash, error) {
 	return v1.Hash{}, nil
 }
+
 func (f fakeImage) Manifest() (*v1.Manifest, error) {
 	return &v1.Manifest{}, nil
 }
+
 func (f fakeImage) RawManifest() ([]byte, error) {
 	return []byte{}, nil
 }
+
 func (f fakeImage) LayerByDigest(v1.Hash) (v1.Layer, error) {
 	return fakeLayer{}, nil
 }
+
 func (f fakeImage) LayerByDiffID(v1.Hash) (v1.Layer, error) {
 	return fakeLayer{}, nil
 }

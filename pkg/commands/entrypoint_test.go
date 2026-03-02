@@ -42,7 +42,6 @@ var entrypointTests = []struct {
 }
 
 func TestEntrypointExecuteCmd(t *testing.T) {
-
 	cfg := &v1.Config{
 		Cmd: nil,
 	}

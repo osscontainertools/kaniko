@@ -111,7 +111,7 @@ type KanikoGitOptions struct {
 
 var ErrInvalidGitFlag = errors.New("invalid git flag, must be in the key=value format")
 
-func (k *KanikoGitOptions) Type() string {
+func (*KanikoGitOptions) Type() string {
 	return "gitoptions"
 }
 
@@ -120,7 +120,7 @@ func (k *KanikoGitOptions) String() string {
 }
 
 func (k *KanikoGitOptions) Set(s string) error {
-	var parts = strings.SplitN(s, "=", 2)
+	parts := strings.SplitN(s, "=", 2)
 	if len(parts) != 2 {
 		return fmt.Errorf("%w: %s", ErrInvalidGitFlag, s)
 	}
@@ -178,7 +178,7 @@ func (c *Compression) Set(v string) error {
 	}
 }
 
-func (c *Compression) Type() string {
+func (*Compression) Type() string {
 	return "compression"
 }
 
@@ -216,7 +216,7 @@ type SecretOption struct {
 
 type SecretOptions map[string]SecretOption
 
-func (k *SecretOptions) Type() string {
+func (*SecretOptions) Type() string {
 	return "secret"
 }
 
@@ -228,7 +228,6 @@ func (s *SecretOptions) String() string {
 	for k, sec := range *s {
 		if sec.Type == "env" {
 			parts = append(parts, fmt.Sprintf("id=%s,type=env,env=%s", k, sec.Src))
-
 		} else {
 			parts = append(parts, fmt.Sprintf("id=%s,type=file,src=%s", k, sec.Src))
 		}
@@ -245,8 +244,7 @@ func (s *SecretOptions) Set(val string) error {
 		Src  string
 		Env  string
 	}
-	parts := strings.Split(val, ",")
-	for _, part := range parts {
+	for part := range strings.SplitSeq(val, ",") {
 		kv := strings.SplitN(part, "=", 2)
 
 		if len(kv) != 2 {
@@ -277,11 +275,11 @@ func (s *SecretOptions) Set(val string) error {
 	}
 
 	if sec.Src != "" && sec.Env != "" {
-		return fmt.Errorf("only one of src or env may be specified")
+		return errors.New("only one of src or env may be specified")
 	}
 
 	if sec.Type == "file" && sec.Env != "" {
-		return fmt.Errorf("env cannot be specified for file type secrets")
+		return errors.New("env cannot be specified for file type secrets")
 	}
 
 	if sec.Type == "env" && sec.Src != "" {

@@ -18,6 +18,7 @@ package config
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -41,17 +42,12 @@ func (b *multiArg) Set(value string) error {
 }
 
 // The third is Type() string
-func (b *multiArg) Type() string {
+func (*multiArg) Type() string {
 	return "multi-arg type"
 }
 
 func (b *multiArg) Contains(v string) bool {
-	for _, s := range *b {
-		if s == v {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(*b, v)
 }
 
 // This type is used to supported passing in multiple key=value flags
@@ -61,7 +57,7 @@ type keyValueArg map[string]string
 // the flag.Value interface...
 // The first method is String() string
 func (a *keyValueArg) String() string {
-	var result []string
+	result := make([]string, 0, len(*a))
 	for key := range *a {
 		result = append(result, fmt.Sprintf("%s=%s", key, (*a)[key]))
 	}
@@ -79,7 +75,7 @@ func (a *keyValueArg) Set(value string) error {
 }
 
 // The third is Type() string
-func (a *keyValueArg) Type() string {
+func (*keyValueArg) Type() string {
 	return "key-value-arg type"
 }
 
@@ -102,7 +98,6 @@ func (c *multiKeyMultiValueArg) String() string {
 		}
 	}
 	return strings.Join(result, ";")
-
 }
 
 func (c *multiKeyMultiValueArg) Set(value string) error {
@@ -110,8 +105,7 @@ func (c *multiKeyMultiValueArg) Set(value string) error {
 		return nil
 	}
 	if strings.Contains(value, ";") {
-		kvpairs := strings.Split(value, ";")
-		for _, kv := range kvpairs {
+		for kv := range strings.SplitSeq(value, ";") {
 			err := c.parseKV(kv)
 			if err != nil {
 				return err
@@ -122,6 +116,6 @@ func (c *multiKeyMultiValueArg) Set(value string) error {
 	return c.parseKV(value)
 }
 
-func (c *multiKeyMultiValueArg) Type() string {
+func (*multiKeyMultiValueArg) Type() string {
 	return "key-multi-value-arg type"
 }

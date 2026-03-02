@@ -137,7 +137,7 @@ func TestSnapshotFSChangePermissions(t *testing.T) {
 	// Change permissions on a file
 	batPath := filepath.Join(testDir, "bar/bat")
 	batPathWithoutLeadingSlash := filepath.Join(testDirWithoutLeadingSlash, "bar/bat")
-	if err := os.Chmod(batPath, 0600); err != nil {
+	if err := os.Chmod(batPath, 0o600); err != nil {
 		t.Fatalf("Error changing permissions on %s: %v", batPath, err)
 	}
 	// Take another snapshot
@@ -304,7 +304,6 @@ func TestEmptySnapshotFS(t *testing.T) {
 }
 
 func TestFileWithLinks(t *testing.T) {
-
 	link := "baz/link"
 	tcs := []struct {
 		name           string
@@ -363,8 +362,7 @@ func TestSnapshotPreservesFileOrder(t *testing.T) {
 		"xyzzy":   "thud",
 	}
 
-	newFileNames := []string{}
-
+	newFileNames := make([]string, 0, len(newFiles))
 	for fileName := range newFiles {
 		newFileNames = append(newFileNames, fileName)
 	}
@@ -384,14 +382,13 @@ func TestSnapshotPreservesFileOrder(t *testing.T) {
 			t.Fatalf("Error setting up fs: %s", err)
 		}
 
-		filesToSnapshot := []string{}
+		filesToSnapshot := make([]string, 0, len(newFileNames))
 		for _, file := range newFileNames {
 			filesToSnapshot = append(filesToSnapshot, filepath.Join(testDir, file))
 		}
 
 		// Take a snapshot
 		tarPath, err := snapshotter.TakeSnapshot(filesToSnapshot, false)
-
 		if err != nil {
 			t.Fatalf("Error taking snapshot of fs: %s", err)
 		}
@@ -485,8 +482,7 @@ func TestSnapshotPreservesWhiteoutOrder(t *testing.T) {
 		"xyzzy":   "thud",
 	}
 
-	newFileNames := []string{}
-
+	newFileNames := make([]string, 0, len(newFiles))
 	for fileName := range newFiles {
 		newFileNames = append(newFileNames, fileName)
 	}
@@ -506,7 +502,7 @@ func TestSnapshotPreservesWhiteoutOrder(t *testing.T) {
 			t.Fatalf("Error setting up fs: %s", err)
 		}
 
-		filesToSnapshot := []string{}
+		filesToSnapshot := make([]string, 0, len(newFileNames))
 		for _, file := range newFileNames {
 			filesToSnapshot = append(filesToSnapshot, filepath.Join(testDir, file))
 		}
@@ -578,7 +574,6 @@ func TestSnapshotOmitsUnameGname(t *testing.T) {
 			t.Fatalf("Expected Uname/Gname for %s to be empty: Uname = '%s', Gname = '%s'", hdr.Name, hdr.Uname, hdr.Gname)
 		}
 	}
-
 }
 
 func setupSymlink(dir string, link string, target string) error {
@@ -586,6 +581,7 @@ func setupSymlink(dir string, link string, target string) error {
 }
 
 func sortAndCompareFilepaths(t *testing.T, testDir string, expected []string, actual []string) {
+	t.Helper()
 	expectedFullPaths := make([]string, len(expected))
 	for i, file := range expected {
 		expectedFullPaths[i] = filepath.Join(testDir, file)
@@ -596,6 +592,7 @@ func sortAndCompareFilepaths(t *testing.T, testDir string, expected []string, ac
 }
 
 func setUpTestDir(t *testing.T) (string, error) {
+	t.Helper()
 	testDir := t.TempDir()
 	files := map[string]string{
 		"foo":         "baz1",
@@ -604,7 +601,8 @@ func setUpTestDir(t *testing.T) (string, error) {
 		"baz/file":    "testfile",
 	}
 	// Set up initial files
-	if err := testutil.SetupFiles(testDir, files); err != nil {
+	err := testutil.SetupFiles(testDir, files)
+	if err != nil {
 		return "", fmt.Errorf("setting up file system: %w", err)
 	}
 
@@ -612,6 +610,7 @@ func setUpTestDir(t *testing.T) (string, error) {
 }
 
 func setUpTest(t *testing.T) (string, *Snapshotter, func(), error) {
+	t.Helper()
 	testDir, err := setUpTestDir(t)
 	if err != nil {
 		return "", nil, nil, err

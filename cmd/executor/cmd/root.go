@@ -120,7 +120,8 @@ var RootCmd = &cobra.Command{
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if cmd.Use == "executor" {
 
-			if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {
+			err := logging.Configure(logLevel, logFormat, logTimestamp)
+			if err != nil {
 				return err
 			}
 
@@ -144,16 +145,20 @@ var RootCmd = &cobra.Command{
 			if !opts.NoPush && len(opts.Destinations) == 0 {
 				return errors.New("you must provide --destination, or use --no-push")
 			}
-			if err := cacheFlagsValid(); err != nil {
+			err = cacheFlagsValid()
+			if err != nil {
 				return fmt.Errorf("cache flags invalid: %w", err)
 			}
-			if err := resolveSourceContext(); err != nil {
+			err = resolveSourceContext()
+			if err != nil {
 				return fmt.Errorf("error resolving source context: %w", err)
 			}
-			if err := resolveDockerfilePath(); err != nil {
+			err = resolveDockerfilePath()
+			if err != nil {
 				return fmt.Errorf("error resolving dockerfile path: %w", err)
 			}
-			if err := resolveSecrets(); err != nil {
+			err = resolveSecrets()
+			if err != nil {
 				return fmt.Errorf("error resolving secrets: %w", err)
 			}
 			if len(opts.Destinations) == 0 && opts.ImageNameDigestFile != "" {
@@ -191,7 +196,8 @@ var RootCmd = &cobra.Command{
 			logrus.Warn("Kaniko is being run outside of a container. This can have dangerous effects on your system")
 		}
 		if !opts.NoPush || opts.CacheRepo != "" {
-			if err := executor.CheckPushPermissions(opts); err != nil {
+			err := executor.CheckPushPermissions(opts)
+			if err != nil {
 				logrus.Warnf("make sure you entered the correct tag name, that you are authenticated correctly, and try again.")
 				// mz280: remind users that DOCKER_AUTH_CONFIG gets prioritized by docker-cli
 				// https://github.com/docker/cli/pull/6171
@@ -227,7 +233,8 @@ var RootCmd = &cobra.Command{
 			}
 			if strings.HasPrefix(benchmarkFile, "gs://") {
 				logrus.Info("Uploading to gcs")
-				if err := buildcontext.UploadToBucket(strings.NewReader(s), benchmarkFile); err != nil {
+				err := buildcontext.UploadToBucket(strings.NewReader(s), benchmarkFile)
+				if err != nil {
 					logrus.Infof("Unable to upload %s due to %v", benchmarkFile, err)
 				}
 				logrus.Infof("Benchmark file written at %s", benchmarkFile)
@@ -346,11 +353,17 @@ func moveKanikoDir(src, target string) error {
 		if rest, ok := strings.CutPrefix(val, src+"/"); ok {
 			// Case: starts with /kaniko/
 			newVal := target + "/" + rest
-			os.Setenv(key, newVal)
+			err = os.Setenv(key, newVal)
+			if err != nil {
+				return err
+			}
 			logrus.Infof("updating env: %s=%s", key, newVal)
 		} else if val == src {
 			// Case: exactly /kaniko
-			os.Setenv(key, target)
+			err = os.Setenv(key, target)
+			if err != nil {
+				return err
+			}
 			logrus.Infof("updating env: %s=%s", key, target)
 		}
 	}
@@ -435,7 +448,7 @@ func resolveSecrets() error {
 			// We therefore safeguard it across stages by copying it into /kaniko.
 			// We are not allowed to move it as it might be mounted into the container.
 			destPath := filepath.Join(config.KanikoSecretsDir, k)
-			err := os.MkdirAll(config.KanikoSecretsDir, 0700)
+			err := os.MkdirAll(config.KanikoSecretsDir, 0o700)
 			if err != nil {
 				return err
 			}
@@ -454,8 +467,7 @@ func resolveSecrets() error {
 // resolveEnvironmentBuildArgs replace build args without value by the same named environment variable
 func resolveEnvironmentBuildArgs(arguments []string, resolver func(string) string) {
 	for index, argument := range arguments {
-		i := strings.Index(argument, "=")
-		if i < 0 {
+		if !strings.Contains(argument, "=") {
 			value := resolver(argument)
 			arguments[index] = fmt.Sprintf("%s=%s", argument, value)
 		}
@@ -465,12 +477,14 @@ func resolveEnvironmentBuildArgs(arguments []string, resolver func(string) strin
 // copy Dockerfile to /kaniko/Dockerfile so that if it's specified in the .dockerignore
 // it won't be copied into the image
 func copyDockerfile() error {
-	if err := util.CopyFileInternal(opts.DockerfilePath, config.DockerfilePath, util.FileContext{}); err != nil {
+	err := util.CopyFileInternal(opts.DockerfilePath, config.DockerfilePath, util.FileContext{})
+	if err != nil {
 		return fmt.Errorf("copying dockerfile: %w", err)
 	}
 	dockerignorePath := opts.DockerfilePath + ".dockerignore"
 	if util.FilepathExists(dockerignorePath) {
-		if err := util.CopyFileInternal(dockerignorePath, config.DockerfilePath+".dockerignore", util.FileContext{}); err != nil {
+		err := util.CopyFileInternal(dockerignorePath, config.DockerfilePath+".dockerignore", util.FileContext{})
+		if err != nil {
 			return fmt.Errorf("copying Dockerfile.dockerignore: %w", err)
 		}
 	}

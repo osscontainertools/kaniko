@@ -44,7 +44,7 @@ const (
 // Hasher returns a hash function, used in snapshotting to determine if a file has changed
 func Hasher() func(string) (string, error) {
 	pool := sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			b := make([]byte, highwayhash.Size*10*1024)
 			return &b
 		},
@@ -99,11 +99,23 @@ func CacheHasher() func(string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		h.Write([]byte(fi.Mode().String()))
+		_, err = h.Write([]byte(fi.Mode().String()))
+		if err != nil {
+			return "", err
+		}
 
-		h.Write([]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Uid), 36)))
-		h.Write([]byte(","))
-		h.Write([]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Gid), 36)))
+		_, err = h.Write([]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Uid), 36)))
+		if err != nil {
+			return "", err
+		}
+		_, err = h.Write([]byte(","))
+		if err != nil {
+			return "", err
+		}
+		_, err = h.Write([]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Gid), 36)))
+		if err != nil {
+			return "", err
+		}
 
 		if fi.Mode().IsRegular() {
 			f, err := FSys.Open(p)
@@ -119,7 +131,10 @@ func CacheHasher() func(string) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			h.Write([]byte(linkPath))
+			_, err = h.Write([]byte(linkPath))
+			if err != nil {
+				return "", err
+			}
 		}
 
 		return hex.EncodeToString(h.Sum(nil)), nil
@@ -136,7 +151,10 @@ func MtimeHasher() func(string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		h.Write([]byte(fi.ModTime().String()))
+		_, err = h.Write([]byte(fi.ModTime().String()))
+		if err != nil {
+			return "", nil
+		}
 		return hex.EncodeToString(h.Sum(nil)), nil
 	}
 	return hasher
@@ -157,13 +175,30 @@ func RedoHasher() func(string) (string, error) {
 			[]byte(strconv.FormatInt(fi.Size(), 16)), []byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Uid), 36)),
 			[]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Gid), 36)))
 
-		h.Write([]byte(fi.Mode().String()))
-		h.Write([]byte(fi.ModTime().String()))
-		h.Write([]byte(strconv.FormatInt(fi.Size(), 16)))
-		h.Write([]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Uid), 36)))
-		h.Write([]byte(","))
-		h.Write([]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Gid), 36)))
-
+		_, err = h.Write([]byte(fi.Mode().String()))
+		if err != nil {
+			return "", err
+		}
+		_, err = h.Write([]byte(fi.ModTime().String()))
+		if err != nil {
+			return "", err
+		}
+		_, err = h.Write([]byte(strconv.FormatInt(fi.Size(), 16)))
+		if err != nil {
+			return "", err
+		}
+		_, err = h.Write([]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Uid), 36)))
+		if err != nil {
+			return "", err
+		}
+		_, err = h.Write([]byte(","))
+		if err != nil {
+			return "", err
+		}
+		_, err = h.Write([]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Gid), 36)))
+		if err != nil {
+			return "", err
+		}
 		return hex.EncodeToString(h.Sum(nil)), nil
 	}
 	return hasher
@@ -209,7 +244,7 @@ func RetryWithResult[T any](operation func() (T, error), retryCount int, initial
 	if err == nil {
 		return result, nil
 	}
-	for i := 0; i < retryCount; i++ {
+	for i := range retryCount {
 		sleepDuration := time.Millisecond * time.Duration(int(math.Pow(2, float64(i)))*initialDelayMilliseconds)
 		logrus.Warnf("Retrying operation after %s due to %v", sleepDuration, err)
 		time.Sleep(sleepDuration)

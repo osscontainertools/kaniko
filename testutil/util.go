@@ -17,6 +17,7 @@ limitations under the License.
 package testutil
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/user"
@@ -31,10 +32,12 @@ import (
 func SetupFiles(path string, files map[string]string) error {
 	for p, c := range files {
 		path := filepath.Join(path, p)
-		if err := os.MkdirAll(filepath.Dir(path), 0750); err != nil {
+		err := os.MkdirAll(filepath.Dir(path), 0o750)
+		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(path, []byte(c), 0644); err != nil {
+		err = os.WriteFile(path, []byte(c), 0o644)
+		if err != nil {
 			return err
 		}
 	}
@@ -48,6 +51,7 @@ type CurrentUser struct {
 }
 
 func GetCurrentUser(t *testing.T) CurrentUser {
+	t.Helper()
 	currentUser, err := user.Current()
 	if err != nil {
 		t.Fatalf("Cannot get current user: %s", err)
@@ -68,7 +72,7 @@ func GetCurrentUser(t *testing.T) CurrentUser {
 	}
 }
 
-func CheckDeepEqual(t *testing.T, expected, actual interface{}) {
+func CheckDeepEqual(t *testing.T, expected, actual any) {
 	t.Helper()
 	if diff := cmp.Diff(actual, expected); diff != "" {
 		t.Errorf("%T differ (-got, +want): %s", expected, diff)
@@ -76,7 +80,7 @@ func CheckDeepEqual(t *testing.T, expected, actual interface{}) {
 	}
 }
 
-func CheckErrorAndDeepEqual(t *testing.T, shouldErr bool, err error, expected, actual interface{}) {
+func CheckErrorAndDeepEqual(t *testing.T, shouldErr bool, err error, expected, actual any) {
 	t.Helper()
 	if err := checkErr(shouldErr, err); err != nil {
 		t.Error(err)
@@ -90,12 +94,14 @@ func CheckErrorAndDeepEqual(t *testing.T, shouldErr bool, err error, expected, a
 }
 
 func CheckError(t *testing.T, shouldErr bool, err error) {
+	t.Helper()
 	if err := checkErr(shouldErr, err); err != nil {
 		t.Error(err)
 	}
 }
 
 func CheckNoError(t *testing.T, err error) {
+	t.Helper()
 	if err != nil {
 		t.Errorf("%+v", err)
 	}
@@ -103,7 +109,7 @@ func CheckNoError(t *testing.T, err error) {
 
 func checkErr(shouldErr bool, err error) error {
 	if err == nil && shouldErr {
-		return fmt.Errorf("expected error, but returned none")
+		return errors.New("expected error, but returned none")
 	}
 	if err != nil && !shouldErr {
 		return fmt.Errorf("unexpected error: %w", err)

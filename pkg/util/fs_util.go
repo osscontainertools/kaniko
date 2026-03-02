@@ -148,7 +148,8 @@ func GetFSFromImage(root string, img v1.Image, extract ExtractFunction) ([]strin
 func GetFSFromLayers(root string, layers []v1.Layer, opts ...FSOpt) ([]string, error) {
 	volumes = []string{}
 	cfg := new(FSConfig)
-	if err := InitIgnoreList(); err != nil {
+	err := InitIgnoreList()
+	if err != nil {
 		return nil, fmt.Errorf("initializing filesystem ignore list: %w", err)
 	}
 	logrus.Debugf("Ignore list: %v", ignorelist)
@@ -206,7 +207,8 @@ func GetFSFromLayers(root string, layers []v1.Layer, opts ...FSOpt) ([]string, e
 					continue
 				}
 
-				if err := os.RemoveAll(path); err != nil {
+				err := os.RemoveAll(path)
+				if err != nil {
 					return nil, fmt.Errorf("removing whiteout %s: %w", hdr.Name, err)
 				}
 
@@ -214,7 +216,6 @@ func GetFSFromLayers(root string, layers []v1.Layer, opts ...FSOpt) ([]string, e
 					logrus.Trace("Not including whiteout files")
 					continue
 				}
-
 			}
 
 			if err := cfg.extractFunc(root, hdr, cleanedName, tr); err != nil {
@@ -324,7 +325,8 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		if os.IsNotExist(err) || !fi.IsDir() {
 			logrus.Debugf("Base %s for file %s does not exist. Creating.", base, path)
 
-			if err := os.MkdirAll(dir, 0o755); err != nil {
+			err := os.MkdirAll(dir, 0o755)
+			if err != nil {
 				return err
 			}
 		}
@@ -332,7 +334,8 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		// Check if something already exists at path (symlinks etc.)
 		// If so, delete it
 		if FilepathExists(path) {
-			if err := os.RemoveAll(path); err != nil {
+			err := os.RemoveAll(path)
+			if err != nil {
 				return fmt.Errorf("error removing %s to make way for new file: %w", path, err)
 			}
 		}
@@ -364,12 +367,14 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		}
 	case tar.TypeDir:
 		logrus.Tracef("Creating dir %s", path)
-		if err := MkdirAllWithPermissions(path, mode, int64(uid), int64(gid)); err != nil {
+		err := MkdirAllWithPermissions(path, mode, int64(uid), int64(gid))
+		if err != nil {
 			return err
 		}
 		// For existing directories, MkdirAll doesn't change the permissions, so run Chmod
 		// To force permissions into what is configured in the tarball
-		if err = os.Chmod(path, mode); err != nil {
+		err = os.Chmod(path, mode)
+		if err != nil {
 			return err
 		}
 
@@ -390,7 +395,8 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		// Check if something already exists at path
 		// If so, delete it
 		if FilepathExists(path) {
-			if err := os.RemoveAll(path); err != nil {
+			err := os.RemoveAll(path)
+			if err != nil {
 				return fmt.Errorf("error removing %s to make way for new link: %w", hdr.Name, err)
 			}
 		}
@@ -402,17 +408,20 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 	case tar.TypeSymlink:
 		logrus.Tracef("Symlink from %s to %s", hdr.Linkname, path)
 		// The base directory for a symlink may not exist before it is created.
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		err := os.MkdirAll(dir, 0o755)
+		if err != nil {
 			return err
 		}
 		// Check if something already exists at path
 		// If so, delete it
 		if FilepathExists(path) {
-			if err := os.RemoveAll(path); err != nil {
+			err := os.RemoveAll(path)
+			if err != nil {
 				return fmt.Errorf("error removing %s to make way for new symlink: %w", hdr.Name, err)
 			}
 		}
-		if err := os.Symlink(hdr.Linkname, path); err != nil {
+		err = os.Symlink(hdr.Linkname, path)
+		if err != nil {
 			return err
 		}
 	}
@@ -531,10 +540,7 @@ func RelativeFiles(fp string, root string) ([]string, error) {
 func ParentDirectories(path string) []string {
 	dir := filepath.Clean(path)
 	var paths []string
-	for {
-		if dir == filepath.Clean(config.RootDir) || dir == "" || dir == "." {
-			break
-		}
+	for !(dir == filepath.Clean(config.RootDir) || dir == "" || dir == ".") {
 		dir, _ = filepath.Split(dir)
 		dir = filepath.Clean(dir)
 		paths = append([]string{dir}, paths...)
@@ -698,7 +704,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 		if file == "." {
 			logrus.Tracef("Creating directory %s", destPath)
 
-			mode := os.FileMode(0755)
+			mode := os.FileMode(0o755)
 			if !useDefaultChmod && config.EnvBool("FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS") {
 				// mz507: Here we want to implement chmod on implicit dirs to be
 				// compatible with buildkit. buildkit's mkdir does not whiteout the umask.
@@ -710,20 +716,23 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 			}
 
 			uid, gid := DetermineTargetFileOwnership(fi, uid, gid)
-			if err := MkdirAllWithPermissions(destPath, mode, uid, gid); err != nil {
+			err := MkdirAllWithPermissions(destPath, mode, uid, gid)
+			if err != nil {
 				return nil, err
 			}
 		} else if fi.IsDir() {
 			logrus.Tracef("Creating directory %s", destPath)
 
 			uid, gid := DetermineTargetFileOwnership(fi, uid, gid)
-			if err := MkdirAllWithPermissions(destPath, fi.Mode(), uid, gid); err != nil {
+			err := MkdirAllWithPermissions(destPath, fi.Mode(), uid, gid)
+			if err != nil {
 				return nil, err
 			}
 			if !useDefaultChmod {
 				// For existing directories, MkdirAll doesn't change the permissions, so run Chmod
 				// To force permissions into what is configured via the chmod parameter
-				if err = os.Chmod(destPath, chmod); err != nil {
+				err = os.Chmod(destPath, chmod)
+				if err != nil {
 					return nil, err
 				}
 			}
@@ -794,7 +803,8 @@ func CopySymlink(src, dest string, context FileContext) (bool, error) {
 		return true, nil
 	}
 	if FilepathExists(dest) {
-		if err := os.RemoveAll(dest); err != nil {
+		err := os.RemoveAll(dest)
+		if err != nil {
 			return false, err
 		}
 	}
@@ -861,8 +871,8 @@ func CopyFileInternal(src, dest string, context FileContext) error {
 		return err
 	}
 	defer srcFile.Close()
-	uid := uint32(fi.Sys().(*syscall.Stat_t).Uid)
-	gid := uint32(fi.Sys().(*syscall.Stat_t).Gid)
+	uid := fi.Sys().(*syscall.Stat_t).Uid
+	gid := fi.Sys().(*syscall.Stat_t).Gid
 	mode := fi.Mode()
 
 	err = CreateFile(dest, srcFile, mode, uid, gid)
@@ -955,7 +965,8 @@ func MkdirAllWithPermissions(path string, mode os.FileMode, uid, gid int64) erro
 	info, err := os.Lstat(path)
 	if err == nil && !info.IsDir() {
 		logrus.Tracef("Removing file because it needs to be a directory %s", path)
-		if err := os.Remove(path); err != nil {
+		err := os.Remove(path)
+		if err != nil {
 			return fmt.Errorf("error removing %s to make way for new directory: %w", path, err)
 		}
 	}
@@ -986,7 +997,8 @@ func MkdirAllWithPermissions(path string, mode os.FileMode, uid, gid int64) erro
 }
 
 func setFilePermissions(path string, mode os.FileMode, uid, gid int) error {
-	if err := os.Chown(path, uid, gid); err != nil {
+	err := os.Chown(path, uid, gid)
+	if err != nil {
 		return err
 	}
 	// manually set permissions on file, since the default umask (022) will interfere
@@ -1010,7 +1022,8 @@ func setFileTimes(path string, aTime, mTime time.Time) error {
 
 	// We set AccessTime because its a required arg but we only care about
 	// ModTime. The file will get accessed again so AccessTime will change.
-	if err := os.Chtimes(path, aTime, mTime); err != nil {
+	err := os.Chtimes(path, aTime, mTime)
+	if err != nil {
 		return fmt.Errorf(
 			"couldn't modify times: atime %v mtime %v: %w",
 			aTime,
@@ -1028,7 +1041,8 @@ func CreateTargetTarfile(tarpath string) (*os.File, error) {
 	baseDir := filepath.Dir(tarpath)
 	if _, err := os.Lstat(baseDir); os.IsNotExist(err) {
 		logrus.Debugf("BaseDir %s for file %s does not exist. Creating.", baseDir, tarpath)
-		if err := os.MkdirAll(baseDir, 0o755); err != nil {
+		err := os.MkdirAll(baseDir, 0o755)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -1040,17 +1054,19 @@ func IsSymlink(fi os.FileInfo) bool {
 	return fi.Mode()&os.ModeSymlink != 0
 }
 
-var ErrNotSymLink = fmt.Errorf("not a symlink")
+var ErrNotSymLink = errors.New("not a symlink")
 
 func GetSymLink(path string) (string, error) {
-	if err := getSymlink(path); err != nil {
+	err := getSymlink(path)
+	if err != nil {
 		return "", err
 	}
 	return os.Readlink(path)
 }
 
 func EvalSymLink(path string) (string, error) {
-	if err := getSymlink(path); err != nil {
+	err := getSymlink(path)
+	if err != nil {
 		return "", err
 	}
 	return filepath.EvalSymlinks(path)
@@ -1183,7 +1199,7 @@ func CopyTimestamps(src string, dest string) error {
 		return fmt.Errorf("failed to retrieve timestamps from: %s", src)
 	}
 	atime := time.Time{}
-	mtime := time.Unix(int64(stat.Mtim.Sec), int64(stat.Mtim.Nsec))
+	mtime := time.Unix(stat.Mtim.Sec, stat.Mtim.Nsec)
 	err = os.Chtimes(dest, atime, mtime)
 	if err != nil {
 		return fmt.Errorf("failed to copy timestamps: %w", err)
@@ -1198,10 +1214,7 @@ func createParentDirectory(path string, uid int, gid int) error {
 
 		dir := baseDir
 		dirs := []string{baseDir}
-		for {
-			if dir == "/" || dir == "." || dir == "" {
-				break
-			}
+		for !(dir == "/" || dir == "." || dir == "") {
 			dir = filepath.Dir(dir)
 			dirs = append(dirs, dir)
 		}
@@ -1246,7 +1259,8 @@ func InitIgnoreList() error {
 	logrus.Trace("Initializing ignore list")
 	ignorelist = append([]IgnoreListEntry{}, defaultIgnoreList...)
 
-	if err := DetectFilesystemIgnoreList(config.MountInfoPath); err != nil {
+	err := DetectFilesystemIgnoreList(config.MountInfoPath)
+	if err != nil {
 		return fmt.Errorf("checking filesystem mount paths for ignore list: %w", err)
 	}
 
@@ -1380,7 +1394,7 @@ func GetFSInfoMap(dir string, existing map[string]os.FileInfo) (map[string]os.Fi
 func isSame(fi1, fi2 os.FileInfo) bool {
 	return fi1.Mode() == fi2.Mode() &&
 		// file modification time
-		fi1.ModTime() == fi2.ModTime() &&
+		fi1.ModTime().Equal(fi2.ModTime()) &&
 		// file size
 		fi1.Size() == fi2.Size() &&
 		// file user id

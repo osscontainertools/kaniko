@@ -38,9 +38,11 @@ func (f *fakeSnapShotter) Init() error {
 	f.initialized = true
 	return nil
 }
+
 func (f *fakeSnapShotter) TakeSnapshotFS() (string, error) {
 	return f.tarPath, nil
 }
+
 func (f *fakeSnapShotter) TakeSnapshot(_ []string, _ bool) (string, error) {
 	return f.tarPath, nil
 }
@@ -52,34 +54,43 @@ type MockDockerCommand struct {
 	argToCompositeCache bool
 }
 
-func (m MockDockerCommand) ExecuteCommand(c *v1.Config, args *dockerfile.BuildArgs) error { return nil }
+func (MockDockerCommand) ExecuteCommand(_ *v1.Config, _ *dockerfile.BuildArgs) error { return nil }
 func (m MockDockerCommand) String() string {
 	return m.command
 }
-func (m MockDockerCommand) FilesToSnapshot() []string {
+
+func (MockDockerCommand) FilesToSnapshot() []string {
 	return []string{"meow-snapshot-no-cache"}
 }
-func (m MockDockerCommand) ProvidesFilesToSnapshot() bool {
+
+func (MockDockerCommand) ProvidesFilesToSnapshot() bool {
 	return true
 }
-func (m MockDockerCommand) CacheCommand(image v1.Image) commands.DockerCommand {
+
+func (m MockDockerCommand) CacheCommand(_ v1.Image) commands.DockerCommand {
 	return m.cacheCommand
 }
-func (m MockDockerCommand) FilesUsedFromContext(c *v1.Config, args *dockerfile.BuildArgs) ([]string, error) {
+
+func (m MockDockerCommand) FilesUsedFromContext(_ *v1.Config, _ *dockerfile.BuildArgs) ([]string, error) {
 	return m.contextFiles, nil
 }
-func (m MockDockerCommand) MetadataOnly() bool {
+
+func (MockDockerCommand) MetadataOnly() bool {
 	return false
 }
-func (m MockDockerCommand) RequiresUnpackedFS() bool {
+
+func (MockDockerCommand) RequiresUnpackedFS() bool {
 	return false
 }
-func (m MockDockerCommand) ShouldCacheOutput() bool {
+
+func (MockDockerCommand) ShouldCacheOutput() bool {
 	return true
 }
-func (m MockDockerCommand) ShouldDetectDeletedFiles() bool {
+
+func (MockDockerCommand) ShouldDetectDeletedFiles() bool {
 	return false
 }
+
 func (m MockDockerCommand) IsArgsEnvsRequiredInCache() bool {
 	return m.argToCompositeCache
 }
@@ -89,36 +100,46 @@ type MockCachedDockerCommand struct {
 	argToCompositeCache bool
 }
 
-func (m MockCachedDockerCommand) ExecuteCommand(c *v1.Config, args *dockerfile.BuildArgs) error {
+func (MockCachedDockerCommand) ExecuteCommand(_ *v1.Config, _ *dockerfile.BuildArgs) error {
 	return nil
 }
-func (m MockCachedDockerCommand) String() string {
+
+func (MockCachedDockerCommand) String() string {
 	return "meow"
 }
-func (m MockCachedDockerCommand) FilesToSnapshot() []string {
+
+func (MockCachedDockerCommand) FilesToSnapshot() []string {
 	return []string{"meow-snapshot"}
 }
-func (m MockCachedDockerCommand) ProvidesFilesToSnapshot() bool {
+
+func (MockCachedDockerCommand) ProvidesFilesToSnapshot() bool {
 	return true
 }
-func (m MockCachedDockerCommand) CacheCommand(image v1.Image) commands.DockerCommand {
+
+func (MockCachedDockerCommand) CacheCommand(_ v1.Image) commands.DockerCommand {
 	return nil
 }
-func (m MockCachedDockerCommand) ShouldDetectDeletedFiles() bool {
+
+func (MockCachedDockerCommand) ShouldDetectDeletedFiles() bool {
 	return false
 }
-func (m MockCachedDockerCommand) FilesUsedFromContext(c *v1.Config, args *dockerfile.BuildArgs) ([]string, error) {
+
+func (m MockCachedDockerCommand) FilesUsedFromContext(_ *v1.Config, _ *dockerfile.BuildArgs) ([]string, error) {
 	return m.contextFiles, nil
 }
-func (m MockCachedDockerCommand) MetadataOnly() bool {
+
+func (MockCachedDockerCommand) MetadataOnly() bool {
 	return false
 }
-func (m MockCachedDockerCommand) RequiresUnpackedFS() bool {
+
+func (MockCachedDockerCommand) RequiresUnpackedFS() bool {
 	return false
 }
-func (m MockCachedDockerCommand) ShouldCacheOutput() bool {
+
+func (MockCachedDockerCommand) ShouldCacheOutput() bool {
 	return false
 }
+
 func (m MockCachedDockerCommand) IsArgsEnvsRequiredInCache() bool {
 	return m.argToCompositeCache
 }
@@ -151,21 +172,26 @@ type fakeLayer struct {
 	mediaType  types.MediaType
 }
 
-func (f fakeLayer) Digest() (v1.Hash, error) {
+func (fakeLayer) Digest() (v1.Hash, error) {
 	return v1.Hash{}, nil
 }
-func (f fakeLayer) DiffID() (v1.Hash, error) {
+
+func (fakeLayer) DiffID() (v1.Hash, error) {
 	return v1.Hash{}, nil
 }
-func (f fakeLayer) Compressed() (io.ReadCloser, error) {
+
+func (fakeLayer) Compressed() (io.ReadCloser, error) {
 	return nil, nil
 }
+
 func (f fakeLayer) Uncompressed() (io.ReadCloser, error) {
 	return io.NopCloser(bytes.NewReader(f.TarContent)), nil
 }
-func (f fakeLayer) Size() (int64, error) {
+
+func (fakeLayer) Size() (int64, error) {
 	return 0, nil
 }
+
 func (f fakeLayer) MediaType() (types.MediaType, error) {
 	return f.mediaType, nil
 }
@@ -177,34 +203,44 @@ type fakeImage struct {
 func (f fakeImage) Layers() ([]v1.Layer, error) {
 	return f.ImageLayers, nil
 }
-func (f fakeImage) MediaType() (types.MediaType, error) {
+
+func (fakeImage) MediaType() (types.MediaType, error) {
 	return "", nil
 }
-func (f fakeImage) Size() (int64, error) {
+
+func (fakeImage) Size() (int64, error) {
 	return 0, nil
 }
-func (f fakeImage) ConfigName() (v1.Hash, error) {
+
+func (fakeImage) ConfigName() (v1.Hash, error) {
 	return v1.Hash{}, nil
 }
-func (f fakeImage) ConfigFile() (*v1.ConfigFile, error) {
+
+func (fakeImage) ConfigFile() (*v1.ConfigFile, error) {
 	return &v1.ConfigFile{}, nil
 }
-func (f fakeImage) RawConfigFile() ([]byte, error) {
+
+func (fakeImage) RawConfigFile() ([]byte, error) {
 	return []byte{}, nil
 }
-func (f fakeImage) Digest() (v1.Hash, error) {
+
+func (fakeImage) Digest() (v1.Hash, error) {
 	return v1.Hash{}, nil
 }
-func (f fakeImage) Manifest() (*v1.Manifest, error) {
+
+func (fakeImage) Manifest() (*v1.Manifest, error) {
 	return &v1.Manifest{}, nil
 }
-func (f fakeImage) RawManifest() ([]byte, error) {
+
+func (fakeImage) RawManifest() ([]byte, error) {
 	return []byte{}, nil
 }
-func (f fakeImage) LayerByDigest(v1.Hash) (v1.Layer, error) {
+
+func (fakeImage) LayerByDigest(v1.Hash) (v1.Layer, error) {
 	return fakeLayer{}, nil
 }
-func (f fakeImage) LayerByDiffID(v1.Hash) (v1.Layer, error) {
+
+func (fakeImage) LayerByDiffID(v1.Hash) (v1.Layer, error) {
 	return fakeLayer{}, nil
 }
 
@@ -212,7 +248,7 @@ type ociFakeImage struct {
 	*fakeImage
 }
 
-func (f ociFakeImage) MediaType() (types.MediaType, error) {
+func (ociFakeImage) MediaType() (types.MediaType, error) {
 	return types.OCIManifestSchema1, nil
 }
 
@@ -220,6 +256,6 @@ type dockerFakeImage struct {
 	*fakeImage
 }
 
-func (f dockerFakeImage) MediaType() (types.MediaType, error) {
+func (dockerFakeImage) MediaType() (types.MediaType, error) {
 	return types.DockerManifestSchema2, nil
 }

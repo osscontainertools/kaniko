@@ -17,6 +17,7 @@ limitations under the License.
 package executor
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -55,15 +56,17 @@ import (
 var (
 	initializeConfig             = initConfig
 	getFSFromImage               = util.GetFSFromImage
-	mkdirPermissions os.FileMode = 0644
+	mkdirPermissions os.FileMode = 0o644
 )
 
-type cachePusher func(*config.KanikoOptions, string, string, string) error
-type snapShotter interface {
-	Init() error
-	TakeSnapshotFS() (string, error)
-	TakeSnapshot([]string, bool) (string, error)
-}
+type (
+	cachePusher func(*config.KanikoOptions, string, string, string) error
+	snapShotter interface {
+		Init() error
+		TakeSnapshotFS() (string, error)
+		TakeSnapshot([]string, bool) (string, error)
+	}
+)
 
 // stageBuilder contains all fields necessary to build one stage of a Dockerfile
 type stageBuilder struct {
@@ -93,7 +96,7 @@ func makeSnapshotter(opts *config.KanikoOptions) (*snapshot.Snapshotter, error) 
 }
 
 // newStageBuilder returns a new type stageBuilder which contains all the information required to build the stage
-func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, stage config.KanikoStage, crossStageDeps map[int][]string, stageNameToIdx map[string]int, fileContext util.FileContext) (*stageBuilder, error) {
+func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, stage config.KanikoStage, crossStageDeps map[int][]string, fileContext util.FileContext) (*stageBuilder, error) {
 	sourceImage, err := image_util.RetrieveSourceImage(stage, opts)
 	if err != nil {
 		return nil, err
@@ -238,7 +241,8 @@ func (s *stageBuilder) populateCompositeKey(command commands.DockerCommand, file
 	compositeKey.AddKey(command.String())
 
 	for _, f := range files {
-		if err := compositeKey.AddPath(f, s.fileContext); err != nil {
+		err := compositeKey.AddPath(f, s.fileContext)
+		if err != nil {
 			return compositeKey, err
 		}
 	}
@@ -249,7 +253,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config) erro
 	if !s.opts.Cache {
 		return nil
 	}
-	var buildArgs = s.args.Clone()
+	buildArgs := s.args.Clone()
 	// Restore build args back to their original values
 	defer func() {
 		s.args = buildArgs
@@ -285,7 +289,6 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config) erro
 
 		if command.ShouldCacheOutput() && !stopCache {
 			img, err := s.layerCache.RetrieveLayer(ck)
-
 			if err != nil {
 				logrus.Debugf("Failed to retrieve layer: %s", err)
 				logrus.Infof("No cached layer found for cmd %s", command.String())
@@ -302,7 +305,8 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config) erro
 
 		// Mutate the config for any commands that require it.
 		if command.MetadataOnly() {
-			if err := command.ExecuteCommand(&cfg, s.args); err != nil {
+			err := command.ExecuteCommand(&cfg, s.args)
+			if err != nil {
 				return err
 			}
 		}
@@ -320,7 +324,8 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 	}
 
 	// Apply optimizations to the instructions.
-	if err := s.optimize(*compositeKey, s.cf.Config); err != nil {
+	err := s.optimize(*compositeKey, s.cf.Config)
+	if err != nil {
 		return fmt.Errorf("failed to optimize instructions: %w", err)
 	}
 
@@ -351,7 +356,8 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 			return err
 		}
 
-		if err := util.Retry(retryFunc, s.opts.ImageFSExtractRetry, 1000); err != nil {
+		err := util.Retry(retryFunc, s.opts.ImageFSExtractRetry, 1000)
+		if err != nil {
 			return fmt.Errorf("failed to get filesystem from image: %w", err)
 		}
 
@@ -362,7 +368,8 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 
 	initSnapshotTaken := false
 	if s.opts.SingleSnapshot {
-		if err := s.initSnapshotWithTimings(); err != nil {
+		err := s.initSnapshotWithTimings()
+		if err != nil {
 			return err
 		}
 		initSnapshotTaken = true
@@ -402,7 +409,8 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 		if !initSnapshotTaken && !isCacheCommand && !command.ProvidesFilesToSnapshot() {
 			// Take initial snapshot if command does not expect to return
 			// a list of files.
-			if err := s.initSnapshotWithTimings(); err != nil {
+			err := s.initSnapshotWithTimings()
+			if err != nil {
 				return err
 			}
 			initSnapshotTaken = true
@@ -426,7 +434,8 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 				// We continue to handle this case here as users might still have cache entries lying around
 				logrus.Info("No files were changed, appending empty layer to config. No layer added to image.")
 			} else {
-				if err := s.saveLayerToImage(layer, command.String()); err != nil {
+				err := s.saveLayerToImage(layer, command.String())
+				if err != nil {
 					return fmt.Errorf("failed to save layer: %w", err)
 				}
 			}
@@ -458,7 +467,8 @@ func (s *stageBuilder) build(digestToCacheKey map[string]string) error {
 		}
 	}
 
-	if err := cacheGroup.Wait(); err != nil {
+	err = cacheGroup.Wait()
+	if err != nil {
 		logrus.Warnf("Error uploading layer to cache: %s", err)
 	}
 
@@ -694,14 +704,15 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 					if err != nil {
 						continue
 					}
-					resolved, err := util.ResolveEnvironmentReplacementList(cmd.SourcesAndDest.SourcePaths, ba.ReplacementEnvs(cfg.Config.Env), true)
+					resolved, err := util.ResolveEnvironmentReplacementList(cmd.SourcePaths, ba.ReplacementEnvs(cfg.Config.Env), true)
 					if err != nil {
 						return nil, err
 					}
 					depGraph[i] = append(depGraph[i], resolved...)
 				}
 			case *instructions.EnvCommand:
-				if err := util.UpdateConfigEnv(cmd.Env, &cfg.Config, ba.ReplacementEnvs(cfg.Config.Env)); err != nil {
+				err := util.UpdateConfigEnv(cmd.Env, &cfg.Config, ba.ReplacementEnvs(cfg.Config.Env))
+				if err != nil {
 					return nil, err
 				}
 				image, err = mutate.Config(image, cfg.Config)
@@ -733,7 +744,7 @@ var (
 )
 
 func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string) (retErr error) {
-	printf := func(format string, args ...interface{}) {
+	printf := func(format string, args ...any) {
 		if retErr == nil {
 			_, retErr = fmt.Fprintf(Out, format, args...)
 		}
@@ -831,7 +842,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 
 	lastStage := kanikoStages[len(kanikoStages)-1]
-	var args = dockerfile.NewBuildArgs(opts.BuildArgs)
+	args := dockerfile.NewBuildArgs(opts.BuildArgs)
 	err = args.InitPredefinedArgs(opts.CustomPlatform, lastStage.Name)
 	if err != nil {
 		return nil, err
@@ -859,14 +870,16 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 	}
 	if opts.PreCleanup {
-		if err = util.DeleteFilesystem(); err != nil {
+		err = util.DeleteFilesystem()
+		if err != nil {
 			return nil, err
 		}
 	}
 
 	if opts.Cleanup {
 		defer assignIfNil(&retErr, func() error {
-			if err = util.DeleteFilesystem(); err != nil {
+			err = util.DeleteFilesystem()
+			if err != nil {
 				return err
 			}
 			err = config.Cleanup()
@@ -875,7 +888,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			}
 			if opts.PreserveContext {
 				if tarball == "" {
-					return fmt.Errorf("context snapshot is missing")
+					return errors.New("context snapshot is missing")
 				}
 				_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
 				if err != nil {
@@ -891,7 +904,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		sb, err := newStageBuilder(
 			args, opts, stage,
 			crossStageDependencies,
-			stageNameToIdx,
 			fileContext)
 
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
@@ -955,7 +967,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return sourceImage, nil
 		}
 		if stage.SaveStage {
-			if err := saveStageAsTarball(strconv.Itoa(stage.Index), sourceImage); err != nil {
+			err := saveStageAsTarball(strconv.Itoa(stage.Index), sourceImage)
+			if err != nil {
 				return nil, err
 			}
 		}
@@ -972,7 +985,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 		for _, p := range filesToSave {
 			logrus.Infof("Saving file %s for later use", p)
-			if err := util.CopyFileOrSymlink(p, dstDir, config.RootDir); err != nil {
+			err := util.CopyFileOrSymlink(p, dstDir, config.RootDir)
+			if err != nil {
 				return nil, fmt.Errorf("could not save file: %w", err)
 			}
 		}
@@ -983,7 +997,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 		if opts.PreserveContext && !opts.PreCleanup {
 			if tarball == "" {
-				return nil, fmt.Errorf("context snapshot is missing")
+				return nil, errors.New("context snapshot is missing")
 			}
 			_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
 			if err != nil {
@@ -997,7 +1011,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 }
 
 func assignIfNil(dst *error, fn func() error) {
-	if err := fn(); err != nil && *dst == nil {
+	err := fn()
+	if err != nil && *dst == nil {
 		*dst = err
 	}
 }
@@ -1117,7 +1132,7 @@ func extractImageToDependencyDir(name string, image v1.Image) error {
 	t := timing.Start("Extracting Image to Dependency Dir")
 	defer timing.DefaultRun.Stop(t)
 	dependencyDir := filepath.Join(config.KanikoInterStageDepsDir, name)
-	if err := os.MkdirAll(dependencyDir, 0755); err != nil {
+	if err := os.MkdirAll(dependencyDir, 0o755); err != nil {
 		return err
 	}
 	logrus.Debugf("Trying to extract to %s", dependencyDir)
@@ -1134,7 +1149,7 @@ func saveStageAsTarball(path string, image v1.Image) error {
 	}
 	tarPath := filepath.Join(config.KanikoIntermediateStagesDir, path)
 	logrus.Infof("Storing source image from stage %s at path %s", path, tarPath)
-	if err := os.MkdirAll(filepath.Dir(tarPath), 0750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(tarPath), 0o750); err != nil {
 		return err
 	}
 	if config.EnvBool("FF_KANIKO_OCI_STAGES") {
@@ -1200,7 +1215,8 @@ func ResolveCrossStageInstructions(stages []config.KanikoStage) map[string]int {
 
 func (s stageBuilder) initSnapshotWithTimings() error {
 	t := timing.Start("Initial FS snapshot")
-	if err := s.snapshotter.Init(); err != nil {
+	err := s.snapshotter.Init()
+	if err != nil {
 		return err
 	}
 	timing.DefaultRun.Stop(t)

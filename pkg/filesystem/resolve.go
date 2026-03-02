@@ -69,7 +69,7 @@ func ResolvePaths(paths []string, wl []util.IgnoreListEntry) (pathsToAdd []strin
 		if e != nil {
 			if !os.IsNotExist(e) {
 				logrus.Errorf("Couldn't eval %s with link %s", f, link)
-				return
+				return nil, e
 			}
 
 			logrus.Tracef("Symlink path %s, target does not exist", f)
@@ -93,8 +93,7 @@ func ResolvePaths(paths []string, wl []util.IgnoreListEntry) (pathsToAdd []strin
 	}
 
 	// Also add parent directories to keep the permission of them correctly.
-	pathsToAdd = filesWithParentDirs(pathsToAdd)
-	return
+	return filesWithParentDirs(pathsToAdd), nil
 }
 
 // filesWithParentDirs returns every ancestor path for each provided file path.
@@ -112,7 +111,7 @@ func filesWithParentDirs(files []string) []string {
 		}
 	}
 
-	newFiles := []string{}
+	newFiles := make([]string, 0, len(filesSet))
 	for file := range filesSet {
 		newFiles = append(newFiles, file)
 	}

@@ -120,7 +120,8 @@ func launchTests(m *testing.M) (int, error) {
 		RunOnInterrupt(deleteFunc)
 		defer deleteFunc()
 	}
-	if err := buildRequiredImages(); err != nil {
+	err := buildRequiredImages()
+	if err != nil {
 		return 1, fmt.Errorf("Error while building images: %w", err)
 	}
 
@@ -161,28 +162,28 @@ func buildRequiredImages() error {
 		command: []string{"docker", "build", "-t", WarmerImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-warmer", ".."},
 	}, {
 		name:    "Building onbuild base image",
-		command: []string{"docker", "build", "-t", config.onbuildBaseImage, "-f", fmt.Sprintf("%s/Dockerfile_onbuild_base", dockerfilesPath), "."},
+		command: []string{"docker", "build", "-t", config.onbuildBaseImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_base", "."},
 	}, {
 		name:    "Pushing onbuild base image",
 		command: []string{"docker", "push", config.onbuildBaseImage},
 	}, {
 		name:    "Building onbuild copy image",
-		command: []string{"docker", "build", "-t", config.onbuildCopyImage, "-f", fmt.Sprintf("%s/Dockerfile_onbuild_copy", dockerfilesPath), "."},
+		command: []string{"docker", "build", "-t", config.onbuildCopyImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_copy", "."},
 	}, {
 		name:    "Pushing onbuild copy image",
 		command: []string{"docker", "push", config.onbuildCopyImage},
 	}, {
 		name:    "Building hardlink base image",
-		command: []string{"docker", "build", "-t", config.hardlinkBaseImage, "-f", fmt.Sprintf("%s/Dockerfile_hardlink_base", dockerfilesPath), "."},
+		command: []string{"docker", "build", "-t", config.hardlinkBaseImage, "-f", dockerfilesPath + "/Dockerfile_hardlink_base", "."},
 	}, {
 		name:    "Pushing hardlink base image",
 		command: []string{"docker", "push", config.hardlinkBaseImage},
 	}, {
 		name:    "Building kaniko image with moved kaniko dir",
-		command: []string{"docker", "build", "-t", ExecutorImageMoved, "-f", fmt.Sprintf("%s/Dockerfile_test_issue_mz444", dockerfilesPath), "--target", "kaniko", "."},
+		command: []string{"docker", "build", "-t", ExecutorImageMoved, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz444", "--target", "kaniko", "."},
 	}, {
 		name:    "Building kaniko image with leftover stuff in the filesystem",
-		command: []string{"docker", "build", "-t", ExecutorImageTainted, "-f", fmt.Sprintf("%s/Dockerfile_test_issue_mz455", dockerfilesPath), "--target", "kaniko", "."},
+		command: []string{"docker", "build", "-t", ExecutorImageTainted, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz455", "--target", "kaniko", "."},
 	}}
 
 	for _, setupCmd := range setupCommands {
@@ -243,11 +244,11 @@ func getBranchCommitAndURL() (branch, commit, url string) {
 	}
 	log.Printf("repo=%q / commit=%q / branch=%q", repo, commit, branch)
 	url = "github.com/" + repo
-	return
+	return branch, commit, url
 }
 
 func DockerGitRepo(url string, commit string, branch string) string {
-	var ref = ""
+	ref := ""
 	if commit != "" {
 		ref = "#" + commit
 	} else if branch != "" {
@@ -257,7 +258,7 @@ func DockerGitRepo(url string, commit string, branch string) string {
 }
 
 func KanikoGitRepo(url string, commit string, branch string) string {
-	var ref = ""
+	ref := ""
 	if commit != "" {
 		ref = "#" + commit
 	} else if branch != "" {
@@ -267,6 +268,7 @@ func KanikoGitRepo(url string, commit string, branch string) string {
 }
 
 func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch string) {
+	t.Helper()
 	t.Log("testGitBuildcontextHelper repo", url)
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_test_run_2", integrationPath, dockerfilesPath)
 
@@ -476,7 +478,7 @@ func TestBuildSkipFallback(t *testing.T) {
 
 	_, err := RunCommandWithoutTest(kanikoCmd)
 	if err == nil {
-		t.Errorf("Build should fail after using skip-default-registry-fallback and registry-mirror fail to pull")
+		t.Error("Build should fail after using skip-default-registry-fallback and registry-mirror fail to pull")
 	}
 }
 
@@ -623,7 +625,7 @@ func TestLayers(t *testing.T) {
 			dockerImage := GetDockerImage(config.imageRepo, dockerfileTest)
 			kanikoImage := GetKanikoImage(config.imageRepo, dockerfileTest)
 			pushCmd := exec.Command("docker", "push", dockerImage)
-			RunCommand(pushCmd, t)
+			RunCommand(t, pushCmd)
 			checkLayers(t, dockerImage, kanikoImage, offset[dockerfileTest])
 			onBuildDiff(t, dockerImage, kanikoImage)
 		})
@@ -659,9 +661,11 @@ func TestReplaceFolderWithFileOrLink(t *testing.T) {
 }
 
 func buildImage(t *testing.T, dockerfile string, imageBuilder *DockerFileBuilder) {
+	t.Helper()
 	t.Logf("Building image '%v'...", dockerfile)
 
-	if err := imageBuilder.BuildImage(t, config, dockerfilesPath, dockerfile); err != nil {
+	err := imageBuilder.BuildImage(t, config, dockerfilesPath, dockerfile)
+	if err != nil {
 		t.Errorf("Error building image: %s", err)
 		t.FailNow()
 	}
@@ -673,7 +677,7 @@ func TestCache(t *testing.T) {
 	for dockerfile := range imageBuilder.TestCacheDockerfiles {
 		t.Run("test_cache_"+dockerfile, func(t *testing.T) {
 			dockerfile := dockerfile
-			cache := filepath.Join(config.imageRepo, "cache", fmt.Sprintf("%v", time.Now().UnixNano()))
+			cache := filepath.Join(config.imageRepo, "cache", strconv.FormatInt(time.Now().UnixNano(), 10))
 			t.Parallel()
 			verifyBuildWith(t, cache, dockerfile)
 		})
@@ -683,20 +687,23 @@ func TestCache(t *testing.T) {
 	for dockerfile := range imageBuilder.TestOCICacheDockerfiles {
 		t.Run("test_oci_cache_"+dockerfile, func(t *testing.T) {
 			dockerfile := dockerfile
-			cache := filepath.Join("oci:", cacheDir, "cached", fmt.Sprintf("%v", time.Now().UnixNano()))
+			cache := filepath.Join("oci:", cacheDir, "cached", strconv.FormatInt(time.Now().UnixNano(), 10))
 			t.Parallel()
 			verifyBuildWith(t, cache, dockerfile)
 		})
 	}
 
-	if err := logBenchmarks("benchmark_cache"); err != nil {
+	err := logBenchmarks("benchmark_cache")
+	if err != nil {
 		t.Logf("Failed to create benchmark file: %v", err)
 	}
 }
 
 func TestWarmer(t *testing.T) {
-	populateVolumeCache(t.Logf, config.serviceAccount)
-
+	err := populateVolumeCache(t.Logf, config.serviceAccount)
+	if err != nil {
+		t.Error(err)
+	}
 	for dockerfile := range imageBuilder.TestWarmerDockerfiles {
 		t.Run("test_warmer_"+dockerfile, func(t *testing.T) {
 			t.Parallel()
@@ -707,12 +714,14 @@ func TestWarmer(t *testing.T) {
 			}
 
 			// Build the initial without warmer
-			if err := imageBuilder.buildWarmerImage(t.Logf, config, dockerfilesPath, dockerfile, 0, args, false); err != nil {
+			err := imageBuilder.buildWarmerImage(t.Logf, config, dockerfilesPath, dockerfile, 0, args, false)
+			if err != nil {
 				t.Fatalf("error building cached image for the first time: %v", err)
 			}
 
 			// Build the second with warmer
-			if err := imageBuilder.buildWarmerImage(t.Logf, config, dockerfilesPath, dockerfile, 1, args, true); err != nil {
+			err = imageBuilder.buildWarmerImage(t.Logf, config, dockerfilesPath, dockerfile, 1, args, true)
+			if err != nil {
 				t.Fatalf("error building cached image for the second time: %v", err)
 			}
 
@@ -769,7 +778,7 @@ func TestWarmerTwice(t *testing.T) {
 				t.Fatalf("Unable to perform second warming: %s", err)
 			}
 
-			s := fmt.Sprintf("Image already in cache: %s", dockerfile)
+			s := "Image already in cache: " + dockerfile
 			if !strings.Contains(string(out), s) {
 				t.Fatalf("output must contain %s", s)
 			}
@@ -784,17 +793,20 @@ func TestWarmerTwice(t *testing.T) {
 }
 
 func verifyBuildWith(t *testing.T, cache, dockerfile string) {
+	t.Helper()
 	args, ok := additionalKanikoFlagsMap[dockerfile]
 	if !ok {
 		args = []string{}
 	}
 
 	// Build the initial image which will cache layers
-	if err := imageBuilder.buildCachedImage(t.Logf, config, cache, dockerfilesPath, dockerfile, 0, args); err != nil {
+	err := imageBuilder.buildCachedImage(t.Logf, config, cache, dockerfilesPath, dockerfile, 0, args)
+	if err != nil {
 		t.Fatalf("error building cached image for the first time: %v", err)
 	}
 	// Build the second image which should pull from the cache
-	if err := imageBuilder.buildCachedImage(t.Logf, config, cache, dockerfilesPath, dockerfile, 1, args); err != nil {
+	err = imageBuilder.buildCachedImage(t.Logf, config, cache, dockerfilesPath, dockerfile, 1, args)
+	if err != nil {
 		t.Fatalf("error building cached image for the second time: %v", err)
 	}
 	// Make sure both images are the same
@@ -806,6 +818,7 @@ func verifyBuildWith(t *testing.T, cache, dockerfile string) {
 }
 
 func TestRelativePaths(t *testing.T) {
+	t.Parallel()
 	dockerfile := "Dockerfile_relative_copy"
 
 	t.Run("test_relative_"+dockerfile, func(t *testing.T) {
@@ -839,8 +852,8 @@ func TestExitCodePropagation(t *testing.T) {
 		t.Fatal("Could not get working dir")
 	}
 
-	context := fmt.Sprintf("%s/testdata/exit-code-propagation", currentDir)
-	dockerfile := fmt.Sprintf("%s/Dockerfile_exit_code_propagation", context)
+	ctx := currentDir + "/testdata/exit-code-propagation"
+	dockerfile := ctx + "/Dockerfile_exit_code_propagation"
 
 	t.Run("test error code propagation", func(t *testing.T) {
 		t.Parallel()
@@ -851,7 +864,7 @@ func TestExitCodePropagation(t *testing.T) {
 			"-t", dockerImage,
 			"-f", dockerfile,
 		}
-		dockerCmd := exec.Command("docker", append(dockerFlags, context)...)
+		dockerCmd := exec.Command("docker", append(dockerFlags, ctx)...)
 		dockerCmd.Env = append(dockerCmd.Env, "DOCKER_BUILDKIT=0")
 
 		out, kanikoErr := RunCommandWithoutTest(dockerCmd)
@@ -872,7 +885,7 @@ func TestExitCodePropagation(t *testing.T) {
 		}
 
 		// try to build the same image with kaniko the error code should match with the one from the plain docker build
-		contextVolume := fmt.Sprintf("%s:/workspace", context)
+		contextVolume := ctx + ":/workspace"
 
 		dockerFlags = []string{
 			"run",
@@ -908,7 +921,7 @@ func TestBuildWithAnnotations(t *testing.T) {
 	t.Parallel()
 	branch, _, url := getBranchCommitAndURL()
 
-	dockerfile := fmt.Sprintf("%s/testdata/Dockerfile.trivial", integrationPath)
+	dockerfile := integrationPath + "/testdata/Dockerfile.trivial"
 	annotationKey := "myannotation"
 	annotationValue := "myvalue"
 
@@ -1001,6 +1014,7 @@ func getImageManifestAnnotations(t *testing.T, image string) (map[string]string,
 }
 
 func onBuildDiff(t *testing.T, image1, image2 string) {
+	t.Helper()
 	img1, err := getImageConfig(image1)
 	if err != nil {
 		t.Fatalf("Failed to get image config for (%s): %s", image1, err)
@@ -1217,7 +1231,10 @@ func logBenchmarks(benchmark string) error {
 		if err != nil {
 			return err
 		}
-		f.WriteString(timing.Summary())
+		_, err = f.WriteString(timing.Summary())
+		if err != nil {
+			return err
+		}
 		defer f.Close()
 	}
 	return nil
@@ -1307,18 +1324,19 @@ func meetsRequirements() bool {
 }
 
 // containerDiff compares the container images image1 and image2.
-func containerDiff(t *testing.T, image1, image2 string, flags ...string) []byte {
+func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
+	t.Helper()
 	// workaround for container-diff OCI issue https://github.com/GoogleContainerTools/container-diff/issues/389
 	if !strings.HasPrefix(image1, daemonPrefix) {
 		dockerPullCmd := exec.Command("docker", "pull", image1)
-		out := RunCommand(dockerPullCmd, t)
+		out := RunCommand(t, dockerPullCmd)
 		t.Logf("docker pull cmd output for image1 = %s", string(out))
 		image1 = daemonPrefix + image1
 	}
 
 	if !strings.HasPrefix(image2, daemonPrefix) {
 		dockerPullCmd := exec.Command("docker", "pull", image2)
-		out := RunCommand(dockerPullCmd, t)
+		out := RunCommand(t, dockerPullCmd)
 		t.Logf("docker pull cmd output for image2 = %s", string(out))
 		image2 = daemonPrefix + image2
 	}
@@ -1328,8 +1346,6 @@ func containerDiff(t *testing.T, image1, image2 string, flags ...string) []byte 
 	flags = append(flags, diffArgsMap[t.Name()]...)
 
 	containerdiffCmd := exec.Command("diffoci", flags...)
-	diff := RunCommand(containerdiffCmd, t)
+	diff := RunCommand(t, containerdiffCmd)
 	t.Logf("diff = %s", string(diff))
-
-	return diff
 }

@@ -19,7 +19,6 @@ package buildcontext
 import (
 	"bytes"
 	"compress/gzip"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -38,7 +37,8 @@ func TestBuildWithLocalTar(t *testing.T) {
 	testDirLongPath := filepath.Join(cwd, testDir)
 	dirUnpack := filepath.Join(testDirLongPath, "dir_where_to_unpack")
 
-	if err := os.MkdirAll(dirUnpack, 0750); err != nil {
+	err := os.MkdirAll(dirUnpack, 0o750)
+	if err != nil {
 		t.Errorf("Failed to create dir_where_to_extract: %v", err)
 	}
 
@@ -51,17 +51,19 @@ func TestBuildWithLocalTar(t *testing.T) {
 		invalidDockerfile: "FROM debian:12.10\nRUN echo \"invalid\"",
 	}
 
-	if err := testutil.SetupFiles(testDir, files); err != nil {
+	err = testutil.SetupFiles(testDir, files)
+	if err != nil {
 		t.Errorf("Failed to setup files %v on %s: %v", files, testDir, err)
 	}
 
-	if err := os.Chdir(testDir); err != nil {
+	err = os.Chdir(testDir)
+	if err != nil {
 		t.Fatalf("Failed to Chdir on %s: %v", testDir, err)
 	}
 
-	validTarPath := fmt.Sprintf("%s.tar.gz", validDockerfile)
-	invalidTarPath := fmt.Sprintf("%s.tar.gz", invalidDockerfile)
-	nonExistingTarPath := fmt.Sprintf("%s.tar.gz", nonExistingDockerfile)
+	validTarPath := validDockerfile + ".tar.gz"
+	invalidTarPath := invalidDockerfile + ".tar.gz"
+	nonExistingTarPath := nonExistingDockerfile + ".tar.gz"
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -138,7 +140,8 @@ func TestBuildWithLocalTar(t *testing.T) {
 		})
 	}
 
-	if err := os.RemoveAll(testDirLongPath); err != nil {
+	err = os.RemoveAll(testDirLongPath)
+	if err != nil {
 		t.Errorf("Failed to remove %s: %v", testDirLongPath, err)
 	}
 }

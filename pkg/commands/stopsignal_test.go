@@ -44,7 +44,6 @@ var stopsignalTests = []struct {
 }
 
 func TestStopsignalExecuteCmd(t *testing.T) {
-
 	cfg := &v1.Config{
 		StopSignal: "",
 		Env:        []string{"STOPSIG=SIGKILL"},

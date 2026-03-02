@@ -17,7 +17,6 @@ limitations under the License.
 package filesystem
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -34,6 +33,7 @@ func Test_ResolvePaths(t *testing.T) {
 		expectedFiles []string,
 		err error,
 	) {
+		t.Helper()
 		if err != nil {
 			t.Errorf("expected err to be nil but was %s", err)
 		}
@@ -62,19 +62,23 @@ func Test_ResolvePaths(t *testing.T) {
 				fLink := filepath.Join(dir, "link", f)
 				fTarget := filepath.Join(dir, "target", f)
 
-				if err := os.MkdirAll(filepath.Dir(fTarget), 0777); err != nil {
+				err := os.MkdirAll(filepath.Dir(fTarget), 0o777)
+				if err != nil {
 					t.Fatal(err)
 				}
 
-				if err := os.WriteFile(fTarget, []byte{}, 0777); err != nil {
+				err = os.WriteFile(fTarget, []byte{}, 0o777)
+				if err != nil {
 					t.Fatal(err)
 				}
 
-				if err := os.MkdirAll(filepath.Dir(fLink), 0777); err != nil {
+				err = os.MkdirAll(filepath.Dir(fLink), 0o777)
+				if err != nil {
 					t.Fatal(err)
 				}
 
-				if err := os.Symlink(fTarget, fLink); err != nil {
+				err = os.Symlink(fTarget, fLink)
+				if err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -82,9 +86,8 @@ func Test_ResolvePaths(t *testing.T) {
 			t.Run("none are ignored", func(t *testing.T) {
 				wl := []util.IgnoreListEntry{}
 
-				inputFiles := []string{}
-				expectedFiles := []string{}
-
+				inputFiles := make([]string, 0, len(files))
+				expectedFiles := make([]string, 0, 2*len(files))
 				for _, f := range files {
 					link := filepath.Join(dir, "link", f)
 					expectedFiles = append(expectedFiles, link)
@@ -138,11 +141,11 @@ func Test_ResolvePaths(t *testing.T) {
 				link := filepath.Join(dir, "link", "zoom/")
 
 				target := filepath.Join(dir, "target", "zaam/")
-				if err := os.MkdirAll(target, 0777); err != nil {
+				if err := os.MkdirAll(target, 0o777); err != nil {
 					t.Fatal(err)
 				}
 
-				if err := os.WriteFile(filepath.Join(target, "meow.txt"), []byte{}, 0777); err != nil {
+				if err := os.WriteFile(filepath.Join(target, "meow.txt"), []byte{}, 0o777); err != nil {
 					t.Fatal(err)
 				}
 
@@ -181,17 +184,20 @@ func Test_ResolvePaths(t *testing.T) {
 
 func Test_resolveSymlinkAncestor(t *testing.T) {
 	setupDirs := func(t *testing.T) (string, string) {
+		t.Helper()
 		testDir := t.TempDir()
 
 		targetDir := filepath.Join(testDir, "bar", "baz")
 
-		if err := os.MkdirAll(targetDir, 0777); err != nil {
+		err := os.MkdirAll(targetDir, 0o777)
+		if err != nil {
 			t.Fatal(err)
 		}
 
 		targetPath := filepath.Join(targetDir, "bam.txt")
 
-		if err := os.WriteFile(targetPath, []byte("meow"), 0777); err != nil {
+		err = os.WriteFile(targetPath, []byte("meow"), 0o777)
+		if err != nil {
 			t.Fatal(err)
 		}
 
@@ -204,7 +210,7 @@ func Test_resolveSymlinkAncestor(t *testing.T) {
 
 		linkDir := filepath.Join(testDir, "foo", "buzz")
 
-		if err := os.MkdirAll(linkDir, 0777); err != nil {
+		if err := os.MkdirAll(linkDir, 0o777); err != nil {
 			t.Fatal(err)
 		}
 
@@ -231,13 +237,13 @@ func Test_resolveSymlinkAncestor(t *testing.T) {
 		defer os.RemoveAll(testDir)
 
 		linkDir := filepath.Join(testDir, "var", "www")
-		if err := os.MkdirAll(linkDir, 0777); err != nil {
+		if err := os.MkdirAll(linkDir, 0o777); err != nil {
 			t.Fatal(err)
 		}
 
 		expected := linkDir
 
-		actual, err := resolveSymlinkAncestor(fmt.Sprintf("%s/", linkDir))
+		actual, err := resolveSymlinkAncestor(linkDir + "/")
 		if err != nil {
 			t.Errorf("expected err to be nil but was %s", err)
 		}
@@ -253,7 +259,7 @@ func Test_resolveSymlinkAncestor(t *testing.T) {
 
 		linkDir := filepath.Join(testDir, "foo", "buzz")
 
-		if err := os.MkdirAll(linkDir, 0777); err != nil {
+		if err := os.MkdirAll(linkDir, 0o777); err != nil {
 			t.Fatal(err)
 		}
 
@@ -303,7 +309,7 @@ func Test_resolveSymlinkAncestor(t *testing.T) {
 
 		linkDir := filepath.Join(testDir, "foo")
 
-		if err := os.MkdirAll(linkDir, 0777); err != nil {
+		if err := os.MkdirAll(linkDir, 0o777); err != nil {
 			t.Fatal(err)
 		}
 
@@ -335,7 +341,7 @@ func Test_resolveSymlinkAncestor(t *testing.T) {
 
 		linkDir := filepath.Join(testDir, "foo")
 
-		if err := os.MkdirAll(linkDir, 0777); err != nil {
+		if err := os.MkdirAll(linkDir, 0o777); err != nil {
 			t.Fatal(err)
 		}
 

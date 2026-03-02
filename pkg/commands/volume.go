@@ -20,10 +20,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/osscontainertools/kaniko/pkg/dockerfile"
-
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
@@ -53,7 +52,8 @@ func (v *VolumeCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.
 		// Only create and snapshot the dir if it didn't exist already
 		if _, err := os.Stat(volume); os.IsNotExist(err) {
 			logrus.Infof("Creating directory %s", volume)
-			if err := os.MkdirAll(volume, 0755); err != nil {
+			err := os.MkdirAll(volume, 0o755)
+			if err != nil {
 				return fmt.Errorf("could not create directory for volume %s: %w", volume, err)
 			}
 		}
@@ -63,7 +63,7 @@ func (v *VolumeCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.
 	return nil
 }
 
-func (v *VolumeCommand) FilesToSnapshot() []string {
+func (*VolumeCommand) FilesToSnapshot() []string {
 	return []string{}
 }
 

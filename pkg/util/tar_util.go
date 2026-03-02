@@ -183,7 +183,8 @@ func (t *Tar) Whiteout(p string) error {
 		Name: strings.TrimLeft(filepath.Join(dir, name), "/"),
 		Size: 0,
 	}
-	if err := t.w.WriteHeader(th); err != nil {
+	err := t.w.WriteHeader(th)
+	if err != nil {
 		return err
 	}
 

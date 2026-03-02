@@ -79,16 +79,16 @@ func TestSnapshotBenchmark(t *testing.T) {
 	wg.Wait()
 
 	t.Log("Number of Files,Total Build Time,Walking Filesystem, Resolving Files")
-	timeMap.Range(func(key interface{}, value interface{}) bool {
+	timeMap.Range(func(key any, value any) bool {
 		d, _ := key.(int)
 		v, _ := value.(result)
 		t.Logf("%d,%f,%f,%f", d, v.totalBuildTime, v.walkingFiles, v.resolvingFiles)
 		return true
 	})
-
 }
 
 func newResult(t *testing.T, f string) result {
+	t.Helper()
 	var current map[string]time.Duration
 	jsonFile, err := os.Open(f)
 	if err != nil {
@@ -97,7 +97,7 @@ func newResult(t *testing.T, f string) result {
 	defer jsonFile.Close()
 	byteValue, _ := io.ReadAll(jsonFile)
 	if err := json.Unmarshal(byteValue, &current); err != nil {
-		t.Errorf("could not unmarshal benchmark file")
+		t.Error("could not unmarshal benchmark file")
 	}
 	r := result{}
 	if c, ok := current["Resolving Paths"]; ok {
@@ -152,17 +152,20 @@ func TestSnapshotBenchmarkGcloud(t *testing.T) {
 }
 
 func runInGcloud(dir string, num int) (string, error) {
-	os.Chdir(dir)
+	err := os.Chdir(dir)
+	if err != nil {
+		return "", err
+	}
 	cmd := exec.Command("gcloud", "builds",
 		"submit", "--config=cloudbuild.yaml",
 		fmt.Sprintf("--substitutions=_COUNT=%d", num))
-	_, err := RunCommandWithoutTest(cmd)
+	_, err = RunCommandWithoutTest(cmd)
 	if err != nil {
 		return "", err
 	}
 
 	// grab gcs and to temp dir and return
-	tmpDir, err := os.MkdirTemp("", fmt.Sprintf("%d", num))
+	tmpDir, err := os.MkdirTemp("", strconv.Itoa(num))
 	if err != nil {
 		return "", err
 	}

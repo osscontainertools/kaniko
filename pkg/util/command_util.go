@@ -435,11 +435,11 @@ func getUIDAndGIDFromString(userGroupString string) (uint32, uint32, error) {
 }
 
 func getUIDAndGID(userStr string, groupStr string) (uint32, uint32, error) {
-	user, err := LookupUser(userStr)
+	usr, err := LookupUser(userStr)
 	if err != nil {
 		return 0, 0, err
 	}
-	uid32, err := getUID(user.Uid)
+	uid32, err := getUID(usr.Uid)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -512,7 +512,7 @@ func LookupUser(userStr string) (*user.User, error) {
 				return nil, fmt.Errorf("user %v is not a uid and does not exist on the system", userStr)
 			}
 			userObj = &user.User{
-				Uid:     fmt.Sprint(uid),
+				Uid:     strconv.FormatUint(uint64(uid), 10),
 				HomeDir: "/",
 			}
 		}

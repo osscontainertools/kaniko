@@ -57,7 +57,7 @@ ENV test test
 
 From scratch as second
 COPY --from=first copied/bam.txt output/bam.txt`
-		os.WriteFile(filepath.Join(testDir, "workspace", "Dockerfile"), []byte(dockerFile), 0755)
+		os.WriteFile(filepath.Join(testDir, "workspace", "Dockerfile"), []byte(dockerFile), 0o755)
 		opts := &config.KanikoOptions{
 			DockerfilePath: filepath.Join(testDir, "workspace", "Dockerfile"),
 			SrcContext:     filepath.Join(testDir, "workspace"),
@@ -72,7 +72,6 @@ COPY --from=first copied/bam.txt output/bam.txt`
 		}
 		testutil.CheckDeepEqual(t, 1, len(files))
 		testutil.CheckDeepEqual(t, files[0].Name(), "bam.txt")
-
 	})
 
 	t.Run("copy a file across multistage into a directory", func(t *testing.T) {
@@ -85,7 +84,7 @@ ENV test test
 
 From scratch as second
 COPY --from=first copied/bam.txt output/`
-		os.WriteFile(filepath.Join(testDir, "workspace", "Dockerfile"), []byte(dockerFile), 0755)
+		os.WriteFile(filepath.Join(testDir, "workspace", "Dockerfile"), []byte(dockerFile), 0o755)
 		opts := &config.KanikoOptions{
 			DockerfilePath: filepath.Join(testDir, "workspace", "Dockerfile"),
 			SrcContext:     filepath.Join(testDir, "workspace"),
@@ -111,7 +110,7 @@ ENV test test
 
 From scratch as second
 COPY --from=first copied another`
-		os.WriteFile(filepath.Join(testDir, "workspace", "Dockerfile"), []byte(dockerFile), 0755)
+		os.WriteFile(filepath.Join(testDir, "workspace", "Dockerfile"), []byte(dockerFile), 0o755)
 		opts := &config.KanikoOptions{
 			DockerfilePath: filepath.Join(testDir, "workspace", "Dockerfile"),
 			SrcContext:     filepath.Join(testDir, "workspace"),
@@ -129,11 +128,11 @@ COPY --from=first copied another`
 		testutil.CheckDeepEqual(t, files[1].Name(), "bam.txt")
 		// TODO fix this
 		// path := filepath.Join(testDir, "output/another", "bam.link")
-		//linkName, err := os.Readlink(path)
-		//if err != nil {
-		//	t.Fatal(err)
-		//}
-		//testutil.CheckDeepEqual(t, linkName, "bam.txt")
+		// linkName, err := os.Readlink(path)
+		// if err != nil {
+		//	 t.Fatal(err)
+		// }
+		// testutil.CheckDeepEqual(t, linkName, "bam.txt")
 	})
 
 	t.Run("copy root across multistage", func(t *testing.T) {
@@ -146,7 +145,7 @@ ENV test test
 
 From scratch as second
 COPY --from=first / output/`
-		os.WriteFile(filepath.Join(testDir, "workspace", "Dockerfile"), []byte(dockerFile), 0755)
+		os.WriteFile(filepath.Join(testDir, "workspace", "Dockerfile"), []byte(dockerFile), 0o755)
 		opts := &config.KanikoOptions{
 			DockerfilePath: filepath.Join(testDir, "workspace", "Dockerfile"),
 			SrcContext:     filepath.Join(testDir, "workspace"),
@@ -169,10 +168,10 @@ COPY --from=first / output/`
 		testutil.CheckDeepEqual(t, "bam.link", files[0].Name())
 		testutil.CheckDeepEqual(t, "bam.txt", files[1].Name())
 	})
-
 }
 
 func setupMultistageTests(t *testing.T) (string, func()) {
+	t.Helper()
 	testDir := t.TempDir()
 
 	// Create workspace with files, dirs, and symlinks
@@ -190,31 +189,37 @@ func setupMultistageTests(t *testing.T) (string, func()) {
 	// Overwrite permissions used to create folder for stage,
 	// otherwise executor will create it using 0664
 	// and we will run into issue https://github.com/golang/go/issues/22323
-	mkdirPermissions = 0755
-	if err := os.MkdirAll(filepath.Join(testDir, "kaniko"), 0755); err != nil {
+	mkdirPermissions = 0o755
+	if err := os.MkdirAll(filepath.Join(testDir, "kaniko"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	workspace := filepath.Join(testDir, "workspace")
 	// Make foo
-	if err := os.MkdirAll(filepath.Join(workspace, "foo"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(workspace, "foo"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	file := filepath.Join(workspace, "foo", "bam.txt")
-	if err := os.WriteFile(file, []byte("meow"), 0755); err != nil {
+	if err := os.WriteFile(file, []byte("meow"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	os.Symlink("bam.txt", filepath.Join(workspace, "foo", "bam.link"))
+	err := os.Symlink("bam.txt", filepath.Join(workspace, "foo", "bam.link"))
+	if err != nil {
+		t.Error(err)
+	}
 
 	// Make a file with contents link
 	file = filepath.Join(workspace, "exec")
-	if err := os.WriteFile(file, []byte("woof"), 0755); err != nil {
+	if err := os.WriteFile(file, []byte("woof"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	// Make bin
-	if err := os.MkdirAll(filepath.Join(workspace, "bin"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(workspace, "bin"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	os.Symlink("../exec", filepath.Join(workspace, "bin", "exec.link"))
+	err = os.Symlink("../exec", filepath.Join(workspace, "bin", "exec.link"))
+	if err != nil {
+		t.Error(err)
+	}
 
 	// set up config
 	config.RootDir = testDir
@@ -223,7 +228,7 @@ func setupMultistageTests(t *testing.T) (string, func()) {
 	config.KanikoLayersDir = config.KanikoDir
 
 	// Write path to ignore list
-	if err := os.MkdirAll(filepath.Join(testDir, "proc"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(testDir, "proc"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	mFile := filepath.Join(testDir, "proc/mountinfo")
@@ -231,7 +236,7 @@ func setupMultistageTests(t *testing.T) (string, func()) {
 		`36 35 98:0 /kaniko %s/kaniko rw,noatime master:1 - ext3 /dev/root rw,errors=continue
 36 35 98:0 /proc %s/proc rw,noatime master:1 - ext3 /dev/root rw,errors=continue
 `, testDir, testDir)
-	if err := os.WriteFile(mFile, []byte(mountInfo), 0644); err != nil {
+	if err := os.WriteFile(mFile, []byte(mountInfo), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	config.MountInfoPath = mFile

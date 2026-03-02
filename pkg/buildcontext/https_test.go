@@ -23,14 +23,13 @@ import (
 )
 
 func TestBuildWithHttpsTar(t *testing.T) {
-
 	tests := []struct {
 		name          string
 		serverHandler http.HandlerFunc
 	}{
 		{
 			name: "test http bad status",
-			serverHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			serverHandler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusBadRequest)
 				_, err := w.Write([]byte("corrupted message"))
 				if err != nil {
@@ -40,7 +39,7 @@ func TestBuildWithHttpsTar(t *testing.T) {
 		},
 		{
 			name: "test http bad data",
-			serverHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			serverHandler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				_, err := w.Write([]byte("corrupted message"))
 				if err != nil {

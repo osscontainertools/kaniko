@@ -18,6 +18,7 @@ package dockerfile
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/containerd/platforms"
@@ -73,15 +74,9 @@ func newBuildArgsFromMap(argsFromOptions map[string]*string) *BuildArgs {
 // Clone returns a copy of the BuildArgs type
 func (b *BuildArgs) Clone() *BuildArgs {
 	result := newBuildArgsFromMap(b.argsFromOptions)
-	for k, v := range b.allowedBuildArgs {
-		result.allowedBuildArgs[k] = v
-	}
-	for k, v := range b.allowedMetaArgs {
-		result.allowedMetaArgs[k] = v
-	}
-	for k, v := range b.predefinedArgs {
-		result.predefinedArgs[k] = v
-	}
+	maps.Copy(result.allowedBuildArgs, b.allowedBuildArgs)
+	maps.Copy(result.allowedMetaArgs, b.allowedMetaArgs)
+	maps.Copy(result.predefinedArgs, b.predefinedArgs)
 	for k := range b.referencedArgs {
 		result.referencedArgs[k] = struct{}{}
 	}
@@ -170,7 +165,7 @@ func (b *BuildArgs) getBuildArg(key string, mapping map[string]*string) (string,
 }
 
 func keysFromMaps(source map[string]*string, builtin map[string]bool) []string {
-	keys := []string{}
+	keys := make([]string, 0, len(source)+len(builtin))
 	for key := range source {
 		keys = append(keys, key)
 	}
@@ -199,8 +194,8 @@ func (b *BuildArgs) InitPredefinedArgs(customPlatform string, lastStage string) 
 	buildSpec := platforms.Normalize(platforms.DefaultSpec())
 	build := platforms.Format(buildSpec)
 
-	var target = build
-	var targetSpec = buildSpec
+	target := build
+	targetSpec := buildSpec
 	var err error
 	if customPlatform != "" {
 		target = customPlatform
@@ -210,7 +205,7 @@ func (b *BuildArgs) InitPredefinedArgs(customPlatform string, lastStage string) 
 		}
 	}
 
-	var targetStage = "default"
+	targetStage := "default"
 	if lastStage != "" {
 		targetStage = lastStage
 	}

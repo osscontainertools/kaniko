@@ -17,7 +17,6 @@ limitations under the License.
 package dockerfile
 
 import (
-	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -51,10 +50,12 @@ func Test_ParseStages_ArgValueWithQuotes(t *testing.T) {
 
 	defer os.Remove(tmpfile.Name())
 
-	if _, err := tmpfile.Write([]byte(dockerfile)); err != nil {
+	_, err = tmpfile.Write([]byte(dockerfile))
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := tmpfile.Close(); err != nil {
+	err = tmpfile.Close()
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -201,17 +202,20 @@ func Test_GetOnBuildInstructions(t *testing.T) {
 	}
 
 	tests := []testCase{
-		{name: "no on-build on config",
+		{
+			name:        "no on-build on config",
 			cfg:         &v1.Config{},
 			stageToIdx:  map[string]int{"builder": 0},
 			expCommands: nil,
 		},
-		{name: "onBuild on config, nothing to resolve",
+		{
+			name:        "onBuild on config, nothing to resolve",
 			cfg:         &v1.Config{OnBuild: []string{"WORKDIR /app"}},
 			stageToIdx:  map[string]int{"builder": 0, "temp": 1},
 			expCommands: []instructions.Command{&instructions.WorkdirCommand{Path: "/app"}},
 		},
-		{name: "onBuild on config, resolve multiple stages",
+		{
+			name:       "onBuild on config, resolve multiple stages",
 			cfg:        &v1.Config{OnBuild: []string{"COPY --from=builder a.txt b.txt", "COPY --from=temp /app /app"}},
 			stageToIdx: map[string]int{"builder": 0, "temp": 1},
 			expCommands: []instructions.Command{
@@ -223,14 +227,15 @@ func Test_GetOnBuildInstructions(t *testing.T) {
 					SourcesAndDest: instructions.SourcesAndDest{SourcePaths: []string{"/app"}, DestPath: "/app"},
 					From:           "1",
 				},
-			}},
+			},
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cmds, err := ParseCommands(test.cfg.OnBuild)
 			if err != nil {
-				t.Fatalf("Failed to parse config for on-build instructions")
+				t.Error("Failed to parse config for on-build instructions")
 			}
 			if len(cmds) != len(test.expCommands) {
 				t.Fatalf("Expected %d commands, got %d", len(test.expCommands), len(cmds))
@@ -426,7 +431,7 @@ func Test_ResolveStagesArgs(t *testing.T) {
 			} else {
 				expectedImage = "ubuntu:16.04"
 			}
-			buildArgs := []string{fmt.Sprintf("IMAGE=%s", buildArgImage), fmt.Sprintf("LAST_STAGE_VARIANT=%s", buildArgLastVariant)}
+			buildArgs := []string{"IMAGE=" + buildArgImage, "LAST_STAGE_VARIANT=" + buildArgLastVariant}
 
 			stages, metaArgs, err := Parse([]byte(dockerfile))
 			if err != nil {
@@ -456,7 +461,7 @@ func Test_ResolveStagesArgs(t *testing.T) {
 					actualSourceCode:   stages[stagesLen-1].SourceCode,
 					actualBaseName:     stages[stagesLen-1].BaseName,
 					expectedSourceCode: "FROM base-${LAST_STAGE_VARIANT}",
-					expectedBaseName:   fmt.Sprintf("base-%s", buildArgLastVariant),
+					expectedBaseName:   "base-" + buildArgLastVariant,
 				},
 			}
 			for _, test := range tests {

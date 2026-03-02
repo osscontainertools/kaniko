@@ -479,10 +479,11 @@ func BenchmarkHasFilepathPrefix(b *testing.B) {
 	}
 }
 
-type checker func(root string, t *testing.T)
+type checker func(t *testing.T, root string)
 
 func fileExists(p string) checker {
-	return func(root string, t *testing.T) {
+	return func(t *testing.T, root string) {
+		t.Helper()
 		_, err := os.Stat(filepath.Join(root, p))
 		if err != nil {
 			t.Fatalf("File %s does not exist", filepath.Join(root, p))
@@ -491,7 +492,8 @@ func fileExists(p string) checker {
 }
 
 func fileMatches(p string, c []byte) checker {
-	return func(root string, t *testing.T) {
+	return func(t *testing.T, root string) {
+		t.Helper()
 		actual, err := os.ReadFile(filepath.Join(root, p))
 		if err != nil {
 			t.Fatalf("error reading file: %s", p)
@@ -503,7 +505,8 @@ func fileMatches(p string, c []byte) checker {
 }
 
 func timesMatch(p string, fTime time.Time) checker {
-	return func(root string, t *testing.T) {
+	return func(t *testing.T, root string) {
+		t.Helper()
 		fi, err := os.Stat(filepath.Join(root, p))
 		if err != nil {
 			t.Fatalf("error statting file %s", p)
@@ -516,7 +519,8 @@ func timesMatch(p string, fTime time.Time) checker {
 }
 
 func permissionsMatch(p string, perms os.FileMode) checker {
-	return func(root string, t *testing.T) {
+	return func(t *testing.T, root string) {
+		t.Helper()
 		fi, err := os.Stat(filepath.Join(root, p))
 		if err != nil {
 			t.Fatalf("error statting file %s", p)
@@ -528,7 +532,8 @@ func permissionsMatch(p string, perms os.FileMode) checker {
 }
 
 func linkPointsTo(src, dst string) checker {
-	return func(root string, t *testing.T) {
+	return func(t *testing.T, root string) {
+		t.Helper()
 		link := filepath.Join(root, src)
 		got, err := os.Readlink(link)
 		if err != nil {
@@ -541,7 +546,8 @@ func linkPointsTo(src, dst string) checker {
 }
 
 func filesAreHardlinks(first, second string) checker {
-	return func(root string, t *testing.T) {
+	return func(t *testing.T, root string) {
+		t.Helper()
 		fi1, err := os.Stat(filepath.Join(root, first))
 		if err != nil {
 			t.Fatalf("error getting file %s", first)
@@ -612,7 +618,8 @@ func createUncompressedTar(fileContents map[string]string, tarFileName, testDir 
 	defer t.Close()
 	for file := range fileContents {
 		filePath := filepath.Join(testDir, file)
-		if err := t.AddFileToTar(filePath); err != nil {
+		err := t.AddFileToTar(filePath)
+		if err != nil {
 			return err
 		}
 	}
@@ -799,22 +806,20 @@ func TestExtractFile(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tc := tc
 			t.Parallel()
-			r := ""
-
-			if tc.tmpdir != "" {
-				r = tc.tmpdir
-			} else {
+			r := tc.tmpdir
+			if r == "" {
 				r = t.TempDir()
 			}
 			defer os.RemoveAll(r)
 
 			for _, hdr := range tc.hdrs {
-				if err := ExtractFile(r, hdr, filepath.Clean(hdr.Name), bytes.NewReader(tc.contents)); err != nil {
+				err := ExtractFile(r, hdr, filepath.Clean(hdr.Name), bytes.NewReader(tc.contents))
+				if err != nil {
 					t.Fatal(err)
 				}
 			}
 			for _, checker := range tc.checkers {
-				checker(r, t)
+				checker(t, r)
 			}
 		})
 	}
@@ -848,12 +853,19 @@ func TestCopySymlink(t *testing.T) {
 			tc := tc
 			t.Parallel()
 			r := t.TempDir()
-			os.MkdirAll(filepath.Join(r, filepath.Dir(tc.linkTarget)), 0o777)
+			err := os.MkdirAll(filepath.Join(r, filepath.Dir(tc.linkTarget)), 0o777)
+			if err != nil {
+				t.Error(err)
+			}
 			tc.linkTarget = filepath.Join(r, tc.linkTarget)
-			os.WriteFile(tc.linkTarget, nil, 0o644)
+			err = os.WriteFile(tc.linkTarget, nil, 0o644)
+			if err != nil {
+				t.Error(err)
+			}
 
 			if tc.beforeLink != nil {
-				if err := tc.beforeLink(r); err != nil {
+				err := tc.beforeLink(r)
+				if err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -1047,7 +1059,8 @@ func Test_GetFSFromLayers_with_whiteouts_include_whiteout_enabled(t *testing.T) 
 				Size: int64(len("Hello World\n")),
 			}
 
-			if err := tw.WriteHeader(hdr); err != nil {
+			err := tw.WriteHeader(hdr)
+			if err != nil {
 				t.Fatal(err)
 			}
 
@@ -1056,7 +1069,8 @@ func Test_GetFSFromLayers_with_whiteouts_include_whiteout_enabled(t *testing.T) 
 			}
 		}
 
-		if err := tw.Close(); err != nil {
+		err := tw.Close()
+		if err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -1159,7 +1173,8 @@ func Test_GetFSFromLayers_with_whiteouts_include_whiteout_disabled(t *testing.T)
 				Size: int64(len("Hello world\n")),
 			}
 
-			if err := tw.WriteHeader(hdr); err != nil {
+			err := tw.WriteHeader(hdr)
+			if err != nil {
 				t.Fatal(err)
 			}
 
@@ -1168,7 +1183,8 @@ func Test_GetFSFromLayers_with_whiteouts_include_whiteout_disabled(t *testing.T)
 			}
 		}
 
-		if err := tw.Close(); err != nil {
+		err := tw.Close()
+		if err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -1265,7 +1281,8 @@ func Test_GetFSFromLayers_ignorelist(t *testing.T) {
 				Size: int64(len(string(fileContents))),
 			}
 
-			if err := tw.WriteHeader(hdr); err != nil {
+			err := tw.WriteHeader(hdr)
+			if err != nil {
 				t.Fatal(err)
 			}
 
@@ -1274,7 +1291,8 @@ func Test_GetFSFromLayers_ignorelist(t *testing.T) {
 			}
 		}
 
-		if err := tw.Close(); err != nil {
+		err := tw.Close()
+		if err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -1408,7 +1426,8 @@ func Test_GetFSFromLayers(t *testing.T) {
 			Size: int64(len("Hello world\n")),
 		}
 
-		if err := tw.WriteHeader(hdr); err != nil {
+		err := tw.WriteHeader(hdr)
+		if err != nil {
 			t.Fatal(err)
 		}
 
@@ -1531,7 +1550,8 @@ func Test_setFileTimes(t *testing.T) {
 
 	p := filepath.Join(testDir, "foo.txt")
 
-	if err := os.WriteFile(p, []byte("meow"), 0o777); err != nil {
+	err := os.WriteFile(p, []byte("meow"), 0o777)
+	if err != nil {
 		t.Fatal(err)
 	}
 

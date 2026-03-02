@@ -21,8 +21,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 )
 
-type BaseCommand struct {
-}
+type BaseCommand struct{}
 
 func (b *BaseCommand) IsArgsEnvsRequiredInCache() bool {
 	return false

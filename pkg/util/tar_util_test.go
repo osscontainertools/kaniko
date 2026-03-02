@@ -24,19 +24,23 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/osscontainertools/kaniko/testutil"
 )
 
-var regularFiles = []string{"file", "file.tar", "file.tar.gz"}
-var uncompressedTars = []string{"uncompressed", "uncompressed.tar"}
-var compressedTars = []string{"compressed", "compressed.tar.gz"}
+var (
+	regularFiles     = []string{"file", "file.tar", "file.tar.gz"}
+	uncompressedTars = []string{"uncompressed", "uncompressed.tar"}
+	compressedTars   = []string{"compressed", "compressed.tar.gz"}
+)
 
 func Test_IsLocalTarArchive(t *testing.T) {
 	testDir := t.TempDir()
-	if err := setUpFilesAndTars(testDir); err != nil {
+	err := setUpFilesAndTars(testDir)
+	if err != nil {
 		t.Fatal(err)
 	}
 	// Test we get the correct result for regular files
@@ -91,7 +95,8 @@ func setUpFilesAndTars(testDir string) error {
 		regularFiles[1]: "something",
 		regularFiles[2]: "here",
 	}
-	if err := testutil.SetupFiles(testDir, regularFilesAndContents); err != nil {
+	err := testutil.SetupFiles(testDir, regularFilesAndContents)
+	if err != nil {
 		return err
 	}
 
@@ -123,7 +128,8 @@ func createTar(testdir string, writer io.Writer) error {
 	defer t.Close()
 	for _, regFile := range regularFiles {
 		filePath := filepath.Join(testdir, regFile)
-		if err := t.AddFileToTar(filePath); err != nil {
+		err := t.AddFileToTar(filePath)
+		if err != nil {
 			return err
 		}
 	}
@@ -139,7 +145,7 @@ func Test_CreateTarballOfDirectory(t *testing.T) {
 	testutil.CheckError(t, wantErr, err)
 
 	extracedFilesDir := filepath.Join(tmpDir, "extracted")
-	err = os.Mkdir(extracedFilesDir, 0755)
+	err = os.Mkdir(extracedFilesDir, 0o755)
 	if err != nil {
 		t.Error(err)
 		return
@@ -163,10 +169,12 @@ func Test_CreateTarballOfDirectory(t *testing.T) {
 }
 
 func createFilesInTempDir(t *testing.T, tmpDir string) {
-	for i := 0; i < 2; i++ {
-		fName := filepath.Join(tmpDir, fmt.Sprint(i))
+	t.Helper()
+	for i := range 2 {
+		fName := filepath.Join(tmpDir, strconv.Itoa(i))
 		content := fmt.Sprintf("hello from %d\n", i)
-		if err := os.WriteFile(fName, []byte(content), 0666); err != nil {
+		err := os.WriteFile(fName, []byte(content), 0o666)
+		if err != nil {
 			t.Error(err)
 			return
 		}

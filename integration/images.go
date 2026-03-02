@@ -19,12 +19,14 @@ package integration
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -210,7 +212,7 @@ var warmerOutputChecks = map[string]func(string, []byte) error{
 
 func checkNoWarnings(_ string, out []byte) error {
 	if strings.Contains(string(out), "WARN") {
-		return fmt.Errorf("output must not contain WARN")
+		return errors.New("output must not contain WARN")
 	}
 	return nil
 }
@@ -280,7 +282,6 @@ func FindDockerFiles(dir, dockerfilesPattern string) ([]string, error) {
 		// Remove the leading directory from the path
 		dockerfile = dockerfile[len("dockerfiles/"):]
 		dockerfiles = append(dockerfiles, dockerfile)
-
 	}
 	return dockerfiles, err
 }
@@ -296,7 +297,7 @@ type DockerFileBuilder struct {
 	TestWarmerDockerfiles   map[string]struct{}
 }
 
-type logger func(string, ...interface{})
+type logger func(string, ...any)
 
 // NewDockerFileBuilder will create a DockerFileBuilder initialized with dockerfiles, which
 // it will assume are all as yet unbuilt.
@@ -356,15 +357,15 @@ func addServiceAccountFlags(flags []string, serviceAccount string) []string {
 	return flags
 }
 
-func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfilesPath, dockerfile, contextDir string) error {
+func (*DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfilesPath, dockerfile, contextDir string) error {
 	t.Logf("Building image for Dockerfile %s\n", dockerfile)
 
-	var buildArgs []string
+	buildArgs := make([]string, 0, 2*(len(argsMap[dockerfile])+1))
 	buildArgFlag := "--build-arg"
 	for _, arg := range argsMap[dockerfile] {
 		buildArgs = append(buildArgs, buildArgFlag, arg)
 	}
-	buildArgs = append(buildArgs, buildArgFlag, fmt.Sprintf("IMAGE_REPO=%s", imageRepo))
+	buildArgs = append(buildArgs, buildArgFlag, "IMAGE_REPO="+imageRepo)
 
 	// build docker image
 	additionalFlags := append(buildArgs, additionalDockerFlagsMap[dockerfile]...)
@@ -417,10 +418,11 @@ func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrat
 	for _, arg := range argsMap[dockerfile] {
 		buildArgs = append(buildArgs, buildArgFlag, arg)
 	}
-	buildArgs = append(buildArgs, buildArgFlag, fmt.Sprintf("IMAGE_REPO=%s", config.imageRepo))
+	buildArgs = append(buildArgs, buildArgFlag, "IMAGE_REPO="+config.imageRepo)
 
 	timer := timing.Start(dockerfile + "_docker")
-	if err := d.BuildDockerImage(t, imageRepo, dockerfilesPath, dockerfile, contextDir); err != nil {
+	err := d.BuildDockerImage(t, imageRepo, dockerfilesPath, dockerfile, contextDir)
+	if err != nil {
 		return err
 	}
 
@@ -437,17 +439,15 @@ func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrat
 
 	additionalKanikoFlags := additionalKanikoFlagsMap[dockerfile]
 	additionalKanikoFlags = append(additionalKanikoFlags, contextFlag, contextPath)
-	for _, d := range reproducibleTests {
-		if d == dockerfile {
-			additionalKanikoFlags = append(additionalKanikoFlags, "--reproducible")
-			break
-		}
+	if slices.Contains(reproducibleTests, dockerfile) {
+		additionalKanikoFlags = append(additionalKanikoFlags, "--reproducible")
 	}
 
 	kanikoImage := GetKanikoImage(imageRepo, dockerfile)
 	timer = timing.Start(dockerfile + "_kaniko")
-	if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
-		contextDir, gcsBucket, gcsClient, serviceAccount, true); err != nil {
+	_, err = buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
+		contextDir, gcsBucket, gcsClient, serviceAccount, true)
+	if err != nil {
 		return err
 	}
 	timing.DefaultRun.Stop(timer)
@@ -486,7 +486,7 @@ func populateVolumeCache(logf logger, serviceAccount string) error {
 }
 
 // buildCachedImage builds the image for testing caching via kaniko where version is the nth time this image has been built
-func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTestConfig, cacheRepo, dockerfilesPath, dockerfile string, version int, args []string) error {
+func (*DockerFileBuilder) buildCachedImage(logf logger, config *integrationTestConfig, cacheRepo, dockerfilesPath, dockerfile string, version int, args []string) error {
 	imageRepo, serviceAccount := config.imageRepo, config.serviceAccount
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
@@ -494,7 +494,8 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 	cacheFlag := "--cache=true"
 
 	benchmarkEnv := "BENCHMARK_FILE=false"
-	if b, err := strconv.ParseBool(os.Getenv("BENCHMARK")); err == nil && b {
+	b, err := strconv.ParseBool(os.Getenv("BENCHMARK"))
+	if err == nil && b {
 		err := os.Mkdir("benchmarks", 0o755)
 		if err != nil {
 			return err
@@ -512,8 +513,8 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
 	executorImage := ExecutorImage
-	if exec, ok := executorImages[dockerfile]; ok {
-		executorImage = exec
+	if _executorImage, ok := executorImages[dockerfile]; ok {
+		executorImage = _executorImage
 	}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
@@ -533,23 +534,22 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 		return fmt.Errorf("failed to build cached image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
 	}
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
-		if err := outputCheck(dockerfile, out); err != nil {
+		err := outputCheck(dockerfile, out)
+		if err != nil {
 			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
 	if outputCheck := warmerOutputChecks[dockerfile]; outputCheck != nil {
-		if err := outputCheck(dockerfile, out); err != nil {
+		err := outputCheck(dockerfile, out)
+		if err != nil {
 			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
-	if err := checkNoWarnings(dockerfile, out); err != nil {
-		return err
-	}
-	return nil
+	return checkNoWarnings(dockerfile, out)
 }
 
 // buildCachedImage builds the image for testing caching via kaniko warmer cache where version is the nth time this image has been built
-func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTestConfig, dockerfilesPath, dockerfile string, version int, args []string, cache bool) error {
+func (*DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTestConfig, dockerfilesPath, dockerfile string, version int, args []string, cache bool) error {
 	imageRepo, serviceAccount := config.imageRepo, config.serviceAccount
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
@@ -564,8 +564,8 @@ func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTes
 		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
 	executorImage := ExecutorImage
-	if exec, ok := executorImages[dockerfile]; ok {
-		executorImage = exec
+	if _executorImage, ok := executorImages[dockerfile]; ok {
+		executorImage = _executorImage
 	}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
@@ -587,25 +587,24 @@ func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTes
 		return fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
 	}
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
-		if err := outputCheck(dockerfile, out); err != nil {
+		err := outputCheck(dockerfile, out)
+		if err != nil {
 			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
 	if cache {
 		if outputCheck := warmerOutputChecks[dockerfile]; outputCheck != nil {
-			if err := outputCheck(dockerfile, out); err != nil {
+			err := outputCheck(dockerfile, out)
+			if err != nil {
 				return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 			}
 		}
 	}
-	if err := checkNoWarnings(dockerfile, out); err != nil {
-		return err
-	}
-	return nil
+	return checkNoWarnings(dockerfile, out)
 }
 
 // buildRelativePathsImage builds the images for testing passing relatives paths to Kaniko
-func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dockerfile, serviceAccount, buildContextPath string) error {
+func (*DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dockerfile, serviceAccount, buildContextPath string) error {
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
 
@@ -633,8 +632,8 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
 	executorImage := ExecutorImage
-	if exec, ok := executorImages[dockerfile]; ok {
-		executorImage = exec
+	if _executorImage, ok := executorImages[dockerfile]; ok {
+		executorImage = _executorImage
 	}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
@@ -655,14 +654,12 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 			kanikoImage, kanikoCmd.Args, err)
 	}
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
-		if err := outputCheck(dockerfile, out); err != nil {
+		err := outputCheck(dockerfile, out)
+		if err != nil {
 			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
-	if err := checkNoWarnings(dockerfile, out); err != nil {
-		return err
-	}
-	return nil
+	return checkNoWarnings(dockerfile, out)
 }
 
 func buildKanikoImage(
@@ -684,8 +681,9 @@ func buildKanikoImage(
 		return "", err
 	}
 
-	if b, err := strconv.ParseBool(os.Getenv("BENCHMARK")); err == nil && b {
-		benchmarkEnv = fmt.Sprintf("BENCHMARK_FILE=/benchmarks/%s", dockerfile)
+	b, err := strconv.ParseBool(os.Getenv("BENCHMARK"))
+	if err == nil && b {
+		benchmarkEnv = "BENCHMARK_FILE=/benchmarks/" + dockerfile
 		if shdUpload {
 			benchmarkFile := path.Join(benchmarkDir, dockerfile)
 			fileName := fmt.Sprintf("run_%s_%s", time.Now().Format("2006-01-02-15:04"), dockerfile)
@@ -745,7 +743,8 @@ func buildKanikoImage(
 		return "", fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
 	}
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
-		if err := outputCheck(dockerfile, out); err != nil {
+		err := outputCheck(dockerfile, out)
+		if err != nil {
 			return "", fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}

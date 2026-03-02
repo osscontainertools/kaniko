@@ -44,7 +44,7 @@ func createFile(tempDir string) error {
 	}
 	defer file.Close()
 
-	err = os.WriteFile(fileName, []byte("This is a test!\n"), 0644)
+	err = os.WriteFile(fileName, []byte("This is a test!\n"), 0o644)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func createFile(tempDir string) error {
 
 func createTar(tempDir string, toCreate TarList) error {
 	if toCreate.compressed {
-		file, err := os.OpenFile(filepath.Join(tempDir, toCreate.tarName), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+		file, err := os.OpenFile(filepath.Join(tempDir, toCreate.tarName), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o644)
 		if err != nil {
 			return err
 		}
@@ -81,6 +81,7 @@ func createTar(tempDir string, toCreate TarList) error {
 }
 
 func setupAddTest(t *testing.T) string {
+	t.Helper()
 	tempDir := t.TempDir()
 
 	err := createFile(tempDir)
@@ -88,7 +89,7 @@ func setupAddTest(t *testing.T) string {
 		t.Errorf("couldn't create the file %v", err)
 	}
 
-	var tarFiles = []TarList{
+	tarFiles := []TarList{
 		{
 			tarName:    "a.tar",
 			directory:  "a",
@@ -103,8 +104,7 @@ func setupAddTest(t *testing.T) string {
 
 	// Create directories with files and then create tar
 	for _, toCreate := range tarFiles {
-
-		err = os.Mkdir(filepath.Join(tempDir, toCreate.directory), 0755)
+		err = os.Mkdir(filepath.Join(tempDir, toCreate.directory), 0o755)
 		if err != nil {
 			t.Errorf("couldn't create directory %v", err)
 		}
@@ -114,7 +114,6 @@ func setupAddTest(t *testing.T) string {
 			t.Errorf("couldn't create file inside directory %v", err)
 		}
 		err = createTar(tempDir, toCreate)
-
 		if err != nil {
 			t.Errorf("couldn't create the tar %v", err)
 		}
@@ -134,7 +133,7 @@ func Test_AddCommand(t *testing.T) {
 	}
 	buildArgs := dockerfile.NewBuildArgs([]string{})
 
-	var addTests = []struct {
+	addTests := []struct {
 		name           string
 		sourcesAndDest []string
 		expectedDest   []string
@@ -156,12 +155,17 @@ func Test_AddCommand(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			c := AddCommand{
 				cmd: &instructions.AddCommand{
-					SourcesAndDest: instructions.SourcesAndDest{SourcePaths: testCase.sourcesAndDest[0 : len(testCase.sourcesAndDest)-1],
-						DestPath: testCase.sourcesAndDest[len(testCase.sourcesAndDest)-1]},
+					SourcesAndDest: instructions.SourcesAndDest{
+						SourcePaths: testCase.sourcesAndDest[0 : len(testCase.sourcesAndDest)-1],
+						DestPath:    testCase.sourcesAndDest[len(testCase.sourcesAndDest)-1],
+					},
 				},
 				fileContext: fileContext,
 			}
-			c.ExecuteCommand(cfg, buildArgs)
+			err := c.ExecuteCommand(cfg, buildArgs)
+			if err != nil {
+				t.Error(err)
+			}
 
 			expected := []string{}
 			resultDir := filepath.Join(tempDir, "tempAddExecuteTest/")

@@ -18,6 +18,7 @@ package buildcontext
 
 import (
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"os"
 
@@ -34,13 +35,14 @@ type Tar struct {
 // UnpackTarFromBuildContext unpack the compressed tar file
 func (t *Tar) UnpackTarFromBuildContext() (string, error) {
 	directory := kConfig.BuildContextDir
-	if err := os.MkdirAll(directory, 0750); err != nil {
+	err := os.MkdirAll(directory, 0o750)
+	if err != nil {
 		return "", fmt.Errorf("unpacking tar from build context: %w", err)
 	}
 	if t.context == "stdin" {
 		fi, _ := os.Stdin.Stat()
 		if (fi.Mode() & os.ModeCharDevice) != 0 {
-			return "", fmt.Errorf("no data found.. don't forget to add the '--interactive, -i' flag")
+			return "", errors.New("no data found.. don't forget to add the '--interactive, -i' flag")
 		}
 		logrus.Infof("To simulate EOF and exit, press 'Ctrl+D'")
 		// if launched through docker in interactive mode and without piped data
@@ -53,7 +55,6 @@ func (t *Tar) UnpackTarFromBuildContext() (string, error) {
 		_, err = util.UnTar(gzr, directory)
 
 		return directory, err
-
 	}
 
 	return directory, util.UnpackCompressedTar(t.context, directory)

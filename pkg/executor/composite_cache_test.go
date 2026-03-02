@@ -20,18 +20,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"reflect"
 	"testing"
 
 	"github.com/osscontainertools/kaniko/pkg/util"
 )
-
-func Test_NewCompositeCache(t *testing.T) {
-	r := NewCompositeCache()
-	if reflect.TypeOf(r).String() != "*executor.CompositeCache" {
-		t.Errorf("expected return to be *executor.CompositeCache but was %v", reflect.TypeOf(r).String())
-	}
-}
 
 func Test_CompositeCache_AddKey(t *testing.T) {
 	keys := []string{
@@ -70,7 +62,8 @@ func Test_CompositeCache_AddPath_dir(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	content := `meow meow meow`
-	if err := os.WriteFile(filepath.Join(tmpDir, "foo.txt"), []byte(content), 0777); err != nil {
+	err := os.WriteFile(filepath.Join(tmpDir, "foo.txt"), []byte(content), 0o777)
+	if err != nil {
 		t.Errorf("got error writing temp file %v", err)
 	}
 
@@ -139,14 +132,15 @@ func Test_CompositeCache_AddPath_file(t *testing.T) {
 func createFilesystemStructure(root string, directories, files []string) error {
 	for _, d := range directories {
 		dirPath := path.Join(root, d)
-		if err := os.MkdirAll(dirPath, 0755); err != nil {
+		err := os.MkdirAll(dirPath, 0o755)
+		if err != nil {
 			return err
 		}
 	}
 
 	for _, fileName := range files {
 		filePath := path.Join(root, fileName)
-		err := os.WriteFile(filePath, []byte(fileName), 0644)
+		err := os.WriteFile(filePath, []byte(fileName), 0o644)
 		if err != nil {
 			return err
 		}
@@ -156,9 +150,10 @@ func createFilesystemStructure(root string, directories, files []string) error {
 }
 
 func setIgnoreContext(t *testing.T, content string) (util.FileContext, error) {
+	t.Helper()
 	var fileContext util.FileContext
 	dockerIgnoreDir := t.TempDir()
-	err := os.WriteFile(dockerIgnoreDir+".dockerignore", []byte(content), 0644)
+	err := os.WriteFile(dockerIgnoreDir+".dockerignore", []byte(content), 0o644)
 	if err != nil {
 		return fileContext, err
 	}
@@ -286,7 +281,7 @@ func Test_CompositeKey_AddPath_WithExtraFile_Works(t *testing.T) {
 				t.Fatalf("Error creating filesytem structure: %s", err)
 			}
 			extraPath := path.Join(testDir2, test.extraFile)
-			err = os.WriteFile(extraPath, []byte(test.extraFile), 0644)
+			err = os.WriteFile(extraPath, []byte(test.extraFile), 0o644)
 			if err != nil {
 				t.Fatalf("Error creating filesytem structure: %s", err)
 			}
@@ -356,7 +351,7 @@ func Test_CompositeKey_AddPath_WithExtraDir_Works(t *testing.T) {
 				t.Fatalf("Error creating filesytem structure: %s", err)
 			}
 			extraPath := path.Join(testDir2, test.extraDir)
-			err = os.MkdirAll(extraPath, 0644)
+			err = os.MkdirAll(extraPath, 0o644)
 			if err != nil {
 				t.Fatalf("Error creating filesytem structure: %s", err)
 			}
@@ -429,7 +424,7 @@ func Test_CompositeKey_AddPath_WithExtraFilIgnored_Works(t *testing.T) {
 				t.Fatalf("Error creating filesytem structure: %s", err)
 			}
 			extraPath := path.Join(testDir2, test.extraFile)
-			err = os.WriteFile(extraPath, []byte(test.extraFile), 0644)
+			err = os.WriteFile(extraPath, []byte(test.extraFile), 0o644)
 			if err != nil {
 				t.Fatalf("Error creating filesytem structure: %s", err)
 			}
@@ -505,7 +500,7 @@ func Test_CompositeKey_AddPath_WithExtraDirIgnored_Works(t *testing.T) {
 				t.Fatalf("Error creating filesytem structure: %s", err)
 			}
 			extraPath := path.Join(testDir2, test.extraDir)
-			err = os.MkdirAll(extraPath, 0644)
+			err = os.MkdirAll(extraPath, 0o644)
 			if err != nil {
 				t.Fatalf("Error creating filesytem structure: %s", err)
 			}
@@ -534,11 +529,13 @@ func Test_CompositeCache_AddPath_DiffFileNames_Cache_Differently_Works(t *testin
 	tmpDir2 := t.TempDir()
 
 	content := `meow meow meow`
-	if err := os.WriteFile(filepath.Join(tmpDir1, "foo.txt"), []byte(content), 0777); err != nil {
+	err := os.WriteFile(filepath.Join(tmpDir1, "foo.txt"), []byte(content), 0o777)
+	if err != nil {
 		t.Errorf("got error writing temp file %v", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(tmpDir2, "bar.txt"), []byte(content), 0777); err != nil {
+	err = os.WriteFile(filepath.Join(tmpDir2, "bar.txt"), []byte(content), 0o777)
+	if err != nil {
 		t.Errorf("got error writing temp file %v", err)
 	}
 
@@ -571,11 +568,13 @@ func Test_CompositeCache_AddPath_SameFileNames_In_Diff_Contexts_Works(t *testing
 	tmpDir2 := t.TempDir()
 
 	content := `meow meow meow`
-	if err := os.WriteFile(filepath.Join(tmpDir1, "foo.txt"), []byte(content), 0777); err != nil {
+	err := os.WriteFile(filepath.Join(tmpDir1, "foo.txt"), []byte(content), 0o777)
+	if err != nil {
 		t.Errorf("got error writing temp file %v", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(tmpDir2, "foo.txt"), []byte(content), 0777); err != nil {
+	err = os.WriteFile(filepath.Join(tmpDir2, "foo.txt"), []byte(content), 0o777)
+	if err != nil {
 		t.Errorf("got error writing temp file %v", err)
 	}
 

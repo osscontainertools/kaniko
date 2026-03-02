@@ -20,10 +20,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
-
-	"net/http"
 
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/sirupsen/logrus"
@@ -57,8 +56,7 @@ type KeyPairLoader interface {
 	load(string, string) (tls.Certificate, error)
 }
 
-type X509KeyPairLoader struct {
-}
+type X509KeyPairLoader struct{}
 
 func (p *X509KeyPairLoader) load(certFile, keyFile string) (tls.Certificate, error) {
 	return tls.LoadX509KeyPair(certFile, keyFile)
@@ -87,7 +85,8 @@ func MakeTransport(opts config.RegistryOptions, registryName string) (http.Round
 			InsecureSkipVerify: true,
 		}
 	} else if certificatePath := opts.RegistriesCertificates[registryName]; certificatePath != "" {
-		if err := systemCertLoader.append(certificatePath); err != nil {
+		err := systemCertLoader.append(certificatePath)
+		if err != nil {
 			return nil, fmt.Errorf("failed to load certificate %s for %s: %w", certificatePath, registryName, err)
 		}
 		tr.(*http.Transport).TLSClientConfig = &tls.Config{

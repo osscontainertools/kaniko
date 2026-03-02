@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -123,6 +124,7 @@ func Test_addDefaultHOME(t *testing.T) {
 }
 
 func prepareTarFixture(t *testing.T, fileNames []string) ([]byte, error) {
+	t.Helper()
 	dir := t.TempDir()
 
 	content := `
@@ -130,7 +132,8 @@ Meow meow meow meow
 meow meow meow meow
 `
 	for _, name := range fileNames {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0777); err != nil {
+		err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o777)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -278,15 +281,8 @@ func Test_CachingRunCommand_ExecuteCommand(t *testing.T) {
 					t.Errorf("Expected extractFn to be called %v times but was called %v times", 1, *tc.count)
 				}
 				for _, file := range tc.extractedFiles {
-					match := false
 					cmdFiles := c.extractedFiles
-					for _, f := range cmdFiles {
-						if file == f {
-							match = true
-							break
-						}
-					}
-					if !match {
+					if !slices.Contains(cmdFiles, file) {
 						t.Errorf("Expected extracted files to include %v but did not %v", file, cmdFiles)
 					}
 				}
@@ -298,11 +294,11 @@ func Test_CachingRunCommand_ExecuteCommand(t *testing.T) {
 					config, buildArgs,
 				)
 				if err != nil {
-					t.Errorf("failed to get files used from context from command")
+					t.Error("failed to get files used from context from command")
 				}
 
 				if len(cmdFiles) != 0 {
-					t.Errorf("expected files used from context to be empty but was not")
+					t.Error("expected files used from context to be empty but was not")
 				}
 			}
 
