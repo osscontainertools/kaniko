@@ -41,7 +41,7 @@ import (
 var (
 	// RetrieveRemoteImage downloads an image from a remote location
 	RetrieveRemoteImage = remote.RetrieveRemoteImage
-	retrieveTarImage    = tarballImage
+	retrieveOciImage    = ociImage
 )
 
 // RetrieveSourceImage returns the base image of the stage at index
@@ -72,10 +72,10 @@ func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, b
 	// Next, check if the base image of the current stage is built from a previous stage
 	// If so, retrieve the image from the stored tarball
 	if baseImageStoredLocally {
-		if config.EnvBool("FF_KANIKO_OCI_STAGES") {
-			return ociImage(baseImageIndex)
+		if config.EnvBoolDefault("FF_KANIKO_OCI_STAGES", true) {
+			return retrieveOciImage(baseImageIndex)
 		} else {
-			return retrieveTarImage(baseImageIndex)
+			return tarballImage(baseImageIndex)
 		}
 	}
 

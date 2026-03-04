@@ -1094,8 +1094,8 @@ Will be deprecated in `v1.28.0`.
 
 To switch between stages Kaniko has to store in a local directory temporarily. So far this is done using tarballs from go-containerregistry. However, this approach creates two problems. The tarball writer only supports dockerv2 mediatype, so when building a multi-stage image we forcefully rewrite all images to that mediatype. Secondly, the performance of that approach is suboptimal, as the manifest is not stored and has to be recalculated (ie. digest hash) upon reload. With this change we use ocilayout instead. Ocilayout folders support arbitrary mediatypes and store the manifest alongside the image data.
 Set this flag to `true` to store inter-stage dependencies as ocilayout.
-Defaults to `false`.
-Becomes default in `v1.27.0`.
+Defaults to `true`.
+Will be deprecated in `v1.28.0`.
 
 #### Flag `FF_KANIKO_DISABLE_HTTP2`
 

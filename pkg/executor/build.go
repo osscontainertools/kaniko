@@ -1132,7 +1132,7 @@ func saveStageAsTarball(path string, image v1.Image) error {
 	if err := os.MkdirAll(filepath.Dir(tarPath), 0750); err != nil {
 		return err
 	}
-	if config.EnvBool("FF_KANIKO_OCI_STAGES") {
+	if config.EnvBoolDefault("FF_KANIKO_OCI_STAGES", true) {
 		p, err := layout.Write(tarPath, empty.Index)
 		if err != nil {
 			return err
