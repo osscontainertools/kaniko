@@ -454,8 +454,8 @@ func resolveSecrets() error {
 // resolveEnvironmentBuildArgs replace build args without value by the same named environment variable
 func resolveEnvironmentBuildArgs(arguments []string, resolver func(string) string) {
 	for index, argument := range arguments {
-		i := strings.Index(argument, "=")
-		if i < 0 {
+		found := strings.Contains(argument, "=")
+		if !found {
 			value := resolver(argument)
 			arguments[index] = fmt.Sprintf("%s=%s", argument, value)
 		}

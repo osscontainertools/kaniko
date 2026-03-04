@@ -68,7 +68,7 @@ func GetCurrentUser(t *testing.T) CurrentUser {
 	}
 }
 
-func CheckDeepEqual(t *testing.T, expected, actual interface{}) {
+func CheckDeepEqual(t *testing.T, expected, actual any) {
 	t.Helper()
 	if diff := cmp.Diff(actual, expected); diff != "" {
 		t.Errorf("%T differ (-got, +want): %s", expected, diff)
@@ -76,7 +76,7 @@ func CheckDeepEqual(t *testing.T, expected, actual interface{}) {
 	}
 }
 
-func CheckErrorAndDeepEqual(t *testing.T, shouldErr bool, err error, expected, actual interface{}) {
+func CheckErrorAndDeepEqual(t *testing.T, shouldErr bool, err error, expected, actual any) {
 	t.Helper()
 	if err := checkErr(shouldErr, err); err != nil {
 		t.Error(err)

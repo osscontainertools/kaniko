@@ -27,9 +27,8 @@ import (
 )
 
 func Test_NewCompositeCache(t *testing.T) {
-	r := NewCompositeCache()
-	if reflect.TypeOf(r).String() != "*executor.CompositeCache" {
-		t.Errorf("expected return to be *executor.CompositeCache but was %v", reflect.TypeOf(r).String())
+	if reflect.TypeFor[*CompositeCache]().String() != "*executor.CompositeCache" {
+		t.Errorf("expected return to be *executor.CompositeCache but was %v", reflect.TypeFor[*CompositeCache]().String())
 	}
 }
 

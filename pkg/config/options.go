@@ -245,8 +245,8 @@ func (s *SecretOptions) Set(val string) error {
 		Src  string
 		Env  string
 	}
-	parts := strings.Split(val, ",")
-	for _, part := range parts {
+	parts := strings.SplitSeq(val, ",")
+	for part := range parts {
 		kv := strings.SplitN(part, "=", 2)
 
 		if len(kv) != 2 {
