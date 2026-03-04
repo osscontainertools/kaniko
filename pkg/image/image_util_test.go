@@ -29,8 +29,7 @@ import (
 	"github.com/osscontainertools/kaniko/testutil"
 )
 
-var (
-	dockerfile = `
+var dockerfile = `
 	FROM gcr.io/distroless/base:latest as base
 	COPY . .
 
@@ -41,7 +40,6 @@ var (
 	FROM base
 	ARG file
 	COPY --from=second /foo $file`
-)
 
 func Test_StandardImage(t *testing.T) {
 	stages, err := parse(dockerfile)

@@ -24,12 +24,12 @@ import (
 
 func TestKanikoGitOptions(t *testing.T) {
 	t.Run("invalid pair", func(t *testing.T) {
-		var g = &KanikoGitOptions{}
+		g := &KanikoGitOptions{}
 		testutil.CheckError(t, true, g.Set("branch"))
 	})
 
 	t.Run("sets values", func(t *testing.T) {
-		var g = &KanikoGitOptions{}
+		g := &KanikoGitOptions{}
 		testutil.CheckNoError(t, g.Set("branch=foo"))
 		testutil.CheckNoError(t, g.Set("recurse-submodules=true"))
 		testutil.CheckNoError(t, g.Set("single-branch=true"))
@@ -43,7 +43,7 @@ func TestKanikoGitOptions(t *testing.T) {
 	})
 
 	t.Run("sets bools other than true", func(t *testing.T) {
-		var g = KanikoGitOptions{}
+		g := KanikoGitOptions{}
 		testutil.CheckError(t, true, g.Set("recurse-submodules="))
 		testutil.CheckError(t, true, g.Set("single-branch=zaza"))
 		testutil.CheckNoError(t, g.Set("recurse-submodules=false"))
@@ -56,7 +56,7 @@ func TestKanikoGitOptions(t *testing.T) {
 
 func TestKanikoSecretOptions(t *testing.T) {
 	t.Run("regular file", func(t *testing.T) {
-		var s = SecretOptions{}
+		s := SecretOptions{}
 		testutil.CheckError(t, false, s.Set("id=blubb"))
 		testutil.CheckError(t, false, s.Set("id=blubb2,src=/blubb"))
 		testutil.CheckError(t, false, s.Set("id=blubb3,source=/blubb"))
@@ -68,7 +68,7 @@ func TestKanikoSecretOptions(t *testing.T) {
 	})
 
 	t.Run("environment variable", func(t *testing.T) {
-		var s = SecretOptions{}
+		s := SecretOptions{}
 		t.Setenv("SECRET", "blubb")
 		testutil.CheckError(t, false, s.Set("id=SECRET"))
 		testutil.CheckError(t, false, s.Set("id=blubb,env=blubb"))
@@ -81,7 +81,7 @@ func TestKanikoSecretOptions(t *testing.T) {
 	})
 
 	t.Run("illegal combinations", func(t *testing.T) {
-		var s = SecretOptions{}
+		s := SecretOptions{}
 		testutil.CheckError(t, true, s.Set("src=blubb"))
 		testutil.CheckError(t, true, s.Set("id=blubb,src=blubb,env=blubb"))
 		testutil.CheckError(t, true, s.Set("id=blubb,type=file,env=blubb"))

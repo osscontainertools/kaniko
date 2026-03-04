@@ -86,8 +86,8 @@ var workdirTests = []struct {
 func mockDir(path string, mode os.FileMode, uid, gid int64) error {
 	return nil
 }
-func TestWorkdirCommand(t *testing.T) {
 
+func TestWorkdirCommand(t *testing.T) {
 	// Mock out mkdir for testing.
 	oldMkdir := mkdirAllWithPermissions
 	mkdirAllWithPermissions = mockDir

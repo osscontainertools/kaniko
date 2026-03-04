@@ -247,7 +247,7 @@ func getBranchCommitAndURL() (branch, commit, url string) {
 }
 
 func DockerGitRepo(url string, commit string, branch string) string {
-	var ref = ""
+	ref := ""
 	if commit != "" {
 		ref = "#" + commit
 	} else if branch != "" {
@@ -257,7 +257,7 @@ func DockerGitRepo(url string, commit string, branch string) string {
 }
 
 func KanikoGitRepo(url string, commit string, branch string) string {
-	var ref = ""
+	ref := ""
 	if commit != "" {
 		ref = "#" + commit
 	} else if branch != "" {

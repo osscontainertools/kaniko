@@ -61,7 +61,6 @@ func updateLabels(labels []instructions.KeyValuePair, config *v1.Config, buildAr
 
 	config.Labels = existingLabels
 	return nil
-
 }
 
 // String returns some information about the command for the image config history
