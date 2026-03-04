@@ -24,6 +24,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -254,11 +255,8 @@ func Test_CachingCopyCommand_ExecuteCommand(t *testing.T) {
 				for _, file := range tc.extractedFiles {
 					match := false
 					cFiles := c.FilesToSnapshot()
-					for _, cFile := range cFiles {
-						if file == cFile {
-							match = true
-							break
-						}
+					if slices.Contains(cFiles, file) {
+						match = true
 					}
 					if !match {
 						t.Errorf("Expected extracted files to include %v but did not %v", file, cFiles)
