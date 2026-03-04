@@ -1,0 +1,16 @@
+# mz529: in kaniko v1.26.5 kaniko learned to cleanup the
+# kaniko-dir after build. This was done because if a script tries
+# to retry the build, having leftovers in kaniko-dir leads to failed builds.
+# However, the kaniko-dir was cleaned after build, but before push.
+# So now regular builds that simply try to run through once failed.
+FROM busybox AS base
+
+RUN touch test
+
+# This issue only manifests with multistage builds: intermediate stages are saved as tarballs
+# under /kaniko/stages/ and the final v1.Image holds a lazy reference to those files.
+# Cleaning /kaniko/stages/ before DoPush causes layer reads to fail on the now-missing files.
+# Single-stage builds are unaffected because their base layers come from the remote registry.
+FROM base
+
+RUN touch blubb

@@ -209,6 +209,13 @@ var RootCmd = &cobra.Command{
 		if err := os.Chdir("/"); err != nil {
 			exit(fmt.Errorf("error changing to root dir: %w", err))
 		}
+		if opts.Cleanup && config.EnvBoolDefault("FF_KANIKO_CLEAN_KANIKO_DIR", true) {
+			defer func() {
+				if err := config.Cleanup(); err != nil {
+					logrus.Warnf("error cleaning kaniko dir: %v", err)
+				}
+			}()
+		}
 		image, err := executor.DoBuild(opts)
 		if err != nil {
 			exit(fmt.Errorf("error building image: %w", err))
