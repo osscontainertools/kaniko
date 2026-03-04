@@ -18,6 +18,7 @@ package executor
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io/fs"
 	"os"
@@ -87,7 +88,7 @@ func (s *CompositeCache) AddPath(p string, context util.FileContext) error {
 		return err
 	}
 
-	s.keys = append(s.keys, fmt.Sprintf("%x", sha.Sum(nil)))
+	s.keys = append(s.keys, hex.EncodeToString(sha.Sum(nil)))
 	return nil
 }
 
@@ -132,5 +133,5 @@ func hashDir(p string, context util.FileContext) (bool, string, error) {
 		return false, "", err
 	}
 
-	return empty, fmt.Sprintf("%x", sha.Sum(nil)), nil
+	return empty, hex.EncodeToString(sha.Sum(nil)), nil
 }
