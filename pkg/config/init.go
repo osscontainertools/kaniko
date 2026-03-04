@@ -46,21 +46,21 @@ var KanikoDir = func() string {
 }()
 
 // DockerfilePath is the path the Dockerfile is copied to
-var DockerfilePath = fmt.Sprintf("%s/Dockerfile", KanikoDir)
+var DockerfilePath = KanikoDir + "/Dockerfile"
 
 // BuildContextDir is the directory a build context will be unpacked into,
 // for example, a tarball from a GCS bucket will be unpacked here
-var BuildContextDir = fmt.Sprintf("%s/buildcontext/", KanikoDir)
+var BuildContextDir = KanikoDir + "/buildcontext/"
 
 // KanikoIntermediateStagesDir is where we will store intermediate stages
 // as tarballs in case they are needed later on
-var KanikoIntermediateStagesDir = fmt.Sprintf("%s/stages/", KanikoDir)
+var KanikoIntermediateStagesDir = KanikoDir + "/stages/"
 
 // KanikoInsterStageDir is where we will store inter-stage dependencies
 // Contents are stored as-is.
 var KanikoInterStageDepsDir = func() string {
 	if EnvBoolDefault("FF_KANIKO_NEW_CACHE_LAYOUT", true) {
-		return fmt.Sprintf("%s/deps/", KanikoDir)
+		return KanikoDir + "/deps/"
 	}
 	return KanikoDir
 }()
@@ -68,7 +68,7 @@ var KanikoInterStageDepsDir = func() string {
 // KanikoLayersDir is where we will store layers as tarballs
 var KanikoLayersDir = func() string {
 	if EnvBoolDefault("FF_KANIKO_NEW_CACHE_LAYOUT", true) {
-		return fmt.Sprintf("%s/layers/", KanikoDir)
+		return KanikoDir + "/layers/"
 	}
 	return KanikoDir
 }()
@@ -76,19 +76,19 @@ var KanikoLayersDir = func() string {
 // KanikoCacheDir is where we will store cache mount directories, ie.
 // RUN --mount=type=cache,target=/var/lib/apt/lists/
 // Contents are stored as-is.
-var KanikoCacheDir = fmt.Sprintf("%s/caches/", KanikoDir)
+var KanikoCacheDir = KanikoDir + "/caches/"
 
 // KanikoSwapDir is a temporary directory used to swap out cache
 // and target directories
-var KanikoSwapDir = fmt.Sprintf("%s/swap/", KanikoDir)
+var KanikoSwapDir = KanikoDir + "/swap/"
 
 // DockerConfigDir is a where registry credentials are stored
-var DockerConfigDir = fmt.Sprintf("%s/.docker/", KanikoDir)
+var DockerConfigDir = KanikoDir + "/.docker/"
 
 // KanikoSecretsDir is a where user defined secrets are stored
-var KanikoSecretsDir = fmt.Sprintf("%s/secrets/", KanikoDir)
+var KanikoSecretsDir = KanikoDir + "/secrets/"
 
-var TiniExec = fmt.Sprintf("%s/tini", KanikoDir)
+var TiniExec = KanikoDir + "/tini"
 
 var MountInfoPath string
 

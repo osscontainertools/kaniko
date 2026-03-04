@@ -24,6 +24,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -164,7 +165,7 @@ func Test_CreateTarballOfDirectory(t *testing.T) {
 
 func createFilesInTempDir(t *testing.T, tmpDir string) {
 	for i := 0; i < 2; i++ {
-		fName := filepath.Join(tmpDir, fmt.Sprint(i))
+		fName := filepath.Join(tmpDir, strconv.Itoa(i))
 		content := fmt.Sprintf("hello from %d\n", i)
 		if err := os.WriteFile(fName, []byte(content), 0666); err != nil {
 			t.Error(err)

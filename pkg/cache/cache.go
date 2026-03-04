@@ -17,6 +17,7 @@ limitations under the License.
 package cache
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -148,7 +149,7 @@ func locateImage(path string) (v1.Image, error) {
 		}
 	}
 	if img == nil {
-		return nil, fmt.Errorf("path contains no images")
+		return nil, errors.New("path contains no images")
 	}
 	return img, nil
 }
@@ -158,7 +159,7 @@ func locateImage(path string) (v1.Image, error) {
 func Destination(opts *config.KanikoOptions, cacheKey string) (string, error) {
 	cache := opts.CacheRepo
 	if cache == "" && len(opts.Destinations) == 0 {
-		return "", fmt.Errorf("cache repo can't be deduced")
+		return "", errors.New("cache repo can't be deduced")
 	} else if cache == "" {
 		destination := opts.Destinations[0]
 		destRef, err := name.NewTag(destination, name.WeakValidation)
@@ -275,7 +276,7 @@ func ociCachedImageFromPath(tarPath string) (v1.Image, error) {
 	}
 
 	if len(idxManifest.Manifests) == 0 {
-		return nil, fmt.Errorf("no images found in OCI layout")
+		return nil, errors.New("no images found in OCI layout")
 	}
 	if len(idxManifest.Manifests) > 1 {
 		return nil, fmt.Errorf("expected one image, found %d", len(idxManifest.Manifests))
