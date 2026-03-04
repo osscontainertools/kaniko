@@ -93,7 +93,7 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 	}
 
 	_opts := *opts
-	if !stage.Final {
+	if !stage.Push {
 		_opts.Labels = []string{}
 	}
 	imageConfig, err := initializeConfig(sourceImage, &_opts)
@@ -741,10 +741,10 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 			}
 			printf("%s\n", command)
 		}
+		if s.Push && !opts.NoPush {
+			printf("PUSH %v\n", opts.Destinations)
+		}
 		if s.Final {
-			if !opts.NoPush {
-				printf("PUSH %v\n", opts.Destinations)
-			}
 			if opts.Cleanup {
 				printf("CLEAN\n")
 			}
@@ -762,7 +762,7 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 			printf("RESTORE CONTEXT\n\n")
 		}
 	}
-	logrus.Panic("unreachable - we should always have a final stage")
+	logrus.Panic("Unreachable Code: we should always have a final stage")
 	return retErr
 }
 
@@ -860,6 +860,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		})
 	}
 
+	var pushImage v1.Image
 	for _, stage := range kanikoStages {
 		sb, err := newStageBuilder(
 			args, opts, stage,
@@ -927,7 +928,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		digestToCacheKey[d.String()] = finalCacheKey
 		logrus.Debugf("Mapping digest %v to cachekey %v", d.String(), finalCacheKey)
 
-		if stage.Final {
+		if stage.Push {
 			sourceImage, err = mutate.CreatedAt(sourceImage, v1.Time{Time: time.Now()})
 			if err != nil {
 				return nil, err
@@ -941,8 +942,15 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			if len(opts.Annotations) > 0 {
 				sourceImage = mutate.Annotations(sourceImage, opts.Annotations).(v1.Image)
 			}
+			pushImage = sourceImage
+		}
+		if stage.Final {
 			timing.DefaultRun.Stop(t)
-			return sourceImage, nil
+			if pushImage == nil {
+				// Final stage must be last, so by definition after Push stage
+				logrus.Panic("pushImage is nil")
+			}
+			return pushImage, nil
 		}
 		if stage.SaveStage {
 			if err := saveStageAsTarball(strconv.Itoa(stage.Index), sourceImage); err != nil {
