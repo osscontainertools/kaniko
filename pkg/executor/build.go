@@ -742,7 +742,7 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 			printf("%s\n", command)
 		}
 		if s.Push && !opts.NoPush {
-			printf("PUSH %v\n", opts.Destinations)
+			printf("PUSH %v\n", opts.Destinations["__default__"])
 		}
 		if s.Final {
 			if opts.Cleanup {
@@ -766,29 +766,34 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 	return retErr
 }
 
+type ImageChannel struct {
+	Stage string
+	Image v1.Image
+}
+
 // DoBuild executes building the Dockerfile
-func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
+func DoBuild(opts *config.KanikoOptions, images chan<- ImageChannel) (retErr error) {
 	t := timing.Start("Total Build Time")
 	digestToCacheKey := make(map[string]string)
 
 	stages, metaArgs, err := dockerfile.ParseStages(opts)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	kanikoStages, err := dockerfile.MakeKanikoStages(opts, stages, metaArgs)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	fileContext, err := util.NewFileContextFromDockerfile(opts.DockerfilePath, opts.SrcContext)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	crossStageDependencies, err := CalculateDependencies(kanikoStages, opts)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	logrus.Infof("Built cross stage deps: %v", crossStageDependencies)
 
@@ -796,36 +801,36 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		logrus.Panic("no stages to build")
 	}
 	if opts.Dryrun {
-		return nil, RenderStages(kanikoStages, opts, fileContext, crossStageDependencies)
+		return RenderStages(kanikoStages, opts, fileContext, crossStageDependencies)
 	}
 
 	// Some stages may refer to other random images, not previous stages
 	if err := fetchExtraStages(kanikoStages, opts); err != nil {
-		return nil, err
+		return err
 	}
 
 	lastStage := kanikoStages[len(kanikoStages)-1]
 	var args = dockerfile.NewBuildArgs(opts.BuildArgs)
 	err = args.InitPredefinedArgs(opts.CustomPlatform, lastStage.Name)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var tarball string
 	err = util.InitIgnoreList()
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize ignore list: %w", err)
+		return fmt.Errorf("failed to initialize ignore list: %w", err)
 	}
 	snapshotter, err := makeSnapshotter(opts)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if opts.PreserveContext {
 		if len(kanikoStages) > 1 || opts.PreCleanup || opts.Cleanup {
 			logrus.Info("Creating snapshot of build context")
 			tarball, err = snapshotter.TakeSnapshotFS()
 			if err != nil {
-				return nil, err
+				return err
 			}
 		} else {
 			logrus.Info("Skipping context snapshot as no-one requires it")
@@ -833,7 +838,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 	if opts.PreCleanup {
 		if err = util.DeleteFilesystem(); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
@@ -856,13 +861,12 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		})
 	}
 
-	var pushImage v1.Image
 	for _, stage := range kanikoStages {
 		sb, err := newStageBuilder(
 			args, opts, stage,
 			fileContext)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
 			stage.BaseName, stage.Index, stage.BaseImageIndex)
@@ -878,26 +882,26 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		// Apply optimizations to the instructions.
 		finalCacheKey, err := sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts))
 		if err != nil {
-			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
+			return fmt.Errorf("failed to optimize instructions: %w", err)
 		}
 
 		args = sb.args
 		crossStageDeps := len(crossStageDependencies[stage.Index]) > 0
 		err = sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps)
 		if err != nil {
-			return nil, fmt.Errorf("error building stage: %w", err)
+			return fmt.Errorf("error building stage: %w", err)
 		}
 
 		reviewConfig(stage, &sb.cf.Config)
 
 		sourceImage, err := mutate.Config(sb.image, sb.cf.Config)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		configFile, err := sourceImage.ConfigFile()
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if opts.CustomPlatform == "" {
 			configFile.OS = runtime.GOOS
@@ -905,19 +909,19 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		} else {
 			os, arch, ok := strings.Cut(opts.CustomPlatform, "/")
 			if !ok {
-				return nil, fmt.Errorf("invalid platform format %q, expected os/arch", opts.CustomPlatform)
+				return fmt.Errorf("invalid platform format %q, expected os/arch", opts.CustomPlatform)
 			}
 			configFile.OS = os
 			configFile.Architecture = arch
 		}
 		sourceImage, err = mutate.ConfigFile(sourceImage, configFile)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		d, err := sourceImage.Digest()
 		if err != nil {
-			return nil, err
+			return err
 		}
 		logrus.Debugf("Mapping stage idx %v to digest %v", sb.index, d.String())
 
@@ -927,68 +931,69 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if stage.Push {
 			sourceImage, err = mutate.CreatedAt(sourceImage, v1.Time{Time: time.Now()})
 			if err != nil {
-				return nil, err
+				return err
 			}
 			if opts.Reproducible {
 				sourceImage, err = mutate.Canonical(sourceImage)
 				if err != nil {
-					return nil, err
+					return err
 				}
 			}
 			if len(opts.Annotations) > 0 {
 				sourceImage = mutate.Annotations(sourceImage, opts.Annotations).(v1.Image)
 			}
-			pushImage = sourceImage
+			if images != nil {
+				images <- ImageChannel{
+					Stage: stage.Stage.Name,
+					Image: sourceImage,
+				}
+			}
 		}
 		if stage.Final {
 			timing.DefaultRun.Stop(t)
-			if pushImage == nil {
-				// Final stage must be last, so by definition after Push stage
-				logrus.Panic("pushImage is nil")
-			}
-			return pushImage, nil
+			return nil
 		}
 		if stage.SaveStage {
 			if err := saveStageAsTarball(strconv.Itoa(stage.Index), sourceImage); err != nil {
-				return nil, err
+				return err
 			}
 		}
 
 		files, err := filesToSave(crossStageDependencies[stage.Index])
 		if err != nil {
-			return nil, err
+			return err
 		}
 		dstDir := filepath.Join(config.KanikoInterStageDepsDir, strconv.Itoa(stage.Index))
 		_ = os.RemoveAll(dstDir)
 		if err := os.MkdirAll(dstDir, mkdirPermissions); err != nil {
-			return nil, fmt.Errorf("to create workspace for stage %d: %w",
+			return fmt.Errorf("to create workspace for stage %d: %w",
 				stage.Index, err)
 		}
 		for _, p := range files {
 			logrus.Infof("Saving file %s for later use", p)
 			if err := util.CopyFileOrSymlink(p, dstDir, config.RootDir); err != nil {
-				return nil, fmt.Errorf("could not save file: %w", err)
+				return fmt.Errorf("could not save file: %w", err)
 			}
 		}
 
 		// Delete the filesystem
 		if err := util.DeleteFilesystem(); err != nil {
-			return nil, fmt.Errorf("deleting file system after stage %d: %w", stage.Index, err)
+			return fmt.Errorf("deleting file system after stage %d: %w", stage.Index, err)
 		}
 		if opts.PreserveContext && !opts.PreCleanup {
 			if tarball == "" {
-				return nil, fmt.Errorf("context snapshot is missing")
+				return fmt.Errorf("context snapshot is missing")
 			}
 			_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
 			if err != nil {
-				return nil, fmt.Errorf("failed to unpack context snapshot: %w", err)
+				return fmt.Errorf("failed to unpack context snapshot: %w", err)
 			}
 			logrus.Info("Context restored")
 		}
 	}
 
 	logrus.Panic("unreachable - we should always have a final stage")
-	return nil, nil
+	return nil
 }
 
 func assignIfNil(dst *error, fn func() error) {
