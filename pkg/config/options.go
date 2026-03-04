@@ -277,11 +277,11 @@ func (s *SecretOptions) Set(val string) error {
 	}
 
 	if sec.Src != "" && sec.Env != "" {
-		return fmt.Errorf("only one of src or env may be specified")
+		return errors.New("only one of src or env may be specified")
 	}
 
 	if sec.Type == "file" && sec.Env != "" {
-		return fmt.Errorf("env cannot be specified for file type secrets")
+		return errors.New("env cannot be specified for file type secrets")
 	}
 
 	if sec.Type == "env" && sec.Src != "" {

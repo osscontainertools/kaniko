@@ -73,7 +73,7 @@ var (
 )
 
 func (w *withUserAgent) RoundTrip(r *http.Request) (*http.Response, error) {
-	ua := []string{fmt.Sprintf("kaniko/%s", version.Version())}
+	ua := []string{"kaniko/" + version.Version()}
 	if upstream := os.Getenv(UpstreamClientUaKey); upstream != "" {
 		ua = append(ua, upstream)
 	}
