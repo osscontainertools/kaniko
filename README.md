@@ -124,7 +124,6 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_SQUASH_STAGES`](#flag-ff_kaniko_squash_stages)
       - [Flag `FF_KANIKO_IGNORE_CACHED_MANIFEST`](#flag-ff_kaniko_ignore_cached_manifest)
       - [Flag `FF_KANIKO_RUN_MOUNT_SECRET`](#flag-ff_kaniko_run_mount_secret)
-      - [Flag `FF_KANIKO_NEW_CACHE_LAYOUT`](#flag-ff_kaniko_new_cache_layout)
       - [Flag `FF_KANIKO_OCI_STAGES`](#flag-ff_kaniko_oci_stages)
       - [Flag `FF_KANIKO_DISABLE_HTTP2`](#flag-ff_kaniko_disable_http2)
       - [Flag `FF_KANIKO_OCI_WARMER`](#flag-ff_kaniko_oci_warmer)
@@ -1097,13 +1096,6 @@ RUN --mount=type=secret,id=netrc,target=/root/.netrc \
 ```
 Defaults to `true`.
 Will be deprecated in `v1.28.0`.
-
-#### Flag `FF_KANIKO_NEW_CACHE_LAYOUT`
-
-Kaniko stores cache-layers and inter-stage dependencies in `/kaniko` folder directly. Our plan is to make downloaded cache-layers shareable on the host, similar to images downloaded with warmer. Therefore we should move them to a subdirectory, s.t. they can later be replaced with a volume mount.
-Set this flag to `true` to store cache-layers in `/kaniko/layers` and inter-stage dependencies in `/kaniko/deps` respectively.
-Defaults to `true`.
-Will be deprecated in `v1.27.0`.
 
 #### Flag `FF_KANIKO_OCI_STAGES`
 
