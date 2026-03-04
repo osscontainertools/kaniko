@@ -1071,7 +1071,7 @@ Currently no plans to activate.
 Many multi-stage Dockerfiles include intermediate stages that only become relevant if we were to build multiple build targets. As kaniko can only build a single target at a time, they can be squashed together without changing the final build output.
 Set this flag to `true` to squash stages together.
 Defaults to `true`.
-Will be deprecated in `v1.27.0`.
+Will be deprecated in `v1.28.0`.
 
 #### Flag `FF_KANIKO_IGNORE_CACHED_MANIFEST`
 
@@ -1108,7 +1108,7 @@ Currently no plans to activate.
 Warmer stores images in a tarball via go-containerregistry. However, this approach creates two problems. The tarball writer only supports dockerv2 mediatype, so building from warmer cache might result in a different output image than building from remote, as we forcefully rewrite all images to that mediatype. Secondly, the performance/usability of that approach is suboptimal, as we either store the manifest in a separate file, causing consistency issues or recalculate upon load (see [`FF_KANIKO_IGNORE_CACHED_MANIFEST`](#flag-ff_kaniko_ignore_cached_manifest)). With this change we use ocilayout instead. Ocilayout folders support arbitrary mediatypes and store the manifest alongside the image data.
 Set this flag to `true` to store warmer cache images as ocilayout. Note that this flag has to be passed to both warmer and executor. Note that currently there is no mutex lock mechanism yet, so it does not support multiple parallel writes.
 Defaults to `false`.
-Becomes default in `v1.27.0`, if we manage to resolve the mutex lock issue by then.
+Becomes default in `v1.28.0`, if we manage to resolve the mutex lock issue by then.
 
 #### Flag `FF_KANIKO_RUN_VIA_TINI`
 
@@ -1116,7 +1116,7 @@ Kaniko usually runs as PID1 in the container, but kaniko currently does not impl
 Set this flag to `true` to run any `RUN` commands via `tini` init system as subreaper, to properly handle zombie processes.
 Note that for this feature to work the tini binary must be available as `/kaniko/tini`.
 Defaults to `false`.
-Becomes default in `v1.27.0`.
+Becomes default in `v1.28.0`.
 
 #### Flag `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS`
 
