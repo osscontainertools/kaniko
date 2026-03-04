@@ -88,7 +88,7 @@ type KanikoOptions struct {
 	Cleanup                      bool
 	CompressedCaching            bool
 	IgnoreVarRun                 bool
-	SkipUnusedStages             bool
+	SkipUnusedStagesDeprecated   bool
 	RunV2                        bool
 	CacheCopyLayers              bool
 	CacheRunLayers               bool

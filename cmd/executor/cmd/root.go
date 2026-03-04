@@ -306,7 +306,6 @@ func AddKanikoOptionsFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().BoolVarP(&opts.SkipDefaultRegistryFallback, "skip-default-registry-fallback", "", false, "If an image is not found on any mirrors (defined with registry-mirror) do not fallback to the default registry. If registry-mirror is not defined, this flag is ignored.")
 	cmd.Flags().BoolVarP(&opts.IgnoreVarRun, "ignore-var-run", "", true, "Ignore /var/run directory when taking image snapshot. Set it to false to preserve /var/run/ in destination image.")
 	cmd.Flags().VarP(&opts.Labels, "label", "", "Set metadata for an image. Set it repeatedly for multiple labels.")
-	cmd.Flags().BoolVarP(&opts.SkipUnusedStages, "skip-unused-stages", "", true, "Build only used stages if defined to true. Otherwise it builds by default all stages, even the unnecessaries ones until it reaches the target stage / end of Dockerfile")
 	cmd.Flags().BoolVarP(&opts.RunV2, "use-new-run", "", false, "Use the experimental run implementation for detecting changes without requiring file system snapshots.")
 	cmd.Flags().Var(&opts.Git, "git", "Branch to clone if build context is a git repository")
 	cmd.Flags().BoolVarP(&opts.CacheCopyLayers, "cache-copy-layers", "", false, "Caches copy layers")
@@ -327,6 +326,7 @@ func AddKanikoOptionsFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().StringVarP(&opts.CustomPlatformDeprecated, "customPlatform", "", "", "This flag is deprecated. Please use '--custom-platform'.")
 	cmd.Flags().StringVarP(&opts.TarPath, "tarPath", "", "", "This flag is deprecated. Please use '--tar-path'.")
 	cmd.Flags().BoolVarP(&opts.ForceBuildMetadataDeprecated, "force-build-metadata", "", false, "This flag is deprecated. This is the new default behaviour")
+	cmd.Flags().BoolVarP(&opts.SkipUnusedStagesDeprecated, "skip-unused-stages", "", false, "This flag is deprecated. This is the new default behaviour")
 }
 
 // addHiddenFlags marks certain flags as hidden from the executor help text
@@ -389,6 +389,10 @@ func checkNoDeprecatedFlags() {
 
 	if opts.ForceBuildMetadataDeprecated {
 		logrus.Warn("Flag --force-build-metadata is deprecated. This is the new default behaviour")
+	}
+
+	if opts.SkipUnusedStagesDeprecated {
+		logrus.Warn("Flag --skip-unused-stages is deprecated. This is the new default behaviour. If you want to build multiple independent stages pass them as --target instead")
 	}
 }
 

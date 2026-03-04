@@ -109,7 +109,6 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--skip-tls-verify`](#flag---skip-tls-verify)
       - [Flag `--skip-tls-verify-pull`](#flag---skip-tls-verify-pull)
       - [Flag `--skip-tls-verify-registry`](#flag---skip-tls-verify-registry)
-      - [Flag `--skip-unused-stages`](#flag---skip-unused-stages)
       - [Flag `--snapshot-mode`](#flag---snapshot-mode)
       - [Flag `--tar-path`](#flag---tar-path)
       - [Flag `--target`](#flag---target)
@@ -993,12 +992,6 @@ You can set `--skip-tls-verify-registry <registry-name>` to skip TLS certificate
 validation when accessing the specified registry. It is supposed to be used for
 testing purposes only and should not be used in production! You can set it
 multiple times for multiple registries.
-
-#### Flag `--skip-unused-stages`
-
-Builds only used stages.  If set to `false` it builds all stages, even the unnecessary ones until it reaches the target stage / end of Dockerfile.
-Defaults to `true`.
-Will be deprecated in `v1.27.0`, if we manage to implement multi-target builds by then.
 
 #### Flag `--snapshot-mode`
 
