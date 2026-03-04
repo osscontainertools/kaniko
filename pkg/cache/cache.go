@@ -58,13 +58,13 @@ func (rc *RegistryCache) RetrieveLayer(ck string) (v1.Image, error) {
 		return nil, fmt.Errorf("getting reference for %s: %w", cache, err)
 	}
 
-	registryName := cacheRef.Repository.Registry.Name()
+	registryName := cacheRef.Registry.Name()
 	if rc.Opts.Insecure || rc.Opts.InsecureRegistries.Contains(registryName) {
 		newReg, err := name.NewRegistry(registryName, name.WeakValidation, name.Insecure)
 		if err != nil {
 			return nil, err
 		}
-		cacheRef.Repository.Registry = newReg
+		cacheRef.Registry = newReg
 	}
 
 	tr, err := util.MakeTransport(rc.Opts.RegistryOptions, registryName)
