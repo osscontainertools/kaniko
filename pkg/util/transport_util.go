@@ -20,10 +20,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
-
-	"net/http"
 
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/sirupsen/logrus"
