@@ -123,7 +123,6 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_COPY_AS_ROOT`](#flag-ff_kaniko_copy_as_root)
       - [Flag `FF_KANIKO_SQUASH_STAGES`](#flag-ff_kaniko_squash_stages)
       - [Flag `FF_KANIKO_IGNORE_CACHED_MANIFEST`](#flag-ff_kaniko_ignore_cached_manifest)
-      - [Flag `FF_KANIKO_RUN_MOUNT_CACHE`](#flag-ff_kaniko_run_mount_cache)
       - [Flag `FF_KANIKO_RUN_MOUNT_SECRET`](#flag-ff_kaniko_run_mount_secret)
       - [Flag `FF_KANIKO_NEW_CACHE_LAYOUT`](#flag-ff_kaniko_new_cache_layout)
       - [Flag `FF_KANIKO_OCI_STAGES`](#flag-ff_kaniko_oci_stages)
@@ -1088,17 +1087,6 @@ Warmer does not only store the image as a tarball, but also the original manifes
 This is done to speedup manifest retrieval, but has adverse effects in some scenarios, as storing the image as a tarball actively rewrites part of the image, specifically it forces the mediatype to `vnd.docker.distribution.manifest.v2+json`. This causes the stored manifest being incompatible with the stored image. With this featureflag we ignore the manifest stored in cache and instead create the manifest from the image upon load.
 Set this flag to `true` to ignore stored manifest.json in the cache directory. Defaults to `false`.
 Currently no plans to activate.
-
-#### Flag `FF_KANIKO_RUN_MOUNT_CACHE`
-
-Set this flag to `true` to implement mount caches in `RUN` statements, ie.
-```dockerfile
-RUN --mount=type=cache,target=/var/lib/apt/lists/ \
-  apt-get update \
-  && apt-get -y install cowsay
-```
-Defaults to `true`.
-Will be deprecated in `v1.27.0`.
 
 #### Flag `FF_KANIKO_RUN_MOUNT_SECRET`
 
