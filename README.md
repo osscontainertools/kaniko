@@ -1095,8 +1095,8 @@ Set this flag to `true` to implement secret mounts in `RUN` statements, ie.
 RUN --mount=type=secret,id=netrc,target=/root/.netrc \
   uv pip install -r requirements.txt
 ```
-Defaults to `false`.
-Becomes default in `v1.27.0`.
+Defaults to `true`.
+Will be deprecated in `v1.28.0`.
 
 #### Flag `FF_KANIKO_NEW_CACHE_LAYOUT`
 
