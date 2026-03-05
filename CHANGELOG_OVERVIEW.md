@@ -7,6 +7,8 @@
 * remove binary artifacts: by @tlk in https://github.com/mzihlmann/kaniko/pull/54
 * golang.org/x/crypto 0.44.0: CVE-2025-47914 CVE-2025-58181
 * github.com/go-git/go-git/v5 5.16.0: CVE-2026-25934
+* go.opentelemetry.io/otel/sdk 1.39.0: CVE-2026-24051
+* github.com/cloudflare/circl 1.6.1: CVE-2026-1229
 
 ### Bugfixes
 * cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3
@@ -35,10 +37,10 @@
 * skip snapshotting rootdir: https://github.com/mzihlmann/kaniko/pull/183
 * predefined build args: by @kit101 in https://github.com/mzihlmann/kaniko/pull/185 https://github.com/osscontainertools/kaniko/pull/277
 * add heredoc `<<EOF` syntax support: https://github.com/mzihlmann/kaniko/pull/206 https://github.com/mzihlmann/kaniko/pull/213 https://github.com/mzihlmann/kaniko/pull/214 https://github.com/mzihlmann/kaniko/pull/215
-* `FF_KANIKO_RUN_MOUNT_CACHE=true` cache mounts: https://github.com/osscontainertools/kaniko/pull/245 https://github.com/osscontainertools/kaniko/pull/274 https://github.com/osscontainertools/kaniko/pull/284
+* cache mounts: https://github.com/osscontainertools/kaniko/pull/245 https://github.com/osscontainertools/kaniko/pull/274 https://github.com/osscontainertools/kaniko/pull/284
 * skip-unused-stages invalidates numeric references: https://github.com/osscontainertools/kaniko/pull/306
 * cache mount option implements additional flags: https://github.com/osscontainertools/kaniko/pull/390
-* `FF_KANIKO_RUN_MOUNT_SECRET=false` secret mounts: https://github.com/osscontainertools/kaniko/pull/391 https://github.com/osscontainertools/kaniko/pull/409
+* `FF_KANIKO_RUN_MOUNT_SECRET=true` secret mounts: https://github.com/osscontainertools/kaniko/pull/391 https://github.com/osscontainertools/kaniko/pull/409
 * `FF_KANIKO_RUN_VIA_TINI=false` reap zombie processes: https://github.com/osscontainertools/kaniko/pull/211 https://github.com/osscontainertools/kaniko/pull/450
 * Skip chown/chmod for paths in ignore list: by @mesaglio in https://github.com/osscontainertools/kaniko/pull/435
 * resolve remote `ONBUILD` instructions: https://github.com/osscontainertools/kaniko/pull/354
@@ -55,7 +57,7 @@
 
 ### Performance
 * `FF_KANIKO_SQUASH_STAGES=true` squash stages together, speeding up build: https://github.com/mzihlmann/kaniko/pull/141 https://github.com/osscontainertools/kaniko/pull/283
-* `FF_KANIKO_OCI_STAGES=false` use ocilayout instead of tarballs during stage transitions: https://github.com/mzihlmann/kaniko/pull/303
+* `FF_KANIKO_OCI_STAGES=true` use ocilayout instead of tarballs during stage transitions: https://github.com/mzihlmann/kaniko/pull/303
 * recompute whether a stage must be saved: https://github.com/osscontainertools/kaniko/pull/335
 * port digest optimization to warmer: https://github.com/osscontainertools/kaniko/pull/325
 * `FF_KANIKO_DISABLE_HTTP2=false` stop forcing http/2.0: https://github.com/osscontainertools/kaniko/pull/340
@@ -77,10 +79,11 @@
 * riscv image: https://github.com/mzihlmann/kaniko/pull/220
 * add env credential helper: https://github.com/mzihlmann/kaniko/pull/236 https://github.com/mzihlmann/kaniko/pull/249
 * allow skip push cache: https://github.com/osscontainertools/kaniko/pull/268
-* `FF_KANIKO_NEW_CACHE_LAYOUT=true` organize kaniko dir: https://github.com/osscontainertools/kaniko/pull/285
+* organize kaniko dir: https://github.com/osscontainertools/kaniko/pull/285
 * fix harbor authentication: https://github.com/osscontainertools/kaniko/pull/369
 * new subcommand `executor login` to authenticate with a registry: by @brandon1024 in https://github.com/osscontainertools/kaniko/pull/407
-* cleanup kaniko workspace on failure too: https://github.com/osscontainertools/kaniko/pull/453
+* `FF_KANIKO_CLEAN_KANIKO_DIR=true` cleanup kaniko workspace on failure too: https://github.com/osscontainertools/kaniko/pull/453 https://github.com/osscontainertools/kaniko/pull/532
+* multitarget builds - part 1: https://github.com/osscontainertools/kaniko/pull/485
 
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55

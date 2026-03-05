@@ -1,3 +1,92 @@
+# v1.27.0 Release 2026-03-05
+## Update Notice
+In this Release we activated two feature-flags:
+* [FF_KANIKO_RUN_MOUNT_SECRET](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_run_mount_secret)
+* [FF_KANIKO_OCI_STAGES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_oci_stages)
+
+This will allow you to use the `type=secret` mount option in your dockerfile `RUN` steps.
+```dockerfile
+RUN --mount=type=secret,id=netrc,target=/root/.netrc \
+  uv pip install -r requirements.txt
+```
+
+**Note:** The secret is not stored securely during the build and may be recoverable by other `RUN` steps even without explicitly mounting it. It should therefore not be considered confidential within the context of the build. The secret is never added to the image and never pushed.
+
+**Note:** The mediatype of your output image might change from dockerv2 to ociv1, if it's a multistage build and the base image is ociv1, as we no longer enforce dockerv2 during stage transitions.
+
+You can roll-back those changes by overriding them in the environment ie.
+```yaml
+job:
+  variables:
+    FF_KANIKO_RUN_MOUNT_SECRET: "0"
+    FF_KANIKO_OCI_STAGES: "0"
+```
+Please also notify us by [filing a new issue](https://github.com/osscontainertools/kaniko/issues/new/choose).
+
+We further deprecated these feature-flags and cli-options:
+* `FF_KANIKO_RUN_MOUNT_CACHE`
+* `FF_KANIKO_NEW_CACHE_LAYOUT`
+* `--skip-unused-stages`
+
+They have no effect and can be removed.
+
+If you rely on `--skip-unused-stages` to build multiple stages, you can now explicitly target multiple stages in a single build instead:
+```bash
+--target final --target test
+```
+
+**Note:** The order is important to avoid accidentally pushing the wrong image. The convention introduced here is that the first target listed denotes the image that will be pushed, if a push is desired. There is currently no option to push multiple targets.
+ 
+## Community Update
+Many thanks to @sentoz for reporting an issue fixed in this release.
+
+## What's Changed
+### Security
+* go.opentelemetry.io/otel/sdk 1.39.0: CVE-2026-24051
+* github.com/cloudflare/circl 1.6.1: CVE-2026-1229
+
+### Bugfixes
+* `FF_KANIKO_CLEAN_KANIKO_DIR=true` `--cleanup` causes push to fail: https://github.com/osscontainertools/kaniko/pull/532
+
+### Performance
+* allow squashing pure copydependencies again: https://github.com/osscontainertools/kaniko/pull/488
+
+### Usability
+* multitarget builds - part 1: https://github.com/osscontainertools/kaniko/pull/485
+* activate featureflags for v1.27.0 release: https://github.com/osscontainertools/kaniko/pull/554
+
+### Maintenance
+* chore(deps): bump github.com/google/go-containerregistry from 0.20.7 to 0.21.2: https://github.com/osscontainertools/kaniko/pull/519 https://github.com/osscontainertools/kaniko/pull/525 https://github.com/osscontainertools/kaniko/pull/544
+* chore(deps): bump google.golang.org/api from 0.267.0 to 0.269.0: https://github.com/osscontainertools/kaniko/pull/522 https://github.com/osscontainertools/kaniko/pull/528
+* chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.41.1 to 1.41.3: https://github.com/osscontainertools/kaniko/pull/521 https://github.com/osscontainertools/kaniko/pull/547
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.32.9 to 1.32.11: https://github.com/osscontainertools/kaniko/pull/521 https://github.com/osscontainertools/kaniko/pull/547
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager from 0.1.4 to 0.1.7: https://github.com/osscontainertools/kaniko/pull/521 https://github.com/osscontainertools/kaniko/pull/538 https://github.com/osscontainertools/kaniko/pull/547
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.96.0 to 1.96.3: https://github.com/osscontainertools/kaniko/pull/521 https://github.com/osscontainertools/kaniko/pull/538 https://github.com/osscontainertools/kaniko/pull/547
+* chore(deps): bump github.com/go-git/go-billy/v5 from 5.7.0 to 5.8.0: https://github.com/osscontainertools/kaniko/pull/526
+* chore(deps): bump step-security/harden-runner from 2.14.2 to 2.15.0: https://github.com/osscontainertools/kaniko/pull/527
+* chore(deps): bump github.com/go-git/go-git/v5 from 5.16.5 to 5.17.0: https://github.com/osscontainertools/kaniko/pull/530
+* chore(deps): bump github.com/cloudflare/circl from 1.6.1 to 1.6.3: https://github.com/osscontainertools/kaniko/pull/531
+* chore(deps): bump actions/setup-go from 6.2.0 to 6.3.0: https://github.com/osscontainertools/kaniko/pull/534
+* chore(deps): bump docker/setup-docker-action from 4.7.0 to 5.0.0: https://github.com/osscontainertools/kaniko/pull/543
+* chore(deps): bump github.com/moby/buildkit from 0.27.1 to 0.28.0: https://github.com/osscontainertools/kaniko/pull/548
+* chore(deps): bump docker/setup-qemu-action from 3.7.0 to 4.0.0: https://github.com/osscontainertools/kaniko/pull/546
+* chore(deps): bump docker/login-action from 3 to 4: https://github.com/osscontainertools/kaniko/pull/545
+* chore(deps): bump github.com/awslabs/amazon-ecr-credential-helper/ecr-login from 0.11.0 to 0.12.0: https://github.com/osscontainertools/kaniko/pull/541
+* chore(deps): bump go.opentelemetry.io/otel/sdk from 1.39.0 to 1.40.0: https://github.com/osscontainertools/kaniko/pull/540
+* chore(deps): bump docker/setup-buildx-action from 3.12.0 to 4.0.0: https://github.com/osscontainertools/kaniko/pull/558
+* chore(deps): bump github.com/moby/moby/api from 1.53.0 to 1.54.0: https://github.com/osscontainertools/kaniko/pull/557
+* chore(deps): bump dominikh/staticcheck-action from 1.4.0 to 1.4.1: https://github.com/osscontainertools/kaniko/pull/556
+* chore(deps): bump github.com/docker/cli from 29.2.1+incompatible to 29.3.0+incompatible: https://github.com/osscontainertools/kaniko/pull/555
+
+### Fork Related
+* docs: https://github.com/osscontainertools/kaniko/pull/517 https://github.com/osscontainertools/kaniko/pull/536
+
+### Refactorings
+* cache-lookahead refactoring - part 2: https://github.com/osscontainertools/kaniko/pull/518
+* drop redundant saveStage function: https://github.com/osscontainertools/kaniko/pull/520
+* minor fixes: https://github.com/osscontainertools/kaniko/pull/537
+
+
 # v1.26.6 Release 2026-02-19
 ## Community Update
 Many thanks to @Mynacol for reporting an issue fixed in this release.
@@ -15,12 +104,12 @@ Many thanks to @Mynacol for reporting an issue fixed in this release.
 
 ### Maintenance
 * chore(deps): bump golang.org/x/sys from 0.40.0 to 0.41.0: https://github.com/osscontainertools/kaniko/pull/498
-* chore(deps): bump step-security/harden-runner from 2.14.1 to 2.14.2 in the actions group: https://github.com/osscontainertools/kaniko/pull/499
-* chore(deps): bump github.com/go-git/go-git/v5 from 5.16.4 to 5.16.5 in the gomod group: https://github.com/osscontainertools/kaniko/pull/500
+* chore(deps): bump step-security/harden-runner from 2.14.1 to 2.14.2: https://github.com/osscontainertools/kaniko/pull/499
+* chore(deps): bump github.com/go-git/go-git/v5 from 5.16.4 to 5.16.5: https://github.com/osscontainertools/kaniko/pull/500
 * chore(deps): bump google.golang.org/api from 0.265.0 to 0.267.0: https://github.com/osscontainertools/kaniko/pull/503 https://github.com/osscontainertools/kaniko/pull/514
 * chore(deps): bump cloud.google.com/go/storage from 1.59.2 to 1.60.0: https://github.com/osscontainertools/kaniko/pull/502
 * chore(deps): bump golang from 1.25.7 to 1.26.0 in /deploy: https://github.com/osscontainertools/kaniko/pull/501
-* chore(deps): bump docker/build-push-action from 6.18.0 to 6.19.2 in the actions group: https://github.com/osscontainertools/kaniko/pull/504 https://github.com/osscontainertools/kaniko/pull/505 https://github.com/osscontainertools/kaniko/pull/506
+* chore(deps): bump docker/build-push-action from 6.18.0 to 6.19.2: https://github.com/osscontainertools/kaniko/pull/504 https://github.com/osscontainertools/kaniko/pull/505 https://github.com/osscontainertools/kaniko/pull/506
 * chore(deps): bump github.com/GoogleCloudPlatform/docker-credential-gcr/v2 from 2.1.31 to 2.1.32: https://github.com/osscontainertools/kaniko/pull/513
 * chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.32.7 to 1.32.9: https://github.com/osscontainertools/kaniko/pull/513 https://github.com/osscontainertools/kaniko/pull/515
 * chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager from 0.1.2 to 0.1.4: https://github.com/osscontainertools/kaniko/pull/513 https://github.com/osscontainertools/kaniko/pull/515
@@ -242,7 +331,7 @@ Also many thanks to @Ashex @ehfd and @YevheniiSemendiak for reporting the issues
 
 # v1.26.0 Release 2025-10-16
 ## Update Notice
-In this Release we activated three feature flags:
+In this Release we activated three feature-flags:
 * [FF_KANIKO_SQUASH_STAGES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_squash_stages)
 * [FF_KANIKO_RUN_MOUNT_CACHE](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_run_mount_cache)
 * [FF_KANIKO_NEW_CACHE_LAYOUT](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_new_cache_layout)
