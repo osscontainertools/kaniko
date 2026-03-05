@@ -308,7 +308,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	// push stage cannot be squashed
 	stagesDependencies[pushStage] = 1
 	for i := finalStage; i >= 0; i-- {
-		if !buildTargets[i] && stagesDependencies[i] == 0 && copyDependencies[i] == 0 && opts.SkipUnusedStages {
+		if !buildTargets[i] && stagesDependencies[i] == 0 && copyDependencies[i] == 0 {
 			continue
 		}
 		stage := stages[i]
@@ -359,7 +359,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			Index:                  i,
 		}
 	}
-	if opts.SkipUnusedStages && config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true) {
+	if config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true) {
 		for i, s := range kanikoStages {
 			if buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
 				if s.BaseImageStoredLocally && stagesDependencies[s.BaseImageIndex] == 1 && copyDependencies[s.BaseImageIndex] == 0 {
@@ -375,17 +375,14 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			}
 		}
 	}
-	if opts.SkipUnusedStages {
-		var onlyUsedStages []config.KanikoStage
-		for i, s := range kanikoStages {
-			if buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
-				s.SaveStage = stagesDependencies[i] > 0
-				onlyUsedStages = append(onlyUsedStages, s)
-			}
+	var onlyUsedStages []config.KanikoStage
+	for i, s := range kanikoStages {
+		if buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
+			s.SaveStage = stagesDependencies[i] > 0
+			onlyUsedStages = append(onlyUsedStages, s)
 		}
-		kanikoStages = onlyUsedStages
 	}
-	return kanikoStages, nil
+	return onlyUsedStages, nil
 }
 
 // unifyArgs returns the unified args between metaArgs and --build-arg

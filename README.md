@@ -109,7 +109,6 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--skip-tls-verify`](#flag---skip-tls-verify)
       - [Flag `--skip-tls-verify-pull`](#flag---skip-tls-verify-pull)
       - [Flag `--skip-tls-verify-registry`](#flag---skip-tls-verify-registry)
-      - [Flag `--skip-unused-stages`](#flag---skip-unused-stages)
       - [Flag `--snapshot-mode`](#flag---snapshot-mode)
       - [Flag `--tar-path`](#flag---tar-path)
       - [Flag `--target`](#flag---target)
@@ -123,9 +122,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_COPY_AS_ROOT`](#flag-ff_kaniko_copy_as_root)
       - [Flag `FF_KANIKO_SQUASH_STAGES`](#flag-ff_kaniko_squash_stages)
       - [Flag `FF_KANIKO_IGNORE_CACHED_MANIFEST`](#flag-ff_kaniko_ignore_cached_manifest)
-      - [Flag `FF_KANIKO_RUN_MOUNT_CACHE`](#flag-ff_kaniko_run_mount_cache)
       - [Flag `FF_KANIKO_RUN_MOUNT_SECRET`](#flag-ff_kaniko_run_mount_secret)
-      - [Flag `FF_KANIKO_NEW_CACHE_LAYOUT`](#flag-ff_kaniko_new_cache_layout)
       - [Flag `FF_KANIKO_OCI_STAGES`](#flag-ff_kaniko_oci_stages)
       - [Flag `FF_KANIKO_DISABLE_HTTP2`](#flag-ff_kaniko_disable_http2)
       - [Flag `FF_KANIKO_OCI_WARMER`](#flag-ff_kaniko_oci_warmer)
@@ -996,12 +993,6 @@ validation when accessing the specified registry. It is supposed to be used for
 testing purposes only and should not be used in production! You can set it
 multiple times for multiple registries.
 
-#### Flag `--skip-unused-stages`
-
-Builds only used stages.  If set to `false` it builds all stages, even the unnecessary ones until it reaches the target stage / end of Dockerfile.
-Defaults to `true`.
-Will be deprecated in `v1.27.0`, if we manage to implement multi-target builds by then.
-
 #### Flag `--snapshot-mode`
 
 You can set the `--snapshot-mode=<full (default), redo, time>` flag to set how
@@ -1080,7 +1071,7 @@ Currently no plans to activate.
 Many multi-stage Dockerfiles include intermediate stages that only become relevant if we were to build multiple build targets. As kaniko can only build a single target at a time, they can be squashed together without changing the final build output.
 Set this flag to `true` to squash stages together.
 Defaults to `true`.
-Will be deprecated in `v1.27.0`.
+Will be deprecated in `v1.28.0`.
 
 #### Flag `FF_KANIKO_IGNORE_CACHED_MANIFEST`
 
@@ -1089,17 +1080,6 @@ This is done to speedup manifest retrieval, but has adverse effects in some scen
 Set this flag to `true` to ignore stored manifest.json in the cache directory. Defaults to `false`.
 Currently no plans to activate.
 
-#### Flag `FF_KANIKO_RUN_MOUNT_CACHE`
-
-Set this flag to `true` to implement mount caches in `RUN` statements, ie.
-```dockerfile
-RUN --mount=type=cache,target=/var/lib/apt/lists/ \
-  apt-get update \
-  && apt-get -y install cowsay
-```
-Defaults to `true`.
-Will be deprecated in `v1.27.0`.
-
 #### Flag `FF_KANIKO_RUN_MOUNT_SECRET`
 
 Set this flag to `true` to implement secret mounts in `RUN` statements, ie.
@@ -1107,22 +1087,15 @@ Set this flag to `true` to implement secret mounts in `RUN` statements, ie.
 RUN --mount=type=secret,id=netrc,target=/root/.netrc \
   uv pip install -r requirements.txt
 ```
-Defaults to `false`.
-Becomes default in `v1.27.0`.
-
-#### Flag `FF_KANIKO_NEW_CACHE_LAYOUT`
-
-Kaniko stores cache-layers and inter-stage dependencies in `/kaniko` folder directly. Our plan is to make downloaded cache-layers shareable on the host, similar to images downloaded with warmer. Therefore we should move them to a subdirectory, s.t. they can later be replaced with a volume mount.
-Set this flag to `true` to store cache-layers in `/kaniko/layers` and inter-stage dependencies in `/kaniko/deps` respectively.
 Defaults to `true`.
-Will be deprecated in `v1.27.0`.
+Will be deprecated in `v1.28.0`.
 
 #### Flag `FF_KANIKO_OCI_STAGES`
 
 To switch between stages Kaniko has to store in a local directory temporarily. So far this is done using tarballs from go-containerregistry. However, this approach creates two problems. The tarball writer only supports dockerv2 mediatype, so when building a multi-stage image we forcefully rewrite all images to that mediatype. Secondly, the performance of that approach is suboptimal, as the manifest is not stored and has to be recalculated (ie. digest hash) upon reload. With this change we use ocilayout instead. Ocilayout folders support arbitrary mediatypes and store the manifest alongside the image data.
 Set this flag to `true` to store inter-stage dependencies as ocilayout.
-Defaults to `false`.
-Becomes default in `v1.27.0`.
+Defaults to `true`.
+Will be deprecated in `v1.28.0`.
 
 #### Flag `FF_KANIKO_DISABLE_HTTP2`
 
@@ -1135,7 +1108,7 @@ Currently no plans to activate.
 Warmer stores images in a tarball via go-containerregistry. However, this approach creates two problems. The tarball writer only supports dockerv2 mediatype, so building from warmer cache might result in a different output image than building from remote, as we forcefully rewrite all images to that mediatype. Secondly, the performance/usability of that approach is suboptimal, as we either store the manifest in a separate file, causing consistency issues or recalculate upon load (see [`FF_KANIKO_IGNORE_CACHED_MANIFEST`](#flag-ff_kaniko_ignore_cached_manifest)). With this change we use ocilayout instead. Ocilayout folders support arbitrary mediatypes and store the manifest alongside the image data.
 Set this flag to `true` to store warmer cache images as ocilayout. Note that this flag has to be passed to both warmer and executor. Note that currently there is no mutex lock mechanism yet, so it does not support multiple parallel writes.
 Defaults to `false`.
-Becomes default in `v1.27.0`, if we manage to resolve the mutex lock issue by then.
+Becomes default in `v1.28.0`, if we manage to resolve the mutex lock issue by then.
 
 #### Flag `FF_KANIKO_RUN_VIA_TINI`
 
@@ -1143,7 +1116,7 @@ Kaniko usually runs as PID1 in the container, but kaniko currently does not impl
 Set this flag to `true` to run any `RUN` commands via `tini` init system as subreaper, to properly handle zombie processes.
 Note that for this feature to work the tini binary must be available as `/kaniko/tini`.
 Defaults to `false`.
-Becomes default in `v1.27.0`.
+Becomes default in `v1.28.0`.
 
 #### Flag `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS`
 

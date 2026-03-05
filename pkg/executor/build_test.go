@@ -277,6 +277,7 @@ FROM ubuntu as stage2
 RUN foo
 COPY --from=stage1 /foo /bar
 FROM alpine
+COPY --from=stage1 /foo /bar
 COPY --from=stage1 /baz /bat
 `,
 			want: map[int][]string{

@@ -20,10 +20,6 @@ var Tests = types.GoldenTests{
 			Plan: "push",
 		},
 		{
-			Args: []string{"--skip-unused-stages=false", "--no-push"},
-			Plan: "noskip",
-		},
-		{
 			Args: []string{"--no-push"},
 			Env: map[string]string{
 				"FF_KANIKO_SQUASH_STAGES": "0",

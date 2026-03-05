@@ -28,7 +28,6 @@ stages:
       --cache-copy-layers
       --cache-dir /cache/kaniko
       --cache-repo ${CI_REGISTRY_IMAGE}/cache
-      --skip-unused-stages
       $EXTRA_ARGS
 
 bootstrap:

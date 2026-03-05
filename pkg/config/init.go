@@ -59,18 +59,12 @@ var KanikoIntermediateStagesDir = fmt.Sprintf("%s/stages/", KanikoDir)
 // KanikoInsterStageDir is where we will store inter-stage dependencies
 // Contents are stored as-is.
 var KanikoInterStageDepsDir = func() string {
-	if EnvBoolDefault("FF_KANIKO_NEW_CACHE_LAYOUT", true) {
-		return fmt.Sprintf("%s/deps/", KanikoDir)
-	}
-	return KanikoDir
+	return fmt.Sprintf("%s/deps/", KanikoDir)
 }()
 
 // KanikoLayersDir is where we will store layers as tarballs
 var KanikoLayersDir = func() string {
-	if EnvBoolDefault("FF_KANIKO_NEW_CACHE_LAYOUT", true) {
-		return fmt.Sprintf("%s/layers/", KanikoDir)
-	}
-	return KanikoDir
+	return fmt.Sprintf("%s/layers/", KanikoDir)
 }()
 
 // KanikoCacheDir is where we will store cache mount directories, ie.
@@ -139,15 +133,13 @@ func Cleanup() error {
 	if err != nil {
 		return err
 	}
-	if EnvBoolDefault("FF_KANIKO_NEW_CACHE_LAYOUT", true) {
-		err = safeRemove(KanikoInterStageDepsDir)
-		if err != nil {
-			return err
-		}
-		err = safeRemove(KanikoLayersDir)
-		if err != nil {
-			return err
-		}
+	err = safeRemove(KanikoInterStageDepsDir)
+	if err != nil {
+		return err
+	}
+	err = safeRemove(KanikoLayersDir)
+	if err != nil {
+		return err
 	}
 	err = safeRemove(KanikoSecretsDir)
 	if err != nil {

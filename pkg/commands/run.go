@@ -57,15 +57,14 @@ func (r *RunCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 }
 
 func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand, secrets kConfig.SecretOptions) (reterr error) {
-	ff_cache := kConfig.EnvBoolDefault("FF_KANIKO_RUN_MOUNT_CACHE", true)
-	ff_secret := kConfig.EnvBool("FF_KANIKO_RUN_MOUNT_SECRET")
+	ff_secret := kConfig.EnvBoolDefault("FF_KANIKO_RUN_MOUNT_SECRET", true)
 	for _, f := range cmdRun.FlagsUsed {
-		if !((ff_cache || ff_secret) && f == "mount") {
+		if f != "mount" {
 			logrus.Warnf("#969 kaniko does not support '--%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", f)
 		}
 	}
 	var secretEnvs []string
-	if (ff_cache || ff_secret) && len(cmdRun.FlagsUsed) > 0 {
+	if len(cmdRun.FlagsUsed) > 0 {
 		replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 		expand := func(word string) (string, error) {
 			return util.ResolveEnvironmentReplacement(word, replacementEnvs, false)
@@ -77,7 +76,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 		for _, m := range instructions.GetMounts(cmdRun) {
 			switch {
 			// https://docs.docker.com/reference/dockerfile/#run---mounttypecache
-			case m.Type == instructions.MountTypeCache && ff_cache:
+			case m.Type == instructions.MountTypeCache:
 				cacheId := m.CacheID
 				if cacheId == "" {
 					cacheId = filepath.Clean(m.Target)

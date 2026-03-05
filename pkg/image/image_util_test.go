@@ -81,19 +81,19 @@ func Test_ScratchImage(t *testing.T) {
 	testutil.CheckErrorAndDeepEqual(t, false, err, expected, actual)
 }
 
-func Test_TarImage(t *testing.T) {
+func Test_OciImage(t *testing.T) {
 	stages, err := parse(dockerfile)
 	if err != nil {
 		t.Error(err)
 	}
-	original := retrieveTarImage
+	original := retrieveOciImage
 	defer func() {
-		retrieveTarImage = original
+		retrieveOciImage = original
 	}()
 	mock := func(index int) (v1.Image, error) {
 		return nil, nil
 	}
-	retrieveTarImage = mock
+	retrieveOciImage = mock
 	s := stages[2]
 	actual, err := RetrieveSourceImage(config.KanikoStage{
 		Name:                   s.Name,
