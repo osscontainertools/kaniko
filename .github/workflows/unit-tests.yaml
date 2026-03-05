@@ -37,7 +37,7 @@ jobs:
       - run: make golden
 
       - name: Run staticcheck 
-        uses: dominikh/staticcheck-action@v1.4.0
+        uses: dominikh/staticcheck-action@v1.4.1
         with:
           install-go: false
           version: 'latest'
