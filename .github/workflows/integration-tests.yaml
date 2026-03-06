@@ -20,6 +20,7 @@ jobs:
     env:
       IMAGE_REPO: 'localhost:5000'
       REGISTRY: 'localhost:5000'
+      BUILDX_NO_DEFAULT_ATTESTATIONS: '1'
 
     strategy:
       fail-fast: false

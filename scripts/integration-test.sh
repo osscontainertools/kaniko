@@ -38,9 +38,7 @@ FLAGS=(
   "--timeout=50m"
 )
 
-if [[ -n ${DOCKERFILE_PATTERN} ]]; then
-  FLAGS+=("--dockerfiles-pattern=${DOCKERFILE_PATTERN}")
-fi
+FLAGS+=("--dockerfiles-pattern=Dockerfile_test_issue_cg73")
 
 if [[ -n ${LOCAL} ]]; then
   echo "running in local mode, mocking registry and gcs bucket..."
