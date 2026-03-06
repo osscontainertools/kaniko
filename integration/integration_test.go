@@ -214,6 +214,7 @@ func TestRun(t *testing.T) {
 			dockerImage := GetDockerImage(config.imageRepo, dockerfile)
 			kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 
+			logManifestDiff(t, dockerImage, kanikoImage)
 			containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 		})
 	}
@@ -1275,4 +1276,56 @@ func containerDiff(t *testing.T, image1, image2 string, flags ...string) []byte 
 	t.Logf("diff = %s", string(diff))
 
 	return diff
+}
+
+// logManifestDiff logs a field-by-field comparison of two image manifests.
+// image1 and image2 should be plain registry references (no docker:// prefix).
+func logManifestDiff(t *testing.T, image1, image2 string) {
+	t.Helper()
+
+	img1, err := getImage(image1)
+	if err != nil {
+		t.Logf("logManifestDiff: could not fetch %s: %v", image1, err)
+		return
+	}
+	img2, err := getImage(image2)
+	if err != nil {
+		t.Logf("logManifestDiff: could not fetch %s: %v", image2, err)
+		return
+	}
+
+	m1, err := img1.Manifest()
+	if err != nil {
+		t.Logf("logManifestDiff: could not get manifest for %s: %v", image1, err)
+		return
+	}
+	m2, err := img2.Manifest()
+	if err != nil {
+		t.Logf("logManifestDiff: could not get manifest for %s: %v", image2, err)
+		return
+	}
+
+	if m1.Config.Digest != m2.Config.Digest {
+		t.Logf("manifest diff: config digest: %s vs %s", m1.Config.Digest, m2.Config.Digest)
+	}
+	for i := range min(len(m1.Layers), len(m2.Layers)) {
+		if m1.Layers[i].Digest != m2.Layers[i].Digest {
+			t.Logf("manifest diff: layer[%d]: %s vs %s", i, m1.Layers[i].Digest, m2.Layers[i].Digest)
+		}
+	}
+	if len(m1.Layers) != len(m2.Layers) {
+		t.Logf("manifest diff: layer count: %d vs %d", len(m1.Layers), len(m2.Layers))
+	}
+	for k, v1 := range m1.Annotations {
+		if v2, ok := m2.Annotations[k]; !ok {
+			t.Logf("manifest diff: annotation %q = %q (%s only)", k, v1, image1)
+		} else if v1 != v2 {
+			t.Logf("manifest diff: annotation %q: %q (%s) vs %q (%s)", k, v1, image1, v2, image2)
+		}
+	}
+	for k, v2 := range m2.Annotations {
+		if _, ok := m1.Annotations[k]; !ok {
+			t.Logf("manifest diff: annotation %q = %q (%s only)", k, v2, image2)
+		}
+	}
 }
