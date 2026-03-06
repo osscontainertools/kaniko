@@ -129,6 +129,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_RUN_VIA_TINI`](#flag-ff_kaniko_run_via_tini)
       - [Flag `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS`](#flag-ff_kaniko_copy_chmod_on_implicit_dirs)
       - [Flag `FF_KANIKO_CLEAN_KANIKO_DIR`](#flag-ff_kaniko_clean_kaniko_dir)
+      - [Flag `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS`](#flag-ff_kaniko_no_propagate_annotations)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1128,6 +1129,12 @@ Currently no plans to activate.
 
 When using `--cleanup`, kaniko cleans the container filesystem at the end of the build. Set this flag to `true` to also remove kaniko's own working directory artifacts from `/kaniko` (the Dockerfile copy, build context, intermediate stages, inter-stage dependencies, layers cache, and secrets). This is useful when reusing a kaniko container across multiple builds.
 Defaults to `true`.
+
+#### Flag `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS`
+
+When building from a base image that carries OCI manifest annotations (e.g. `org.opencontainers.image.url`, `org.opencontainers.image.version`), kaniko by default propagates those annotations into the output image manifest. This differs from Docker/BuildKit behaviour, which does not carry base image annotations forward into derived images.
+Set this flag to `true` to strip base image manifest annotations from the output, matching Docker behaviour. Defaults to `false`.
+Becomes default in `v1.28.0`.
 
 ### Debug Image
 
