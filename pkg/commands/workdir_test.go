@@ -20,10 +20,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/osscontainertools/kaniko/pkg/dockerfile"
-
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/testutil"
 )
 
@@ -87,8 +86,8 @@ var workdirTests = []struct {
 func mockDir(path string, mode os.FileMode, uid, gid int64) error {
 	return nil
 }
-func TestWorkdirCommand(t *testing.T) {
 
+func TestWorkdirCommand(t *testing.T) {
 	// Mock out mkdir for testing.
 	oldMkdir := mkdirAllWithPermissions
 	mkdirAllWithPermissions = mockDir

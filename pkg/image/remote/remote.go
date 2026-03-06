@@ -20,14 +20,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/osscontainertools/kaniko/pkg/config"
-	"github.com/osscontainertools/kaniko/pkg/creds"
-	"github.com/osscontainertools/kaniko/pkg/util"
-
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-
+	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/creds"
+	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
 
@@ -146,7 +144,6 @@ func setNewRegistry(ref name.Reference, newReg name.Registry) name.Reference {
 
 func remoteOptions(registryName string, opts config.RegistryOptions, customPlatform string) []remote.Option {
 	tr, err := util.MakeTransport(opts, registryName)
-
 	// The MakeTransport function will only return errors if there was a problem
 	// with registry certificates (Verification or mTLS)
 	if err != nil {

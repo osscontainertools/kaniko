@@ -36,7 +36,6 @@ type HTTPSTar struct {
 
 // UnpackTarFromBuildContext downloads context file from https server
 func (h *HTTPSTar) UnpackTarFromBuildContext() (directory string, err error) {
-
 	logrus.Info("Retrieving https tar file")
 
 	// Create directory and target file for downloading the context file

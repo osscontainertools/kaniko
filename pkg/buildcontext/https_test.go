@@ -23,7 +23,6 @@ import (
 )
 
 func TestBuildWithHttpsTar(t *testing.T) {
-
 	tests := []struct {
 		name          string
 		serverHandler http.HandlerFunc

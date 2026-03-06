@@ -37,7 +37,6 @@ type AzureBlob struct {
 
 // Download context file from given azure blob storage url and unpack it to BuildContextDir
 func (b *AzureBlob) UnpackTarFromBuildContext() (string, error) {
-
 	// Get Azure_STORAGE_ACCESS_KEY from environment variables
 	accountKey := os.Getenv("AZURE_STORAGE_ACCESS_KEY")
 	if len(accountKey) == 0 {

@@ -197,7 +197,6 @@ func Test_stageBuilder_shouldTakeSnapshot(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			if tt.fields.opts == nil {
 				tt.fields.opts = &config.KanikoOptions{}
 			}
@@ -352,7 +351,7 @@ COPY --from=second /bar /bat
 			}
 
 			f, _ := os.CreateTemp("", "")
-			os.WriteFile(f.Name(), []byte(tt.dockerfile), 0755)
+			os.WriteFile(f.Name(), []byte(tt.dockerfile), 0o755)
 			opts := &config.KanikoOptions{
 				DockerfilePath: f.Name(),
 				CustomPlatform: platforms.Format(platforms.Normalize(platforms.DefaultSpec())),
@@ -424,7 +423,7 @@ func Test_filesToSave(t *testing.T) {
 				p := filepath.Join(tmpDir, f)
 				dir := filepath.Dir(p)
 				if dir != "." {
-					if err := os.MkdirAll(dir, 0755); err != nil {
+					if err := os.MkdirAll(dir, 0o755); err != nil {
 						t.Errorf("error making dir: %s", err)
 					}
 				}
@@ -612,7 +611,6 @@ func Test_stageBuilder_optimize(t *testing.T) {
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
-
 		})
 	}
 }
@@ -1040,7 +1038,7 @@ func Test_stageBuilder_build(t *testing.T) {
 		COPY %s foo.txt
 		`, filename)
 			f, _ := os.CreateTemp("", "")
-			os.WriteFile(f.Name(), []byte(dockerFile), 0755)
+			os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
 			opts := &config.KanikoOptions{
 				DockerfilePath:  f.Name(),
 				Cache:           true,
@@ -1106,7 +1104,7 @@ FROM scratch
 COPY %s foo.txt
 `, filename)
 			f, _ := os.CreateTemp("", "")
-			os.WriteFile(f.Name(), []byte(dockerFile), 0755)
+			os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
 			opts := &config.KanikoOptions{
 				DockerfilePath:  f.Name(),
 				Cache:           true,
@@ -1185,7 +1183,7 @@ RUN foobar
 COPY %s bar.txt
 `, filename)
 			f, _ := os.CreateTemp("", "")
-			os.WriteFile(f.Name(), []byte(dockerFile), 0755)
+			os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
 			opts := &config.KanikoOptions{
 				DockerfilePath: f.Name(),
 			}
@@ -1259,7 +1257,7 @@ COPY %s bar.txt
 RUN foobar
 `, filename)
 			f, _ := os.CreateTemp("", "")
-			os.WriteFile(f.Name(), []byte(dockerFile), 0755)
+			os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
 			opts := &config.KanikoOptions{
 				DockerfilePath: f.Name(),
 			}
@@ -1462,7 +1460,7 @@ RUN foobar
 				_image = fakeImage{}
 			}
 			sb := &stageBuilder{
-				args:  dockerfile.NewBuildArgs([]string{}), //required or code will panic
+				args:  dockerfile.NewBuildArgs([]string{}), // required or code will panic
 				image: _image,
 				cf:    cf,
 			}
@@ -1503,7 +1501,6 @@ RUN foobar
 			assertCacheKeys(t, tc.pushedCacheKeys, keys, "push")
 
 			config.RootDir = tmp
-
 		})
 	}
 }
@@ -1556,7 +1553,7 @@ func tempDirAndFile(t *testing.T) (string, []string) {
 	dir := t.TempDir()
 	for _, filename := range filenames {
 		filepath := filepath.Join(dir, filename)
-		err := os.WriteFile(filepath, []byte(`meow`), 0777)
+		err := os.WriteFile(filepath, []byte(`meow`), 0o777)
 		if err != nil {
 			t.Errorf("could not create temp file %v", err)
 		}
@@ -1669,7 +1666,6 @@ func Test_stageBuild_populateCompositeKeyForCopyCommand(t *testing.T) {
 							actualCacheKey,
 						)
 					}
-
 				})
 			}
 		})

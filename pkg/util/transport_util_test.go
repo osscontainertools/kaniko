@@ -39,8 +39,7 @@ func (m *mockedCertPool) append(path string) error {
 	return nil
 }
 
-type mockedKeyPairLoader struct {
-}
+type mockedKeyPairLoader struct{}
 
 func (p *mockedKeyPairLoader) load(certFile, keyFile string) (tls.Certificate, error) {
 	foo := tls.Certificate{}

@@ -34,7 +34,7 @@ type Tar struct {
 // UnpackTarFromBuildContext unpack the compressed tar file
 func (t *Tar) UnpackTarFromBuildContext() (string, error) {
 	directory := kConfig.BuildContextDir
-	if err := os.MkdirAll(directory, 0750); err != nil {
+	if err := os.MkdirAll(directory, 0o750); err != nil {
 		return "", fmt.Errorf("unpacking tar from build context: %w", err)
 	}
 	if t.context == "stdin" {

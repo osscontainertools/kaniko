@@ -20,10 +20,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
-
-	"net/http"
 
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/sirupsen/logrus"
@@ -57,8 +56,7 @@ type KeyPairLoader interface {
 	load(string, string) (tls.Certificate, error)
 }
 
-type X509KeyPairLoader struct {
-}
+type X509KeyPairLoader struct{}
 
 func (p *X509KeyPairLoader) load(certFile, keyFile string) (tls.Certificate, error) {
 	return tls.LoadX509KeyPair(certFile, keyFile)
