@@ -1283,38 +1283,56 @@ func containerDiff(t *testing.T, image1, image2 string, flags ...string) []byte 
 func logManifestDiff(t *testing.T, image1, image2 string) {
 	t.Helper()
 
-	img1, err := getImage(image1)
-	if err != nil {
-		t.Logf("logManifestDiff: could not fetch %s: %v", image1, err)
-		return
-	}
-	img2, err := getImage(image2)
-	if err != nil {
-		t.Logf("logManifestDiff: could not fetch %s: %v", image2, err)
-		return
+	getManifest := func(image string) *v1.Manifest {
+		img, err := getImage(image)
+		if err != nil {
+			t.Logf("logManifestDiff: could not fetch %s: %v", image, err)
+			return nil
+		}
+		m, err := img.Manifest()
+		if err != nil {
+			t.Logf("logManifestDiff: could not get manifest for %s: %v", image, err)
+			return nil
+		}
+		return m
 	}
 
-	m1, err := img1.Manifest()
-	if err != nil {
-		t.Logf("logManifestDiff: could not get manifest for %s: %v", image1, err)
+	m1 := getManifest(image1)
+	m2 := getManifest(image2)
+
+	logAnnotations := func(label string, annotations map[string]string) {
+		if len(annotations) == 0 {
+			t.Logf("manifest annotations (%s): (none)", label)
+			return
+		}
+		for k, v := range annotations {
+			t.Logf("manifest annotation (%s): %q = %q", label, k, v)
+		}
+	}
+
+	if m1 == nil && m2 == nil {
 		return
 	}
-	m2, err := img2.Manifest()
-	if err != nil {
-		t.Logf("logManifestDiff: could not get manifest for %s: %v", image2, err)
+	if m1 == nil || m2 == nil {
+		if m1 != nil {
+			logAnnotations(image1, m1.Annotations)
+		}
+		if m2 != nil {
+			logAnnotations(image2, m2.Annotations)
+		}
 		return
 	}
 
 	if m1.Config.Digest != m2.Config.Digest {
 		t.Logf("manifest diff: config digest: %s vs %s", m1.Config.Digest, m2.Config.Digest)
 	}
+	if len(m1.Layers) != len(m2.Layers) {
+		t.Logf("manifest diff: layer count: %d vs %d", len(m1.Layers), len(m2.Layers))
+	}
 	for i := range min(len(m1.Layers), len(m2.Layers)) {
 		if m1.Layers[i].Digest != m2.Layers[i].Digest {
 			t.Logf("manifest diff: layer[%d]: %s vs %s", i, m1.Layers[i].Digest, m2.Layers[i].Digest)
 		}
-	}
-	if len(m1.Layers) != len(m2.Layers) {
-		t.Logf("manifest diff: layer count: %d vs %d", len(m1.Layers), len(m2.Layers))
 	}
 	for k, v1 := range m1.Annotations {
 		if v2, ok := m2.Annotations[k]; !ok {
