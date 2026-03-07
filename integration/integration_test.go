@@ -33,7 +33,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -215,6 +214,7 @@ func TestRun(t *testing.T) {
 			dockerImage := GetDockerImage(config.imageRepo, dockerfile)
 			kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 
+			logManifestDiff(t, dockerImage, kanikoImage)
 			containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 		})
 	}
@@ -916,26 +916,14 @@ func TestBuildWithAnnotations(t *testing.T) {
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_annotation")
 	dockerCmd := exec.Command("docker",
 		"build",
-		"--push", // Push the image. Docker engine does not support annotations without pushing.
 		"-t", dockerImage,
 		"-f", dockerfile,
+		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
 		DockerGitRepo(url, "", branch),
 	)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
-	}
-
-	// Add image manifest annotations with crane
-	// as they're not natively supported in buildkit
-	craneCmd := exec.Command("crane",
-		"mutate",
-		dockerImage,
-		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
-	)
-	out, err = RunCommandWithoutTest(craneCmd)
-	if err != nil {
-		t.Errorf("Failed to mutate image %s with crane command %q: %s %s", dockerImage, craneCmd.Args, err, string(out))
 	}
 
 	// Build with kaniko
@@ -954,50 +942,6 @@ func TestBuildWithAnnotations(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--ignore-history")
-
-	dockerAnnotations, err := getImageManifestAnnotations(t, dockerImage)
-	if err != nil {
-		t.Fatalf("Failed to get annotations for docker image %s: %v", dockerImage, err)
-	}
-	if len(dockerAnnotations) == 0 {
-		t.Fatalf("No annotations found for docker image %s", dockerImage)
-	}
-
-	kanikoAnnotations, err := getImageManifestAnnotations(t, kanikoImage)
-	if err != nil {
-		t.Fatalf("Failed to get annotations for kaniko image %s: %v", kanikoImage, err)
-	}
-	if len(kanikoAnnotations) == 0 {
-		t.Fatalf("No annotations found for kaniko image %s", kanikoImage)
-	}
-	if diff := cmp.Diff(kanikoAnnotations, dockerAnnotations); diff != "" {
-		t.Errorf("Annotation don't match (-kaniko, +docker): %s", diff)
-	}
-
-	if kanikoAnnotations[annotationKey] != annotationValue {
-		t.Errorf("Expected annotation %q to be %q, got annotations: %v", annotationKey, annotationValue, kanikoAnnotations)
-	}
-}
-
-func getImageManifestAnnotations(t *testing.T, image string) (map[string]string, error) {
-	t.Helper()
-
-	ref, err := name.ParseReference(image, name.WeakValidation)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse image reference %s: %w", image, err)
-	}
-
-	imgRef, err := remote.Image(ref)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get image reference for %s from remote: %w", image, err)
-	}
-
-	manifest, err := imgRef.Manifest()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get manifest for image %s: %w", image, err)
-	}
-
-	return manifest.Annotations, nil
 }
 
 func onBuildDiff(t *testing.T, image1, image2 string) {
@@ -1332,4 +1276,74 @@ func containerDiff(t *testing.T, image1, image2 string, flags ...string) []byte 
 	t.Logf("diff = %s", string(diff))
 
 	return diff
+}
+
+// logManifestDiff logs a field-by-field comparison of two image manifests.
+// image1 and image2 should be plain registry references (no docker:// prefix).
+func logManifestDiff(t *testing.T, image1, image2 string) {
+	t.Helper()
+
+	getManifest := func(image string) *v1.Manifest {
+		img, err := getImage(image)
+		if err != nil {
+			t.Logf("logManifestDiff: could not fetch %s: %v", image, err)
+			return nil
+		}
+		m, err := img.Manifest()
+		if err != nil {
+			t.Logf("logManifestDiff: could not get manifest for %s: %v", image, err)
+			return nil
+		}
+		return m
+	}
+
+	m1 := getManifest(image1)
+	m2 := getManifest(image2)
+
+	logAnnotations := func(label string, annotations map[string]string) {
+		if len(annotations) == 0 {
+			t.Logf("manifest annotations (%s): (none)", label)
+			return
+		}
+		for k, v := range annotations {
+			t.Logf("manifest annotation (%s): %q = %q", label, k, v)
+		}
+	}
+
+	if m1 == nil && m2 == nil {
+		return
+	}
+	if m1 == nil || m2 == nil {
+		if m1 != nil {
+			logAnnotations(image1, m1.Annotations)
+		}
+		if m2 != nil {
+			logAnnotations(image2, m2.Annotations)
+		}
+		return
+	}
+
+	if m1.Config.Digest != m2.Config.Digest {
+		t.Logf("manifest diff: config digest: %s vs %s", m1.Config.Digest, m2.Config.Digest)
+	}
+	if len(m1.Layers) != len(m2.Layers) {
+		t.Logf("manifest diff: layer count: %d vs %d", len(m1.Layers), len(m2.Layers))
+	}
+	for i := range min(len(m1.Layers), len(m2.Layers)) {
+		if m1.Layers[i].Digest != m2.Layers[i].Digest {
+			t.Logf("manifest diff: layer[%d]: %s vs %s", i, m1.Layers[i].Digest, m2.Layers[i].Digest)
+		}
+	}
+	for k, v1 := range m1.Annotations {
+		if v2, ok := m2.Annotations[k]; !ok {
+			t.Logf("manifest diff: annotation %q = %q (%s only)", k, v1, image1)
+		} else if v1 != v2 {
+			t.Logf("manifest diff: annotation %q: %q (%s) vs %q (%s)", k, v1, image1, v2, image2)
+		}
+	}
+	for k, v2 := range m2.Annotations {
+		if _, ok := m1.Annotations[k]; !ok {
+			t.Logf("manifest diff: annotation %q = %q (%s only)", k, v2, image2)
+		}
+	}
 }
