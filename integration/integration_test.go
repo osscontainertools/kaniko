@@ -289,6 +289,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 			"--push",
 			DockerGitRepo(url, commit, branch),
 		}...)
+	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
@@ -362,6 +363,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 			"--push",
 			DockerGitRepo(url, "", branch),
 		}...)
+	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
@@ -408,6 +410,7 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 			"--push",
 			DockerGitRepo(url, "", branch),
 		}...)
+	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
@@ -452,6 +455,7 @@ func TestBuildViaRegistryMap(t *testing.T) {
 			"--push",
 			DockerGitRepo(url, "", branch),
 		}...)
+	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
@@ -521,6 +525,7 @@ func TestKanikoDir(t *testing.T) {
 			"--push",
 			DockerGitRepo(url, "", branch),
 		}...)
+	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
@@ -567,6 +572,7 @@ func TestBuildWithLabels(t *testing.T) {
 			"--label", testLabel,
 			DockerGitRepo(url, "", branch),
 		}...)
+	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
@@ -610,6 +616,7 @@ func TestBuildWithHTTPError(t *testing.T) {
 			"-f", dockerfile,
 			DockerGitRepo(url, "", branch),
 		}...)
+	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err == nil {
 		t.Errorf("an error was expected, got %s", string(out))
@@ -963,6 +970,7 @@ func TestBuildWithAnnotations(t *testing.T) {
 		"-f", dockerfile,
 		DockerGitRepo(url, "", branch),
 	)
+	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))

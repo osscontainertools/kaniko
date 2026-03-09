@@ -389,6 +389,7 @@ func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfile
 	if env, ok := envsMap[dockerfile]; ok {
 		dockerCmd.Env = append(dockerCmd.Env, env...)
 	}
+	dockerCmd.Env = append(dockerCmd.Env, "BUILDX_NO_DEFAULT_ATTESTATIONS=1")
 
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -620,6 +621,7 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 			"./context",
 		}...,
 	)
+	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 
 	timer := timing.Start(dockerfile + "_docker")
 	out, err := RunCommandWithoutTest(dockerCmd)
