@@ -1301,7 +1301,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 }
 
 func meetsRequirements() bool {
-	requiredTools := []string{"diffoci"}
+	requiredTools := []string{"diffoci", "skopeo"}
 	hasRequirements := true
 	for _, tool := range requiredTools {
 		_, err := exec.LookPath(tool)
@@ -1315,20 +1315,8 @@ func meetsRequirements() bool {
 
 // containerDiff compares the container images image1 and image2.
 func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
-	// workaround for container-diff OCI issue https://github.com/GoogleContainerTools/container-diff/issues/389
-	if !strings.HasPrefix(image1, daemonPrefix) {
-		dockerPullCmd := exec.Command("docker", "pull", image1)
-		out := RunCommand(dockerPullCmd, t)
-		t.Logf("docker pull cmd output for image1 = %s", string(out))
-		image1 = daemonPrefix + image1
-	}
-
-	if !strings.HasPrefix(image2, daemonPrefix) {
-		dockerPullCmd := exec.Command("docker", "pull", image2)
-		out := RunCommand(dockerPullCmd, t)
-		t.Logf("docker pull cmd output for image2 = %s", string(out))
-		image2 = daemonPrefix + image2
-	}
+	image1 = normalizeImageFormat(t, image1)
+	image2 = normalizeImageFormat(t, image2)
 
 	flags = append([]string{"diff"}, flags...)
 	flags = append(flags, image1, image2, "--ignore-image-name", "--ignore-image-timestamps")
@@ -1337,4 +1325,33 @@ func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	containerdiffCmd := exec.Command("diffoci", flags...)
 	diff := RunCommand(containerdiffCmd, t)
 	t.Logf("diff = %s", string(diff))
+}
+
+// normalizeImageFormat pulls image to the Docker daemon (if not already present)
+// and converts it to Docker V2S2 format using skopeo. This ensures both images
+// are in the same format before comparison, replicating the normalization that
+// legacy Docker storage performs on pull.
+func normalizeImageFormat(t *testing.T, image string) string {
+	t.Helper()
+	if !strings.HasPrefix(image, daemonPrefix) {
+		out := RunCommand(exec.Command("docker", "pull", image), t)
+		t.Logf("docker pull %s: %s", image, string(out))
+		image = daemonPrefix + image
+	}
+	ref := strings.TrimPrefix(image, daemonPrefix)
+	taggedRef := ref
+	lastSlash := strings.LastIndex(ref, "/")
+	if !strings.Contains(ref[lastSlash+1:], ":") {
+		taggedRef = ref + ":latest"
+	}
+	normalized := taggedRef + "-v2s2"
+	cmd := exec.Command("skopeo", "copy", "--format", "v2s2",
+		"docker-daemon:"+taggedRef,
+		"docker-daemon:"+normalized)
+	out, err := RunCommandWithoutTest(cmd)
+	t.Logf("skopeo normalize %s: %s", ref, string(out))
+	if err != nil {
+		t.Fatalf("failed to normalize image %s to v2s2: %v\n%s", ref, err, string(out))
+	}
+	return daemonPrefix + normalized
 }

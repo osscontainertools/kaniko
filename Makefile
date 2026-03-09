@@ -64,6 +64,10 @@ install-diffoci:
 install-crane:
 	@ GOFLAGS="" go install github.com/google/go-containerregistry/cmd/crane@latest
 
+.PHONY: install-skopeo
+install-skopeo:
+	@ GOFLAGS="" go install github.com/containers/skopeo/cmd/skopeo@latest
+
 .PHONY: k3s-setup
 k3s-setup:
 	@ ./scripts/k3s-setup.sh
