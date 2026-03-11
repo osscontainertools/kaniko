@@ -10,8 +10,20 @@ RUN stat /tmp/testdir \
 
 # assert that snapshot did not touch atime. we can't use diffoci for that,
 # as buildkit does not snapshot atime, they are only present during build.
-RUN [ $(stat -c %X /tmp/testdir) -eq $(date -d '2000-01-01' +%s) ] \
-    && [ $(stat -c %X /tmp/testdir) -eq $(date -d '2000-01-01' +%s) ]
+# starting with docker v29 buildkit, when using containerd snapshotter,
+# snapshotter will modifity atime on snapshot and can therefore no longer be tested.
+RUN if ls -l /proc/1/exe | grep -q '/kaniko/executor'; then \
+        if [ $(stat -c %X /tmp/testdir) -ne $(date -d '2000-01-01' +%s) ]; then \
+            echo "FAIL: atime changed on /tmp/testdir"; \
+            exit 1; \
+        fi; \
+        if [ $(stat -c %X /tmp/testdir/file.txt) -ne $(date -d '2000-01-01' +%s) ]; then \
+            echo "FAIL: atime changed /tmp/testdir/file.txt"; \
+            exit 1; \
+        fi; \
+    else \
+        echo "PID1 is not Kaniko, skipping check"; \
+    fi
 
 FROM debian:12.10 AS second-image
 
