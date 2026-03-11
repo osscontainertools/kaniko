@@ -1390,7 +1390,13 @@ func normalizeImageFormat(t *testing.T, image string) string {
 	t.Helper()
 	taggedRef := image + ":latest"
 	normalized := taggedRef + "-v2s2"
+	daemonHost := os.Getenv("DOCKER_HOST")
+	if daemonHost == "" {
+		daemonHost = "unix:///var/run/docker.sock"
+	}
 	cmd := exec.Command("skopeo", "copy", "--format", "v2s2",
+		"--src-daemon-host", daemonHost,
+		"--dest-daemon-host", daemonHost,
 		"docker-daemon:"+taggedRef,
 		"docker-daemon:"+normalized)
 	out, err := RunCommandWithoutTest(cmd)
