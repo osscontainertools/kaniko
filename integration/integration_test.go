@@ -50,30 +50,9 @@ var (
 )
 
 const (
-	daemonPrefix       = "docker://"
-	integrationPath    = "integration"
-	dockerfilesPath    = "dockerfiles"
-	emptyContainerDiff = `[
-     {
-       "Image1": "%s",
-       "Image2": "%s",
-       "DiffType": "File",
-       "Diff": {
-	 	"Adds": null,
-	 	"Dels": null,
-	 	"Mods": null
-       }
-     },
-     {
-       "Image1": "%s",
-       "Image2": "%s",
-       "DiffType": "Metadata",
-       "Diff": {
-	 	"Adds": [],
-	 	"Dels": []
-       }
-     }
-   ]`
+	daemonPrefix    = "docker://"
+	integrationPath = "integration"
+	dockerfilesPath = "dockerfiles"
 )
 
 func getDockerMajorVersion() int {
@@ -161,22 +140,13 @@ func buildRequiredImages() error {
 		command: []string{"docker", "build", "-t", WarmerImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-warmer", ".."},
 	}, {
 		name:    "Building onbuild base image",
-		command: []string{"docker", "build", "-t", config.onbuildBaseImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_base", "."},
-	}, {
-		name:    "Pushing onbuild base image",
-		command: []string{"docker", "push", config.onbuildBaseImage},
+		command: []string{"docker", "build", "--push", "-t", config.onbuildBaseImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_base", "."},
 	}, {
 		name:    "Building onbuild copy image",
-		command: []string{"docker", "build", "-t", config.onbuildCopyImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_copy", "."},
-	}, {
-		name:    "Pushing onbuild copy image",
-		command: []string{"docker", "push", config.onbuildCopyImage},
+		command: []string{"docker", "build", "--push", "-t", config.onbuildCopyImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_copy", "."},
 	}, {
 		name:    "Building hardlink base image",
-		command: []string{"docker", "build", "-t", config.hardlinkBaseImage, "-f", dockerfilesPath + "/Dockerfile_hardlink_base", "."},
-	}, {
-		name:    "Pushing hardlink base image",
-		command: []string{"docker", "push", config.hardlinkBaseImage},
+		command: []string{"docker", "build", "--push", "-t", config.hardlinkBaseImage, "-f", dockerfilesPath + "/Dockerfile_hardlink_base", "."},
 	}, {
 		name:    "Building kaniko image with moved kaniko dir",
 		command: []string{"docker", "build", "-t", ExecutorImageMoved, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz444", "--target", "kaniko", "."},
@@ -185,10 +155,7 @@ func buildRequiredImages() error {
 		command: []string{"docker", "build", "-t", ExecutorImageTainted, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz455", "--target", "kaniko", "."},
 	}, {
 		name:    "Building hijack base image",
-		command: []string{"docker", "build", "-t", config.hijackBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz560", "--target", "base", "."},
-	}, {
-		name:    "Pushing hijack base image",
-		command: []string{"docker", "push", config.hijackBaseImage},
+		command: []string{"docker", "build", "--push", "-t", config.hijackBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz560", "--target", "base", "."},
 	}}
 
 	for _, setupCmd := range setupCommands {
