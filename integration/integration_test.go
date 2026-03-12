@@ -221,7 +221,6 @@ func TestRun(t *testing.T) {
 			dockerImage := GetDockerImage(config.imageRepo, dockerfile)
 			kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 
-			pullImage(t, kanikoImage)
 			_dockerImage := normalizeImageFormat(t, dockerImage)
 			_kanikoImage := normalizeImageFormat(t, kanikoImage)
 
@@ -287,6 +286,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
+			"--push",
 			DockerGitRepo(url, commit, branch),
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
@@ -310,7 +310,6 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	pullImage(t, kanikoImage)
 	_dockerImage := normalizeImageFormat(t, dockerImage)
 	_kanikoImage := normalizeImageFormat(t, kanikoImage)
 
@@ -360,6 +359,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 			"build",
 			"-t", dockerImage,
 			"-f", filepath.Join(integrationPath, dockerfilesPath, dockerfile),
+			"--push",
 			DockerGitRepo(url, "", branch),
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
@@ -387,7 +387,6 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	pullImage(t, kanikoImage)
 	_dockerImage := normalizeImageFormat(t, dockerImage)
 	_kanikoImage := normalizeImageFormat(t, kanikoImage)
 
@@ -406,6 +405,7 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
+			"--push",
 			DockerGitRepo(url, "", branch),
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
@@ -431,7 +431,6 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	pullImage(t, kanikoImage)
 	_dockerImage := normalizeImageFormat(t, dockerImage)
 	_kanikoImage := normalizeImageFormat(t, kanikoImage)
 
@@ -450,6 +449,7 @@ func TestBuildViaRegistryMap(t *testing.T) {
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
+			"--push",
 			DockerGitRepo(url, "", branch),
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
@@ -475,7 +475,6 @@ func TestBuildViaRegistryMap(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	pullImage(t, kanikoImage)
 	_dockerImage := normalizeImageFormat(t, dockerImage)
 	_kanikoImage := normalizeImageFormat(t, kanikoImage)
 
@@ -519,6 +518,7 @@ func TestKanikoDir(t *testing.T) {
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
+			"--push",
 			DockerGitRepo(url, "", branch),
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
@@ -543,7 +543,6 @@ func TestKanikoDir(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	pullImage(t, kanikoImage)
 	_dockerImage := normalizeImageFormat(t, dockerImage)
 	_kanikoImage := normalizeImageFormat(t, kanikoImage)
 
@@ -558,12 +557,13 @@ func TestBuildWithLabels(t *testing.T) {
 	testLabel := "mylabel=myvalue"
 
 	// Build with docker
-	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_label:mylabel")
+	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_label")
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
+			"--push",
 			"--label", testLabel,
 			DockerGitRepo(url, "", branch),
 		}...)
@@ -573,7 +573,7 @@ func TestBuildWithLabels(t *testing.T) {
 	}
 
 	// Build with kaniko
-	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_label:mylabel")
+	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_label")
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
@@ -590,7 +590,6 @@ func TestBuildWithLabels(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	pullImage(t, kanikoImage)
 	_dockerImage := normalizeImageFormat(t, dockerImage)
 	_kanikoImage := normalizeImageFormat(t, kanikoImage)
 
@@ -754,9 +753,7 @@ func TestWarmer(t *testing.T) {
 			kanikoVersion0 := GetKanikoImage(imageRepo, "test_warmer_"+dockerfile) + strconv.Itoa(0)
 			kanikoVersion1 := GetKanikoImage(imageRepo, "test_warmer_"+dockerfile) + strconv.Itoa(1)
 
-			pullImage(t, kanikoVersion0)
 			_kanikoVersion0 := normalizeImageFormat(t, kanikoVersion0)
-			pullImage(t, kanikoVersion1)
 			_kanikoVersion1 := normalizeImageFormat(t, kanikoVersion1)
 
 			containerDiff(t, daemonPrefix+_kanikoVersion0, daemonPrefix+_kanikoVersion1)
@@ -840,9 +837,7 @@ func verifyBuildWith(t *testing.T, cache, dockerfile string) {
 	kanikoVersion0 := GetVersionedKanikoImage(config.imageRepo, dockerfile, 0)
 	kanikoVersion1 := GetVersionedKanikoImage(config.imageRepo, dockerfile, 1)
 
-	pullImage(t, kanikoVersion0)
 	_kanikoVersion0 := normalizeImageFormat(t, kanikoVersion0)
-	pullImage(t, kanikoVersion1)
 	_kanikoVersion1 := normalizeImageFormat(t, kanikoVersion1)
 
 	containerDiff(t, daemonPrefix+_kanikoVersion0, daemonPrefix+_kanikoVersion1)
@@ -873,7 +868,6 @@ func TestRelativePaths(t *testing.T) {
 		dockerImage := GetDockerImage(config.imageRepo, "test_relative_"+dockerfile)
 		kanikoImage := GetKanikoImage(config.imageRepo, "test_relative_"+dockerfile)
 
-		pullImage(t, kanikoImage)
 		_dockerImage := normalizeImageFormat(t, dockerImage)
 		_kanikoImage := normalizeImageFormat(t, kanikoImage)
 
@@ -1002,8 +996,6 @@ func TestBuildWithAnnotations(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	pullImage(t, kanikoImage)
-	pullImage(t, dockerImage)
 	_dockerImage := normalizeImageFormat(t, dockerImage)
 	_kanikoImage := normalizeImageFormat(t, kanikoImage)
 
@@ -1372,20 +1364,9 @@ func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	t.Logf("diff = %s", string(diff))
 }
 
-func pullImage(t *testing.T, image string) {
-	t.Helper()
-	cmd := exec.Command("docker", "pull", image)
-	out, err := RunCommandWithoutTest(cmd)
-	t.Logf("docker pull:\n%s", out)
-	if err != nil {
-		t.Fatalf("docker pull: %s", err)
-	}
-}
-
-// normalizeImageFormat pulls image to the Docker daemon (if not already present)
-// and converts it to Docker V2S2 format using skopeo. This ensures both images
-// are in the same format before comparison, replicating the normalization that
-// legacy Docker storage performs on pull.
+// normalizeImageFormat pulls the image and converts it to Docker V2S2 format using skopeo.
+// This ensures both images are in the same format before comparison,
+// replicating the normalization that legacy Docker storage performs on pull.
 func normalizeImageFormat(t *testing.T, image string) string {
 	t.Helper()
 	taggedRef := image + ":latest"
@@ -1395,9 +1376,9 @@ func normalizeImageFormat(t *testing.T, image string) string {
 		daemonHost = "unix:///var/run/docker.sock"
 	}
 	cmd := exec.Command("skopeo", "copy", "--format", "v2s2",
-		"--src-daemon-host", daemonHost,
+		"--src-tls-verify=false",
+		"docker://"+taggedRef,
 		"--dest-daemon-host", daemonHost,
-		"docker-daemon:"+taggedRef,
 		"docker-daemon:"+normalized)
 	out, err := RunCommandWithoutTest(cmd)
 	t.Logf("skopeo normalize %s: %s", image, string(out))

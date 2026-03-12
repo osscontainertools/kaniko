@@ -374,6 +374,7 @@ func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfile
 	dockerArgs := []string{
 		"build",
 		"--no-cache",
+		"--push",
 		"-t", dockerImage,
 	}
 
@@ -615,6 +616,7 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
+			"--push",
 			"./context",
 		}...,
 	)
