@@ -90,6 +90,7 @@ func TestBuildWithStdin(t *testing.T) {
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
+			"--push",
 			".",
 		}...)
 
@@ -99,7 +100,7 @@ func TestBuildWithStdin(t *testing.T) {
 	}
 
 	// Build with kaniko using Stdin
-	kanikoImageStdin := GetKanikoImage(config.imageRepo, dockerfile)
+	kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 	tarCmd := exec.Command("tar", "-cf", "-", dockerfile)
 	gzCmd := exec.Command("gzip", "-9")
 
@@ -109,7 +110,7 @@ func TestBuildWithStdin(t *testing.T) {
 		ExecutorImage,
 		"-f", dockerfile,
 		"-c", "tar://stdin",
-		"-d", kanikoImageStdin)
+		"-d", kanikoImage)
 
 	kanikoCmdStdin := exec.Command("docker", dockerRunFlags...)
 
@@ -142,7 +143,10 @@ func TestBuildWithStdin(t *testing.T) {
 		t.Fatalf("can't wait %s: %v", kanikoCmdStdin.String(), err)
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImageStdin, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	_dockerImage := normalizeImageFormat(t, dockerImage)
+	_kanikoImage := normalizeImageFormat(t, kanikoImage)
+
+	containerDiff(t, daemonPrefix+_dockerImage, daemonPrefix+_kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 
 	if err := os.RemoveAll(testDirLongPath); err != nil {
 		t.Errorf("Failed to remove %s: %v", testDirLongPath, err)
