@@ -375,7 +375,6 @@ func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfile
 	dockerArgs := []string{
 		"build",
 		"--no-cache",
-		"--push",
 		"-t", dockerImage,
 	}
 
@@ -396,6 +395,13 @@ func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfile
 		return fmt.Errorf("failed to build image %s with docker command \"%s\": %w %s", dockerImage, dockerCmd.Args, err, string(out))
 	}
 	t.Logf("Build image for Dockerfile %s as %s. docker build output: %s \n", dockerfile, dockerImage, out)
+	// mz507: push is kept as a separate step because Dockerfile_test_issue_519
+	// still uses legacy builder and not buildkit
+	pushCmd := exec.Command("docker", "push", dockerImage)
+	out, err = RunCommandWithoutTest(pushCmd)
+	if err != nil {
+		return fmt.Errorf("failed to push image %s with docker command \"%s\": %w %s", dockerImage, pushCmd.Args, err, string(out))
+	}
 	return nil
 }
 
@@ -615,9 +621,9 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--push",
 			"-t", dockerImage,
 			"-f", dockerfile,
-			"--push",
 			"./context",
 		}...,
 	)

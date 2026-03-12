@@ -284,9 +284,9 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--push",
 			"-t", dockerImage,
 			"-f", dockerfile,
-			"--push",
 			DockerGitRepo(url, commit, branch),
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
@@ -357,9 +357,9 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--push",
 			"-t", dockerImage,
 			"-f", filepath.Join(integrationPath, dockerfilesPath, dockerfile),
-			"--push",
 			DockerGitRepo(url, "", branch),
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
@@ -561,9 +561,9 @@ func TestBuildWithLabels(t *testing.T) {
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--push",
 			"-t", dockerImage,
 			"-f", dockerfile,
-			"--push",
 			"--label", testLabel,
 			DockerGitRepo(url, "", branch),
 		}...)
@@ -1375,9 +1375,11 @@ func normalizeImageFormat(t *testing.T, image string) string {
 	if daemonHost == "" {
 		daemonHost = "unix:///var/run/docker.sock"
 	}
+	src_opts := "--src-tls-verify=false"
+	src := "docker://"
 	cmd := exec.Command("skopeo", "copy", "--format", "v2s2",
-		"--src-tls-verify=false",
-		"docker://"+taggedRef,
+		src_opts,
+		src+taggedRef,
 		"--dest-daemon-host", daemonHost,
 		"docker-daemon:"+normalized)
 	out, err := RunCommandWithoutTest(cmd)
