@@ -129,8 +129,8 @@ func TestK8s(t *testing.T) {
 				t.Fatal(errR)
 			}
 
-			_dockerImage := normalizeImageFormat(t, dockerImage)
-			_kanikoImage := normalizeImageFormat(t, kanikoImage)
+			_dockerImage := normalizeImageFormat(t, dockerImage, true)
+			_kanikoImage := normalizeImageFormat(t, kanikoImage, true)
 
 			containerDiff(t, daemonPrefix+_dockerImage, daemonPrefix+_kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 		})
