@@ -5,7 +5,7 @@ go 1.26
 toolchain go1.26.1
 
 require (
-	cloud.google.com/go/storage v1.61.1
+	cloud.google.com/go/storage v1.61.2
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.4
 	github.com/GoogleCloudPlatform/docker-credential-gcr/v2 v2.1.32
 	github.com/aws/aws-sdk-go-v2 v1.41.3
