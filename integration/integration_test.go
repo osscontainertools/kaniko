@@ -183,6 +183,12 @@ func buildRequiredImages() error {
 	}, {
 		name:    "Building kaniko image with leftover stuff in the filesystem",
 		command: []string{"docker", "build", "-t", ExecutorImageTainted, "-f", fmt.Sprintf("%s/Dockerfile_test_issue_mz455", dockerfilesPath), "--target", "kaniko", "."},
+	}, {
+		name:    "Building hijack base image",
+		command: []string{"docker", "build", "-t", config.hijackBaseImage, "-f", fmt.Sprintf("%s/Dockerfile_test_issue_mz560", dockerfilesPath), "--target", "base", "."},
+	}, {
+		name:    "Pushing hijack base image",
+		command: []string{"docker", "push", config.hijackBaseImage},
 	}}
 
 	for _, setupCmd := range setupCommands {
@@ -1351,6 +1357,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 	c.onbuildBaseImage = c.imageRepo + "onbuild-base:latest"
 	c.onbuildCopyImage = c.imageRepo + "onbuild-copy:latest"
 	c.hardlinkBaseImage = c.imageRepo + "hardlink-base:latest"
+	c.hijackBaseImage = c.imageRepo + "hijack:latest"
 	return &c
 }
 
