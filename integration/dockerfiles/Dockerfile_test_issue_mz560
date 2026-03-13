@@ -1,0 +1,30 @@
+# mz560: In kaniko v1.27.0 there is no consistency check for /kaniko binaries.
+# A bug was discovered where tarballs can be constructed to unpack arbitrary files into
+# /kaniko directory. As kaniko is no longer a single-binary application,
+# every RUN runs via tini, this means that that arbitrary payload will be executed.
+# But actually it is way simpler than that, as shown here the same can be achieved with ONBUILD.
+# This sounds bad, but is actually by design. It is not less secure than having an `ONBUILD` per-se.
+# Docker build is RCE as a service, that is the reason why kaniko does run without privileges.
+ARG IMAGE_REPO
+FROM busybox AS base
+# We simulate command injection by hijacking the tini binary
+
+# First we hijack it by adding a hijacked binary to this base image.
+# This base image gets built with docker, so it is part of the image.
+# When kaniko unrolls the filesystem it might already override the binary with our hijacked version.
+COPY --chmod=755 <<tini /kaniko/tini
+#!/bin/sh
+echo WARN HIJACKED
+tini
+
+# Secondly, if that doesn't work we can use `COPY` to force kaniko to override
+# the binary after initial unrolling of the filesystem.
+ONBUILD COPY --chmod=755 <<tini /kaniko/tini
+#!/bin/sh
+echo WARN HIJACKED
+tini
+
+FROM ${IMAGE_REPO}hijack:latest
+
+# /kaniko/tini gets implicitly executed here
+RUN ls -la /kaniko || true
