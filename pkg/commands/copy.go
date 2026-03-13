@@ -150,6 +150,10 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		if err != nil {
 			return fmt.Errorf("find destination path: %w", err)
 		}
+		if util.CheckIgnoreList(destPath) {
+			logrus.Debugf("Skipping copy for ignored path: %s", destPath)
+			return nil
+		}
 
 		srcFile := strings.NewReader(src.Data)
 		err = util.CreateFile(destPath, srcFile, chmod, uint32(uid), uint32(gid))
