@@ -51,7 +51,7 @@ func NewSnapshotter(l *LayeredMap, d string, wl []util.IgnoreListEntry) *Snapsho
 // Init initializes a new snapshotter
 func (s *Snapshotter) Init() error {
 	logrus.Info("Initializing snapshotter ...")
-	_, _, err := s.scanFullFilesystem()
+	_, _, err := s.ScanFullFilesystem()
 	return err
 }
 
@@ -75,7 +75,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 
 	s.l.Snapshot()
 
-	filesToAdd, err := filesystem.ResolvePaths(files, s.ignorelist)
+	filesToAdd, err := filesystem.ResolvePaths(s.directory, files, s.ignorelist)
 	if err != nil {
 		return "", err
 	}
@@ -116,7 +116,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 
 	t := util.NewTar(f)
 	defer t.Close()
-	if err := writeToTar(t, filesToAdd, filesToWhiteout); err != nil {
+	if err := writeToTar(t, s.directory, filesToAdd, filesToWhiteout); err != nil {
 		return "", err
 	}
 	return f.Name(), nil
@@ -138,12 +138,12 @@ func (s *Snapshotter) TakeSnapshotFS() (string, error) {
 	t := util.NewTar(f)
 	defer t.Close()
 
-	filesToAdd, filesToWhiteOut, err := s.scanFullFilesystem()
+	filesToAdd, filesToWhiteOut, err := s.ScanFullFilesystem()
 	if err != nil {
 		return "", err
 	}
 
-	if err := writeToTar(t, filesToAdd, filesToWhiteOut); err != nil {
+	if err := writeToTar(t, s.directory, filesToAdd, filesToWhiteOut); err != nil {
 		return "", err
 	}
 	return f.Name(), nil
@@ -156,7 +156,7 @@ func (s *Snapshotter) getSnashotPathPrefix() string {
 	return snapshotPathPrefix
 }
 
-func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
+func (s *Snapshotter) ScanFullFilesystem() ([]string, []string, error) {
 	logrus.Info("Taking snapshot of full filesystem...")
 
 	// Some of the operations that follow (e.g. hashing) depend on the file system being synced,
@@ -194,7 +194,7 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 	}
 	timer := timing.Start("Resolving Paths")
 
-	filesToAdd, err := filesystem.ResolvePaths(changedPaths, s.ignorelist)
+	filesToAdd, err := filesystem.ResolvePaths(s.directory, changedPaths, s.ignorelist)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -236,16 +236,16 @@ func removeObsoleteWhiteouts(deletedFiles map[string]struct{}) (filesToWhiteout 
 	return filesToWhiteout
 }
 
-func writeToTar(t util.Tar, files, whiteouts []string) error {
+func writeToTar(t util.Tar, root string, files, whiteouts []string) error {
 	timer := timing.Start("Writing tar file")
 	defer timing.DefaultRun.Stop(timer)
 
 	// Now create the tar.
 	addedPaths := make(map[string]bool)
-	addedPaths[config.RootDir] = true
+	addedPaths[root] = true
 
 	for _, path := range whiteouts {
-		skipWhiteout, err := parentPathIncludesNonDirectory(path)
+		skipWhiteout, err := parentPathIncludesNonDirectory(root, path)
 		if err != nil {
 			return err
 		}
@@ -253,7 +253,7 @@ func writeToTar(t util.Tar, files, whiteouts []string) error {
 			continue
 		}
 
-		if err := addParentDirectories(t, addedPaths, path); err != nil {
+		if err := addParentDirectories(t, root, addedPaths, path); err != nil {
 			return err
 		}
 		if err := t.Whiteout(path); err != nil {
@@ -262,7 +262,7 @@ func writeToTar(t util.Tar, files, whiteouts []string) error {
 	}
 
 	for _, path := range files {
-		if err := addParentDirectories(t, addedPaths, path); err != nil {
+		if err := addParentDirectories(t, root, addedPaths, path); err != nil {
 			return err
 		}
 		if _, pathAdded := addedPaths[path]; pathAdded {
@@ -277,8 +277,8 @@ func writeToTar(t util.Tar, files, whiteouts []string) error {
 }
 
 // Returns true if a parent of the given path has been replaced with anything other than a directory
-func parentPathIncludesNonDirectory(path string) (bool, error) {
-	for _, parentPath := range util.ParentDirectories(path) {
+func parentPathIncludesNonDirectory(root, path string) (bool, error) {
+	for _, parentPath := range util.ParentDirectories(root, path) {
 		lstat, err := os.Lstat(parentPath)
 		if err != nil {
 			return false, err
@@ -291,9 +291,9 @@ func parentPathIncludesNonDirectory(path string) (bool, error) {
 	return false, nil
 }
 
-func addParentDirectories(t util.Tar, addedPaths map[string]bool, path string) error {
-	for _, parentPath := range util.ParentDirectories(path) {
-		if parentPath == config.RootDir {
+func addParentDirectories(t util.Tar, root string, addedPaths map[string]bool, path string) error {
+	for _, parentPath := range util.ParentDirectories(root, path) {
+		if parentPath == root {
 			continue
 		}
 		if _, pathAdded := addedPaths[parentPath]; pathAdded {

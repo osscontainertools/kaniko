@@ -24,6 +24,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
@@ -94,9 +95,9 @@ func Test_ResolvePaths(t *testing.T) {
 					expectedFiles = append(expectedFiles, target)
 				}
 
-				expectedFiles = filesWithParentDirs(expectedFiles)
+				expectedFiles = filesWithParentDirs(config.RootDir, expectedFiles)
 
-				files, err := ResolvePaths(inputFiles, wl)
+				files, err := ResolvePaths(config.RootDir, inputFiles, wl)
 
 				validateResults(t, files, expectedFiles, err)
 			})
@@ -158,9 +159,9 @@ func Test_ResolvePaths(t *testing.T) {
 				targetFile := filepath.Join(target, "meow.txt")
 				expectedFiles = append(expectedFiles, targetFile)
 
-				expectedFiles = filesWithParentDirs(expectedFiles)
+				expectedFiles = filesWithParentDirs(config.RootDir, expectedFiles)
 
-				files, err := ResolvePaths(inputFiles, wl)
+				files, err := ResolvePaths(config.RootDir, inputFiles, wl)
 
 				validateResults(t, files, expectedFiles, err)
 			})
@@ -173,7 +174,7 @@ func Test_ResolvePaths(t *testing.T) {
 
 		wl := []util.IgnoreListEntry{}
 
-		files, err := ResolvePaths(inputFiles, wl)
+		files, err := ResolvePaths(config.RootDir, inputFiles, wl)
 
 		validateResults(t, files, expectedFiles, err)
 	})
@@ -216,7 +217,7 @@ func Test_resolveSymlinkAncestor(t *testing.T) {
 
 		expected := linkPath
 
-		actual, err := resolveSymlinkAncestor(linkPath)
+		actual, err := resolveSymlinkAncestor(config.RootDir, linkPath)
 		if err != nil {
 			t.Errorf("expected err to be nil but was %s", err)
 		}
@@ -237,7 +238,7 @@ func Test_resolveSymlinkAncestor(t *testing.T) {
 
 		expected := linkDir
 
-		actual, err := resolveSymlinkAncestor(fmt.Sprintf("%s/", linkDir))
+		actual, err := resolveSymlinkAncestor(config.RootDir, fmt.Sprintf("%s/", linkDir))
 		if err != nil {
 			t.Errorf("expected err to be nil but was %s", err)
 		}
@@ -269,7 +270,7 @@ func Test_resolveSymlinkAncestor(t *testing.T) {
 
 		expected := linkPath
 
-		actual, err := resolveSymlinkAncestor(linkPath)
+		actual, err := resolveSymlinkAncestor(config.RootDir, linkPath)
 		if err != nil {
 			t.Errorf("expected err to be nil but was %s", err)
 		}
@@ -285,7 +286,7 @@ func Test_resolveSymlinkAncestor(t *testing.T) {
 
 		expected := targetPath
 
-		actual, err := resolveSymlinkAncestor(targetPath)
+		actual, err := resolveSymlinkAncestor(config.RootDir, targetPath)
 		if err != nil {
 			t.Errorf("expected err to be nil but was %s", err)
 		}
@@ -317,7 +318,7 @@ func Test_resolveSymlinkAncestor(t *testing.T) {
 
 		expected := linkDir
 
-		actual, err := resolveSymlinkAncestor(linkPath)
+		actual, err := resolveSymlinkAncestor(config.RootDir, linkPath)
 		if err != nil {
 			t.Errorf("expected err to be nil but was %s", err)
 		}
@@ -351,7 +352,7 @@ func Test_resolveSymlinkAncestor(t *testing.T) {
 
 		linkPath := filepath.Join(linkDir, filepath.Base(targetPath))
 
-		_, err := resolveSymlinkAncestor(linkPath)
+		_, err := resolveSymlinkAncestor(config.RootDir, linkPath)
 		if err == nil {
 			t.Error("expected err to not be nil")
 		}
@@ -379,7 +380,7 @@ func Test_resolveSymlinkAncestor(t *testing.T) {
 
 		expected := linkDir
 
-		actual, err := resolveSymlinkAncestor(linkPath)
+		actual, err := resolveSymlinkAncestor(config.RootDir, linkPath)
 		if err != nil {
 			t.Errorf("expected err to be nil but was %s", err)
 		}

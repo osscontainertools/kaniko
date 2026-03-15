@@ -22,7 +22,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
@@ -35,7 +34,7 @@ import (
 // * If path is a symlink, resolve it's target. If the target is not ignored add it to the
 // output set.
 // * Add all ancestors of each path to the output set.
-func ResolvePaths(paths []string, wl []util.IgnoreListEntry) (pathsToAdd []string, err error) {
+func ResolvePaths(root string, paths []string, wl []util.IgnoreListEntry) (pathsToAdd []string, err error) {
 	logrus.Tracef("Resolving paths %s", paths)
 
 	fileSet := make(map[string]bool)
@@ -47,7 +46,7 @@ func ResolvePaths(paths []string, wl []util.IgnoreListEntry) (pathsToAdd []strin
 			continue
 		}
 
-		link, e := resolveSymlinkAncestor(f)
+		link, e := resolveSymlinkAncestor(root, f)
 		if e != nil {
 			continue
 		}
@@ -93,20 +92,20 @@ func ResolvePaths(paths []string, wl []util.IgnoreListEntry) (pathsToAdd []strin
 	}
 
 	// Also add parent directories to keep the permission of them correctly.
-	pathsToAdd = filesWithParentDirs(pathsToAdd)
+	pathsToAdd = filesWithParentDirs(root, pathsToAdd)
 	return
 }
 
 // filesWithParentDirs returns every ancestor path for each provided file path.
 // I.E. /foo/bar/baz/boom.txt => [/, /foo, /foo/bar, /foo/bar/baz, /foo/bar/baz/boom.txt]
-func filesWithParentDirs(files []string) []string {
+func filesWithParentDirs(root string, files []string) []string {
 	filesSet := map[string]bool{}
 
 	for _, file := range files {
 		file = filepath.Clean(file)
 		filesSet[file] = true
 
-		for _, dir := range util.ParentDirectories(file) {
+		for _, dir := range util.ParentDirectories(root, file) {
 			dir = filepath.Clean(dir)
 			filesSet[dir] = true
 		}
@@ -125,7 +124,7 @@ func filesWithParentDirs(files []string) []string {
 // E.G /baz/boom/bar.txt links to /usr/bin/bar.txt but /baz/boom/bar.txt itself is not a link.
 // Instead /bar/boom is actually a link to /usr/bin. In this case resolveSymlinkAncestor would
 // return /bar/boom.
-func resolveSymlinkAncestor(path string) (string, error) {
+func resolveSymlinkAncestor(root string, path string) (string, error) {
 	if !filepath.IsAbs(path) {
 		return "", errors.New("dest path must be abs")
 	}
@@ -134,7 +133,7 @@ func resolveSymlinkAncestor(path string) (string, error) {
 	newPath := filepath.Clean(path)
 
 loop:
-	for newPath != config.RootDir {
+	for newPath != root {
 		fi, err := os.Lstat(newPath)
 		if err != nil {
 			return "", fmt.Errorf("resolvePaths: failed to lstat: %w", err)
