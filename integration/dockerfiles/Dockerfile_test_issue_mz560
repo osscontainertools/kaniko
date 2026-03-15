@@ -8,11 +8,32 @@
 ARG IMAGE_REPO
 FROM busybox AS base
 # We simulate command injection by hijacking the tini binary
+
+# First we hijack it by adding a hijacked binary to this base image.
+# This base image gets built with docker, so it is part of the image.
+# When kaniko unrolls the filesystem it might already override the binary with our hijacked version.
+COPY --chmod=755 <<tini /kaniko/tini
+#!/bin/sh
+echo HIJACKED
+exit 1
+tini
+
+# Secondly, if that doesn't work we can use `ONBUILD COPY` to force kaniko to override
+# the binary after initial unrolling of the filesystem.
 ONBUILD COPY --chmod=755 <<tini /kaniko/tini
 #!/bin/sh
 echo HIJACKED
 exit 1
 tini
+
+# Thirdly, we can use a `ONBUILD RUN` statement directly
+# here kaniko has no chance to block us as RUN statements
+# are per design an all powerful blackbox.
+ONBUILD RUN mv /kaniko/tini /dev/null \
+    && echo "#!/bin/sh" > /kaniko/tini \
+    && echo "echo HIJACKED" >> /kaniko/tini \
+    && echo "exit 1" >> /kaniko/tini \
+    && chmod +x /kaniko/tini
 
 FROM ${IMAGE_REPO}hijack:latest
 # /kaniko/tini gets implicitly executed here
