@@ -698,7 +698,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 		if file == "." {
 			logrus.Tracef("Creating directory %s", destPath)
 
-			mode := os.FileMode(0755)
+			mode := os.FileMode(0o755)
 			if !useDefaultChmod && config.EnvBool("FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS") {
 				// mz507: Here we want to implement chmod on implicit dirs to be
 				// compatible with buildkit. buildkit's mkdir does not whiteout the umask.

@@ -73,7 +73,7 @@ func (w *WorkdirCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile
 
 		logrus.Infof("Creating directory %s with uid %d and gid %d", config.WorkingDir, uid, gid)
 		w.snapshotFiles = append(w.snapshotFiles, config.WorkingDir)
-		if err := mkdirAllWithPermissions(config.WorkingDir, 0755, uid, gid); err != nil {
+		if err := mkdirAllWithPermissions(config.WorkingDir, 0o755, uid, gid); err != nil {
 			return fmt.Errorf("creating workdir %s: %w", config.WorkingDir, err)
 		}
 	}
@@ -92,7 +92,6 @@ func (w *WorkdirCommand) String() string {
 
 // CacheCommand returns true since this command should be cached
 func (w *WorkdirCommand) CacheCommand(img v1.Image) DockerCommand {
-
 	return &CachingWorkdirCommand{
 		img:       img,
 		cmd:       w.cmd,

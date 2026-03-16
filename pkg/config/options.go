@@ -120,7 +120,7 @@ func (k *KanikoGitOptions) String() string {
 }
 
 func (k *KanikoGitOptions) Set(s string) error {
-	var parts = strings.SplitN(s, "=", 2)
+	parts := strings.SplitN(s, "=", 2)
 	if len(parts) != 2 {
 		return fmt.Errorf("%w: %s", ErrInvalidGitFlag, s)
 	}
@@ -228,7 +228,6 @@ func (s *SecretOptions) String() string {
 	for k, sec := range *s {
 		if sec.Type == "env" {
 			parts = append(parts, fmt.Sprintf("id=%s,type=env,env=%s", k, sec.Src))
-
 		} else {
 			parts = append(parts, fmt.Sprintf("id=%s,type=file,src=%s", k, sec.Src))
 		}

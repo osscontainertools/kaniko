@@ -39,7 +39,6 @@ var shellTests = []struct {
 }
 
 func TestShellExecuteCmd(t *testing.T) {
-
 	cfg := &v1.Config{
 		Shell: nil,
 	}

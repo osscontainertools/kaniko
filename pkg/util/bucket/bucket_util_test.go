@@ -65,5 +65,4 @@ func Test_GetBucketAndItem(t *testing.T) {
 			testutil.CheckDeepEqual(t, test.expectedItem, gotItem)
 		})
 	}
-
 }

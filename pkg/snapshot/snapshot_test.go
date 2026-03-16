@@ -137,7 +137,7 @@ func TestSnapshotFSChangePermissions(t *testing.T) {
 	// Change permissions on a file
 	batPath := filepath.Join(testDir, "bar/bat")
 	batPathWithoutLeadingSlash := filepath.Join(testDirWithoutLeadingSlash, "bar/bat")
-	if err := os.Chmod(batPath, 0600); err != nil {
+	if err := os.Chmod(batPath, 0o600); err != nil {
 		t.Fatalf("Error changing permissions on %s: %v", batPath, err)
 	}
 	// Take another snapshot
@@ -304,7 +304,6 @@ func TestEmptySnapshotFS(t *testing.T) {
 }
 
 func TestFileWithLinks(t *testing.T) {
-
 	link := "baz/link"
 	tcs := []struct {
 		name           string
@@ -391,7 +390,6 @@ func TestSnapshotPreservesFileOrder(t *testing.T) {
 
 		// Take a snapshot
 		tarPath, err := snapshotter.TakeSnapshot(filesToSnapshot, false)
-
 		if err != nil {
 			t.Fatalf("Error taking snapshot of fs: %s", err)
 		}
@@ -578,7 +576,6 @@ func TestSnapshotOmitsUnameGname(t *testing.T) {
 			t.Fatalf("Expected Uname/Gname for %s to be empty: Uname = '%s', Gname = '%s'", hdr.Name, hdr.Uname, hdr.Gname)
 		}
 	}
-
 }
 
 func setupSymlink(dir string, link string, target string) error {

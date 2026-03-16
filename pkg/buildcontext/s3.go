@@ -61,7 +61,7 @@ func (s *S3) UnpackTarFromBuildContext() (string, error) {
 	downloader := transfermanager.New(client)
 	directory := kConfig.BuildContextDir
 	tarPath := filepath.Join(directory, constants.ContextTar)
-	if err := os.MkdirAll(directory, 0750); err != nil {
+	if err := os.MkdirAll(directory, 0o750); err != nil {
 		return directory, err
 	}
 	file, err := os.Create(tarPath)
