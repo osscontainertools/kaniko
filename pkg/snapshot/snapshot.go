@@ -201,6 +201,7 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 	}
 	for _, path := range resolvedFiles {
 		if util.CheckCleanedPathAgainstProvidedIgnoreList(filepath.Clean(path), s.ignorelist) {
+			logrus.Panic("Unreachable Code: ignored files should already be filtered out above")
 			logrus.Debugf("Not adding %s to layer, as it's ignored", path)
 			continue
 		}
