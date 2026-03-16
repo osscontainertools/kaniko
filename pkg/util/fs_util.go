@@ -419,17 +419,6 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 	return nil
 }
 
-func IsInProvidedIgnoreList(path string, wl []IgnoreListEntry) bool {
-	path = filepath.Clean(path)
-	for _, entry := range wl {
-		if !entry.PrefixMatchOnly && path == entry.Path {
-			return true
-		}
-	}
-
-	return false
-}
-
 func CheckCleanedPathAgainstProvidedIgnoreList(path string, wl []IgnoreListEntry) bool {
 	for _, wl := range ignorelist {
 		if hasCleanedFilepathPrefix(path, wl.Path, wl.PrefixMatchOnly) {
@@ -1301,7 +1290,7 @@ func gowalkDir(dir string, existingPaths map[string]struct{}, wl []IgnoreListEnt
 			return err
 		}
 
-		if IsInProvidedIgnoreList(path, wl) {
+		if CheckCleanedPathAgainstProvidedIgnoreList(filepath.Clean(path), wl) {
 			if IsDestDir(path) && info.IsDir() {
 				logrus.Tracef("Skipping paths under '%s', as it is an ignored directory", path)
 				return filepath.SkipDir
