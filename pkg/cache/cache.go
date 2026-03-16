@@ -157,10 +157,10 @@ func locateImage(path string) (v1.Image, error) {
 // If no cache is specified, one is inferred from the destination provided
 func Destination(opts *config.KanikoOptions, cacheKey string) (string, error) {
 	cache := opts.CacheRepo
-	if cache == "" && len(opts.Destinations) == 0 {
+	if cache == "" && len(opts.Destinations[config.DefaultDestinationKey]) == 0 {
 		return "", fmt.Errorf("cache repo can't be deduced")
 	} else if cache == "" {
-		destination := opts.Destinations[0]
+		destination := opts.Destinations[config.DefaultDestinationKey][0]
 		destRef, err := name.NewTag(destination, name.WeakValidation)
 		if err != nil {
 			return "", fmt.Errorf("getting tag for destination: %w", err)
