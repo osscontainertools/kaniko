@@ -132,10 +132,10 @@ func setNewRepository(ref name.Reference, newRepo name.Repository) name.Referenc
 func setNewRegistry(ref name.Reference, newReg name.Registry) name.Reference {
 	switch r := ref.(type) {
 	case name.Tag:
-		r.Repository.Registry = newReg
+		r.Registry = newReg
 		return r
 	case name.Digest:
-		r.Repository.Registry = newReg
+		r.Registry = newReg
 		return r
 	default:
 		return ref
