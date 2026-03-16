@@ -104,7 +104,7 @@ func Test_CompositeCache_AddPath_file(t *testing.T) {
 	defer os.Remove(tmpfile.Name()) // clean up
 
 	content := `meow meow meow`
-	if _, err := tmpfile.Write([]byte(content)); err != nil {
+	if _, err := tmpfile.WriteString(content); err != nil {
 		t.Errorf("got error writing temp file %v", err)
 	}
 	if err := tmpfile.Close(); err != nil {
