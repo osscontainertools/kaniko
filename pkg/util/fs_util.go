@@ -858,8 +858,8 @@ func CopyFileInternal(src, dest string, context FileContext) error {
 		return err
 	}
 	defer srcFile.Close()
-	uid := uint32(fi.Sys().(*syscall.Stat_t).Uid)
-	gid := uint32(fi.Sys().(*syscall.Stat_t).Gid)
+	uid := fi.Sys().(*syscall.Stat_t).Uid
+	gid := fi.Sys().(*syscall.Stat_t).Gid
 	mode := fi.Mode()
 
 	err = CreateFile(dest, srcFile, mode, uid, gid)
@@ -1180,7 +1180,7 @@ func CopyTimestamps(src string, dest string) error {
 		return fmt.Errorf("failed to retrieve timestamps from: %s", src)
 	}
 	atime := time.Time{}
-	mtime := time.Unix(int64(stat.Mtim.Sec), int64(stat.Mtim.Nsec))
+	mtime := time.Unix(stat.Mtim.Sec, stat.Mtim.Nsec)
 	err = os.Chtimes(dest, atime, mtime)
 	if err != nil {
 		return fmt.Errorf("failed to copy timestamps: %w", err)
