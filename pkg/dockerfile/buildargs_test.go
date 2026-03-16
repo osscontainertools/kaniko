@@ -23,17 +23,13 @@ import (
 	"github.com/osscontainertools/kaniko/testutil"
 )
 
-func strPtr(source string) *string {
-	return &source
-}
-
 func TestGetAllAllowed(t *testing.T) {
 	buildArgs := newBuildArgsFromMap(map[string]*string{
-		"ArgNotUsedInDockerfile":              strPtr("fromopt1"),
-		"ArgOverriddenByOptions":              strPtr("fromopt2"),
-		"ArgNoDefaultInDockerfileFromOptions": strPtr("fromopt3"),
-		"HTTP_PROXY":                          strPtr("theproxy"),
-		"all_proxy":                           strPtr("theproxy2"),
+		"ArgNotUsedInDockerfile":              new("fromopt1"),
+		"ArgOverriddenByOptions":              new("fromopt2"),
+		"ArgNoDefaultInDockerfileFromOptions": new("fromopt3"),
+		"HTTP_PROXY":                          new("theproxy"),
+		"all_proxy":                           new("theproxy2"),
 	})
 
 	buildArgs.AddMetaArgs([]instructions.ArgCommand{
@@ -41,11 +37,11 @@ func TestGetAllAllowed(t *testing.T) {
 			Args: []instructions.KeyValuePairOptional{
 				{
 					Key:   "ArgFromMeta",
-					Value: strPtr("frommeta1"),
+					Value: new("frommeta1"),
 				},
 				{
 					Key:   "ArgOverriddenByOptions",
-					Value: strPtr("frommeta2"),
+					Value: new("frommeta2"),
 				},
 			},
 		},
@@ -53,18 +49,18 @@ func TestGetAllAllowed(t *testing.T) {
 			Args: []instructions.KeyValuePairOptional{
 				{
 					Key:   "ArgFromMetaNotUsed",
-					Value: strPtr("frommeta3"),
+					Value: new("frommeta3"),
 				},
 			},
 		},
 	})
 
-	buildArgs.AddArg("ArgOverriddenByOptions", strPtr("fromdockerfile2"))
-	buildArgs.AddArg("ArgWithDefaultInDockerfile", strPtr("fromdockerfile1"))
+	buildArgs.AddArg("ArgOverriddenByOptions", new("fromdockerfile2"))
+	buildArgs.AddArg("ArgWithDefaultInDockerfile", new("fromdockerfile1"))
 	buildArgs.AddArg("ArgNoDefaultInDockerfile", nil)
 	buildArgs.AddArg("ArgNoDefaultInDockerfileFromOptions", nil)
 	buildArgs.AddArg("ArgFromMeta", nil)
-	buildArgs.AddArg("ArgFromMetaOverridden", strPtr("fromdockerfile3"))
+	buildArgs.AddArg("ArgFromMetaOverridden", new("fromdockerfile3"))
 
 	all := buildArgs.GetAllAllowed()
 	expected := map[string]string{
@@ -81,10 +77,10 @@ func TestGetAllAllowed(t *testing.T) {
 
 func TestGetAllMeta(t *testing.T) {
 	buildArgs := newBuildArgsFromMap(map[string]*string{
-		"ArgNotUsedInDockerfile":        strPtr("fromopt1"),
-		"ArgOverriddenByOptions":        strPtr("fromopt2"),
-		"ArgNoDefaultInMetaFromOptions": strPtr("fromopt3"),
-		"HTTP_PROXY":                    strPtr("theproxy"),
+		"ArgNotUsedInDockerfile":        new("fromopt1"),
+		"ArgOverriddenByOptions":        new("fromopt2"),
+		"ArgNoDefaultInMetaFromOptions": new("fromopt3"),
+		"HTTP_PROXY":                    new("theproxy"),
 	})
 
 	buildArgs.AddMetaArgs([]instructions.ArgCommand{
@@ -92,11 +88,11 @@ func TestGetAllMeta(t *testing.T) {
 			Args: []instructions.KeyValuePairOptional{
 				{
 					Key:   "ArgFromMeta",
-					Value: strPtr("frommeta1"),
+					Value: new("frommeta1"),
 				},
 				{
 					Key:   "ArgOverriddenByOptions",
-					Value: strPtr("frommeta2"),
+					Value: new("frommeta2"),
 				},
 			},
 		},

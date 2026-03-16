@@ -18,6 +18,7 @@ package dockerfile
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/containerd/platforms"
@@ -73,15 +74,9 @@ func newBuildArgsFromMap(argsFromOptions map[string]*string) *BuildArgs {
 // Clone returns a copy of the BuildArgs type
 func (b *BuildArgs) Clone() *BuildArgs {
 	result := newBuildArgsFromMap(b.argsFromOptions)
-	for k, v := range b.allowedBuildArgs {
-		result.allowedBuildArgs[k] = v
-	}
-	for k, v := range b.allowedMetaArgs {
-		result.allowedMetaArgs[k] = v
-	}
-	for k, v := range b.predefinedArgs {
-		result.predefinedArgs[k] = v
-	}
+	maps.Copy(result.allowedBuildArgs, b.allowedBuildArgs)
+	maps.Copy(result.allowedMetaArgs, b.allowedMetaArgs)
+	maps.Copy(result.predefinedArgs, b.predefinedArgs)
 	for k := range b.referencedArgs {
 		result.referencedArgs[k] = struct{}{}
 	}

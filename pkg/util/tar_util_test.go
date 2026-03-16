@@ -165,7 +165,7 @@ func Test_CreateTarballOfDirectory(t *testing.T) {
 }
 
 func createFilesInTempDir(t *testing.T, tmpDir string) {
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		fName := filepath.Join(tmpDir, fmt.Sprint(i))
 		content := fmt.Sprintf("hello from %d\n", i)
 		if err := os.WriteFile(fName, []byte(content), 0o666); err != nil {

@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -91,17 +92,13 @@ func (l *LayeredMap) getCurrentImage() map[string]string {
 	current := map[string]string{}
 
 	// Copy current image paths/hashes.
-	for p, h := range l.currentImage {
-		current[p] = h
-	}
+	maps.Copy(current, l.currentImage)
 
 	// Add the last layer on top.
 	addedFiles := l.adds[len(l.adds)-1]
 	deletedFiles := l.deletes[len(l.deletes)-1]
 
-	for add, hash := range addedFiles {
-		current[add] = hash
-	}
+	maps.Copy(current, addedFiles)
 
 	for del := range deletedFiles {
 		delete(current, del)
