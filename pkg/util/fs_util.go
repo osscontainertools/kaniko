@@ -420,8 +420,8 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 }
 
 func CheckCleanedPathAgainstProvidedIgnoreList(path string, wl []IgnoreListEntry) bool {
-	for _, wl := range ignorelist {
-		if hasCleanedFilepathPrefix(path, wl.Path, wl.PrefixMatchOnly) {
+	for _, w := range wl {
+		if hasCleanedFilepathPrefix(path, w.Path, w.PrefixMatchOnly) {
 			return true
 		}
 	}
