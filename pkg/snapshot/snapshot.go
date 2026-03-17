@@ -194,20 +194,10 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 	}
 	timer := timing.Start("Resolving Paths")
 
-	filesToAdd := []string{}
-	resolvedFiles, err := filesystem.ResolvePaths(changedPaths, s.ignorelist)
+	filesToAdd, err := filesystem.ResolvePaths(changedPaths, s.ignorelist)
 	if err != nil {
 		return nil, nil, err
 	}
-	for _, path := range resolvedFiles {
-		if util.CheckCleanedPathAgainstProvidedIgnoreList(filepath.Clean(path), s.ignorelist) {
-			logrus.Panic("Unreachable Code: ignored files should already be filtered out above")
-			logrus.Debugf("Not adding %s to layer, as it's ignored", path)
-			continue
-		}
-		filesToAdd = append(filesToAdd, path)
-	}
-
 	logrus.Debugf("Adding to layer: %v", filesToAdd)
 	logrus.Debugf("Deleting in layer: %v", deletedPaths)
 
