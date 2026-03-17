@@ -138,7 +138,7 @@ func (s *Snapshotter) TakeSnapshotFS() (string, error) {
 	t := util.NewTar(f)
 	defer t.Close()
 
-	filesToAdd, filesToWhiteOut, err := s.scanFullFilesystem()
+	filesToAdd, filesToWhiteOut, err := s.ScanFullFilesystem()
 	if err != nil {
 		return "", err
 	}
