@@ -50,7 +50,7 @@ func NewSnapshotter(l *LayeredMap, d string, wl []util.IgnoreListEntry) *Snapsho
 
 // Init initializes a new snapshotter
 func (s *Snapshotter) Init() error {
-	logrus.Info("Initializing snapshotter ...")
+	logrus.Debug("Initializing snapshotter ...")
 	_, _, err := s.ScanFullFilesystem()
 	return err
 }
@@ -157,7 +157,7 @@ func (s *Snapshotter) getSnashotPathPrefix() string {
 }
 
 func (s *Snapshotter) ScanFullFilesystem() ([]string, []string, error) {
-	logrus.Info("Taking snapshot of full filesystem...")
+	logrus.Debugf("Taking snapshot of %s filesystem...", s.directory)
 
 	// Some of the operations that follow (e.g. hashing) depend on the file system being synced,
 	// for example the hashing function that determines if files are equal uses the mtime of the files,
