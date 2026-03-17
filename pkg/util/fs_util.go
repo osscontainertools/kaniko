@@ -513,16 +513,16 @@ func RelativeFiles(fp string, root string) ([]string, error) {
 
 // ParentDirectories returns a list of paths to all parent directories
 // Ex. /some/temp/dir -> [/, /some, /some/temp, /some/temp/dir]
-func ParentDirectories(root string, path string) []string {
+func ParentDirectories(path string) []string {
 	dir := filepath.Clean(path)
 	var paths []string
-	for !(dir == filepath.Clean(root) || dir == "" || dir == ".") {
+	for !(dir == filepath.Clean(config.RootDir) || dir == "" || dir == ".") {
 		dir, _ = filepath.Split(dir)
 		dir = filepath.Clean(dir)
 		paths = append([]string{dir}, paths...)
 	}
 	if len(paths) == 0 {
-		paths = []string{root}
+		paths = []string{config.RootDir}
 	}
 	return paths
 }

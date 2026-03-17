@@ -221,7 +221,7 @@ func Test_ParentDirectories(t *testing.T) {
 			original := config.RootDir
 			defer func() { config.RootDir = original }()
 			config.RootDir = tt.rootDir
-			actual := ParentDirectories(config.RootDir, tt.path)
+			actual := ParentDirectories(tt.path)
 
 			testutil.CheckErrorAndDeepEqual(t, false, nil, tt.expected, actual)
 		})
