@@ -24,6 +24,15 @@ ONBUILD COPY --chmod=755 <<tini /kaniko/tini
 echo WARN HIJACKED
 tini
 
+ONBUILD RUN --mount=type=cache,id=hijack,target=/tmp/kaniko \
+    mv /kaniko/tini /dev/null || true \
+    && echo "#!/bin/sh" > /tmp/kaniko/tini \
+    && echo "echo 'WARN HIJACKED'" >> /tmp/kaniko/tini \
+    && chmod +x /tmp/kaniko/tini
+
+ONBUILD RUN --mount=type=cache,id=hijack,target=/kaniko \
+    ls -la /kaniko && cat /kaniko/tini || true
+
 # Thirdly, we can use a `ONBUILD RUN` statement directly
 # here kaniko has no chance to block us as RUN statements
 # are per design an all powerful blackbox.
