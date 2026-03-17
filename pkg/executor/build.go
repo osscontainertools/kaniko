@@ -338,7 +338,12 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		timing.DefaultRun.Stop(t)
 		initSnapshotTaken = true
 	}
-	kanikoDirSnapshotter := snapshot.NewSnapshotter(snapshot.NewLayeredMap(util.Hasher()), config.KanikoDir, nil)
+	kanikoDirSnapshotter := snapshot.NewSnapshotter(snapshot.NewLayeredMap(util.Hasher()), config.KanikoDir, []util.IgnoreListEntry{
+		{
+			Path:            config.KanikoCacheDir,
+			PrefixMatchOnly: true,
+		},
+	})
 	kanikoDirSnapshotter.Init()
 
 	cacheGroup := errgroup.Group{}
