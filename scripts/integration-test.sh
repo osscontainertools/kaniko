@@ -46,7 +46,7 @@ if [[ -n ${LOCAL} ]]; then
   echo "running in local mode, mocking registry and gcs bucket..."
   start_local_registry
 
-  IMAGE_REPO="localhost:5000/kaniko-test"
+  IMAGE_REPO="localhost:5000"
   GCS_BUCKET=""
 fi
 
