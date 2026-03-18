@@ -204,6 +204,12 @@ func buildRequiredImages() error {
 		return err
 	}
 
+	malicious2Ref := strings.ToLower(config.imageRepo + "path-traversal-symlink:latest")
+	err = pushSymlinkTraversalImage(malicious2Ref)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -696,6 +702,86 @@ func pushMaliciousPathTraversalImage(imageRef string) error {
 	}
 	if err := remote.Write(ref, img, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
 		return fmt.Errorf("pushing malicious image to %s: %v", imageRef, err)
+	}
+	symlinkTraversalRef := strings.ToLower(config.imageRepo + "path-traversal-symlink:latest")
+	if err := pushSymlinkTraversalImage(symlinkTraversalRef); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// pushSymlinkTraversalImage creates and pushes a minimal OCI image that
+// attempts to hijack /kaniko/tini via a symlink-based path traversal.
+//
+// The layer contains two entries whose individual names look innocent (no
+// "../" prefix, so the explicit check in #326 passes them):
+//
+//	kaniko_escape   TypeSymlink → /kaniko   (points outside the extraction root)
+//	kaniko_escape/tini   TypeReg   (written through the symlink → /kaniko/tini)
+//
+// Docker cannot produce such layers, so the image is crafted programmatically.
+func pushSymlinkTraversalImage(imageRef string) error {
+	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+
+		if err := tw.WriteHeader(&tar.Header{
+			Name:     "blubb",
+			Typeflag: tar.TypeReg,
+			Size:     0,
+			Mode:     0o644,
+		}); err != nil {
+			return nil, err
+		}
+
+		if err := tw.WriteHeader(&tar.Header{
+			Name:     "kaniko/",
+			Typeflag: tar.TypeDir,
+			Mode:     0o755,
+		}); err != nil {
+			return nil, err
+		}
+
+		if err := tw.WriteHeader(&tar.Header{
+			Name:     "kaniko_escape",
+			Typeflag: tar.TypeSymlink,
+			Linkname: "/kaniko",
+		}); err != nil {
+			return nil, err
+		}
+
+		payload := "#!/bin/sh\necho WARN HIJACKED"
+		if err := tw.WriteHeader(&tar.Header{
+			Name:     "kaniko_escape/tini",
+			Typeflag: tar.TypeReg,
+			Size:     int64(len(payload)),
+			Mode:     0o755,
+		}); err != nil {
+			return nil, err
+		}
+		if _, err := tw.Write([]byte(payload)); err != nil {
+			return nil, err
+		}
+
+		tw.Close()
+		return io.NopCloser(bytes.NewReader(buf.Bytes())), nil
+	})
+	if err != nil {
+		return fmt.Errorf("creating symlink-traversal layer: %v", err)
+	}
+
+	img, err := mutate.AppendLayers(empty.Image, layer)
+	if err != nil {
+		return fmt.Errorf("appending layer to empty image: %v", err)
+	}
+
+	ref, err := name.ParseReference(imageRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing image ref %s: %v", imageRef, err)
+	}
+	if err := remote.Write(ref, img, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
+		return fmt.Errorf("pushing symlink-traversal image to %s: %v", imageRef, err)
 	}
 	return nil
 }
