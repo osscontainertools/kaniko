@@ -142,6 +142,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 
 var expectErr = map[string]int{
 	"Dockerfile_test_issue_cg326_1": 1,
+	"Dockerfile_test_add_404":       1,
 }
 
 // Arguments to diffoci when comparing dockerfiles
@@ -311,7 +312,6 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		filesBuilt: map[string]struct{}{},
 	}
 	d.DockerfilesToIgnore = map[string]struct{}{
-		"Dockerfile_test_add_404": {},
 		// TODO: remove test_user_run from this when https://github.com/GoogleContainerTools/container-diff/issues/237 is fixed
 		"Dockerfile_test_user_run": {},
 		// TODO: All the below tests are fialing with errro
@@ -419,6 +419,28 @@ func (d *DockerFileBuilder) BuildImage(t *testing.T, config *integrationTestConf
 	return d.BuildImageWithContext(t, config, dockerfilesPath, dockerfile, cwd)
 }
 
+// BuildKanikoImage builds dockerfile using only kaniko (no docker build).
+func (d *DockerFileBuilder) BuildKanikoImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile string) error {
+	_, ex, _, _ := runtime.Caller(0)
+	cwd := filepath.Dir(ex)
+
+	var buildArgs []string
+	for _, arg := range argsMap[dockerfile] {
+		buildArgs = append(buildArgs, "--build-arg", arg)
+	}
+	buildArgs = append(buildArgs, "--build-arg", "IMAGE_REPO="+config.imageRepo)
+
+	additionalKanikoFlags := additionalKanikoFlagsMap[dockerfile]
+	additionalKanikoFlags = append(additionalKanikoFlags, "-c", buildContextPath)
+
+	kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
+	timer := timing.Start(dockerfile + "_kaniko")
+	defer timing.DefaultRun.Stop(timer)
+	_, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
+		cwd, config.gcsBucket, config.gcsClient, config.serviceAccount, false)
+	return err
+}
+
 func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile, contextDir string) error {
 	if _, present := d.filesBuilt[dockerfile]; present {
 		return nil
@@ -456,21 +478,11 @@ func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrat
 
 	kanikoImage := GetKanikoImage(imageRepo, dockerfile)
 	timer = timing.Start(dockerfile + "_kaniko")
-	defer timing.DefaultRun.Stop(timer)
-	_, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
-		contextDir, gcsBucket, gcsClient, serviceAccount, true)
-	if expectErr, ok := expectErr[dockerfile]; ok {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) && exitErr.ExitCode() == expectErr {
-			return nil
-		}
-		if err == nil {
-			return fmt.Errorf("expected exit code %d but command succeeded", expectErr)
-		}
-	}
-	if err != nil {
+	if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
+		contextDir, gcsBucket, gcsClient, serviceAccount, true); err != nil {
 		return err
 	}
+	timing.DefaultRun.Stop(timer)
 
 	d.filesBuilt[dockerfile] = struct{}{}
 
