@@ -32,6 +32,7 @@ import (
 	"syscall"
 	"time"
 
+	securejoin "github.com/cyphar/filepath-securejoin"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/go-archive"
 	"github.com/moby/patternmatcher"
@@ -191,6 +192,13 @@ func GetFSFromLayers(root string, layers []v1.Layer, opts ...FSOpt) ([]string, e
 				return nil, fmt.Errorf("tar entry %q is not allowed: references parent directory", hdr.Name)
 			}
 			path := filepath.Join(root, cleanedName)
+			path2, err := securejoin.SecureJoin(root, cleanedName)
+			if err != nil {
+				return nil, fmt.Errorf("resolving path for %q: %w", cleanedName, err)
+			}
+			if path != path2 {
+				return nil, fmt.Errorf("securejoin yields a different path %q != %q", path, path2)
+			}
 			base := filepath.Base(path)
 			dir := filepath.Dir(path)
 
@@ -304,8 +312,14 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 	if cleanedName == ".." || strings.HasPrefix(cleanedName, "../") {
 		return fmt.Errorf("tar entry %q is not allowed: references parent directory", hdr.Name)
 	}
-
 	path := filepath.Join(dest, cleanedName)
+	path2, err := securejoin.SecureJoin(dest, cleanedName)
+	if err != nil {
+		return fmt.Errorf("resolving path for %q: %w", cleanedName, err)
+	}
+	if path != path2 {
+		return fmt.Errorf("securejoin yields a different path %q != %q", path, path2)
+	}
 	base := filepath.Base(path)
 	dir := filepath.Dir(path)
 	mode := hdr.FileInfo().Mode()

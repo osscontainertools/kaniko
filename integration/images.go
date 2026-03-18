@@ -142,6 +142,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 
 var expectErr = map[string]int{
 	"Dockerfile_test_issue_cg326_1": 1,
+	"Dockerfile_test_issue_cg326_2": 1,
 }
 
 // Arguments to diffoci when comparing dockerfiles
