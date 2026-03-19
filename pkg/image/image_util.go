@@ -17,6 +17,7 @@ limitations under the License.
 package image
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -122,7 +123,7 @@ func ociImage(index int) (v1.Image, error) {
 	}
 
 	if len(idxManifest.Manifests) == 0 {
-		return nil, fmt.Errorf("no images found in OCI layout")
+		return nil, errors.New("no images found in OCI layout")
 	}
 	if len(idxManifest.Manifests) > 1 {
 		return nil, fmt.Errorf("expected one image, found %d", len(idxManifest.Manifests))
