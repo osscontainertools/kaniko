@@ -77,6 +77,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 			switch {
 			// https://docs.docker.com/reference/dockerfile/#run---mounttypecache
 			case m.Type == instructions.MountTypeCache:
+				assertProtectedKanikoDir(m.Target)
 				cacheId := m.CacheID
 				if cacheId == "" {
 					cacheId = filepath.Clean(m.Target)
@@ -177,6 +178,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					if target == "" {
 						target = fmt.Sprintf("/run/secrets/%s", secretId)
 					}
+					assertProtectedKanikoDir(target)
 					parent := filepath.Dir(target)
 					created, err := ensureDir(parent)
 					if err != nil {
@@ -512,6 +514,18 @@ func ensureDir(target string) (string, error) {
 	}
 
 	return firstCreated, nil
+}
+
+func assertProtectedKanikoDir(target string) {
+	wl := []util.IgnoreListEntry{
+		{
+			Path:            kConfig.KanikoDir,
+			PrefixMatchOnly: false,
+		},
+	}
+	if util.CheckCleanedPathAgainstProvidedIgnoreList(target, wl) {
+		logrus.Fatalf("mount option targetting protected KanikoDir (%s), this could be indicative of a hijacking attempt", kConfig.KanikoDir)
+	}
 }
 
 func assignIfNil(dst *error, fn func() error) {

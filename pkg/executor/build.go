@@ -82,7 +82,7 @@ func makeSnapshotter(opts *config.KanikoOptions) (*snapshot.Snapshotter, error) 
 		return nil, err
 	}
 	l := snapshot.NewLayeredMap(hasher)
-	return snapshot.NewSnapshotter(l, config.RootDir), nil
+	return snapshot.NewSnapshotter(l, config.RootDir, util.IgnoreList()), nil
 }
 
 // newStageBuilder returns a new type stageBuilder which contains all the information required to build the stage
@@ -338,6 +338,13 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		timing.DefaultRun.Stop(t)
 		initSnapshotTaken = true
 	}
+	kanikoDirSnapshotter := snapshot.NewSnapshotter(snapshot.NewLayeredMap(util.Hasher()), config.KanikoDir, []util.IgnoreListEntry{
+		{
+			Path:            config.KanikoCacheDir,
+			PrefixMatchOnly: true,
+		},
+	})
+	kanikoDirSnapshotter.Init()
 
 	cacheGroup := errgroup.Group{}
 	for index, command := range s.cmds {
@@ -381,9 +388,27 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			initSnapshotTaken = true
 		}
 
+		if !command.ProvidesFilesToSnapshot() {
+			_, _, err = kanikoDirSnapshotter.ScanFullFilesystem()
+			if err != nil {
+				return err
+			}
+		}
+
 		if err := command.ExecuteCommand(&s.cf.Config, s.args); err != nil {
 			return fmt.Errorf("failed to execute command: %w", err)
 		}
+
+		if !command.ProvidesFilesToSnapshot() {
+			add, del, err := kanikoDirSnapshotter.ScanFullFilesystem()
+			if err != nil {
+				return err
+			}
+			if len(add) > 0 || len(del) > 0 {
+				logrus.Fatalf("We noticed a diff in the KanikoDir (%s), this could be indicative of a hijacking attempt", config.KanikoDir)
+			}
+		}
+
 		files = command.FilesToSnapshot()
 		timing.DefaultRun.Stop(t)
 

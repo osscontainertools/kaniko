@@ -619,7 +619,7 @@ func setUpTest(t *testing.T) (string, *Snapshotter, func(), error) {
 
 	// Take the initial snapshot
 	l := NewLayeredMap(util.Hasher())
-	snapshotter := NewSnapshotter(l, testDir)
+	snapshotter := NewSnapshotter(l, testDir, util.IgnoreList())
 	if err := snapshotter.Init(); err != nil {
 		return "", nil, nil, fmt.Errorf("initializing snapshotter: %w", err)
 	}

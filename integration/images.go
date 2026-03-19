@@ -19,6 +19,7 @@ package integration
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -122,6 +123,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_maintainer":             {"--single-snapshot"},
 	"Dockerfile_test_target":                 {"--target=second"},
 	"Dockerfile_test_snapshotter_ignorelist": {"--use-new-run=true", "-v=trace"},
+	"Dockerfile_test_ignore_path_subtree":    {"--ignore-path=/dest"},
 	"Dockerfile_test_cache":                  {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache_oci":              {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache_install":          {"--cache-copy-layers=true"},
@@ -137,6 +139,10 @@ var additionalKanikoFlagsMap = map[string][]string{
 	// in the kaniko image and can therefore safely be deleted.
 	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=/etc/nsswitch.conf"},
 	"Dockerfile_test_issue_mz529": {"--cleanup"},
+}
+
+var expectErr = map[string]int{
+	"Dockerfile_test_issue_mz560": 1,
 }
 
 // Arguments to diffoci when comparing dockerfiles
@@ -444,11 +450,21 @@ func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrat
 
 	kanikoImage := GetKanikoImage(imageRepo, dockerfile)
 	timer = timing.Start(dockerfile + "_kaniko")
-	if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
-		contextDir, gcsBucket, gcsClient, serviceAccount, true); err != nil {
+	defer timing.DefaultRun.Stop(timer)
+	_, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
+		contextDir, gcsBucket, gcsClient, serviceAccount, true)
+	if expectErr, ok := expectErr[dockerfile]; ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == expectErr {
+			return nil
+		}
+		if err == nil {
+			return fmt.Errorf("expected exit code %d but command succeeded", expectErr)
+		}
+	}
+	if err != nil {
 		return err
 	}
-	timing.DefaultRun.Stop(timer)
 
 	d.filesBuilt[dockerfile] = struct{}{}
 

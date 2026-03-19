@@ -1,0 +1,4 @@
+FROM scratch
+# mz560: in kaniko v1.27.0, when built with --ignore-path=/dest,
+# the file copied into /dest/subdir/ would slip through and end up in the layer.
+COPY context/foo /dest/subdir/file.txt

@@ -28,6 +28,7 @@ type integrationTestConfig struct {
 	onbuildBaseImage   string
 	onbuildCopyImage   string
 	hardlinkBaseImage  string
+	hijackBaseImage    string
 	serviceAccount     string
 	dockerMajorVersion int
 	gcsClient          *storage.Client
