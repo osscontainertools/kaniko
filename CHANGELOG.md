@@ -1,3 +1,38 @@
+# v1.27.1 Release 2026-03-19
+
+## What's Changed
+### Security
+* google.golang.org/grpc v1.79.1: CVE-2026-33186
+* go stdlib v1.26.0: CVE-2026-27137 CVE-2026-25679 CVE-2026-27142 CVE-2026-27138 CVE-2026-27139
+* prevent hijacking via `ONBUILD COPY`: https://github.com/osscontainertools/kaniko/pull/587
+
+### Maintenance
+* chore(deps): bump step-security/harden-runner from 2.15.0 to 2.16.0: https://github.com/osscontainertools/kaniko/pull/563 https://github.com/osscontainertools/kaniko/pull/579
+* chore(deps): bump docker/build-push-action from 6.19.2 to 7.0.0: https://github.com/osscontainertools/kaniko/pull/564
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager from 0.1.7 to 0.1.10 : https://github.com/osscontainertools/kaniko/pull/565 https://github.com/osscontainertools/kaniko/pull/576 https://github.com/osscontainertools/kaniko/pull/578
+* chore(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.96.3 to 1.97.1: https://github.com/osscontainertools/kaniko/pull/565 https://github.com/osscontainertools/kaniko/pull/576 https://github.com/osscontainertools/kaniko/pull/578
+* bump golang from 1.26.0 to 1.26.1 in /deploy: https://github.com/osscontainertools/kaniko/pull/562
+* build(deps): bump golang.org/x/sync from 0.19.0 to 0.20.0: https://github.com/osscontainertools/kaniko/pull/567
+* build(deps): bump golang.org/x/sys from 0.41.0 to 0.42.0: https://github.com/osscontainertools/kaniko/pull/568
+* build(deps): bump google.golang.org/api from 0.269.0 to 0.272.0: https://github.com/osscontainertools/kaniko/pull/569 https://github.com/osscontainertools/kaniko/pull/573 https://github.com/osscontainertools/kaniko/pull/580
+* build(deps): bump cloud.google.com/go/storage from 1.60.0 to 1.61.3: https://github.com/osscontainertools/kaniko/pull/572 https://github.com/osscontainertools/kaniko/pull/574 https://github.com/osscontainertools/kaniko/pull/575 https://github.com/osscontainertools/kaniko/pull/576
+* build(deps): bump sigstore/cosign-installer from 4.0.0 to 4.1.0: https://github.com/osscontainertools/kaniko/pull/571
+* build(deps): bump github.com/aws/aws-sdk-go-v2 from 1.41.3 to 1.41.4: https://github.com/osscontainertools/kaniko/pull/578
+* build(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.32.11 to 1.32.12: https://github.com/osscontainertools/kaniko/pull/578
+* build(deps): bump github.com/google/go-containerregistry from 0.21.2 to 0.21.3: https://github.com/osscontainertools/kaniko/pull/583
+* build(deps): bump google.golang.org/grpc from 1.79.2 to 1.79.3: https://github.com/osscontainertools/kaniko/pull/585
+
+### Fork Related
+* mz507: bump integration test target docker from 28.5.2 to 29.2.1: https://github.com/osscontainertools/kaniko/pull/533
+
+### Refactorings
+* linter: formatters: https://github.com/osscontainertools/kaniko/pull/549
+* linter: staticcheck: https://github.com/osscontainertools/kaniko/pull/550
+* linter: modernize: https://github.com/osscontainertools/kaniko/pull/552
+* linter: unused: https://github.com/osscontainertools/kaniko/pull/553
+* linter: usestdlibvars: https://github.com/osscontainertools/kaniko/pull/581
+
+
 # v1.27.0 Release 2026-03-05
 ## Update Notice
 In this Release we activated two feature-flags:
