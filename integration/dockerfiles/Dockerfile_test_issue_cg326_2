@@ -9,6 +9,6 @@ FROM busybox
 #   kaniko_escape/tini   TypeReg  (payload)
 # Without securejoin the OS follows the symlink when creating the payload
 # file, writing the payload to /kaniko/tini outside the extraction root!
-COPY --from=localhost:5000/kaniko-test/path-traversal-symlink:latest blubb blubb
+COPY --from=localhost:5000/path-traversal-symlink:latest blubb blubb
 
 RUN ls -la /kaniko || true
