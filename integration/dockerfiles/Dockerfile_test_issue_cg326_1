@@ -1,0 +1,12 @@
+FROM busybox
+
+# Attack 1: explicit "../" path traversal.
+# in kaniko v1.27.0 a malicious upstream image can do path traversal attack via `COPY --from`.
+# Note it doesn't matter what we copy from the image, the attack happens at image download time.
+# Before build, we prefetch, untar and store images in /kaniko/deps/<imagename>.
+# The image layer contains an entry named "../../../tini".
+# filepath.Join("/kaniko/deps/<imagename>", "../../../tini") = "/kaniko/tini".
+# Multiple levels of ".." are needed because image names are not slugified.
+COPY --from=localhost:5000/path-traversal-malicious:latest blubb blubb
+
+RUN ls -la /kaniko || true
