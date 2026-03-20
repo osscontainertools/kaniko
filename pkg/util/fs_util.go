@@ -192,12 +192,13 @@ func GetFSFromLayers(root string, layers []v1.Layer, opts ...FSOpt) ([]string, e
 				return nil, fmt.Errorf("tar entry %q is not allowed: references parent directory", hdr.Name)
 			}
 			path := filepath.Join(root, cleanedName)
-			path2, err := securejoin.SecureJoin(root, cleanedName)
+			parentDir := filepath.Dir(cleanedName)
+			resolvedDir, err := securejoin.SecureJoin(root, parentDir)
 			if err != nil {
-				return nil, fmt.Errorf("resolving path for %q: %w", cleanedName, err)
+				return nil, fmt.Errorf("resolving parent dir for %q: %w", cleanedName, err)
 			}
-			if path != path2 {
-				return nil, fmt.Errorf("securejoin yields a different path %q != %q", path, path2)
+			if resolvedDir != filepath.Join(root, parentDir) {
+				return nil, fmt.Errorf("path hijacking detected: parent directory of %q resolves to unexpected path", cleanedName)
 			}
 			base := filepath.Base(path)
 			dir := filepath.Dir(path)
@@ -313,12 +314,13 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		return fmt.Errorf("tar entry %q is not allowed: references parent directory", hdr.Name)
 	}
 	path := filepath.Join(dest, cleanedName)
-	path2, err := securejoin.SecureJoin(dest, cleanedName)
+	parentDir := filepath.Dir(cleanedName)
+	resolvedDir, err := securejoin.SecureJoin(dest, parentDir)
 	if err != nil {
-		return fmt.Errorf("resolving path for %q: %w", cleanedName, err)
+		return fmt.Errorf("resolving parent dir for %q: %w", cleanedName, err)
 	}
-	if path != path2 {
-		return fmt.Errorf("securejoin yields a different path %q != %q", path, path2)
+	if resolvedDir != filepath.Join(dest, parentDir) {
+		return fmt.Errorf("path hijacking detected: parent directory of %q resolves to unexpected path", cleanedName)
 	}
 	base := filepath.Base(path)
 	dir := filepath.Dir(path)
