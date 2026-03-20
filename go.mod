@@ -15,6 +15,7 @@ require (
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.12.0
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589
 	github.com/containerd/platforms v1.0.0-rc.2
+	github.com/cyphar/filepath-securejoin v0.6.0
 	github.com/docker/cli v29.3.0+incompatible
 	github.com/docker/docker-credential-helpers v0.9.5
 	github.com/ePirat/docker-credential-gitlabci v1.0.0
@@ -90,7 +91,6 @@ require (
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.18.2 // indirect
 	github.com/containerd/typeurl/v2 v2.2.3 // indirect
-	github.com/cyphar/filepath-securejoin v0.6.0 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
 	github.com/docker/go-units v0.5.0 // indirect

@@ -18,6 +18,7 @@ package integration
 
 import (
 	"archive/tar"
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -34,9 +35,13 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util/bucket"
 	"github.com/osscontainertools/kaniko/testutil"
@@ -198,6 +203,19 @@ func buildRequiredImages() error {
 			return fmt.Errorf("%s failed: %s: %w", setupCmd.name, string(out), err)
 		}
 	}
+
+	maliciousRef := strings.ToLower(config.imageRepo + "path-traversal-malicious:latest")
+	err := pushMaliciousPathTraversalImage(maliciousRef)
+	if err != nil {
+		return err
+	}
+
+	malicious2Ref := strings.ToLower(config.imageRepo + "path-traversal-symlink:latest")
+	err = pushSymlinkTraversalImage(malicious2Ref)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -218,10 +236,11 @@ func TestRun(t *testing.T) {
 
 			buildImage(t, dockerfile, imageBuilder)
 
-			dockerImage := GetDockerImage(config.imageRepo, dockerfile)
-			kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
-
-			containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+			if _, ok := expectErr[dockerfile]; !ok {
+				dockerImage := GetDockerImage(config.imageRepo, dockerfile)
+				kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
+				containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+			}
 		})
 	}
 
@@ -623,6 +642,9 @@ func TestLayers(t *testing.T) {
 			if _, ok := imageBuilder.DockerfilesToIgnore[dockerfileTest]; ok {
 				t.SkipNow()
 			}
+			if _, ok := expectErr[dockerfile]; ok {
+				t.SkipNow()
+			}
 
 			buildImage(t, dockerfileTest, imageBuilder)
 
@@ -639,6 +661,135 @@ func TestLayers(t *testing.T) {
 	if err != nil {
 		t.Logf("Failed to create benchmark file: %v", err)
 	}
+}
+
+// pushMaliciousPathTraversalImage creates and pushes a minimal OCI image whose
+// single layer contains a tar entry with a "../" path-traversal sequence.
+// Docker cannot produce such layers, so the image is crafted programmatically.
+func pushMaliciousPathTraversalImage(imageRef string) error {
+	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		if err := tw.WriteHeader(&tar.Header{
+			Name:     "blubb",
+			Typeflag: tar.TypeReg,
+			Size:     0,
+			Mode:     0o644,
+		}); err != nil {
+			return nil, err
+		}
+		payload := "#!/bin/sh\necho WARN HIJACKED"
+		if err := tw.WriteHeader(&tar.Header{
+			Name:     "../../../tini",
+			Typeflag: tar.TypeReg,
+			Size:     int64(len(payload)),
+			Mode:     0o755,
+		}); err != nil {
+			return nil, err
+		}
+		if _, err := tw.Write([]byte(payload)); err != nil {
+			return nil, err
+		}
+		tw.Close()
+		return io.NopCloser(bytes.NewReader(buf.Bytes())), nil
+	})
+	if err != nil {
+		return fmt.Errorf("creating path-traversal layer: %v", err)
+	}
+
+	img, err := mutate.AppendLayers(empty.Image, layer)
+	if err != nil {
+		return fmt.Errorf("appending layer to empty image: %v", err)
+	}
+
+	ref, err := name.ParseReference(imageRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing image ref %s: %v", imageRef, err)
+	}
+	if err := remote.Write(ref, img, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
+		return fmt.Errorf("pushing malicious image to %s: %v", imageRef, err)
+	}
+	symlinkTraversalRef := strings.ToLower(config.imageRepo + "path-traversal-symlink:latest")
+	if err := pushSymlinkTraversalImage(symlinkTraversalRef); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// pushSymlinkTraversalImage creates and pushes a minimal OCI image that
+// attempts to hijack /kaniko/tini via a symlink-based path traversal.
+//
+// The layer contains two entries whose individual names look innocent (no
+// "../" prefix, so the explicit check in #326 passes them):
+//
+//	kaniko_escape   TypeSymlink → /kaniko   (points outside the extraction root)
+//	kaniko_escape/tini   TypeReg   (written through the symlink → /kaniko/tini)
+//
+// Docker cannot produce such layers, so the image is crafted programmatically.
+func pushSymlinkTraversalImage(imageRef string) error {
+	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+
+		if err := tw.WriteHeader(&tar.Header{
+			Name:     "blubb",
+			Typeflag: tar.TypeReg,
+			Size:     0,
+			Mode:     0o644,
+		}); err != nil {
+			return nil, err
+		}
+
+		if err := tw.WriteHeader(&tar.Header{
+			Name:     "kaniko/",
+			Typeflag: tar.TypeDir,
+			Mode:     0o755,
+		}); err != nil {
+			return nil, err
+		}
+
+		if err := tw.WriteHeader(&tar.Header{
+			Name:     "kaniko_escape",
+			Typeflag: tar.TypeSymlink,
+			Linkname: "/kaniko",
+		}); err != nil {
+			return nil, err
+		}
+
+		payload := "#!/bin/sh\necho WARN HIJACKED"
+		if err := tw.WriteHeader(&tar.Header{
+			Name:     "kaniko_escape/tini",
+			Typeflag: tar.TypeReg,
+			Size:     int64(len(payload)),
+			Mode:     0o755,
+		}); err != nil {
+			return nil, err
+		}
+		if _, err := tw.Write([]byte(payload)); err != nil {
+			return nil, err
+		}
+
+		tw.Close()
+		return io.NopCloser(bytes.NewReader(buf.Bytes())), nil
+	})
+	if err != nil {
+		return fmt.Errorf("creating symlink-traversal layer: %v", err)
+	}
+
+	img, err := mutate.AppendLayers(empty.Image, layer)
+	if err != nil {
+		return fmt.Errorf("appending layer to empty image: %v", err)
+	}
+
+	ref, err := name.ParseReference(imageRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing image ref %s: %v", imageRef, err)
+	}
+	if err := remote.Write(ref, img, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
+		return fmt.Errorf("pushing symlink-traversal image to %s: %v", imageRef, err)
+	}
+	return nil
 }
 
 func TestReplaceFolderWithFileOrLink(t *testing.T) {

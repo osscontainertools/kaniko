@@ -32,6 +32,7 @@ import (
 	"syscall"
 	"time"
 
+	securejoin "github.com/cyphar/filepath-securejoin"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/go-archive"
 	"github.com/moby/patternmatcher"
@@ -187,7 +188,18 @@ func GetFSFromLayers(root string, layers []v1.Layer, opts ...FSOpt) ([]string, e
 			}
 
 			cleanedName := filepath.Clean(hdr.Name)
+			if cleanedName == ".." || strings.HasPrefix(cleanedName, "../") {
+				return nil, fmt.Errorf("tar entry %q is not allowed: references parent directory", hdr.Name)
+			}
 			path := filepath.Join(root, cleanedName)
+			parentDir := filepath.Dir(cleanedName)
+			resolvedDir, err := securejoin.SecureJoin(root, parentDir)
+			if err != nil {
+				return nil, fmt.Errorf("resolving parent dir for %q: %w", cleanedName, err)
+			}
+			if resolvedDir != filepath.Join(root, parentDir) {
+				return nil, fmt.Errorf("path hijacking detected: parent directory of %q resolves to unexpected path", cleanedName)
+			}
 			base := filepath.Base(path)
 			dir := filepath.Dir(path)
 
@@ -298,7 +310,18 @@ func UnTar(r io.Reader, dest string) ([]string, error) {
 }
 
 func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader) error {
+	if cleanedName == ".." || strings.HasPrefix(cleanedName, "../") {
+		return fmt.Errorf("tar entry %q is not allowed: references parent directory", hdr.Name)
+	}
 	path := filepath.Join(dest, cleanedName)
+	parentDir := filepath.Dir(cleanedName)
+	resolvedDir, err := securejoin.SecureJoin(dest, parentDir)
+	if err != nil {
+		return fmt.Errorf("resolving parent dir for %q: %w", cleanedName, err)
+	}
+	if resolvedDir != filepath.Join(dest, parentDir) {
+		return fmt.Errorf("path hijacking detected: parent directory of %q resolves to unexpected path", cleanedName)
+	}
 	base := filepath.Base(path)
 	dir := filepath.Dir(path)
 	mode := hdr.FileInfo().Mode()
@@ -393,6 +416,10 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 			if err := os.RemoveAll(path); err != nil {
 				return fmt.Errorf("error removing %s to make way for new link: %w", hdr.Name, err)
 			}
+		}
+		cleanedLink := filepath.Clean(hdr.Linkname)
+		if cleanedLink == ".." || strings.HasPrefix(cleanedLink, "../") {
+			return fmt.Errorf("hardlink target %q is not allowed: references parent directory", hdr.Linkname)
 		}
 		link := filepath.Clean(filepath.Join(dest, hdr.Linkname))
 		if err := os.Link(link, path); err != nil {

@@ -1,0 +1,14 @@
+FROM busybox
+
+# Attack 2: symlink-based path traversal.
+# in kaniko v1.27.0 a malicious upstream image can do path traversal attack via `COPY --from`.
+# Note it doesn't matter what we copy from the image, the attack happens at image download time.
+# Before build, we prefetch, untar and store images in /kaniko/deps/<imagename>.
+# The image layer contains two entries whose names look innocent (no "../"):
+#   kaniko_escape        TypeSymlink → /kaniko
+#   kaniko_escape/tini   TypeReg  (payload)
+# Without securejoin the OS follows the symlink when creating the payload
+# file, writing the payload to /kaniko/tini outside the extraction root!
+COPY --from=localhost:5000/path-traversal-symlink:latest blubb blubb
+
+RUN ls -la /kaniko || true
