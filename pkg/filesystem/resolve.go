@@ -42,7 +42,7 @@ func ResolvePaths(paths []string, wl []util.IgnoreListEntry) (pathsToAdd []strin
 
 	for _, f := range paths {
 		// If the given path is part of the ignorelist ignore it
-		if util.IsInProvidedIgnoreList(f, wl) {
+		if util.CheckCleanedPathAgainstProvidedIgnoreList(filepath.Clean(f), wl) {
 			logrus.Debugf("Path %s is in list to ignore, ignoring it", f)
 			continue
 		}

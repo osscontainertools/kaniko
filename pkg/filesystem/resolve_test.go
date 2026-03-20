@@ -118,7 +118,7 @@ func Test_ResolvePaths(t *testing.T) {
 					link := filepath.Join(dir, "link", f)
 					inputFiles = append(inputFiles, link)
 
-					if util.IsInProvidedIgnoreList(link, wl) {
+					if util.CheckCleanedPathAgainstProvidedIgnoreList(filepath.Clean(link), wl) {
 						t.Logf("skipping %s", link)
 						continue
 					}
@@ -127,7 +127,7 @@ func Test_ResolvePaths(t *testing.T) {
 
 					target := filepath.Join(dir, "target", f)
 
-					if util.IsInProvidedIgnoreList(target, wl) {
+					if util.CheckCleanedPathAgainstProvidedIgnoreList(filepath.Clean(target), wl) {
 						t.Logf("skipping %s", target)
 						continue
 					}

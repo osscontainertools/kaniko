@@ -122,6 +122,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_maintainer":             {"--single-snapshot"},
 	"Dockerfile_test_target":                 {"--target=second"},
 	"Dockerfile_test_snapshotter_ignorelist": {"--use-new-run=true", "-v=trace"},
+	"Dockerfile_test_ignore_path_subtree":    {"--ignore-path=/dest"},
 	"Dockerfile_test_cache":                  {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache_oci":              {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache_install":          {"--cache-copy-layers=true"},

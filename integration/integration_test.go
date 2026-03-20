@@ -641,6 +641,67 @@ func TestLayers(t *testing.T) {
 	}
 }
 
+// mz560: TestPrefixMatchOnlyIgnoreList verifies that an ignore list entry with
+// PrefixMatchOnly=true excludes files inside the directory from the snapshot
+// but still captures the directory node itself.
+// The canonical example is /tmp/apt-key-gpghome: apt-key writes temporary GPG
+// key files there during a build; they must not end up in the image layer.
+func TestPrefixMatchOnlyIgnoreList(t *testing.T) {
+	dockerfile := "Dockerfile_test_prefix_match_only"
+	buildImage(t, dockerfile, imageBuilder)
+	kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
+
+	kanikoFiles, err := getLastLayerFiles(kanikoImage)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const (
+		gpghomeDir  = "tmp/apt-key-gpghome"
+		gpghomeFile = "tmp/apt-key-gpghome/pubring.gpg"
+	)
+
+	var hasDir, hasFile bool
+	for _, f := range kanikoFiles {
+		switch strings.TrimSuffix(f, "/") {
+		case gpghomeDir:
+			hasDir = true
+		case gpghomeFile:
+			hasFile = true
+		}
+	}
+
+	if !hasDir {
+		t.Errorf("expected %s directory to be present in layer (PrefixMatchOnly=true should not exclude the directory itself), got %v", gpghomeDir, kanikoFiles)
+	}
+	if hasFile {
+		t.Errorf("expected %s to be excluded from layer (child of PrefixMatchOnly=true ignore entry), got %v", gpghomeFile, kanikoFiles)
+	}
+}
+
+// mz560: TestIgnorePathSubtree verifies that --ignore-path excludes not just the named
+// path but also any files nested beneath it. The observable difference: with an
+// exact-match-only check (IsInProvidedIgnoreList), a COPY into /dest/subdir/
+// would pass the ResolvePaths input guard and appear in the layer even when
+// --ignore-path=/dest is set. CheckCleanedPathAgainstProvidedIgnoreList (prefix
+// match) catches the nested path and keeps it out of the layer.
+func TestIgnorePathSubtree(t *testing.T) {
+	dockerfile := "Dockerfile_test_ignore_path_subtree"
+	buildImage(t, dockerfile, imageBuilder)
+	kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
+
+	kanikoFiles, err := getLastLayerFiles(kanikoImage)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, f := range kanikoFiles {
+		if strings.HasPrefix(strings.TrimSuffix(f, "/"), "dest/") {
+			t.Errorf("file %s should be excluded from layer because it is under --ignore-path=/dest, got layer contents: %v", f, kanikoFiles)
+		}
+	}
+}
+
 func TestReplaceFolderWithFileOrLink(t *testing.T) {
 	dockerfiles := []string{"TestReplaceFolderWithFile", "TestReplaceFolderWithLink"}
 	for _, dockerfile := range dockerfiles {
