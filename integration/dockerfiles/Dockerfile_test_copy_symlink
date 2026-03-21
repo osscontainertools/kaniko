@@ -1,4 +1,4 @@
-FROM busybox as t
+FROM busybox AS t
 RUN mkdir temp
 RUN echo "hello" > temp/target
 RUN ln -s target temp/link

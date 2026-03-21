@@ -1,14 +1,14 @@
-FROM debian:12.10 as base
+FROM debian:12.10 AS base
 COPY . .
 
-FROM scratch as second
+FROM scratch AS second
 ENV foopath context/foo
 COPY --from=0 $foopath context/b* /foo/
 
-FROM second as third
+FROM second AS third
 COPY --from=base /context/foo /new/foo
 
-FROM base as fourth
+FROM base AS fourth
 # Make sure that we snapshot intermediate images correctly
 RUN date > /date
 ENV foo bar

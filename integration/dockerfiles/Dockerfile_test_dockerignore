@@ -1,17 +1,17 @@
 # This dockerfile makes sure the .dockerignore is working
 # If so then ignore/foo should copy to /foo
 # If not, then this image won't build because it will attempt to copy three files to /foo, which is a file not a directory
-FROM scratch as base
+FROM scratch AS base
 COPY ignore/* /foo
 
-From base as first
+From base AS first
 COPY --from=base /foo ignore/bar
 
 # Make sure that .dockerignore also applies for later stages
-FROM scratch as base2
+FROM scratch AS base2
 COPY ignore/* /foo
 
-From base2 as second
+From base2 AS second
 COPY --from=base2 /foo ignore/bar
 
 FROM scratch
