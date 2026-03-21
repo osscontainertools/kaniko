@@ -74,7 +74,10 @@ func ParseStages(opts *config.KanikoOptions) ([]instructions.Stage, []instructio
 // baseImageIndex returns the index of the stage the current stage is built off
 // returns -1 if the current stage isn't built off a previous stage
 func baseImageIndex(currentStage int, stages []instructions.Stage) int {
-	currentStageBaseName := strings.ToLower(stages[currentStage].BaseName)
+	currentStageBaseName := stages[currentStage].BaseName
+	if !config.EnvBool("FF_KANIKO_LOWERCASE_STAGES") {
+		currentStageBaseName = strings.ToLower(currentStageBaseName)
+	}
 
 	for i, stage := range stages {
 		if i >= currentStage {
@@ -205,7 +208,7 @@ func targetStages(stages []instructions.Stage, targets []string) ([]int, error) 
 	for _, target := range targets {
 		found := false
 		for i, stage := range stages {
-			if strings.EqualFold(stage.Name, target) {
+			if stage.Name == target || (!config.EnvBool("FF_KANIKO_LOWERCASE_STAGES") && strings.EqualFold(stage.Name, target)) {
 				result = append(result, i)
 				found = true
 				break
@@ -241,13 +244,16 @@ func ParseCommands(cmdArray []string) ([]instructions.Command, error) {
 
 // ResolveCrossStageCommands resolves any calls to previous stages with names to indices
 // Ex. --from=secondStage should be --from=1 for easier processing later on
-// As third party library lowers stage name in FROM instruction, this function resolves stage case insensitively.
 func resolveCrossStageCommands(cmds []instructions.Command, stageNameToIdx map[string]int) {
 	for _, cmd := range cmds {
 		switch c := cmd.(type) {
 		case *instructions.CopyCommand:
 			if c.From != "" {
-				if val, ok := stageNameToIdx[strings.ToLower(c.From)]; ok {
+				from := c.From
+				if !config.EnvBool("FF_KANIKO_LOWERCASE_STAGES") {
+					from = strings.ToLower(from)
+				}
+				if val, ok := stageNameToIdx[from]; ok {
 					c.From = strconv.Itoa(val)
 				}
 			}
