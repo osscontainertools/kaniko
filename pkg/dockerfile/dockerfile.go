@@ -208,7 +208,7 @@ func targetStages(stages []instructions.Stage, targets []string) ([]int, error) 
 	for _, target := range targets {
 		found := false
 		for i, stage := range stages {
-			if stage.Name == target || (!config.EnvBool("FF_KANIKO_LOWERCASE_STAGES") && strings.EqualFold(stage.Name, target)) {
+			if strings.EqualFold(stage.Name, target) {
 				result = append(result, i)
 				found = true
 				break
@@ -244,16 +244,13 @@ func ParseCommands(cmdArray []string) ([]instructions.Command, error) {
 
 // ResolveCrossStageCommands resolves any calls to previous stages with names to indices
 // Ex. --from=secondStage should be --from=1 for easier processing later on
+// As third party library lowers stage name in FROM instruction, this function resolves stage case insensitively.
 func resolveCrossStageCommands(cmds []instructions.Command, stageNameToIdx map[string]int) {
 	for _, cmd := range cmds {
 		switch c := cmd.(type) {
 		case *instructions.CopyCommand:
 			if c.From != "" {
-				from := c.From
-				if !config.EnvBool("FF_KANIKO_LOWERCASE_STAGES") {
-					from = strings.ToLower(from)
-				}
-				if val, ok := stageNameToIdx[from]; ok {
+				if val, ok := stageNameToIdx[strings.ToLower(c.From)]; ok {
 					c.From = strconv.Itoa(val)
 				}
 			}
