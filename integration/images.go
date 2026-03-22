@@ -156,6 +156,7 @@ var pushImages = []string{
 	"TestRun/test_Dockerfile_test_metadata",
 	"TestRun/test_Dockerfile_test_multistage",
 	"TestRun/test_Dockerfile_test_label",
+	"TestRun/test_Dockerfile_test_issue_mz560",
 	"TestRun/test_Dockerfile_test_issue_mz529",
 	"TestRun/test_Dockerfile_test_issue_mz511",
 	"TestRun/test_Dockerfile_test_meta_arg",
