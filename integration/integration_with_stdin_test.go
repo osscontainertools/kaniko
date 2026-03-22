@@ -143,10 +143,7 @@ func TestBuildWithStdin(t *testing.T) {
 		t.Fatalf("can't wait %s: %v", kanikoCmdStdin.String(), err)
 	}
 
-	_dockerImage := normalizeImageFormat(t, dockerImage)
-	_kanikoImage := normalizeImageFormat(t, kanikoImage)
-
-	containerDiff(t, daemonPrefix+_dockerImage, daemonPrefix+_kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 
 	if err := os.RemoveAll(testDirLongPath); err != nil {
 		t.Errorf("Failed to remove %s: %v", testDirLongPath, err)
