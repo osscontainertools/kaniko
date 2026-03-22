@@ -388,12 +388,20 @@ func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfile
 	if env, ok := envsMap[dockerfile]; ok {
 		dockerCmd.Env = append(dockerCmd.Env, env...)
 	}
+	dockerCmd.Env = append(dockerCmd.Env, "BUILDX_NO_DEFAULT_ATTESTATIONS=1")
 
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		return fmt.Errorf("failed to build image %s with docker command \"%s\": %w %s", dockerImage, dockerCmd.Args, err, string(out))
 	}
 	t.Logf("Build image for Dockerfile %s as %s. docker build output: %s \n", dockerfile, dockerImage, out)
+	// mz507: push is kept as a separate step because Dockerfile_test_issue_519
+	// still uses legacy builder and not buildkit
+	pushCmd := exec.Command("docker", "push", dockerImage)
+	out, err = RunCommandWithoutTest(pushCmd)
+	if err != nil {
+		return fmt.Errorf("failed to push image %s with docker command \"%s\": %w %s", dockerImage, pushCmd.Args, err, string(out))
+	}
 	return nil
 }
 
@@ -613,11 +621,13 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--push",
 			"-t", dockerImage,
 			"-f", dockerfile,
 			"./context",
 		}...,
 	)
+	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 
 	timer := timing.Start(dockerfile + "_docker")
 	out, err := RunCommandWithoutTest(dockerCmd)

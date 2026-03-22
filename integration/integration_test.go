@@ -221,7 +221,10 @@ func TestRun(t *testing.T) {
 			dockerImage := GetDockerImage(config.imageRepo, dockerfile)
 			kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 
-			containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+			_dockerImage := normalizeImageFormat(t, dockerImage)
+			_kanikoImage := normalizeImageFormat(t, kanikoImage)
+
+			containerDiff(t, daemonPrefix+_dockerImage, daemonPrefix+_kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 		})
 	}
 
@@ -281,10 +284,12 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--push",
 			"-t", dockerImage,
 			"-f", dockerfile,
 			DockerGitRepo(url, commit, branch),
 		}...)
+	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
@@ -306,7 +311,10 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	_dockerImage := normalizeImageFormat(t, dockerImage)
+	_kanikoImage := normalizeImageFormat(t, kanikoImage)
+
+	containerDiff(t, daemonPrefix+_dockerImage, daemonPrefix+_kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 // TestGitBuildcontext explicitly names the main branch
@@ -350,10 +358,12 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--push",
 			"-t", dockerImage,
 			"-f", filepath.Join(integrationPath, dockerfilesPath, dockerfile),
 			DockerGitRepo(url, "", branch),
 		}...)
+	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
@@ -379,7 +389,10 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	_dockerImage := normalizeImageFormat(t, dockerImage)
+	_kanikoImage := normalizeImageFormat(t, kanikoImage)
+
+	containerDiff(t, daemonPrefix+_dockerImage, daemonPrefix+_kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 func TestBuildViaRegistryMirrors(t *testing.T) {
@@ -392,10 +405,12 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--push",
 			"-t", dockerImage,
 			"-f", dockerfile,
 			DockerGitRepo(url, "", branch),
 		}...)
+	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
@@ -419,7 +434,10 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	_dockerImage := normalizeImageFormat(t, dockerImage)
+	_kanikoImage := normalizeImageFormat(t, kanikoImage)
+
+	containerDiff(t, daemonPrefix+_dockerImage, daemonPrefix+_kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 func TestBuildViaRegistryMap(t *testing.T) {
@@ -428,21 +446,23 @@ func TestBuildViaRegistryMap(t *testing.T) {
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
 
 	// Build with docker
-	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_registry_mirror")
+	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_registry_map")
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
+			"--push",
 			DockerGitRepo(url, "", branch),
 		}...)
+	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
 	}
 
 	// Build with kaniko
-	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_mirror")
+	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_map")
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
@@ -459,7 +479,10 @@ func TestBuildViaRegistryMap(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	_dockerImage := normalizeImageFormat(t, dockerImage)
+	_kanikoImage := normalizeImageFormat(t, kanikoImage)
+
+	containerDiff(t, daemonPrefix+_dockerImage, daemonPrefix+_kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 func TestBuildSkipFallback(t *testing.T) {
@@ -468,7 +491,7 @@ func TestBuildSkipFallback(t *testing.T) {
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
 
 	// Build with kaniko
-	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_mirror")
+	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_skip_fallback")
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
@@ -493,21 +516,23 @@ func TestKanikoDir(t *testing.T) {
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
 
 	// Build with docker
-	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_registry_mirror")
+	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_kaniko_dir")
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
+			"--push",
 			DockerGitRepo(url, "", branch),
 		}...)
+	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
 	}
 
 	// Build with kaniko
-	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_mirror")
+	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_kaniko_dir")
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
@@ -523,7 +548,10 @@ func TestKanikoDir(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	_dockerImage := normalizeImageFormat(t, dockerImage)
+	_kanikoImage := normalizeImageFormat(t, kanikoImage)
+
+	containerDiff(t, daemonPrefix+_dockerImage, daemonPrefix+_kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 func TestBuildWithLabels(t *testing.T) {
@@ -534,22 +562,24 @@ func TestBuildWithLabels(t *testing.T) {
 	testLabel := "mylabel=myvalue"
 
 	// Build with docker
-	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_label:mylabel")
+	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_label")
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--push",
 			"-t", dockerImage,
 			"-f", dockerfile,
 			"--label", testLabel,
 			DockerGitRepo(url, "", branch),
 		}...)
+	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
 	}
 
 	// Build with kaniko
-	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_label:mylabel")
+	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_label")
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
@@ -566,7 +596,10 @@ func TestBuildWithLabels(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	_dockerImage := normalizeImageFormat(t, dockerImage)
+	_kanikoImage := normalizeImageFormat(t, kanikoImage)
+
+	containerDiff(t, daemonPrefix+_dockerImage, daemonPrefix+_kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 func TestBuildWithHTTPError(t *testing.T) {
@@ -583,6 +616,7 @@ func TestBuildWithHTTPError(t *testing.T) {
 			"-f", dockerfile,
 			DockerGitRepo(url, "", branch),
 		}...)
+	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err == nil {
 		t.Errorf("an error was expected, got %s", string(out))
@@ -726,7 +760,10 @@ func TestWarmer(t *testing.T) {
 			kanikoVersion0 := GetKanikoImage(imageRepo, "test_warmer_"+dockerfile) + strconv.Itoa(0)
 			kanikoVersion1 := GetKanikoImage(imageRepo, "test_warmer_"+dockerfile) + strconv.Itoa(1)
 
-			containerDiff(t, kanikoVersion0, kanikoVersion1)
+			_kanikoVersion0 := normalizeImageFormat(t, kanikoVersion0)
+			_kanikoVersion1 := normalizeImageFormat(t, kanikoVersion1)
+
+			containerDiff(t, daemonPrefix+_kanikoVersion0, daemonPrefix+_kanikoVersion1)
 			layerDiff(t, kanikoVersion0, kanikoVersion1)
 			manifestDiff(t, kanikoVersion0, kanikoVersion1)
 		})
@@ -807,7 +844,10 @@ func verifyBuildWith(t *testing.T, cache, dockerfile string) {
 	kanikoVersion0 := GetVersionedKanikoImage(config.imageRepo, dockerfile, 0)
 	kanikoVersion1 := GetVersionedKanikoImage(config.imageRepo, dockerfile, 1)
 
-	containerDiff(t, kanikoVersion0, kanikoVersion1)
+	_kanikoVersion0 := normalizeImageFormat(t, kanikoVersion0)
+	_kanikoVersion1 := normalizeImageFormat(t, kanikoVersion1)
+
+	containerDiff(t, daemonPrefix+_kanikoVersion0, daemonPrefix+_kanikoVersion1)
 	layerDiff(t, kanikoVersion0, kanikoVersion1)
 }
 
@@ -835,7 +875,10 @@ func TestRelativePaths(t *testing.T) {
 		dockerImage := GetDockerImage(config.imageRepo, "test_relative_"+dockerfile)
 		kanikoImage := GetKanikoImage(config.imageRepo, "test_relative_"+dockerfile)
 
-		containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+		_dockerImage := normalizeImageFormat(t, dockerImage)
+		_kanikoImage := normalizeImageFormat(t, kanikoImage)
+
+		containerDiff(t, daemonPrefix+_dockerImage, daemonPrefix+_kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 	})
 }
 
@@ -922,26 +965,16 @@ func TestBuildWithAnnotations(t *testing.T) {
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_annotation")
 	dockerCmd := exec.Command("docker",
 		"build",
-		"--push", // Push the image. Docker engine does not support annotations without pushing.
+		"--push",
 		"-t", dockerImage,
 		"-f", dockerfile,
+		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
 		DockerGitRepo(url, "", branch),
 	)
+	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
-	}
-
-	// Add image manifest annotations with crane
-	// as they're not natively supported in buildkit
-	craneCmd := exec.Command("crane",
-		"mutate",
-		dockerImage,
-		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
-	)
-	out, err = RunCommandWithoutTest(craneCmd)
-	if err != nil {
-		t.Errorf("Failed to mutate image %s with crane command %q: %s %s", dockerImage, craneCmd.Args, err, string(out))
 	}
 
 	// Build with kaniko
@@ -959,7 +992,11 @@ func TestBuildWithAnnotations(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--ignore-history")
+
+	_dockerImage := normalizeImageFormat(t, dockerImage)
+	_kanikoImage := normalizeImageFormat(t, kanikoImage)
+
+	containerDiff(t, daemonPrefix+_dockerImage, daemonPrefix+_kanikoImage, "--ignore-history")
 
 	dockerAnnotations, err := getImageManifestAnnotations(t, dockerImage)
 	if err != nil {
@@ -1301,7 +1338,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 }
 
 func meetsRequirements() bool {
-	requiredTools := []string{"diffoci"}
+	requiredTools := []string{"diffoci", "skopeo"}
 	hasRequirements := true
 	for _, tool := range requiredTools {
 		_, err := exec.LookPath(tool)
@@ -1315,21 +1352,6 @@ func meetsRequirements() bool {
 
 // containerDiff compares the container images image1 and image2.
 func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
-	// workaround for container-diff OCI issue https://github.com/GoogleContainerTools/container-diff/issues/389
-	if !strings.HasPrefix(image1, daemonPrefix) {
-		dockerPullCmd := exec.Command("docker", "pull", image1)
-		out := RunCommand(dockerPullCmd, t)
-		t.Logf("docker pull cmd output for image1 = %s", string(out))
-		image1 = daemonPrefix + image1
-	}
-
-	if !strings.HasPrefix(image2, daemonPrefix) {
-		dockerPullCmd := exec.Command("docker", "pull", image2)
-		out := RunCommand(dockerPullCmd, t)
-		t.Logf("docker pull cmd output for image2 = %s", string(out))
-		image2 = daemonPrefix + image2
-	}
-
 	flags = append([]string{"diff"}, flags...)
 	flags = append(flags, image1, image2, "--ignore-image-name", "--ignore-image-timestamps")
 	flags = append(flags, diffArgsMap[t.Name()]...)
@@ -1337,4 +1359,30 @@ func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	containerdiffCmd := exec.Command("diffoci", flags...)
 	diff := RunCommand(containerdiffCmd, t)
 	t.Logf("diff = %s", string(diff))
+}
+
+// normalizeImageFormat pulls the image and converts it to Docker V2S2 format using skopeo.
+// This ensures both images are in the same format before comparison,
+// replicating the normalization that legacy Docker storage performs on pull.
+func normalizeImageFormat(t *testing.T, image string) string {
+	t.Helper()
+	taggedRef := image + ":latest"
+	normalized := taggedRef + "-v2s2"
+	daemonHost := os.Getenv("DOCKER_HOST")
+	if daemonHost == "" {
+		daemonHost = "unix:///var/run/docker.sock"
+	}
+	src_opts := "--src-tls-verify=false"
+	src := "docker://"
+	cmd := exec.Command("skopeo", "copy", "--format", "v2s2",
+		src_opts,
+		src+taggedRef,
+		"--dest-daemon-host", daemonHost,
+		"docker-daemon:"+normalized)
+	out, err := RunCommandWithoutTest(cmd)
+	t.Logf("skopeo normalize %s: %s", image, string(out))
+	if err != nil {
+		t.Fatalf("failed to normalize image %s to v2s2: %v\n%s", image, err, string(out))
+	}
+	return normalized
 }
