@@ -405,9 +405,9 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--push",
 			"-t", dockerImage,
 			"-f", dockerfile,
-			"--push",
 			DockerGitRepo(url, "", branch),
 		}...)
 	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
@@ -446,7 +446,7 @@ func TestBuildViaRegistryMap(t *testing.T) {
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
 
 	// Build with docker
-	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_registry_mirror")
+	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_registry_map")
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
@@ -462,7 +462,7 @@ func TestBuildViaRegistryMap(t *testing.T) {
 	}
 
 	// Build with kaniko
-	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_mirror")
+	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_map")
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
@@ -491,7 +491,7 @@ func TestBuildSkipFallback(t *testing.T) {
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
 
 	// Build with kaniko
-	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_mirror")
+	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_skip_fallback")
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
@@ -516,7 +516,7 @@ func TestKanikoDir(t *testing.T) {
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
 
 	// Build with docker
-	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_registry_mirror")
+	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_kaniko_dir")
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
@@ -532,7 +532,7 @@ func TestKanikoDir(t *testing.T) {
 	}
 
 	// Build with kaniko
-	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_mirror")
+	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_kaniko_dir")
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
