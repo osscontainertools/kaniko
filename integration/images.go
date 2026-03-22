@@ -107,107 +107,6 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=context/foo"},
 }
 
-// Push Docker Images
-var pushImages = []string{
-	"TestWithContext/test_with_context_issue-57",
-	"TestWithContext/test_with_context_issue-774",
-	"TestWithContext/test_with_context_issue-1020",
-	"TestWithContext/test_with_context_issue-1315",
-	"TestWithContext/test_with_context_issue-2075",
-	"TestRelativePaths/test_relative_Dockerfile_relative_copy",
-	"TestRun/test_Dockerfile_test_snapshotter_ignorelist",
-	"TestRun/test_Dockerfile_test_issue_704",
-	"TestRun/test_Dockerfile_test_multistage_args_issue_1911",
-	"TestRun/test_Dockerfile_test_run_new",
-	"TestRun/test_Dockerfile_test_run_redo",
-	"TestRun/test_Dockerfile_test_run_2",
-	"TestRun/test_Dockerfile_test_run",
-	"TestRun/test_Dockerfile_test_root",
-	"TestRun/test_Dockerfile_test_replaced_symlinks",
-	"TestRun/test_Dockerfile_test_registry",
-	"TestRun/test_Dockerfile_test_pre_defined_build_args",
-	"TestRun/test_Dockerfile_test_mv_add",
-	"TestRun/test_Dockerfile_test_parent_dir_perms",
-	"TestRun/test_Dockerfile_test_copy_root_multistage",
-	"TestRun/test_Dockerfile_test_issue_647",
-	"TestRun/test_Dockerfile_test_replaced_hardlinks",
-	"TestRun/test_Dockerfile_test_issue_3224",
-	"TestRun/test_Dockerfile_test_issue_3166",
-	"TestRun/test_Dockerfile_test_issue_3393",
-	"TestRun/test_Dockerfile_test_issue_1713",
-	"TestRun/test_Dockerfile_test_issue_2066",
-	"TestRun/test_Dockerfile_test_issue_1837",
-	"TestRun/test_Dockerfile_test_issue_1039",
-	"TestRun/test_Dockerfile_test_issue_2049",
-	"TestRun/test_Dockerfile_test_extract_fs",
-	"TestRun/test_Dockerfile_test_expose",
-	"TestRun/test_Dockerfile_test_env",
-	"TestRun/test_Dockerfile_test_deleted_file_cached",
-	"TestRun/test_Dockerfile_test_dangling_symlink",
-	"TestRun/test_Dockerfile_test_copyadd_chmod",
-	"TestRun/test_Dockerfile_test_copy_same_file_many_times",
-	"TestRun/test_Dockerfile_test_daemons",
-	"TestRun/test_Dockerfile_test_volume_2",
-	"TestRun/test_Dockerfile_test_workdir",
-	"TestRun/test_Dockerfile_test_whitelist",
-	"TestRun/test_Dockerfile_test_issue_mz332",
-	"TestRun/test_Dockerfile_test_volume_4",
-	"TestRun/test_Dockerfile_test_volume_3",
-	"TestRun/test_Dockerfile_test_metadata",
-	"TestRun/test_Dockerfile_test_multistage",
-	"TestRun/test_Dockerfile_test_label",
-	"TestRun/test_Dockerfile_test_issue_mz560",
-	"TestRun/test_Dockerfile_test_issue_mz529",
-	"TestRun/test_Dockerfile_test_issue_mz511",
-	"TestRun/test_Dockerfile_test_meta_arg",
-	"TestRun/test_Dockerfile_test_issue_mz473",
-	"TestRun/test_Dockerfile_test_issue_mz455",
-	"TestRun/test_Dockerfile_test_issue_mz444",
-	"TestRun/test_Dockerfile_test_issue_mz338",
-	"TestRun/test_Dockerfile_test_issue_mz305",
-	"TestRun/test_Dockerfile_test_issue_mz276",
-	"TestRun/test_Dockerfile_test_issue_mz282",
-	"TestRun/test_Dockerfile_test_issue_mz247",
-	"TestRun/test_Dockerfile_test_issue_mz155",
-	"TestRun/test_Dockerfile_test_copy_reproducible",
-	"TestRun/test_Dockerfile_test_issue_mz195",
-	"TestRun/test_Dockerfile_test_copy_bucket",
-	"TestRun/test_Dockerfile_test_copy_chown_nonexisting_user",
-	"TestRun/test_Dockerfile_test_complex_substitution",
-	"TestRun/test_Dockerfile_test_copy_chown_intermediate_dirs",
-	"TestRun/test_Dockerfile_test_copy",
-	"TestRun/test_Dockerfile_test_cache_perm_oci",
-	"TestRun/test_Dockerfile_test_cmd",
-	"TestRun/test_Dockerfile_test_cache_oci",
-	"TestRun/test_Dockerfile_test_cache_install_oci",
-	"TestRun/test_Dockerfile_test_cache_copy_oci",
-	"TestRun/test_Dockerfile_test_issue_cg188",
-	"TestRun/test_Dockerfile_test_issue_mz108",
-	"TestRun/test_Dockerfile_test_arg_from_single_quotes",
-	"TestRun/test_Dockerfile_test_issue_969",
-	"TestRun/test_Dockerfile_test_issue_cg73",
-	"TestRun/test_Dockerfile_test_arg_two_level",
-	"TestRun/test_Dockerfile_test_arg_multi_with_quotes",
-	"TestRun/test_Dockerfile_test_arg_multi_empty_val",
-	"TestRun/test_Dockerfile_test_arg_multi",
-	"TestRun/test_Dockerfile_test_arg_secret",
-	"TestRun/test_Dockerfile_test_add_url_with_arg",
-	"TestRun/test_Dockerfile_test_arg_from_quotes",
-	"TestRun/test_Dockerfile_test_user_nonexisting",
-	"TestRun/test_Dockerfile_test_arg_blank_with_quotes",
-	"TestRun/test_Dockerfile_test_volume",
-	"TestRun/test_Dockerfile_test_add_chown_intermediate_dirs",
-	"TestRun/test_Dockerfile_test_user",
-	"TestRun/test_Dockerfile_test_add_dest_symlink_dir",
-	"TestRun/test_Dockerfile_test_user_home",
-	"TestK8s/test_k8s_with_context_issue-57",
-	"TestK8s/test_k8s_with_context_issue-721",
-	"TestK8s/test_k8s_with_context_issue-774",
-	"TestK8s/test_k8s_with_context_issue-1020",
-	"TestK8s/test_k8s_with_context_issue-1315",
-	"TestK8s/test_k8s_with_context_issue-2075",
-}
-
 // Override which kaniko executor image to use for a specific test
 var executorImages = map[string]string{
 	"Dockerfile_test_issue_mz444": ExecutorImageMoved,
@@ -485,10 +384,6 @@ func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfile
 	dockerArgs = append(dockerArgs, contextDir)
 	dockerArgs = append(dockerArgs, additionalFlags...)
 
-	if slices.Contains(pushImages, t.Name()) {
-		dockerArgs = append(dockerArgs, "--push")
-	}
-
 	dockerCmd := exec.Command("docker", dockerArgs...)
 	if env, ok := envsMap[dockerfile]; ok {
 		dockerCmd.Env = append(dockerCmd.Env, env...)
@@ -500,6 +395,13 @@ func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfile
 		return fmt.Errorf("failed to build image %s with docker command \"%s\": %w %s", dockerImage, dockerCmd.Args, err, string(out))
 	}
 	t.Logf("Build image for Dockerfile %s as %s. docker build output: %s \n", dockerfile, dockerImage, out)
+	// mz507: push is kept as a separate step because Dockerfile_test_issue_519
+	// still uses legacy builder and not buildkit
+	pushCmd := exec.Command("docker", "push", dockerImage)
+	out, err = RunCommandWithoutTest(pushCmd)
+	if err != nil {
+		return fmt.Errorf("failed to push image %s with docker command \"%s\": %w %s", dockerImage, pushCmd.Args, err, string(out))
+	}
 	return nil
 }
 
@@ -718,13 +620,10 @@ func (d *DockerFileBuilder) buildRelativePathsImage(t *testing.T, imageRepo, doc
 
 	dockerArgs := []string{
 		"build",
+		"--push",
 		"-t", dockerImage,
 		"-f", dockerfile,
 		"./context",
-	}
-
-	if slices.Contains(pushImages, t.Name()) {
-		dockerArgs = append(dockerArgs, "--push")
 	}
 
 	dockerCmd := exec.Command("docker",

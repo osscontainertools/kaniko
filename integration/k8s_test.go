@@ -22,7 +22,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"testing"
 	"text/template"
 )
@@ -130,8 +129,7 @@ func TestK8s(t *testing.T) {
 				t.Fatal(errR)
 			}
 
-			pull := slices.Contains(pushImages, t.Name())
-			_dockerImage := normalizeImageFormat(t, dockerImage, pull)
+			_dockerImage := normalizeImageFormat(t, dockerImage, true)
 			_kanikoImage := normalizeImageFormat(t, kanikoImage, true)
 
 			containerDiff(t, daemonPrefix+_dockerImage, daemonPrefix+_kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")

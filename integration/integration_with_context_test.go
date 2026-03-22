@@ -20,7 +20,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"slices"
 	"testing"
 )
 
@@ -64,8 +63,7 @@ func TestWithContext(t *testing.T) {
 			dockerImage := GetDockerImage(config.imageRepo, name)
 			kanikoImage := GetKanikoImage(config.imageRepo, name)
 
-			pull := slices.Contains(pushImages, t.Name())
-			_dockerImage := normalizeImageFormat(t, dockerImage, pull)
+			_dockerImage := normalizeImageFormat(t, dockerImage, true)
 			_kanikoImage := normalizeImageFormat(t, kanikoImage, true)
 
 			containerDiff(t, daemonPrefix+_dockerImage, daemonPrefix+_kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
