@@ -144,8 +144,8 @@ func TestBuildWithStdin(t *testing.T) {
 		t.Fatalf("can't wait %s: %v", kanikoCmdStdin.String(), err)
 	}
 
-	_dockerImage := normalizeImageFormat(t, dockerImage, true)
-	_kanikoImage := normalizeImageFormat(t, kanikoImage, true)
+	_dockerImage := normalizeImageFormat(t, dockerImage)
+	_kanikoImage := normalizeImageFormat(t, kanikoImage)
 
 	containerDiff(t, daemonPrefix+_dockerImage, daemonPrefix+_kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 
