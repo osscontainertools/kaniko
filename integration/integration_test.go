@@ -965,27 +965,16 @@ func TestBuildWithAnnotations(t *testing.T) {
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_annotation")
 	dockerCmd := exec.Command("docker",
 		"build",
-		"--push", // Push the image. Docker engine does not support annotations without pushing.
+		"--push",
 		"-t", dockerImage,
 		"-f", dockerfile,
+		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
 		DockerGitRepo(url, "", branch),
 	)
 	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
-	}
-
-	// Add image manifest annotations with crane
-	// as they're not natively supported in buildkit
-	craneCmd := exec.Command("crane",
-		"mutate",
-		dockerImage,
-		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
-	)
-	out, err = RunCommandWithoutTest(craneCmd)
-	if err != nil {
-		t.Errorf("Failed to mutate image %s with crane command %q: %s %s", dockerImage, craneCmd.Args, err, string(out))
 	}
 
 	// Build with kaniko
