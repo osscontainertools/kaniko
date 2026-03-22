@@ -1,3 +1,5 @@
+# check=skip=StageNameCasing
+
 FROM debian AS BUILD
 RUN touch /blubb
 

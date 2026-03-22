@@ -88,13 +88,31 @@ func baseImageIndex(currentStage int, stages []instructions.Stage) int {
 	return -1
 }
 
+func lintWarnFunc(rulename, description, url, fmtmsg string, location []parser.Range) {
+	if len(location) > 0 {
+		logrus.Warnf("%s: %s (line %d)", rulename, fmtmsg, location[0].Start.Line)
+	} else {
+		logrus.Warnf("%s: %s", rulename, fmtmsg)
+	}
+}
+
 // Parse parses the contents of a Dockerfile and returns a list of commands
 func Parse(b []byte) ([]instructions.Stage, []instructions.ArgCommand, error) {
 	p, err := parser.Parse(bytes.NewReader(b))
 	if err != nil {
 		return nil, nil, err
 	}
-	stages, metaArgs, err := instructions.Parse(p.AST, &linter.Linter{})
+	lintOptionStr, _, _, ok := parser.ParseDirective("check", b)
+	if (ok && lintOptionStr == "") || (!ok && lintOptionStr != "") {
+		logrus.Panicf("Unreachable Code: invariant violation ok=%t lintOptionStr=%q", ok, lintOptionStr)
+	}
+	lintConfig, err := linter.ParseLintOptions(lintOptionStr)
+	if err != nil {
+		return nil, nil, fmt.Errorf("parsing lint options: %w", err)
+	}
+	lintConfig.Warn = lintWarnFunc
+	lint := linter.New(lintConfig)
+	stages, metaArgs, err := instructions.Parse(p.AST, lint)
 	if err != nil {
 		return nil, nil, err
 	}

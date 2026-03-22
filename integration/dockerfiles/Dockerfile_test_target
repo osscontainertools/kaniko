@@ -1,7 +1,7 @@
-FROM gcr.io/distroless/base:latest as base
+FROM gcr.io/distroless/base:latest AS base
 COPY . .
 
-FROM scratch as second
+FROM scratch AS second
 ENV foopath context/foo
 COPY --from=0 $foopath context/b* /foo/
 
