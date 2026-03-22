@@ -862,7 +862,7 @@ func TestRelativePaths(t *testing.T) {
 		contextPath := "./context"
 
 		err := imageBuilder.buildRelativePathsImage(
-			t,
+			t.Logf,
 			config.imageRepo,
 			dockerfile,
 			config.serviceAccount,

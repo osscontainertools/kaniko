@@ -611,23 +611,21 @@ func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTes
 }
 
 // buildRelativePathsImage builds the images for testing passing relatives paths to Kaniko
-func (d *DockerFileBuilder) buildRelativePathsImage(t *testing.T, imageRepo, dockerfile, serviceAccount, buildContextPath string) error {
+func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dockerfile, serviceAccount, buildContextPath string) error {
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
 
 	dockerImage := GetDockerImage(imageRepo, "test_relative_"+dockerfile)
 	kanikoImage := GetKanikoImage(imageRepo, "test_relative_"+dockerfile)
 
-	dockerArgs := []string{
-		"build",
-		"--push",
-		"-t", dockerImage,
-		"-f", dockerfile,
-		"./context",
-	}
-
 	dockerCmd := exec.Command("docker",
-		dockerArgs...,
+		[]string{
+			"build",
+			"--push",
+			"-t", dockerImage,
+			"-f", dockerfile,
+			"./context",
+		}...,
 	)
 	dockerCmd.Env = []string{"BUILDX_NO_DEFAULT_ATTESTATIONS=1"}
 
@@ -657,7 +655,7 @@ func (d *DockerFileBuilder) buildRelativePathsImage(t *testing.T, imageRepo, doc
 	timer = timing.Start(dockerfile + "_kaniko_relative_paths")
 	out, err = RunCommandWithoutTest(kanikoCmd)
 	timing.DefaultRun.Stop(timer)
-	t.Logf("%s", out)
+	logf(string(out))
 
 	if err != nil {
 		return fmt.Errorf(
