@@ -90,9 +90,9 @@ func baseImageIndex(currentStage int, stages []instructions.Stage) int {
 
 func lintWarnFunc(rulename, description, url, fmtmsg string, location []parser.Range) {
 	if len(location) > 0 {
-		logrus.Warnf("%s: %s (line %d)", rulename, fmtmsg, location[0].Start.Line)
+		logrus.Warnf("%s: %s (line %d)\n\t%s", rulename, fmtmsg, location[0].Start.Line, url)
 	} else {
-		logrus.Warnf("%s: %s", rulename, fmtmsg)
+		logrus.Warnf("%s: %s\n\t%s", rulename, fmtmsg, url)
 	}
 }
 
