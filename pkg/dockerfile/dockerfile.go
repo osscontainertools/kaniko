@@ -102,7 +102,13 @@ func Parse(b []byte) ([]instructions.Stage, []instructions.ArgCommand, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	lint := linter.New(&linter.Config{Warn: lintWarnFunc})
+	lintOptionStr, _, _, _ := parser.ParseDirective("check", b)
+	lintConfig, err := linter.ParseLintOptions(lintOptionStr)
+	if err != nil {
+		return nil, nil, fmt.Errorf("parsing lint options: %w", err)
+	}
+	lintConfig.Warn = lintWarnFunc
+	lint := linter.New(lintConfig)
 	stages, metaArgs, err := instructions.Parse(p.AST, lint)
 	if err != nil {
 		return nil, nil, err
