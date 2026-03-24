@@ -60,9 +60,6 @@ install-diffoci:
 		go mod vendor && \
 		go install
 
-.PHONY: install-skopeo
-install-skopeo:
-	@ GOFLAGS="" go install github.com/containers/skopeo/cmd/skopeo@latest
 
 .PHONY: k3s-setup
 k3s-setup:
