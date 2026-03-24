@@ -92,6 +92,10 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		return nil, err
 	}
 
+	if config.EnvBool("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS") {
+		sourceImage = mutate.Annotations(sourceImage, nil).(v1.Image)
+	}
+
 	_opts := *opts
 	if !stage.Push {
 		_opts.Labels = []string{}
@@ -101,6 +105,8 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 		return nil, err
 	}
 
+	// mz507: This workaround to prevent cache invalidation via base image annotations
+	// can be removed once FF_KANIKO_NO_PROPAGATE_ANNOTATIONS becomes standard.
 	man, err := sourceImage.Manifest()
 	if err != nil {
 		return nil, err
