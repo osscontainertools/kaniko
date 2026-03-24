@@ -4,7 +4,7 @@ ARG TAG=9.11
 ARG WORD=hello
 ARG W0RD2=hey
 
-FROM ${REGISTRY}/${IMAGE}:${TAG} as stage1
+FROM ${REGISTRY}/${IMAGE}:${TAG} AS stage1
 
 # Should evaluate WORD and create /tmp/hello
 ARG WORD

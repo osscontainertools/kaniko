@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM alpine:3.11 as builder
+FROM alpine:3.11 AS builder
 
 RUN mkdir -p /myapp/somedir \
  && touch /myapp/somedir/somefile \

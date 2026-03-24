@@ -12,15 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM docker.io/debian:bullseye-slim as base
-FROM base as build
+FROM docker.io/debian:bullseye-slim AS base
+FROM base AS build
 RUN \
   set -eu; \
   touch /usr/local/bin/myfile; \
   chown root:root /usr/local/bin/myfile; \
   chmod u=rxs,go=rx /usr/local/bin/myfile; \
   ls -lh /usr/local/bin/myfile
-FROM base as final
+FROM base AS final
 COPY --from=build ["/usr/local/bin/myfile", "/usr/local/bin/"]
 # Test if file exists and its set-user-id bit is set
 RUN test -u /usr/local/bin/myfile

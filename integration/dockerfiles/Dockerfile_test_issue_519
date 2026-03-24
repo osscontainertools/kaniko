@@ -1,9 +1,11 @@
-FROM alpine as base_stage
+# check=skip=StageNameCasing
+
+FROM alpine AS base_stage
 RUN touch meow.txt
 
-FROM base_stage as BUG_stage
+FROM base_stage AS BUG_stage
 RUN touch purr.txt
 
 
-FROM BUG_stage as final_stage
+FROM BUG_stage AS final_stage
 RUN touch mew.txt
