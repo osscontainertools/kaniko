@@ -1263,7 +1263,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 }
 
 func meetsRequirements() bool {
-	requiredTools := []string{"diffoci", "skopeo"}
+	requiredTools := []string{"diffoci"}
 	hasRequirements := true
 	for _, tool := range requiredTools {
 		_, err := exec.LookPath(tool)
@@ -1278,16 +1278,14 @@ func meetsRequirements() bool {
 // containerDiff compares the container images image1 and image2.
 func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	// workaround for container-diff OCI issue https://github.com/GoogleContainerTools/container-diff/issues/389
-	out, err := skopeoPull(image1)
-	if err != nil {
-		t.Fatalf("failed to pull image %s: %v\n%s", image1, err, string(out))
-	}
+	dockerPullCmd := exec.Command("docker", "pull", image1)
+	out := RunCommand(dockerPullCmd, t)
+	t.Logf("docker pull cmd output for image1 = %s", string(out))
 	image1 = daemonPrefix + image1
 
-	out, err = skopeoPull(image2)
-	if err != nil {
-		t.Fatalf("failed to pull image %s: %v\n%s", image2, err, string(out))
-	}
+	dockerPullCmd = exec.Command("docker", "pull", image2)
+	out = RunCommand(dockerPullCmd, t)
+	t.Logf("docker pull cmd output for image2 = %s", string(out))
 	image2 = daemonPrefix + image2
 
 	flags = append([]string{"diff"}, flags...)
@@ -1297,20 +1295,4 @@ func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	containerdiffCmd := exec.Command("diffoci", flags...)
 	diff := RunCommand(containerdiffCmd, t)
 	t.Logf("diff = %s", string(diff))
-}
-
-func skopeoPull(image string) ([]byte, error) {
-	taggedRef := image + ":latest"
-	daemonHost := os.Getenv("DOCKER_HOST")
-	if daemonHost == "" {
-		daemonHost = "unix:///var/run/docker.sock"
-	}
-	src_opts := "--src-tls-verify=false"
-	src := "docker://"
-	cmd := exec.Command("skopeo", "copy",
-		src_opts,
-		src+taggedRef,
-		"--dest-daemon-host", daemonHost,
-		"docker-daemon:"+taggedRef)
-	return RunCommandWithoutTest(cmd)
 }
