@@ -161,31 +161,31 @@ func buildRequiredImages() error {
 		command: []string{"docker", "build", "-t", WarmerImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-warmer", ".."},
 	}, {
 		name:    "Building onbuild base image",
-		command: []string{"docker", "build", "-t", config.onbuildBaseImage, "-f", fmt.Sprintf("%s/Dockerfile_onbuild_base", dockerfilesPath), "."},
+		command: []string{"docker", "build", "-t", config.onbuildBaseImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_base", "."},
 	}, {
 		name:    "Pushing onbuild base image",
 		command: []string{"docker", "push", config.onbuildBaseImage},
 	}, {
 		name:    "Building onbuild copy image",
-		command: []string{"docker", "build", "-t", config.onbuildCopyImage, "-f", fmt.Sprintf("%s/Dockerfile_onbuild_copy", dockerfilesPath), "."},
+		command: []string{"docker", "build", "-t", config.onbuildCopyImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_copy", "."},
 	}, {
 		name:    "Pushing onbuild copy image",
 		command: []string{"docker", "push", config.onbuildCopyImage},
 	}, {
 		name:    "Building hardlink base image",
-		command: []string{"docker", "build", "-t", config.hardlinkBaseImage, "-f", fmt.Sprintf("%s/Dockerfile_hardlink_base", dockerfilesPath), "."},
+		command: []string{"docker", "build", "-t", config.hardlinkBaseImage, "-f", dockerfilesPath + "/Dockerfile_hardlink_base", "."},
 	}, {
 		name:    "Pushing hardlink base image",
 		command: []string{"docker", "push", config.hardlinkBaseImage},
 	}, {
 		name:    "Building kaniko image with moved kaniko dir",
-		command: []string{"docker", "build", "-t", ExecutorImageMoved, "-f", fmt.Sprintf("%s/Dockerfile_test_issue_mz444", dockerfilesPath), "--target", "kaniko", "."},
+		command: []string{"docker", "build", "-t", ExecutorImageMoved, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz444", "--target", "kaniko", "."},
 	}, {
 		name:    "Building kaniko image with leftover stuff in the filesystem",
-		command: []string{"docker", "build", "-t", ExecutorImageTainted, "-f", fmt.Sprintf("%s/Dockerfile_test_issue_mz455", dockerfilesPath), "--target", "kaniko", "."},
+		command: []string{"docker", "build", "-t", ExecutorImageTainted, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz455", "--target", "kaniko", "."},
 	}, {
 		name:    "Building hijack base image",
-		command: []string{"docker", "build", "-t", config.hijackBaseImage, "-f", fmt.Sprintf("%s/Dockerfile_test_issue_mz560", dockerfilesPath), "--target", "base", "."},
+		command: []string{"docker", "build", "-t", config.hijackBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz560", "--target", "base", "."},
 	}, {
 		name:    "Pushing hijack base image",
 		command: []string{"docker", "push", config.hijackBaseImage},
@@ -679,7 +679,7 @@ func TestCache(t *testing.T) {
 	for dockerfile := range imageBuilder.TestCacheDockerfiles {
 		t.Run("test_cache_"+dockerfile, func(t *testing.T) {
 			dockerfile := dockerfile
-			cache := filepath.Join(config.imageRepo, "cache", fmt.Sprintf("%v", time.Now().UnixNano()))
+			cache := filepath.Join(config.imageRepo, "cache", strconv.FormatInt(time.Now().UnixNano(), 10))
 			t.Parallel()
 			verifyBuildWith(t, cache, dockerfile)
 		})
@@ -689,7 +689,7 @@ func TestCache(t *testing.T) {
 	for dockerfile := range imageBuilder.TestOCICacheDockerfiles {
 		t.Run("test_oci_cache_"+dockerfile, func(t *testing.T) {
 			dockerfile := dockerfile
-			cache := filepath.Join("oci:", cacheDir, "cached", fmt.Sprintf("%v", time.Now().UnixNano()))
+			cache := filepath.Join("oci:", cacheDir, "cached", strconv.FormatInt(time.Now().UnixNano(), 10))
 			t.Parallel()
 			verifyBuildWith(t, cache, dockerfile)
 		})
@@ -775,7 +775,7 @@ func TestWarmerTwice(t *testing.T) {
 				t.Fatalf("Unable to perform second warming: %s", err)
 			}
 
-			s := fmt.Sprintf("Image already in cache: %s", dockerfile)
+			s := "Image already in cache: " + dockerfile
 			if !strings.Contains(string(out), s) {
 				t.Fatalf("output must contain %s", s)
 			}
@@ -845,8 +845,8 @@ func TestExitCodePropagation(t *testing.T) {
 		t.Fatal("Could not get working dir")
 	}
 
-	context := fmt.Sprintf("%s/testdata/exit-code-propagation", currentDir)
-	dockerfile := fmt.Sprintf("%s/Dockerfile_exit_code_propagation", context)
+	context := currentDir + "/testdata/exit-code-propagation"
+	dockerfile := context + "/Dockerfile_exit_code_propagation"
 
 	t.Run("test error code propagation", func(t *testing.T) {
 		t.Parallel()
@@ -878,7 +878,7 @@ func TestExitCodePropagation(t *testing.T) {
 		}
 
 		// try to build the same image with kaniko the error code should match with the one from the plain docker build
-		contextVolume := fmt.Sprintf("%s:/workspace", context)
+		contextVolume := context + ":/workspace"
 
 		dockerFlags = []string{
 			"run",
@@ -914,7 +914,7 @@ func TestBuildWithAnnotations(t *testing.T) {
 	t.Parallel()
 	branch, _, url := getBranchCommitAndURL()
 
-	dockerfile := fmt.Sprintf("%s/testdata/Dockerfile.trivial", integrationPath)
+	dockerfile := integrationPath + "/testdata/Dockerfile.trivial"
 	annotationKey := "myannotation"
 	annotationValue := "myvalue"
 

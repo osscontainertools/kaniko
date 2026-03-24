@@ -512,7 +512,7 @@ func LookupUser(userStr string) (*user.User, error) {
 				return nil, fmt.Errorf("user %v is not a uid and does not exist on the system", userStr)
 			}
 			userObj = &user.User{
-				Uid:     fmt.Sprint(uid),
+				Uid:     strconv.FormatUint(uint64(uid), 10),
 				HomeDir: "/",
 			}
 		}
