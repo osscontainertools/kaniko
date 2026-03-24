@@ -182,10 +182,10 @@ func buildRequiredImages() error {
 		command: []string{"docker", "build", "-t", ExecutorImageMoved, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz444", "--target", "kaniko", "."},
 	}, {
 		name:    "Building kaniko image with leftover stuff in the filesystem",
-		command: []string{"docker", "build", "-t", ExecutorImageTainted, "-f", fmt.Sprintf("%s/Dockerfile_test_issue_mz455", dockerfilesPath), "--target", "kaniko", "."},
+		command: []string{"docker", "build", "-t", ExecutorImageTainted, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz455", "--target", "kaniko", "."},
 	}, {
 		name:    "Building hijack base image",
-		command: []string{"docker", "build", "-t", config.hijackBaseImage, "-f", fmt.Sprintf("%s/Dockerfile_test_issue_mz560", dockerfilesPath), "--target", "base", "."},
+		command: []string{"docker", "build", "-t", config.hijackBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz560", "--target", "base", "."},
 	}, {
 		name:    "Pushing hijack base image",
 		command: []string{"docker", "push", config.hijackBaseImage},
