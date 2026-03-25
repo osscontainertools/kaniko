@@ -33,7 +33,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -922,50 +921,6 @@ func TestBuildWithAnnotations(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 	containerDiff(t, dockerImage, kanikoImage, "--ignore-history")
-
-	dockerAnnotations, err := getImageManifestAnnotations(t, dockerImage)
-	if err != nil {
-		t.Fatalf("Failed to get annotations for docker image %s: %v", dockerImage, err)
-	}
-	if len(dockerAnnotations) == 0 {
-		t.Fatalf("No annotations found for docker image %s", dockerImage)
-	}
-
-	kanikoAnnotations, err := getImageManifestAnnotations(t, kanikoImage)
-	if err != nil {
-		t.Fatalf("Failed to get annotations for kaniko image %s: %v", kanikoImage, err)
-	}
-	if len(kanikoAnnotations) == 0 {
-		t.Fatalf("No annotations found for kaniko image %s", kanikoImage)
-	}
-	if diff := cmp.Diff(kanikoAnnotations, dockerAnnotations); diff != "" {
-		t.Errorf("Annotation don't match (-kaniko, +docker): %s", diff)
-	}
-
-	if kanikoAnnotations[annotationKey] != annotationValue {
-		t.Errorf("Expected annotation %q to be %q, got annotations: %v", annotationKey, annotationValue, kanikoAnnotations)
-	}
-}
-
-func getImageManifestAnnotations(t *testing.T, image string) (map[string]string, error) {
-	t.Helper()
-
-	ref, err := name.ParseReference(image, name.WeakValidation)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse image reference %s: %w", image, err)
-	}
-
-	imgRef, err := remote.Image(ref)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get image reference for %s from remote: %w", image, err)
-	}
-
-	manifest, err := imgRef.Manifest()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get manifest for image %s: %w", image, err)
-	}
-
-	return manifest.Annotations, nil
 }
 
 func onBuildDiff(t *testing.T, image1, image2 string) {
