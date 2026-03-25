@@ -701,7 +701,7 @@ github.com/moby/moby/api/types/container
 github.com/moby/moby/api/types/mount
 github.com/moby/moby/api/types/network
 github.com/moby/moby/api/types/storage
-# github.com/moby/patternmatcher v0.6.0
+# github.com/moby/patternmatcher v0.6.1
 ## explicit; go 1.19
 github.com/moby/patternmatcher
 github.com/moby/patternmatcher/ignorefile

@@ -28,7 +28,7 @@ require (
 	github.com/moby/buildkit v0.28.0
 	github.com/moby/go-archive v0.2.0
 	github.com/moby/moby/api v1.54.0
-	github.com/moby/patternmatcher v0.6.0
+	github.com/moby/patternmatcher v0.6.1
 	github.com/moby/sys/signal v0.7.1
 	github.com/otiai10/copy v1.14.1
 	github.com/sirupsen/logrus v1.9.4
