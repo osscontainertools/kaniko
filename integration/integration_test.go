@@ -239,12 +239,12 @@ func KanikoGitRepo(url string, commit string, branch string) string {
 	return fmt.Sprintf("git://%s.git%s", url, ref)
 }
 
-func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch string) {
+func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch string, imageName string) {
 	t.Log("testGitBuildcontextHelper repo", url)
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_test_run_2", integrationPath, dockerfilesPath)
 
 	// Build with docker
-	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_git")
+	dockerImage := GetDockerImage(config.imageRepo, imageName)
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
@@ -259,7 +259,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 	}
 
 	// Build with kaniko
-	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_git")
+	kanikoImage := GetKanikoImage(config.imageRepo, imageName)
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
@@ -284,7 +284,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 func TestGitBuildcontext(t *testing.T) {
 	t.Parallel()
 	branch, _, url := getBranchCommitAndURL()
-	testGitBuildcontextHelper(t, url, "", branch)
+	testGitBuildcontextHelper(t, url, "", branch, "Dockerfile_test_git_branch")
 }
 
 // TestGitBuildcontextNoRef builds without any commit / branch reference
@@ -295,7 +295,7 @@ func TestGitBuildcontextNoRef(t *testing.T) {
 	t.Skip("Docker's behavior is to assume a 'master' branch, which the Kaniko repo doesn't have")
 	t.Parallel()
 	_, _, url := getBranchCommitAndURL()
-	testGitBuildcontextHelper(t, url, "", "")
+	testGitBuildcontextHelper(t, url, "", "", "Dockerfile_test_git_noref")
 }
 
 // TestGitBuildcontextExplicitCommit uses an explicit commit hash instead of named reference
@@ -305,7 +305,7 @@ func TestGitBuildcontextNoRef(t *testing.T) {
 func TestGitBuildcontextExplicitCommit(t *testing.T) {
 	t.Parallel()
 	_, commit, url := getBranchCommitAndURL()
-	testGitBuildcontextHelper(t, url, commit, "")
+	testGitBuildcontextHelper(t, url, commit, "", "Dockerfile_test_git_commit")
 }
 
 func TestGitBuildcontextSubPath(t *testing.T) {
@@ -314,7 +314,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 	dockerfile := "Dockerfile_test_run_2"
 
 	// Build with docker
-	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_git")
+	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_git_subpath")
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
@@ -329,7 +329,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 	}
 
 	// Build with kaniko
-	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_git")
+	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_git_subpath")
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = append(
