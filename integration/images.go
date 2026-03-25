@@ -29,6 +29,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -290,6 +291,7 @@ func FindDockerFiles(dir, dockerfilesPattern string) ([]string, error) {
 // DockerFileBuilder knows how to build docker files using both Kaniko and Docker and
 // keeps track of which files have been built.
 type DockerFileBuilder struct {
+	mu sync.Mutex
 	// Holds all available docker files and whether or not they've been built
 	filesBuilt              map[string]struct{}
 	DockerfilesToIgnore     map[string]struct{}
@@ -416,7 +418,10 @@ func (d *DockerFileBuilder) BuildImage(t *testing.T, config *integrationTestConf
 }
 
 func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile, contextDir string) error {
-	if _, present := d.filesBuilt[dockerfile]; present {
+	d.mu.Lock()
+	_, present := d.filesBuilt[dockerfile]
+	d.mu.Unlock()
+	if present {
 		return nil
 	}
 	gcsBucket, gcsClient, serviceAccount, imageRepo := config.gcsBucket, config.gcsClient, config.serviceAccount, config.imageRepo
@@ -458,7 +463,9 @@ func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrat
 	}
 	timing.DefaultRun.Stop(timer)
 
+	d.mu.Lock()
 	d.filesBuilt[dockerfile] = struct{}{}
+	d.mu.Unlock()
 
 	return nil
 }
