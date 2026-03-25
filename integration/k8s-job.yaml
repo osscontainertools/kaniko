@@ -12,6 +12,9 @@ spec:
         workingDir: /workspace
         args: [ "--context=dir:///workspace",
                 "--destination={{.KanikoImage}}"]
+        env:
+        - name: FF_KANIKO_NO_PROPAGATE_ANNOTATIONS
+          value: "1"
         volumeMounts:
         - name: context
           mountPath: /workspace
