@@ -50,30 +50,9 @@ var (
 )
 
 const (
-	daemonPrefix       = "docker://"
-	integrationPath    = "integration"
-	dockerfilesPath    = "dockerfiles"
-	emptyContainerDiff = `[
-     {
-       "Image1": "%s",
-       "Image2": "%s",
-       "DiffType": "File",
-       "Diff": {
-	 	"Adds": null,
-	 	"Dels": null,
-	 	"Mods": null
-       }
-     },
-     {
-       "Image1": "%s",
-       "Image2": "%s",
-       "DiffType": "Metadata",
-       "Diff": {
-	 	"Adds": [],
-	 	"Dels": []
-       }
-     }
-   ]`
+	daemonPrefix    = "docker://"
+	integrationPath = "integration"
+	dockerfilesPath = "dockerfiles"
 )
 
 func getDockerMajorVersion() int {
@@ -161,22 +140,13 @@ func buildRequiredImages() error {
 		command: []string{"docker", "build", "-t", WarmerImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-warmer", ".."},
 	}, {
 		name:    "Building onbuild base image",
-		command: []string{"docker", "build", "-t", config.onbuildBaseImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_base", "."},
-	}, {
-		name:    "Pushing onbuild base image",
-		command: []string{"docker", "push", config.onbuildBaseImage},
+		command: []string{"docker", "build", "--push", "-t", config.onbuildBaseImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_base", "."},
 	}, {
 		name:    "Building onbuild copy image",
-		command: []string{"docker", "build", "-t", config.onbuildCopyImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_copy", "."},
-	}, {
-		name:    "Pushing onbuild copy image",
-		command: []string{"docker", "push", config.onbuildCopyImage},
+		command: []string{"docker", "build", "--push", "-t", config.onbuildCopyImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_copy", "."},
 	}, {
 		name:    "Building hardlink base image",
-		command: []string{"docker", "build", "-t", config.hardlinkBaseImage, "-f", dockerfilesPath + "/Dockerfile_hardlink_base", "."},
-	}, {
-		name:    "Pushing hardlink base image",
-		command: []string{"docker", "push", config.hardlinkBaseImage},
+		command: []string{"docker", "build", "--push", "-t", config.hardlinkBaseImage, "-f", dockerfilesPath + "/Dockerfile_hardlink_base", "."},
 	}, {
 		name:    "Building kaniko image with moved kaniko dir",
 		command: []string{"docker", "build", "-t", ExecutorImageMoved, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz444", "--target", "kaniko", "."},
@@ -185,10 +155,7 @@ func buildRequiredImages() error {
 		command: []string{"docker", "build", "-t", ExecutorImageTainted, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz455", "--target", "kaniko", "."},
 	}, {
 		name:    "Building hijack base image",
-		command: []string{"docker", "build", "-t", config.hijackBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz560", "--target", "base", "."},
-	}, {
-		name:    "Pushing hijack base image",
-		command: []string{"docker", "push", config.hijackBaseImage},
+		command: []string{"docker", "build", "--push", "-t", config.hijackBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz560", "--target", "base", "."},
 	}}
 
 	for _, setupCmd := range setupCommands {
@@ -221,7 +188,7 @@ func TestRun(t *testing.T) {
 			dockerImage := GetDockerImage(config.imageRepo, dockerfile)
 			kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 
-			containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+			containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 		})
 	}
 
@@ -281,6 +248,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--push",
 			"-t", dockerImage,
 			"-f", dockerfile,
 			DockerGitRepo(url, commit, branch),
@@ -306,7 +274,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 // TestGitBuildcontext explicitly names the main branch
@@ -350,6 +318,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--push",
 			"-t", dockerImage,
 			"-f", filepath.Join(integrationPath, dockerfilesPath, dockerfile),
 			DockerGitRepo(url, "", branch),
@@ -379,7 +348,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 func TestBuildViaRegistryMirrors(t *testing.T) {
@@ -392,6 +361,7 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--push",
 			"-t", dockerImage,
 			"-f", dockerfile,
 			DockerGitRepo(url, "", branch),
@@ -419,7 +389,7 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 func TestBuildViaRegistryMap(t *testing.T) {
@@ -428,12 +398,13 @@ func TestBuildViaRegistryMap(t *testing.T) {
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
 
 	// Build with docker
-	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_registry_mirror")
+	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_registry_map")
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
+			"--push",
 			DockerGitRepo(url, "", branch),
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
@@ -442,7 +413,7 @@ func TestBuildViaRegistryMap(t *testing.T) {
 	}
 
 	// Build with kaniko
-	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_mirror")
+	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_map")
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
@@ -459,7 +430,7 @@ func TestBuildViaRegistryMap(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 func TestBuildSkipFallback(t *testing.T) {
@@ -468,7 +439,7 @@ func TestBuildSkipFallback(t *testing.T) {
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
 
 	// Build with kaniko
-	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_mirror")
+	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_skip_fallback")
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
@@ -493,12 +464,13 @@ func TestKanikoDir(t *testing.T) {
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
 
 	// Build with docker
-	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_registry_mirror")
+	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_kaniko_dir")
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
+			"--push",
 			DockerGitRepo(url, "", branch),
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
@@ -507,7 +479,7 @@ func TestKanikoDir(t *testing.T) {
 	}
 
 	// Build with kaniko
-	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_mirror")
+	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_kaniko_dir")
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
@@ -523,7 +495,7 @@ func TestKanikoDir(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 func TestBuildWithLabels(t *testing.T) {
@@ -534,10 +506,11 @@ func TestBuildWithLabels(t *testing.T) {
 	testLabel := "mylabel=myvalue"
 
 	// Build with docker
-	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_label:mylabel")
+	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_label")
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--push",
 			"-t", dockerImage,
 			"-f", dockerfile,
 			"--label", testLabel,
@@ -549,7 +522,7 @@ func TestBuildWithLabels(t *testing.T) {
 	}
 
 	// Build with kaniko
-	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_label:mylabel")
+	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_label")
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
@@ -566,7 +539,7 @@ func TestBuildWithLabels(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 func TestBuildWithHTTPError(t *testing.T) {
@@ -835,7 +808,7 @@ func TestRelativePaths(t *testing.T) {
 		dockerImage := GetDockerImage(config.imageRepo, "test_relative_"+dockerfile)
 		kanikoImage := GetKanikoImage(config.imageRepo, "test_relative_"+dockerfile)
 
-		containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+		containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 	})
 }
 
@@ -922,26 +895,15 @@ func TestBuildWithAnnotations(t *testing.T) {
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_annotation")
 	dockerCmd := exec.Command("docker",
 		"build",
-		"--push", // Push the image. Docker engine does not support annotations without pushing.
+		"--push",
 		"-t", dockerImage,
 		"-f", dockerfile,
+		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
 		DockerGitRepo(url, "", branch),
 	)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
 		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
-	}
-
-	// Add image manifest annotations with crane
-	// as they're not natively supported in buildkit
-	craneCmd := exec.Command("crane",
-		"mutate",
-		dockerImage,
-		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
-	)
-	out, err = RunCommandWithoutTest(craneCmd)
-	if err != nil {
-		t.Errorf("Failed to mutate image %s with crane command %q: %s %s", dockerImage, craneCmd.Args, err, string(out))
 	}
 
 	// Build with kaniko
@@ -959,7 +921,7 @@ func TestBuildWithAnnotations(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
-	containerDiff(t, daemonPrefix+dockerImage, kanikoImage, "--ignore-history")
+	containerDiff(t, dockerImage, kanikoImage, "--ignore-history")
 
 	dockerAnnotations, err := getImageManifestAnnotations(t, dockerImage)
 	if err != nil {
@@ -1301,7 +1263,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 }
 
 func meetsRequirements() bool {
-	requiredTools := []string{"diffoci"}
+	requiredTools := []string{"diffoci", "skopeo"}
 	hasRequirements := true
 	for _, tool := range requiredTools {
 		_, err := exec.LookPath(tool)
@@ -1316,19 +1278,17 @@ func meetsRequirements() bool {
 // containerDiff compares the container images image1 and image2.
 func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	// workaround for container-diff OCI issue https://github.com/GoogleContainerTools/container-diff/issues/389
-	if !strings.HasPrefix(image1, daemonPrefix) {
-		dockerPullCmd := exec.Command("docker", "pull", image1)
-		out := RunCommand(dockerPullCmd, t)
-		t.Logf("docker pull cmd output for image1 = %s", string(out))
-		image1 = daemonPrefix + image1
+	out, err := skopeoPull(image1)
+	if err != nil {
+		t.Fatalf("failed to pull image %s: %v\n%s", image1, err, string(out))
 	}
+	image1 = daemonPrefix + image1
 
-	if !strings.HasPrefix(image2, daemonPrefix) {
-		dockerPullCmd := exec.Command("docker", "pull", image2)
-		out := RunCommand(dockerPullCmd, t)
-		t.Logf("docker pull cmd output for image2 = %s", string(out))
-		image2 = daemonPrefix + image2
+	out, err = skopeoPull(image2)
+	if err != nil {
+		t.Fatalf("failed to pull image %s: %v\n%s", image2, err, string(out))
 	}
+	image2 = daemonPrefix + image2
 
 	flags = append([]string{"diff"}, flags...)
 	flags = append(flags, image1, image2, "--ignore-image-name", "--ignore-image-timestamps")
@@ -1337,4 +1297,20 @@ func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	containerdiffCmd := exec.Command("diffoci", flags...)
 	diff := RunCommand(containerdiffCmd, t)
 	t.Logf("diff = %s", string(diff))
+}
+
+func skopeoPull(image string) ([]byte, error) {
+	taggedRef := image + ":latest"
+	daemonHost := os.Getenv("DOCKER_HOST")
+	if daemonHost == "" {
+		daemonHost = "unix:///var/run/docker.sock"
+	}
+	src_opts := "--src-tls-verify=false"
+	src := "docker://"
+	cmd := exec.Command("skopeo", "copy",
+		src_opts,
+		src+taggedRef,
+		"--dest-daemon-host", daemonHost,
+		"docker-daemon:"+taggedRef)
+	return RunCommandWithoutTest(cmd)
 }
