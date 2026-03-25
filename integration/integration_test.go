@@ -169,6 +169,7 @@ func buildRequiredImages() error {
 }
 
 func TestRun(t *testing.T) {
+	t.Parallel()
 	for _, dockerfile := range allDockerfiles {
 		t.Run("test_"+dockerfile, func(t *testing.T) {
 			dockerfile := dockerfile
@@ -580,6 +581,7 @@ func TestBuildWithHTTPError(t *testing.T) {
 }
 
 func TestLayers(t *testing.T) {
+	t.Parallel()
 	// offset is caused because for those three files we use
 	// --single-snapshot option, compressing all layers into one
 	offset := map[string]int{
@@ -615,6 +617,7 @@ func TestLayers(t *testing.T) {
 }
 
 func TestReplaceFolderWithFileOrLink(t *testing.T) {
+	t.Parallel()
 	dockerfiles := []string{"TestReplaceFolderWithFile", "TestReplaceFolderWithLink"}
 	for _, dockerfile := range dockerfiles {
 		t.Run(dockerfile, func(t *testing.T) {
@@ -648,6 +651,7 @@ func buildImage(t *testing.T, dockerfile string, imageBuilder *DockerFileBuilder
 
 // Build each image with kaniko twice, and then make sure they're exactly the same
 func TestCache(t *testing.T) {
+	t.Parallel()
 	// Build dockerfiles with registry cache
 	for dockerfile := range imageBuilder.TestCacheDockerfiles {
 		t.Run("test_cache_"+dockerfile, func(t *testing.T) {
@@ -674,6 +678,7 @@ func TestCache(t *testing.T) {
 }
 
 func TestWarmer(t *testing.T) {
+	t.Parallel()
 	populateVolumeCache(t.Logf, config.serviceAccount)
 
 	for dockerfile := range imageBuilder.TestWarmerDockerfiles {
@@ -708,6 +713,7 @@ func TestWarmer(t *testing.T) {
 
 // Attempt to warm an image two times : first time should populate the cache, second time should find the image in the cache.
 func TestWarmerTwice(t *testing.T) {
+	t.Parallel()
 	dockerfiles := map[string]bool{
 		"debian:trixie-slim": true,
 		"debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56": true,  // image-index requires remote lookup
@@ -785,6 +791,7 @@ func verifyBuildWith(t *testing.T, cache, dockerfile string) {
 }
 
 func TestRelativePaths(t *testing.T) {
+	t.Parallel()
 	dockerfile := "Dockerfile_relative_copy"
 
 	t.Run("test_relative_"+dockerfile, func(t *testing.T) {
@@ -813,6 +820,7 @@ func TestRelativePaths(t *testing.T) {
 }
 
 func TestExitCodePropagation(t *testing.T) {
+	t.Parallel()
 	currentDir, err := os.Getwd()
 	if err != nil {
 		t.Fatal("Could not get working dir")
