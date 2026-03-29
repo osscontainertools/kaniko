@@ -140,6 +140,10 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz529": {"--cleanup"},
 }
 
+var expectErr = map[string]int{
+	"Dockerfile_test_issue_cg326_1": 1,
+}
+
 // Arguments to diffoci when comparing dockerfiles
 var diffArgsMap = map[string][]string{
 	// /root/.config 0x1c0 0x1ed
@@ -452,11 +456,21 @@ func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrat
 
 	kanikoImage := GetKanikoImage(imageRepo, dockerfile)
 	timer = timing.Start(dockerfile + "_kaniko")
-	if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
-		contextDir, gcsBucket, gcsClient, serviceAccount, true); err != nil {
+	defer timing.DefaultRun.Stop(timer)
+	_, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
+		contextDir, gcsBucket, gcsClient, serviceAccount, true)
+	if expectErr, ok := expectErr[dockerfile]; ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && exitErr.ExitCode() == expectErr {
+			return nil
+		}
+		if err == nil {
+			return fmt.Errorf("expected exit code %d but command succeeded", expectErr)
+		}
+	}
+	if err != nil {
 		return err
 	}
-	timing.DefaultRun.Stop(timer)
 
 	d.filesBuilt[dockerfile] = struct{}{}
 
