@@ -291,9 +291,7 @@ func FindDockerFiles(dir, dockerfilesPattern string) ([]string, error) {
 // DockerFileBuilder knows how to build docker files using both Kaniko and Docker and
 // keeps track of which files have been built.
 type DockerFileBuilder struct {
-	mu sync.Mutex
-	// Holds all available docker files and whether or not they've been built
-	filesBuilt              map[string]struct{}
+	filesBuilt              sync.Map // map[string]*sync.Once
 	DockerfilesToIgnore     map[string]struct{}
 	TestCacheDockerfiles    map[string]struct{}
 	TestOCICacheDockerfiles map[string]struct{}
@@ -305,9 +303,7 @@ type logger func(string, ...any)
 // NewDockerFileBuilder will create a DockerFileBuilder initialized with dockerfiles, which
 // it will assume are all as yet unbuilt.
 func NewDockerFileBuilder() *DockerFileBuilder {
-	d := DockerFileBuilder{
-		filesBuilt: map[string]struct{}{},
-	}
+	d := DockerFileBuilder{}
 	d.DockerfilesToIgnore = map[string]struct{}{
 		"Dockerfile_test_add_404": {},
 		// TODO: remove test_user_run from this when https://github.com/GoogleContainerTools/container-diff/issues/237 is fixed
@@ -418,12 +414,16 @@ func (d *DockerFileBuilder) BuildImage(t *testing.T, config *integrationTestConf
 }
 
 func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile, contextDir string) error {
-	d.mu.Lock()
-	_, present := d.filesBuilt[dockerfile]
-	d.mu.Unlock()
-	if present {
-		return nil
-	}
+	val, _ := d.filesBuilt.LoadOrStore(dockerfile, &sync.Once{})
+	once := val.(*sync.Once)
+	var buildErr error
+	once.Do(func() {
+		buildErr = d.buildImage(t, config, dockerfilesPath, dockerfile, contextDir)
+	})
+	return buildErr
+}
+
+func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile, contextDir string) error {
 	gcsBucket, gcsClient, serviceAccount, imageRepo := config.gcsBucket, config.gcsClient, config.serviceAccount, config.imageRepo
 
 	var buildArgs []string
@@ -462,10 +462,6 @@ func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrat
 		return err
 	}
 	timing.DefaultRun.Stop(timer)
-
-	d.mu.Lock()
-	d.filesBuilt[dockerfile] = struct{}{}
-	d.mu.Unlock()
 
 	return nil
 }
