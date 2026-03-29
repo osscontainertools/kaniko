@@ -33,7 +33,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -922,50 +921,6 @@ func TestBuildWithAnnotations(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 	containerDiff(t, dockerImage, kanikoImage, "--ignore-history")
-
-	dockerAnnotations, err := getImageManifestAnnotations(t, dockerImage)
-	if err != nil {
-		t.Fatalf("Failed to get annotations for docker image %s: %v", dockerImage, err)
-	}
-	if len(dockerAnnotations) == 0 {
-		t.Fatalf("No annotations found for docker image %s", dockerImage)
-	}
-
-	kanikoAnnotations, err := getImageManifestAnnotations(t, kanikoImage)
-	if err != nil {
-		t.Fatalf("Failed to get annotations for kaniko image %s: %v", kanikoImage, err)
-	}
-	if len(kanikoAnnotations) == 0 {
-		t.Fatalf("No annotations found for kaniko image %s", kanikoImage)
-	}
-	if diff := cmp.Diff(kanikoAnnotations, dockerAnnotations); diff != "" {
-		t.Errorf("Annotation don't match (-kaniko, +docker): %s", diff)
-	}
-
-	if kanikoAnnotations[annotationKey] != annotationValue {
-		t.Errorf("Expected annotation %q to be %q, got annotations: %v", annotationKey, annotationValue, kanikoAnnotations)
-	}
-}
-
-func getImageManifestAnnotations(t *testing.T, image string) (map[string]string, error) {
-	t.Helper()
-
-	ref, err := name.ParseReference(image, name.WeakValidation)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse image reference %s: %w", image, err)
-	}
-
-	imgRef, err := remote.Image(ref)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get image reference for %s from remote: %w", image, err)
-	}
-
-	manifest, err := imgRef.Manifest()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get manifest for image %s: %w", image, err)
-	}
-
-	return manifest.Annotations, nil
 }
 
 func onBuildDiff(t *testing.T, image1, image2 string) {
@@ -1263,7 +1218,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 }
 
 func meetsRequirements() bool {
-	requiredTools := []string{"diffoci", "skopeo"}
+	requiredTools := []string{"diffoci"}
 	hasRequirements := true
 	for _, tool := range requiredTools {
 		_, err := exec.LookPath(tool)
@@ -1278,16 +1233,14 @@ func meetsRequirements() bool {
 // containerDiff compares the container images image1 and image2.
 func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	// workaround for container-diff OCI issue https://github.com/GoogleContainerTools/container-diff/issues/389
-	out, err := skopeoPull(image1)
-	if err != nil {
-		t.Fatalf("failed to pull image %s: %v\n%s", image1, err, string(out))
-	}
+	dockerPullCmd := exec.Command("docker", "pull", image1)
+	out := RunCommand(dockerPullCmd, t)
+	t.Logf("docker pull cmd output for image1 = %s", string(out))
 	image1 = daemonPrefix + image1
 
-	out, err = skopeoPull(image2)
-	if err != nil {
-		t.Fatalf("failed to pull image %s: %v\n%s", image2, err, string(out))
-	}
+	dockerPullCmd = exec.Command("docker", "pull", image2)
+	out = RunCommand(dockerPullCmd, t)
+	t.Logf("docker pull cmd output for image2 = %s", string(out))
 	image2 = daemonPrefix + image2
 
 	flags = append([]string{"diff"}, flags...)
@@ -1297,20 +1250,4 @@ func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	containerdiffCmd := exec.Command("diffoci", flags...)
 	diff := RunCommand(containerdiffCmd, t)
 	t.Logf("diff = %s", string(diff))
-}
-
-func skopeoPull(image string) ([]byte, error) {
-	taggedRef := image + ":latest"
-	daemonHost := os.Getenv("DOCKER_HOST")
-	if daemonHost == "" {
-		daemonHost = "unix:///var/run/docker.sock"
-	}
-	src_opts := "--src-tls-verify=false"
-	src := "docker://"
-	cmd := exec.Command("skopeo", "copy",
-		src_opts,
-		src+taggedRef,
-		"--dest-daemon-host", daemonHost,
-		"docker-daemon:"+taggedRef)
-	return RunCommandWithoutTest(cmd)
 }

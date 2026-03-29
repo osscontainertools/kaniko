@@ -130,6 +130,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS`](#flag-ff_kaniko_copy_chmod_on_implicit_dirs)
       - [Flag `FF_KANIKO_CLEAN_KANIKO_DIR`](#flag-ff_kaniko_clean_kaniko_dir)
       - [Flag `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS`](#flag-ff_kaniko_no_propagate_annotations)
+      - [Flag `FF_KANIKO_OCI_SCRATCH_BASE`](#flag-ff_kaniko_oci_scratch_base)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1135,6 +1136,11 @@ Defaults to `true`.
 When building from a base image that carries OCI manifest annotations (e.g. `org.opencontainers.image.url`, `org.opencontainers.image.version`), kaniko by default propagates those annotations into the output image manifest. This differs from Docker/BuildKit behaviour, which does not carry base image annotations forward into derived images.
 Set this flag to `true` to strip base image manifest annotations from the output, matching Docker behaviour. Defaults to `false`.
 Becomes default in `v1.28.0`.
+
+#### Flag `FF_KANIKO_OCI_SCRATCH_BASE`
+
+When a Dockerfile uses `FROM scratch`, kaniko uses an empty Docker-format image as the build base, which means the output image is produced in Docker manifest schema v2 format. Set this flag to `true` to use an empty OCI-format image instead, causing `FROM scratch` builds to produce output in OCI manifest schema v1 format. This is useful when pushing to registries or runtimes that require or prefer OCI images.
+Defaults to `false`.
 
 ### Debug Image
 
