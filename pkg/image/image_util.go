@@ -26,7 +26,9 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
@@ -39,8 +41,18 @@ import (
 
 var (
 	// RetrieveRemoteImage downloads an image from a remote location
-	RetrieveRemoteImage = remote.RetrieveRemoteImage
-	retrieveOciImage    = ociImage
+	RetrieveRemoteImage          = remote.RetrieveRemoteImage
+	retrieveOciImage             = ociImage
+	EmptyBaseImage      v1.Image = func() v1.Image {
+		image := empty.Image
+		if config.EnvBool("FF_KANIKO_OCI_SCRATCH_BASE") {
+			image = mutate.ConfigMediaType(
+				mutate.MediaType(image, types.OCIManifestSchema1),
+				types.OCIConfigJSON,
+			)
+		}
+		return image
+	}()
 )
 
 // RetrieveSourceImage returns the base image of the stage at index
@@ -66,7 +78,7 @@ func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, b
 	// First, check if the base image is a scratch image
 	if currentBaseName == constants.NoBaseImage {
 		logrus.Info("No base image, nothing to extract")
-		return empty.Image, nil
+		return EmptyBaseImage, nil
 	}
 	// Next, check if the base image of the current stage is built from a previous stage
 	// If so, retrieve the image from the stored tarball
