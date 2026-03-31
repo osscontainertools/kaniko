@@ -29,10 +29,11 @@ import (
 
 type RunMarkerCommand struct {
 	BaseCommand
-	cmd      *instructions.RunCommand
-	Files    []string
-	secrets  config.SecretOptions
-	shdCache bool
+	cmd         *instructions.RunCommand
+	Files       []string
+	fileContext util.FileContext
+	secrets     config.SecretOptions
+	shdCache    bool
 }
 
 func (r *RunMarkerCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
@@ -42,7 +43,7 @@ func (r *RunMarkerCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfi
 	if err != nil {
 		return err
 	}
-	if err := runCommandWithFlags(config, buildArgs, r.cmd, r.secrets); err != nil {
+	if err := runCommandWithFlags(config, buildArgs, r.cmd, r.fileContext, r.secrets); err != nil {
 		return err
 	}
 	_, r.Files, err = util.GetFSInfoMap("/", prevFilesMap)
