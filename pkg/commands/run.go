@@ -38,9 +38,10 @@ import (
 
 type RunCommand struct {
 	BaseCommand
-	cmd      *instructions.RunCommand
-	secrets  kConfig.SecretOptions
-	shdCache bool
+	cmd         *instructions.RunCommand
+	fileContext util.FileContext
+	secrets     kConfig.SecretOptions
+	shdCache    bool
 }
 
 // for testing
@@ -53,11 +54,12 @@ func (r *RunCommand) IsArgsEnvsRequiredInCache() bool {
 }
 
 func (r *RunCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
-	return runCommandWithFlags(config, buildArgs, r.cmd, r.secrets)
+	return runCommandWithFlags(config, buildArgs, r.cmd, r.fileContext, r.secrets)
 }
 
-func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand, secrets kConfig.SecretOptions) (reterr error) {
+func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand, fileContext util.FileContext, secrets kConfig.SecretOptions) (reterr error) {
 	ff_secret := kConfig.EnvBoolDefault("FF_KANIKO_RUN_MOUNT_SECRET", true)
+	ff_bind := kConfig.EnvBoolDefault("FF_KANIKO_RUN_MOUNT_BIND", true)
 	for _, f := range cmdRun.FlagsUsed {
 		if f != "mount" {
 			logrus.Warnf("#969 kaniko does not support '--%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", f)
@@ -213,6 +215,49 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 						}
 					}
 				}
+			// https://docs.docker.com/reference/dockerfile/#run---mounttypebind
+			case m.Type == instructions.MountTypeBind && ff_bind:
+				if m.From != "" && m.From != "context" {
+					logrus.Warnf("Kaniko does not support cross-stage bind mounts (from=%s) - skipping", m.From)
+					continue
+				}
+				src := filepath.Join(fileContext.Root, m.Source)
+				target := m.Target
+
+				_, err := os.Lstat(target)
+				if err != nil && !os.IsNotExist(err) {
+					return fmt.Errorf("stat bind target %s: %w", target, err)
+				}
+				targetExisted := err == nil
+
+				if targetExisted {
+					err = util.MoveDir(target, kConfig.KanikoSwapDir)
+					if err != nil {
+						return fmt.Errorf("saving bind target: %w", err)
+					}
+					defer assignIfNil(&reterr, func() error {
+						return util.MoveDir(kConfig.KanikoSwapDir, target)
+					})
+				}
+
+				parent := filepath.Dir(target)
+				created, err := ensureDir(parent)
+				if err != nil {
+					return err
+				}
+				if created != "" {
+					defer assignIfNil(&reterr, func() error {
+						return os.RemoveAll(created)
+					})
+				}
+
+				err = util.CopyDir2(src, target)
+				if err != nil {
+					return fmt.Errorf("copying bind source %s to %s: %w", src, target, err)
+				}
+				defer assignIfNil(&reterr, func() error {
+					return os.RemoveAll(target)
+				})
 			default:
 				logrus.Warnf("Kaniko does not support '--mount=type=%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", m.Type)
 			}
