@@ -17,6 +17,7 @@ limitations under the License.
 package executor
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -94,7 +95,7 @@ func newStageBuilder(args *dockerfile.BuildArgs, opts *config.KanikoOptions, sta
 	}
 
 	if config.EnvBool("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS") {
-		sourceImage = mutate.Annotations(sourceImage, nil).(v1.Image)
+		sourceImage = withoutAnnotations(sourceImage)
 	}
 
 	_opts := *opts
@@ -1197,4 +1198,37 @@ func ResolveCrossStageInstructions(stages []config.KanikoStage) map[string]int {
 
 	logrus.Debugf("Built stage name to index map: %v", nameToIndex)
 	return nameToIndex
+}
+
+// mz507: withoutAnnotations returns an image whose manifest has no annotations.
+// mutate.Annotations only merges into existing annotations and cannot delete
+// keys, so we wrap the image to intercept Manifest and RawManifest instead.
+func withoutAnnotations(img v1.Image) v1.Image {
+	return &noAnnotationsImage{Image: img}
+}
+
+type noAnnotationsImage struct {
+	v1.Image
+}
+
+func (n *noAnnotationsImage) Manifest() (*v1.Manifest, error) {
+	m, err := n.Image.Manifest()
+	if err != nil {
+		return nil, err
+	}
+	stripped := *m
+	stripped.Annotations = nil
+	return &stripped, nil
+}
+
+func (n *noAnnotationsImage) RawManifest() ([]byte, error) {
+	m, err := n.Manifest()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(m)
+}
+
+func (n *noAnnotationsImage) Digest() (v1.Hash, error) {
+	return partial.Digest(n)
 }
