@@ -38,20 +38,19 @@ var snapshotPathPrefix = ""
 
 // Snapshotter holds the root directory from which to take snapshots, and a list of snapshots taken
 type Snapshotter struct {
-	l          *LayeredMap
-	directory  string
-	ignorelist []util.IgnoreListEntry
+	l         *LayeredMap
+	directory string
 }
 
 // NewSnapshotter creates a new snapshotter rooted at d
-func NewSnapshotter(l *LayeredMap, d string, wl []util.IgnoreListEntry) *Snapshotter {
-	return &Snapshotter{l: l, directory: d, ignorelist: wl}
+func NewSnapshotter(l *LayeredMap, d string) *Snapshotter {
+	return &Snapshotter{l: l, directory: d}
 }
 
 // Init initializes a new snapshotter
-func (s *Snapshotter) Init() error {
+func (s *Snapshotter) Init(ignorelist []util.IgnoreListEntry) error {
 	logrus.Info("Initializing snapshotter ...")
-	_, _, err := s.scanFullFilesystem()
+	_, _, err := s.scanFullFilesystem(ignorelist)
 	return err
 }
 
@@ -62,7 +61,7 @@ func (s *Snapshotter) Key() (string, error) {
 
 // TakeSnapshot takes a snapshot of the specified files, avoiding directories in the ignorelist, and creates
 // a tarball of the changed files. Return contents of the tarball, and whether or not any files were changed
-func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string, error) {
+func (s *Snapshotter) TakeSnapshot(files []string, ignorelist []util.IgnoreListEntry, shdCheckDelete bool) (string, error) {
 	err := os.MkdirAll(config.KanikoLayersDir, 0o755)
 	if err != nil {
 		return "", err
@@ -75,7 +74,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 
 	s.l.Snapshot()
 
-	filesToAdd, err := filesystem.ResolvePaths(files, s.ignorelist)
+	filesToAdd, err := filesystem.ResolvePaths(files, ignorelist)
 	if err != nil {
 		return "", err
 	}
@@ -95,7 +94,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 	// Get whiteout paths
 	var filesToWhiteout []string
 	if shdCheckDelete {
-		_, deletedFiles, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), s.ignorelist, func(s string) (bool, error) {
+		_, deletedFiles, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), ignorelist, func(s string) (bool, error) {
 			return true, nil
 		})
 		if err != nil {
@@ -124,7 +123,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 
 // TakeSnapshotFS takes a snapshot of the filesystem, avoiding directories in the ignorelist, and creates
 // a tarball of the changed files.
-func (s *Snapshotter) TakeSnapshotFS() (string, error) {
+func (s *Snapshotter) TakeSnapshotFS(ignorelist []util.IgnoreListEntry) (string, error) {
 	err := os.MkdirAll(config.KanikoLayersDir, 0o755)
 	if err != nil {
 		return "", err
@@ -138,7 +137,7 @@ func (s *Snapshotter) TakeSnapshotFS() (string, error) {
 	t := util.NewTar(f)
 	defer t.Close()
 
-	filesToAdd, filesToWhiteOut, err := s.scanFullFilesystem()
+	filesToAdd, filesToWhiteOut, err := s.scanFullFilesystem(ignorelist)
 	if err != nil {
 		return "", err
 	}
@@ -156,7 +155,7 @@ func (s *Snapshotter) getSnashotPathPrefix() string {
 	return snapshotPathPrefix
 }
 
-func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
+func (s *Snapshotter) scanFullFilesystem(ignorelist []util.IgnoreListEntry) ([]string, []string, error) {
 	logrus.Info("Taking snapshot of full filesystem...")
 
 	// Some of the operations that follow (e.g. hashing) depend on the file system being synced,
@@ -188,13 +187,13 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 
 	logrus.Debugf("Current image filesystem: %v", s.l.currentImage)
 
-	changedPaths, deletedPaths, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), s.ignorelist, s.l.CheckFileChange)
+	changedPaths, deletedPaths, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), ignorelist, s.l.CheckFileChange)
 	if err != nil {
 		return nil, nil, err
 	}
 	timer := timing.Start("Resolving Paths")
 
-	filesToAdd, err := filesystem.ResolvePaths(changedPaths, s.ignorelist)
+	filesToAdd, err := filesystem.ResolvePaths(changedPaths, ignorelist)
 	if err != nil {
 		return nil, nil, err
 	}
