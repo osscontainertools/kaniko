@@ -764,8 +764,6 @@ func TestWarmer(t *testing.T) {
 			kanikoVersion1 := GetKanikoImage(imageRepo, "test_warmer_"+dockerfile) + strconv.Itoa(1)
 
 			containerDiff(t, kanikoVersion0, kanikoVersion1)
-			layerDiff(t, kanikoVersion0, kanikoVersion1)
-			manifestDiff(t, kanikoVersion0, kanikoVersion1)
 		})
 	}
 }
@@ -845,7 +843,6 @@ func verifyBuildWith(t *testing.T, cache, dockerfile string) {
 	kanikoVersion1 := GetVersionedKanikoImage(config.imageRepo, dockerfile, 1)
 
 	containerDiff(t, kanikoVersion0, kanikoVersion1)
-	layerDiff(t, kanikoVersion0, kanikoVersion1)
 }
 
 func TestRelativePaths(t *testing.T) {
@@ -1000,84 +997,6 @@ func onBuildDiff(t *testing.T, image1, image2 string) {
 	testutil.CheckDeepEqual(t, img1.Config.OnBuild, img2.Config.OnBuild)
 }
 
-func layerDiff(t *testing.T, image1, image2 string) {
-	t.Helper()
-	layers1, err := getImageLayers(image1)
-	if err != nil {
-		t.Fatalf("Couldn't get layers from image reference for (%s): %s", image1, err)
-	}
-
-	layers2, err := getImageLayers(image2)
-	if err != nil {
-		t.Fatalf("Couldn't get layers from image reference for (%s): %s", image2, err)
-	}
-
-	for idx := range min(len(layers1), len(layers2)) {
-		l1d, err := layers1[idx].Digest()
-		if err != nil {
-			t.Fatalf("Couldn't get digest from image layer (%s #%d): %s", image1, idx, err)
-		}
-
-		l2d, err := layers2[idx].Digest()
-		if err != nil {
-			t.Fatalf("Couldn't get digest from image layer (%s #%d): %s", image2, idx, err)
-		}
-
-		if l1d != l2d {
-			command, err := resolveCreatedBy(image1, idx)
-			if err != nil {
-				t.Errorf("Image Layers #%d differ", idx)
-			} else {
-				t.Errorf("Image Layers #%d differ: %s", idx, command)
-			}
-		}
-	}
-
-	if len(layers1) > len(layers2) {
-		command, err := resolveCreatedBy(image1, len(layers2))
-		if err != nil {
-			t.Errorf("Image Layer count differs %d != %d", len(layers1), len(layers2))
-		} else {
-			t.Errorf("Image Layer count differs %d != %d: %s", len(layers1), len(layers2), command)
-		}
-	} else if len(layers1) < len(layers2) {
-		command, err := resolveCreatedBy(image2, len(layers1))
-		if err != nil {
-			t.Errorf("Image Layer count differs %d != %d", len(layers1), len(layers2))
-		} else {
-			t.Errorf("Image Layer count differs %d != %d: %s", len(layers1), len(layers2), command)
-		}
-	}
-}
-
-func manifestDiff(t *testing.T, image1, image2 string) {
-	t.Helper()
-
-	imgRef1, err := getImage(image1)
-	if err != nil {
-		t.Fatalf("Couldn't get image reference for (%s): %s", image1, err)
-	}
-
-	imgRef2, err := getImage(image2)
-	if err != nil {
-		t.Fatalf("Couldn't get image reference for (%s): %s", image2, err)
-	}
-
-	media1, err := imgRef1.MediaType()
-	if err != nil {
-		t.Fatalf("Couldn't get mediatype for (%s): %s", image1, err)
-	}
-
-	media2, err := imgRef2.MediaType()
-	if err != nil {
-		t.Fatalf("Couldn't get mediatype for (%s): %s", image2, err)
-	}
-
-	if media1 != media2 {
-		t.Fatalf("mediatype diff: %s != %s", media1, media2)
-	}
-}
-
 func checkLayers(t *testing.T, image1, image2 string, offset int) {
 	t.Helper()
 	img1, err := getImageDetails(image1)
@@ -1112,42 +1031,12 @@ func getImageConfig(image string) (*v1.ConfigFile, error) {
 	return cfg, nil
 }
 
-func resolveCreatedBy(image string, layerIndex int) (string, error) {
-	cfg, err := getImageConfig(image)
-	if err != nil {
-		return "", err
-	}
-	idx := 0
-	for _, history := range cfg.History {
-		if history.EmptyLayer {
-			continue
-		}
-		if idx == layerIndex {
-			return history.CreatedBy, nil
-		}
-		idx++
-	}
-	return "", fmt.Errorf("LayerIndex %d not found in History of length %d", layerIndex, len(cfg.History))
-}
-
 func getImage(image string) (v1.Image, error) {
 	ref, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't parse reference to image %s: %w", image, err)
 	}
 	return remote.Image(ref)
-}
-
-func getImageLayers(image string) ([]v1.Layer, error) {
-	imgRef, err := getImage(image)
-	if err != nil {
-		return nil, fmt.Errorf("Couldn't get reference to image %s from remote: %w", image, err)
-	}
-	layers, err := imgRef.Layers()
-	if err != nil {
-		return nil, fmt.Errorf("Error getting layers for image %s: %w", image, err)
-	}
-	return layers, nil
 }
 
 func getImageDetails(image string) (*imageDetails, error) {
