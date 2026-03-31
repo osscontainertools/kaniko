@@ -288,10 +288,18 @@ func FindDockerFiles(dir, dockerfilesPattern string) ([]string, error) {
 	return dockerfiles, err
 }
 
+type syncMap[K comparable, V any] struct{ m sync.Map }
+
+func (s *syncMap[K, V]) LoadOrStore(key K, val V) (V, bool) {
+	v, ok := s.m.LoadOrStore(key, val)
+	return v.(V), ok
+}
+
 // DockerFileBuilder knows how to build docker files using both Kaniko and Docker and
 // keeps track of which files have been built.
 type DockerFileBuilder struct {
-	filesBuilt              sync.Map // map[string]*sync.Once
+	// Holds all available docker files and whether or not they've been built
+	filesBuilt              syncMap[string, func() error]
 	DockerfilesToIgnore     map[string]struct{}
 	TestCacheDockerfiles    map[string]struct{}
 	TestOCICacheDockerfiles map[string]struct{}
@@ -414,13 +422,10 @@ func (d *DockerFileBuilder) BuildImage(t *testing.T, config *integrationTestConf
 }
 
 func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile, contextDir string) error {
-	val, _ := d.filesBuilt.LoadOrStore(dockerfile, &sync.Once{})
-	once := val.(*sync.Once)
-	var buildErr error
-	once.Do(func() {
-		buildErr = d.buildImage(t, config, dockerfilesPath, dockerfile, contextDir)
-	})
-	return buildErr
+	fn, _ := d.filesBuilt.LoadOrStore(dockerfile, sync.OnceValue(func() error {
+		return d.buildImage(t, config, dockerfilesPath, dockerfile, contextDir)
+	}))
+	return fn()
 }
 
 func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile, contextDir string) error {
