@@ -48,7 +48,7 @@ func TestSnapshotFSFileChange(t *testing.T) {
 		t.Fatalf("Error setting up fs: %s", err)
 	}
 	// Take another snapshot
-	tarPath, err := snapshotter.TakeSnapshotFS()
+	tarPath, err := snapshotter.TakeSnapshotFS(util.IgnoreList())
 	if err != nil {
 		t.Fatalf("Error taking snapshot of fs: %s", err)
 	}
@@ -112,7 +112,7 @@ func TestSnapshotFSIsReproducible(t *testing.T) {
 		t.Fatalf("Error setting up fs: %s", err)
 	}
 	// Take another snapshot
-	tarPath, err := snapshotter.TakeSnapshotFS()
+	tarPath, err := snapshotter.TakeSnapshotFS(util.IgnoreList())
 	if err != nil {
 		t.Fatalf("Error taking snapshot of fs: %s", err)
 	}
@@ -141,7 +141,7 @@ func TestSnapshotFSChangePermissions(t *testing.T) {
 		t.Fatalf("Error changing permissions on %s: %v", batPath, err)
 	}
 	// Take another snapshot
-	tarPath, err := snapshotter.TakeSnapshotFS()
+	tarPath, err := snapshotter.TakeSnapshotFS(util.IgnoreList())
 	if err != nil {
 		t.Fatalf("Error taking snapshot of fs: %s", err)
 	}
@@ -206,7 +206,7 @@ func TestSnapshotFSReplaceDirWithLink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tarPath, err := snapshotter.TakeSnapshotFS()
+	tarPath, err := snapshotter.TakeSnapshotFS(util.IgnoreList())
 	if err != nil {
 		t.Fatalf("Error taking snapshot of fs: %s", err)
 	}
@@ -252,7 +252,7 @@ func TestSnapshotFiles(t *testing.T) {
 	filesToSnapshot := []string{
 		filepath.Join(testDir, "foo"),
 	}
-	tarPath, err := snapshotter.TakeSnapshot(filesToSnapshot, false)
+	tarPath, err := snapshotter.TakeSnapshot(filesToSnapshot, util.IgnoreList(), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,7 +287,7 @@ func TestEmptySnapshotFS(t *testing.T) {
 	defer cleanup()
 
 	// Take snapshot with no changes
-	tarPath, err := snapshotter.TakeSnapshotFS()
+	tarPath, err := snapshotter.TakeSnapshotFS(util.IgnoreList())
 	if err != nil {
 		t.Fatalf("Error taking snapshot of fs: %s", err)
 	}
@@ -389,7 +389,7 @@ func TestSnapshotPreservesFileOrder(t *testing.T) {
 		}
 
 		// Take a snapshot
-		tarPath, err := snapshotter.TakeSnapshot(filesToSnapshot, false)
+		tarPath, err := snapshotter.TakeSnapshot(filesToSnapshot, util.IgnoreList(), false)
 		if err != nil {
 			t.Fatalf("Error taking snapshot of fs: %s", err)
 		}
@@ -420,7 +420,7 @@ func TestSnapshotIncludesParentDirBeforeWhiteoutFile(t *testing.T) {
 
 	// Take a snapshot
 	filesToSnapshot := []string{filepath.Join(testDir, "kaniko/file", "bar/bat")}
-	_, err = snapshotter.TakeSnapshot(filesToSnapshot, false)
+	_, err = snapshotter.TakeSnapshot(filesToSnapshot, util.IgnoreList(), false)
 	if err != nil {
 		t.Fatalf("Error taking snapshot of fs: %s", err)
 	}
@@ -444,7 +444,7 @@ func TestSnapshotIncludesParentDirBeforeWhiteoutFile(t *testing.T) {
 	}
 
 	// Take a snapshot again
-	tarPath, err := snapshotter.TakeSnapshot(filesToSnapshot, true)
+	tarPath, err := snapshotter.TakeSnapshot(filesToSnapshot, util.IgnoreList(), true)
 	if err != nil {
 		t.Fatalf("Error taking snapshot of fs: %s", err)
 	}
@@ -510,7 +510,7 @@ func TestSnapshotPreservesWhiteoutOrder(t *testing.T) {
 		}
 
 		// Take a snapshot
-		_, err = snapshotter.TakeSnapshot(filesToSnapshot, false)
+		_, err = snapshotter.TakeSnapshot(filesToSnapshot, util.IgnoreList(), false)
 		if err != nil {
 			t.Fatalf("Error taking snapshot of fs: %s", err)
 		}
@@ -524,7 +524,7 @@ func TestSnapshotPreservesWhiteoutOrder(t *testing.T) {
 		}
 
 		// Take a snapshot again
-		tarPath, err := snapshotter.TakeSnapshot(filesToSnapshot, true)
+		tarPath, err := snapshotter.TakeSnapshot(filesToSnapshot, util.IgnoreList(), true)
 		if err != nil {
 			t.Fatalf("Error taking snapshot of fs: %s", err)
 		}
@@ -554,7 +554,7 @@ func TestSnapshotOmitsUnameGname(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tarPath, err := snapshotter.TakeSnapshotFS()
+	tarPath, err := snapshotter.TakeSnapshotFS(util.IgnoreList())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -619,8 +619,8 @@ func setUpTest(t *testing.T) (string, *Snapshotter, func(), error) {
 
 	// Take the initial snapshot
 	l := NewLayeredMap(util.Hasher())
-	snapshotter := NewSnapshotter(l, testDir, util.IgnoreList())
-	if err := snapshotter.Init(); err != nil {
+	snapshotter := NewSnapshotter(l, testDir)
+	if err := snapshotter.Init(util.IgnoreList()); err != nil {
 		return "", nil, nil, fmt.Errorf("initializing snapshotter: %w", err)
 	}
 
