@@ -62,9 +62,9 @@ var (
 )
 
 type snapShotter interface {
-	Init() error
-	TakeSnapshotFS() (string, error)
-	TakeSnapshot([]string, bool) (string, error)
+	Init([]util.IgnoreListEntry) error
+	TakeSnapshotFS([]util.IgnoreListEntry) (string, error)
+	TakeSnapshot([]string, []util.IgnoreListEntry, bool) (string, error)
 }
 
 // stageBuilder contains all fields necessary to build one stage of a Dockerfile
@@ -340,7 +340,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	initSnapshotTaken := false
 	if opts.SingleSnapshot {
 		t := timing.Start("Initial FS snapshot")
-		if err := snapshotter.Init(); err != nil {
+		if err := snapshotter.Init(util.IgnoreList()); err != nil {
 			return err
 		}
 		timing.DefaultRun.Stop(t)
@@ -382,7 +382,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			// Take initial snapshot if command does not expect to return
 			// a list of files.
 			t := timing.Start("Initial FS snapshot")
-			if err := snapshotter.Init(); err != nil {
+			if err := snapshotter.Init(util.IgnoreList()); err != nil {
 				return err
 			}
 			timing.DefaultRun.Stop(t)
@@ -455,11 +455,11 @@ func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, sn
 
 	t := timing.Start("Snapshotting FS")
 	if files == nil || opts.SingleSnapshot {
-		snapshot, err = snapshotter.TakeSnapshotFS()
+		snapshot, err = snapshotter.TakeSnapshotFS(util.IgnoreList())
 	} else {
 		// Volumes are very weird. They get snapshotted in the next command.
 		files = append(files, util.Volumes()...)
-		snapshot, err = snapshotter.TakeSnapshot(files, shdDelete)
+		snapshot, err = snapshotter.TakeSnapshot(files, util.IgnoreList(), shdDelete)
 	}
 	timing.DefaultRun.Stop(t)
 	return snapshot, err
@@ -830,7 +830,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	if opts.PreserveContext {
 		if len(kanikoStages) > 1 || opts.PreCleanup || opts.Cleanup {
 			logrus.Info("Creating snapshot of build context")
-			tarball, err = snapshotter.TakeSnapshotFS()
+			tarball, err = snapshotter.TakeSnapshotFS(util.IgnoreList())
 			if err != nil {
 				return nil, err
 			}
