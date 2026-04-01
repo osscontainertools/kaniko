@@ -1,10 +1,10 @@
 FROM busybox
 
 # we can mount a directory from context to a target as specificed
-RUN --mount=type=bind,source=context,target=/tmp/bli/bla/ \
+RUN --mount=type=bind,source=context,rw,target=/tmp/bli/bla/ \
     ls -la /tmp/bli/bla/ \
     && test -f /tmp/bli/bla/foo \
-    && touch -f /tmp/bli/bla/blubb
+    && touch /tmp/bli/bla/blubb
 
 # but after RUN the bind gets unmounted automatically
 RUN ls -la /tmp/ \
