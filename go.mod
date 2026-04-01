@@ -14,7 +14,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.97.3
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.12.0
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589
-	github.com/containerd/platforms v1.0.0-rc.3
+	github.com/containerd/platforms v1.0.0-rc.4
 	github.com/docker/cli v29.3.1+incompatible
 	github.com/docker/docker-credential-helpers v0.9.5
 	github.com/ePirat/docker-credential-gitlabci v1.0.0
