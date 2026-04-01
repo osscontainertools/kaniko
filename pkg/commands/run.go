@@ -60,7 +60,7 @@ func (r *RunCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 
 func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand, fileContext util.FileContext, secrets kConfig.SecretOptions) (reterr error) {
 	ff_secret := kConfig.EnvBoolDefault("FF_KANIKO_RUN_MOUNT_SECRET", true)
-	ff_bind := kConfig.EnvBoolDefault("FF_KANIKO_RUN_MOUNT_BIND", true)
+	ff_bind := kConfig.EnvBool("FF_KANIKO_RUN_MOUNT_BIND")
 	for _, f := range cmdRun.FlagsUsed {
 		if f != "mount" {
 			logrus.Warnf("#969 kaniko does not support '--%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", f)
