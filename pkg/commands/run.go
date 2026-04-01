@@ -419,6 +419,10 @@ func (r *RunCommand) String() string {
 	return r.cmd.String()
 }
 
+func (c *RunCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
+	return runCmdFilesUsedFromContext(config, buildArgs, c.cmd, c.fileContext)
+}
+
 func (r *RunCommand) FilesToSnapshot() []string {
 	return nil
 }
@@ -430,9 +434,10 @@ func (r *RunCommand) ProvidesFilesToSnapshot() bool {
 // CacheCommand returns true since this command should be cached
 func (r *RunCommand) CacheCommand(img v1.Image) DockerCommand {
 	return &CachingRunCommand{
-		img:       img,
-		cmd:       r.cmd,
-		extractFn: util.ExtractFile,
+		img:         img,
+		cmd:         r.cmd,
+		extractFn:   util.ExtractFile,
+		fileContext: r.fileContext,
 	}
 }
 
@@ -455,6 +460,7 @@ type CachingRunCommand struct {
 	extractedFiles []string
 	cmd            *instructions.RunCommand
 	extractFn      util.ExtractFunction
+	fileContext    util.FileContext
 }
 
 func (cr *CachingRunCommand) IsArgsEnvsRequiredInCache() bool {
@@ -493,6 +499,10 @@ func (cr *CachingRunCommand) ExecuteCommand(config *v1.Config, buildArgs *docker
 	return nil
 }
 
+func (cr *CachingRunCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
+	return runCmdFilesUsedFromContext(config, buildArgs, cr.cmd, cr.fileContext)
+}
+
 func (cr *CachingRunCommand) FilesToSnapshot() []string {
 	f := cr.extractedFiles
 	logrus.Debugf("%d files extracted by caching run command", len(f))
@@ -510,6 +520,41 @@ func (cr *CachingRunCommand) String() string {
 
 func (cr *CachingRunCommand) MetadataOnly() bool {
 	return false
+}
+
+func runCmdFilesUsedFromContext(
+	config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd *instructions.RunCommand,
+	fileContext util.FileContext,
+) ([]string, error) {
+	ff_bind := kConfig.EnvBool("FF_KANIKO_RUN_MOUNT_BIND")
+	if !ff_bind {
+		return nil, nil
+	}
+
+	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
+	expand := func(word string) (string, error) {
+		return util.ResolveEnvironmentReplacement(word, replacementEnvs, false)
+	}
+	if err := cmd.Expand(expand); err != nil {
+		return nil, err
+	}
+
+	var files []string
+	for _, m := range instructions.GetMounts(cmd) {
+		if m.Type != instructions.MountTypeBind {
+			continue
+		}
+		if m.From != "" && m.From != "context" {
+			logrus.Warnf("Kaniko does not support cross-stage bind mounts (from=%s) - skipping", m.From)
+			continue
+		}
+		fullPath := filepath.Join(fileContext.Root, m.Source)
+		files = append(files, fullPath)
+	}
+
+	logrus.Debugf("Using files from context: %v", files)
+
+	return files, nil
 }
 
 // todo: this should create the workdir if it doesn't exist, atleast this is what docker does
