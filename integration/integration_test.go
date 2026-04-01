@@ -181,6 +181,7 @@ func buildRequiredImages() error {
 }
 
 func TestRun(t *testing.T) {
+	t.Parallel()
 	for _, dockerfile := range allDockerfiles {
 		t.Run("test_"+dockerfile, func(t *testing.T) {
 			dockerfile := dockerfile
@@ -252,12 +253,12 @@ func KanikoGitRepo(url string, commit string, branch string) string {
 	return fmt.Sprintf("git://%s.git%s", url, ref)
 }
 
-func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch string) {
+func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch string, imageName string) {
 	t.Log("testGitBuildcontextHelper repo", url)
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_test_run_2", integrationPath, dockerfilesPath)
 
 	// Build with docker
-	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_git")
+	dockerImage := GetDockerImage(config.imageRepo, imageName)
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
@@ -272,7 +273,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 	}
 
 	// Build with kaniko
-	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_git")
+	kanikoImage := GetKanikoImage(config.imageRepo, imageName)
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
@@ -297,7 +298,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 func TestGitBuildcontext(t *testing.T) {
 	t.Parallel()
 	branch, _, url := getBranchCommitAndURL()
-	testGitBuildcontextHelper(t, url, "", branch)
+	testGitBuildcontextHelper(t, url, "", branch, "Dockerfile_test_git_branch")
 }
 
 // TestGitBuildcontextNoRef builds without any commit / branch reference
@@ -308,7 +309,7 @@ func TestGitBuildcontextNoRef(t *testing.T) {
 	t.Skip("Docker's behavior is to assume a 'master' branch, which the Kaniko repo doesn't have")
 	t.Parallel()
 	_, _, url := getBranchCommitAndURL()
-	testGitBuildcontextHelper(t, url, "", "")
+	testGitBuildcontextHelper(t, url, "", "", "Dockerfile_test_git_noref")
 }
 
 // TestGitBuildcontextExplicitCommit uses an explicit commit hash instead of named reference
@@ -318,7 +319,7 @@ func TestGitBuildcontextNoRef(t *testing.T) {
 func TestGitBuildcontextExplicitCommit(t *testing.T) {
 	t.Parallel()
 	_, commit, url := getBranchCommitAndURL()
-	testGitBuildcontextHelper(t, url, commit, "")
+	testGitBuildcontextHelper(t, url, commit, "", "Dockerfile_test_git_commit")
 }
 
 func TestGitBuildcontextSubPath(t *testing.T) {
@@ -327,7 +328,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 	dockerfile := "Dockerfile_test_run_2"
 
 	// Build with docker
-	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_git")
+	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_git_subpath")
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
@@ -342,7 +343,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 	}
 
 	// Build with kaniko
-	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_git")
+	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_git_subpath")
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = append(
@@ -593,6 +594,7 @@ func TestBuildWithHTTPError(t *testing.T) {
 }
 
 func TestLayers(t *testing.T) {
+	t.Parallel()
 	// offset is caused because for those three files we use
 	// --single-snapshot option, compressing all layers into one
 	offset := map[string]int{
@@ -680,6 +682,7 @@ func pushMaliciousPathTraversalImage(imageRef string) error {
 }
 
 func TestReplaceFolderWithFileOrLink(t *testing.T) {
+	t.Parallel()
 	dockerfiles := []string{"TestReplaceFolderWithFile", "TestReplaceFolderWithLink"}
 	for _, dockerfile := range dockerfiles {
 		t.Run(dockerfile, func(t *testing.T) {
@@ -713,6 +716,7 @@ func buildImage(t *testing.T, dockerfile string, imageBuilder *DockerFileBuilder
 
 // Build each image with kaniko twice, and then make sure they're exactly the same
 func TestCache(t *testing.T) {
+	t.Parallel()
 	// Build dockerfiles with registry cache
 	for dockerfile := range imageBuilder.TestCacheDockerfiles {
 		t.Run("test_cache_"+dockerfile, func(t *testing.T) {
@@ -739,6 +743,7 @@ func TestCache(t *testing.T) {
 }
 
 func TestWarmer(t *testing.T) {
+	t.Parallel()
 	populateVolumeCache(t.Logf, config.serviceAccount)
 
 	for dockerfile := range imageBuilder.TestWarmerDockerfiles {
@@ -773,6 +778,7 @@ func TestWarmer(t *testing.T) {
 
 // Attempt to warm an image two times : first time should populate the cache, second time should find the image in the cache.
 func TestWarmerTwice(t *testing.T) {
+	t.Parallel()
 	dockerfiles := map[string]bool{
 		"debian:trixie-slim": true,
 		"debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56": true,  // image-index requires remote lookup
@@ -850,6 +856,7 @@ func verifyBuildWith(t *testing.T, cache, dockerfile string) {
 }
 
 func TestRelativePaths(t *testing.T) {
+	t.Parallel()
 	dockerfile := "Dockerfile_relative_copy"
 
 	t.Run("test_relative_"+dockerfile, func(t *testing.T) {
@@ -878,6 +885,7 @@ func TestRelativePaths(t *testing.T) {
 }
 
 func TestExitCodePropagation(t *testing.T) {
+	t.Parallel()
 	currentDir, err := os.Getwd()
 	if err != nil {
 		t.Fatal("Could not get working dir")
