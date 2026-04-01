@@ -33,6 +33,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
+	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 )
 
@@ -257,7 +258,15 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					})
 				}
 
-				err = util.CopyDir2(src, target)
+				err = otiai10Cpy.Copy(src, target, otiai10Cpy.Options{
+					PreserveTimes:     true,
+					PreserveOwner:     true,
+					PermissionControl: otiai10Cpy.PerservePermission,
+					FS:                util.FSys,
+					Skip: func(_ os.FileInfo, srcPath, _ string) (bool, error) {
+						return fileContext.ExcludesFile(srcPath), nil
+					},
+				})
 				if err != nil {
 					return fmt.Errorf("copying bind source %s to %s: %w", src, target, err)
 				}
