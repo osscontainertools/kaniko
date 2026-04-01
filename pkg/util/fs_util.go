@@ -787,16 +787,6 @@ func checkCopyHardlink(fi os.FileInfo, dest string, seen map[uint64]string) (str
 	return "", false
 }
 
-func CopyDir2(src, dest string) error {
-	opts := otiai10Cpy.Options{
-		PreserveTimes:     true,
-		PreserveOwner:     true,
-		PermissionControl: otiai10Cpy.PerservePermission,
-		FS:                FSys,
-	}
-	return otiai10Cpy.Copy(src, dest, opts)
-}
-
 func MoveDir(src, dest string) error {
 	err := os.Rename(src, dest)
 	if err == nil {
@@ -805,7 +795,12 @@ func MoveDir(src, dest string) error {
 
 	if errors.Is(err, syscall.EXDEV) {
 		// Cross-device move: copy + delete
-		err = CopyDir2(src, dest)
+		err = otiai10Cpy.Copy(src, dest, otiai10Cpy.Options{
+			PreserveTimes:     true,
+			PreserveOwner:     true,
+			PermissionControl: otiai10Cpy.PerservePermission,
+			FS:                FSys,
+		})
 		if err != nil {
 			return err
 		}
