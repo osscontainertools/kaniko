@@ -12,6 +12,9 @@ spec:
         workingDir: /workspace
         args: [ "--context=dir:///workspace",
                 "--destination={{.KanikoImage}}"]
+        env:
+        - name: FF_KANIKO_RUN_MOUNT_BIND
+          value: "1"
         volumeMounts:
         - name: context
           mountPath: /workspace
