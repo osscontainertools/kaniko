@@ -773,12 +773,13 @@ func MoveDir(src, dest string) error {
 
 	if errors.Is(err, syscall.EXDEV) {
 		// Cross-device move: copy + delete
-		err = otiai10Cpy.Copy(src, dest, otiai10Cpy.Options{
+		opts := otiai10Cpy.Options{
 			PreserveTimes:     true,
 			PreserveOwner:     true,
 			PermissionControl: otiai10Cpy.PerservePermission,
 			FS:                FSys,
-		})
+		}
+		err = otiai10Cpy.Copy(src, dest, opts)
 		if err != nil {
 			return err
 		}
