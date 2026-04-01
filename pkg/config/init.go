@@ -145,11 +145,9 @@ func Cleanup() error {
 	if err != nil {
 		return err
 	}
-	_, err = os.Stat(KanikoSwapDir)
-	if err == nil {
-		return fmt.Errorf("expected directory %q to not exist, but it does", KanikoSwapDir)
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("failed to stat %q: %w", KanikoSwapDir, err)
+	err = safeRemove(KanikoSwapDir)
+	if err != nil {
+		return err
 	}
 	return nil
 }

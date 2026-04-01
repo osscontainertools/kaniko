@@ -231,12 +231,18 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				targetExisted := err == nil
 
 				if targetExisted {
-					err = util.MoveDir(target, kConfig.KanikoSwapDir)
+					h := sha256.Sum256([]byte(target))
+					swapPath := filepath.Join(kConfig.KanikoSwapDir, "bind-"+hex.EncodeToString(h[:]))
+					err = os.MkdirAll(kConfig.KanikoSwapDir, 0o755)
+					if err != nil {
+						return fmt.Errorf("creating swap dir: %w", err)
+					}
+					err = util.MoveDir(target, swapPath)
 					if err != nil {
 						return fmt.Errorf("saving bind target: %w", err)
 					}
 					defer assignIfNil(&reterr, func() error {
-						return util.MoveDir(kConfig.KanikoSwapDir, target)
+						return util.MoveDir(swapPath, target)
 					})
 				}
 
@@ -509,8 +515,12 @@ func swapDir(pathA, pathB string) (err error) {
 	if pathA == "" || pathB == "" {
 		return errors.New("paths must not be empty")
 	}
-	tmp := kConfig.KanikoSwapDir
+	tmp := filepath.Join(kConfig.KanikoSwapDir, "tmp")
 
+	err = os.MkdirAll(kConfig.KanikoSwapDir, 0o755)
+	if err != nil {
+		return fmt.Errorf("failed to create swap dir: %w", err)
+	}
 	_, err = os.Stat(tmp)
 	if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("expected directory %q to not exist (1), but it does", tmp)
