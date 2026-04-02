@@ -194,20 +194,45 @@ func TestRun(t *testing.T) {
 			if _, ok := imageBuilder.TestWarmerDockerfiles[dockerfile]; ok {
 				t.SkipNow()
 			}
+			if _, ok := expectErr[dockerfile]; ok {
+				t.SkipNow()
+			}
 
 			buildImage(t, dockerfile, imageBuilder)
 
-			if _, ok := expectErr[dockerfile]; !ok {
-				dockerImage := GetDockerImage(config.imageRepo, dockerfile)
-				kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
-				containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
-			}
+			dockerImage := GetDockerImage(config.imageRepo, dockerfile)
+			kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
+
+			containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 		})
 	}
 
 	err := logBenchmarks("benchmark")
 	if err != nil {
 		t.Logf("Failed to create benchmark file: %v", err)
+	}
+}
+
+func TestExpectError(t *testing.T) {
+	t.Parallel()
+	for dockerfile, expectedExitCode := range expectErr {
+		t.Run("test_"+dockerfile, func(t *testing.T) {
+			dockerfile := dockerfile
+			expectedExitCode := expectedExitCode
+			t.Parallel()
+
+			err := imageBuilder.BuildKanikoImage(t, config, dockerfilesPath, dockerfile)
+
+			var exitErr *exec.ExitError
+			if errors.As(err, &exitErr) && exitErr.ExitCode() == expectedExitCode {
+				return
+			}
+			if err == nil {
+				t.Errorf("expected exit code %d but command succeeded", expectedExitCode)
+			} else {
+				t.Errorf("expected exit code %d but got: %v", expectedExitCode, err)
+			}
+		})
 	}
 }
 
