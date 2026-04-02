@@ -6,11 +6,13 @@
 * selinux v1.12.0: GHSA-cgrx-mc8f-2prm
 * remove binary artifacts: by @tlk in https://github.com/mzihlmann/kaniko/pull/54
 * golang.org/x/crypto 0.44.0: CVE-2025-47914 CVE-2025-58181
-* github.com/go-git/go-git/v5 5.16.0: CVE-2026-25934
+* github.com/go-git/go-git/v5 5.16.0: CVE-2026-25934 CVE-2026-34165 CVE-2026-33762
 * go.opentelemetry.io/otel/sdk 1.39.0: CVE-2026-24051
 * github.com/cloudflare/circl 1.6.1: CVE-2026-1229
 * google.golang.org/grpc v1.79.1: CVE-2026-33186
 * prevent hijacking via `ONBUILD COPY`: https://github.com/osscontainertools/kaniko/pull/587
+* prevent hijacking via `COPY --from=<image>`: https://github.com/osscontainertools/kaniko/pull/586
+* github.com/moby/buildkit 0.22.0: CVE-2026-33747 CVE-2026-33748
 
 ### Bugfixes
 * cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3
@@ -47,6 +49,8 @@
 * Skip chown/chmod for paths in ignore list: by @mesaglio in https://github.com/osscontainertools/kaniko/pull/435
 * resolve remote `ONBUILD` instructions: https://github.com/osscontainertools/kaniko/pull/354
 * `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=false` add buildkit compatibility mode: https://github.com/osscontainertools/kaniko/pull/510
+* activate dockerfile linter: https://github.com/osscontainertools/kaniko/pull/590
+* `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS=false` stop propagating base image annotations: https://github.com/osscontainertools/kaniko/pull/566 https://github.com/osscontainertools/kaniko/pull/605
 
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
