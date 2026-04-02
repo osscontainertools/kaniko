@@ -1,3 +1,40 @@
+# v1.27.2 Release 2026-04-02
+
+## What's Changed
+### Security
+* github.com/moby/buildkit 0.28.0: CVE-2026-33747 CVE-2026-33748
+* github.com/go-git/go-git/v5 5.17.0: CVE-2026-34165 CVE-2026-33762
+* prevent hijacking via `COPY --from=<image>`: https://github.com/osscontainertools/kaniko/pull/586
+
+### Standardization
+* activate dockerfile linter: https://github.com/osscontainertools/kaniko/pull/590
+* `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS=false` stop propagating base image annotations: https://github.com/osscontainertools/kaniko/pull/566 https://github.com/osscontainertools/kaniko/pull/605
+
+### Maintenance
+* build(deps): bump github.com/minio/highwayhash from 1.0.3 to 1.0.4 in the gomod group: https://github.com/osscontainertools/kaniko/pull/592
+* build(deps): bump github.com/containerd/platforms from 1.0.0-rc.2 to 1.0.0-rc.4: https://github.com/osscontainertools/kaniko/pull/596 https://github.com/osscontainertools/kaniko/pull/614
+* build(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager from 0.1.10 to 0.1.13: https://github.com/osscontainertools/kaniko/pull/597 https://github.com/osscontainertools/kaniko/pull/604 https://github.com/osscontainertools/kaniko/pull/613
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.97.1 to 1.98.0: https://github.com/osscontainertools/kaniko/pull/597 https://github.com/osscontainertools/kaniko/pull/604 https://github.com/osscontainertools/kaniko/pull/613
+* build(deps): bump github.com/moby/patternmatcher from 0.6.0 to 0.6.1 in the gomod group: https://github.com/osscontainertools/kaniko/pull/598
+* build(deps): bump github.com/moby/buildkit from 0.28.0 to 0.29.0 in the gomod group: https://github.com/osscontainertools/kaniko/pull/600 https://github.com/osscontainertools/kaniko/pull/611
+* build(deps): bump sigstore/cosign-installer from 4.1.0 to 4.1.1 in the actions group: https://github.com/osscontainertools/kaniko/pull/601
+* build(deps): bump github.com/docker/cli from 29.3.0+incompatible to 29.3.1+incompatible in the gomod group: https://github.com/osscontainertools/kaniko/pull/602
+* build(deps): bump google.golang.org/api from 0.272.0 to 0.273.1: https://github.com/osscontainertools/kaniko/pull/603 https://github.com/osscontainertools/kaniko/pull/613
+* build(deps): bump github.com/aws/aws-sdk-go-v2 from 1.41.4 to 1.41.5: https://github.com/osscontainertools/kaniko/pull/604
+* build(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.32.12 to 1.32.13: https://github.com/osscontainertools/kaniko/pull/604
+* build(deps): bump github.com/go-git/go-git/v5 from 5.17.0 to 5.17.2 in the gomod group: https://github.com/osscontainertools/kaniko/pull/606 https://github.com/osscontainertools/kaniko/pull/610
+* build(deps): bump actions/setup-go from 6.3.0 to 6.4.0 in the actions group: https://github.com/osscontainertools/kaniko/pull/607
+* build(deps): bump step-security/harden-runner from 2.16.0 to 2.16.1 in the actions group: https://github.com/osscontainertools/kaniko/pull/609
+
+### Fork Related
+* normalize images in integration-tests: https://github.com/osscontainertools/kaniko/pull/570
+* docs: https://github.com/osscontainertools/kaniko/pull/589
+
+### Refactorings
+* linter: perfsprint: https://github.com/osscontainertools/kaniko/pull/551
+* linter: bodyclose: https://github.com/osscontainertools/kaniko/pull/594
+
+
 # v1.27.1 Release 2026-03-19
 
 ## What's Changed
