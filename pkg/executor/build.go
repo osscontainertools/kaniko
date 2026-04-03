@@ -930,11 +930,16 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			continue
 		}
 		stage := sb.stage
-		sourceImage, err := image_util.RetrieveSourceImage(stage, opts)
+
+		_sourceImage, err := image_util.RetrieveSourceImage(stage, opts)
 		if err != nil {
 			return nil, err
 		}
-		sb.image = sourceImage
+
+		if config.EnvBool("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS") {
+			_sourceImage = withoutAnnotations(_sourceImage)
+		}
+		sb.image = _sourceImage
 
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
 			stage.BaseName, stage.Index, stage.BaseImageIndex)
@@ -972,7 +977,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 		reviewConfig(stage, &sb.cf.Config)
 
-		sourceImage, err = mutate.Config(sb.image, sb.cf.Config)
+		sourceImage, err := mutate.Config(sb.image, sb.cf.Config)
 		if err != nil {
 			return nil, err
 		}
