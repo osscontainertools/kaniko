@@ -299,19 +299,17 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 		if command == nil {
 			continue
 		}
-		files, err := command.FilesUsedFromContext(&cfg, s.args)
-		if err != nil {
-			if hasContext {
-				return fmt.Errorf("failed to get files used from context: %w", err)
-			} else {
-				break
-			}
-		}
-
 		prevCompositeKey := compositeKey.Clone()
-		compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, cfg.Env, fileContext, nil)
-		if err != nil {
-			return err
+		if hasContext {
+			files, err := command.FilesUsedFromContext(&cfg, s.args)
+			if err != nil {
+				return fmt.Errorf("failed to get files used from context: %w", err)
+			}
+
+			compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, cfg.Env, fileContext, nil)
+			if err != nil {
+				return err
+			}
 		}
 
 		// mz334: assert the inferred key pointer resolves to the same content key.
@@ -1082,7 +1080,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			}
 		}
 
-		crossStageDeps := len(crossStageDependencies[sb.stage.Index]) > 0
+		crossStageDeps := len(crossStageDependencies[stage.Index]) > 0
 		err = sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps, stageFinalCacheKeys)
 		if err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
@@ -1115,8 +1113,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return nil, err
 		}
 
-		stageFinalCacheKeys[sb.stage.Index] = finalCacheKey
-		logrus.Debugf("Mapping stage idx %v to cachekey %v", sb.stage.Index, finalCacheKey)
+		stageFinalCacheKeys[stage.Index] = finalCacheKey
+		logrus.Debugf("Mapping stage idx %v to cachekey %v", stage.Index, finalCacheKey)
 
 		if stage.Push {
 			sourceImage, err = mutate.CreatedAt(sourceImage, v1.Time{Time: time.Now()})

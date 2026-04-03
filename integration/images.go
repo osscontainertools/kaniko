@@ -89,7 +89,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_mz473":                {"KANIKO_DIR=/kaniko2"},
 	"Dockerfile_test_issue_mz511":                {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_mz529":                {"FF_KANIKO_SQUASH_STAGES=0"},
-	"Dockerfile_test_issue_mz334":                {"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=1"},
+	"Dockerfile_test_issue_mz334_1":              {"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=1"},
 }
 
 var KanikoEnv = []string{
@@ -165,7 +165,8 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_maintainer":             {"--single-snapshot"},
 	"Dockerfile_test_target":                 {"--target=second"},
 	"Dockerfile_test_snapshotter_ignorelist": {"--use-new-run=true", "-v=trace"},
-	"Dockerfile_test_issue_mz334":            {"--cache-copy-layers=true"},
+	"Dockerfile_test_issue_mz334_1":          {"--cache-copy-layers=true"},
+	"Dockerfile_test_issue_mz334_2":          {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache":                  {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache_oci":              {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache_install":          {"--cache-copy-layers=true"},
@@ -246,7 +247,7 @@ var outputChecks = map[string]func(string, []byte) error{
 }
 
 var cacheHitOutputChecks = map[string]func(string, []byte) error{
-	"Dockerfile_test_issue_mz334": func(_ string, out []byte) error {
+	"Dockerfile_test_issue_mz334_1": func(_ string, out []byte) error {
 		for _, cmd := range []string{
 			"COPY --from=first /blubb /blubb",
 			"COPY --from=third /bli /bli",
@@ -393,7 +394,8 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_add":     {},
 		"Dockerfile_test_issue_empty":   {},
 		"Dockerfile_test_issue_mz637":   {},
-		"Dockerfile_test_issue_mz334":   {},
+		"Dockerfile_test_issue_mz334_1": {},
+		"Dockerfile_test_issue_mz334_2": {},
 	}
 	d.TestOCICacheDockerfiles = map[string]struct{}{
 		"Dockerfile_test_cache_oci":         {},
