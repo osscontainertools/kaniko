@@ -383,10 +383,27 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			return fmt.Errorf("failed to get files used from context: %w", err)
 		}
 
+		var contentCacheKey string
 		if opts.Cache {
+			prevCompositeKey := compositeKey
 			compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, s.cf.Config.Env, fileContext, stageFinalCacheKeys)
 			if err != nil {
 				return err
+			}
+			// mz334: If the shortcut was used, pre-compute the content-addressed key so
+			// we can push under both keys below.
+			if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
+				_, ok := crossStageCacheKey(command, stageFinalCacheKeys)
+				if ok {
+					contentKey, err := populateCompositeKey(command, files, prevCompositeKey, s.args, s.cf.Config.Env, fileContext, nil)
+					if err != nil {
+						return err
+					}
+					contentCacheKey, err = contentKey.Hash()
+					if err != nil {
+						return err
+					}
+				}
 			}
 		}
 
@@ -453,7 +470,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				// Push layer to cache (in parallel) now along with new config file
 				if command.ShouldCacheOutput() && !opts.NoPushCache {
 					cacheGroup.Go(func() error {
-						return pushCache(opts, ck, tarPath, command.String())
+						return pushCache(opts, ck, contentCacheKey, tarPath, command.String())
 					})
 				}
 			}

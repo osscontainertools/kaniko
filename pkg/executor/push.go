@@ -356,7 +356,7 @@ func writeImageOutputs(image v1.Image, destRefs []name.Tag) error {
 
 // pushLayerToCache pushes layer (tagged with cacheKey) to opts.CacheRepo
 // if opts.CacheRepo doesn't exist, infer the cache from the given destination
-func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath string, createdBy string) error {
+func pushLayerToCache(opts *config.KanikoOptions, cacheKey, altCacheKey string, tarPath string, createdBy string) error {
 	var layerOpts []tarball.LayerOption
 	if opts.CompressedCaching {
 		layerOpts = append(layerOpts, tarball.WithCompressedCaching)
@@ -379,11 +379,22 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 		return err
 	}
 
-	cache, err := cache.Destination(opts, cacheKey)
+	dest, err := cache.Destination(opts, cacheKey)
 	if err != nil {
 		return fmt.Errorf("getting cache destination: %w", err)
 	}
-	logrus.Infof("Pushing layer %s to cache now", cache)
+	if altCacheKey != "" && isOCILayout(dest) {
+		return fmt.Errorf("alt cache key is not supported for OCI layout destinations")
+	}
+	destinations := []string{dest}
+	if altCacheKey != "" {
+		altDest, err := cache.Destination(opts, altCacheKey)
+		if err != nil {
+			return fmt.Errorf("getting alt cache destination: %w", err)
+		}
+		destinations = append(destinations, altDest)
+	}
+	logrus.Infof("Pushing layer to cache: %v", destinations)
 	empty := empty.Image
 	empty, err = mutate.CreatedAt(empty, v1.Time{Time: time.Now()})
 	if err != nil {
@@ -405,11 +416,11 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 	cacheOpts := *opts
 	cacheOpts.TarPath = ""              // tarPath doesn't make sense for Docker layers
 	cacheOpts.NoPush = opts.NoPushCache // we do not want to push cache if --no-push-cache is set.
-	cacheOpts.Destinations = []string{cache}
+	cacheOpts.Destinations = destinations
 	cacheOpts.InsecureRegistries = opts.InsecureRegistries
 	cacheOpts.SkipTLSVerifyRegistries = opts.SkipTLSVerifyRegistries
-	if isOCILayout(cache) {
-		cacheOpts.OCILayoutPath = strings.TrimPrefix(cache, "oci:")
+	if isOCILayout(dest) {
+		cacheOpts.OCILayoutPath = strings.TrimPrefix(dest, "oci:")
 		cacheOpts.NoPush = true
 	}
 	return DoPush(empty, &cacheOpts)
