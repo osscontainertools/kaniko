@@ -307,6 +307,12 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 			}
 
 			if cacheCmd := command.CacheCommand(img); cacheCmd != nil {
+				// mz334: add a log s.t. it becomes integration test testable
+				if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") {
+					if _, ok := crossStageCacheKey(command, stageFinalCacheKeys); ok {
+						logrus.Infof("Cache hit via inferred cross-stage key for cmd: %s", command.String())
+					}
+				}
 				logrus.Infof("Using caching version of cmd: %s", command.String())
 				s.cmds[i] = cacheCmd
 			}
