@@ -206,7 +206,7 @@ func isOCILayout(path string) bool {
 	return strings.HasPrefix(path, "oci:")
 }
 
-func populateCompositeKey(command commands.DockerCommand, files []string, compositeKey CompositeCache, args *dockerfile.BuildArgs, env []string, fileContext util.FileContext) (CompositeCache, error) {
+func populateCompositeKey(command commands.DockerCommand, files []string, compositeKey CompositeCache, args *dockerfile.BuildArgs, env []string, fileContext util.FileContext, stageDiffIDs map[int]string) (CompositeCache, error) {
 	// First replace all the environment variables or args in the command
 	replacementEnvs := args.ReplacementEnvs(env)
 	// The sort order of `replacementEnvs` is basically undefined, sort it
@@ -227,6 +227,15 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	// Add the next command to the cache key.
 	compositeKey.AddKey(command.String())
 
+	if copyCmd, ok := commands.CastAbstractCopyCommand(command); ok && copyCmd.From() != "" {
+		if fromIdx, err := strconv.Atoi(copyCmd.From()); err == nil {
+			if cacheKey, ok := stageDiffIDs[fromIdx]; ok {
+				compositeKey.AddKey(cacheKey)
+				return compositeKey, nil
+			}
+		}
+	}
+
 	for _, f := range files {
 		if err := compositeKey.AddPath(f, fileContext); err != nil {
 			return compositeKey, err
@@ -235,9 +244,9 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	return compositeKey, nil
 }
 
-func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache) (string, error) {
+func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, stageDiffIDs map[int]string) (string, bool, error) {
 	if !opts.Cache {
-		return "", nil
+		return "", false, nil
 	}
 	buildArgs := s.args.Clone()
 	// Restore build args back to their original values
@@ -257,18 +266,18 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 		}
 		files, err := command.FilesUsedFromContext(&cfg, s.args)
 		if err != nil {
-			return "", fmt.Errorf("failed to get files used from context: %w", err)
+			return "", false, fmt.Errorf("failed to get files used from context: %w", err)
 		}
 
-		compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, cfg.Env, fileContext)
+		compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, cfg.Env, fileContext, stageDiffIDs)
 		if err != nil {
-			return "", err
+			return "", false, err
 		}
 
 		logrus.Debugf("Optimize: composite key for command %v %v", command.String(), compositeKey)
 		ck, err := compositeKey.Hash()
 		if err != nil {
-			return "", fmt.Errorf("failed to hash composite key: %w", err)
+			return "", false, fmt.Errorf("failed to hash composite key: %w", err)
 		}
 
 		logrus.Debugf("Optimize: cache key for command %v %v", command.String(), ck)
@@ -293,14 +302,14 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 		// Mutate the config for any commands that require it.
 		if command.MetadataOnly() {
 			if err := command.ExecuteCommand(&cfg, s.args); err != nil {
-				return "", err
+				return "", false, err
 			}
 		}
 	}
-	return finalCacheKey, nil
+	return finalCacheKey, !stopCache, nil
 }
 
-func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool) error {
+func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool, stageDiffIDs map[int]string) error {
 	// Unpack file system to root if we need to.
 	shouldUnpack := false
 	for _, cmd := range s.cmds {
@@ -362,7 +371,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		}
 
 		if opts.Cache {
-			compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, s.cf.Config.Env, fileContext)
+			compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, s.cf.Config.Env, fileContext, stageDiffIDs)
 			if err != nil {
 				return err
 			}
@@ -777,6 +786,7 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	t := timing.Start("Total Build Time")
 	digestToCacheKey := make(map[string]string)
+	stageDiffIDs := make(map[int]string)
 
 	stages, metaArgs, err := dockerfile.ParseStages(opts)
 	if err != nil {
@@ -892,14 +902,15 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 
 		// Apply optimizations to the instructions.
-		finalCacheKey, err := sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts))
+		layerCache := newLayerCache(opts)
+		finalCacheKey, fullyCached, err := sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, layerCache, stageDiffIDs)
 		if err != nil {
 			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
 		}
 
 		stageArgs[stage.Index] = sb.args
 		crossStageDeps := len(crossStageDependencies[stage.Index]) > 0
-		err = sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps)
+		err = sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps, stageDiffIDs)
 		if err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
 		}
@@ -939,6 +950,10 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 		digestToCacheKey[d.String()] = finalCacheKey
 		logrus.Debugf("Mapping digest %v to cachekey %v", d.String(), finalCacheKey)
+
+		if fullyCached && opts.Cache {
+			stageDiffIDs[stage.Index] = finalCacheKey
+		}
 
 		if stage.Push {
 			sourceImage, err = mutate.CreatedAt(sourceImage, v1.Time{Time: time.Now()})
