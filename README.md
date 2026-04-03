@@ -130,6 +130,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS`](#flag-ff_kaniko_copy_chmod_on_implicit_dirs)
       - [Flag `FF_KANIKO_CLEAN_KANIKO_DIR`](#flag-ff_kaniko_clean_kaniko_dir)
       - [Flag `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS`](#flag-ff_kaniko_no_propagate_annotations)
+      - [Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`](#flag-ff_kaniko_infer_cross_stage_cache_key)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1135,6 +1136,12 @@ Defaults to `true`.
 When building from a base image that carries OCI manifest annotations (e.g. `org.opencontainers.image.url`, `org.opencontainers.image.version`), kaniko by default propagates those annotations into the output image manifest. This differs from Docker/BuildKit behaviour, which does not carry base image annotations forward into derived images.
 Set this flag to `true` to strip base image manifest annotations from the output, matching Docker behaviour. Defaults to `false`.
 Becomes default in `v1.28.0`.
+
+#### Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`
+
+When a multi-stage build uses `COPY --from=<stage>` and the source stage has a 100% cache hit, kaniko still unpacks the source stage's filesystem in order to hash the copied files and compute the downstream cache key, as the cache key is content addressed. But if a source stage is fully cached, its `finalCacheKey` can be used as a stable proxy for the file contents, so the downstream cache key can be computed without accessing the filesystem at all. This is a preparatory optimisation for a future change that will avoid unpacking the source stage's filesystem entirely when all downstream stages are also fully cached.
+Set this flag to `true` to add additional cache entries for the shortcuts, currently they do not yet allow optimization.
+Requires `--cache-copy-layers`. Defaults to `false`.
 
 ### Debug Image
 
