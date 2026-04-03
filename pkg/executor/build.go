@@ -787,7 +787,7 @@ func RenderStages(stages []*stageBuilder, opts *config.KanikoOptions, fileContex
 // DoBuild executes building the Dockerfile
 func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	t := timing.Start("Total Build Time")
-	digestToCacheKey := make(map[string]string)
+	stageFinalCacheKeys := make(map[int]string)
 
 	stages, metaArgs, err := dockerfile.ParseStages(opts)
 	if err != nil {
@@ -823,7 +823,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 	images := make([]v1.Image, lastStage.Index+1)
 	builderStages := make([]*stageBuilder, lastStage.Index+1)
-	baseStageToCacheKey := make([]string, lastStage.Index+1)
 	for _, stage := range kanikoStages {
 		var sourceImage v1.Image
 		if stage.BaseImageStoredLocally {
@@ -849,7 +848,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 		cacheKey := sb.baseImageDigest
 		if sb.stage.BaseImageStoredLocally {
-			key := baseStageToCacheKey[sb.stage.BaseImageIndex]
+			key := stageFinalCacheKeys[sb.stage.BaseImageIndex]
 			if key == "" {
 				continue
 			}
@@ -867,7 +866,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if len(sb.cacheKeys) > 0 {
 			finalCacheKey = sb.cacheKeys[len(sb.cacheKeys)-1]
 		}
-		baseStageToCacheKey[sb.stage.Index] = finalCacheKey
+		stageFinalCacheKeys[sb.stage.Index] = finalCacheKey
 	}
 
 	if opts.Dryrun {
@@ -940,9 +939,12 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 		// Set the initial cache key to be the base image digest
 		var compositeKey *CompositeCache
-		if cacheKey, ok := digestToCacheKey[sb.baseImageDigest]; ok {
-			compositeKey = NewCompositeCache(cacheKey)
-		} else {
+		if sb.stage.BaseImageStoredLocally {
+			if cacheKey, ok := stageFinalCacheKeys[sb.stage.BaseImageIndex]; ok {
+				compositeKey = NewCompositeCache(cacheKey)
+			}
+		}
+		if compositeKey == nil {
 			compositeKey = NewCompositeCache(sb.baseImageDigest)
 		}
 
@@ -999,8 +1001,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 		logrus.Debugf("Mapping stage idx %v to digest %v", sb.stage.Index, d.String())
 
-		digestToCacheKey[d.String()] = finalCacheKey
-		logrus.Debugf("Mapping digest %v to cachekey %v", d.String(), finalCacheKey)
+		stageFinalCacheKeys[sb.stage.Index] = finalCacheKey
+		logrus.Debugf("Mapping stage idx %v to cachekey %v", sb.stage.Index, finalCacheKey)
 
 		if sb.stage.Push {
 			sourceImage, err = mutate.CreatedAt(sourceImage, v1.Time{Time: time.Now()})
