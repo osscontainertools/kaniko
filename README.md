@@ -134,6 +134,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_VOLUME_SKIP_MKDIR`](#flag-ff_kaniko_volume_skip_mkdir)
       - [Flag `FF_KANIKO_PRESERVE_HARDLINKS`](#flag-ff_kaniko_preserve_hardlinks)
       - [Flag `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE`](#flag-ff_kaniko_buildkit_arg_env_precedence)
+      - [Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`](#flag-ff_kaniko_infer_cross_stage_cache_key)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1175,6 +1176,13 @@ RUN echo $HELLO   # prints the --build-arg value, not "upstream"
 ```
 
 Set this flag to `true` to enable BuildKit-compatible ARG/ENV precedence. Defaults to `false`.
+Becomes default in `v1.28.0`.
+
+#### Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`
+
+When a multi-stage build uses `COPY --from=<stage>` and the source stage has a 100% cache hit, kaniko still unpacks the source stage's filesystem in order to hash the copied files and compute the downstream cache key, as the cache key is content addressed. But if a source stage is fully cached, its `finalCacheKey` can be used as a stable proxy for the file contents, so the downstream cache key can be computed without accessing the filesystem at all. This is a preparatory optimisation for a future change that will avoid unpacking the source stage's filesystem entirely when all downstream stages are also fully cached.
+Set this flag to `true` to add additional cache entries for the shortcuts, currently they do not yet allow optimization.
+Requires `--cache-copy-layers`. Defaults to `false`.
 Becomes default in `v1.28.0`.
 
 ### Debug Image

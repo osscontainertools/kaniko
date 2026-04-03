@@ -206,7 +206,20 @@ func isOCILayout(path string) bool {
 	return strings.HasPrefix(path, "oci:")
 }
 
-func populateCompositeKey(command commands.DockerCommand, files []string, compositeKey CompositeCache, args *dockerfile.BuildArgs, env []string, fileContext util.FileContext, stageDiffIDs map[int]string) (CompositeCache, error) {
+func crossStageCacheKey(command commands.DockerCommand, stageFinalCacheKeys map[int]string) (string, bool) {
+	copyCmd, ok := commands.CastAbstractCopyCommand(command)
+	if !ok || copyCmd.From() == "" {
+		return "", false
+	}
+	fromIdx, err := strconv.Atoi(copyCmd.From())
+	if err != nil {
+		return "", false
+	}
+	cacheKey, ok := stageFinalCacheKeys[fromIdx]
+	return cacheKey, ok
+}
+
+func populateCompositeKey(command commands.DockerCommand, files []string, compositeKey CompositeCache, args *dockerfile.BuildArgs, env []string, fileContext util.FileContext, stageFinalCacheKeys map[int]string) (CompositeCache, error) {
 	// First replace all the environment variables or args in the command
 	replacementEnvs := args.ReplacementEnvs(env)
 	// The sort order of `replacementEnvs` is basically undefined, sort it
@@ -227,12 +240,12 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	// Add the next command to the cache key.
 	compositeKey.AddKey(command.String())
 
-	if copyCmd, ok := commands.CastAbstractCopyCommand(command); ok && copyCmd.From() != "" {
-		if fromIdx, err := strconv.Atoi(copyCmd.From()); err == nil {
-			if cacheKey, ok := stageDiffIDs[fromIdx]; ok {
-				compositeKey.AddKey(cacheKey)
-				return compositeKey, nil
-			}
+	// mz334: COPY --from shortcut — use the source stage's cache key instead of hashing files.
+	if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") {
+		cacheKey, ok := crossStageCacheKey(command, stageFinalCacheKeys)
+		if ok {
+			compositeKey.AddKey(cacheKey)
+			return compositeKey, nil
 		}
 	}
 
@@ -244,7 +257,7 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	return compositeKey, nil
 }
 
-func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, stageDiffIDs map[int]string) (string, bool, error) {
+func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, stageFinalCacheKeys map[int]string) (string, bool, error) {
 	if !opts.Cache {
 		return "", false, nil
 	}
@@ -269,7 +282,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 			return "", false, fmt.Errorf("failed to get files used from context: %w", err)
 		}
 
-		compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, cfg.Env, fileContext, stageDiffIDs)
+		compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, cfg.Env, fileContext, stageFinalCacheKeys)
 		if err != nil {
 			return "", false, err
 		}
@@ -309,7 +322,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 	return finalCacheKey, !stopCache, nil
 }
 
-func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool, stageDiffIDs map[int]string) error {
+func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool, stageFinalCacheKeys map[int]string) error {
 	// Unpack file system to root if we need to.
 	shouldUnpack := false
 	for _, cmd := range s.cmds {
@@ -371,7 +384,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		}
 
 		if opts.Cache {
-			compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, s.cf.Config.Env, fileContext, stageDiffIDs)
+			compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, s.cf.Config.Env, fileContext, stageFinalCacheKeys)
 			if err != nil {
 				return err
 			}
@@ -786,7 +799,10 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	t := timing.Start("Total Build Time")
 	digestToCacheKey := make(map[string]string)
-	stageDiffIDs := make(map[int]string)
+
+	// mz334: when FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY is set, a fully-cached
+	// stage's finalCacheKey is used as a proxy for COPY --from= file hashing.
+	stageFinalCacheKeys := make(map[int]string)
 
 	stages, metaArgs, err := dockerfile.ParseStages(opts)
 	if err != nil {
@@ -902,15 +918,14 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 
 		// Apply optimizations to the instructions.
-		layerCache := newLayerCache(opts)
-		finalCacheKey, fullyCached, err := sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, layerCache, stageDiffIDs)
+		finalCacheKey, fullyCached, err := sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys)
 		if err != nil {
 			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
 		}
 
 		stageArgs[stage.Index] = sb.args
 		crossStageDeps := len(crossStageDependencies[stage.Index]) > 0
-		err = sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps, stageDiffIDs)
+		err = sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps, stageFinalCacheKeys)
 		if err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
 		}
@@ -951,8 +966,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		digestToCacheKey[d.String()] = finalCacheKey
 		logrus.Debugf("Mapping digest %v to cachekey %v", d.String(), finalCacheKey)
 
-		if fullyCached && opts.Cache {
-			stageDiffIDs[stage.Index] = finalCacheKey
+		if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && fullyCached && opts.Cache && opts.CacheCopyLayers {
+			stageFinalCacheKeys[stage.Index] = finalCacheKey
 		}
 
 		if stage.Push {
