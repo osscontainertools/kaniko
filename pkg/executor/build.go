@@ -927,7 +927,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 	images := make([]v1.Image, lastStage.Index+1)
 	builderStages := make([]*stageBuilder, lastStage.Index+1)
-	baseStageToCacheKey := make([]string, lastStage.Index+1)
 	for _, stage := range kanikoStages {
 		var sourceImage v1.Image
 		if stage.BaseImageStoredLocally {
@@ -953,7 +952,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 		cacheKey := sb.baseImageDigest
 		if sb.stage.BaseImageStoredLocally {
-			key := baseStageToCacheKey[sb.stage.BaseImageIndex]
+			key := stageFinalCacheKeys[sb.stage.BaseImageIndex]
 			if key == "" {
 				continue
 			}
@@ -971,7 +970,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if len(sb.cacheKeys) > 0 {
 			finalCacheKey = sb.cacheKeys[len(sb.cacheKeys)-1]
 		}
-		baseStageToCacheKey[sb.stage.Index] = finalCacheKey
+		stageFinalCacheKeys[sb.stage.Index] = finalCacheKey
 	}
 
 	if opts.Dryrun {
