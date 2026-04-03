@@ -1467,11 +1467,8 @@ RUN foobar
 			}
 			originalPushCache := pushCache
 			defer func() { pushCache = originalPushCache }()
-			pushCache = func(_ *config.KanikoOptions, cacheKey, altCacheKey, _, _ string) error {
+			pushCache = func(_ *config.KanikoOptions, cacheKey, _, _ string) error {
 				keys = append(keys, cacheKey)
-				if altCacheKey != "" {
-					keys = append(keys, altCacheKey)
-				}
 				return nil
 			}
 			sb.cmds = tc.commands
