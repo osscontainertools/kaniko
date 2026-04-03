@@ -59,6 +59,7 @@ var (
 	getFSFromImage               = util.GetFSFromImage
 	mkdirPermissions os.FileMode = 0o755
 	pushCache                    = pushLayerToCache
+	pushPointer                  = pushCachePointer
 )
 
 type snapShotter interface {
@@ -264,6 +265,24 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	return compositeKey, nil
 }
 
+func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (*CompositeCache, error) {
+	inferredCk, err := inferredKey.Hash()
+	if err != nil {
+		return nil, err
+	}
+	ptrImg, err := layerCache.RetrieveLayer(inferredCk)
+	if err != nil {
+		logrus.Debugf("Failed to retrieve pointer: %s", err)
+		logrus.Debugf("Key missing was: %s", inferredKey.Key())
+		return nil, nil
+	}
+	rawKey, ok := resolveCachePointer(ptrImg)
+	if !ok {
+		return nil, fmt.Errorf("failed resolving cache pointer")
+	}
+	return NewCompositeCache(rawKey), nil
+}
+
 func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, stageFinalCacheKeys map[int]string) (string, error) {
 	if !opts.Cache {
 		return "", nil
@@ -295,6 +314,32 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 			return "", err
 		}
 
+		// mz334: assert the inferred key pointer resolves to the same content key.
+		if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
+			inferredKey, err := populateCompositeKey(command, nil, prevCompositeKey, s.args, cfg.Env, fileContext, stageFinalCacheKeys)
+			if err == nil {
+				contentKey, err := redirectCacheKey(inferredKey, layerCache)
+				if err != nil {
+					return "", err
+				}
+				if contentKey != nil {
+					ick, err := contentKey.Hash()
+					if err != nil {
+						return "", err
+					}
+					ck, err := compositeKey.Hash()
+					if err != nil {
+						return "", err
+					}
+					if ick != ck {
+						logrus.Panicf("Unreachable Code: pointer inferred content key %v does not match the computed content key %v", ick, ck)
+					}
+					// mz334: log when the inferred key produced the hit (integration test observability only).
+					logrus.Infof("Cache hit via inferred cross-stage key for cmd: %s", command.String())
+				}
+			}
+		}
+
 		logrus.Debugf("Optimize: composite key for command %v %v", command.String(), compositeKey)
 		ck, err := compositeKey.Hash()
 		if err != nil {
@@ -305,28 +350,9 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 		finalCacheKey = ck
 
 		if command.ShouldCacheOutput() && !stopCache {
-			var img v1.Image
-			lookupErr := fmt.Errorf("no cache lookup attempted")
-
-			// mz334: When FF is enabled, try the inferred key first so we can observe
-			// and log inferred-key hits (integration test observability).
-			if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
-				inferredKey, err := populateCompositeKey(command, nil, prevCompositeKey, s.args, cfg.Env, fileContext, stageFinalCacheKeys)
-				if err == nil {
-					inferredCk, err := inferredKey.Hash()
-					if err == nil && inferredCk != ck {
-						img, lookupErr = layerCache.RetrieveLayer(inferredCk)
-					}
-				}
-			}
-
-			usedInferredKey := lookupErr == nil
-			if lookupErr != nil {
-				img, lookupErr = layerCache.RetrieveLayer(ck)
-			}
-
-			if lookupErr != nil {
-				logrus.Debugf("Failed to retrieve layer: %s", lookupErr)
+			img, err := layerCache.RetrieveLayer(ck)
+			if err != nil {
+				logrus.Debugf("Failed to retrieve layer: %s", err)
 				logrus.Infof("No cached layer found for cmd %s", command.String())
 				logrus.Debugf("Key missing was: %s", compositeKey.Key())
 				stopCache = true
@@ -334,10 +360,6 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 			}
 
 			if cacheCmd := command.CacheCommand(img); cacheCmd != nil {
-				// mz334: log when the inferred key produced the hit (integration test observability only).
-				if usedInferredKey {
-					logrus.Infof("Cache hit via inferred cross-stage key for cmd: %s", command.String())
-				}
 				logrus.Infof("Using caching version of cmd: %s", command.String())
 				s.cmds[i] = cacheCmd
 			}
@@ -421,7 +443,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			if err != nil {
 				return err
 			}
-			// mz334: also compute the inferred key so we can push under both keys below.
+			// mz334: also compute the inferred key so we can push a pointer below.
 			if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
 				inferredKey, err := populateCompositeKey(command, nil, prevCompositeKey, s.args, s.cf.Config.Env, fileContext, stageFinalCacheKeys)
 				if err == nil {
@@ -493,16 +515,27 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 
 				logrus.Debugf("Build: cache key for command %v %v", command.String(), ck)
 
-				altCacheKey := inferredCacheKey
-				if altCacheKey == ck {
-					altCacheKey = ""
-				}
-
 				// Push layer to cache (in parallel) now along with new config file
 				if command.ShouldCacheOutput() && !opts.NoPushCache {
 					cacheGroup.Go(func() error {
-						return pushCache(opts, ck, altCacheKey, tarPath, command.String())
+						return pushCache(opts, ck, tarPath, command.String())
 					})
+					// mz334: also push a pointer under the inferred key so that a
+					// subsequent optimize pass can find the content key and continue
+					// the cache chain without unpacking the source stage.
+					if inferredCacheKey != "" && inferredCacheKey != ck {
+						rawKey := compositeKey.Key()
+						h, err := NewCompositeCache(rawKey).Hash()
+						if err != nil {
+							return err
+						}
+						if h != ck {
+							logrus.Panicf("Unreachable: rawCompositeKey hash %v does not match ck %v", h, ck)
+						}
+						cacheGroup.Go(func() error {
+							return pushPointer(opts, inferredCacheKey, rawKey)
+						})
+					}
 				}
 			}
 			s.image, err = saveSnapshotToImage(s.image, command.String(), tarPath, opts)
