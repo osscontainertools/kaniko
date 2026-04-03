@@ -846,7 +846,6 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 // DoBuild executes building the Dockerfile
 func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	t := timing.Start("Total Build Time")
-	digestToCacheKey := make(map[string]string)
 	stageFinalCacheKeys := make(map[int]string)
 
 	stages, metaArgs, err := dockerfile.ParseStages(opts)
@@ -947,9 +946,12 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 		// Set the initial cache key to be the base image digest
 		var compositeKey *CompositeCache
-		if cacheKey, ok := digestToCacheKey[sb.baseImageDigest]; ok {
-			compositeKey = NewCompositeCache(cacheKey)
-		} else {
+		if stage.BaseImageStoredLocally {
+			if cacheKey, ok := stageFinalCacheKeys[stage.BaseImageIndex]; ok {
+				compositeKey = NewCompositeCache(cacheKey)
+			}
+		}
+		if compositeKey == nil {
 			compositeKey = NewCompositeCache(sb.baseImageDigest)
 		}
 
@@ -993,15 +995,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return nil, err
 		}
 
-		d, err := sourceImage.Digest()
-		if err != nil {
-			return nil, err
-		}
-		logrus.Debugf("Mapping stage idx %v to digest %v", sb.index, d.String())
-
-		digestToCacheKey[d.String()] = finalCacheKey
 		stageFinalCacheKeys[stage.Index] = finalCacheKey
-		logrus.Debugf("Mapping digest %v to cachekey %v", d.String(), finalCacheKey)
+		logrus.Debugf("Mapping stage idx %v to cachekey %v", stage.Index, finalCacheKey)
 
 		if stage.Push {
 			sourceImage, err = mutate.CreatedAt(sourceImage, v1.Time{Time: time.Now()})
