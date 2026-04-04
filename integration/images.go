@@ -89,7 +89,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_mz473":                {"KANIKO_DIR=/kaniko2"},
 	"Dockerfile_test_issue_mz511":                {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_mz529":                {"FF_KANIKO_SQUASH_STAGES=0"},
-	"Dockerfile_test_issue_mz334_1":              {"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=1"},
+	"Dockerfile_test_issue_mz334":                {"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=1"},
 }
 
 var KanikoEnv = []string{
@@ -165,8 +165,21 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_maintainer":             {"--single-snapshot"},
 	"Dockerfile_test_target":                 {"--target=second"},
 	"Dockerfile_test_snapshotter_ignorelist": {"--use-new-run=true", "-v=trace"},
+<<<<<<< HEAD
 	"Dockerfile_test_issue_mz334_1":          {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz334_2":          {"--cache-copy-layers=true"},
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+	"Dockerfile_test_issue_mz334":            {"--cache-copy-layers=true"},
+=======
+	"Dockerfile_test_issue_mz334_1":          {"--cache-copy-layers=true"},
+	"Dockerfile_test_issue_mz334_2":          {"--cache-copy-layers=true"},
+>>>>>>> cb95de20f (infer crosstage)
+=======
+	"Dockerfile_test_issue_mz334":            {"--cache-copy-layers=true"},
+>>>>>>> 70e231110 (infer crosstage)
+>>>>>>> f16061567 (infer crosstage)
 	"Dockerfile_test_cache":                  {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache_oci":              {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache_install":          {"--cache-copy-layers=true"},
@@ -247,7 +260,19 @@ var outputChecks = map[string]func(string, []byte) error{
 }
 
 var cacheHitOutputChecks = map[string]func(string, []byte) error{
+<<<<<<< HEAD
 	"Dockerfile_test_issue_mz334_1": func(_ string, out []byte) error {
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+	"Dockerfile_test_issue_mz334": func(_ string, out []byte) error {
+=======
+	"Dockerfile_test_issue_mz334_1": func(_ string, out []byte) error {
+>>>>>>> cb95de20f (infer crosstage)
+=======
+	"Dockerfile_test_issue_mz334": func(_ string, out []byte) error {
+>>>>>>> 70e231110 (infer crosstage)
+>>>>>>> f16061567 (infer crosstage)
 		for _, cmd := range []string{
 			"COPY --from=first /blubb /blubb",
 			"COPY --from=third /bli /bli",
@@ -393,9 +418,13 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_workdir": {},
 		"Dockerfile_test_issue_add":     {},
 		"Dockerfile_test_issue_empty":   {},
+<<<<<<< HEAD
 		"Dockerfile_test_issue_mz637":   {},
 		"Dockerfile_test_issue_mz334_1": {},
 		"Dockerfile_test_issue_mz334_2": {},
+=======
+		"Dockerfile_test_issue_mz334":   {},
+>>>>>>> f16061567 (infer crosstage)
 	}
 	d.TestOCICacheDockerfiles = map[string]struct{}{
 		"Dockerfile_test_cache_oci":         {},
