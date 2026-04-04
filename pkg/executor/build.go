@@ -297,11 +297,6 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 	if !opts.Cache {
 		return nil
 	}
-	buildArgs := s.args.Clone()
-	// Restore build args back to their original values
-	defer func() {
-		s.args = buildArgs
-	}()
 
 	stopCache := false
 	keyValid := true
@@ -1003,7 +998,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			stageFinalCacheKeys[stage.Index] = finalCacheKey
 		}
 		images[stage.Index] = sb.image
-		args = sb.args
+		args, sb.args = sb.args, args
 	}
 
 	if opts.Dryrun {
@@ -1068,6 +1063,9 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 	var pushImage v1.Image
 	for _, sb := range builderStages {
+		if sb == nil {
+			continue
+		}
 		stage := sb.stage
 
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
@@ -1084,11 +1082,15 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			compositeKey = NewCompositeCache(sb.baseImageDigest)
 		}
 
-		// Apply optimizations to the instructions.
+		// Set up this stage's args from the carry-forward, then save/restore around optimize.
+		sb.args = args.Clone()
+		sb.args.AddMetaArgs(sb.stage.MetaArgs)
+		snapshot := sb.args.Clone()
 		err = sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
 		}
+		sb.args = snapshot
 
 		finalCacheKey := ""
 		if opts.Cache && len(sb.cacheKeys) > 0 {
@@ -1098,13 +1100,12 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			}
 		}
 
-		args = sb.args
 		crossStageDeps := len(crossStageDependencies[stage.Index]) > 0
 		err = sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps, stageFinalCacheKeys)
 		if err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
 		}
-
+		args = sb.args.Clone()
 		reviewConfig(stage, &sb.cf.Config)
 
 		sourceImage, err := mutate.Config(sb.image, sb.cf.Config)
