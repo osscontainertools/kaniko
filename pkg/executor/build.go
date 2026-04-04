@@ -844,9 +844,6 @@ func RenderStages(stages []*stageBuilder, opts *config.KanikoOptions, fileContex
 		printf("CLEAN\n")
 	}
 	for _, sb := range stages {
-		if sb == nil {
-			continue
-		}
 		s := sb.stage
 		if s.Name != "" {
 			printf("FROM %s AS %s\n", s.BaseName, s.Name)
@@ -946,7 +943,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 
 	images := make([]v1.Image, lastStage.Index+1)
-	builderStages := make([]*stageBuilder, lastStage.Index+1)
+	builderStages := []*stageBuilder{}
 	for _, stage := range kanikoStages {
 		var sourceImage v1.Image
 		if stage.BaseImageStoredLocally {
@@ -967,7 +964,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if err != nil {
 			return nil, err
 		}
-		builderStages[stage.Index] = sb
+		builderStages = append(builderStages, sb)
 
 		if sourceImage == nil {
 			continue
@@ -1058,12 +1055,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	stageArgs := make([]*dockerfile.BuildArgs, lastStage.Index+1)
 	var pushImage v1.Image
 	for _, sb := range builderStages {
-		if sb == nil {
-			continue
-		}
 		stage := sb.stage
 
-<<<<<<< HEAD
 		_sourceImage, err := image_util.RetrieveSourceImage(stage, opts)
 		if err != nil {
 			return nil, err
@@ -1082,8 +1075,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			logrus.Panicf("stages must be processed in order. base stage %d not yet in stageArgs", stage.BaseImageIndex)
 		}
 
-=======
->>>>>>> e66320182 (only optimize on cache hit success)
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
 			stage.BaseName, stage.Index, stage.BaseImageIndex)
 
@@ -1098,15 +1089,13 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			compositeKey = NewCompositeCache(sb.baseImageDigest)
 		}
 
-		// Set up this stage's args from the carry-forward, then save/restore around optimize.
-		sb.args = args.Clone()
-		sb.args.AddMetaArgs(sb.stage.MetaArgs)
-		snapshot := sb.args.Clone()
+		// Apply optimizations to the instructions.
+		args = sb.args.Clone()
 		err = sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
 		}
-		sb.args = snapshot
+		sb.args = args
 
 		finalCacheKey := ""
 		if opts.Cache && len(sb.cacheKeys) > 0 {
@@ -1121,7 +1110,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
 		}
-		args = sb.args.Clone()
+		args = sb.args
 		reviewConfig(stage, &sb.cf.Config)
 
 		sourceImage, err := mutate.Config(sb.image, sb.cf.Config)
