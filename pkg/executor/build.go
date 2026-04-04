@@ -1077,6 +1077,13 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 
 		// Apply optimizations to the instructions.
+		// When cache is disabled the precompute loop's optimize was a no-op, so it never
+		// executed ARG commands and therefore never propagated args between stages.
+		// In that case, seed sb.args from the args accumulated by the build loop so that
+		// inter-stage arg values (e.g. ARG NAME="$NAME-dev") resolve correctly.
+		if !opts.Cache {
+			sb.args = args
+		}
 		args = sb.args.Clone()
 		err = sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, true)
 		if err != nil {
