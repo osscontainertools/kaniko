@@ -950,15 +950,17 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		builderStages[stage.Index] = sb
 		images[stage.Index] = sourceImage
 
-		cacheKey := sb.baseImageDigest
+		// Set the initial cache key to be the base image digest
+		var compositeKey *CompositeCache
 		if stage.BaseImageStoredLocally {
-			key := stageFinalCacheKeys[stage.BaseImageIndex]
-			if key == "" {
-				continue
+			if cacheKey, ok := stageFinalCacheKeys[stage.BaseImageIndex]; ok {
+				compositeKey = NewCompositeCache(cacheKey)
 			}
-			cacheKey = key
 		}
-		compositeKey := NewCompositeCache(cacheKey)
+		if compositeKey == nil {
+			compositeKey = NewCompositeCache(sb.baseImageDigest)
+		}
+
 		err = sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, false)
 		if err != nil {
 			return nil, err
