@@ -88,6 +88,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_mz473":                {"KANIKO_DIR=/kaniko2"},
 	"Dockerfile_test_issue_mz511":                {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_mz529":                {"FF_KANIKO_SQUASH_STAGES=0"},
+	"Dockerfile_test_issue_mz334":                {"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=1"},
 }
 
 var KanikoEnv = []string{
@@ -123,6 +124,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_maintainer":             {"--single-snapshot"},
 	"Dockerfile_test_target":                 {"--target=second"},
 	"Dockerfile_test_snapshotter_ignorelist": {"--use-new-run=true", "-v=trace"},
+	"Dockerfile_test_issue_mz334":            {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache":                  {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache_oci":              {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache_install":          {"--cache-copy-layers=true"},
@@ -197,6 +199,20 @@ var outputChecks = map[string]func(string, []byte) error{
 			}
 		}
 
+		return nil
+	},
+}
+
+var cacheHitOutputChecks = map[string]func(string, []byte) error{
+	"Dockerfile_test_issue_mz334": func(_ string, out []byte) error {
+		for _, cmd := range []string{
+			"COPY --from=first /blubb /blubb",
+			"COPY --from=third /bli /bli",
+		} {
+			if !strings.Contains(string(out), "Cache hit via inferred cross-stage key for cmd: "+cmd) {
+				return fmt.Errorf("expected inferred-key cache hit for %q but found none in output", cmd)
+			}
+		}
 		return nil
 	},
 }
@@ -330,6 +346,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_workdir": {},
 		"Dockerfile_test_issue_add":     {},
 		"Dockerfile_test_issue_empty":   {},
+		"Dockerfile_test_issue_mz334":   {},
 	}
 	d.TestOCICacheDockerfiles = map[string]struct{}{
 		"Dockerfile_test_cache_oci":         {},
@@ -531,6 +548,9 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 	for _, envVariable := range KanikoEnv {
 		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
+	for _, envVariable := range envsMap[dockerfile] {
+		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
+	}
 	executorImage := ExecutorImage
 	if exec, ok := executorImages[dockerfile]; ok {
 		executorImage = exec
@@ -555,6 +575,13 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
 		if err := outputCheck(dockerfile, out); err != nil {
 			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
+		}
+	}
+	if version > 0 {
+		if outputCheck := cacheHitOutputChecks[dockerfile]; outputCheck != nil {
+			if err := outputCheck(dockerfile, out); err != nil {
+				return fmt.Errorf("cache hit check failed for image %s: %w", kanikoImage, err)
+			}
 		}
 	}
 	if outputCheck := warmerOutputChecks[dockerfile]; outputCheck != nil {
