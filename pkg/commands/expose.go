@@ -51,7 +51,9 @@ func (r *ExposeCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.
 		if !strings.Contains(p, "/") {
 			p = p + "/tcp"
 		}
-		protocol := strings.Split(p, "/")[1]
+		parts := strings.Split(p, "/")
+		util.Assert(len(parts) >= 2, "port string must contain '/' after normalization")
+		protocol := parts[1]
 		if !validProtocol(protocol) {
 			return fmt.Errorf("invalid protocol: %s", protocol)
 		}

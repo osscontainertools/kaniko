@@ -188,6 +188,7 @@ func initConfig(img partial.WithConfigFile, opts *config.KanikoOptions) (*v1.Con
 		}
 	}
 
+	util.Assert(imageConfig.Config.Env != nil, "initConfig: Env must be non-nil on return; it is either preserved from the source image or replaced with ScratchEnvVars")
 	return imageConfig, nil
 }
 
@@ -207,6 +208,8 @@ func isOCILayout(path string) bool {
 }
 
 func populateCompositeKey(command commands.DockerCommand, files []string, compositeKey CompositeCache, args *dockerfile.BuildArgs, env []string, fileContext util.FileContext) (CompositeCache, error) {
+	util.Assert(command != nil, "populateCompositeKey called with nil command")
+	initialKeyCount := len(compositeKey.keys)
 	// First replace all the environment variables or args in the command
 	replacementEnvs := args.ReplacementEnvs(env)
 	// The sort order of `replacementEnvs` is basically undefined, sort it
@@ -232,6 +235,7 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 			return compositeKey, err
 		}
 	}
+	util.Assert(len(compositeKey.keys) > initialKeyCount, "populateCompositeKey: command.String() must always be added to the composite key")
 	return compositeKey, nil
 }
 
@@ -247,6 +251,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 
 	stopCache := false
 	finalCacheKey := ""
+	cmdCountBeforeOptimize := len(s.cmds)
 	// Possibly replace commands with their cached implementations.
 	// We walk through all the commands, running any commands that only operate on metadata.
 	// We throw the metadata away after, but we need it to properly track command dependencies
@@ -292,15 +297,27 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 
 		// Mutate the config for any commands that require it.
 		if command.MetadataOnly() {
+			prevArgCount := s.args.ReferencedArgCount()
+			prevEnvCount := len(cfg.Env)
+			prevLabelCount := len(cfg.Labels)
+			prevExposedPortsCount := len(cfg.ExposedPorts)
+			prevVolumesCount := len(cfg.Volumes)
 			if err := command.ExecuteCommand(&cfg, s.args); err != nil {
 				return "", err
 			}
+			util.Assert(s.args.ReferencedArgCount() >= prevArgCount, "optimize: args must grow monotonically per command: %q reduced count from %d to %d", command.String(), prevArgCount, s.args.ReferencedArgCount())
+			util.Assert(len(cfg.Env) >= prevEnvCount, "optimize: Env must grow monotonically per command: %q reduced count from %d to %d", command.String(), prevEnvCount, len(cfg.Env))
+			util.Assert(len(cfg.Labels) >= prevLabelCount, "optimize: Labels must grow monotonically per command: %q reduced count from %d to %d", command.String(), prevLabelCount, len(cfg.Labels))
+			util.Assert(len(cfg.ExposedPorts) >= prevExposedPortsCount, "optimize: ExposedPorts must grow monotonically per command: %q reduced count from %d to %d", command.String(), prevExposedPortsCount, len(cfg.ExposedPorts))
+			util.Assert(len(cfg.Volumes) >= prevVolumesCount, "optimize: Volumes must grow monotonically per command: %q reduced count from %d to %d", command.String(), prevVolumesCount, len(cfg.Volumes))
 		}
 	}
+	util.Assert(len(s.cmds) == cmdCountBeforeOptimize, "optimize: command count must not change during optimization (before=%d, after=%d); optimize only swaps commands for cached versions", cmdCountBeforeOptimize, len(s.cmds))
 	return finalCacheKey, nil
 }
 
 func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool) error {
+	util.Assert(s.cf != nil, "stageBuilder (index %d) has nil config file; must be set during construction", s.index)
 	// Unpack file system to root if we need to.
 	shouldUnpack := false
 	for _, cmd := range s.cmds {
@@ -389,9 +406,17 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			initSnapshotTaken = true
 		}
 
+		prevEnvCount := len(s.cf.Config.Env)
+		prevLabelCount := len(s.cf.Config.Labels)
+		prevExposedPortsCount := len(s.cf.Config.ExposedPorts)
+		prevVolumesCount := len(s.cf.Config.Volumes)
 		if err := command.ExecuteCommand(&s.cf.Config, s.args); err != nil {
 			return fmt.Errorf("failed to execute command: %w", err)
 		}
+		util.Assert(len(s.cf.Config.Env) >= prevEnvCount, "Env must grow monotonically within a stage: %q reduced count from %d to %d", command.String(), prevEnvCount, len(s.cf.Config.Env))
+		util.Assert(len(s.cf.Config.Labels) >= prevLabelCount, "Labels must grow monotonically within a stage: %q reduced count from %d to %d", command.String(), prevLabelCount, len(s.cf.Config.Labels))
+		util.Assert(len(s.cf.Config.ExposedPorts) >= prevExposedPortsCount, "ExposedPorts must grow monotonically within a stage: %q reduced count from %d to %d", command.String(), prevExposedPortsCount, len(s.cf.Config.ExposedPorts))
+		util.Assert(len(s.cf.Config.Volumes) >= prevVolumesCount, "Volumes must grow monotonically within a stage: %q reduced count from %d to %d", command.String(), prevVolumesCount, len(s.cf.Config.Volumes))
 		files = command.FilesToSnapshot()
 		timing.DefaultRun.Stop(t)
 
@@ -611,6 +636,7 @@ func convertLayerMediaType(layer v1.Layer, image v1.Image, opts *config.KanikoOp
 }
 
 func saveLayerToImage(image v1.Image, layer v1.Layer, createdBy string, opts *config.KanikoOptions) (v1.Image, error) {
+	util.Assert(layer != nil, "saveLayerToImage called with nil layer; callers must filter nil layers before calling")
 	layer, err := convertLayerMediaType(layer, image, opts)
 	if err != nil {
 		return nil, err
@@ -653,6 +679,7 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 		var err error
 		if s.BaseImageStoredLocally {
 			image = images[s.BaseImageIndex]
+			util.Assert(image != nil, "stage %d references local stage %d which has not been built yet", s.Index, s.BaseImageIndex)
 		} else if s.Name == constants.NoBaseImage {
 			image = empty.Image
 		} else {
@@ -769,7 +796,7 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 			printf("RESTORE CONTEXT\n\n")
 		}
 	}
-	logrus.Panic("Unreachable Code: we should always have a final stage")
+	util.Unreachable("we should always have a final stage")
 	return retErr
 }
 
@@ -812,6 +839,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 
 	lastStage := kanikoStages[len(kanikoStages)-1]
+	util.Assert(lastStage.Final, "last stage (index %d, name %q) must be the final stage", lastStage.Index, lastStage.Name)
 	args := dockerfile.NewBuildArgs(opts.BuildArgs)
 	err = args.InitPredefinedArgs(opts.CustomPlatform, lastStage.Name)
 	if err != nil {
@@ -865,12 +893,17 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 	var pushImage v1.Image
 	for _, stage := range kanikoStages {
+		prevReferencedArgCount := args.ReferencedArgCount()
 		sb, err := newStageBuilder(
 			args, opts, stage,
 			fileContext)
 		if err != nil {
 			return nil, err
 		}
+		prevEnvCount := len(sb.cf.Config.Env)
+		prevLabelCount := len(sb.cf.Config.Labels)
+		prevExposedPortsCount := len(sb.cf.Config.ExposedPorts)
+		prevVolumesCount := len(sb.cf.Config.Volumes)
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
 			stage.BaseName, stage.Index, stage.BaseImageIndex)
 
@@ -894,6 +927,11 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
 		}
+		util.Assert(args.ReferencedArgCount() >= prevReferencedArgCount, "args must grow monotonically across stages: stage %q reduced referenced arg count from %d to %d", stage.BaseName, prevReferencedArgCount, args.ReferencedArgCount())
+		util.Assert(len(sb.cf.Config.Env) >= prevEnvCount, "Env must grow monotonically across stages: stage %q reduced count from %d to %d", stage.BaseName, prevEnvCount, len(sb.cf.Config.Env))
+		util.Assert(len(sb.cf.Config.Labels) >= prevLabelCount, "Labels must grow monotonically across stages: stage %q reduced count from %d to %d", stage.BaseName, prevLabelCount, len(sb.cf.Config.Labels))
+		util.Assert(len(sb.cf.Config.ExposedPorts) >= prevExposedPortsCount, "ExposedPorts must grow monotonically across stages: stage %q reduced count from %d to %d", stage.BaseName, prevExposedPortsCount, len(sb.cf.Config.ExposedPorts))
+		util.Assert(len(sb.cf.Config.Volumes) >= prevVolumesCount, "Volumes must grow monotonically across stages: stage %q reduced count from %d to %d", stage.BaseName, prevVolumesCount, len(sb.cf.Config.Volumes))
 
 		reviewConfig(stage, &sb.cf.Config)
 
@@ -994,7 +1032,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 	}
 
-	logrus.Panic("unreachable - we should always have a final stage")
+	util.Unreachable("we should always have a final stage")
 	return nil, nil
 }
 
@@ -1073,6 +1111,7 @@ func deduplicatePaths(paths []string) []string {
 
 	traverse(root, "")
 
+	util.Assert(len(deduped) <= len(paths), "deduplicatePaths: result must not exceed input size (got %d from %d); deduplication can only compress", len(deduped), len(paths))
 	return deduped
 }
 
