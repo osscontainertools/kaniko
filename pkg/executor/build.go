@@ -953,6 +953,9 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				return nil, fmt.Errorf("failed to get sourceImage: %w", err)
 			}
 		}
+		if sourceImage == nil {
+			continue
+		}
 		if config.EnvBool("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS") {
 			sourceImage = withoutAnnotations(sourceImage)
 		}
@@ -964,7 +967,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return nil, err
 		}
 		builderStages[stage.Index] = sb
-		images[stage.Index] = sourceImage
 
 		// Set the initial cache key to be the base image digest
 		var compositeKey *CompositeCache
@@ -988,7 +990,11 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if len(sb.cacheKeys) > 0 {
 			finalCacheKey = sb.cacheKeys[len(sb.cacheKeys)-1]
 		}
-		stageFinalCacheKeys[stage.Index] = finalCacheKey
+		if finalCacheKey != "" {
+			stageFinalCacheKeys[stage.Index] = finalCacheKey
+			images[stage.Index] = sb.image
+			args = sb.args
+		}
 	}
 
 	if opts.Dryrun {
@@ -1047,12 +1053,26 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 	stageArgs := make([]*dockerfile.BuildArgs, lastStage.Index+1)
 	var pushImage v1.Image
-	for _, sb := range builderStages {
+	for idx, sb := range builderStages {
 		if sb == nil {
-			continue
+			_sourceImage, err := image_util.RetrieveSourceImage(kanikoStages[idx], opts)
+			if err != nil {
+				return nil, err
+			}
+
+			if config.EnvBool("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS") {
+				_sourceImage = withoutAnnotations(_sourceImage)
+			}
+			sb, err = newStageBuilder(_sourceImage,
+				args, opts, kanikoStages[idx],
+				fileContext)
+			if err != nil {
+				return nil, err
+			}
 		}
 		stage := sb.stage
 
+<<<<<<< HEAD
 		_sourceImage, err := image_util.RetrieveSourceImage(stage, opts)
 		if err != nil {
 			return nil, err
@@ -1071,6 +1091,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			logrus.Panicf("stages must be processed in order. base stage %d not yet in stageArgs", stage.BaseImageIndex)
 		}
 
+=======
+>>>>>>> e66320182 (only optimize on cache hit success)
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
 			stage.BaseName, stage.Index, stage.BaseImageIndex)
 
@@ -1099,6 +1121,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			}
 		}
 
+		args = sb.args
 		crossStageDeps := len(crossStageDependencies[stage.Index]) > 0
 		err = sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps, stageFinalCacheKeys)
 		if err != nil {
