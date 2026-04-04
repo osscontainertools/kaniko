@@ -22,6 +22,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
+	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
 type CmdCommand struct {
@@ -47,6 +48,7 @@ func (c *CmdCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		newCommand = c.cmd.CmdLine
 	}
 
+	util.Assert(len(newCommand) > 0, "CMD produced an empty command; CmdLine must be non-empty")
 	config.Cmd = newCommand
 	// ArgsEscaped is only used in windows environments
 	config.ArgsEscaped = false

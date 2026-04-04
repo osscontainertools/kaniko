@@ -23,6 +23,7 @@ import (
 
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
 // builtinAllowedBuildArgs is list of built-in allowed build args
@@ -80,6 +81,9 @@ func (b *BuildArgs) Clone() *BuildArgs {
 	for k := range b.referencedArgs {
 		result.referencedArgs[k] = struct{}{}
 	}
+	util.Assert(len(result.allowedBuildArgs) == len(b.allowedBuildArgs), "Clone: allowedBuildArgs count mismatch: got %d, want %d", len(result.allowedBuildArgs), len(b.allowedBuildArgs))
+	util.Assert(len(result.allowedMetaArgs) == len(b.allowedMetaArgs), "Clone: allowedMetaArgs count mismatch: got %d, want %d", len(result.allowedMetaArgs), len(b.allowedMetaArgs))
+	util.Assert(len(result.referencedArgs) == len(b.referencedArgs), "Clone: referencedArgs count mismatch: got %d, want %d", len(result.referencedArgs), len(b.referencedArgs))
 	return result
 }
 
@@ -90,7 +94,9 @@ func (b *BuildArgs) ReplacementEnvs(envs []string) []string {
 	copy(resultEnv, envs)
 	filtered := b.FilterAllowed(envs)
 	// Disable makezero linter, since the previous make is paired with a same sized copy
-	return append(resultEnv, filtered...) //nolint:makezero
+	result := append(resultEnv, filtered...) //nolint:makezero
+	util.Assert(len(result) >= len(envs), "ReplacementEnvs: result length %d must be at least input envs length %d; filtered args are only appended, never removed", len(result), len(envs))
+	return result
 }
 
 // AddMetaArgs adds the supplied args map to b's allowedMetaArgs
@@ -107,6 +113,12 @@ func (b *BuildArgs) AddMetaArgs(metaArgs []instructions.ArgCommand) {
 func (b *BuildArgs) AddArg(key string, value *string) {
 	b.allowedBuildArgs[key] = value
 	b.referencedArgs[key] = struct{}{}
+}
+
+// ReferencedArgCount returns the number of unique ARG keys declared so far.
+// It only ever increases: ARG commands add keys and Clone preserves them.
+func (b *BuildArgs) ReferencedArgCount() int {
+	return len(b.referencedArgs)
 }
 
 // GetAllAllowed returns a mapping with all the allowed args

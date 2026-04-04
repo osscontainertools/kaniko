@@ -34,6 +34,7 @@ func (r *LabelCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.B
 }
 
 func updateLabels(labels []instructions.KeyValuePair, config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
+	prevLabelCount := len(config.Labels)
 	existingLabels := config.Labels
 	if existingLabels == nil {
 		existingLabels = make(map[string]string)
@@ -60,6 +61,7 @@ func updateLabels(labels []instructions.KeyValuePair, config *v1.Config, buildAr
 	}
 
 	config.Labels = existingLabels
+	util.Assert(len(config.Labels) >= prevLabelCount, "LABEL must not remove labels: count went from %d to %d", prevLabelCount, len(config.Labels))
 	return nil
 }
 
