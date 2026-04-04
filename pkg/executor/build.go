@@ -356,6 +356,9 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 			}
 
 			logrus.Debugf("Optimize: cache key for command %v %v", command.String(), ck)
+			if hasContext && s.cacheKeys[i] != "" && s.cacheKeys[i] != ck {
+				logrus.Panicf("Assertion failed: precomputed cacheKeys[%d] %q != built cacheKeys[%d] %q", i, s.cacheKeys[i], i, ck)
+			}
 			s.cacheKeys[i] = ck
 
 			if command.ShouldCacheOutput() && !stopCache {
@@ -364,6 +367,9 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 					logrus.Debugf("Failed to retrieve layer: %s", err)
 					logrus.Infof("No cached layer found for cmd %s", command.String())
 					logrus.Debugf("Key missing was: %s", compositeKey.Key())
+					if hasContext && s.cacheHits[i] {
+						logrus.Panicf("Assertion failed: precomputed cacheHits[%d] true but built cacheHits[%d] false", i, i)
+					}
 					stopCache = true
 					continue
 				}
@@ -1083,6 +1089,13 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			finalCacheKey = sb.cacheKeys[len(sb.cacheKeys)-1]
 			if finalCacheKey == "" {
 				logrus.Panic("Unreachable Code: finalCacheKey should exist for each stage")
+			}
+		}
+
+		if opts.Cache {
+			precomputedKey := stageFinalCacheKeys[stage.Index]
+			if precomputedKey != "" && precomputedKey != finalCacheKey {
+				logrus.Panicf("Assertion failed: precomputed finalCacheKey %q != built finalCacheKey %q for stage %d", precomputedKey, finalCacheKey, stage.Index)
 			}
 		}
 
