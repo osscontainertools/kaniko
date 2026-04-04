@@ -77,6 +77,8 @@ type stageBuilder struct {
 	baseImageDigest string
 	cmds            []commands.DockerCommand
 	args            *dockerfile.BuildArgs
+	redirectKeys    []string
+	redirectHits    []bool
 	cacheKeys       []string
 	cacheHits       []bool
 }
@@ -147,6 +149,8 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 		}
 		s.cmds = append(s.cmds, command)
 	}
+	s.redirectKeys = make([]string, len(s.cmds))
+	s.redirectHits = make([]bool, len(s.cmds))
 	s.cacheKeys = make([]string, len(s.cmds))
 	s.cacheHits = make([]bool, len(s.cmds))
 	s.args.AddMetaArgs(stage.MetaArgs)
@@ -319,6 +323,12 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 					if err != nil {
 						return err
 					}
+					inferredCK, err := inferredKey.Hash()
+					if err != nil {
+						return err
+					}
+					s.redirectKeys[i] = inferredCK
+					s.redirectHits[i] = _compositeKey != nil
 					if _compositeKey == nil {
 						break
 					}
@@ -852,6 +862,15 @@ func RenderStages(stages []*stageBuilder, opts *config.KanikoOptions, fileContex
 			}
 		}
 		for idx, c := range sb.cmds {
+			if opts.Cache && config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers && needsCrossStageFiles(c) {
+				if ck := sb.redirectKeys[idx]; ck != "" {
+					if sb.redirectHits[idx] {
+						printf("CACHE REDIRECT HIT: %s\n", ck)
+					} else {
+						printf("CACHE REDIRECT MISS: %s\n", ck)
+					}
+				}
+			}
 			if opts.Cache {
 				if ck := sb.cacheKeys[idx]; ck != "" {
 					if sb.cacheHits[idx] {
