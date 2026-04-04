@@ -214,10 +214,7 @@ func needsCrossStageFiles(command commands.DockerCommand) bool {
 		return false
 	}
 	_, err := strconv.Atoi(copyCmd.From())
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 func crossStageCacheKey(command commands.DockerCommand, stageFinalCacheKeys map[int]string) (string, bool) {
