@@ -212,6 +212,7 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 		}
 		filesToAdd = append(filesToAdd, path)
 	}
+	util.Assert(len(filesToAdd) <= len(resolvedFiles), "scanFullFilesystem: ignore-list filtering can only reduce the file set (resolved=%d, toAdd=%d)", len(resolvedFiles), len(filesToAdd))
 
 	logrus.Debugf("Adding to layer: %v", filesToAdd)
 	logrus.Debugf("Deleting in layer: %v", deletedPaths)
@@ -248,6 +249,7 @@ func removeObsoleteWhiteouts(deletedFiles map[string]struct{}) (filesToWhiteout 
 		}
 	}
 
+	util.Assert(len(filesToWhiteout) <= len(deletedFiles), "removeObsoleteWhiteouts: result (%d) exceeds input (%d); whiteouts are a subset of deleted files filtered by parent presence", len(filesToWhiteout), len(deletedFiles))
 	return filesToWhiteout
 }
 

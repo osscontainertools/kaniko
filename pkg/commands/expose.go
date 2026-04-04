@@ -35,6 +35,7 @@ type ExposeCommand struct {
 func (r *ExposeCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
 	logrus.Info("Cmd: EXPOSE")
 	// Grab the currently exposed ports
+	prevPortCount := len(config.ExposedPorts)
 	existingPorts := config.ExposedPorts
 	if existingPorts == nil {
 		existingPorts = make(map[string]struct{})
@@ -61,6 +62,7 @@ func (r *ExposeCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.
 		existingPorts[p] = struct{}{}
 	}
 	config.ExposedPorts = existingPorts
+	util.Assert(len(config.ExposedPorts) >= prevPortCount, "EXPOSE must not remove ports: count went from %d to %d", prevPortCount, len(config.ExposedPorts))
 	return nil
 }
 

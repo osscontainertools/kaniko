@@ -241,6 +241,7 @@ func addCmdFilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildAr
 		files = append(files, fullPath)
 	}
 
+	util.Assert(len(files) <= len(srcs), "addCmdFilesUsedFromContext: remote URLs and tar archives are filtered out, so result cannot exceed source count (srcs=%d, files=%d)", len(srcs), len(files))
 	logrus.Infof("Using files from context: %v", files)
 	return files, nil
 }
