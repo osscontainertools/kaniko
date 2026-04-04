@@ -204,6 +204,18 @@ func isOCILayout(path string) bool {
 	return strings.HasPrefix(path, "oci:")
 }
 
+func needsCrossStageFiles(command commands.DockerCommand) bool {
+	copyCmd, ok := commands.CastAbstractCopyCommand(command)
+	if !ok || copyCmd.From() == "" {
+		return false
+	}
+	_, err := strconv.Atoi(copyCmd.From())
+	if err != nil {
+		return false
+	}
+	return true
+}
+
 func crossStageCacheKey(command commands.DockerCommand, stageFinalCacheKeys map[int]string) (string, bool) {
 	copyCmd, ok := commands.CastAbstractCopyCommand(command)
 	if !ok || copyCmd.From() == "" {
@@ -299,7 +311,23 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 		if command == nil {
 			continue
 		}
-		if hasContext {
+		if !hasContext && needsCrossStageFiles(command) {
+			if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
+				inferredKey, err := populateCompositeKey(command, nil, compositeKey, s.args, cfg.Env, fileContext, stageFinalCacheKeys)
+				if err == nil {
+					_compositeKey, err := redirectCacheKey(inferredKey, layerCache)
+					if err != nil {
+						return err
+					}
+					if _compositeKey == nil {
+						break
+					}
+					compositeKey = *_compositeKey
+				}
+			} else {
+				break
+			}
+		} else {
 			files, err := command.FilesUsedFromContext(&cfg, s.args)
 			if err != nil {
 				return fmt.Errorf("failed to get files used from context: %w", err)
@@ -308,18 +336,6 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 			compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, cfg.Env, fileContext, nil)
 			if err != nil {
 				return err
-			}
-		} else if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
-			inferredKey, err := populateCompositeKey(command, nil, compositeKey, s.args, cfg.Env, fileContext, stageFinalCacheKeys)
-			if err == nil {
-				_compositeKey, err := redirectCacheKey(inferredKey, layerCache)
-				if err != nil {
-					return err
-				}
-				if _compositeKey == nil {
-					break
-				}
-				compositeKey = *_compositeKey
 			}
 		}
 
