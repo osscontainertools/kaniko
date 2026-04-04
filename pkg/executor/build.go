@@ -189,6 +189,7 @@ func initConfig(img partial.WithConfigFile, opts *config.KanikoOptions) (*v1.Con
 		}
 	}
 
+	util.Assert(imageConfig.Config.Env != nil, "initConfig: Env must be non-nil on return")
 	return imageConfig, nil
 }
 
@@ -221,9 +222,8 @@ func crossStageCacheKey(command commands.DockerCommand, stageFinalCacheKeys map[
 }
 
 func populateCompositeKey(command commands.DockerCommand, files []string, compositeKey CompositeCache, args *dockerfile.BuildArgs, env []string, fileContext util.FileContext, stageFinalCacheKeys map[int]string) (CompositeCache, error) {
-	if files != nil && stageFinalCacheKeys != nil {
-		logrus.Panic("Unreachable Code: files and stageFinalCacheKeys are mutually exclusive")
-	}
+	util.Assert(files == nil || stageFinalCacheKeys == nil, "populateCompositeKey: files and stageFinalCacheKeys are mutually exclusive")
+	util.Assert(command != nil, "populateCompositeKey called with nil command")
 	// First replace all the environment variables or args in the command
 	replacementEnvs := args.ReplacementEnvs(env)
 	// The sort order of `replacementEnvs` is basically undefined, sort it
@@ -261,7 +261,7 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 		return compositeKey, nil
 	}
 
-	logrus.Panic("Unreachable Code")
+	util.Unreachable("populateCompositeKey: both files and stageFinalCacheKeys are nil")
 	return compositeKey, nil
 }
 
@@ -295,6 +295,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 
 	stopCache := false
 	finalCacheKey := ""
+	cmdCountBeforeOptimize := len(s.cmds)
 	// Possibly replace commands with their cached implementations.
 	// We walk through all the commands, running any commands that only operate on metadata.
 	// We throw the metadata away after, but we need it to properly track command dependencies
@@ -331,9 +332,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 					if err != nil {
 						return "", err
 					}
-					if ick != ck {
-						logrus.Panicf("Unreachable Code: pointer inferred content key %v does not match the computed content key %v", ick, ck)
-					}
+					util.Assert(ick == ck, "pointer inferred content key %v does not match the computed content key %v", ick, ck)
 					// mz334: log when the inferred key produced the hit (integration test observability only).
 					logrus.Infof("Cache hit via inferred cross-stage key for cmd: %s", command.String())
 				}
@@ -372,10 +371,13 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 			}
 		}
 	}
+	// Optimize only swaps commands for cached versions.
+	util.Assert(len(s.cmds) == cmdCountBeforeOptimize, "optimize: command count must not change during optimization (before=%d, after=%d)", cmdCountBeforeOptimize, len(s.cmds))
 	return finalCacheKey, nil
 }
 
 func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool, stageFinalCacheKeys map[int]string) error {
+	util.Assert(s.cf != nil, "stageBuilder (index %d) has nil config file", s.index)
 	// Unpack file system to root if we need to.
 	shouldUnpack := false
 	for _, cmd := range s.cmds {
@@ -529,9 +531,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 						if err != nil {
 							return err
 						}
-						if h != ck {
-							logrus.Panicf("Unreachable: rawCompositeKey hash %v does not match ck %v", h, ck)
-						}
+						util.Assert(h == ck, "rawCompositeKey hash %v does not match ck %v", h, ck)
 						cacheGroup.Go(func() error {
 							return pushPointer(opts, inferredCacheKey, rawKey)
 						})
@@ -714,6 +714,7 @@ func convertLayerMediaType(layer v1.Layer, image v1.Image, opts *config.KanikoOp
 }
 
 func saveLayerToImage(image v1.Image, layer v1.Layer, createdBy string, opts *config.KanikoOptions) (v1.Image, error) {
+	util.Assert(layer != nil, "saveLayerToImage called with nil layer")
 	layer, err := convertLayerMediaType(layer, image, opts)
 	if err != nil {
 		return nil, err
@@ -756,6 +757,7 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 		var err error
 		if s.BaseImageStoredLocally {
 			image = images[s.BaseImageIndex]
+			util.Assert(image != nil, "stage %d references local stage %d which has not been built yet", s.Index, s.BaseImageIndex)
 		} else if s.Name == constants.NoBaseImage {
 			image = image_util.EmptyBaseImage
 		} else {
@@ -872,7 +874,7 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 			printf("RESTORE CONTEXT\n\n")
 		}
 	}
-	logrus.Panic("Unreachable Code: we should always have a final stage")
+	util.Unreachable("we should always have a final stage")
 	return retErr
 }
 
@@ -902,9 +904,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 	logrus.Infof("Built cross stage deps: %v", crossStageDependencies)
 
-	if len(kanikoStages) == 0 {
-		logrus.Panic("no stages to build")
-	}
+	util.Assert(len(kanikoStages) > 0, "no stages to build")
 	if opts.Dryrun {
 		return nil, RenderStages(kanikoStages, opts, fileContext, crossStageDependencies)
 	}
@@ -915,6 +915,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 
 	lastStage := kanikoStages[len(kanikoStages)-1]
+	util.Assert(lastStage.Final, "last stage (index %d, name %q) must be the final stage", lastStage.Index, lastStage.Name)
 	baseArgs := dockerfile.NewBuildArgs(opts.BuildArgs)
 	err = baseArgs.InitPredefinedArgs(opts.CustomPlatform, lastStage.Name)
 	if err != nil {
@@ -973,9 +974,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if stage.BaseImageIndex >= 0 {
 			args = stageArgs[stage.BaseImageIndex]
 		}
-		if args == nil {
-			logrus.Panicf("stages must be processed in order. base stage %d not yet in stageArgs", stage.BaseImageIndex)
-		}
+		util.Assert(args != nil, "stages must be processed in order: base stage %d not yet in stageArgs", stage.BaseImageIndex)
 		// args is a pointer but is cloned inside newStageBuilder, so sharing it is safe.
 		sb, err := newStageBuilder(
 			args, opts, stage,
@@ -1058,10 +1057,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 		if stage.Final {
 			timing.DefaultRun.Stop(t)
-			if pushImage == nil {
-				// Final stage must be last, so by definition after Push stage
-				logrus.Panic("pushImage is nil")
-			}
+			// Final stage must be last, so by definition after Push stage.
+			util.Assert(pushImage != nil, "pushImage is nil")
 			return pushImage, nil
 		}
 		if stage.SaveStage {
@@ -1103,7 +1100,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 	}
 
-	logrus.Panic("unreachable - we should always have a final stage")
+	util.Unreachable("we should always have a final stage")
 	return nil, nil
 }
 
@@ -1182,6 +1179,8 @@ func deduplicatePaths(paths []string) []string {
 
 	traverse(root, "")
 
+	// Deduplication can only compress.
+	util.Assert(len(deduped) <= len(paths), "deduplicatePaths: result must not exceed input size (got %d from %d)", len(deduped), len(paths))
 	return deduped
 }
 

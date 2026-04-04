@@ -103,7 +103,7 @@ func (t *Tar) AddFileToTar(p string) error {
 	}
 
 	if p == config.RootDir {
-		logrus.Panic("Unreachable Code: We should no longer snapshot '/' as it will be ignored by docker anyways")
+		Unreachable("We should no longer snapshot '/' as it will be ignored by docker anyways")
 	}
 
 	// Docker uses no leading / in the tarball

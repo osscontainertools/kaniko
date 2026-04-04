@@ -50,6 +50,8 @@ func NewSnapshotter(l *LayeredMap, d string) *Snapshotter {
 
 // Init initializes a new snapshotter
 func (s *Snapshotter) Init() error {
+	util.Assert(s.l != nil, "Snapshotter.Init: layered map must be set")
+	util.Assert(s.directory != "", "Snapshotter.Init: directory must be non-empty")
 	logrus.Info("Initializing snapshotter ...")
 	_, _, err := s.scanFullFilesystem()
 	return err
@@ -63,6 +65,8 @@ func (s *Snapshotter) Key() (string, error) {
 // TakeSnapshot takes a snapshot of the specified files, avoiding directories in the ignorelist, and creates
 // a tarball of the changed files. Return contents of the tarball, and whether or not any files were changed
 func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string, error) {
+	util.Assert(s.l != nil, "Snapshotter.TakeSnapshot: layered map must be set")
+	util.Assert(s.directory != "", "Snapshotter.TakeSnapshot: directory must be non-empty")
 	err := os.MkdirAll(config.KanikoLayersDir, 0o755)
 	if err != nil {
 		return "", err
@@ -125,6 +129,8 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 // TakeSnapshotFS takes a snapshot of the filesystem, avoiding directories in the ignorelist, and creates
 // a tarball of the changed files.
 func (s *Snapshotter) TakeSnapshotFS() (string, error) {
+	util.Assert(s.l != nil, "Snapshotter.TakeSnapshotFS: layered map must be set")
+	util.Assert(s.directory != "", "Snapshotter.TakeSnapshotFS: directory must be non-empty")
 	err := os.MkdirAll(config.KanikoLayersDir, 0o755)
 	if err != nil {
 		return "", err
@@ -206,6 +212,7 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 		}
 		filesToAdd = append(filesToAdd, path)
 	}
+	util.Assert(len(filesToAdd) <= len(resolvedFiles), "scanFullFilesystem: ignore-list filtering can only reduce the file set (resolved=%d, toAdd=%d)", len(resolvedFiles), len(filesToAdd))
 
 	logrus.Debugf("Adding to layer: %v", filesToAdd)
 	logrus.Debugf("Deleting in layer: %v", deletedPaths)
@@ -242,6 +249,8 @@ func removeObsoleteWhiteouts(deletedFiles map[string]struct{}) (filesToWhiteout 
 		}
 	}
 
+	// Whiteouts are a subset of deleted files filtered by parent presence.
+	util.Assert(len(filesToWhiteout) <= len(deletedFiles), "removeObsoleteWhiteouts: result (%d) exceeds input (%d)", len(filesToWhiteout), len(deletedFiles))
 	return filesToWhiteout
 }
 

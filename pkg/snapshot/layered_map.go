@@ -56,6 +56,7 @@ func (l *LayeredMap) Snapshot() {
 	l.adds = append(l.adds, map[string]string{})
 	l.deletes = append(l.deletes, map[string]struct{}{})
 	l.layerHashCache = map[string]string{} // Erase the hash cache for this new layer.
+	util.Assert(len(l.adds) == len(l.deletes), "Snapshot: adds and deletes layers must remain in sync after append (adds=%d, deletes=%d)", len(l.adds), len(l.deletes))
 }
 
 // Key returns a hash for added and delted files.
@@ -95,6 +96,8 @@ func (l *LayeredMap) getCurrentImage() map[string]string {
 	maps.Copy(current, l.currentImage)
 
 	// Add the last layer on top.
+	// Snapshot() must append to both atomically.
+	util.Assert(len(l.adds) == len(l.deletes), "LayeredMap adds/deletes slices are out of sync (adds=%d, deletes=%d)", len(l.adds), len(l.deletes))
 	addedFiles := l.adds[len(l.adds)-1]
 	deletedFiles := l.deletes[len(l.deletes)-1]
 
@@ -138,6 +141,8 @@ func (l *LayeredMap) GetCurrentPaths() map[string]struct{} {
 
 // AddDelete will delete the specific files in the current layer.
 func (l *LayeredMap) AddDelete(s string) error {
+	// A layer must exist before files can be deleted.
+	util.Assert(len(l.deletes) > 0, "LayeredMap.AddDelete called before Snapshot()")
 	l.isCurrentImageValid = false
 
 	l.deletes[len(l.deletes)-1][s] = struct{}{}
@@ -146,6 +151,8 @@ func (l *LayeredMap) AddDelete(s string) error {
 
 // Add will add the specified file s to the current layer.
 func (l *LayeredMap) Add(s string) error {
+	// A layer must exist before files can be added.
+	util.Assert(len(l.adds) > 0, "LayeredMap.Add called before Snapshot()")
 	l.isCurrentImageValid = false
 
 	// Use hash function and add to layers

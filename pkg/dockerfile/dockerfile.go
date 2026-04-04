@@ -108,7 +108,7 @@ func Parse(b []byte) ([]instructions.Stage, []instructions.ArgCommand, error) {
 	}
 	lintOptionStr, _, _, ok := parser.ParseDirective("check", b)
 	if (ok && lintOptionStr == "") || (!ok && lintOptionStr != "") {
-		logrus.Panicf("Unreachable Code: invariant violation ok=%t lintOptionStr=%q", ok, lintOptionStr)
+		util.Unreachable("invariant violation ok=%t lintOptionStr=%q", ok, lintOptionStr)
 	}
 	lintConfig, err := linter.ParseLintOptions(lintOptionStr)
 	if err != nil {
