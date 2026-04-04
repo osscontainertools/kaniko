@@ -320,6 +320,8 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 			if entry[0] != "PATH" {
 				continue
 			}
+			// Replacement envs must be in KEY=VALUE form.
+			util.Assert(len(entry) == 2, "replacement env matching \"PATH\" has no '=' separator")
 			oldPath := os.Getenv("PATH")
 			err := os.Setenv("PATH", entry[1])
 			if err != nil {
@@ -333,6 +335,7 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 		}
 	}
 
+	util.Assert(len(newCommand) > 0, "runCommandInExec: newCommand is empty")
 	logrus.Infof("Cmd: %s", newCommand[0])
 	logrus.Infof("Args: %s", newCommand[1:])
 
@@ -374,6 +377,7 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("starting command: %w", err)
 	}
+	util.Assert(cmd.Process != nil, "cmd.Process must be set after a successful Start()")
 
 	pgid, err := syscall.Getpgid(cmd.Process.Pid)
 	if err != nil {

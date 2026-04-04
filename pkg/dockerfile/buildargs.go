@@ -24,6 +24,7 @@ import (
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
 // builtinAllowedBuildArgs is list of built-in allowed build args
@@ -88,7 +89,8 @@ func (b *BuildArgs) Clone() *BuildArgs {
 func (b *BuildArgs) ReplacementEnvs(envs []string) []string {
 	// 3344: merge args and envs,
 	merged := convertKVStringsToMap(envs)
-	for key, val := range b.GetAllAllowed() {
+	args := b.GetAllAllowed()
+	for key, val := range args {
 		if config.EnvBool("FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE") {
 			// 3344: args always override envs
 			merged[key] = &val
@@ -101,6 +103,8 @@ func (b *BuildArgs) ReplacementEnvs(envs []string) []string {
 	for key, val := range merged {
 		result = append(result, fmt.Sprintf("%s=%s", key, *val))
 	}
+	util.Assert(len(envs) <= len(result), "ReplacementEnvs: result length %d must be at least input envs length %d", len(result), len(envs))
+	util.Assert(len(result) <= len(envs)+len(args), "ReplacementEnvs: result length %d must be larger than input envs length %d + args lenght %d", len(result), len(envs), len(args))
 	return result
 }
 
