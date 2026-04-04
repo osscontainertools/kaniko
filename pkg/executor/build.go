@@ -299,7 +299,6 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 		if command == nil {
 			continue
 		}
-		prevCompositeKey := compositeKey.Clone()
 		if hasContext {
 			files, err := command.FilesUsedFromContext(&cfg, s.args)
 			if err != nil {
@@ -310,31 +309,17 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 			if err != nil {
 				return err
 			}
-		}
-
-		// mz334: assert the inferred key pointer resolves to the same content key.
-		if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
-			inferredKey, err := populateCompositeKey(command, nil, prevCompositeKey, s.args, cfg.Env, fileContext, stageFinalCacheKeys)
+		} else if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
+			inferredKey, err := populateCompositeKey(command, nil, compositeKey, s.args, cfg.Env, fileContext, stageFinalCacheKeys)
 			if err == nil {
-				contentKey, err := redirectCacheKey(inferredKey, layerCache)
+				_compositeKey, err := redirectCacheKey(inferredKey, layerCache)
 				if err != nil {
 					return err
 				}
-				if contentKey != nil {
-					ick, err := contentKey.Hash()
-					if err != nil {
-						return err
-					}
-					ck, err := compositeKey.Hash()
-					if err != nil {
-						return err
-					}
-					if ick != ck {
-						logrus.Panicf("Unreachable Code: pointer inferred content key %v does not match the computed content key %v", ick, ck)
-					}
-					// mz334: log when the inferred key produced the hit (integration test observability only).
-					logrus.Infof("Cache hit via inferred cross-stage key for cmd: %s", command.String())
+				if _compositeKey == nil {
+					break
 				}
+				compositeKey = *_compositeKey
 			}
 		}
 
