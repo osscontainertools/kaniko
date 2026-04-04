@@ -330,6 +330,8 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 						break
 					}
 					compositeKey = *_compositeKey
+					// mz334: log when the inferred key produced the hit (integration test observability only).
+					logrus.Infof("Cache hit via inferred cross-stage key for cmd: %s", command.String())
 				}
 			} else {
 				break
@@ -1099,7 +1101,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 		finalCacheKey := ""
 		if opts.Cache && len(sb.cacheKeys) > 0 {
-			finalCacheKey := sb.cacheKeys[len(sb.cacheKeys)-1]
+			finalCacheKey = sb.cacheKeys[len(sb.cacheKeys)-1]
 			if finalCacheKey == "" {
 				logrus.Panic("Unreachable Code: finalCacheKey should exist for each stage")
 			}
