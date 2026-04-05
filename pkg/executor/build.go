@@ -293,33 +293,28 @@ func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (
 	return NewCompositeCache(rawKey), nil
 }
 
-func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, stageFinalCacheKeys map[int]string, hasContext bool) error {
-	if !opts.Cache {
-		return nil
-	}
-
+func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, stageFinalCacheKeys map[int]string, hasContext bool) (v1.Config, error) {
 	stopCache := false
 	keyValid := true
-	// Possibly replace commands with their cached implementations.
-	// We walk through all the commands, running any commands that only operate on metadata.
-	// We throw the metadata away after, but we need it to properly track command dependencies
-	// for things like COPY ${FOO} or RUN commands that use environment variables.
+	// Walk through all commands, running metadata-only commands to track config/arg
+	// state (needed even when cache is disabled for correct inter-stage propagation).
+	// Cache key computation is skipped when opts.Cache is false.
 	for i, command := range s.cmds {
 		if command == nil {
 			continue
 		}
-		if keyValid {
+		if opts.Cache && keyValid {
 			if !hasContext && needsCrossStageFiles(command) {
 				if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
 					inferredKey, err := populateCompositeKey(command, nil, compositeKey, s.args, cfg.Env, fileContext, stageFinalCacheKeys)
 					if err == nil {
 						_compositeKey, err := redirectCacheKey(inferredKey, layerCache)
 						if err != nil {
-							return err
+							return cfg, err
 						}
 						inferredCK, err := inferredKey.Hash()
 						if err != nil {
-							return err
+							return cfg, err
 						}
 						s.redirectKeys[i] = inferredCK
 						s.redirectHits[i] = _compositeKey != nil
@@ -340,19 +335,19 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 			} else {
 				files, err := command.FilesUsedFromContext(&cfg, s.args)
 				if err != nil {
-					return fmt.Errorf("failed to get files used from context: %w", err)
+					return cfg, fmt.Errorf("failed to get files used from context: %w", err)
 				}
 
 				compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, cfg.Env, fileContext, nil)
 				if err != nil {
-					return err
+					return cfg, err
 				}
 			}
 
 			logrus.Debugf("Optimize: composite key for command %v %v", command.String(), compositeKey)
 			ck, err := compositeKey.Hash()
 			if err != nil {
-				return fmt.Errorf("failed to hash composite key: %w", err)
+				return cfg, fmt.Errorf("failed to hash composite key: %w", err)
 			}
 
 			logrus.Debugf("Optimize: cache key for command %v %v", command.String(), ck)
@@ -385,11 +380,11 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 		// Mutate the config for any commands that require it.
 		if command.MetadataOnly() {
 			if err := command.ExecuteCommand(&cfg, s.args); err != nil {
-				return err
+				return cfg, err
 			}
 		}
 	}
-	return nil
+	return cfg, nil
 }
 
 func shouldUnpackFilesystem(stage *stageBuilder, opts *config.KanikoOptions, crossStageDeps bool) bool {
@@ -948,6 +943,12 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		return nil, err
 	}
 
+	// stageFinalConfigs tracks the v1.Config produced by each stage's optimize pass
+	// (metadata-only commands like ENV/WORKDIR applied). Used to seed locally-stored
+	// dependent stages with the correct initial config.
+	stageFinalConfigs := make(map[int]v1.Config)
+	// images holds the source image for each stage so locally-stored stages can pass
+	// a non-nil image to newStageBuilder (the config is overridden via stageFinalConfigs).
 	images := make([]v1.Image, lastStage.Index+1)
 	builderStages := []*stageBuilder{}
 	for _, stage := range kanikoStages {
@@ -963,12 +964,17 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if config.EnvBool("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS") {
 			sourceImage = withoutAnnotations(sourceImage)
 		}
-		sb, err := newStageBuilder(
-			sourceImage,
-			args, opts, stage,
-			fileContext)
+		sb, err := newStageBuilder(sourceImage, args, opts, stage, fileContext)
 		if err != nil {
 			return nil, err
+		}
+		// For locally-stored stages, newStageBuilder used the base stage's unbuilt source
+		// image. Override the config with the final config produced by the base stage's
+		// optimize pass so that ENV/WORKDIR/etc. are correct.
+		if stage.BaseImageStoredLocally {
+			if finalCfg, ok := stageFinalConfigs[stage.BaseImageIndex]; ok {
+				sb.cf.Config = finalCfg
+			}
 		}
 		builderStages = append(builderStages, sb)
 
@@ -985,10 +991,11 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			compositeKey = NewCompositeCache(sb.baseImageDigest)
 		}
 		if compositeKey != nil {
-			err = sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, false)
+			finalCfg, err := sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, false)
 			if err != nil {
 				return nil, err
 			}
+			stageFinalConfigs[stage.Index] = finalCfg
 		}
 		if len(sb.cacheKeys) != len(sb.cmds) || len(sb.cacheHits) != len(sb.cmds) {
 			logrus.Panic("Unreachable Code: telemetry data should exist for each command")
@@ -1065,24 +1072,17 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
 			stage.BaseName, stage.Index, stage.BaseImageIndex)
 
-		// For locally-stored base stages, the precompute loop had no built image to use,
-		// so sb.image and sb.cf were seeded from the unbuilt source image. Now that the
-		// base stage has been fully built and stored, retrieve the correct image.
+		// For locally-stored base stages the precompute used the unbuilt source image as
+		// sb.image (the built image didn't exist on disk yet). Now that the base stage has
+		// been fully built and stored, update sb.image so that build() unpacks the correct
+		// filesystem. sb.cf was already seeded with the correct final config by the
+		// precompute loop (via stageFinalConfigs), so no config re-init is needed.
 		if stage.BaseImageStoredLocally {
 			builtSourceImage, err := image_util.RetrieveSourceImage(stage, opts)
 			if err != nil {
 				return nil, fmt.Errorf("failed to retrieve built source image for stage %d: %w", stage.Index, err)
 			}
-			_opts := *opts
-			if !stage.Push {
-				_opts.Labels = []string{}
-			}
-			newCf, err := initializeConfig(builtSourceImage, &_opts)
-			if err != nil {
-				return nil, err
-			}
 			sb.image = builtSourceImage
-			sb.cf = newCf
 		}
 
 		// Set the initial cache key to be the base image digest
@@ -1097,15 +1097,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 
 		// Apply optimizations to the instructions.
-		// When cache is disabled the precompute loop's optimize was a no-op, so it never
-		// executed ARG commands and therefore never propagated args between stages.
-		// In that case, seed sb.args from the args accumulated by the build loop so that
-		// inter-stage arg values (e.g. ARG NAME="$NAME-dev") resolve correctly.
-		if !opts.Cache {
-			sb.args = args
-		}
 		args = sb.args.Clone()
-		err = sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, true)
+		_, err = sb.optimize(*compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
 		}
