@@ -41,6 +41,11 @@ type CompositeCache struct {
 	keys []string
 }
 
+// Clone returns an independent copy of the CompositeCache with its own backing array.
+func (s CompositeCache) Clone() CompositeCache {
+	return CompositeCache{keys: append([]string(nil), s.keys...)}
+}
+
 // AddKey adds the specified key to the sequence.
 func (s *CompositeCache) AddKey(k ...string) {
 	s.keys = append(s.keys, k...)

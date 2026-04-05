@@ -21,8 +21,11 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"slices"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/osscontainertools/kaniko/pkg/commands"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
@@ -144,18 +147,23 @@ func (m MockCachedDockerCommand) IsArgsEnvsRequiredInCache() bool {
 	return m.argToCompositeCache
 }
 
-type fakeLayerCache struct {
+type FakeLayerCache struct {
 	retrieve     bool
 	receivedKeys []string
 	img          v1.Image
-	keySequence  []string
+	KeySequence  []string
+	Redirects    []string
 }
 
-func (f *fakeLayerCache) RetrieveLayer(key string) (v1.Image, error) {
+func (f *FakeLayerCache) RetrieveLayer(key string) (v1.Image, error) {
 	f.receivedKeys = append(f.receivedKeys, key)
-	if len(f.keySequence) > 0 {
-		if f.keySequence[0] == key {
-			f.keySequence = f.keySequence[1:]
+	if slices.Contains(f.Redirects, key) {
+		cf := &v1.ConfigFile{}
+		cf.Config.Labels = map[string]string{cachePointerLabel: key}
+		return mutate.ConfigFile(empty.Image, cf)
+	} else if len(f.KeySequence) > 0 {
+		if f.KeySequence[0] == key {
+			f.KeySequence = f.KeySequence[1:]
 			return f.img, nil
 		}
 		return f.img, errors.New("could not find layer")

@@ -202,7 +202,8 @@ func Test_stageBuilder_shouldTakeSnapshot(t *testing.T) {
 				tt.fields.opts = &config.KanikoOptions{}
 			}
 			s := &stageBuilder{
-				cmds: tt.fields.cmds,
+				stage: tt.fields.stage,
+				cmds:  tt.fields.cmds,
 			}
 			isLastCommand := tt.args.index == len(s.cmds)-1
 			if got := shouldTakeSnapshot(tt.args.metadataOnly, isLastCommand, tt.fields.opts); got != tt.want {
@@ -596,7 +597,7 @@ func Test_stageBuilder_optimize(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cf := &v1.ConfigFile{}
-			lc := &fakeLayerCache{retrieve: tc.retrieve}
+			lc := &FakeLayerCache{retrieve: tc.retrieve}
 			sb := &stageBuilder{cf: cf, args: dockerfile.NewBuildArgs([]string{})}
 			ck := CompositeCache{}
 			file, err := os.CreateTemp("", "foo")
@@ -608,7 +609,9 @@ func Test_stageBuilder_optimize(t *testing.T) {
 				cacheCommand: MockCachedDockerCommand{},
 			}
 			sb.cmds = []commands.DockerCommand{command}
-			_, err = sb.optimize(ck, cf.Config, tc.opts, util.FileContext{}, lc)
+			sb.cacheKeys = make([]string, len(sb.cmds))
+			sb.cacheHits = make([]bool, len(sb.cmds))
+			_, err = sb.optimize(&ck, cf.Config, tc.opts, util.FileContext{}, lc, nil, nil, true)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -867,11 +870,11 @@ func Test_stageBuilder_populateCompositeKey(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			ck1, err := populateCompositeKey(dockerCommand1, []string{}, ck, tc.cmd1.args, tc.cmd1.env, fc)
+			ck1, err := populateCompositeKey(dockerCommand1, []string{}, ck, tc.cmd1.args, tc.cmd1.env, fc, nil)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
-			ck2, err := populateCompositeKey(dockerCommand2, []string{}, ck, tc.cmd2.args, tc.cmd2.env, fc)
+			ck2, err := populateCompositeKey(dockerCommand2, []string{}, ck, tc.cmd2.args, tc.cmd2.env, fc, nil)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -888,7 +891,7 @@ func Test_stageBuilder_build(t *testing.T) {
 		description        string
 		opts               *config.KanikoOptions
 		args               map[string]string
-		layerCache         *fakeLayerCache
+		layerCache         *FakeLayerCache
 		expectedCacheKeys  []string
 		pushedCacheKeys    []string
 		commands           []commands.DockerCommand
@@ -957,7 +960,7 @@ func Test_stageBuilder_build(t *testing.T) {
 				description: "fake command cache enabled and key in cache",
 				opts:        &config.KanikoOptions{Cache: true},
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
-				layerCache: &fakeLayerCache{
+				layerCache: &FakeLayerCache{
 					retrieve: true,
 				},
 				expectedCacheKeys: []string{hash},
@@ -990,7 +993,7 @@ func Test_stageBuilder_build(t *testing.T) {
 				description: "fake command cache enabled with tar compression disabled and key in cache",
 				opts:        &config.KanikoOptions{Cache: true, CompressedCaching: false},
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
-				layerCache: &fakeLayerCache{
+				layerCache: &FakeLayerCache{
 					retrieve: true,
 				},
 				expectedCacheKeys: []string{hash},
@@ -1015,7 +1018,7 @@ func Test_stageBuilder_build(t *testing.T) {
 		{
 			description: "fake command cache disabled and key in cache",
 			opts:        &config.KanikoOptions{Cache: false},
-			layerCache: &fakeLayerCache{
+			layerCache: &FakeLayerCache{
 				retrieve: true,
 			},
 		},
@@ -1069,7 +1072,7 @@ func Test_stageBuilder_build(t *testing.T) {
 						},
 					},
 				},
-				layerCache: &fakeLayerCache{
+				layerCache: &FakeLayerCache{
 					retrieve: true,
 					img: fakeImage{
 						ImageLayers: []v1.Layer{
@@ -1129,7 +1132,7 @@ COPY %s foo.txt
 				description: "copy command cache enabled and key is not in cache",
 				opts:        opts,
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
-				layerCache:  &fakeLayerCache{},
+				layerCache:  &FakeLayerCache{},
 				image: fakeImage{
 					ImageLayers: []v1.Layer{
 						fakeLayer{
@@ -1207,8 +1210,8 @@ COPY %s bar.txt
 				opts:        &config.KanikoOptions{Cache: true, CacheCopyLayers: true, CacheRunLayers: true},
 				rootDir:     dir,
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
-				layerCache: &fakeLayerCache{
-					keySequence: []string{hash1},
+				layerCache: &FakeLayerCache{
+					KeySequence: []string{hash1},
 					img:         image,
 				},
 				image: image,
@@ -1281,8 +1284,8 @@ RUN foobar
 				opts:        &config.KanikoOptions{Cache: true, CacheRunLayers: true},
 				rootDir:     dir,
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
-				layerCache: &fakeLayerCache{
-					keySequence: []string{runHash},
+				layerCache: &FakeLayerCache{
+					KeySequence: []string{runHash},
 					img:         image,
 				},
 				image:             image,
@@ -1321,9 +1324,9 @@ RUN foobar
 				expectedCacheKeys: []string{hash},
 				commands:          []commands.DockerCommand{command},
 				// layer key needs to be read.
-				layerCache: &fakeLayerCache{
+				layerCache: &FakeLayerCache{
 					img:         &fakeImage{ImageLayers: []v1.Layer{fakeLayer{}}},
-					keySequence: []string{hash},
+					KeySequence: []string{hash},
 				},
 				rootDir: dir,
 			}
@@ -1357,9 +1360,9 @@ RUN foobar
 					"arg": "value",
 				},
 				// layer key that exists
-				layerCache: &fakeLayerCache{
+				layerCache: &FakeLayerCache{
 					img:         &fakeImage{ImageLayers: []v1.Layer{fakeLayer{}}},
-					keySequence: []string{hash},
+					KeySequence: []string{hash},
 				},
 				expectedCacheKeys: []string{hash},
 				commands:          []commands.DockerCommand{command},
@@ -1401,9 +1404,9 @@ RUN foobar
 					"arg": "anotherValue",
 				},
 				// layer for arg=value already exists
-				layerCache: &fakeLayerCache{
+				layerCache: &FakeLayerCache{
 					img:         &fakeImage{ImageLayers: []v1.Layer{fakeLayer{}}},
-					keySequence: []string{hash1},
+					KeySequence: []string{hash1},
 				},
 				expectedCacheKeys: []string{hash2},
 				pushedCacheKeys:   []string{hash2},
@@ -1453,7 +1456,7 @@ RUN foobar
 			snap := &fakeSnapShotter{file: fileName}
 			lc := tc.layerCache
 			if lc == nil {
-				lc = &fakeLayerCache{}
+				lc = &FakeLayerCache{}
 			}
 			keys := []string{}
 			_image := tc.image
@@ -1472,6 +1475,8 @@ RUN foobar
 				return nil
 			}
 			sb.cmds = tc.commands
+			sb.cacheKeys = make([]string, len(sb.cmds))
+			sb.cacheHits = make([]bool, len(sb.cmds))
 			for key, value := range tc.args {
 				sb.args.AddArg(key, &value)
 			}
@@ -1485,11 +1490,11 @@ RUN foobar
 				getFSFromImage = tc.mockGetFSFromImage
 			}
 			compositeKey := NewCompositeCache(sb.baseImageDigest)
-			_, err := sb.optimize(*compositeKey, sb.cf.Config, tc.opts, util.FileContext{}, lc)
+			_, err := sb.optimize(compositeKey, sb.cf.Config, tc.opts, util.FileContext{}, lc, nil, nil, true)
 			if err != nil {
 				t.Errorf("failed to optimize instructions: %v", err)
 			}
-			err = sb.build(*compositeKey, tc.opts, util.FileContext{}, snap, tc.crossStageDeps)
+			err = sb.build(*compositeKey, tc.opts, util.FileContext{}, snap, tc.crossStageDeps, nil)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -1654,6 +1659,7 @@ func Test_stageBuild_populateCompositeKeyForCopyCommand(t *testing.T) {
 						dockerfile.NewBuildArgs([]string{}),
 						[]string{},
 						fc,
+						nil,
 					)
 					if err != nil {
 						t.Fatal(err)

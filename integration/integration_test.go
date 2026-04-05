@@ -715,6 +715,9 @@ func buildImage(t *testing.T, dockerfile string, imageBuilder *DockerFileBuilder
 func TestCache(t *testing.T) {
 	// Build dockerfiles with registry cache
 	for dockerfile := range imageBuilder.TestCacheDockerfiles {
+		if match, _ := filepath.Match(config.dockerfilesPattern, dockerfile); !match {
+			continue
+		}
 		t.Run("test_cache_"+dockerfile, func(t *testing.T) {
 			dockerfile := dockerfile
 			cache := filepath.Join(config.imageRepo, "cache", strconv.FormatInt(time.Now().UnixNano(), 10))
@@ -725,6 +728,9 @@ func TestCache(t *testing.T) {
 
 	// Build dockerfiles with layout cache
 	for dockerfile := range imageBuilder.TestOCICacheDockerfiles {
+		if match, _ := filepath.Match(config.dockerfilesPattern, dockerfile); !match {
+			continue
+		}
 		t.Run("test_oci_cache_"+dockerfile, func(t *testing.T) {
 			dockerfile := dockerfile
 			cache := filepath.Join("oci:", cacheDir, "cached", strconv.FormatInt(time.Now().UnixNano(), 10))
