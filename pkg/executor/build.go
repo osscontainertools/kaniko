@@ -1065,6 +1065,26 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
 			stage.BaseName, stage.Index, stage.BaseImageIndex)
 
+		// For locally-stored base stages, the precompute loop had no built image to use,
+		// so sb.image and sb.cf were seeded from the unbuilt source image. Now that the
+		// base stage has been fully built and stored, retrieve the correct image.
+		if stage.BaseImageStoredLocally {
+			builtSourceImage, err := image_util.RetrieveSourceImage(stage, opts)
+			if err != nil {
+				return nil, fmt.Errorf("failed to retrieve built source image for stage %d: %w", stage.Index, err)
+			}
+			_opts := *opts
+			if !stage.Push {
+				_opts.Labels = []string{}
+			}
+			newCf, err := initializeConfig(builtSourceImage, &_opts)
+			if err != nil {
+				return nil, err
+			}
+			sb.image = builtSourceImage
+			sb.cf = newCf
+		}
+
 		// Set the initial cache key to be the base image digest
 		var compositeKey *CompositeCache
 		if stage.BaseImageStoredLocally {
