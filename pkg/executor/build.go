@@ -948,6 +948,12 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		return nil, err
 	}
 
+	// Fetch external images referenced by COPY --from=<image> before the precompute
+	// loop runs, so populateCompositeKey can resolve their file contents for cache keys.
+	if err := fetchExtraStages(kanikoStages, opts); err != nil {
+		return nil, err
+	}
+
 	// stageFinalConfigs tracks the v1.Config produced by each stage's optimize pass
 	// (metadata-only commands like ENV/WORKDIR applied). Used to seed locally-stored
 	// dependent stages with the correct initial config.
@@ -1013,11 +1019,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 	if opts.Dryrun {
 		return nil, RenderStages(builderStages, opts, fileContext, crossStageDependencies)
-	}
-
-	// Some stages may refer to other random images, not previous stages
-	if err := fetchExtraStages(kanikoStages, opts); err != nil {
-		return nil, err
 	}
 
 	var tarball string
