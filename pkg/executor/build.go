@@ -275,6 +275,65 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	return compositeKey, nil
 }
 
+// externalImageCopyDigest returns the pre-resolved digest for a COPY --from=<remote-image>
+// command. Non-integer From values that appear in externalDigests are remote images.
+func externalImageCopyDigest(command commands.DockerCommand, externalDigests map[string]string) (string, bool) {
+	copyCmd, ok := commands.CastAbstractCopyCommand(command)
+	if !ok || copyCmd.From() == "" {
+		return "", false
+	}
+	if _, err := strconv.Atoi(copyCmd.From()); err == nil {
+		return "", false // local stage index, not a remote image
+	}
+	digest, ok := externalDigests[copyCmd.From()]
+	return digest, ok
+}
+
+// populateCompositeKeyWithDigest builds the cache key contribution for a
+// COPY --from=<remote-image> command using the image digest instead of file contents.
+func populateCompositeKeyWithDigest(command commands.DockerCommand, digest string, compositeKey CompositeCache, args *dockerfile.BuildArgs, env []string) CompositeCache {
+	replacementEnvs := args.ReplacementEnvs(env)
+	sort.Strings(replacementEnvs)
+	if command.IsArgsEnvsRequiredInCache() && len(replacementEnvs) > 0 {
+		compositeKey.AddKey(fmt.Sprintf("|%d", len(replacementEnvs)))
+		compositeKey.AddKey(replacementEnvs...)
+	}
+	compositeKey.AddKey(command.String())
+	compositeKey.AddKey(digest)
+	return compositeKey
+}
+
+// resolveExternalImageDigests fetches the manifest (digest only, no layer download)
+// for every remote image referenced by COPY --from=<image> across all stages.
+// The returned map is keyed by the image reference as it appears in the Dockerfile.
+func resolveExternalImageDigests(stages []config.KanikoStage, opts *config.KanikoOptions) (map[string]string, error) {
+	digests := map[string]string{}
+	for _, s := range stages {
+		for _, cmd := range s.Commands {
+			c, ok := cmd.(*instructions.CopyCommand)
+			if !ok || c.From == "" {
+				continue
+			}
+			if _, err := strconv.Atoi(c.From); err == nil {
+				continue // local stage index
+			}
+			if _, seen := digests[c.From]; seen {
+				continue
+			}
+			img, err := remote.RetrieveRemoteImage(c.From, opts.RegistryOptions, opts.CustomPlatform)
+			if err != nil {
+				return nil, fmt.Errorf("resolving digest for COPY --from=%s: %w", c.From, err)
+			}
+			d, err := img.Digest()
+			if err != nil {
+				return nil, fmt.Errorf("getting digest for COPY --from=%s: %w", c.From, err)
+			}
+			digests[c.From] = d.String()
+		}
+	}
+	return digests, nil
+}
+
 func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (*CompositeCache, error) {
 	inferredCk, err := inferredKey.Hash()
 	if err != nil {
@@ -293,7 +352,7 @@ func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (
 	return NewCompositeCache(rawKey), nil
 }
 
-func (s *stageBuilder) optimize(compositeKey *CompositeCache, cfg v1.Config, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, stageFinalCacheKeys map[int]string, hasContext bool) (v1.Config, error) {
+func (s *stageBuilder) optimize(compositeKey *CompositeCache, cfg v1.Config, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, stageFinalCacheKeys map[int]string, externalDigests map[string]string, hasContext bool) (v1.Config, error) {
 	stopCache := false
 	keyValid := compositeKey != nil
 	var key CompositeCache
@@ -337,6 +396,11 @@ func (s *stageBuilder) optimize(compositeKey *CompositeCache, cfg v1.Config, opt
 					keyValid = false
 					continue
 				}
+			} else if digest, ok := externalImageCopyDigest(command, externalDigests); ok {
+				// COPY --from=<remote-image>: use the image digest as the cache key
+				// contribution instead of hashing file contents. This avoids the need
+				// to extract the image during the precompute pass.
+				key = populateCompositeKeyWithDigest(command, digest, key, s.args, cfg.Env)
 			} else {
 				files, err := command.FilesUsedFromContext(&cfg, s.args)
 				if err != nil {
@@ -948,9 +1012,11 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		return nil, err
 	}
 
-	// Fetch external images referenced by COPY --from=<image> before the precompute
-	// loop runs, so populateCompositeKey can resolve their file contents for cache keys.
-	if err := fetchExtraStages(kanikoStages, opts); err != nil {
+	// Resolve digests for external images referenced by COPY --from=<image>.
+	// Only the manifest is fetched here (go-containerregistry is lazy); full layer
+	// extraction happens later in fetchExtraStages, before the build loop.
+	externalDigests, err := resolveExternalImageDigests(kanikoStages, opts)
+	if err != nil {
 		return nil, err
 	}
 
@@ -998,7 +1064,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		} else {
 			compositeKey = NewCompositeCache(sb.baseImageDigest)
 		}
-		finalCfg, err := sb.optimize(compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, false)
+		finalCfg, err := sb.optimize(compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, externalDigests, false)
 		if err != nil {
 			return nil, err
 		}
@@ -1019,6 +1085,13 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 	if opts.Dryrun {
 		return nil, RenderStages(builderStages, opts, fileContext, crossStageDependencies)
+	}
+
+	// Some stages may refer to other random images, not previous stages.
+	// Full layer extraction happens here, after precompute, since cache key
+	// computation uses image digests (resolved above) rather than file contents.
+	if err := fetchExtraStages(kanikoStages, opts); err != nil {
+		return nil, err
 	}
 
 	var tarball string
@@ -1099,7 +1172,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 		// Apply optimizations to the instructions.
 		args = sb.args.Clone()
-		_, err = sb.optimize(compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, true)
+		_, err = sb.optimize(compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, externalDigests, true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
 		}
