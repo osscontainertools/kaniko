@@ -48,12 +48,8 @@ jobs:
           persist-credentials: false
 
       - uses: docker/setup-docker-action@1a6edb0ba9ac496f6850236981f15d8f9a82254d # v5.0.0
-        id: setup-docker
         with:
           version: 29.2.1
 
-      - run: sudo apt install -y libgpgme-dev libassuan-dev libbtrfs-dev pkg-config # skopeo dependencies
-      - run: make install-diffoci install-skopeo k3s-setup
+      - run: make install-diffoci k3s-setup
       - run: make ${{ matrix.make-target }}
-        env:
-          DOCKER_HOST: ${{ steps.setup-docker.outputs.sock }}

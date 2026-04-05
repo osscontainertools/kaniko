@@ -57,12 +57,10 @@ out/warmer: $(GO_FILES)
 install-diffoci:
 	@ git clone https://github.com/mzihlmann/diffoci.git && \
 		cd diffoci/cmd/diffoci && \
+		git checkout 95fcda482de24c04a8e36a57657c4321be0d53f0 && \
 		go mod vendor && \
 		go install
 
-.PHONY: install-skopeo
-install-skopeo:
-	@ GOFLAGS="" go install github.com/containers/skopeo/cmd/skopeo@latest
 
 .PHONY: k3s-setup
 k3s-setup:

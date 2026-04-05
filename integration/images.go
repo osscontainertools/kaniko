@@ -95,6 +95,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_OCI_WARMER=1",
 	"FF_KANIKO_RUN_VIA_TINI=1",
 	"FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=1",
+	"FF_KANIKO_NO_PROPAGATE_ANNOTATIONS=1",
 }
 
 var WarmerEnv = []string{
@@ -103,9 +104,51 @@ var WarmerEnv = []string{
 
 // Arguments to build Dockerfiles with when building with docker
 var additionalDockerFlagsMap = map[string][]string{
-	"Dockerfile_test_target":      {"--target=second"},
+	"Dockerfile_test_target":      {"--target=second", "--provenance=false"},
 	"Dockerfile_test_issue_cg188": {"--secret=id=netrc,env=SECRET"},
 	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=context/foo"},
+	// provenance forces ociv1 on buildkit but for these images we emit dockerv2 in kaniko
+	"Dockerfile_test_mv_add":                       {"--provenance=false"},
+	"Dockerfile_test_snapshotter_ignorelist":       {"--provenance=false"},
+	"Dockerfile_test_workdir_with_user":            {"--provenance=false"},
+	"Dockerfile_test_whitelist":                    {"--provenance=false"},
+	"Dockerfile_test_volume_4":                     {"--provenance=false"},
+	"Dockerfile_test_volume_3":                     {"--provenance=false"},
+	"Dockerfile_test_maintainer":                   {"--provenance=false"},
+	"Dockerfile_test_meta_arg":                     {"--provenance=false"},
+	"Dockerfile_test_replaced_symlinks":            {"--provenance=false"},
+	"Dockerfile_test_scratch":                      {"--provenance=false"},
+	"Dockerfile_test_registry":                     {"--provenance=false"},
+	"Dockerfile_test_pre_defined_build_args":       {"--provenance=false"},
+	"Dockerfile_test_replaced_hardlinks":           {"--provenance=false"},
+	"Dockerfile_test_issue_647":                    {"--provenance=false"},
+	"Dockerfile_test_copy_root_multistage":         {"--provenance=false"},
+	"Dockerfile_test_issue_1965":                   {"--provenance=false"},
+	"Dockerfile_test_issue_1007":                   {"--provenance=false"},
+	"Dockerfile_test_ignore":                       {"--provenance=false"},
+	"Dockerfile_test_issue_1837":                   {"--provenance=false"},
+	"Dockerfile_test_issue_2049":                   {"--provenance=false"},
+	"Dockerfile_test_dockerignore":                 {"--provenance=false"},
+	"Dockerfile_test_issue_1039":                   {"--provenance=false"},
+	"Dockerfile_test_dangling_symlink":             {"--provenance=false"},
+	"Dockerfile_test_copyadd_chmod":                {"--provenance=false"},
+	"Dockerfile_test_copy_symlink":                 {"--provenance=false"},
+	"Dockerfile_test_copy_same_file_many_times":    {"--provenance=false"},
+	"Dockerfile_test_copy_reproducible":            {"--provenance=false"},
+	"Dockerfile_test_copy_chown_intermediate_dirs": {"--provenance=false"},
+	"Dockerfile_test_copy":                         {"--provenance=false"},
+	"Dockerfile_test_copy_bucket":                  {"--provenance=false"},
+	"Dockerfile_test_complex_substitution":         {"--provenance=false"},
+	"Dockerfile_test_cache_copy_oci":               {"--provenance=false"},
+	"Dockerfile_test_add_url_with_arg":             {"--provenance=false"},
+	"Dockerfile_test_add_dest_symlink_dir":         {"--provenance=false"},
+	"Dockerfile_test_add_chown_intermediate_dirs":  {"--provenance=false"},
+	"Dockerfile_test_arg_two_level":                {"--provenance=false"},
+	"Dockerfile_test_arg_multi_empty_val":          {"--provenance=false"},
+	"issue-1020":                                   {"--provenance=false"},
+	"issue-774":                                    {"--provenance=false"},
+	"issue-1315":                                   {"--provenance=false"},
+	"dockerfiles/Dockerfile_relative_copy":         {"--provenance=false"},
 }
 
 // Override which kaniko executor image to use for a specific test
@@ -632,15 +675,15 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 	dockerImage := GetDockerImage(imageRepo, "test_relative_"+dockerfile)
 	kanikoImage := GetKanikoImage(imageRepo, "test_relative_"+dockerfile)
 
-	dockerCmd := exec.Command("docker",
-		[]string{
-			"build",
-			"--push",
-			"-t", dockerImage,
-			"-f", dockerfile,
-			"./context",
-		}...,
-	)
+	dockerArgs := []string{
+		"build",
+		"--push",
+		"-t", dockerImage,
+		"-f", dockerfile,
+		"./context",
+	}
+	dockerArgs = append(dockerArgs, additionalDockerFlagsMap[dockerfile]...)
+	dockerCmd := exec.Command("docker", dockerArgs...)
 
 	timer := timing.Start(dockerfile + "_docker")
 	out, err := RunCommandWithoutTest(dockerCmd)

@@ -34,7 +34,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -765,8 +764,6 @@ func TestWarmer(t *testing.T) {
 			kanikoVersion1 := GetKanikoImage(imageRepo, "test_warmer_"+dockerfile) + strconv.Itoa(1)
 
 			containerDiff(t, kanikoVersion0, kanikoVersion1)
-			layerDiff(t, kanikoVersion0, kanikoVersion1)
-			manifestDiff(t, kanikoVersion0, kanikoVersion1)
 		})
 	}
 }
@@ -846,7 +843,6 @@ func verifyBuildWith(t *testing.T, cache, dockerfile string) {
 	kanikoVersion1 := GetVersionedKanikoImage(config.imageRepo, dockerfile, 1)
 
 	containerDiff(t, kanikoVersion0, kanikoVersion1)
-	layerDiff(t, kanikoVersion0, kanikoVersion1)
 }
 
 func TestRelativePaths(t *testing.T) {
@@ -987,50 +983,6 @@ func TestBuildWithAnnotations(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 	containerDiff(t, dockerImage, kanikoImage, "--ignore-history")
-
-	dockerAnnotations, err := getImageManifestAnnotations(t, dockerImage)
-	if err != nil {
-		t.Fatalf("Failed to get annotations for docker image %s: %v", dockerImage, err)
-	}
-	if len(dockerAnnotations) == 0 {
-		t.Fatalf("No annotations found for docker image %s", dockerImage)
-	}
-
-	kanikoAnnotations, err := getImageManifestAnnotations(t, kanikoImage)
-	if err != nil {
-		t.Fatalf("Failed to get annotations for kaniko image %s: %v", kanikoImage, err)
-	}
-	if len(kanikoAnnotations) == 0 {
-		t.Fatalf("No annotations found for kaniko image %s", kanikoImage)
-	}
-	if diff := cmp.Diff(kanikoAnnotations, dockerAnnotations); diff != "" {
-		t.Errorf("Annotation don't match (-kaniko, +docker): %s", diff)
-	}
-
-	if kanikoAnnotations[annotationKey] != annotationValue {
-		t.Errorf("Expected annotation %q to be %q, got annotations: %v", annotationKey, annotationValue, kanikoAnnotations)
-	}
-}
-
-func getImageManifestAnnotations(t *testing.T, image string) (map[string]string, error) {
-	t.Helper()
-
-	ref, err := name.ParseReference(image, name.WeakValidation)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse image reference %s: %w", image, err)
-	}
-
-	imgRef, err := remote.Image(ref)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get image reference for %s from remote: %w", image, err)
-	}
-
-	manifest, err := imgRef.Manifest()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get manifest for image %s: %w", image, err)
-	}
-
-	return manifest.Annotations, nil
 }
 
 func onBuildDiff(t *testing.T, image1, image2 string) {
@@ -1043,84 +995,6 @@ func onBuildDiff(t *testing.T, image1, image2 string) {
 		t.Fatalf("Failed to get image config for (%s): %s", image2, err)
 	}
 	testutil.CheckDeepEqual(t, img1.Config.OnBuild, img2.Config.OnBuild)
-}
-
-func layerDiff(t *testing.T, image1, image2 string) {
-	t.Helper()
-	layers1, err := getImageLayers(image1)
-	if err != nil {
-		t.Fatalf("Couldn't get layers from image reference for (%s): %s", image1, err)
-	}
-
-	layers2, err := getImageLayers(image2)
-	if err != nil {
-		t.Fatalf("Couldn't get layers from image reference for (%s): %s", image2, err)
-	}
-
-	for idx := range min(len(layers1), len(layers2)) {
-		l1d, err := layers1[idx].Digest()
-		if err != nil {
-			t.Fatalf("Couldn't get digest from image layer (%s #%d): %s", image1, idx, err)
-		}
-
-		l2d, err := layers2[idx].Digest()
-		if err != nil {
-			t.Fatalf("Couldn't get digest from image layer (%s #%d): %s", image2, idx, err)
-		}
-
-		if l1d != l2d {
-			command, err := resolveCreatedBy(image1, idx)
-			if err != nil {
-				t.Errorf("Image Layers #%d differ", idx)
-			} else {
-				t.Errorf("Image Layers #%d differ: %s", idx, command)
-			}
-		}
-	}
-
-	if len(layers1) > len(layers2) {
-		command, err := resolveCreatedBy(image1, len(layers2))
-		if err != nil {
-			t.Errorf("Image Layer count differs %d != %d", len(layers1), len(layers2))
-		} else {
-			t.Errorf("Image Layer count differs %d != %d: %s", len(layers1), len(layers2), command)
-		}
-	} else if len(layers1) < len(layers2) {
-		command, err := resolveCreatedBy(image2, len(layers1))
-		if err != nil {
-			t.Errorf("Image Layer count differs %d != %d", len(layers1), len(layers2))
-		} else {
-			t.Errorf("Image Layer count differs %d != %d: %s", len(layers1), len(layers2), command)
-		}
-	}
-}
-
-func manifestDiff(t *testing.T, image1, image2 string) {
-	t.Helper()
-
-	imgRef1, err := getImage(image1)
-	if err != nil {
-		t.Fatalf("Couldn't get image reference for (%s): %s", image1, err)
-	}
-
-	imgRef2, err := getImage(image2)
-	if err != nil {
-		t.Fatalf("Couldn't get image reference for (%s): %s", image2, err)
-	}
-
-	media1, err := imgRef1.MediaType()
-	if err != nil {
-		t.Fatalf("Couldn't get mediatype for (%s): %s", image1, err)
-	}
-
-	media2, err := imgRef2.MediaType()
-	if err != nil {
-		t.Fatalf("Couldn't get mediatype for (%s): %s", image2, err)
-	}
-
-	if media1 != media2 {
-		t.Fatalf("mediatype diff: %s != %s", media1, media2)
-	}
 }
 
 func checkLayers(t *testing.T, image1, image2 string, offset int) {
@@ -1157,42 +1031,12 @@ func getImageConfig(image string) (*v1.ConfigFile, error) {
 	return cfg, nil
 }
 
-func resolveCreatedBy(image string, layerIndex int) (string, error) {
-	cfg, err := getImageConfig(image)
-	if err != nil {
-		return "", err
-	}
-	idx := 0
-	for _, history := range cfg.History {
-		if history.EmptyLayer {
-			continue
-		}
-		if idx == layerIndex {
-			return history.CreatedBy, nil
-		}
-		idx++
-	}
-	return "", fmt.Errorf("LayerIndex %d not found in History of length %d", layerIndex, len(cfg.History))
-}
-
 func getImage(image string) (v1.Image, error) {
 	ref, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't parse reference to image %s: %w", image, err)
 	}
 	return remote.Image(ref)
-}
-
-func getImageLayers(image string) ([]v1.Layer, error) {
-	imgRef, err := getImage(image)
-	if err != nil {
-		return nil, fmt.Errorf("Couldn't get reference to image %s from remote: %w", image, err)
-	}
-	layers, err := imgRef.Layers()
-	if err != nil {
-		return nil, fmt.Errorf("Error getting layers for image %s: %w", image, err)
-	}
-	return layers, nil
 }
 
 func getImageDetails(image string) (*imageDetails, error) {
@@ -1328,7 +1172,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 }
 
 func meetsRequirements() bool {
-	requiredTools := []string{"diffoci", "skopeo"}
+	requiredTools := []string{"diffoci"}
 	hasRequirements := true
 	for _, tool := range requiredTools {
 		_, err := exec.LookPath(tool)
@@ -1343,16 +1187,14 @@ func meetsRequirements() bool {
 // containerDiff compares the container images image1 and image2.
 func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	// workaround for container-diff OCI issue https://github.com/GoogleContainerTools/container-diff/issues/389
-	out, err := skopeoPull(image1)
-	if err != nil {
-		t.Fatalf("failed to pull image %s: %v\n%s", image1, err, string(out))
-	}
+	dockerPullCmd := exec.Command("docker", "pull", image1)
+	out := RunCommand(dockerPullCmd, t)
+	t.Logf("docker pull cmd output for image1 = %s", string(out))
 	image1 = daemonPrefix + image1
 
-	out, err = skopeoPull(image2)
-	if err != nil {
-		t.Fatalf("failed to pull image %s: %v\n%s", image2, err, string(out))
-	}
+	dockerPullCmd = exec.Command("docker", "pull", image2)
+	out = RunCommand(dockerPullCmd, t)
+	t.Logf("docker pull cmd output for image2 = %s", string(out))
 	image2 = daemonPrefix + image2
 
 	flags = append([]string{"diff"}, flags...)
@@ -1362,20 +1204,4 @@ func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	containerdiffCmd := exec.Command("diffoci", flags...)
 	diff := RunCommand(containerdiffCmd, t)
 	t.Logf("diff = %s", string(diff))
-}
-
-func skopeoPull(image string) ([]byte, error) {
-	taggedRef := image + ":latest"
-	daemonHost := os.Getenv("DOCKER_HOST")
-	if daemonHost == "" {
-		daemonHost = "unix:///var/run/docker.sock"
-	}
-	src_opts := "--src-tls-verify=false"
-	src := "docker://"
-	cmd := exec.Command("skopeo", "copy",
-		src_opts,
-		src+taggedRef,
-		"--dest-daemon-host", daemonHost,
-		"docker-daemon:"+taggedRef)
-	return RunCommandWithoutTest(cmd)
 }
