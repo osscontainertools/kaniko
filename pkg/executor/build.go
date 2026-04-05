@@ -1171,6 +1171,10 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 
 		// Apply optimizations to the instructions.
+		// Re-apply meta-args for this stage: the precompute swap stored the pre-stage
+		// args (without meta-args) in sb.args, so we must restore them here before
+		// optimize and build run and evaluate ARG commands against allowedMetaArgs.
+		sb.args.AddMetaArgs(sb.stage.MetaArgs)
 		args = sb.args.Clone()
 		_, err = sb.optimize(compositeKey, sb.cf.Config, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, externalDigests, true)
 		if err != nil {
