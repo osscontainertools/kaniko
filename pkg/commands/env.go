@@ -31,7 +31,15 @@ type EnvCommand struct {
 func (e *EnvCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
 	newEnvs := e.cmd.Env
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
-	return util.UpdateConfigEnv(newEnvs, config, replacementEnvs)
+	err := util.UpdateConfigEnv(newEnvs, config, replacementEnvs)
+	if err != nil {
+		return err
+	}
+       // 3344: An ENV declared after an ARG of the same name overrides it.
+	for _, keyVal := range newEnvs {
+		buildArgs.RemoveArg(keyVal.Key)
+	}
+	return nil
 }
 
 // String returns some information about the command for the image config history
