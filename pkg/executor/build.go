@@ -871,8 +871,9 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			args = stageArgs[stage.BaseImageIndex]
 		}
 		if args == nil {
-			logrus.Panic("stages must be processed in order and ars passed along")
+			logrus.Panicf("stages must be processed in order. base stage %d not yet in stageArgs", stage.BaseImageIndex)
 		}
+		// args is a pointer but is cloned inside newStageBuilder, so sharing it is safe.
 		sb, err := newStageBuilder(
 			args, opts, stage,
 			fileContext)
