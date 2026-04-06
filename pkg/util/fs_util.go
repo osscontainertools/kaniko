@@ -689,6 +689,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 	var copiedFiles []string
 	var updates []timestampUpdate
 	hardlinksSeen := make(map[uint64]string)
+	preserveHardlinks := config.EnvBool("FF_KANIKO_PRESERVE_HARDLINKS")
 	for _, file := range files {
 		fullPath := filepath.Join(src, file)
 		if context.ExcludesFile(fullPath) {
@@ -742,7 +743,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 			if _, err := CopySymlink(fullPath, destPath, context); err != nil {
 				return nil, err
 			}
-		} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok {
+		} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok && preserveHardlinks {
 			// #2594: inode already copied — create a hardlink instead of duplicating content.
 			logrus.Tracef("Creating hardlink %s -> %s", destPath, linkDst)
 			if err := os.Link(linkDst, destPath); err != nil {
