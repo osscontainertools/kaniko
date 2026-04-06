@@ -1,0 +1,4 @@
+# 2594: In kaniko v1.27.2, COPY --from=<image> silently breaks hardlinks.
+# If hardlinks and their target are copied in one go, they end up as two full copies
+FROM scratch
+COPY --from=busybox /bin /bin
