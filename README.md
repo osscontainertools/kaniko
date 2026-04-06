@@ -133,6 +133,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_OCI_SCRATCH_BASE`](#flag-ff_kaniko_oci_scratch_base)
       - [Flag `FF_KANIKO_VOLUME_SKIP_MKDIR`](#flag-ff_kaniko_volume_skip_mkdir)
       - [Flag `FF_KANIKO_PRESERVE_HARDLINKS`](#flag-ff_kaniko_preserve_hardlinks)
+      - [Flag `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE`](#flag-ff_kaniko_buildkit_arg_env_precedence)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1156,6 +1157,24 @@ Becomes default in `v1.28.0`.
 
 When copying a directory via `COPY --from=<stage>`, kaniko copies each file independently, breaking hardlink relationships. Files that shared a single inode in the source stage become independent copies in the output image, which can significantly inflate image size for images that rely heavily on hardlinks (e.g. `git` installations where many binaries are hardlinked together).
 Set this flag to `true` to preserve hardlinks during `COPY --from`. Defaults to `false`.
+Becomes default in `v1.28.0`.
+
+#### Flag `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE`
+
+The [Dockerfile spec](https://docs.docker.com/reference/dockerfile/#using-arg-variables) states that an `ENV` instruction overrides an `ARG` of the same name. This is correct but order-dependent: "override" implies there is already a value to override, so the rule applies when `ENV` appears *after* `ARG`. Applied consistently, an `ARG` declared after an `ENV` (including one inherited from a base image) should win, which is the behaviour BuildKit implements.
+
+Kaniko's legacy behaviour treats `ENV` as unconditionally winning regardless of declaration order. Enable this flag to match BuildKit semantics, where the later declaration takes precedence:
+
+```dockerfile
+FROM alpine AS base
+ENV HELLO=upstream
+
+FROM base AS child
+ARG HELLO
+RUN echo $HELLO   # prints the --build-arg value, not "upstream"
+```
+
+Set this flag to `true` to enable BuildKit-compatible ARG/ENV precedence. Defaults to `false`.
 Becomes default in `v1.28.0`.
 
 ### Debug Image

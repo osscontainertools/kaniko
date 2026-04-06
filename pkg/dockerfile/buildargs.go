@@ -23,6 +23,7 @@ import (
 
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/pkg/config"
 )
 
 // builtinAllowedBuildArgs is list of built-in allowed build args
@@ -85,10 +86,16 @@ func (b *BuildArgs) Clone() *BuildArgs {
 
 // ReplacementEnvs returns a list of filtered environment variables
 func (b *BuildArgs) ReplacementEnvs(envs []string) []string {
-	// 3344: merge args and envs, args always override envs
+	// 3344: merge args and envs,
 	merged := convertKVStringsToMap(envs)
 	for key, val := range b.GetAllAllowed() {
-		merged[key] = &val
+		if config.EnvBool("FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE") {
+			// 3344: args always override envs
+			merged[key] = &val
+		} else if _, exists := merged[key]; !exists {
+			// 3344: legacy behaviour, envs always override args
+			merged[key] = &val
+		}
 	}
 	result := make([]string, 0, len(merged))
 	for key, val := range merged {
