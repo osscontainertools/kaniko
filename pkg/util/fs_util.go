@@ -745,8 +745,11 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 			}
 		} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok && preserveHardlinks {
 			// #2594: inode already copied — create a hardlink instead of duplicating content.
-			logrus.Tracef("Creating hardlink %s -> %s", destPath, linkDst)
-			if err := os.Link(linkDst, destPath); err != nil {
+			logrus.Tracef("Creating hardlink %s -> %s", linkDst, destPath)
+			err := os.Link(linkDst, destPath)
+			if err != nil {
+				// Both linkDst and destPath are under the same dir,
+				// so EXDEV can't occur and doesn't need to be handled.
 				return nil, err
 			}
 			isHardlink = true
