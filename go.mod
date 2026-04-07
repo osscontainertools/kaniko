@@ -15,7 +15,7 @@ require (
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.12.0
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589
 	github.com/containerd/platforms v1.0.0-rc.4
-	github.com/docker/cli v29.3.1+incompatible
+	github.com/docker/cli v29.4.0+incompatible
 	github.com/docker/docker-credential-helpers v0.9.5
 	github.com/ePirat/docker-credential-gitlabci v1.0.0
 	github.com/go-git/go-billy/v5 v5.8.0
