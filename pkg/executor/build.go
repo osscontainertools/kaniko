@@ -22,10 +22,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"io/fs"
 	"path/filepath"
 	"runtime"
-	"syscall"
 	"slices"
 	"sort"
 	"strconv"
@@ -985,7 +983,9 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		savedInodes := map[uint64]string{}
 		for _, p := range files {
 			logrus.Infof("Saving file %s for later use", p)
-			if err := saveFilePreservingHardlinks(p, dstDir, config.RootDir, savedInodes); err != nil {
+			src := filepath.Join(config.RootDir, p)
+			dst := filepath.Join(dstDir, p)
+			if err := util.CopyPathPreservingHardlinks(src, dst, savedInodes); err != nil {
 				return nil, fmt.Errorf("could not save file: %w", err)
 			}
 		}
@@ -1044,79 +1044,6 @@ func filesToSave(deps []string) ([]string, error) {
 	deduped := deduplicatePaths(srcFiles)
 
 	return deduped, nil
-}
-
-// saveFilePreservingHardlinks copies p (relative to root) into dstDir, preserving
-// hardlinks across the call set by tracking inodes in the seen map.
-// If p is a directory it is walked and each entry is processed individually.
-func saveFilePreservingHardlinks(p, dstDir, root string, seen map[uint64]string) error {
-	srcPath := filepath.Join(root, p)
-	fi, err := os.Lstat(srcPath)
-	if err != nil {
-		return err
-	}
-	if !fi.IsDir() {
-		return saveOneFile(srcPath, filepath.Join(dstDir, p), fi, seen)
-	}
-	// Directory: walk and copy each entry individually.
-	return filepath.WalkDir(srcPath, func(walkPath string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(root, walkPath)
-		if err != nil {
-			return err
-		}
-		destFile := filepath.Join(dstDir, rel)
-		if d.IsDir() {
-			return os.MkdirAll(destFile, mkdirPermissions)
-		}
-		wfi, err := os.Lstat(walkPath)
-		if err != nil {
-			return err
-		}
-		return saveOneFile(walkPath, destFile, wfi, seen)
-	})
-}
-
-// saveOneFile copies or hard-links a single non-directory entry.
-func saveOneFile(src, dest string, fi os.FileInfo, seen map[uint64]string) error {
-	if err := os.MkdirAll(filepath.Dir(dest), mkdirPermissions); err != nil {
-		return err
-	}
-	// Preserve hardlinks: link instead of copy when inode already seen.
-	if st, ok := fi.Sys().(*syscall.Stat_t); ok && st.Nlink > 1 {
-		if prev, exists := seen[st.Ino]; exists {
-			return os.Link(prev, dest)
-		}
-		seen[st.Ino] = dest
-	}
-	// Symlink
-	if fi.Mode()&os.ModeSymlink != 0 {
-		link, err := os.Readlink(src)
-		if err != nil {
-			return err
-		}
-		return os.Symlink(link, dest)
-	}
-	// Regular file: use CopyFileOrSymlink via its relative-path API.
-	// Re-derive root and relative path from the absolute src/dest.
-	// Since dest = dstDir + rel and src = root + rel, we can reconstruct:
-	// Pass src directly by using root="" trick isn't possible; call os directly.
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	out, err := os.OpenFile(dest, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fi.Mode())
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	if _, err := io.Copy(out, in); err != nil {
-		return err
-	}
-	return nil
 }
 
 // deduplicatePaths returns a deduplicated slice of shortest paths

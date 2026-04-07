@@ -790,6 +790,65 @@ func checkCopyHardlink(fi os.FileInfo, dest string, seen map[uint64]string) (str
 	return "", false
 }
 
+// CopyPathPreservingHardlinks copies src (file, symlink, or directory) to dst,
+// re-creating hardlinks across calls by sharing the seen inode map.
+// Callers should allocate seen once per batch and pass it to every call.
+func CopyPathPreservingHardlinks(src, dst string, seen map[uint64]string) error {
+	fi, err := os.Lstat(src)
+	if err != nil {
+		return err
+	}
+	if !fi.IsDir() {
+		return copyEntryPreservingHardlinks(src, dst, fi, seen)
+	}
+	return filepath.WalkDir(src, func(walkPath string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, walkPath)
+		if err != nil {
+			return err
+		}
+		destPath := filepath.Join(dst, rel)
+		if d.IsDir() {
+			return os.MkdirAll(destPath, 0o755)
+		}
+		wfi, err := os.Lstat(walkPath)
+		if err != nil {
+			return err
+		}
+		return copyEntryPreservingHardlinks(walkPath, destPath, wfi, seen)
+	})
+}
+
+func copyEntryPreservingHardlinks(src, dst string, fi os.FileInfo, seen map[uint64]string) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+	if linkDst, ok := checkCopyHardlink(fi, dst, seen); ok {
+		return os.Link(linkDst, dst)
+	}
+	if fi.Mode()&os.ModeSymlink != 0 {
+		link, err := os.Readlink(src)
+		if err != nil {
+			return err
+		}
+		return os.Symlink(link, dst)
+	}
+	in, err := FSys.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fi.Mode())
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, in)
+	return err
+}
+
 func MoveDir(src, dest string) error {
 	err := os.Rename(src, dest)
 	if err == nil {
