@@ -29,6 +29,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -334,11 +335,18 @@ func FindDockerFiles(dir, dockerfilesPattern string) ([]string, error) {
 	return dockerfiles, err
 }
 
+type syncMap[K comparable, V any] struct{ m sync.Map }
+
+func (s *syncMap[K, V]) LoadOrStore(key K, val V) (V, bool) {
+	v, ok := s.m.LoadOrStore(key, val)
+	return v.(V), ok
+}
+
 // DockerFileBuilder knows how to build docker files using both Kaniko and Docker and
 // keeps track of which files have been built.
 type DockerFileBuilder struct {
 	// Holds all available docker files and whether or not they've been built
-	filesBuilt              map[string]struct{}
+	filesBuilt              syncMap[string, func() error]
 	DockerfilesToIgnore     map[string]struct{}
 	TestCacheDockerfiles    map[string]struct{}
 	TestOCICacheDockerfiles map[string]struct{}
@@ -350,9 +358,7 @@ type logger func(string, ...any)
 // NewDockerFileBuilder will create a DockerFileBuilder initialized with dockerfiles, which
 // it will assume are all as yet unbuilt.
 func NewDockerFileBuilder() *DockerFileBuilder {
-	d := DockerFileBuilder{
-		filesBuilt: map[string]struct{}{},
-	}
+	d := DockerFileBuilder{}
 	d.DockerfilesToIgnore = map[string]struct{}{
 		"Dockerfile_test_add_404": {},
 		// TODO: remove test_user_run from this when https://github.com/GoogleContainerTools/container-diff/issues/237 is fixed
@@ -463,9 +469,13 @@ func (d *DockerFileBuilder) BuildImage(t *testing.T, config *integrationTestConf
 }
 
 func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile, contextDir string) error {
-	if _, present := d.filesBuilt[dockerfile]; present {
-		return nil
-	}
+	fn, _ := d.filesBuilt.LoadOrStore(dockerfile, sync.OnceValue(func() error {
+		return d.buildImage(t, config, dockerfilesPath, dockerfile, contextDir)
+	}))
+	return fn()
+}
+
+func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile, contextDir string) error {
 	gcsBucket, gcsClient, serviceAccount, imageRepo := config.gcsBucket, config.gcsClient, config.serviceAccount, config.imageRepo
 
 	var buildArgs []string
@@ -514,8 +524,6 @@ func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrat
 	if err != nil {
 		return err
 	}
-
-	d.filesBuilt[dockerfile] = struct{}{}
 
 	return nil
 }

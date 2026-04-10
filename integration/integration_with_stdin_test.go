@@ -51,11 +51,7 @@ func TestBuildWithStdin(t *testing.T) {
 		t.Errorf("Failed to setup files %v on %s: %v", files, testDir, err)
 	}
 
-	if err := os.Chdir(testDir); err != nil {
-		t.Fatalf("Failed to Chdir on %s: %v", testDir, err)
-	}
-
-	tarPath := dockerfile + ".tar.gz"
+	tarPath := filepath.Join(testDirLongPath, dockerfile+".tar.gz")
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -74,7 +70,7 @@ func TestBuildWithStdin(t *testing.T) {
 		tw := util.NewTar(gw)
 		defer tw.Close()
 
-		if err := tw.AddFileToTar(dockerfile); err != nil {
+		if err := tw.AddFileToTar(filepath.Join(testDirLongPath, dockerfile)); err != nil {
 			t.Errorf("Failed to add %s to %s: %v", dockerfile, tarPath, err)
 		}
 	}(&wg)
@@ -93,6 +89,7 @@ func TestBuildWithStdin(t *testing.T) {
 			"-f", dockerfile,
 			".",
 		}...)
+	dockerCmd.Dir = testDirLongPath
 
 	_, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -102,6 +99,7 @@ func TestBuildWithStdin(t *testing.T) {
 	// Build with kaniko using Stdin
 	kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 	tarCmd := exec.Command("tar", "-cf", "-", dockerfile)
+	tarCmd.Dir = testDirLongPath
 	gzCmd := exec.Command("gzip", "-9")
 
 	dockerRunFlags := []string{"run", "--interactive", "--net=host", "-v", cwd + ":/workspace"}
