@@ -654,7 +654,7 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 		if s.BaseImageStoredLocally {
 			image = images[s.BaseImageIndex]
 		} else if s.Name == constants.NoBaseImage {
-			image = empty.Image
+			image = image_util.EmptyBaseImage
 		} else {
 			image, err = image_util.RetrieveSourceImage(s, opts)
 			if err != nil {
