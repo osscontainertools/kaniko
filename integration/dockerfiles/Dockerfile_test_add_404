@@ -1,4 +1,4 @@
-FROM debian:12.10
+FROM scratch
 
 # Testing that any HTTP failure is handled properly
-ADD https://httpstat.us/404 .
+ADD http://httpbin.org/status/404 .
