@@ -372,6 +372,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_workdir": {},
 		"Dockerfile_test_issue_add":     {},
 		"Dockerfile_test_issue_empty":   {},
+		"Dockerfile_test_issue_mz637":   {},
 	}
 	d.TestOCICacheDockerfiles = map[string]struct{}{
 		"Dockerfile_test_cache_oci":         {},

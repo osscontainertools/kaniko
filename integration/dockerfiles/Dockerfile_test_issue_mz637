@@ -1,0 +1,8 @@
+FROM busybox
+
+# mz637: This creates cache misses on kaniko v1.27.2.
+# Folders created implicitly by VOLUME are not cached.
+# As a workaround create them excplicitly with RUN.
+#
+# RUN mkdir /app
+VOLUME /app
