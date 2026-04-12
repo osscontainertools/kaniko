@@ -680,7 +680,7 @@ type timestampUpdate struct {
 
 // CopyDir copies the file or directory at src to dest
 // It returns a list of files it copied over
-func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool, skipIgnoreList bool) ([]string, error) {
+func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool, skipSrcIgnoreList, skipDstIgnoreList bool) ([]string, error) {
 	files, err := RelativeFiles("", src)
 	if err != nil {
 		return nil, fmt.Errorf("copying dir: %w", err)
@@ -697,9 +697,13 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 		if err != nil {
 			return nil, fmt.Errorf("copying dir: %w", err)
 		}
+		if file != "." && !skipSrcIgnoreList && CheckIgnoreList(fullPath) {
+			logrus.Debugf("Skipping copy of ignored source: %s", fullPath)
+			continue
+		}
 		destPath := filepath.Join(dest, file)
-		if !skipIgnoreList && CheckIgnoreList(destPath) {
-			logrus.Debugf("Skipping copy for ignored path: %s", destPath)
+		if !skipDstIgnoreList && CheckIgnoreList(destPath) {
+			logrus.Debugf("Skipping copy for ignored dest: %s", destPath)
 			continue
 		}
 		if file == "." {
@@ -736,7 +740,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 			}
 		} else if IsSymlink(fi) {
 			// If file is a symlink, we want to create the same relative symlink
-			if _, err := CopySymlink(fullPath, destPath, context, skipIgnoreList); err != nil {
+			if _, err := CopySymlink(fullPath, destPath, context, skipDstIgnoreList); err != nil {
 				return nil, err
 			}
 		} else {
@@ -746,7 +750,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 				mode = fs.FileMode(0o600)
 			}
 
-			if _, err := CopyFile(fullPath, destPath, context, uid, gid, mode, useDefaultChmod, skipIgnoreList); err != nil {
+			if _, err := CopyFile(fullPath, destPath, context, uid, gid, mode, useDefaultChmod, skipDstIgnoreList); err != nil {
 				return nil, err
 			}
 		}
@@ -772,7 +776,7 @@ func MoveDir(src, dest string) error {
 
 	if errors.Is(err, syscall.EXDEV) {
 		// Cross-device move: copy + delete
-		_, err = CopyDir(src, dest, FileContext{}, DoNotChangeUID, DoNotChangeGID, 0, true, true)
+		_, err = CopyDir(src, dest, FileContext{}, DoNotChangeUID, DoNotChangeGID, 0, true, true, true)
 		if err != nil {
 			return err
 		}
@@ -1100,7 +1104,7 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 		if err != nil {
 			return err
 		}
-		if _, err := CopyDir(src, destFile, FileContext{}, DoNotChangeUID, DoNotChangeGID, fs.FileMode(0o600), true, true); err != nil {
+		if _, err := CopyDir(src, destFile, FileContext{}, DoNotChangeUID, DoNotChangeGID, fs.FileMode(0o600), true, false, true); err != nil {
 			return fmt.Errorf("copying dir: %w", err)
 		}
 	} else {
