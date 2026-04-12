@@ -684,26 +684,25 @@ type timestampUpdate struct {
 // Set skipIgnoreList to true to allow copying into paths that are normally
 // protected (e.g. /kaniko), which is required for inter-stage dependency saves.
 func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool, skipIgnoreList bool) ([]string, error) {
-	hardlinksSeen := make(map[uint64]string)
-	preserveHardlinks := config.EnvBool("FF_KANIKO_PRESERVE_HARDLINKS")
-	return copyDirInner(src, dest, context, uid, gid, chmod, useDefaultChmod, skipIgnoreList, hardlinksSeen, preserveHardlinks)
-}
-
-// copyDirInner is the shared implementation used by CopyDir and CopyPaths.
-// hardlinksSeen is shared across calls so that hardlinks between different
-// source paths are preserved. preserveHardlinks is read once by the caller
-// and passed in to avoid repeated env lookups.
-func copyDirInner(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool, skipIgnoreList bool, hardlinksSeen map[uint64]string, preserveHardlinks bool) ([]string, error) {
 	files, err := RelativeFiles("", src)
 	if err != nil {
 		return nil, fmt.Errorf("copying dir: %w", err)
 	}
+	return copyDirInner(files, src, dest, context, uid, gid, chmod, useDefaultChmod, skipIgnoreList)
+}
+
+// copyDirInner processes an already-enumerated list of relative file paths
+// (as returned by RelativeFiles) from srcRoot into dest.
+func copyDirInner(files []string, srcRoot, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool, skipIgnoreList bool) ([]string, error) {
+	hardlinksSeen := make(map[uint64]string)
+	preserveHardlinks := config.EnvBool("FF_KANIKO_PRESERVE_HARDLINKS")
 	var copiedFiles []string
 	var updates []timestampUpdate
+	var err error
 	for _, file := range files {
-		fullPath := filepath.Join(src, file)
+		fullPath := filepath.Join(srcRoot, file)
 		if context.ExcludesFile(fullPath) {
-			logrus.Debugf("%s found in .dockerignore, ignoring", src)
+			logrus.Debugf("%s found in .dockerignore, ignoring", srcRoot)
 			continue
 		}
 		fi, err := os.Lstat(fullPath)
@@ -716,28 +715,7 @@ func copyDirInner(src, dest string, context FileContext, uid, gid int64, chmod f
 			continue
 		}
 		isHardlink := false
-		if file == "." && !fi.IsDir() {
-			// src is a plain file or symlink passed directly (not a directory root).
-			if IsSymlink(fi) {
-				if _, err := CopySymlink(fullPath, destPath, context, skipIgnoreList); err != nil {
-					return nil, err
-				}
-			} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok && preserveHardlinks {
-				logrus.Tracef("Creating hardlink %s -> %s", linkDst, destPath)
-				if err := os.Link(linkDst, destPath); err != nil {
-					return nil, err
-				}
-				isHardlink = true
-			} else {
-				mode := chmod
-				if useDefaultChmod {
-					mode = fs.FileMode(0o600)
-				}
-				if _, err := CopyFile(fullPath, destPath, context, uid, gid, mode, useDefaultChmod, skipIgnoreList); err != nil {
-					return nil, err
-				}
-			}
-		} else if file == "." {
+		if file == "." {
 			logrus.Tracef("Creating directory %s", destPath)
 
 			mode := os.FileMode(0o755)
@@ -815,13 +793,35 @@ func copyDirInner(src, dest string, context FileContext, uid, gid int64, chmod f
 // (filesToSave does this via EvalSymLink). Hardlink preservation is gated by
 // FF_KANIKO_PRESERVE_HARDLINKS.
 func CopyPaths(srcRoot, dstRoot string, paths []string) error {
-	seen := make(map[uint64]string)
-	preserveHardlinks := config.EnvBool("FF_KANIKO_PRESERVE_HARDLINKS")
 	for _, p := range paths {
 		src := filepath.Join(srcRoot, p)
 		dst := filepath.Join(dstRoot, p)
-		if _, err := copyDirInner(src, dst, FileContext{}, 0, 0, 0, true, true, seen, preserveHardlinks); err != nil {
+		fi, err := os.Lstat(src)
+		if err != nil {
 			return fmt.Errorf("copying %s: %w", p, err)
+		}
+		if fi.IsDir() {
+			files, err := RelativeFiles("", src)
+			if err != nil {
+				return fmt.Errorf("copying %s: %w", p, err)
+			}
+			if _, err := copyDirInner(files, src, dst, FileContext{}, 0, 0, 0, true, true); err != nil {
+				return fmt.Errorf("copying %s: %w", p, err)
+			}
+			continue
+		}
+		// Single file or symlink: ensure parent exists then copy.
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			return fmt.Errorf("copying %s: %w", p, err)
+		}
+		if IsSymlink(fi) {
+			if _, err := CopySymlink(src, dst, FileContext{}, true); err != nil {
+				return fmt.Errorf("copying %s: %w", p, err)
+			}
+		} else {
+			if _, err := CopyFile(src, dst, FileContext{}, 0, 0, 0, true, true); err != nil {
+				return fmt.Errorf("copying %s: %w", p, err)
+			}
 		}
 	}
 	return nil
