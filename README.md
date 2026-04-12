@@ -131,6 +131,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_CLEAN_KANIKO_DIR`](#flag-ff_kaniko_clean_kaniko_dir)
       - [Flag `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS`](#flag-ff_kaniko_no_propagate_annotations)
       - [Flag `FF_KANIKO_OCI_SCRATCH_BASE`](#flag-ff_kaniko_oci_scratch_base)
+      - [Flag `FF_KANIKO_VOLUME_SKIP_MKDIR`](#flag-ff_kaniko_volume_skip_mkdir)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1142,6 +1143,13 @@ Becomes default in `v1.28.0`.
 When a Dockerfile uses `FROM scratch`, kaniko uses an empty Docker-format image as the build base, which means the output image is produced in Docker manifest schema v2 format.
 Set this flag to `true` to use an empty OCI-format image instead, causing `FROM scratch` builds to produce output in OCI manifest schema v1 format. Defaults to `false`.
 Currently no plans to activate.
+
+#### Flag `FF_KANIKO_VOLUME_SKIP_MKDIR`
+
+Kaniko creates the directory declared by `VOLUME` on the filesystem; Docker/BuildKit does not.
+This causes a cache bug in multistage builds, the directory gets a fresh `mtime` on every run, which breaks cache hits in downstream stages.
+Set this flag to `true` to skip the implicit directory creation, matching Docker/BuildKit behaviour. Defaults to `false`.
+Becomes default in `v1.28.0`.
 
 ### Debug Image
 
