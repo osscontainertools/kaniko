@@ -679,17 +679,27 @@ type timestampUpdate struct {
 	src, dest string
 }
 
-// CopyDir copies the file or directory at src to dest
-// It returns a list of files it copied over
-func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool) ([]string, error) {
+// CopyDir copies the file or directory at src to dest.
+// It returns a list of files it copied over.
+// Set skipIgnoreList to true to allow copying into paths that are normally
+// protected (e.g. /kaniko), which is required for inter-stage dependency saves.
+func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool, skipIgnoreList bool) ([]string, error) {
+	hardlinksSeen := make(map[uint64]string)
+	preserveHardlinks := config.EnvBool("FF_KANIKO_PRESERVE_HARDLINKS")
+	return copyDirInner(src, dest, context, uid, gid, chmod, useDefaultChmod, skipIgnoreList, hardlinksSeen, preserveHardlinks)
+}
+
+// copyDirInner is the shared implementation used by CopyDir and CopyPaths.
+// hardlinksSeen is shared across calls so that hardlinks between different
+// source paths are preserved. preserveHardlinks is read once by the caller
+// and passed in to avoid repeated env lookups.
+func copyDirInner(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool, skipIgnoreList bool, hardlinksSeen map[uint64]string, preserveHardlinks bool) ([]string, error) {
 	files, err := RelativeFiles("", src)
 	if err != nil {
 		return nil, fmt.Errorf("copying dir: %w", err)
 	}
 	var copiedFiles []string
 	var updates []timestampUpdate
-	hardlinksSeen := make(map[uint64]string)
-	preserveHardlinks := config.EnvBool("FF_KANIKO_PRESERVE_HARDLINKS")
 	for _, file := range files {
 		fullPath := filepath.Join(src, file)
 		if context.ExcludesFile(fullPath) {
@@ -701,12 +711,33 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 			return nil, fmt.Errorf("copying dir: %w", err)
 		}
 		destPath := filepath.Join(dest, file)
-		if CheckIgnoreList(destPath) {
+		if !skipIgnoreList && CheckIgnoreList(destPath) {
 			logrus.Debugf("Skipping copy for ignored path: %s", destPath)
 			continue
 		}
 		isHardlink := false
-		if file == "." {
+		if file == "." && !fi.IsDir() {
+			// src is a plain file or symlink passed directly (not a directory root).
+			if IsSymlink(fi) {
+				if _, err := CopySymlink(fullPath, destPath, context, skipIgnoreList); err != nil {
+					return nil, err
+				}
+			} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok && preserveHardlinks {
+				logrus.Tracef("Creating hardlink %s -> %s", linkDst, destPath)
+				if err := os.Link(linkDst, destPath); err != nil {
+					return nil, err
+				}
+				isHardlink = true
+			} else {
+				mode := chmod
+				if useDefaultChmod {
+					mode = fs.FileMode(0o600)
+				}
+				if _, err := CopyFile(fullPath, destPath, context, uid, gid, mode, useDefaultChmod, skipIgnoreList); err != nil {
+					return nil, err
+				}
+			}
+		} else if file == "." {
 			logrus.Tracef("Creating directory %s", destPath)
 
 			mode := os.FileMode(0o755)
@@ -740,7 +771,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 			}
 		} else if IsSymlink(fi) {
 			// If file is a symlink, we want to create the same relative symlink
-			if _, err := CopySymlink(fullPath, destPath, context); err != nil {
+			if _, err := CopySymlink(fullPath, destPath, context, skipIgnoreList); err != nil {
 				return nil, err
 			}
 		} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok && preserveHardlinks {
@@ -760,7 +791,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 				mode = fs.FileMode(0o600)
 			}
 
-			if _, err := CopyFile(fullPath, destPath, context, uid, gid, mode, useDefaultChmod); err != nil {
+			if _, err := CopyFile(fullPath, destPath, context, uid, gid, mode, useDefaultChmod, skipIgnoreList); err != nil {
 				return nil, err
 			}
 		}
@@ -778,6 +809,24 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 	return copiedFiles, nil
 }
 
+// CopyPaths copies each path in paths from srcRoot to dstRoot, preserving
+// hardlinks across the entire batch. Symlinks are preserved as symlinks;
+// callers are expected to also include symlink targets in paths when needed
+// (filesToSave does this via EvalSymLink). Hardlink preservation is gated by
+// FF_KANIKO_PRESERVE_HARDLINKS.
+func CopyPaths(srcRoot, dstRoot string, paths []string) error {
+	seen := make(map[uint64]string)
+	preserveHardlinks := config.EnvBool("FF_KANIKO_PRESERVE_HARDLINKS")
+	for _, p := range paths {
+		src := filepath.Join(srcRoot, p)
+		dst := filepath.Join(dstRoot, p)
+		if _, err := copyDirInner(src, dst, FileContext{}, 0, 0, 0, true, true, seen, preserveHardlinks); err != nil {
+			return fmt.Errorf("copying %s: %w", p, err)
+		}
+	}
+	return nil
+}
+
 func checkCopyHardlink(fi os.FileInfo, dest string, seen map[uint64]string) (string, bool) {
 	stat := getSyscallStatT(fi)
 	if stat == nil || stat.Nlink <= 1 {
@@ -790,64 +839,6 @@ func checkCopyHardlink(fi os.FileInfo, dest string, seen map[uint64]string) (str
 	return "", false
 }
 
-// CopyPathPreservingHardlinks copies src (file, symlink, or directory) to dst,
-// re-creating hardlinks across calls by sharing the seen inode map.
-// Callers should allocate seen once per batch and pass it to every call.
-func CopyPathPreservingHardlinks(src, dst string, seen map[uint64]string) error {
-	fi, err := os.Lstat(src)
-	if err != nil {
-		return err
-	}
-	if !fi.IsDir() {
-		return copyEntryPreservingHardlinks(src, dst, fi, seen)
-	}
-	return filepath.WalkDir(src, func(walkPath string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(src, walkPath)
-		if err != nil {
-			return err
-		}
-		destPath := filepath.Join(dst, rel)
-		if d.IsDir() {
-			return os.MkdirAll(destPath, 0o755)
-		}
-		wfi, err := os.Lstat(walkPath)
-		if err != nil {
-			return err
-		}
-		return copyEntryPreservingHardlinks(walkPath, destPath, wfi, seen)
-	})
-}
-
-func copyEntryPreservingHardlinks(src, dst string, fi os.FileInfo, seen map[uint64]string) error {
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return err
-	}
-	if linkDst, ok := checkCopyHardlink(fi, dst, seen); ok {
-		return os.Link(linkDst, dst)
-	}
-	if fi.Mode()&os.ModeSymlink != 0 {
-		link, err := os.Readlink(src)
-		if err != nil {
-			return err
-		}
-		return os.Symlink(link, dst)
-	}
-	in, err := FSys.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fi.Mode())
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	_, err = io.Copy(out, in)
-	return err
-}
 
 func MoveDir(src, dest string) error {
 	err := os.Rename(src, dest)
@@ -880,12 +871,14 @@ func MoveDir(src, dest string) error {
 }
 
 // CopySymlink copies the symlink at src to dest.
-func CopySymlink(src, dest string, context FileContext) (bool, error) {
+// Set skipIgnoreList to true to allow writing to paths that are normally
+// protected (e.g. /kaniko), which is required for inter-stage dependency saves.
+func CopySymlink(src, dest string, context FileContext, skipIgnoreList bool) (bool, error) {
 	if context.ExcludesFile(src) {
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
 	}
-	if CheckIgnoreList(dest) {
+	if !skipIgnoreList && CheckIgnoreList(dest) {
 		logrus.Debugf("Skipping copy for ignored path: %s", dest)
 		return true, nil
 	}
@@ -904,13 +897,15 @@ func CopySymlink(src, dest string, context FileContext) (bool, error) {
 	return false, os.Symlink(link, dest)
 }
 
-// CopyFile copies the file at src to dest
-func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool) (bool, error) {
+// CopyFile copies the file at src to dest.
+// Set skipIgnoreList to true to allow writing to paths that are normally
+// protected (e.g. /kaniko), which is required for inter-stage dependency saves.
+func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool, skipIgnoreList bool) (bool, error) {
 	if context.ExcludesFile(src) {
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
 	}
-	if CheckIgnoreList(dest) {
+	if !skipIgnoreList && CheckIgnoreList(dest) {
 		logrus.Debugf("Skipping copy for ignored path: %s", dest)
 		return true, nil
 	}
@@ -1167,48 +1162,6 @@ func getSymlink(path string) error {
 	return nil
 }
 
-// For cross stage dependencies kaniko must persist the referenced path so that it can be used in
-// the dependent stage. For symlinks we copy the target path because copying the symlink would
-// result in a dead link
-func CopyFileOrSymlink(src string, destDir string, root string) error {
-	destFile := filepath.Join(destDir, src)
-	src = filepath.Join(root, src)
-	fi, err := os.Lstat(src)
-	if err != nil {
-		return fmt.Errorf("getting file info: %w", err)
-	}
-	if IsSymlink(fi) {
-		link, err := os.Readlink(src)
-		if err != nil {
-			return fmt.Errorf("copying file or symlink: %w", err)
-		}
-		if err := createParentDirectory(destFile, DoNotChangeUID, DoNotChangeGID); err != nil {
-			return err
-		}
-		return os.Symlink(link, destFile)
-	}
-	opts := otiai10Cpy.Options{
-		PreserveTimes: true,
-		Skip: func(info os.FileInfo, src, dest string) (bool, error) {
-			return strings.HasSuffix(src, config.KanikoDir), nil
-		},
-		FS: FSys,
-	}
-	if err := otiai10Cpy.Copy(src, destFile, opts); err != nil {
-		return fmt.Errorf("copying file: %w", err)
-	}
-	if err := CopyOwnership(src, destDir, root); err != nil {
-		return fmt.Errorf("copying ownership: %w", err)
-	}
-	if err := os.Chmod(destFile, fi.Mode()); err != nil {
-		return fmt.Errorf("copying file mode: %w", err)
-	}
-	if err := CopyTimestamps(src, destFile); err != nil {
-		return fmt.Errorf("copying file timestamps: %w", err)
-	}
-
-	return CopyCapabilities(src, destFile)
-}
 
 // CopyOwnership copies the file or directory ownership recursively at src to dest
 func CopyOwnership(src string, destDir string, root string) error {
