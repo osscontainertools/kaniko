@@ -1,0 +1,22 @@
+FROM ubuntu AS stage1
+
+# Bug: WORKDIR not applied during optimize precompute pass.
+#
+# WorkdirCommand.MetadataOnly() returns false for any path other than "/", so the
+# optimize pass never calls ExecuteCommand for WORKDIR and config.WorkingDir is
+# never updated during the precompute pass.
+#
+# When the precompute pass propagates config to a dependent stage (FROM stage1),
+# the stage receives a stale config.WorkingDir (empty string instead of /app).
+# A relative WORKDIR in the dependent stage ("subdir") then resolves against the
+# wrong base: ToAbsPath("subdir", "") = "/subdir" instead of /app/subdir.
+# This places COPY output in the wrong directory and produces wrong cache keys.
+WORKDIR /app
+COPY context/foo .
+
+FROM stage1
+# Relative WORKDIR must resolve to /app/subdir (relative to stage1's /app).
+# With the bug the stale WorkingDir ("") causes resolution to /subdir instead.
+WORKDIR subdir
+COPY context/foo .
+RUN test -f /app/subdir/foo

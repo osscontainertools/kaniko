@@ -1,0 +1,15 @@
+# 2595: When saving cross-stage deps (COPY --from=<stage>), symlinks must
+# arrive as symlinks pointing to the correct target.
+FROM busybox AS builder
+RUN mkdir /work \
+    && echo "content" > /work/target.txt \
+    && ln -s target.txt /work/symlink.txt
+
+FROM busybox
+COPY --from=builder /work/ /work/
+# Symlink must be a symlink, not a copy of the target
+RUN test -L /work/symlink.txt
+# Symlink must point to the right name
+RUN readlink /work/symlink.txt | grep -q '^target\.txt$'
+# Following the symlink must yield the original content
+RUN grep -q 'content' /work/symlink.txt
