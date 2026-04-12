@@ -680,7 +680,7 @@ type timestampUpdate struct {
 
 // CopyDir copies the file or directory at src to dest
 // It returns a list of files it copied over
-func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool) ([]string, error) {
+func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool, skipIgnoreList bool) ([]string, error) {
 	files, err := RelativeFiles("", src)
 	if err != nil {
 		return nil, fmt.Errorf("copying dir: %w", err)
@@ -698,7 +698,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 			return nil, fmt.Errorf("copying dir: %w", err)
 		}
 		destPath := filepath.Join(dest, file)
-		if CheckIgnoreList(destPath) {
+		if !skipIgnoreList && CheckIgnoreList(destPath) {
 			logrus.Debugf("Skipping copy for ignored path: %s", destPath)
 			continue
 		}
@@ -736,7 +736,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 			}
 		} else if IsSymlink(fi) {
 			// If file is a symlink, we want to create the same relative symlink
-			if _, err := CopySymlink(fullPath, destPath, context); err != nil {
+			if _, err := CopySymlink(fullPath, destPath, context, skipIgnoreList); err != nil {
 				return nil, err
 			}
 		} else {
@@ -746,7 +746,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 				mode = fs.FileMode(0o600)
 			}
 
-			if _, err := CopyFile(fullPath, destPath, context, uid, gid, mode, useDefaultChmod); err != nil {
+			if _, err := CopyFile(fullPath, destPath, context, uid, gid, mode, useDefaultChmod, skipIgnoreList); err != nil {
 				return nil, err
 			}
 		}
@@ -771,14 +771,9 @@ func MoveDir(src, dest string) error {
 	}
 
 	if errors.Is(err, syscall.EXDEV) {
-		// Cross-device move: copy then delete.
-		// skipIgnoreList=true because src/dest may be under /kaniko (e.g. swap dir).
-		// DoNotChangeUID/GID preserves source ownership; useDefaultChmod=true preserves permissions.
-		files, err := RelativeFiles("", src)
+		// Cross-device move: copy + delete
+		_, err = CopyDir(src, dest, FileContext{}, DoNotChangeUID, DoNotChangeGID, 0, true, true)
 		if err != nil {
-			return err
-		}
-		if _, err = copyDirInner(files, src, dest, FileContext{}, DoNotChangeUID, DoNotChangeGID, 0, true, true); err != nil {
 			return err
 		}
 
@@ -794,12 +789,12 @@ func MoveDir(src, dest string) error {
 }
 
 // CopySymlink copies the symlink at src to dest.
-func CopySymlink(src, dest string, context FileContext) (bool, error) {
+func CopySymlink(src, dest string, context FileContext, skipIgnoreList bool) (bool, error) {
 	if context.ExcludesFile(src) {
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
 	}
-	if CheckIgnoreList(dest) {
+	if !skipIgnoreList && CheckIgnoreList(dest) {
 		logrus.Debugf("Skipping copy for ignored path: %s", dest)
 		return true, nil
 	}
@@ -819,12 +814,12 @@ func CopySymlink(src, dest string, context FileContext) (bool, error) {
 }
 
 // CopyFile copies the file at src to dest
-func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool) (bool, error) {
+func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool, skipIgnoreList bool) (bool, error) {
 	if context.ExcludesFile(src) {
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
 	}
-	if CheckIgnoreList(dest) {
+	if !skipIgnoreList && CheckIgnoreList(dest) {
 		logrus.Debugf("Skipping copy for ignored path: %s", dest)
 		return true, nil
 	}
@@ -1105,11 +1100,11 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 		if err != nil {
 			return err
 		}
-		if _, err := CopyDir(src, destFile, FileContext{}, DoNotChangeUID, DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
+		if _, err := CopyDir(src, destFile, FileContext{}, DoNotChangeUID, DoNotChangeGID, fs.FileMode(0o600), true, true); err != nil {
 			return fmt.Errorf("copying dir: %w", err)
 		}
 	} else {
-		if _, err := CopyFile(src, destFile, FileContext{}, DoNotChangeUID, DoNotChangeGID, fs.FileMode(0o600), true); err != nil {
+		if _, err := CopyFile(src, destFile, FileContext{}, DoNotChangeUID, DoNotChangeGID, fs.FileMode(0o600), true, true); err != nil {
 			return fmt.Errorf("copying file: %w", err)
 		}
 	}
