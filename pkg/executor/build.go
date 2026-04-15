@@ -508,12 +508,11 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			if err != nil {
 				return fmt.Errorf("failed to take snapshot: %w", err)
 			}
+			// Caching commands go through the isCacheCommand branch above.
+			// With shouldUnpack=false, only MetadataOnly commands can reach here.
+			util.Assert(command.MetadataOnly() || shouldUnpack, "build: non-MetadataOnly command %q ran without unpacked filesystem in stage %d", command.String(), s.index)
 			// MetadataOnly commands must not change the filesystem.
 			util.Assert(!command.MetadataOnly() || snapshotted == 0, "build: MetadataOnly command %q snapshotted %d file(s)", command.String(), snapshotted)
-			// Caching commands (CachingRun, CachingCopy, etc.) skip this branch and go through isCacheCommand above.
-			// Every non-caching command that doesn't require an unpacked filesystem is MetadataOnly, so no
-			// filesystem changes are possible and the snapshot must be empty.
-			util.Assert(shouldUnpack || snapshotted == 0, "build: stage %d snapshotted %d file(s) for %q without any command requiring unpacked filesystem", s.index, snapshotted, command.String())
 
 			if opts.Cache {
 				logrus.Debugf("Build: composite key for command %v %v", command.String(), compositeKey)
