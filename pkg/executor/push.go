@@ -415,6 +415,50 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 	return DoPush(empty, &cacheOpts)
 }
 
+const cachePointerLabel = "kaniko.cache.pointer-target"
+
+// pushCachePointer pushes a lightweight pointer entry under inferredKey that records
+// the content-addressed contentKey. On a subsequent build, resolving the pointer via
+// resolveCachePointer gives the contentKey so the cache chain can be continued correctly.
+func pushCachePointer(opts *config.KanikoOptions, inferredKey, contentKey string) error {
+	dest, err := cache.Destination(opts, inferredKey)
+	if err != nil {
+		return fmt.Errorf("getting cache destination for pointer: %w", err)
+	}
+	logrus.Infof("Pushing cache pointer %v -> %v", dest, contentKey)
+
+	cf := &v1.ConfigFile{}
+	cf.Created = v1.Time{Time: time.Now()}
+	cf.Config.Labels = map[string]string{cachePointerLabel: contentKey}
+	img, err := mutate.ConfigFile(empty.Image, cf)
+	if err != nil {
+		return fmt.Errorf("building pointer image: %w", err)
+	}
+
+	cacheOpts := *opts
+	cacheOpts.TarPath = ""
+	cacheOpts.NoPush = opts.NoPushCache
+	cacheOpts.Destinations = []string{dest}
+	cacheOpts.InsecureRegistries = opts.InsecureRegistries
+	cacheOpts.SkipTLSVerifyRegistries = opts.SkipTLSVerifyRegistries
+	if isOCILayout(dest) {
+		cacheOpts.OCILayoutPath = strings.TrimPrefix(dest, "oci:")
+		cacheOpts.NoPush = true
+	}
+	return DoPush(img, &cacheOpts)
+}
+
+// resolveCachePointer checks whether img is a pointer entry pushed by pushCachePointer
+// and returns the target content key. Returns ("", false) for regular layer images.
+func resolveCachePointer(img v1.Image) (string, bool) {
+	cf, err := img.ConfigFile()
+	if err != nil || cf.Config.Labels == nil {
+		return "", false
+	}
+	target, ok := cf.Config.Labels[cachePointerLabel]
+	return target, ok
+}
+
 // setDummyDestinations sets the dummy destinations required to generate new
 // tag names for tarPath in DoPush.
 func setDummyDestinations(opts *config.KanikoOptions) {
