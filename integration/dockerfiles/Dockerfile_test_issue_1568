@@ -1,0 +1,76 @@
+FROM busybox
+
+# we can mount a directory from context to a target as specificed
+RUN --mount=type=bind,source=context,rw,target=/tmp/bli/bla/ \
+    ls -la /tmp/bli/bla/ \
+    && test -f /tmp/bli/bla/foo \
+    && touch /tmp/bli/bla/blubb
+
+# but after RUN the bind gets unmounted automatically
+RUN ls -la /tmp/ \
+    && test ! -f /tmp/bli
+
+# context is persisted, but we can't write to it
+RUN --mount=type=bind,source=context,target=/tmp/bli/bla/ \
+    ls -la /tmp/bli/bla/ \
+    && test -f /tmp/bli/bla/foo \
+    && test ! -f /tmp/bli/bla/blubb
+
+RUN mkdir -p /tmp/bli/bla \
+    && touch /tmp/bli/bla/blubb
+
+# When we mount over an existing directory it gets swapped out
+RUN --mount=type=bind,source=context,target=/tmp/bli/bla/ \
+    ls -la /tmp/bli/bla/ \
+    && test -f /tmp/bli/bla/foo \
+    && test ! -f /tmp/bli/bla/blubb
+
+# and swapped back in
+RUN ls -la /tmp/bli/bla/ \
+    && test ! -f /tmp/bli/bla/foo \
+    && test -f /tmp/bli/bla/blubb
+
+# We can mount individual files
+RUN --mount=type=bind,source=context/foo,target=/tmp/bli/bla/foo \
+    ls -la /tmp/bli/bla/ \
+    && test -f /tmp/bli/bla/foo \
+    && test -f /tmp/bli/bla/blubb
+
+# but after RUN the bind gets unmounted automatically
+RUN ls -la /tmp/ \
+    && test ! -f /tmp/bli/bla/foo
+
+RUN mkdir -p /tmp/dirA /tmp/dirB \
+    && touch /tmp/dirA/a_file \
+    && touch /tmp/dirB/b_file
+
+# Two simultaneous bind mounts over different pre-existing directories
+# use distinct swap paths, so they can't clash
+RUN --mount=type=bind,source=context,target=/tmp/dirA \
+    --mount=type=bind,source=context,target=/tmp/dirB \
+    test -f /tmp/dirA/foo \
+    && test -f /tmp/dirB/foo \
+    && test ! -f /tmp/dirA/a_file \
+    && test ! -f /tmp/dirB/b_file
+
+# both original directories are restored after RUN
+RUN test -f /tmp/dirA/a_file \
+    && test -f /tmp/dirB/b_file \
+    && test ! -f /tmp/dirA/foo \
+    && test ! -f /tmp/dirB/foo
+
+RUN mkdir -p /tmp/cache_dir /tmp/bind_dir \
+    && touch /tmp/cache_dir/cache_file \
+    && touch /tmp/bind_dir/bind_file
+
+# A cache mount and a bind mount in the same RUN must not clash
+RUN --mount=type=cache,target=/tmp/cache_dir \
+    --mount=type=bind,source=context,target=/tmp/bind_dir \
+    test ! -f /tmp/cache_dir/cache_file \
+    && test -f /tmp/bind_dir/foo \
+    && test ! -f /tmp/bind_dir/bind_file
+
+# both original directories are restored after RUN
+RUN test -f /tmp/cache_dir/cache_file \
+    && test -f /tmp/bind_dir/bind_file \
+    && test ! -f /tmp/bind_dir/foo

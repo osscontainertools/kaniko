@@ -33,14 +33,16 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
+	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 )
 
 type RunCommand struct {
 	BaseCommand
-	cmd      *instructions.RunCommand
-	secrets  kConfig.SecretOptions
-	shdCache bool
+	cmd         *instructions.RunCommand
+	fileContext util.FileContext
+	secrets     kConfig.SecretOptions
+	shdCache    bool
 }
 
 // for testing
@@ -53,11 +55,12 @@ func (r *RunCommand) IsArgsEnvsRequiredInCache() bool {
 }
 
 func (r *RunCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
-	return runCommandWithFlags(config, buildArgs, r.cmd, r.secrets)
+	return runCommandWithFlags(config, buildArgs, r.cmd, r.fileContext, r.secrets)
 }
 
-func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand, secrets kConfig.SecretOptions) (reterr error) {
+func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand, fileContext util.FileContext, secrets kConfig.SecretOptions) (reterr error) {
 	ff_secret := kConfig.EnvBoolDefault("FF_KANIKO_RUN_MOUNT_SECRET", true)
+	ff_bind := kConfig.EnvBool("FF_KANIKO_RUN_MOUNT_BIND")
 	for _, f := range cmdRun.FlagsUsed {
 		if f != "mount" {
 			logrus.Warnf("#969 kaniko does not support '--%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", f)
@@ -213,6 +216,63 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 						}
 					}
 				}
+			// https://docs.docker.com/reference/dockerfile/#run---mounttypebind
+			case m.Type == instructions.MountTypeBind && ff_bind:
+				if m.From != "" && m.From != "context" {
+					logrus.Warnf("Kaniko does not support cross-stage bind mounts (from=%s) - skipping", m.From)
+					continue
+				}
+				src := filepath.Join(fileContext.Root, m.Source)
+				target := m.Target
+
+				_, err := os.Lstat(target)
+				if err != nil && !os.IsNotExist(err) {
+					return fmt.Errorf("stat bind target %s: %w", target, err)
+				}
+				targetExisted := err == nil
+
+				if targetExisted {
+					h := sha256.Sum256([]byte(target))
+					swapPath := filepath.Join(kConfig.KanikoSwapDir, "bind-"+hex.EncodeToString(h[:]))
+					err = os.MkdirAll(kConfig.KanikoSwapDir, 0o755)
+					if err != nil {
+						return fmt.Errorf("creating swap dir: %w", err)
+					}
+					err = util.MoveDir(target, swapPath)
+					if err != nil {
+						return fmt.Errorf("saving bind target: %w", err)
+					}
+					defer assignIfNil(&reterr, func() error {
+						return util.MoveDir(swapPath, target)
+					})
+				}
+
+				parent := filepath.Dir(target)
+				created, err := ensureDir(parent)
+				if err != nil {
+					return err
+				}
+				if created != "" {
+					defer assignIfNil(&reterr, func() error {
+						return os.RemoveAll(created)
+					})
+				}
+
+				err = otiai10Cpy.Copy(src, target, otiai10Cpy.Options{
+					PreserveTimes:     true,
+					PreserveOwner:     true,
+					PermissionControl: otiai10Cpy.PerservePermission,
+					FS:                util.FSys,
+					Skip: func(_ os.FileInfo, srcPath, _ string) (bool, error) {
+						return fileContext.ExcludesFile(srcPath), nil
+					},
+				})
+				if err != nil {
+					return fmt.Errorf("copying bind source %s to %s: %w", src, target, err)
+				}
+				defer assignIfNil(&reterr, func() error {
+					return os.RemoveAll(target)
+				})
 			default:
 				logrus.Warnf("Kaniko does not support '--mount=type=%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", m.Type)
 			}
@@ -359,6 +419,10 @@ func (r *RunCommand) String() string {
 	return r.cmd.String()
 }
 
+func (c *RunCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
+	return runCmdFilesUsedFromContext(config, buildArgs, c.cmd, c.fileContext)
+}
+
 func (r *RunCommand) FilesToSnapshot() []string {
 	return nil
 }
@@ -370,9 +434,10 @@ func (r *RunCommand) ProvidesFilesToSnapshot() bool {
 // CacheCommand returns true since this command should be cached
 func (r *RunCommand) CacheCommand(img v1.Image) DockerCommand {
 	return &CachingRunCommand{
-		img:       img,
-		cmd:       r.cmd,
-		extractFn: util.ExtractFile,
+		img:         img,
+		cmd:         r.cmd,
+		extractFn:   util.ExtractFile,
+		fileContext: r.fileContext,
 	}
 }
 
@@ -395,6 +460,7 @@ type CachingRunCommand struct {
 	extractedFiles []string
 	cmd            *instructions.RunCommand
 	extractFn      util.ExtractFunction
+	fileContext    util.FileContext
 }
 
 func (cr *CachingRunCommand) IsArgsEnvsRequiredInCache() bool {
@@ -433,6 +499,10 @@ func (cr *CachingRunCommand) ExecuteCommand(config *v1.Config, buildArgs *docker
 	return nil
 }
 
+func (cr *CachingRunCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
+	return runCmdFilesUsedFromContext(config, buildArgs, cr.cmd, cr.fileContext)
+}
+
 func (cr *CachingRunCommand) FilesToSnapshot() []string {
 	f := cr.extractedFiles
 	logrus.Debugf("%d files extracted by caching run command", len(f))
@@ -452,6 +522,41 @@ func (cr *CachingRunCommand) MetadataOnly() bool {
 	return false
 }
 
+func runCmdFilesUsedFromContext(
+	config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd *instructions.RunCommand,
+	fileContext util.FileContext,
+) ([]string, error) {
+	ff_bind := kConfig.EnvBool("FF_KANIKO_RUN_MOUNT_BIND")
+	if !ff_bind {
+		return nil, nil
+	}
+
+	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
+	expand := func(word string) (string, error) {
+		return util.ResolveEnvironmentReplacement(word, replacementEnvs, false)
+	}
+	if err := cmd.Expand(expand); err != nil {
+		return nil, err
+	}
+
+	var files []string
+	for _, m := range instructions.GetMounts(cmd) {
+		if m.Type != instructions.MountTypeBind {
+			continue
+		}
+		if m.From != "" && m.From != "context" {
+			logrus.Warnf("Kaniko does not support cross-stage bind mounts (from=%s) - skipping", m.From)
+			continue
+		}
+		fullPath := filepath.Join(fileContext.Root, m.Source)
+		files = append(files, fullPath)
+	}
+
+	logrus.Debugf("Using files from context: %v", files)
+
+	return files, nil
+}
+
 // todo: this should create the workdir if it doesn't exist, atleast this is what docker does
 func setWorkDirIfExists(workdir string) string {
 	if _, err := os.Lstat(workdir); err == nil {
@@ -464,8 +569,12 @@ func swapDir(pathA, pathB string) (err error) {
 	if pathA == "" || pathB == "" {
 		return errors.New("paths must not be empty")
 	}
-	tmp := kConfig.KanikoSwapDir
+	tmp := filepath.Join(kConfig.KanikoSwapDir, "tmp")
 
+	err = os.MkdirAll(kConfig.KanikoSwapDir, 0o755)
+	if err != nil {
+		return fmt.Errorf("failed to create swap dir: %w", err)
+	}
 	_, err = os.Stat(tmp)
 	if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("expected directory %q to not exist (1), but it does", tmp)

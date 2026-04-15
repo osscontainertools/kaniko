@@ -70,9 +70,9 @@ func GetCommand(cmd instructions.Command, fileContext util.FileContext, secrets 
 	switch c := cmd.(type) {
 	case *instructions.RunCommand:
 		if useNewRun {
-			return &RunMarkerCommand{cmd: c, secrets: secrets, shdCache: cacheRun}, nil
+			return &RunMarkerCommand{cmd: c, fileContext: fileContext, secrets: secrets, shdCache: cacheRun}, nil
 		}
-		return &RunCommand{cmd: c, secrets: secrets, shdCache: cacheRun}, nil
+		return &RunCommand{cmd: c, fileContext: fileContext, secrets: secrets, shdCache: cacheRun}, nil
 	case *instructions.CopyCommand:
 		return &CopyCommand{cmd: c, fileContext: fileContext, shdCache: cacheCopy}, nil
 	case *instructions.ExposeCommand:
