@@ -528,7 +528,7 @@ func runCmdFilesUsedFromContext(
 ) ([]string, error) {
 	ff_bind := kConfig.EnvBool("FF_KANIKO_RUN_MOUNT_BIND")
 	if !ff_bind {
-		return nil, nil
+		return []string{}, nil
 	}
 
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
