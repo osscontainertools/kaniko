@@ -98,6 +98,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=1",
 	"FF_KANIKO_NO_PROPAGATE_ANNOTATIONS=1",
 	"FF_KANIKO_OCI_SCRATCH_BASE=1",
+	"FF_KANIKO_VOLUME_SKIP_MKDIR=1",
 }
 
 var WarmerEnv = []string{
@@ -372,6 +373,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_workdir": {},
 		"Dockerfile_test_issue_add":     {},
 		"Dockerfile_test_issue_empty":   {},
+		"Dockerfile_test_issue_mz637":   {},
 	}
 	d.TestOCICacheDockerfiles = map[string]struct{}{
 		"Dockerfile_test_cache_oci":         {},

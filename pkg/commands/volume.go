@@ -22,6 +22,7 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	kconfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
@@ -49,11 +50,13 @@ func (v *VolumeCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.
 		existingVolumes[volume] = x
 		util.AddVolumePathToIgnoreList(volume)
 
-		// Only create and snapshot the dir if it didn't exist already
-		if _, err := os.Stat(volume); os.IsNotExist(err) {
-			logrus.Infof("Creating directory %s", volume)
-			if err := os.MkdirAll(volume, 0o755); err != nil {
-				return fmt.Errorf("could not create directory for volume %s: %w", volume, err)
+		if !kconfig.EnvBool("FF_KANIKO_VOLUME_SKIP_MKDIR") {
+			// Only create and snapshot the dir if it didn't exist already
+			if _, err := os.Stat(volume); os.IsNotExist(err) {
+				logrus.Infof("Creating directory %s", volume)
+				if err := os.MkdirAll(volume, 0o755); err != nil {
+					return fmt.Errorf("could not create directory for volume %s: %w", volume, err)
+				}
 			}
 		}
 	}
