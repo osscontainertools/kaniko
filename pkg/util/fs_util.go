@@ -688,6 +688,8 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 	}
 	var copiedFiles []string
 	var updates []timestampUpdate
+	hardlinksSeen := make(map[uint64]string)
+	preserveHardlinks := config.EnvBool("FF_KANIKO_PRESERVE_HARDLINKS")
 	for _, file := range files {
 		fullPath := filepath.Join(src, file)
 		if context.ExcludesFile(fullPath) {
@@ -703,6 +705,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 			logrus.Debugf("Skipping copy for ignored path: %s", destPath)
 			continue
 		}
+		isHardlink := false
 		if file == "." {
 			logrus.Tracef("Creating directory %s", destPath)
 
@@ -740,6 +743,13 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 			if _, err := CopySymlink(fullPath, destPath, context); err != nil {
 				return nil, err
 			}
+		} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok && preserveHardlinks {
+			// #2594: inode already copied — create a hardlink instead of duplicating content.
+			logrus.Tracef("Creating hardlink %s -> %s", destPath, linkDst)
+			if err := os.Link(linkDst, destPath); err != nil {
+				return nil, err
+			}
+			isHardlink = true
 		} else {
 			// ... Else, we want to copy over a file
 			mode := chmod
@@ -751,7 +761,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 				return nil, err
 			}
 		}
-		if !IsSymlink(fi) {
+		if !IsSymlink(fi) && !isHardlink {
 			updates = append(updates, timestampUpdate{src: fullPath, dest: destPath})
 		}
 		copiedFiles = append(copiedFiles, destPath)
@@ -763,6 +773,18 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 		}
 	}
 	return copiedFiles, nil
+}
+
+func checkCopyHardlink(fi os.FileInfo, dest string, seen map[uint64]string) (string, bool) {
+	stat := getSyscallStatT(fi)
+	if stat == nil || stat.Nlink <= 1 {
+		return "", false
+	}
+	if existing, ok := seen[stat.Ino]; ok {
+		return existing, true
+	}
+	seen[stat.Ino] = dest
+	return "", false
 }
 
 func MoveDir(src, dest string) error {

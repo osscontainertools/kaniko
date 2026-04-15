@@ -132,6 +132,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS`](#flag-ff_kaniko_no_propagate_annotations)
       - [Flag `FF_KANIKO_OCI_SCRATCH_BASE`](#flag-ff_kaniko_oci_scratch_base)
       - [Flag `FF_KANIKO_VOLUME_SKIP_MKDIR`](#flag-ff_kaniko_volume_skip_mkdir)
+      - [Flag `FF_KANIKO_PRESERVE_HARDLINKS`](#flag-ff_kaniko_preserve_hardlinks)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1149,6 +1150,12 @@ Currently no plans to activate.
 Kaniko creates the directory declared by `VOLUME` on the filesystem; Docker/BuildKit does not.
 This causes a cache bug in multistage builds, the directory gets a fresh `mtime` on every run, which breaks cache hits in downstream stages.
 Set this flag to `true` to skip the implicit directory creation, matching Docker/BuildKit behaviour. Defaults to `false`.
+Becomes default in `v1.28.0`.
+
+#### Flag `FF_KANIKO_PRESERVE_HARDLINKS`
+
+When copying a directory via `COPY --from=<stage>`, kaniko copies each file independently, breaking hardlink relationships. Files that shared a single inode in the source stage become independent copies in the output image, which can significantly inflate image size for images that rely heavily on hardlinks (e.g. `git` installations where many binaries are hardlinked together).
+Set this flag to `true` to preserve hardlinks during `COPY --from`. Defaults to `false`.
 Becomes default in `v1.28.0`.
 
 ### Debug Image
