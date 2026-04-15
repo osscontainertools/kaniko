@@ -980,11 +980,9 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return nil, fmt.Errorf("to create workspace for stage %d: %w",
 				stage.Index, err)
 		}
-		for _, p := range files {
-			logrus.Infof("Saving file %s for later use", p)
-			if err := util.CopyFileOrSymlink(p, dstDir, config.RootDir); err != nil {
-				return nil, fmt.Errorf("could not save file: %w", err)
-			}
+		logrus.Infof("Saving files for later use: %v", files)
+		if err := util.CopyPaths(config.RootDir, dstDir, files); err != nil {
+			return nil, fmt.Errorf("could not save files: %w", err)
 		}
 
 		// Delete the filesystem

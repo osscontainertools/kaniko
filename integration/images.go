@@ -99,6 +99,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_NO_PROPAGATE_ANNOTATIONS=1",
 	"FF_KANIKO_OCI_SCRATCH_BASE=1",
 	"FF_KANIKO_VOLUME_SKIP_MKDIR=1",
+	"FF_KANIKO_PRESERVE_HARDLINKS=1",
 }
 
 var WarmerEnv = []string{
@@ -140,6 +141,8 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_add_chown_intermediate_dirs":  {"--provenance=false"},
 	"Dockerfile_test_arg_two_level":                {"--provenance=false"},
 	"Dockerfile_test_arg_multi_empty_val":          {"--provenance=false"},
+	"Dockerfile_test_issue_2594":                   {"--provenance=false"},
+	"Dockerfile_test_issue_2595":                   {"--provenance=false"},
 	"issue-1020":                                   {"--provenance=false"},
 	"issue-774":                                    {"--provenance=false"},
 	"issue-1315":                                   {"--provenance=false"},
