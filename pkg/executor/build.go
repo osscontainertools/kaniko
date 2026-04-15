@@ -64,8 +64,8 @@ var (
 
 type snapShotter interface {
 	Init() error
-	TakeSnapshotFS() (string, error)
-	TakeSnapshot([]string, bool) (string, error)
+	TakeSnapshotFS() (string, int, error)
+	TakeSnapshot([]string, bool) (string, int, error)
 }
 
 // stageBuilder contains all fields necessary to build one stage of a Dockerfile
@@ -508,10 +508,16 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				}
 			}
 		} else {
-			tarPath, err := takeSnapshot(files, command.ShouldDetectDeletedFiles(), opts, snapshotter)
+			tarPath, snapshotted, err := takeSnapshot(files, command.ShouldDetectDeletedFiles(), opts, snapshotter)
 			if err != nil {
 				return fmt.Errorf("failed to take snapshot: %w", err)
 			}
+			// MetadataOnly commands must not change the filesystem.
+			util.Assert(!command.MetadataOnly() || snapshotted == 0, "build: MetadataOnly command %q snapshotted %d file(s)", command.String(), snapshotted)
+			// Caching commands (CachingRun, CachingCopy, etc.) skip this branch and go through isCacheCommand above.
+			// Every non-caching command that doesn't require an unpacked filesystem is MetadataOnly, so no
+			// filesystem changes are possible and the snapshot must be empty.
+			util.Assert(shouldUnpack || snapshotted == 0, "build: stage %d snapshotted %d file(s) for %q without any command requiring unpacked filesystem", s.index, snapshotted, command.String())
 
 			if opts.Cache {
 				logrus.Debugf("Build: composite key for command %v %v", command.String(), compositeKey)
@@ -557,20 +563,21 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	return nil
 }
 
-func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, snapshotter snapShotter) (string, error) {
+func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, snapshotter snapShotter) (string, int, error) {
 	var snapshot string
+	var snapshotted int
 	var err error
 
 	t := timing.Start("Snapshotting FS")
 	if files == nil || opts.SingleSnapshot {
-		snapshot, err = snapshotter.TakeSnapshotFS()
+		snapshot, snapshotted, err = snapshotter.TakeSnapshotFS()
 	} else {
 		// Volumes are very weird. They get snapshotted in the next command.
 		files = append(files, util.Volumes()...)
-		snapshot, err = snapshotter.TakeSnapshot(files, shdDelete)
+		snapshot, snapshotted, err = snapshotter.TakeSnapshot(files, shdDelete)
 	}
 	timing.DefaultRun.Stop(t)
-	return snapshot, err
+	return snapshot, snapshotted, err
 }
 
 func shouldTakeSnapshot(isMetadataCmd bool, isLastCommand bool, opts *config.KanikoOptions) bool {
@@ -939,7 +946,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	if opts.PreserveContext {
 		if len(kanikoStages) > 1 || opts.PreCleanup || opts.Cleanup {
 			logrus.Info("Creating snapshot of build context")
-			tarball, err = snapshotter.TakeSnapshotFS()
+			tarball, _, err = snapshotter.TakeSnapshotFS()
 			if err != nil {
 				return nil, err
 			}
