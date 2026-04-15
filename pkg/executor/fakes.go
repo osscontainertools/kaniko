@@ -28,6 +28,8 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 )
 
+var _ commands.Cached = MockCachedDockerCommand{}
+
 type fakeSnapShotter struct {
 	file        string
 	tarPath     string
@@ -80,7 +82,7 @@ func (m MockDockerCommand) MetadataOnly() bool {
 }
 
 func (m MockDockerCommand) RequiresUnpackedFS() bool {
-	return false
+	return true
 }
 
 func (m MockDockerCommand) ShouldCacheOutput() bool {
@@ -142,6 +144,10 @@ func (m MockCachedDockerCommand) ShouldCacheOutput() bool {
 
 func (m MockCachedDockerCommand) IsArgsEnvsRequiredInCache() bool {
 	return m.argToCompositeCache
+}
+
+func (m MockCachedDockerCommand) Layer() v1.Layer {
+	return nil
 }
 
 type fakeLayerCache struct {
