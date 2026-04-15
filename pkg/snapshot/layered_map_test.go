@@ -62,8 +62,8 @@ func Test_CacheKey(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			lm1 := LayeredMap{adds: []map[string]string{test.map1}, deletes: []map[string]struct{}{nil, nil}}
-			lm2 := LayeredMap{adds: []map[string]string{test.map2}, deletes: []map[string]struct{}{nil, nil}}
+			lm1 := LayeredMap{adds: []map[string]string{test.map1}, deletes: []map[string]struct{}{nil}}
+			lm2 := LayeredMap{adds: []map[string]string{test.map2}, deletes: []map[string]struct{}{nil}}
 			k1, err := lm1.Key()
 			if err != nil {
 				t.Fatalf("error getting key for map 1: %v", err)
