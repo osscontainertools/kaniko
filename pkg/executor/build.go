@@ -410,6 +410,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		}
 
 		timing.DefaultRun.Stop(t)
+		util.Assert(len(util.Volumes()) == 0, "stageBuilder.build: getFSFromImage must reset volumes for stage %d", s.index)
 	} else {
 		logrus.Info("Skipping unpacking as no commands require it.")
 	}
