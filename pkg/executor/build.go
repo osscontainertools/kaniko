@@ -510,7 +510,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			}
 			// Caching commands go through the isCacheCommand branch above.
 			// With shouldUnpack=false, only MetadataOnly commands can reach here.
-			util.Assert(command.MetadataOnly() || shouldUnpack, "build: non-MetadataOnly command %q ran without unpacked filesystem in stage %d", command.String(), s.index)
+			util.Assert(command.MetadataOnly() || shouldUnpack || (s.index == 0 && opts.InitialFSUnpacked), "build: non-MetadataOnly command %q ran without unpacked filesystem in stage %d", command.String(), s.index)
 			// MetadataOnly commands must not change the filesystem.
 			util.Assert(!command.MetadataOnly() || snapshotted == 0, "build: MetadataOnly command %q snapshotted %d file(s)", command.String(), snapshotted)
 
