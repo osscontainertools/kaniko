@@ -539,7 +539,7 @@ func runCmdFilesUsedFromContext(
 		return nil, err
 	}
 
-	var files []string
+	files := []string{}
 	for _, m := range instructions.GetMounts(cmd) {
 		if m.Type != instructions.MountTypeBind {
 			continue
