@@ -812,8 +812,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 
 	lastStage := kanikoStages[len(kanikoStages)-1]
-	args := dockerfile.NewBuildArgs(opts.BuildArgs)
-	err = args.InitPredefinedArgs(opts.CustomPlatform, lastStage.Name)
+	baseArgs := dockerfile.NewBuildArgs(opts.BuildArgs)
+	err = baseArgs.InitPredefinedArgs(opts.CustomPlatform, lastStage.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -863,8 +863,17 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		})
 	}
 
+	stageArgs := make([]*dockerfile.BuildArgs, lastStage.Index+1)
 	var pushImage v1.Image
 	for _, stage := range kanikoStages {
+		args := baseArgs
+		if stage.BaseImageIndex >= 0 {
+			args = stageArgs[stage.BaseImageIndex]
+		}
+		if args == nil {
+			logrus.Panicf("stages must be processed in order. base stage %d not yet in stageArgs", stage.BaseImageIndex)
+		}
+		// args is a pointer but is cloned inside newStageBuilder, so sharing it is safe.
 		sb, err := newStageBuilder(
 			args, opts, stage,
 			fileContext)
@@ -888,7 +897,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
 		}
 
-		args = sb.args
+		stageArgs[stage.Index] = sb.args
 		crossStageDeps := len(crossStageDependencies[stage.Index]) > 0
 		err = sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps)
 		if err != nil {

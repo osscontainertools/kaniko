@@ -1,0 +1,27 @@
+# mz622: present in kaniko v1.27.2.
+# ARG values leak across sibling stages.
+FROM busybox AS base1
+ARG ARG1=blubb
+RUN echo "$ARG1 $ARG2" > out1
+
+# base2 never declares ARG1. out2 should contain " bla"
+# but kaniko produces "blubb bla", indicating the previous ARG leaked.
+FROM busybox AS base2
+ARG ARG2=bla
+RUN echo "$ARG1 $ARG2" > out2
+
+# base3 defines a new default value for ARG1,
+# This shouldn't interfere with what base1 defined.
+FROM busybox AS base3
+ARG ARG1=bli
+RUN echo "$ARG1 $ARG2" > out3
+FROM base1 AS base4
+RUN echo "$ARG1 $ARG2" > out4
+
+FROM busybox
+COPY --from=base1 out1 out1
+COPY --from=base2 out2 out2
+COPY --from=base3 out3 out3
+COPY --from=base4 out4 out4
+RUN echo "$ARG1 $ARG2" > out5
+RUN cat out1 out2 out3 out4 out5
