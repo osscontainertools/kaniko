@@ -23,6 +23,7 @@ import (
 
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/pkg/config"
 )
 
 // builtinAllowedBuildArgs is list of built-in allowed build args
@@ -85,12 +86,22 @@ func (b *BuildArgs) Clone() *BuildArgs {
 
 // ReplacementEnvs returns a list of filtered environment variables
 func (b *BuildArgs) ReplacementEnvs(envs []string) []string {
-	// Ensure that we operate on a new array and do not modify the underlying array
-	resultEnv := make([]string, len(envs))
-	copy(resultEnv, envs)
-	filtered := b.FilterAllowed(envs)
-	// Disable makezero linter, since the previous make is paired with a same sized copy
-	return append(resultEnv, filtered...) //nolint:makezero
+	// 3344: merge args and envs,
+	merged := convertKVStringsToMap(envs)
+	for key, val := range b.GetAllAllowed() {
+		if config.EnvBool("FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE") {
+			// 3344: args always override envs
+			merged[key] = &val
+		} else if _, exists := merged[key]; !exists {
+			// 3344: legacy behaviour, envs always override args
+			merged[key] = &val
+		}
+	}
+	result := make([]string, 0, len(merged))
+	for key, val := range merged {
+		result = append(result, fmt.Sprintf("%s=%s", key, *val))
+	}
+	return result
 }
 
 // AddMetaArgs adds the supplied args map to b's allowedMetaArgs
@@ -107,6 +118,13 @@ func (b *BuildArgs) AddMetaArgs(metaArgs []instructions.ArgCommand) {
 func (b *BuildArgs) AddArg(key string, value *string) {
 	b.allowedBuildArgs[key] = value
 	b.referencedArgs[key] = struct{}{}
+}
+
+// RemoveArg removes a key from allowedBuildArgs. Called by EnvCommand when an
+// ENV instruction follows an ARG of the same name in the same stage, so that
+// the ENV value takes precedence in subsequent instructions.
+func (b *BuildArgs) RemoveArg(key string) {
+	delete(b.allowedBuildArgs, key)
 }
 
 // GetAllAllowed returns a mapping with all the allowed args
@@ -130,19 +148,6 @@ func (b *BuildArgs) getAllFromMapping(source map[string]*string) map[string]stri
 		}
 	}
 	return m
-}
-
-// FilterAllowed returns all allowed args without the filtered args
-func (b *BuildArgs) FilterAllowed(filter []string) []string {
-	envs := []string{}
-	configEnv := convertKVStringsToMap(filter)
-
-	for key, val := range b.GetAllAllowed() {
-		if _, ok := configEnv[key]; !ok {
-			envs = append(envs, fmt.Sprintf("%s=%s", key, val))
-		}
-	}
-	return envs
 }
 
 func (b *BuildArgs) getBuildArg(key string, mapping map[string]*string) (string, bool) {

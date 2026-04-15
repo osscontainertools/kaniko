@@ -1,0 +1,43 @@
+# 3344: ARG should be able to override an ENV inherited from a base image.
+#
+# The Docker spec says "ENV overrides ARG of the same name", which is correct
+# but misleading. "Override" presupposes something already exists: the rule
+# describes what happens when ENV comes *after* ARG. Applied consistently, when
+# ARG comes *after* an inherited ENV, the ARG (and thus --build-arg) should win.
+# This is what BuildKit does; kaniko was using the inherited ENV value instead.
+
+FROM alpine AS base
+ENV HELLO=UPSTREAM
+ENV BAR=from_env
+
+# Case 1: inherited ENV, then ARG declared in child stage — build-arg must win
+FROM base AS case1
+ARG HELLO
+RUN echo "$HELLO" | tee /out
+# out must contain "WORLD"
+
+# Case 2: ARG then ENV in the same stage — ENV comes later, ENV must win
+FROM alpine AS case2
+ARG FOO=arg_val
+ENV FOO=env_val
+RUN echo "$FOO" | tee /out
+# out must contain "env_val"
+
+# Case 3: ENV then ARG in the same stage — ARG comes later, build-arg must win
+FROM alpine AS case3
+ENV FOO=env_val
+ARG FOO
+RUN echo "$FOO" | tee /out
+# out must contain "WORLD"
+
+# Case 4: inherited ENV, ARG with default but no matching build-arg — ARG default must win
+FROM base AS case4
+ARG BAR=argdef
+RUN echo "$BAR" | tee /out
+# out must contain "argdef"
+
+FROM alpine AS result
+COPY --from=case1 /out /case1
+COPY --from=case2 /out /case2
+COPY --from=case3 /out /case3
+COPY --from=case4 /out /case4
