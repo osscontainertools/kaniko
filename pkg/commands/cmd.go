@@ -44,11 +44,11 @@ func (c *CmdCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		}
 
 		newCommand = append(shell, strings.Join(c.cmd.CmdLine, " "))
+		util.Assert(len(newCommand) > 0, "CMD shell form produced an empty command")
 	} else {
 		newCommand = c.cmd.CmdLine
 	}
 
-	util.Assert(len(newCommand) > 0, "CMD produced an empty command")
 	config.Cmd = newCommand
 	// ArgsEscaped is only used in windows environments
 	config.ArgsEscaped = false

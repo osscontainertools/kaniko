@@ -212,7 +212,8 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 		}
 		filesToAdd = append(filesToAdd, path)
 	}
-	util.Assert(len(filesToAdd) <= len(resolvedFiles), "scanFullFilesystem: ignore-list filtering can only reduce the file set (resolved=%d, toAdd=%d)", len(resolvedFiles), len(filesToAdd))
+	// Ignore-list filtering can only reduce the file set.
+	util.Assert(len(filesToAdd) <= len(resolvedFiles), "scanFullFilesystem: filesToAdd (%d) exceeds resolvedFiles (%d)", len(resolvedFiles), len(filesToAdd))
 
 	logrus.Debugf("Adding to layer: %v", filesToAdd)
 	logrus.Debugf("Deleting in layer: %v", deletedPaths)

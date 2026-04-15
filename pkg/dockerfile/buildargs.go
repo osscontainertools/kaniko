@@ -89,6 +89,8 @@ func (b *BuildArgs) Clone() *BuildArgs {
 func (b *BuildArgs) ReplacementEnvs(envs []string) []string {
 	// 3344: merge args and envs,
 	merged := convertKVStringsToMap(envs)
+	// deduplicated envs
+	nenvs := len(merged)
 	args := b.GetAllAllowed()
 	for key, val := range args {
 		if config.EnvBool("FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE") {
@@ -103,8 +105,10 @@ func (b *BuildArgs) ReplacementEnvs(envs []string) []string {
 	for key, val := range merged {
 		result = append(result, fmt.Sprintf("%s=%s", key, *val))
 	}
-	util.Assert(len(envs) <= len(result), "ReplacementEnvs: result length %d must be at least input envs length %d", len(result), len(envs))
-	util.Assert(len(result) <= len(envs)+len(args), "ReplacementEnvs: result length %d must be larger than input envs length %d + args lenght %d", len(result), len(envs), len(args))
+	// Args can add keys but must not remove existing env keys.
+	util.Assert(nenvs <= len(result), "ReplacementEnvs: result (%d) is smaller than de-duplicated envs (%d)", len(result), nenvs)
+	// Result is bounded by the union of unique env keys and arg keys.
+	util.Assert(len(result) <= nenvs+len(args), "ReplacementEnvs: result (%d) exceeds de-duplicated envs (%d) + args (%d)", len(result), nenvs, len(args))
 	return result
 }
 

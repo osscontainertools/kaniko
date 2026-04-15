@@ -56,7 +56,6 @@ func (l *LayeredMap) Snapshot() {
 	l.adds = append(l.adds, map[string]string{})
 	l.deletes = append(l.deletes, map[string]struct{}{})
 	l.layerHashCache = map[string]string{} // Erase the hash cache for this new layer.
-	util.Assert(len(l.adds) == len(l.deletes), "Snapshot: adds and deletes layers must remain in sync after append (adds=%d, deletes=%d)", len(l.adds), len(l.deletes))
 }
 
 // Key returns a hash for added and delted files.
@@ -64,6 +63,7 @@ func (l *LayeredMap) Key() (string, error) {
 	var adds map[string]string
 	var deletes map[string]struct{}
 
+	util.Assert(len(l.adds) == len(l.deletes), "LayeredMap adds/deletes slices are out of sync (adds=%d, deletes=%d)", len(l.adds), len(l.deletes))
 	if len(l.adds) != 0 {
 		adds = l.adds[len(l.adds)-1]
 		deletes = l.deletes[len(l.deletes)-1]
@@ -96,7 +96,6 @@ func (l *LayeredMap) getCurrentImage() map[string]string {
 	maps.Copy(current, l.currentImage)
 
 	// Add the last layer on top.
-	// Snapshot() must append to both atomically.
 	util.Assert(len(l.adds) == len(l.deletes), "LayeredMap adds/deletes slices are out of sync (adds=%d, deletes=%d)", len(l.adds), len(l.deletes))
 	addedFiles := l.adds[len(l.adds)-1]
 	deletedFiles := l.deletes[len(l.deletes)-1]
