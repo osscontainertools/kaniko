@@ -1,18 +1,19 @@
 ## What's changed since Google's v1.24.0
 ### Security
-* go stdlib v1.24.3: CVE-2025-0913 CVE-2025-4673 CVE-2025-4674 CVE-2025-22874 CVE-2025-47906 CVE-2025-47907 CVE-2025-47912 CVE-2025-58183 CVE-2025-58185 CVE-2025-58186 CVE-2025-58187 CVE-2025-58188 CVE-2025-58189 CVE-2025-61723 CVE-2025-61724 CVE-2025-61725 CVE-2025-61729 CVE-2025-61727 CVE-2025-61726 CVE-2025-61728 CVE-2025-61730 CVE-2025-68121 CVE-2026-27137 CVE-2026-25679 CVE-2026-27142 CVE-2026-27138 CVE-2026-27139
+* go stdlib v1.24.3: CVE-2025-0913 CVE-2025-4673 CVE-2025-4674 CVE-2025-22874 CVE-2025-47906 CVE-2025-47907 CVE-2025-47912 CVE-2025-58183 CVE-2025-58185 CVE-2025-58186 CVE-2025-58187 CVE-2025-58188 CVE-2025-58189 CVE-2025-61723 CVE-2025-61724 CVE-2025-61725 CVE-2025-61729 CVE-2025-61727 CVE-2025-61726 CVE-2025-61728 CVE-2025-61730 CVE-2025-68121 CVE-2026-27137 CVE-2026-25679 CVE-2026-27142 CVE-2026-27138 CVE-2026-27139 CVE-2026-32280 CVE-2026-33810 CVE-2026-32281 CVE-2026-32283 CVE-2026-32282 CVE-2026-32289 CVE-2026-32288
 * containerd v1.7.27: GHSA-m6hq-p25p-ffr2 GHSA-pwhc-rpq9-4c8w
 * containerd-v2 v2.1.1: GHSA-m6hq-p25p-ffr2 GHSA-pwhc-rpq9-4c8w
 * selinux v1.12.0: GHSA-cgrx-mc8f-2prm
 * remove binary artifacts: by @tlk in https://github.com/mzihlmann/kaniko/pull/54
 * golang.org/x/crypto 0.44.0: CVE-2025-47914 CVE-2025-58181
 * github.com/go-git/go-git/v5 5.16.0: CVE-2026-25934 CVE-2026-34165 CVE-2026-33762
-* go.opentelemetry.io/otel/sdk 1.39.0: CVE-2026-24051
+* go.opentelemetry.io/otel/sdk 1.39.0: CVE-2026-24051 CVE-2026-39883
 * github.com/cloudflare/circl 1.6.1: CVE-2026-1229
 * google.golang.org/grpc v1.79.1: CVE-2026-33186
 * prevent hijacking via `ONBUILD COPY`: https://github.com/osscontainertools/kaniko/pull/587
 * prevent hijacking via `COPY --from=<image>`: https://github.com/osscontainertools/kaniko/pull/586
 * github.com/moby/buildkit 0.22.0: CVE-2026-33747 CVE-2026-33748
+* github.com/go-jose/go-jose/v4 v4.1.3: CVE-2026-34986
 
 ### Bugfixes
 * cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3
@@ -29,6 +30,7 @@
 * don't reuse interstage dependencies: https://github.com/osscontainertools/kaniko/pull/286
 * image-index digests causes warmer cache misses: https://github.com/osscontainertools/kaniko/pull/321
 * refs/pull is not a valid branchname: https://github.com/osscontainertools/kaniko/pull/509
+* ARG values leak across sibling stages in multi-stage builds: https://github.com/osscontainertools/kaniko/pull/623
 
 ### Standardization
 * sticky bit gets lost on COPY: https://github.com/mzihlmann/kaniko/pull/45
@@ -51,6 +53,10 @@
 * `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=false` add buildkit compatibility mode: https://github.com/osscontainertools/kaniko/pull/510
 * activate dockerfile linter: https://github.com/osscontainertools/kaniko/pull/590
 * `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS=false` stop propagating base image annotations: https://github.com/osscontainertools/kaniko/pull/566 https://github.com/osscontainertools/kaniko/pull/605
+* `FF_KANIKO_VOLUME_SKIP_MKDIR=false` skip implicit mkdir in `VOLUME`: https://github.com/osscontainertools/kaniko/pull/638
+* `FF_KANIKO_PRESERVE_HARDLINKS=false` preserve hardlinks during `COPY --from`: https://github.com/osscontainertools/kaniko/pull/630
+* `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE=false` upstream ENV shadows local ARG: https://github.com/osscontainertools/kaniko/pull/624
+* `FF_KANIKO_RUN_MOUNT_BIND=false` support for `RUN --mount=type=bind`: https://github.com/osscontainertools/kaniko/pull/615
 
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
@@ -90,6 +96,7 @@
 * new subcommand `executor login` to authenticate with a registry: by @brandon1024 in https://github.com/osscontainertools/kaniko/pull/407
 * `FF_KANIKO_CLEAN_KANIKO_DIR=true` cleanup kaniko workspace on failure too: https://github.com/osscontainertools/kaniko/pull/453 https://github.com/osscontainertools/kaniko/pull/532
 * multitarget builds - part 1: https://github.com/osscontainertools/kaniko/pull/485
+* `FF_KANIKO_OCI_SCRATCH_BASE=false` oci scratch base image: https://github.com/osscontainertools/kaniko/pull/612
 
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
