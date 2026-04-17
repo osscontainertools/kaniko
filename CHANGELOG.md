@@ -1,3 +1,45 @@
+# v1.27.3 Release 2026-04-17
+
+## What's Changed
+### Security
+* go stdlib v1.26.1: CVE-2026-32280 CVE-2026-33810 CVE-2026-32281 CVE-2026-32283 CVE-2026-32282 CVE-2026-32289 CVE-2026-32288
+* github.com/go-jose/go-jose/v4 v4.1.3: CVE-2026-34986
+* go.opentelemetry.io/otel/sdk v1.42.0: CVE-2026-39883
+
+### Bugfixes
+* ARG values leak across sibling stages in multi-stage builds: https://github.com/osscontainertools/kaniko/pull/623
+
+### Standardization
+* `FF_KANIKO_VOLUME_SKIP_MKDIR=false` skip implicit mkdir in `VOLUME`: https://github.com/osscontainertools/kaniko/pull/638
+* `FF_KANIKO_PRESERVE_HARDLINKS=false` preserve hardlinks during `COPY --from`: https://github.com/osscontainertools/kaniko/pull/630
+* `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE=false` upstream ENV shadows local ARG: https://github.com/osscontainertools/kaniko/pull/624
+* `FF_KANIKO_RUN_MOUNT_BIND=false` support for `RUN --mount=type=bind`: https://github.com/osscontainertools/kaniko/pull/615
+
+### Usability
+* `FF_KANIKO_OCI_SCRATCH_BASE=false` oci scratch base image: https://github.com/osscontainertools/kaniko/pull/612
+
+### Maintenance
+* build(deps): bump github.com/go-jose/go-jose/v4 from 4.1.3 to 4.1.4: https://github.com/osscontainertools/kaniko/pull/617
+* build(deps): bump google.golang.org/api from 0.273.1 to 0.276.0: https://github.com/osscontainertools/kaniko/pull/620 https://github.com/osscontainertools/kaniko/pull/628 https://github.com/osscontainertools/kaniko/pull/643
+* build(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.32.13 to 1.32.15: https://github.com/osscontainertools/kaniko/pull/619 https://github.com/osscontainertools/kaniko/pull/644
+* build(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager from 0.1.13 to 0.1.16: https://github.com/osscontainertools/kaniko/pull/619 https://github.com/osscontainertools/kaniko/pull/632 https://github.com/osscontainertools/kaniko/pull/644
+* build(deps): bump github.com/moby/moby/api from 1.54.0 to 1.54.1: https://github.com/osscontainertools/kaniko/pull/619
+* build(deps): bump cloud.google.com/go/storage from 1.61.3 to 1.62.1: https://github.com/osscontainertools/kaniko/pull/625 https://github.com/osscontainertools/kaniko/pull/639
+* build(deps): bump github.com/google/go-containerregistry from 0.21.3 to 0.21.5: https://github.com/osscontainertools/kaniko/pull/627 https://github.com/osscontainertools/kaniko/pull/636
+* build(deps): bump github.com/docker/cli from 29.3.1+incompatible to 29.4.0+incompatible: https://github.com/osscontainertools/kaniko/pull/629
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.98.0 to 1.99.0: https://github.com/osscontainertools/kaniko/pull/632
+* build(deps): bump golang.org/x/sys from 0.42.0 to 0.43.0: https://github.com/osscontainertools/kaniko/pull/633
+* build(deps): bump golang from 1.26.1 to 1.26.2: https://github.com/osscontainertools/kaniko/pull/631
+* build(deps): bump step-security/harden-runner from 2.16.1 to 2.18.0: https://github.com/osscontainertools/kaniko/pull/634 https://github.com/osscontainertools/kaniko/pull/642
+* build(deps): bump docker/build-push-action from 7.0.0 to 7.1.0: https://github.com/osscontainertools/kaniko/pull/635
+
+### Fork Related
+* drop skopeo in integration tests: https://github.com/osscontainertools/kaniko/pull/593
+* integration test crosstalk: https://github.com/osscontainertools/kaniko/pull/599
+* TestExpectError: https://github.com/osscontainertools/kaniko/pull/608
+* `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=false` infer crossstage cache key: https://github.com/osscontainertools/kaniko/pull/618 https://github.com/osscontainertools/kaniko/pull/641
+
+
 # v1.27.2 Release 2026-04-02
 
 ## What's Changed
