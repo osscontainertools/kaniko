@@ -115,6 +115,11 @@ FROM alpine AS kaniko-alpine
 COPY --from=builder /src/out/executor /kaniko/executor
 COPY --from=kaniko-base-2 /kaniko/tini /kaniko/tini
 
+# mz595: pre-existing alpine files would result in invalid build outputs.
+# with these flags we wipe the filesystem before build, circumventing this issue.
+ENV KANIKO_PRESERVE_CONTEXT=1 \
+    KANIKO_PRE_CLEANUP=1
+
 ENTRYPOINT ["/kaniko/executor"]
 
 FROM kaniko-executor AS kaniko-debug
