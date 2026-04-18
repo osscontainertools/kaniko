@@ -56,7 +56,7 @@ RUN apt update && apt install -y ca-certificates
 
 # use musl busybox since it's staticly compiled on all platforms
 FROM busybox:musl@sha256:19b646668802469d968a05342a601e78da4322a414a7c09b1c9ee25165042138 AS busybox
-RUN mkdir -p /kaniko && chmod 777 /kaniko
+RUN mkdir -p /kaniko && chmod 700 /kaniko
 
 FROM scratch AS kaniko-base-slim
 
@@ -72,9 +72,9 @@ ENV SSL_CERT_DIR=/kaniko/ssl/certs
 
 FROM kaniko-base-slim AS kaniko-base
 
-COPY --from=builder --chown=0:0 /src/out/docker-credential-gcr /kaniko/docker-credential-gcr
-COPY --from=builder --chown=0:0 /src/out/docker-credential-ecr-login /kaniko/docker-credential-ecr-login
-COPY --from=builder --chown=0:0 /src/out/docker-credential-acr-env /kaniko/docker-credential-acr-env
+COPY --from=builder --chown=0:0 --chmod=500 /src/out/docker-credential-gcr /kaniko/docker-credential-gcr
+COPY --from=builder --chown=0:0 --chmod=500 /src/out/docker-credential-ecr-login /kaniko/docker-credential-ecr-login
+COPY --from=builder --chown=0:0 --chmod=500 /src/out/docker-credential-acr-env /kaniko/docker-credential-acr-env
 
 COPY --from=builder /kaniko/.docker /kaniko/.docker
 
@@ -86,7 +86,7 @@ WORKDIR /workspace
 FROM kaniko-base AS kaniko-base-tini
 ARG TARGETARCH
 ARG TINI_VERSION=v0.19.0
-ADD --chmod=555 \
+ADD --chown=0:0 --chmod=555 \
     https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-${TARGETARCH} \
     /kaniko/tini
 FROM kaniko-base-tini AS kaniko-base-amd64
