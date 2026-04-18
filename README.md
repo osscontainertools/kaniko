@@ -694,6 +694,8 @@ Cache timeout in hours. Defaults to two weeks.
 Set this flag to clean the filesystem before the build.
 ie. in order to support custom built kaniko images.
 
+Defaults to `false`. Can also be set via the `KANIKO_PRE_CLEANUP` environment variable.
+
 #### Flag `--cleanup`
 
 Set this flag to clean the filesystem and kaniko's working directory at the end of the build.
@@ -868,7 +870,7 @@ This is useful if you want to pass in secrets via files or if you want to execut
 
 It will only take the snapshot if we are building a multistage image or if we plan to cleanup the filesystem either before or after the build.
 
-Defaults to `false`
+Defaults to `false`. Can also be set via `KANIKO_PRESERVE_CONTEXT` environment variable.
 
 #### Flag `--push-ignore-immutable-tag-errors`
 
