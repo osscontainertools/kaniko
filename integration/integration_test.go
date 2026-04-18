@@ -883,6 +883,9 @@ func verifyBuildWith(t *testing.T, cache, dockerfile string) {
 	kanikoVersion1 := GetVersionedKanikoImage(config.imageRepo, dockerfile, 1)
 
 	containerDiff(t, kanikoVersion0, kanikoVersion1)
+	if check, ok := imageChecks[dockerfile]; ok {
+		check(t, kanikoVersion0)
+	}
 }
 
 func TestRelativePaths(t *testing.T) {
