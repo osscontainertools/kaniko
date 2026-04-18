@@ -189,7 +189,7 @@ func initConfig(img partial.WithConfigFile, opts *config.KanikoOptions) (*v1.Con
 		}
 	}
 
-	util.Assert(imageConfig.Config.Env != nil, "initConfig: Env must be non-nil on return")
+	util.Assert("executor.initconfig.env-nonnull", imageConfig.Config.Env != nil, "initConfig: Env must be non-nil on return")
 	return imageConfig, nil
 }
 
@@ -222,8 +222,8 @@ func crossStageCacheKey(command commands.DockerCommand, stageFinalCacheKeys map[
 }
 
 func populateCompositeKey(command commands.DockerCommand, files []string, compositeKey CompositeCache, args *dockerfile.BuildArgs, env []string, fileContext util.FileContext, stageFinalCacheKeys map[int]string) (CompositeCache, error) {
-	util.Assert(files == nil || stageFinalCacheKeys == nil, "populateCompositeKey: files and stageFinalCacheKeys are mutually exclusive")
-	util.Assert(command != nil, "populateCompositeKey called with nil command")
+	util.Assert("executor.compositekey.mutual-exclusion", files == nil || stageFinalCacheKeys == nil, "populateCompositeKey: files and stageFinalCacheKeys are mutually exclusive")
+	util.Assert("executor.compositekey.command-nonnull", command != nil, "populateCompositeKey called with nil command")
 	// First replace all the environment variables or args in the command
 	replacementEnvs := args.ReplacementEnvs(env)
 	// The sort order of `replacementEnvs` is basically undefined, sort it
@@ -332,7 +332,7 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 					if err != nil {
 						return "", err
 					}
-					util.Assert(ick == ck, "pointer inferred content key %v does not match the computed content key %v", ick, ck)
+					util.Assert("executor.compositekey.key-match", ick == ck, "pointer inferred content key %v does not match the computed content key %v", ick, ck)
 					// mz334: log when the inferred key produced the hit (integration test observability only).
 					logrus.Infof("Cache hit via inferred cross-stage key for cmd: %s", command.String())
 				}
@@ -372,12 +372,12 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 		}
 	}
 	// Optimize only swaps commands for cached versions.
-	util.Assert(len(s.cmds) == cmdCountBeforeOptimize, "optimize: command count must not change during optimization (before=%d, after=%d)", cmdCountBeforeOptimize, len(s.cmds))
+	util.Assert("executor.optimize.command-count", len(s.cmds) == cmdCountBeforeOptimize, "optimize: command count must not change during optimization (before=%d, after=%d)", cmdCountBeforeOptimize, len(s.cmds))
 	return finalCacheKey, nil
 }
 
 func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool, stageFinalCacheKeys map[int]string) error {
-	util.Assert(s.cf != nil, "stageBuilder (index %d) has nil config file", s.index)
+	util.Assert("executor.stagebuilder.config-nonnull", s.cf != nil, "stageBuilder (index %d) has nil config file", s.index)
 	// Unpack file system to root if we need to.
 	shouldUnpack := false
 	for _, cmd := range s.cmds {
@@ -410,7 +410,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		}
 
 		timing.DefaultRun.Stop(t)
-		util.Assert(len(util.Volumes()) == 0, "stageBuilder.build: getFSFromImage must reset volumes for stage %d", s.index)
+		util.Assert("executor.getfs.volumes-reset", len(util.Volumes()) == 0, "stageBuilder.build: getFSFromImage must reset volumes for stage %d", s.index)
 	} else {
 		logrus.Info("Skipping unpacking as no commands require it.")
 	}
@@ -510,9 +510,9 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			}
 			// Caching commands go through the isCacheCommand branch above.
 			// With shouldUnpack=false, only MetadataOnly commands can reach here.
-			util.Assert(command.MetadataOnly() || shouldUnpack || (s.index == 0 && opts.InitialFSUnpacked), "build: non-MetadataOnly command %q ran without unpacked filesystem in stage %d", command.String(), s.index)
+			util.Assert("executor.build.fs-unpacked", command.MetadataOnly() || shouldUnpack || (s.index == 0 && opts.InitialFSUnpacked), "build: non-MetadataOnly command %q ran without unpacked filesystem in stage %d", command.String(), s.index)
 			// MetadataOnly commands must not change the filesystem.
-			util.Assert(!command.MetadataOnly() || snapshotted == 0, "build: MetadataOnly command %q snapshotted %d file(s)", command.String(), snapshotted)
+			util.Assert("executor.build.metadata-only-snapshot", !command.MetadataOnly() || snapshotted == 0, "build: MetadataOnly command %q snapshotted %d file(s)", command.String(), snapshotted)
 
 			if opts.Cache {
 				logrus.Debugf("Build: composite key for command %v %v", command.String(), compositeKey)
@@ -537,7 +537,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 						if err != nil {
 							return err
 						}
-						util.Assert(h == ck, "rawCompositeKey hash %v does not match ck %v", h, ck)
+						util.Assert("executor.build.key-hash", h == ck, "rawCompositeKey hash %v does not match ck %v", h, ck)
 						cacheGroup.Go(func() error {
 							return pushPointer(opts, inferredCacheKey, rawKey)
 						})
@@ -721,7 +721,7 @@ func convertLayerMediaType(layer v1.Layer, image v1.Image, opts *config.KanikoOp
 }
 
 func saveLayerToImage(image v1.Image, layer v1.Layer, createdBy string, opts *config.KanikoOptions) (v1.Image, error) {
-	util.Assert(layer != nil, "saveLayerToImage called with nil layer")
+	util.Assert("executor.savelayer.layer-nonnull", layer != nil, "saveLayerToImage called with nil layer")
 	layer, err := convertLayerMediaType(layer, image, opts)
 	if err != nil {
 		return nil, err
@@ -764,7 +764,7 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 		var err error
 		if s.BaseImageStoredLocally {
 			image = images[s.BaseImageIndex]
-			util.Assert(image != nil, "stage %d references local stage %d which has not been built yet", s.Index, s.BaseImageIndex)
+			util.Assert("executor.build.local-stage-built", image != nil, "stage %d references local stage %d which has not been built yet", s.Index, s.BaseImageIndex)
 		} else if s.Name == constants.NoBaseImage {
 			image = image_util.EmptyBaseImage
 		} else {
@@ -911,7 +911,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 	logrus.Infof("Built cross stage deps: %v", crossStageDependencies)
 
-	util.Assert(len(kanikoStages) > 0, "no stages to build")
+	util.Assert("executor.build.stages-nonempty", len(kanikoStages) > 0, "no stages to build")
 	if opts.Dryrun {
 		return nil, RenderStages(kanikoStages, opts, fileContext, crossStageDependencies)
 	}
@@ -922,7 +922,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 
 	lastStage := kanikoStages[len(kanikoStages)-1]
-	util.Assert(lastStage.Final, "last stage (index %d, name %q) must be the final stage", lastStage.Index, lastStage.Name)
+	util.Assert("executor.build.last-stage-final", lastStage.Final, "last stage (index %d, name %q) must be the final stage", lastStage.Index, lastStage.Name)
 	baseArgs := dockerfile.NewBuildArgs(opts.BuildArgs)
 	err = baseArgs.InitPredefinedArgs(opts.CustomPlatform, lastStage.Name)
 	if err != nil {
@@ -981,7 +981,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if stage.BaseImageIndex >= 0 {
 			args = stageArgs[stage.BaseImageIndex]
 		}
-		util.Assert(args != nil, "stages must be processed in order: base stage %d not yet in stageArgs", stage.BaseImageIndex)
+		util.Assert("executor.build.stage-order", args != nil, "stages must be processed in order: base stage %d not yet in stageArgs", stage.BaseImageIndex)
 		// args is a pointer but is cloned inside newStageBuilder, so sharing it is safe.
 		sb, err := newStageBuilder(
 			args, opts, stage,
@@ -1065,7 +1065,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if stage.Final {
 			timing.DefaultRun.Stop(t)
 			// Final stage must be last, so by definition after Push stage.
-			util.Assert(pushImage != nil, "pushImage is nil")
+			util.Assert("executor.build.push-image-nonnull", pushImage != nil, "pushImage is nil")
 			return pushImage, nil
 		}
 		if stage.SaveStage {
@@ -1187,7 +1187,7 @@ func deduplicatePaths(paths []string) []string {
 	traverse(root, "")
 
 	// Deduplication can only compress.
-	util.Assert(len(deduped) <= len(paths), "deduplicatePaths: result must not exceed input size (got %d from %d)", len(deduped), len(paths))
+	util.Assert("executor.dedup.size", len(deduped) <= len(paths), "deduplicatePaths: result must not exceed input size (got %d from %d)", len(deduped), len(paths))
 	return deduped
 }
 

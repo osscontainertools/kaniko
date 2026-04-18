@@ -62,7 +62,7 @@ func (v *VolumeCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.
 		}
 	}
 	config.Volumes = existingVolumes
-	util.Assert(len(config.Volumes) >= prevVolumeCount, "VOLUME must not remove volumes: count went from %d to %d", prevVolumeCount, len(config.Volumes))
+	util.Assert("volume.count-monotone", len(config.Volumes) >= prevVolumeCount, "VOLUME must not remove volumes: count went from %d to %d", prevVolumeCount, len(config.Volumes))
 	return nil
 }
 

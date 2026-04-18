@@ -50,8 +50,8 @@ func NewSnapshotter(l *LayeredMap, d string) *Snapshotter {
 
 // Init initializes a new snapshotter
 func (s *Snapshotter) Init() error {
-	util.Assert(s.l != nil, "Snapshotter.Init: layered map must be set")
-	util.Assert(s.directory != "", "Snapshotter.Init: directory must be non-empty")
+	util.Assert("snapshot.init.layeredmap-set", s.l != nil, "Snapshotter.Init: layered map must be set")
+	util.Assert("snapshot.init.directory-set", s.directory != "", "Snapshotter.Init: directory must be non-empty")
 	logrus.Info("Initializing snapshotter ...")
 	_, _, err := s.scanFullFilesystem()
 	return err
@@ -65,8 +65,8 @@ func (s *Snapshotter) Key() (string, error) {
 // TakeSnapshot takes a snapshot of the specified files, avoiding directories in the ignorelist, and creates
 // a tarball of the changed files. Returns the tarball path and the number of files snapshotted.
 func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string, int, error) {
-	util.Assert(s.l != nil, "Snapshotter.TakeSnapshot: layered map must be set")
-	util.Assert(s.directory != "", "Snapshotter.TakeSnapshot: directory must be non-empty")
+	util.Assert("snapshot.takesnapshot.layeredmap-set", s.l != nil, "Snapshotter.TakeSnapshot: layered map must be set")
+	util.Assert("snapshot.takesnapshot.directory-set", s.directory != "", "Snapshotter.TakeSnapshot: directory must be non-empty")
 	err := os.MkdirAll(config.KanikoLayersDir, 0o755)
 	if err != nil {
 		return "", 0, err
@@ -129,8 +129,8 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 // TakeSnapshotFS takes a snapshot of the filesystem, avoiding directories in the ignorelist, and creates
 // a tarball of the changed files. Returns the tarball path and the number of files snapshotted.
 func (s *Snapshotter) TakeSnapshotFS() (string, int, error) {
-	util.Assert(s.l != nil, "Snapshotter.TakeSnapshotFS: layered map must be set")
-	util.Assert(s.directory != "", "Snapshotter.TakeSnapshotFS: directory must be non-empty")
+	util.Assert("snapshot.takesnapshotfs.layeredmap-set", s.l != nil, "Snapshotter.TakeSnapshotFS: layered map must be set")
+	util.Assert("snapshot.takesnapshotfs.directory-set", s.directory != "", "Snapshotter.TakeSnapshotFS: directory must be non-empty")
 	err := os.MkdirAll(config.KanikoLayersDir, 0o755)
 	if err != nil {
 		return "", 0, err
@@ -213,7 +213,7 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 		filesToAdd = append(filesToAdd, path)
 	}
 	// Ignore-list filtering can only reduce the file set.
-	util.Assert(len(filesToAdd) <= len(resolvedFiles), "scanFullFilesystem: filesToAdd (%d) exceeds resolvedFiles (%d)", len(resolvedFiles), len(filesToAdd))
+	util.Assert("snapshot.scan.files-count", len(filesToAdd) <= len(resolvedFiles), "scanFullFilesystem: filesToAdd (%d) exceeds resolvedFiles (%d)", len(resolvedFiles), len(filesToAdd))
 
 	logrus.Debugf("Adding to layer: %v", filesToAdd)
 	logrus.Debugf("Deleting in layer: %v", deletedPaths)
@@ -251,7 +251,7 @@ func removeObsoleteWhiteouts(deletedFiles map[string]struct{}) (filesToWhiteout 
 	}
 
 	// Whiteouts are a subset of deleted files filtered by parent presence.
-	util.Assert(len(filesToWhiteout) <= len(deletedFiles), "removeObsoleteWhiteouts: result (%d) exceeds input (%d)", len(filesToWhiteout), len(deletedFiles))
+	util.Assert("snapshot.whiteouts.count", len(filesToWhiteout) <= len(deletedFiles), "removeObsoleteWhiteouts: result (%d) exceeds input (%d)", len(filesToWhiteout), len(deletedFiles))
 	return filesToWhiteout
 }
 

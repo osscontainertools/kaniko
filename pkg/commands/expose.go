@@ -53,7 +53,7 @@ func (r *ExposeCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.
 			p = p + "/tcp"
 		}
 		parts := strings.Split(p, "/")
-		util.Assert(len(parts) >= 2, "port string must contain '/' after normalization")
+		util.Assert("expose.parts-count", len(parts) >= 2, "port string must contain '/' after normalization")
 		protocol := parts[1]
 		if !validProtocol(protocol) {
 			return fmt.Errorf("invalid protocol: %s", protocol)
@@ -62,7 +62,7 @@ func (r *ExposeCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.
 		existingPorts[p] = struct{}{}
 	}
 	config.ExposedPorts = existingPorts
-	util.Assert(len(config.ExposedPorts) >= prevPortCount, "EXPOSE must not remove ports: count went from %d to %d", prevPortCount, len(config.ExposedPorts))
+	util.Assert("expose.port-count-monotone", len(config.ExposedPorts) >= prevPortCount, "EXPOSE must not remove ports: count went from %d to %d", prevPortCount, len(config.ExposedPorts))
 	return nil
 }
 
