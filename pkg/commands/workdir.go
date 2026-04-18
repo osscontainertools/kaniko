@@ -37,15 +37,18 @@ type WorkdirCommand struct {
 }
 
 func ToAbsPath(path string, workdir string) string {
+	var result string
 	if filepath.IsAbs(path) {
-		return path
+		result = path
 	} else {
 		if workdir != "" {
-			return filepath.Join(workdir, path)
+			result = filepath.Join(workdir, path)
 		} else {
-			return filepath.Join("/", path)
+			result = filepath.Join("/", path)
 		}
 	}
+	util.Assert("workdir.abs-path", filepath.IsAbs(result), "ToAbsPath must return an absolute path, got %q (path=%q, workdir=%q)", result, path, workdir)
+	return result
 }
 
 // For testing

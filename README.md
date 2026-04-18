@@ -119,6 +119,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--image-fs-extract-retry`](#flag---image-fs-extract-retry)
       - [Flag `--image-download-retry`](#flag---image-download-retry)
     - [Feature Flags](#feature-flags)
+    - [Assertion Overrides](#assertion-overrides)
       - [Flag `FF_KANIKO_COPY_AS_ROOT`](#flag-ff_kaniko_copy_as_root)
       - [Flag `FF_KANIKO_SQUASH_STAGES`](#flag-ff_kaniko_squash_stages)
       - [Flag `FF_KANIKO_IGNORE_CACHED_MANIFEST`](#flag-ff_kaniko_ignore_cached_manifest)
@@ -1196,6 +1197,24 @@ When a multi-stage build uses `COPY --from=<stage>`, kaniko normally hashes the 
 Set this flag to `true` to add additional cache entries for the shortcuts, currently they do not yet allow optimization.
 Requires `--cache-copy-layers`. Defaults to `false`.
 Becomes default in `v1.28.0`.
+
+### Assertion Overrides
+
+Kaniko checks internal invariants at runtime. If one is violated the build stops with a message like:
+
+```
+Assertion violated [executor.build.metadata-only]: ...
+```
+
+This is always a bug in kaniko, please [open an issue](https://github.com/osscontainertools/kaniko/issues).
+
+As a temporary workaround, pass the name in brackets to `KANIKO_IGNORE_ASSERTIONS` to skip that assertion and log a warning instead:
+
+```sh
+KANIKO_IGNORE_ASSERTIONS=executor.build.metadata-only
+```
+
+Multiple names can be passed as a comma-separated list.
 
 ### Debug Image
 
