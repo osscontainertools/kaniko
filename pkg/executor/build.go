@@ -295,6 +295,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg *v1.Config,
 				if copyCmd, ok2 := commands.CastAbstractCopyCommand(command); ok2 && copyCmd.From() != "" {
 					stopCache = true
 					keyValid = false
+					finalCacheKey = ""
 					continue // COPY is never MetadataOnly, safe to skip
 				}
 			}
@@ -368,6 +369,10 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg *v1.Config,
 				return "", err
 			}
 		}
+	}
+
+	if finalCacheKey != "" && !keyValid {
+		logrus.Panicf("Unreachable: keyValid=%v finalCacheKey=%q", keyValid, finalCacheKey)
 	}
 	return finalCacheKey, nil
 }
