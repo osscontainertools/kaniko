@@ -375,7 +375,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg *v1.Config,
 
 	// Optimize only swaps commands for cached versions.
 	util.Assert("executor.optimize.command-count", len(s.cmds) == cmdCountBeforeOptimize, "optimize: command count must not change during optimization (before=%d, after=%d)", cmdCountBeforeOptimize, len(s.cmds))
-	util.Assert("executor.optimize.finalcachekey", finalCacheKey != "", "optimize: finalCacheKey can't be empty")
+	util.Assert("executor.optimize.finalcachekey", finalCacheKey != "" && !keyValid, "optimize: finalCacheKey can't be empty")
 	return finalCacheKey, nil
 }
 
