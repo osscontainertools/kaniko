@@ -160,6 +160,9 @@ func buildRequiredImages() error {
 	}, {
 		name:    "Building hijack base image",
 		command: []string{"docker", "build", "--push", "-t", config.hijackBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz560", "--target", "base", "."},
+	}, {
+		name:    "Building kaniko image based on alpine",
+		command: []string{"docker", "build", "-t", AlpineImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-alpine", ".."},
 	}}
 
 	for _, setupCmd := range setupCommands {
