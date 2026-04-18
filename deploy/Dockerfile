@@ -112,6 +112,8 @@ ENTRYPOINT ["/kaniko/executor"]
 
 FROM alpine AS kaniko-alpine
 
+RUN apk add --no-cache ca-certificates git
+
 COPY --from=builder /src/out/executor /kaniko/executor
 COPY --from=kaniko-base-2 /kaniko/tini /kaniko/tini
 
