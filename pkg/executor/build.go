@@ -513,11 +513,17 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			if err != nil {
 				return fmt.Errorf("failed to take snapshot: %w", err)
 			}
-			// Caching commands go through the isCacheCommand branch above.
-			// With shouldUnpack=false, only MetadataOnly commands can reach here.
-			util.Assert("executor.build.fs-unpacked", command.MetadataOnly() || shouldUnpack || (s.index == 0 && opts.InitialFSUnpacked), "build: non-MetadataOnly command %q ran without unpacked filesystem in stage %d", command.String(), s.index)
-			// MetadataOnly commands must not change the filesystem.
-			util.Assert("executor.build.metadata-only-snapshot", !command.MetadataOnly() || snapshotted == 0, "build: MetadataOnly command %q snapshotted %d file(s)", command.String(), snapshotted)
+
+			unpacked := shouldUnpack || (s.index == 0 && opts.InitialFSUnpacked)
+			if !unpacked {
+				// Caching commands go through the isCacheCommand branch above
+				// So the only case where we don't need a filesystem is if all commands are MetadataOnly.
+				util.Assert("executor.build.metadata-only", command.MetadataOnly(), "build: non-MetadataOnly command %q ran without unpacked filesystem in stage %d", command.String(), s.index)
+			}
+			if command.MetadataOnly() {
+				// MetadataOnly commands must not change or even need the filesystem.
+				util.Assert("executor.build.without-fs", snapshotted == 0, "build: MetadataOnly command %q snapshotted %d file(s)", command.String(), snapshotted)
+			}
 
 			if opts.Cache {
 				logrus.Debugf("Build: composite key for command %v %v", command.String(), compositeKey)
