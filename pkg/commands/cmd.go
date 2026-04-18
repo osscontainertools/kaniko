@@ -44,7 +44,7 @@ func (c *CmdCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		}
 
 		newCommand = append(shell, strings.Join(c.cmd.CmdLine, " "))
-		util.Assert(len(newCommand) > 0, "CMD shell form produced an empty command")
+		util.Assert("cmd.command-nonempty", len(newCommand) > 0, "CMD shell form produced an empty command")
 	} else {
 		newCommand = c.cmd.CmdLine
 	}

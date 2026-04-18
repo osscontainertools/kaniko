@@ -61,7 +61,7 @@ func updateLabels(labels []instructions.KeyValuePair, config *v1.Config, buildAr
 	}
 
 	config.Labels = existingLabels
-	util.Assert(len(config.Labels) >= prevLabelCount, "LABEL must not remove labels: count went from %d to %d", prevLabelCount, len(config.Labels))
+	util.Assert("label.count-monotone", len(config.Labels) >= prevLabelCount, "LABEL must not remove labels: count went from %d to %d", prevLabelCount, len(config.Labels))
 	return nil
 }
 

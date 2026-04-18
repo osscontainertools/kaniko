@@ -16,13 +16,39 @@ limitations under the License.
 
 package util
 
-import "github.com/sirupsen/logrus"
+import (
+	"os"
+	"strings"
+
+	"github.com/sirupsen/logrus"
+)
+
+var disabledAssertions map[string]struct{}
+
+func init() {
+	val := os.Getenv("KANIKO_IGNORE_ASSERTIONS")
+	if val == "" {
+		return
+	}
+	disabledAssertions = make(map[string]struct{})
+	for _, name := range strings.Split(val, ",") {
+		name = strings.TrimSpace(name)
+		if name != "" {
+			disabledAssertions[name] = struct{}{}
+		}
+	}
+}
 
 // Assert panics with an "Assertion violated:" prefix when cond is false.
+// name identifies this assertion; set KANIKO_IGNORE_ASSERTIONS=name to skip it.
 // Use it to document and enforce invariants that must always hold.
-func Assert(cond bool, format string, args ...any) {
+func Assert(name string, cond bool, format string, args ...any) {
 	if !cond {
-		logrus.Panicf("Assertion violated: "+format, args...)
+		if _, disabled := disabledAssertions[name]; disabled {
+			logrus.Warnf("Assertion disabled ["+name+"]: "+format, args...)
+			return
+		}
+		logrus.Panicf("Assertion violated ["+name+"]: "+format, args...)
 	}
 }
 
