@@ -110,6 +110,13 @@ COPY --from=builder /src/out/executor /kaniko/executor
 
 ENTRYPOINT ["/kaniko/executor"]
 
+FROM alpine AS kaniko-alpine
+
+COPY --from=builder /src/out/executor /kaniko/executor
+COPY --from=kaniko-base-2 /kaniko/tini /kaniko/tini
+
+ENTRYPOINT ["/kaniko/executor"]
+
 FROM kaniko-executor AS kaniko-debug
 
 ENV PATH=/usr/local/bin:/kaniko:/busybox
