@@ -107,9 +107,7 @@ func Parse(b []byte) ([]instructions.Stage, []instructions.ArgCommand, error) {
 		return nil, nil, err
 	}
 	lintOptionStr, _, _, ok := parser.ParseDirective("check", b)
-	if (ok && lintOptionStr == "") || (!ok && lintOptionStr != "") {
-		util.Unreachable("invariant violation ok=%t lintOptionStr=%q", ok, lintOptionStr)
-	}
+	util.Assert("dockerfile.parse-directive.consistency", ok == (lintOptionStr != ""), "ParseDirective: ok=%t lintOptionStr=%q", ok, lintOptionStr)
 	lintConfig, err := linter.ParseLintOptions(lintOptionStr)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parsing lint options: %w", err)

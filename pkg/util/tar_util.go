@@ -102,9 +102,8 @@ func (t *Tar) AddFileToTar(p string) error {
 		return err
 	}
 
-	if p == config.RootDir {
-		Unreachable("We should no longer snapshot '/' as it will be ignored by docker anyways")
-	}
+	Assert("tar.root-path-excluded", p != config.RootDir, "snapshot must not include root path '/'")
+
 
 	// Docker uses no leading / in the tarball
 	hdr.Name = strings.TrimPrefix(p, config.RootDir)

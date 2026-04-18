@@ -1203,7 +1203,7 @@ Becomes default in `v1.28.0`.
 Kaniko checks internal invariants at runtime. If one is violated the build stops with a message like:
 
 ```
-Assertion violated [executor.build.fs-unpacked]: ...
+Assertion violated [executor.build.metadata-only]: ...
 ```
 
 This is always a bug in kaniko, please [open an issue](https://github.com/osscontainertools/kaniko/issues).
@@ -1211,7 +1211,7 @@ This is always a bug in kaniko, please [open an issue](https://github.com/osscon
 As a temporary workaround, pass the name in brackets to `KANIKO_IGNORE_ASSERTIONS` to skip that assertion and log a warning instead:
 
 ```sh
-KANIKO_IGNORE_ASSERTIONS=executor.build.fs-unpacked
+KANIKO_IGNORE_ASSERTIONS=executor.build.metadata-only
 ```
 
 Multiple names can be passed as a comma-separated list.
