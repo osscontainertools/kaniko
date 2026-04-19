@@ -1,0 +1,7 @@
+FROM alpine
+# mz560: Simulates apt-key writing temporary key material under /tmp/apt-key-gpghome.
+# The directory itself should appear in the image layer, but files inside it
+# should be excluded because /tmp/apt-key-gpghome is on the ignore list with
+# PrefixMatchOnly=true.
+RUN mkdir /tmp/apt-key-gpghome && \
+    echo "key material" > /tmp/apt-key-gpghome/pubring.gpg

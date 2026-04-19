@@ -26,6 +26,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/osscontainertools/kaniko/pkg/commands"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
+	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
 type fakeSnapShotter struct {
@@ -34,16 +35,16 @@ type fakeSnapShotter struct {
 	initialized bool
 }
 
-func (f *fakeSnapShotter) Init() error {
+func (f *fakeSnapShotter) Init(_ []util.IgnoreListEntry) error {
 	f.initialized = true
 	return nil
 }
 
-func (f *fakeSnapShotter) TakeSnapshotFS() (string, error) {
+func (f *fakeSnapShotter) TakeSnapshotFS(_ []util.IgnoreListEntry) (string, error) {
 	return f.tarPath, nil
 }
 
-func (f *fakeSnapShotter) TakeSnapshot(_ []string, _ bool) (string, error) {
+func (f *fakeSnapShotter) TakeSnapshot(_ []string, _ []util.IgnoreListEntry, _ bool) (string, error) {
 	return f.tarPath, nil
 }
 
