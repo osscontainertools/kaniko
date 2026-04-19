@@ -926,14 +926,13 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		return nil, err
 	}
 
-	builderStages := []*stageBuilder{}
-	images := make([]v1.Image, lastStage.Index+1)
+	builderStages := make([]*stageBuilder, lastStage.Index+1)
 	stageArgs := make([]*dockerfile.BuildArgs, lastStage.Index+1)
 	stageFinalConfigs := make([]v1.Config, lastStage.Index+1)
 	for _, stage := range kanikoStages {
 		var sourceImage v1.Image
 		if stage.BaseImageStoredLocally {
-			sourceImage = images[stage.BaseImageIndex]
+			sourceImage = builderStages[stage.BaseImageIndex].image
 		} else {
 			sourceImage, err = image_util.RetrieveSourceImage(stage, opts)
 			if err != nil {
@@ -950,7 +949,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if args == nil {
 			logrus.Panicf("stages must be processed in order. base stage %d not yet in stageArgs", stage.BaseImageIndex)
 		}
-		// args is a pointer but is cloned inside newStageBuilder, so sharing it is safe.
+
 		sb, err := newStageBuilder(
 			sourceImage, args, opts, stage,
 			fileContext)
@@ -961,7 +960,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if stage.BaseImageStoredLocally {
 			sb.cf.Config = stageFinalConfigs[stage.BaseImageIndex]
 		}
-		builderStages = append(builderStages, sb)
+		builderStages[stage.Index] = sb
 
 		// Set the initial cache key to be the base image digest
 		var compositeKey *CompositeCache
@@ -983,7 +982,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if finalCacheKey != "" {
 			stageFinalCacheKeys[stage.Index] = finalCacheKey
 		}
-		images[stage.Index] = sb.image
 		stageArgs[stage.Index] = argsCopy
 		stageFinalConfigs[stage.Index] = cfgCopy
 	}
@@ -1035,6 +1033,9 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 	var pushImage v1.Image
 	for _, sb := range builderStages {
+		if sb == nil {
+			continue
+		}
 		stage := sb.stage
 
 		if stage.BaseImageStoredLocally {
