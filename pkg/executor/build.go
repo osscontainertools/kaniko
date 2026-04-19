@@ -974,7 +974,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 
 		// Apply optimizations to the instructions.
-		cfgCopy := sb.cf.Config
+		cfgCopy := *sb.cf.Config.DeepCopy()
 		argsCopy := sb.args.Clone()
 		finalCacheKey, err := sb.optimize(compositeKey, &cfgCopy, argsCopy, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, false)
 		if err != nil {
@@ -1043,6 +1043,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				return nil, fmt.Errorf("failed to retrieve built source image for stage %d: %w", stage.Index, err)
 			}
 			sb.image = builtSourceImage
+			sb.cf.Config = *stageFinalConfigs[stage.BaseImageIndex].DeepCopy()
 		}
 
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
@@ -1060,7 +1061,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 
 		// Apply optimizations to the instructions.
-		finalCacheKey, err := sb.optimize(compositeKey, &sb.cf.Config, sb.args.Clone(), opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, true)
+		finalCacheKey, err := sb.optimize(compositeKey, sb.cf.Config.DeepCopy(), sb.args.Clone(), opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
 		}
