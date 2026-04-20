@@ -38,7 +38,6 @@ import (
 	"github.com/moby/patternmatcher/ignorefile"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/timing"
-	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -681,7 +680,7 @@ type timestampUpdate struct {
 
 // CopyDir copies the file or directory at src to dest
 // It returns a list of files it copied over
-func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool) ([]string, error) {
+func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool, skipSrcIgnoreList, skipDstIgnoreList bool) ([]string, error) {
 	files, err := RelativeFiles("", src)
 	if err != nil {
 		return nil, fmt.Errorf("copying dir: %w", err)
@@ -700,9 +699,13 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 		if err != nil {
 			return nil, fmt.Errorf("copying dir: %w", err)
 		}
+		if file != "." && !skipSrcIgnoreList && CheckIgnoreList(fullPath) {
+			logrus.Debugf("Skipping copy of ignored source: %s", fullPath)
+			continue
+		}
 		destPath := filepath.Join(dest, file)
-		if CheckIgnoreList(destPath) {
-			logrus.Debugf("Skipping copy for ignored path: %s", destPath)
+		if !skipDstIgnoreList && CheckIgnoreList(destPath) {
+			logrus.Debugf("Skipping copy for ignored dest: %s", destPath)
 			continue
 		}
 		isHardlink := false
@@ -740,7 +743,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 			}
 		} else if IsSymlink(fi) {
 			// If file is a symlink, we want to create the same relative symlink
-			if _, err := CopySymlink(fullPath, destPath, context); err != nil {
+			if _, err := CopySymlink(fullPath, destPath, context, skipDstIgnoreList); err != nil {
 				return nil, err
 			}
 		} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok && preserveHardlinks {
@@ -757,7 +760,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 				mode = fs.FileMode(0o600)
 			}
 
-			if _, err := CopyFile(fullPath, destPath, context, uid, gid, mode, useDefaultChmod); err != nil {
+			if _, err := CopyFile(fullPath, destPath, context, uid, gid, mode, useDefaultChmod, skipDstIgnoreList); err != nil {
 				return nil, err
 			}
 		}
@@ -795,13 +798,7 @@ func MoveDir(src, dest string) error {
 
 	if errors.Is(err, syscall.EXDEV) {
 		// Cross-device move: copy + delete
-		opts := otiai10Cpy.Options{
-			PreserveTimes:     true,
-			PreserveOwner:     true,
-			PermissionControl: otiai10Cpy.PerservePermission,
-			FS:                FSys,
-		}
-		err = otiai10Cpy.Copy(src, dest, opts)
+		_, err = CopyDir(src, dest, FileContext{}, DoNotChangeUID, DoNotChangeGID, 0, true, true, true)
 		if err != nil {
 			return err
 		}
@@ -818,12 +815,12 @@ func MoveDir(src, dest string) error {
 }
 
 // CopySymlink copies the symlink at src to dest.
-func CopySymlink(src, dest string, context FileContext) (bool, error) {
+func CopySymlink(src, dest string, context FileContext, skipIgnoreList bool) (bool, error) {
 	if context.ExcludesFile(src) {
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
 	}
-	if CheckIgnoreList(dest) {
+	if !skipIgnoreList && CheckIgnoreList(dest) {
 		logrus.Debugf("Skipping copy for ignored path: %s", dest)
 		return true, nil
 	}
@@ -843,12 +840,12 @@ func CopySymlink(src, dest string, context FileContext) (bool, error) {
 }
 
 // CopyFile copies the file at src to dest
-func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool) (bool, error) {
+func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool, skipIgnoreList bool) (bool, error) {
 	if context.ExcludesFile(src) {
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
 	}
-	if CheckIgnoreList(dest) {
+	if !skipIgnoreList && CheckIgnoreList(dest) {
 		logrus.Debugf("Skipping copy for ignored path: %s", dest)
 		return true, nil
 	}
@@ -1124,28 +1121,20 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 			return err
 		}
 		return os.Symlink(link, destFile)
+	} else if fi.IsDir() {
+		err := os.MkdirAll(destFile, 0o755)
+		if err != nil {
+			return err
+		}
+		if _, err := CopyDir(src, destFile, FileContext{}, DoNotChangeUID, DoNotChangeGID, fs.FileMode(0o600), true, false, true); err != nil {
+			return fmt.Errorf("copying dir: %w", err)
+		}
+	} else {
+		if _, err := CopyFile(src, destFile, FileContext{}, DoNotChangeUID, DoNotChangeGID, fs.FileMode(0o600), true, true); err != nil {
+			return fmt.Errorf("copying file: %w", err)
+		}
 	}
-	opts := otiai10Cpy.Options{
-		PreserveTimes: true,
-		Skip: func(info os.FileInfo, src, dest string) (bool, error) {
-			return strings.HasSuffix(src, config.KanikoDir), nil
-		},
-		FS: FSys,
-	}
-	if err := otiai10Cpy.Copy(src, destFile, opts); err != nil {
-		return fmt.Errorf("copying file: %w", err)
-	}
-	if err := CopyOwnership(src, destDir, root); err != nil {
-		return fmt.Errorf("copying ownership: %w", err)
-	}
-	if err := os.Chmod(destFile, fi.Mode()); err != nil {
-		return fmt.Errorf("copying file mode: %w", err)
-	}
-	if err := CopyTimestamps(src, destFile); err != nil {
-		return fmt.Errorf("copying file timestamps: %w", err)
-	}
-
-	return CopyCapabilities(src, destFile)
+	return nil
 }
 
 // CopyOwnership copies the file or directory ownership recursively at src to dest

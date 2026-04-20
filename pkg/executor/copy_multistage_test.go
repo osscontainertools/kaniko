@@ -158,7 +158,7 @@ COPY --from=first / output/`
 		if err != nil {
 			t.Fatal(err)
 		}
-		testutil.CheckDeepEqual(t, 3, len(filesUnderRoot))
+		testutil.CheckDeepEqual(t, 2, len(filesUnderRoot))
 
 		files, err := os.ReadDir(filepath.Join(testDir, "output/workspace/foo"))
 		if err != nil {
