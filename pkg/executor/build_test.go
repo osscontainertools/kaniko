@@ -202,8 +202,7 @@ func Test_stageBuilder_shouldTakeSnapshot(t *testing.T) {
 				tt.fields.opts = &config.KanikoOptions{}
 			}
 			s := &stageBuilder{
-				stage: tt.fields.stage,
-				cmds:  tt.fields.cmds,
+				cmds: tt.fields.cmds,
 			}
 			isLastCommand := tt.args.index == len(s.cmds)-1
 			if got := shouldTakeSnapshot(tt.args.metadataOnly, isLastCommand, tt.fields.opts); got != tt.want {
