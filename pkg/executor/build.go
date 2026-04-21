@@ -1032,6 +1032,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 
 	var pushImage v1.Image
+	ff_assert_lookahead := config.EnvBool("FF_KANIKO_ASSERT_CACHE_LOOKAHEAD")
 	for _, sb := range builderStages {
 		if sb == nil {
 			continue
@@ -1062,16 +1063,16 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 
 		// Apply optimizations to the instructions.
-		finalCacheKey, err := sb.optimize(compositeKey, sb.cf.Config.DeepCopy(), sb.args.Clone(), opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, true)
-		if err != nil {
-			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
-		}
-
-		if opts.Cache {
-			precomputedKey := stageFinalCacheKeys[stage.Index]
-			if precomputedKey != "" && precomputedKey != finalCacheKey {
-				logrus.Panicf("Assertion failed: precomputed finalCacheKey %q != built finalCacheKey %q for stage %d", precomputedKey, finalCacheKey, stage.Index)
+		finalCacheKey := stageFinalCacheKeys[stage.Index]
+		if finalCacheKey == "" || ff_assert_lookahead {
+			key, err := sb.optimize(compositeKey, sb.cf.Config.DeepCopy(), sb.args.Clone(), opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, true)
+			if err != nil {
+				return nil, fmt.Errorf("failed to optimize instructions: %w", err)
 			}
+			if opts.Cache && finalCacheKey != "" && finalCacheKey != key {
+				logrus.Panicf("Assertion failed: precomputed finalCacheKey %q != built finalCacheKey %q for stage %d", finalCacheKey, key, stage.Index)
+			}
+			finalCacheKey = key
 		}
 
 		crossStageDeps := len(crossStageDependencies[stage.Index]) > 0
