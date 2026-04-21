@@ -926,64 +926,54 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		return nil, err
 	}
 
-	builderStages := make([]*stageBuilder, lastStage.Index+1)
 	stageArgs := make([]*dockerfile.BuildArgs, lastStage.Index+1)
-	stageFinalConfigs := make([]v1.Config, lastStage.Index+1)
-	for _, stage := range kanikoStages {
-		var sourceImage v1.Image
-		if stage.BaseImageStoredLocally {
-			sourceImage = builderStages[stage.BaseImageIndex].image
-		} else {
-			sourceImage, err = image_util.RetrieveSourceImage(stage, opts)
+	if opts.Cache && config.EnvBool("FF_KANIKO_CACHE_LOOKAHEAD") {
+		images := make([]v1.Image, lastStage.Index+1)
+		for _, stage := range kanikoStages {
+			var baseImage v1.Image
+			if stage.BaseImageStoredLocally {
+				baseImage = images[stage.BaseImageIndex]
+			} else {
+				baseImage, err = image_util.RetrieveSourceImage(stage, opts)
+				if err != nil {
+					return nil, fmt.Errorf("precompute: failed to get baseImage: %w", err)
+				}
+			}
+			if config.EnvBool("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS") {
+				baseImage = withoutAnnotations(baseImage)
+			}
+			args := baseArgs
+			if stage.BaseImageStoredLocally {
+				args = stageArgs[stage.BaseImageIndex]
+			}
+			if args == nil {
+				logrus.Panicf("stages must be processed in order. base stage %d not yet in stageArgs", stage.BaseImageIndex)
+			}
+
+			sb, err := newStageBuilder(baseImage, args, opts, stage, fileContext)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get sourceImage: %w", err)
+				return nil, err
 			}
-		}
-		if config.EnvBool("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS") {
-			sourceImage = withoutAnnotations(sourceImage)
-		}
-		args := baseArgs
-		if stage.BaseImageStoredLocally {
-			args = stageArgs[stage.BaseImageIndex]
-		}
-		if args == nil {
-			logrus.Panicf("stages must be processed in order. base stage %d not yet in stageArgs", stage.BaseImageIndex)
-		}
 
-		sb, err := newStageBuilder(
-			sourceImage, args, opts, stage,
-			fileContext)
-		if err != nil {
-			return nil, err
-		}
-
-		if stage.BaseImageStoredLocally {
-			sb.cf.Config = stageFinalConfigs[stage.BaseImageIndex]
-		}
-		builderStages[stage.Index] = sb
-
-		// Set the initial cache key to be the base image digest
-		var compositeKey *CompositeCache
-		if stage.BaseImageStoredLocally {
-			if cacheKey, ok := stageFinalCacheKeys[stage.BaseImageIndex]; ok {
-				compositeKey = NewCompositeCache(cacheKey)
+			var compositeKey *CompositeCache
+			if stage.BaseImageStoredLocally {
+				if cacheKey, ok := stageFinalCacheKeys[stage.BaseImageIndex]; ok {
+					compositeKey = NewCompositeCache(cacheKey)
+				}
+			} else {
+				compositeKey = NewCompositeCache(sb.baseImageDigest)
 			}
-		} else {
-			compositeKey = NewCompositeCache(sb.baseImageDigest)
-		}
 
-		// Apply optimizations to the instructions.
-		cfgCopy := *sb.cf.Config.DeepCopy()
-		argsCopy := sb.args.Clone()
-		finalCacheKey, err := sb.optimize(compositeKey, &cfgCopy, argsCopy, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, false)
-		if err != nil {
-			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
+			finalCacheKey, err := sb.optimize(compositeKey, &sb.cf.Config, sb.args, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, false)
+			if err != nil {
+				return nil, fmt.Errorf("precompute: failed to optimize stage %d: %w", stage.Index, err)
+			}
+			if finalCacheKey != "" {
+				stageFinalCacheKeys[stage.Index] = finalCacheKey
+			}
+			stageArgs[stage.Index] = sb.args
+			images[stage.Index] = baseImage
 		}
-		if finalCacheKey != "" {
-			stageFinalCacheKeys[stage.Index] = finalCacheKey
-		}
-		stageArgs[stage.Index] = argsCopy
-		stageFinalConfigs[stage.Index] = cfgCopy
 	}
 
 	var tarball string
@@ -1032,22 +1022,29 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 
 	var pushImage v1.Image
-	ff_assert_lookahead := config.EnvBool("FF_KANIKO_ASSERT_CACHE_LOOKAHEAD")
-	for _, sb := range builderStages {
-		if sb == nil {
-			continue
+	for _, stage := range kanikoStages {
+		baseImage, err := image_util.RetrieveSourceImage(stage, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get baseImage: %w", err)
 		}
-		stage := sb.stage
+		if config.EnvBool("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS") {
+			baseImage = withoutAnnotations(baseImage)
+		}
 
+		args := baseArgs
 		if stage.BaseImageStoredLocally {
-			builtSourceImage, err := image_util.RetrieveSourceImage(stage, opts)
-			if err != nil {
-				return nil, fmt.Errorf("failed to retrieve built source image for stage %d: %w", stage.Index, err)
-			}
-			sb.image = builtSourceImage
-			sb.cf.Config = *stageFinalConfigs[stage.BaseImageIndex].DeepCopy()
+			args = stageArgs[stage.BaseImageIndex]
 		}
-
+		if args == nil {
+			logrus.Panicf("stages must be processed in order. base stage %d not yet in stageArgs", stage.BaseImageIndex)
+		}
+		// args is a pointer but is cloned inside newStageBuilder, so sharing it is safe.
+		sb, err := newStageBuilder(
+			baseImage, args, opts, stage,
+			fileContext)
+		if err != nil {
+			return nil, err
+		}
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
 			stage.BaseName, stage.Index, stage.BaseImageIndex)
 
@@ -1063,18 +1060,16 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 
 		// Apply optimizations to the instructions.
-		finalCacheKey := stageFinalCacheKeys[stage.Index]
-		if finalCacheKey == "" || ff_assert_lookahead {
-			key, err := sb.optimize(compositeKey, sb.cf.Config.DeepCopy(), sb.args.Clone(), opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, true)
-			if err != nil {
-				return nil, fmt.Errorf("failed to optimize instructions: %w", err)
-			}
-			if opts.Cache && finalCacheKey != "" && finalCacheKey != key {
-				logrus.Panicf("Assertion failed: precomputed finalCacheKey %q != built finalCacheKey %q for stage %d", finalCacheKey, key, stage.Index)
-			}
-			finalCacheKey = key
+		precomputedKey := stageFinalCacheKeys[stage.Index]
+		finalCacheKey, err := sb.optimize(compositeKey, &sb.cf.Config, sb.args.Clone(), opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, true)
+		if err != nil {
+			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
+		}
+		if opts.Cache && precomputedKey != "" && precomputedKey != finalCacheKey {
+			logrus.Panicf("Assertion failed: precomputed finalCacheKey %q != built finalCacheKey %q for stage %d", precomputedKey, finalCacheKey, stage.Index)
 		}
 
+		stageArgs[stage.Index] = sb.args
 		crossStageDeps := len(crossStageDependencies[stage.Index]) > 0
 		err = sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps, stageFinalCacheKeys)
 		if err != nil {

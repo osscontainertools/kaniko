@@ -136,7 +136,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_PRESERVE_HARDLINKS`](#flag-ff_kaniko_preserve_hardlinks)
       - [Flag `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE`](#flag-ff_kaniko_buildkit_arg_env_precedence)
       - [Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`](#flag-ff_kaniko_infer_cross_stage_cache_key)
-      - [Flag `FF_KANIKO_ASSERT_CACHE_LOOKAHEAD`](#flag-ff_kaniko_assert_cache_lookahead)
+      - [Flag `FF_KANIKO_CACHE_LOOKAHEAD`](#flag-ff_kaniko_cache_lookahead)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1200,9 +1200,9 @@ Set this flag to `true` to add additional cache entries for the shortcuts, curre
 Requires `--cache-copy-layers`. Defaults to `false`.
 Becomes default in `v1.28.0`.
 
-#### Flag `FF_KANIKO_ASSERT_CACHE_LOOKAHEAD`
+#### Flag `FF_KANIKO_CACHE_LOOKAHEAD`
 
-Kaniko's build loop now runs in two passes: a precompute pass that derives each stage's final cache key ahead of time, and the build pass that produces layers. Set this flag to `true` to re-run the cache key computation during the build pass and assert that it matches the precomputed value. This is a developer assertion to verify the new precompute pass is correct, there is no benefit to enabling it in production.
+Set this flag to `true` to run a precompute pass before the build loop that derives each stage's final cache key ahead of time. The build loop still recomputes each key during its own `optimize()` call and asserts that it matches the precomputed value. This is a developer assertion to verify the new precompute pass is correct, there is no benefit to enabling it in production.
 Defaults to `false`.
 
 ### Debug Image
