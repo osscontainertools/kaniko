@@ -551,7 +551,7 @@ Kaniko's approach to buliding docker images is unique. It doesn't build up and s
 
 The good news is, it's all technically possible, but it's a bit more involved than building other images.
 
-The first problem we face is that the kaniko binaries are installed in `/kaniko` directory. Which means that this directory must also be ignored during snapshots, lest we would leak our build tool into any image we produce. But this also means that kaniko by default can't build a kaniko image with the binaries installed in `/kaniko` directory. Luckily there is an override for that, that allows us to move all the binaries to a different location before the build ie. `--kaniko-dir=/kaniko2`.
+The first problem we face is that the kaniko binaries are installed in `/kaniko` directory. Which means that this directory must also be ignored during snapshots, lest we would leak our build tool into any image we produce. But this also means that kaniko by default can't build a kaniko image with the binaries installed in `/kaniko` directory. Luckily there is an override for that, that allows us to move all the binaries to a different location before the build ie. `KANIKO_DIR=/kaniko2`.
 
 The second problem only affects build using the `debug` image, ie. gitlab-runner. The shell that is spawned in the debug image is in `/busybox`, similarly we can't snapshot files in that directory. Unfortunately there is no override to move those binaries. But with a bit creativity we can create a bootstrap image that has the shell installed into a different location ie. `/busybox2` and then use that bootstrap image to build the actual new debug image.
 
@@ -568,7 +568,6 @@ bootstrap:
     EXTRA_ARGS: >-
       --build-arg=TARGETARCH=amd64
       --build-arg=TARGETOS=linux
-      --kaniko-dir=/kaniko2
       --target=kaniko-debug-2
     KANIKO_DIR: /kaniko2
 
@@ -584,7 +583,6 @@ build:
     EXTRA_ARGS: >-
       --build-arg=TARGETARCH=amd64
       --build-arg=TARGETOS=linux
-      --kaniko-dir=/kaniko2
       --target=kaniko-debug
     KANIKO_DIR: /kaniko2
 ```
@@ -800,7 +798,8 @@ times for multiple registries.
 
 #### Flag `--kaniko-dir`
 
-Set this flag as `--kaniko-dir /not-kaniko` to move the kaniko binaries to `/not-kaniko` before the build starts. It's the cli alternative to the env variable `KANIKO_DIR`. This is helpful in [Bootstrapping Kaniko](#bootstrapping-kaniko).
+Set this flag as `--kaniko-dir /not-kaniko` to move the kaniko binaries to `/not-kaniko` before the build starts. This is helpful in [Bootstrapping Kaniko](#bootstrapping-kaniko).
+Will be deprecated in `v1.28.0`. Use the env variable `KANIKO_DIR` instead.
 
 #### Flag `--label`
 
