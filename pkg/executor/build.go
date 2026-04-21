@@ -274,7 +274,7 @@ func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (
 	return NewCompositeCache(rawKey), nil
 }
 
-func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg *v1.Config, args *dockerfile.BuildArgs, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, stageFinalCacheKeys map[int]string, hasContext bool) (string, error) {
+func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, args *dockerfile.BuildArgs, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, stageFinalCacheKeys map[int]string, hasContext bool) (string, error) {
 	keyValid := compositeKeyPtr != nil
 	var compositeKey CompositeCache
 	if keyValid {
@@ -305,7 +305,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg *v1.Config,
 				}
 			}
 
-			files, err := command.FilesUsedFromContext(cfg, args)
+			files, err := command.FilesUsedFromContext(&cfg, args)
 			if err != nil {
 				return "", fmt.Errorf("failed to get files used from context: %w", err)
 			}
@@ -370,7 +370,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg *v1.Config,
 
 		// Mutate the config for any commands that require it.
 		if command.MetadataOnly() {
-			if err := command.ExecuteCommand(cfg, args); err != nil {
+			if err := command.ExecuteCommand(&cfg, args); err != nil {
 				return "", err
 			}
 		}
@@ -966,7 +966,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				compositeKey = NewCompositeCache(sb.baseImageDigest)
 			}
 
-			finalCacheKey, err := sb.optimize(compositeKey, &sb.cf.Config, sb.args, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, false)
+			finalCacheKey, err := sb.optimize(compositeKey, sb.cf.Config, sb.args, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, false)
 			if err != nil {
 				return nil, fmt.Errorf("precompute: failed to optimize stage %d: %w", stage.Index, err)
 			}
@@ -1063,7 +1063,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 		// Apply optimizations to the instructions.
 		precomputedKey := stageFinalCacheKeys[stage.Index]
-		finalCacheKey, err := sb.optimize(compositeKey, &sb.cf.Config, sb.args.Clone(), opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, true)
+		finalCacheKey, err := sb.optimize(compositeKey, sb.cf.Config, sb.args.Clone(), opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
 		}
