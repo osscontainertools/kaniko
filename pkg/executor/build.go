@@ -70,7 +70,8 @@ type snapShotter interface {
 
 // stageBuilder contains all fields necessary to build one stage of a Dockerfile
 type stageBuilder struct {
-	stage           config.KanikoStage
+	index           int
+	final           bool
 	image           v1.Image
 	cf              *v1.ConfigFile
 	baseImageDigest string
@@ -127,7 +128,8 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 		return nil, err
 	}
 	s := &stageBuilder{
-		stage:           stage,
+		index:           stage.Index,
+		final:           stage.Final,
 		image:           sourceImage,
 		cf:              imageConfig,
 		baseImageDigest: digest.String(),
@@ -393,10 +395,10 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	if crossStageDeps {
 		shouldUnpack = true
 	}
-	if s.stage.Final && opts.Materialize {
+	if s.final && opts.Materialize {
 		shouldUnpack = true
 	}
-	if s.stage.Index == 0 && opts.InitialFSUnpacked {
+	if s.index == 0 && opts.InitialFSUnpacked {
 		shouldUnpack = false
 	}
 
