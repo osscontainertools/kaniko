@@ -625,10 +625,8 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 	}
 
 	rawBuildArgs := argsMap[dockerfile]
-	if version == 1 {
-		if override, ok := argsMapVersion1[dockerfile]; ok {
-			rawBuildArgs = override
-		}
+	if override, ok := argsMapVersion1[dockerfile]; version == 1 && ok {
+		rawBuildArgs = override
 	}
 	var buildArgs []string
 	for _, arg := range rawBuildArgs {
