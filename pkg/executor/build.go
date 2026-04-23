@@ -294,7 +294,10 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 	}()
 
 	stopCache := false
-	finalCacheKey := ""
+	finalCacheKey, err := compositeKey.Hash()
+	if err != nil {
+		return "", err
+	}
 	// Possibly replace commands with their cached implementations.
 	// We walk through all the commands, running any commands that only operate on metadata.
 	// We throw the metadata away after, but we need it to properly track command dependencies
