@@ -70,7 +70,12 @@ var argsMap = map[string][]string{
 		"file=context/foo",
 		"file3=context/b*",
 	},
-	"Dockerfile_test_multistage": {"file=/foo2"},
+	"Dockerfile_test_multistage":  {"file=/foo2"},
+	"Dockerfile_test_issue_mz655": {"BASE_TAG=1.37.0"},
+}
+
+var argsMapVersion1 = map[string][]string{
+	"Dockerfile_test_issue_mz655": {"BASE_TAG=1.36.1"},
 }
 
 // Environment to build Dockerfiles with, used for both docker and kaniko builds
@@ -89,7 +94,6 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_mz473":                {"KANIKO_DIR=/kaniko2"},
 	"Dockerfile_test_issue_mz511":                {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_mz529":                {"FF_KANIKO_SQUASH_STAGES=0"},
-	"Dockerfile_test_issue_mz334":                {"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=1"},
 }
 
 var KanikoEnv = []string{
@@ -103,6 +107,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_PRESERVE_HARDLINKS=1",
 	"FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE=1",
 	"FF_KANIKO_RUN_MOUNT_BIND=1",
+	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=1",
 }
 
 var WarmerEnv = []string{
@@ -173,6 +178,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_cache_copy":             {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache_copy_oci":         {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_add":              {"--cache-copy-layers=true"},
+	"Dockerfile_test_issue_mz655":            {"--cache-copy-layers=true"},
 	"Dockerfile_test_volume_3":               {"--skip-unused-stages=false"},
 	"Dockerfile_test_multistage":             {"--skip-unused-stages=false"},
 	"Dockerfile_test_copy_root_multistage":   {"--skip-unused-stages=false"},
@@ -394,6 +400,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_empty":   {},
 		"Dockerfile_test_issue_mz637":   {},
 		"Dockerfile_test_issue_mz334":   {},
+		"Dockerfile_test_issue_mz655":   {},
 	}
 	d.TestOCICacheDockerfiles = map[string]struct{}{
 		"Dockerfile_test_cache_oci":         {},
@@ -616,6 +623,19 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 	if exec, ok := executorImages[dockerfile]; ok {
 		executorImage = exec
 	}
+
+	rawBuildArgs := argsMap[dockerfile]
+	if version == 1 {
+		if override, ok := argsMapVersion1[dockerfile]; ok {
+			rawBuildArgs = override
+		}
+	}
+	var buildArgs []string
+	for _, arg := range rawBuildArgs {
+		buildArgs = append(buildArgs, "--build-arg", arg)
+	}
+	buildArgs = append(buildArgs, "--build-arg", "IMAGE_REPO="+config.imageRepo)
+
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", path.Join(buildContextPath, dockerfilesPath, dockerfile),
@@ -625,6 +645,7 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 		"--cache-repo", cacheRepo,
 		"--cache-dir", cacheDir)
 	dockerRunFlags = append(dockerRunFlags, args...)
+	dockerRunFlags = append(dockerRunFlags, buildArgs...)
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
 	out, err := RunCommandWithoutTest(kanikoCmd)
