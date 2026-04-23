@@ -372,6 +372,10 @@ func (s *stageBuilder) optimize(compositeKey CompositeCache, cfg v1.Config, opts
 			}
 		}
 	}
+
+	if finalCacheKey == "" {
+		logrus.Panic("Unreachable: finalCacheKey can't be empty")
+	}
 	return finalCacheKey, nil
 }
 
