@@ -1,0 +1,16 @@
+# mz655: FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY asserts when a COPY --from
+# targets a FROM-only stage whose source image changes between builds.
+# Build this twice with different BASE_TAG values to reproduce.
+ARG BASE_TAG
+FROM busybox:${BASE_TAG} AS src
+
+FROM scratch AS intermediate
+WORKDIR /same
+# assertion fires here because src is FROM-only: its finalCacheKey stays ""
+# so the inferred key for this COPY is identical across builds even when BASE_TAG changes.
+COPY --from=src /bin/busybox /diff
+
+FROM scratch
+# /same is an empty WORKDIR that washes out the version-specific /diff,
+# so the final image is identical regardless of BASE_TAG.
+COPY --from=intermediate /same /same
