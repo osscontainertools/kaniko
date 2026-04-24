@@ -430,24 +430,9 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 	return nil
 }
 
-func IsInProvidedIgnoreList(path string, wl []IgnoreListEntry) bool {
-	path = filepath.Clean(path)
-	for _, entry := range wl {
-		if !entry.PrefixMatchOnly && path == entry.Path {
-			return true
-		}
-	}
-
-	return false
-}
-
-func IsInIgnoreList(path string) bool {
-	return IsInProvidedIgnoreList(path, ignorelist)
-}
-
 func CheckCleanedPathAgainstProvidedIgnoreList(path string, wl []IgnoreListEntry) bool {
-	for _, wl := range ignorelist {
-		if hasCleanedFilepathPrefix(path, wl.Path, wl.PrefixMatchOnly) {
+	for _, w := range wl {
+		if hasCleanedFilepathPrefix(path, w.Path, w.PrefixMatchOnly) {
 			return true
 		}
 	}
@@ -1303,6 +1288,7 @@ type walkFSResult struct {
 func WalkFS(
 	dir string,
 	existingPaths map[string]struct{},
+	wl []IgnoreListEntry,
 	changeFunc func(string) (bool, error),
 ) ([]string, map[string]struct{}, error) {
 	timeOutStr := os.Getenv(snapshotTimeout)
@@ -1319,7 +1305,7 @@ func WalkFS(
 	ch := make(chan walkFSResult, 1)
 
 	go func() {
-		filesAdded, existingPaths, err := gowalkDir(dir, existingPaths, changeFunc)
+		filesAdded, existingPaths, err := gowalkDir(dir, existingPaths, wl, changeFunc)
 		ch <- walkFSResult{filesAdded, existingPaths, err}
 	}()
 
@@ -1335,7 +1321,7 @@ func WalkFS(
 	}
 }
 
-func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(string) (bool, error)) ([]string, map[string]struct{}, error) {
+func gowalkDir(dir string, existingPaths map[string]struct{}, wl []IgnoreListEntry, changeFunc func(string) (bool, error)) ([]string, map[string]struct{}, error) {
 	foundPaths := make([]string, 0)
 	deletedFiles := existingPaths // Make a reference.
 
@@ -1345,7 +1331,7 @@ func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(st
 			return err
 		}
 
-		if IsInIgnoreList(path) {
+		if CheckCleanedPathAgainstProvidedIgnoreList(filepath.Clean(path), wl) {
 			if IsDestDir(path) && info.IsDir() {
 				logrus.Tracef("Skipping paths under '%s', as it is an ignored directory", path)
 				return filepath.SkipDir
