@@ -1,0 +1,11 @@
+FROM debian
+
+# mz595: Files pre-existing in the (alpine-based) kaniko executor
+# are not captured by the snapshotter and go missing from the target image.
+#
+# mkdir -p and touch -a are no-ops on existing paths,
+# so the snapshotter sees these files as unchanged and skips them.
+# Docker, starting from a clean debian, creates them fresh and captures them.
+RUN mkdir -p /etc/apk \
+    && touch -a /etc/apk/world \
+    && touch -a /etc/apk/repositories

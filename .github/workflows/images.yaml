@@ -42,6 +42,7 @@ jobs:
           - executor-slim
           - warmer
           - bootstrap
+          - alpine
 
         include:
           - image: executor
@@ -73,6 +74,12 @@ jobs:
             platforms: linux/amd64,linux/arm64,linux/s390x,linux/riscv64,linux/ppc64le
             tag: ${{ github.sha }}-bootstrap
             release-tag: bootstrap
+
+          - image: alpine
+            target: kaniko-alpine
+            platforms: linux/amd64,linux/arm64,linux/s390x,linux/riscv64,linux/ppc64le
+            tag: ${{ github.sha }}-alpine
+            release-tag: alpine
 
     steps:
       - name: Harden Runner

@@ -53,6 +53,7 @@ const (
 
 	ExecutorImageMoved   = "executor-image-moved"
 	ExecutorImageTainted = "executor-image-tainted"
+	AlpineImage          = "alpine-image"
 )
 
 // Arguments to build Dockerfiles with, used for both docker and kaniko builds
@@ -154,6 +155,7 @@ var additionalDockerFlagsMap = map[string][]string{
 var executorImages = map[string]string{
 	"Dockerfile_test_issue_mz444": ExecutorImageMoved,
 	"Dockerfile_test_issue_mz455": ExecutorImageTainted,
+	"Dockerfile_test_issue_mz595": AlpineImage,
 }
 
 // Arguments to build Dockerfiles with when building with kaniko
@@ -218,6 +220,9 @@ var diffArgsMap = map[string][]string{
 	// But we discovered a new issue with this. For builtins, buildkit will emit "whiteout" files,
 	// to remember that it was removed, we don't. So we end up with a diff in the resulting image.
 	"TestRun/test_Dockerfile_test_issue_mz511": {"--extra-ignore-files=etc/.wh.nsswitch.conf"},
+	// mz595: surprisingly the missing files are **not** picked up if we ignore layer-length-mismatch,
+	// which we do by default in TestRun, we should move to disable that globally urgently.
+	"TestRun/test_Dockerfile_test_issue_mz595": {"--extra-ignore-layer-length-mismatch=false"},
 }
 
 // output check to do when building with kaniko
