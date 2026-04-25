@@ -3,6 +3,6 @@
 # In single-snapshot mode TakeSnapshotFS accumulates all build changes; the
 # "MetadataOnly command snapshotted N files" assertion must be gated on
 # !opts.SingleSnapshot.
-FROM alpine
+FROM busybox
 RUN touch /x
 LABEL a=b
