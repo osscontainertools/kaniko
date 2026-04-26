@@ -99,17 +99,6 @@ integration-test-misc:
 	$(eval RUN_ARG=$(shell ./scripts/misc-integration-test.sh))
 	@ ./scripts/integration-test.sh -run "$(RUN_ARG)"
 
-.PHONY: integration-test-coverage
-integration-test-coverage:
-	$(eval RUN_ARG=$(shell ./scripts/misc-integration-test.sh))
-	COVERAGE_DIR=out/covdata/misc   LOCAL=1 ./scripts/integration-test.sh -run "$(RUN_ARG)"
-	COVERAGE_DIR=out/covdata/run    LOCAL=1 ./scripts/integration-test.sh -run "TestRun"
-	COVERAGE_DIR=out/covdata/layers LOCAL=1 ./scripts/integration-test.sh -run "TestLayers"
-	mkdir -p out/covdata/merged
-	go tool covdata merge -i out/covdata/misc-merged:out/covdata/run-merged:out/covdata/layers-merged -o out/covdata/merged
-	go tool covdata textfmt -i out/covdata/merged -o out/coverage-integration.txt
-	go tool cover -html=out/coverage-integration.txt -o out/coverage-integration.html
-	@echo "Integration coverage report: out/coverage-integration.html"
 
 .PHONY: k8s-executor-build-push
 k8s-executor-build-push:
