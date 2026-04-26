@@ -24,10 +24,7 @@ jobs:
           egress-policy: block
           allowed-endpoints: >
             api.github.com:443
-            auth.docker.io:443
             github.com:443
-            index.docker.io:443
-            production.cloudflare.docker.com:443
             proxy.golang.org:443
             release-assets.githubusercontent.com:443
             *.actions.githubusercontent.com:443
@@ -39,6 +36,10 @@ jobs:
           remove-android: 'true'
           remove-dotnet: 'true'
           remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
+          remove-large-packages: 'true'
+          remove-cached-tools: 'true'
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
