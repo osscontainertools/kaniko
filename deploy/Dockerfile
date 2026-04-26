@@ -47,8 +47,7 @@ RUN go build -o out/ github.com/GoogleCloudPlatform/docker-credential-gcr/v2 \
 
 COPY . .
 ARG COVER=""
-RUN make out/executor out/warmer \
-    && if [ -n "$COVER" ]; then CGO_ENABLED=0 GOFLAGS=-mod=vendor go build -cover -o out/executor github.com/osscontainertools/kaniko/cmd/executor; fi \
+RUN make COVER="$COVER" out/executor out/warmer \
     && rm -rf /root/.cache
 
 # Generate latest ca-certificates
