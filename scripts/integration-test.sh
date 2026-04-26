@@ -62,9 +62,6 @@ fi
 go test ./integration/... "${FLAGS[@]}" "$@"
 
 if [[ -n ${COVERAGE_DIR} ]]; then
-  # Coverage files are written as root by the container; fix ownership so the
-  # calling user can read and process them.
-  sudo chown -R "$(id -u):$(id -g)" "${COVERAGE_DIR}" 2>/dev/null || true
   merged="${COVERAGE_DIR}-merged"
   mkdir -p "${merged}"
   go tool covdata merge -i "${COVERAGE_DIR}" -o "${merged}"

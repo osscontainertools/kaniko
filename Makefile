@@ -99,7 +99,6 @@ integration-test-misc:
 	$(eval RUN_ARG=$(shell ./scripts/misc-integration-test.sh))
 	@ ./scripts/integration-test.sh -run "$(RUN_ARG)"
 
-
 .PHONY: k8s-executor-build-push
 k8s-executor-build-push:
 	docker build ${BUILD_ARG} --build-arg=GOARCH=$(GOARCH) --build-arg=TARGETOS=linux -t $(REGISTRY)/executor:latest -f deploy/Dockerfile --target kaniko-executor .
