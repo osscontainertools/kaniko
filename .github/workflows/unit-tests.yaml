@@ -23,6 +23,13 @@ jobs:
         with:
           egress-policy: audit
 
+      - name: Maximize build space
+        uses: AdityaGarg8/remove-unwanted-software@90e01b21170618765a73370fcc3abbd1684a7793 # v5
+        with:
+          remove-android: 'true'
+          remove-dotnet: 'true'
+          remove-haskell: 'true'
+
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
@@ -36,8 +43,8 @@ jobs:
 
       - run: make golden
 
-      - name: Run staticcheck 
-        uses: dominikh/staticcheck-action@v1.4.1
+      - name: Run staticcheck
+        uses: dominikh/staticcheck-action@9716614d4101e79b4340dd97b10e54d68234e431 # v1.4.1
         with:
           install-go: false
           version: 'latest'
