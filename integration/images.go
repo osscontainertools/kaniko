@@ -51,10 +51,9 @@ const (
 	cacheDir         = "/workspace/cache"
 	baseImageToCache = "debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56"
 
-	ExecutorImageMoved    = "executor-image-moved"
-	ExecutorImageTainted  = "executor-image-tainted"
-	ExecutorImageCoverage = "executor-image-coverage"
-	AlpineImage           = "alpine-image"
+	ExecutorImageMoved   = "executor-image-moved"
+	ExecutorImageTainted = "executor-image-tainted"
+	AlpineImage          = "alpine-image"
 )
 
 var coverageDir string
@@ -64,13 +63,6 @@ func addCoverageFlags(flags []string) []string {
 		return flags
 	}
 	return append(flags, "-v", coverageDir+":/kaniko/covdata", "-e", "GOCOVERDIR=/kaniko/covdata")
-}
-
-func activeExecutorImage() string {
-	if coverageDir != "" {
-		return ExecutorImageCoverage
-	}
-	return ExecutorImage
 }
 
 // Arguments to build Dockerfiles with, used for both docker and kaniko builds
@@ -641,7 +633,7 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 	for _, envVariable := range envsMap[dockerfile] {
 		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
-	executorImage := activeExecutorImage()
+	executorImage := ExecutorImage
 	if exec, ok := executorImages[dockerfile]; ok {
 		executorImage = exec
 	}
@@ -713,7 +705,7 @@ func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTes
 	for _, envVariable := range KanikoEnv {
 		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
-	executorImage := activeExecutorImage()
+	executorImage := ExecutorImage
 	if exec, ok := executorImages[dockerfile]; ok {
 		executorImage = exec
 	}
@@ -784,7 +776,7 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 	for _, envVariable := range KanikoEnv {
 		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
-	executorImage := activeExecutorImage()
+	executorImage := ExecutorImage
 	if exec, ok := executorImages[dockerfile]; ok {
 		executorImage = exec
 	}
@@ -878,7 +870,7 @@ func buildKanikoImage(
 		kanikoDockerfilePath = path.Join(buildContextPath, "Dockerfile")
 	}
 
-	executorImage := activeExecutorImage()
+	executorImage := ExecutorImage
 	if exec, ok := executorImages[dockerfile]; ok {
 		executorImage = exec
 	}

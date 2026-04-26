@@ -25,11 +25,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        make-target:
-          - integration-test-layers
-          - integration-test-misc
-          - integration-test-run
-          - k8s-executor-build-push integration-test-k8s
+        include:
+          - make-target: integration-test-layers
+            artifact-name: layers
+          - make-target: integration-test-misc
+            artifact-name: misc
+          - make-target: integration-test-run
+            artifact-name: run
+          - make-target: k8s-executor-build-push integration-test-k8s
+            artifact-name: k8s
 
     steps:
       - name: Maximize build space
@@ -59,7 +63,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: covdata-${{ matrix.make-target }}
+          name: covdata-${{ matrix.artifact-name }}
           path: out/covdata-merged/
           if-no-files-found: ignore
 
