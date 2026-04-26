@@ -133,14 +133,15 @@ func TestMain(m *testing.M) {
 }
 
 func buildRequiredImages() error {
-	kanikoImageTarget := "kaniko-executor"
-	kanikoImageTag := ExecutorImage
 	if coverageDir != "" {
-		kanikoImageTarget = "kaniko-executor-coverage"
-		kanikoImageTag = ExecutorImageCoverage
 		if err := os.MkdirAll(coverageDir, 0o777); err != nil {
 			return fmt.Errorf("failed to create coverage dir %s: %w", coverageDir, err)
 		}
+	}
+
+	kanikoImageBuildCmd := []string{"docker", "build", "-t", ExecutorImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-executor", ".."}
+	if coverageDir != "" {
+		kanikoImageBuildCmd = []string{"docker", "build", "-t", ExecutorImage, "--build-arg", "COVER=1", "-f", "../deploy/Dockerfile", "--target", "kaniko-executor", ".."}
 	}
 
 	setupCommands := []struct {
@@ -148,7 +149,7 @@ func buildRequiredImages() error {
 		command []string
 	}{{
 		name:    "Building kaniko image",
-		command: []string{"docker", "build", "-t", kanikoImageTag, "-f", "../deploy/Dockerfile", "--target", kanikoImageTarget, ".."},
+		command: kanikoImageBuildCmd,
 	}, {
 		name:    "Building cache warmer image",
 		command: []string{"docker", "build", "-t", WarmerImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-warmer", ".."},
@@ -314,7 +315,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
-	dockerRunFlags = append(dockerRunFlags, activeExecutorImage(),
+	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
 		"-c", KanikoGitRepo(url, commit, branch))
@@ -387,7 +388,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(
 		dockerRunFlags,
-		activeExecutorImage(),
+		ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
 		"-c", KanikoGitRepo(url, "", branch),
@@ -429,7 +430,7 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
-	dockerRunFlags = append(dockerRunFlags, activeExecutorImage(),
+	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
 		"--registry-mirror", "doesnotexist.example.com",
@@ -471,7 +472,7 @@ func TestBuildViaRegistryMap(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
-	dockerRunFlags = append(dockerRunFlags, activeExecutorImage(),
+	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
 		"--registry-map", "index.docker.io=doesnotexist.example.com",
@@ -498,7 +499,7 @@ func TestBuildSkipFallback(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
-	dockerRunFlags = append(dockerRunFlags, activeExecutorImage(),
+	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
 		"--registry-mirror", "doesnotexist.example.com",
@@ -539,7 +540,7 @@ func TestKanikoDir(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
-	dockerRunFlags = append(dockerRunFlags, activeExecutorImage(),
+	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
 		"--kaniko-dir", "/not-kaniko",
@@ -583,7 +584,7 @@ func TestBuildWithLabels(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
-	dockerRunFlags = append(dockerRunFlags, activeExecutorImage(),
+	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
 		"--label", testLabel,
@@ -624,7 +625,7 @@ func TestBuildWithHTTPError(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
-	dockerRunFlags = append(dockerRunFlags, activeExecutorImage(),
+	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
 		"-c", KanikoGitRepo(url, "", branch),
@@ -980,7 +981,7 @@ func TestExitCodePropagation(t *testing.T) {
 		}
 		dockerFlags = addServiceAccountFlags(dockerFlags, "")
 		dockerFlags = addCoverageFlags(dockerFlags)
-		dockerFlags = append(dockerFlags, activeExecutorImage(),
+		dockerFlags = append(dockerFlags, ExecutorImage,
 			"-c", "dir:///workspace/",
 			"-f", "./Dockerfile_exit_code_propagation",
 			"--no-push",
@@ -1033,7 +1034,7 @@ func TestBuildWithAnnotations(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
-	dockerRunFlags = append(dockerRunFlags, activeExecutorImage(),
+	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
 		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
