@@ -13,7 +13,7 @@
 # limitations under the License.
 
 ARG BUILDPLATFORM
-FROM --platform=$BUILDPLATFORM golang:1.26.2 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.2@sha256:5f3787b7f902c07c7ec4f3aa91a301a3eda8133aa32661a3b3a3a86ab3a68a36 AS builder
 WORKDIR /src
 
 # This arg is passed by docker buildx & contains the target CPU architecture (e.g., amd64, arm64, etc.)
@@ -51,12 +51,12 @@ RUN make out/executor out/warmer \
 
 # Generate latest ca-certificates
 ARG BUILDPLATFORM
-FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS certs
+FROM --platform=$BUILDPLATFORM debian:bookworm-slim@sha256:4724b8cc51e33e398f0e2e15e18d5ec2851ff0c2280647e1310bc1642182655d AS certs
 RUN apt update && apt install -y ca-certificates
 
 # use musl busybox since it's staticly compiled on all platforms
-FROM busybox:musl AS busybox
-RUN mkdir -p /kaniko && chmod 777 /kaniko
+FROM busybox:musl@sha256:19b646668802469d968a05342a601e78da4322a414a7c09b1c9ee25165042138 AS busybox
+RUN mkdir -p /kaniko && chmod 700 /kaniko
 
 FROM scratch AS kaniko-base-slim
 
@@ -72,9 +72,9 @@ ENV SSL_CERT_DIR=/kaniko/ssl/certs
 
 FROM kaniko-base-slim AS kaniko-base
 
-COPY --from=builder --chown=0:0 /src/out/docker-credential-gcr /kaniko/docker-credential-gcr
-COPY --from=builder --chown=0:0 /src/out/docker-credential-ecr-login /kaniko/docker-credential-ecr-login
-COPY --from=builder --chown=0:0 /src/out/docker-credential-acr-env /kaniko/docker-credential-acr-env
+COPY --from=builder --chown=0:0 --chmod=500 /src/out/docker-credential-gcr /kaniko/docker-credential-gcr
+COPY --from=builder --chown=0:0 --chmod=500 /src/out/docker-credential-ecr-login /kaniko/docker-credential-ecr-login
+COPY --from=builder --chown=0:0 --chmod=500 /src/out/docker-credential-acr-env /kaniko/docker-credential-acr-env
 
 COPY --from=builder /kaniko/.docker /kaniko/.docker
 
@@ -86,7 +86,7 @@ WORKDIR /workspace
 FROM kaniko-base AS kaniko-base-tini
 ARG TARGETARCH
 ARG TINI_VERSION=v0.19.0
-ADD --chmod=555 \
+ADD --chown=0:0 --chmod=555 \
     https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-${TARGETARCH} \
     /kaniko/tini
 FROM kaniko-base-tini AS kaniko-base-amd64
@@ -110,7 +110,7 @@ COPY --from=builder /src/out/executor /kaniko/executor
 
 ENTRYPOINT ["/kaniko/executor"]
 
-FROM alpine AS kaniko-alpine
+FROM alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11 AS kaniko-alpine
 
 RUN apk add --no-cache ca-certificates git
 
