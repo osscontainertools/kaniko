@@ -58,11 +58,11 @@ const (
 
 var coverageDir string
 
-func addCoverageFlags(flags []string, executorImage string) []string {
-	if coverageDir == "" || executorImage != ExecutorImage {
+func addCoverageFlags(flags []string) []string {
+	if coverageDir == "" {
 		return flags
 	}
-	return append(flags, "-v", coverageDir+":/kaniko/covdata", "-e", "GOCOVERDIR=/kaniko/covdata")
+	return append(flags, "-v", coverageDir+":/covdata", "-e", "GOCOVERDIR=/covdata")
 }
 
 // Arguments to build Dockerfiles with, used for both docker and kaniko builds
@@ -650,7 +650,7 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 	buildArgs = append(buildArgs, "--build-arg", "IMAGE_REPO="+config.imageRepo)
 
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
-	dockerRunFlags = addCoverageFlags(dockerRunFlags, executorImage)
+	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", path.Join(buildContextPath, dockerfilesPath, dockerfile),
 		"-d", kanikoImage,
@@ -711,7 +711,7 @@ func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTes
 		executorImage = exec
 	}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
-	dockerRunFlags = addCoverageFlags(dockerRunFlags, executorImage)
+	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", path.Join(buildContextPath, dockerfilesPath, dockerfile),
 		"-d", kanikoImage,
@@ -782,7 +782,7 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 		executorImage = exec
 	}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
-	dockerRunFlags = addCoverageFlags(dockerRunFlags, executorImage)
+	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -876,7 +876,7 @@ func buildKanikoImage(
 		executorImage = exec
 	}
 
-	dockerRunFlags = addCoverageFlags(dockerRunFlags, executorImage)
+	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", kanikoDockerfilePath,
 		"-d", kanikoImage,
