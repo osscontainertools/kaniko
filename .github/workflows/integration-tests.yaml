@@ -67,7 +67,6 @@ jobs:
     name: Merge integration coverage
     runs-on: ubuntu-latest
     needs: tests
-    if: always()
 
     permissions:
       contents: read
