@@ -36,8 +36,8 @@ GO_LDFLAGS += -X $(VERSION_PACKAGE).version=$(VERSION)
 GO_LDFLAGS += -w -s # Drop debugging symbols.
 GO_LDFLAGS += '
 
-EXECUTOR_PACKAGE = $(REPOPATH)/cmd/executor
-WARMER_PACKAGE = $(REPOPATH)/cmd/warmer
+EXECUTOR_PACKAGE = ./cmd/executor
+WARMER_PACKAGE = ./cmd/warmer
 KANIKO_PROJECT = $(REPOPATH)/kaniko
 BUILD_ARG ?=
 COVER ?=
