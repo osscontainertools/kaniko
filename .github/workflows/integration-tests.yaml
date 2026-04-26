@@ -87,7 +87,7 @@ jobs:
       - name: Merge and convert coverage
         run: |
           mkdir -p covdata-merged
-          parts=$(find covdata-parts -mindepth 1 -maxdepth 1 -type d | tr '\n' ':' | sed 's/:$//')
+          parts=$(find covdata-parts -mindepth 1 -maxdepth 1 -type d | tr '\n' ',' | sed 's/,$//')
           if [[ -z "$parts" ]]; then
             echo "No coverage data found, skipping merge"
             exit 0
