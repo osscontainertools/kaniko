@@ -20,7 +20,7 @@ jobs:
     env:
       IMAGE_REPO: 'localhost:5000'
       REGISTRY: 'localhost:5000'
-      COVERAGE_DIR: 'out/covdata'
+      COVERAGE_DIR: '${{ github.workspace }}/out/covdata'
 
     strategy:
       fail-fast: false
