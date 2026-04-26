@@ -36,8 +36,8 @@ GO_LDFLAGS += -X $(VERSION_PACKAGE).version=$(VERSION)
 GO_LDFLAGS += -w -s # Drop debugging symbols.
 GO_LDFLAGS += '
 
-EXECUTOR_PACKAGE = ./cmd/executor
-WARMER_PACKAGE = ./cmd/warmer
+EXECUTOR_PACKAGE = $(REPOPATH)/cmd/executor
+WARMER_PACKAGE = $(REPOPATH)/cmd/warmer
 KANIKO_PROJECT = $(REPOPATH)/kaniko
 BUILD_ARG ?=
 COVER ?=
@@ -49,7 +49,7 @@ export GOFLAGS = -mod=vendor
 
 
 out/executor: $(GO_FILES)
-	GOFLAGS= GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=0 go build $(if $(COVER),-cover) -mod=vendor -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
+	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=0 go build $(if $(COVER),-cover) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
 
 out/warmer: $(GO_FILES)
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=0 go build -ldflags $(GO_LDFLAGS) -o $@ $(WARMER_PACKAGE)
