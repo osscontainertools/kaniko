@@ -61,10 +61,3 @@ fi
 
 go test ./integration/... "${FLAGS[@]}" "$@"
 
-if [[ -n ${COVERAGE_DIR} ]]; then
-  merged="${COVERAGE_DIR}-merged"
-  mkdir -p "${merged}"
-  go tool covdata merge -i "${COVERAGE_DIR}" -o "${merged}"
-  go tool covdata textfmt -i "${merged}" -o "${COVERAGE_DIR}/coverage.txt"
-  echo "Integration coverage written to ${COVERAGE_DIR}/coverage.txt"
-fi
