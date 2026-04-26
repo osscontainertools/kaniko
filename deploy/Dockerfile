@@ -115,7 +115,11 @@ FROM alpine AS kaniko-alpine
 RUN apk add --no-cache ca-certificates git
 
 COPY --from=builder /src/out/executor /kaniko/executor
-COPY --from=kaniko-base-2 /kaniko/tini /kaniko/tini
+
+# mz446: there is no tini binary release on riscv64
+ARG TARGETARCH
+RUN --mount=from=kaniko-base-2,source=/kaniko,target=/mnt/kaniko \
+    [ "$TARGETARCH" = "riscv64" ] || cp /mnt/kaniko/tini /kaniko/tini
 
 # mz595: pre-existing alpine files would result in invalid build outputs.
 # with these flags we wipe the filesystem before build, circumventing this issue.
