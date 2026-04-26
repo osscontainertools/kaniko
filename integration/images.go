@@ -58,8 +58,8 @@ const (
 
 var coverageDir string
 
-func addCoverageFlags(flags []string) []string {
-	if coverageDir == "" {
+func addCoverageFlags(flags []string, executorImage string) []string {
+	if coverageDir == "" || executorImage != ExecutorImage {
 		return flags
 	}
 	return append(flags, "-v", coverageDir+":/kaniko/covdata", "-e", "GOCOVERDIR=/kaniko/covdata")
@@ -649,7 +649,7 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 	buildArgs = append(buildArgs, "--build-arg", "IMAGE_REPO="+config.imageRepo)
 
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
-	dockerRunFlags = addCoverageFlags(dockerRunFlags)
+	dockerRunFlags = addCoverageFlags(dockerRunFlags, executorImage)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", path.Join(buildContextPath, dockerfilesPath, dockerfile),
 		"-d", kanikoImage,
@@ -710,7 +710,7 @@ func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTes
 		executorImage = exec
 	}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
-	dockerRunFlags = addCoverageFlags(dockerRunFlags)
+	dockerRunFlags = addCoverageFlags(dockerRunFlags, executorImage)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", path.Join(buildContextPath, dockerfilesPath, dockerfile),
 		"-d", kanikoImage,
@@ -781,7 +781,7 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 		executorImage = exec
 	}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
-	dockerRunFlags = addCoverageFlags(dockerRunFlags)
+	dockerRunFlags = addCoverageFlags(dockerRunFlags, executorImage)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -875,7 +875,7 @@ func buildKanikoImage(
 		executorImage = exec
 	}
 
-	dockerRunFlags = addCoverageFlags(dockerRunFlags)
+	dockerRunFlags = addCoverageFlags(dockerRunFlags, executorImage)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", kanikoDockerfilePath,
 		"-d", kanikoImage,
