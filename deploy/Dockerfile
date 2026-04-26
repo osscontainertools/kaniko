@@ -96,6 +96,10 @@ FROM kaniko-base-tini AS kaniko-base-ppc64le
 FROM kaniko-base AS kaniko-base-riscv64
 FROM kaniko-base-${TARGETARCH} AS kaniko-base-2
 
+FROM builder AS builder-coverage
+RUN CGO_ENABLED=0 GOFLAGS=-mod=vendor go build -cover -o out/executor-coverage github.com/osscontainertools/kaniko/cmd/executor \
+    && rm -rf /root/.cache
+
 ### FINAL STAGES ###
 
 FROM kaniko-base AS kaniko-warmer
@@ -127,6 +131,10 @@ ENV KANIKO_PRESERVE_CONTEXT=1 \
     KANIKO_PRE_CLEANUP=1
 
 ENTRYPOINT ["/kaniko/executor"]
+
+FROM kaniko-executor AS kaniko-executor-coverage
+
+COPY --from=builder-coverage /src/out/executor-coverage /kaniko/executor
 
 FROM kaniko-executor AS kaniko-debug
 
