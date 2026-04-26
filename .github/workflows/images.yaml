@@ -32,7 +32,7 @@ jobs:
       id-token: write # Produce identity token for keyless signing.
       packages: write # push to ghcr registry
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
