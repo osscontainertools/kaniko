@@ -40,6 +40,7 @@ EXECUTOR_PACKAGE = $(REPOPATH)/cmd/executor
 WARMER_PACKAGE = $(REPOPATH)/cmd/warmer
 KANIKO_PROJECT = $(REPOPATH)/kaniko
 BUILD_ARG ?=
+COVER ?=
 
 # Force using Go Modules and always read the dependencies from
 # the `vendor` folder.
@@ -48,7 +49,7 @@ export GOFLAGS = -mod=vendor
 
 
 out/executor: $(GO_FILES)
-	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=0 go build -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
+	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=0 go build $(if $(COVER),-cover) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
 
 out/warmer: $(GO_FILES)
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=0 go build -ldflags $(GO_LDFLAGS) -o $@ $(WARMER_PACKAGE)
