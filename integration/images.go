@@ -109,6 +109,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE=1",
 	"FF_KANIKO_RUN_MOUNT_BIND=1",
 	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=1",
+	"FF_KANIKO_CACHE_LOOKAHEAD=1",
 }
 
 var WarmerEnv = []string{
@@ -267,6 +268,21 @@ var cacheHitOutputChecks = map[string]func(string, []byte) error{
 			}
 		}
 		return nil
+	},
+}
+
+var imageChecks = map[string]func(*testing.T, string){
+	"Dockerfile_test_issue_mz334": func(t *testing.T, kanikoImage string) {
+		t.Helper()
+		out, err := exec.Command("docker", "inspect", "--format", `{{index .Config.Labels "from"}}`, kanikoImage).Output()
+		if err != nil {
+			t.Errorf("docker inspect: %v", err)
+			return
+		}
+		// final stage is based on first; if second's LABEL mutated first's shared map the value is "second"
+		if got, want := strings.TrimSpace(string(out)), "first"; got != want {
+			t.Errorf("final stage label 'from': got %q, want %q (shallow-copy corruption from second stage)", got, want)
+		}
 	},
 }
 
