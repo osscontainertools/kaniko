@@ -139,10 +139,11 @@ func buildRequiredImages() error {
 		}
 	}
 
-	kanikoImageBuildCmd := []string{"docker", "build", "-t", ExecutorImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-executor", ".."}
+	kanikoImageBuildCmd := []string{"docker", "build", "-t", ExecutorImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-executor"}
 	if coverageDir != "" {
-		kanikoImageBuildCmd = []string{"docker", "build", "-t", ExecutorImage, "--build-arg", "COVER=1", "-f", "../deploy/Dockerfile", "--target", "kaniko-executor", ".."}
+		kanikoImageBuildCmd = append(kanikoImageBuildCmd, "--build-arg", "COVER=1")
 	}
+	kanikoImageBuildCmd = append(kanikoImageBuildCmd, "..")
 
 	setupCommands := []struct {
 		name    string
