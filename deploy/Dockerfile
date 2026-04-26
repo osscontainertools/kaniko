@@ -46,7 +46,8 @@ RUN go build -o out/ github.com/GoogleCloudPlatform/docker-credential-gcr/v2 \
     && rm -rf /root/.cache /go/pkg
 
 COPY . .
-RUN make out/executor out/warmer \
+ARG COVER=""
+RUN make COVER="$COVER" out/executor out/warmer \
     && rm -rf /root/.cache
 
 # Generate latest ca-certificates
