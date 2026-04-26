@@ -526,10 +526,10 @@ func TestKanikoDir(t *testing.T) {
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
-		"--kaniko-dir", "/not-kaniko",
 		"-c", KanikoGitRepo(url, "", branch))
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
+	kanikoCmd.Env = append(kanikoCmd.Env, "KANIKO_DIR=/not-kaniko")
 
 	out, err = RunCommandWithoutTest(kanikoCmd)
 	if err != nil {
