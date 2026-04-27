@@ -56,14 +56,12 @@ jobs:
       - run: make ${{ matrix.make-target }}
 
       - name: Convert and upload coverage
-        if: always()
         run: |
           if compgen -G "out/covdata/*" > /dev/null 2>&1; then
             go tool covdata textfmt -i out/covdata -o coverage.txt
           fi
 
-      - uses: codecov/codecov-action@v5
-        if: always()
+      - uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
         with:
           files: coverage.txt
           flags: integration
