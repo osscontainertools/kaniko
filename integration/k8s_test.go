@@ -30,6 +30,7 @@ type K8sConfig struct {
 	KanikoImage string
 	Context     string
 	Name        string
+	CoverageDir string
 }
 
 func TestK8s(t *testing.T) {
@@ -78,7 +79,7 @@ func TestK8s(t *testing.T) {
 			}
 			defer os.Remove(tmpfile.Name()) // clean up
 			tmpl := template.Must(template.ParseFiles("k8s-job.yaml"))
-			job := K8sConfig{KanikoImage: kanikoImage, Context: testDir, Name: name}
+			job := K8sConfig{KanikoImage: kanikoImage, Context: testDir, Name: name, CoverageDir: coverageDir}
 			if err := tmpl.Execute(tmpfile, job); err != nil {
 				t.Fatal(err)
 			}
