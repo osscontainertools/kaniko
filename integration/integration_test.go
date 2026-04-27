@@ -139,7 +139,7 @@ func buildRequiredImages() error {
 		}
 	}
 
-	coverArg := "--build-arg=COVER=0"
+	coverArg := "--build-arg=COVER="
 	if coverageDir != "" {
 		coverArg = "--build-arg=COVER=1"
 	}
