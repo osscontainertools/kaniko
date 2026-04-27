@@ -99,6 +99,8 @@ jobs:
           go tool covdata merge -i "$parts" -o covdata-merged
           go tool covdata textfmt -i covdata-merged -o coverage-integration.txt
           go tool cover -html=coverage-integration.txt -o coverage-integration.html
+          pct=$(go tool cover -func=coverage-integration.txt | tail -1 | awk '{print $NF}')
+          echo "## Integration test coverage: $pct" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload merged coverage report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
