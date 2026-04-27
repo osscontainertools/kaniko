@@ -34,9 +34,23 @@ jobs:
 
       - run: make test
 
+      - uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+        with:
+          files: out/coverage.out
+          flags: unit
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
       - run: make golden
 
-      - name: Run staticcheck 
+      - uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+        with:
+          files: out/coverage.out
+          flags: golden
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Run staticcheck
         uses: dominikh/staticcheck-action@v1.4.1
         with:
           install-go: false
