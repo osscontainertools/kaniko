@@ -66,5 +66,6 @@ jobs:
         if: always()
         with:
           files: coverage.txt
+          flags: integration
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
