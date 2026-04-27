@@ -333,6 +333,7 @@ func copyCmdFilesUsedFromContext(
 		files = append(files, fullPath)
 	}
 
+	util.Assert("copy.files-count", len(files) <= len(srcs), "copyCmdFilesUsedFromContext: result cannot exceed source count (srcs=%d, files=%d)", len(srcs), len(files))
 	logrus.Debugf("Using files from context: %v", files)
 
 	return files, nil

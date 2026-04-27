@@ -55,6 +55,7 @@ func ResolveEnvironmentReplacementList(values, envs []string, isFilepath bool) (
 		}
 		resolvedValues = append(resolvedValues, resolved)
 	}
+	Assert("util.resolve-list.length", len(resolvedValues) == len(values), "ResolveEnvironmentReplacementList: output length %d must equal input length %d; each value must resolve to exactly one result", len(resolvedValues), len(values))
 	return resolvedValues, nil
 }
 
@@ -95,6 +96,7 @@ func ResolveEnvAndWildcards(sd instructions.SourcesAndDest, fileContext FileCont
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to resolve environment for dest path: %w", err)
 	}
+	Assert("util.resolve-dest.single", len(dests) == 1, "ResolveEnvironmentReplacementList returned %d results for a single dest path input", len(dests))
 	dest := dests[0]
 	sd.DestPath = dest
 	// Resolve wildcards and get a list of resolved sources

@@ -35,6 +35,7 @@ type ExposeCommand struct {
 func (r *ExposeCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
 	logrus.Info("Cmd: EXPOSE")
 	// Grab the currently exposed ports
+	prevPortCount := len(config.ExposedPorts)
 	existingPorts := config.ExposedPorts
 	if existingPorts == nil {
 		existingPorts = make(map[string]struct{})
@@ -51,7 +52,9 @@ func (r *ExposeCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.
 		if !strings.Contains(p, "/") {
 			p = p + "/tcp"
 		}
-		protocol := strings.Split(p, "/")[1]
+		parts := strings.Split(p, "/")
+		util.Assert("expose.parts-count", len(parts) >= 2, "port string must contain '/' after normalization")
+		protocol := parts[1]
 		if !validProtocol(protocol) {
 			return fmt.Errorf("invalid protocol: %s", protocol)
 		}
@@ -59,6 +62,7 @@ func (r *ExposeCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.
 		existingPorts[p] = struct{}{}
 	}
 	config.ExposedPorts = existingPorts
+	util.Assert("expose.port-count-monotone", len(config.ExposedPorts) >= prevPortCount, "EXPOSE must not remove ports: count went from %d to %d", prevPortCount, len(config.ExposedPorts))
 	return nil
 }
 

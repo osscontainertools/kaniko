@@ -1,0 +1,8 @@
+# mz621: --single-snapshot with a metadata-only final command (LABEL) after a
+# filesystem-modifying command (RUN) must not panic.
+# In single-snapshot mode TakeSnapshotFS accumulates all build changes; the
+# "MetadataOnly command snapshotted N files" assertion must be gated on
+# !opts.SingleSnapshot.
+FROM busybox
+RUN touch /x
+LABEL a=b
