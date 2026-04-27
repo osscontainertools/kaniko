@@ -590,6 +590,7 @@ func populateVolumeCache(logf logger, serviceAccount string) error {
 		cmd = append(cmd, "-e", envVariable)
 	}
 	cmd = addServiceAccountFlags(cmd, serviceAccount)
+	cmd = addCoverageFlags(cmd)
 	cmd = append(cmd,
 		WarmerImage,
 		"-c", cacheDir,

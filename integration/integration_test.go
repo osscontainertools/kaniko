@@ -155,13 +155,13 @@ func buildRequiredImages() error {
 		command: []string{"docker", "build", coverArg, "-t", WarmerImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-warmer", ".."},
 	}, {
 		name:    "Building onbuild base image",
-		command: []string{"docker", "build", coverArg, "--push", "-t", config.onbuildBaseImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_base", "."},
+		command: []string{"docker", "build", "--push", "-t", config.onbuildBaseImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_base", "."},
 	}, {
 		name:    "Building onbuild copy image",
-		command: []string{"docker", "build", coverArg, "--push", "-t", config.onbuildCopyImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_copy", "."},
+		command: []string{"docker", "build", "--push", "-t", config.onbuildCopyImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_copy", "."},
 	}, {
 		name:    "Building hardlink base image",
-		command: []string{"docker", "build", coverArg, "--push", "-t", config.hardlinkBaseImage, "-f", dockerfilesPath + "/Dockerfile_hardlink_base", "."},
+		command: []string{"docker", "build", "--push", "-t", config.hardlinkBaseImage, "-f", dockerfilesPath + "/Dockerfile_hardlink_base", "."},
 	}, {
 		name:    "Building kaniko image with moved kaniko dir",
 		command: []string{"docker", "build", coverArg, "-t", ExecutorImageMoved, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz444", "--target", "kaniko", "."},
@@ -170,7 +170,7 @@ func buildRequiredImages() error {
 		command: []string{"docker", "build", coverArg, "-t", ExecutorImageTainted, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz455", "--target", "kaniko", "."},
 	}, {
 		name:    "Building hijack base image",
-		command: []string{"docker", "build", coverArg, "--push", "-t", config.hijackBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz560", "--target", "base", "."},
+		command: []string{"docker", "build", "--push", "-t", config.hijackBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz560", "--target", "base", "."},
 	}, {
 		name:    "Building kaniko image based on alpine",
 		command: []string{"docker", "build", coverArg, "-t", AlpineImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-alpine", ".."},
