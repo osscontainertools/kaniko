@@ -1,7 +1,0 @@
-flags:
-  unit:
-    carryforward: true
-  golden:
-    carryforward: true
-  integration:
-    carryforward: true
