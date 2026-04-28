@@ -126,6 +126,12 @@ var RootCmd = &cobra.Command{
 
 			ValidateFlags(opts)
 
+			// mz661: resolveSecrets must run before moveKanikoDir so that secret src=
+			// paths pointing into the original kaniko dir are still valid when copied.
+			if err := resolveSecrets(); err != nil {
+				return fmt.Errorf("error resolving secrets: %w", err)
+			}
+
 			// Command line flag takes precedence over the KANIKO_DIR environment variable.
 			dir := config.KanikoDir
 			if opts.KanikoDir != "" {
@@ -152,9 +158,6 @@ var RootCmd = &cobra.Command{
 			}
 			if err := resolveDockerfilePath(); err != nil {
 				return fmt.Errorf("error resolving dockerfile path: %w", err)
-			}
-			if err := resolveSecrets(); err != nil {
-				return fmt.Errorf("error resolving secrets: %w", err)
 			}
 			if len(opts.Destinations) == 0 && opts.ImageNameDigestFile != "" {
 				return errors.New("you must provide --destination if setting ImageNameDigestFile")
@@ -445,16 +448,19 @@ func resolveSecrets() error {
 			// In multistage builds the original secret file might be deleted between stages.
 			// We therefore safeguard it across stages by copying it into /kaniko.
 			// We are not allowed to move it as it might be mounted into the container.
-			destPath := filepath.Join(config.KanikoSecretsDir, k)
-			err := os.MkdirAll(config.KanikoSecretsDir, 0o700)
+			// mz661: copy into KanikoExeDir so moveKanikoDir carries the file to
+			// KanikoSecretsDir automatically. s.Src is set to the post-move path.
+			destPathBefore := filepath.Join(config.KanikoSecretsBeforeDir, k)
+			destPathAfter := filepath.Join(config.KanikoSecretsDir, k)
+			err := os.MkdirAll(config.KanikoSecretsBeforeDir, 0o700)
 			if err != nil {
 				return err
 			}
-			err = util.CopyFileInternal(s.Src, destPath, util.FileContext{})
+			err = util.CopyFileInternal(s.Src, destPathBefore, util.FileContext{})
 			if err != nil {
 				return fmt.Errorf("copying secret %s: %w", s.Src, err)
 			}
-			s.Src = destPath
+			s.Src = destPathAfter
 			// mz511: we need to write back to the dict to persist the update
 			opts.Secrets[k] = s
 		}
