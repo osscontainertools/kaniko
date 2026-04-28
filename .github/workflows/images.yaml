@@ -32,7 +32,7 @@ jobs:
       id-token: write # Produce identity token for keyless signing.
       packages: write # push to ghcr registry
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -127,7 +127,7 @@ jobs:
         run: echo "now=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
 
       - if: steps.context.outputs.should_push == 'true'
-        uses: docker/login-action@v4
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -192,7 +192,7 @@ jobs:
 
       # If a tag push, distribute to other registries too
       - if: steps.context.outputs.is_release == 'true'
-        uses: docker/login-action@v4
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
