@@ -7,4 +7,4 @@
 # already exists in the container, standing in for any real credential file.
 # Verify here that the secret is accessible inside the build.
 FROM busybox
-RUN echo blubb
+RUN --mount=type=secret,id=kaniko test -s /run/secrets/kaniko
