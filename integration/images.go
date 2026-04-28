@@ -19,7 +19,6 @@ package integration
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -284,9 +283,36 @@ var warmerOutputChecks = map[string]func(string, []byte) error{
 	},
 }
 
-func checkNoWarnings(_ string, out []byte) error {
-	if strings.Contains(string(out), "WARN") {
-		return errors.New("output must not contain WARN")
+// expectedWarnings maps a Dockerfile name to warning substrings that must appear in its output.
+// Dockerfiles listed here are required to emit those warnings; all others must emit no warnings.
+var expectedWarnings = map[string][]string{
+	// mz640: COPY to /kaniko (ignored path) must warn rather than silently skip.
+	"Dockerfile_test_issue_mz560": {"Skipping copy for ignored path"},
+}
+
+func checkNoWarnings(dockerfile string, out []byte) error {
+	expected := expectedWarnings[dockerfile]
+	found := make([]bool, len(expected))
+	for line := range strings.SplitSeq(string(out), "\n") {
+		if !strings.Contains(line, "WARN") {
+			continue
+		}
+		covered := false
+		for i, w := range expected {
+			if strings.Contains(line, w) {
+				found[i] = true
+				covered = true
+				break
+			}
+		}
+		if !covered {
+			return fmt.Errorf("unexpected WARN in output: %s", line)
+		}
+	}
+	for i, w := range expected {
+		if !found[i] {
+			return fmt.Errorf("expected WARN %q not found in output", w)
+		}
 	}
 	return nil
 }
