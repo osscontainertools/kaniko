@@ -84,16 +84,26 @@ ENV DOCKER_CREDENTIAL_GCR_CONFIG=/kaniko/.config/gcloud/docker_credential_gcr_co
 WORKDIR /workspace
 
 # mz446: there is no tini binary release on riscv64
-FROM kaniko-base AS kaniko-base-tini
-ARG TARGETARCH
-ARG TINI_VERSION=v0.19.0
-ADD --chmod=555 \
-    https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-${TARGETARCH} \
+FROM kaniko-base AS kaniko-base-amd64
+ADD --checksum=sha256:c5b0666b4cb676901f90dfcb37106783c5fe2077b04590973b885950611b30ee \
+    --chown=0:0 --chmod=555 \
+    https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-amd64 \
     /kaniko/tini
-FROM kaniko-base-tini AS kaniko-base-amd64
-FROM kaniko-base-tini AS kaniko-base-arm64
-FROM kaniko-base-tini AS kaniko-base-s390x
-FROM kaniko-base-tini AS kaniko-base-ppc64le
+FROM kaniko-base AS kaniko-base-arm64
+ADD --checksum=sha256:eae1d3aa50c48fb23b8cbdf4e369d0910dfc538566bfd09df89a774aa84a48b9 \
+    --chown=0:0 --chmod=555 \
+    https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-arm64 \
+    /kaniko/tini
+FROM kaniko-base AS kaniko-base-s390x
+ADD --checksum=sha256:95657aec2459ff06123e0674565da625c50704b1db86373cd91afc3c0dcce997 \
+    --chown=0:0 --chmod=555 \
+    https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-s390x \
+    /kaniko/tini
+FROM kaniko-base AS kaniko-base-ppc64le
+ADD --checksum=sha256:b913a6d5be168a14cfe5f27238a181a12aece281e30a57e5d31a148bc5dfb687 \
+    --chown=0:0 --chmod=555 \
+    https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-ppc64le \
+    /kaniko/tini
 FROM kaniko-base AS kaniko-base-riscv64
 FROM kaniko-base-${TARGETARCH} AS kaniko-base-2
 
