@@ -276,6 +276,9 @@ func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (
 
 func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, args *dockerfile.BuildArgs, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, stageFinalCacheKeys map[int]string, hasContext bool) (string, error) {
 	keyValid := compositeKeyPtr != nil
+	if hasContext {
+		util.Assert("executor.optimize.keyValid", keyValid, "optimize: key must be valid")
+	}
 	var compositeKey CompositeCache
 	if keyValid {
 		compositeKey = *compositeKeyPtr
@@ -377,7 +380,12 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 
 	// Optimize only swaps commands for cached versions.
 	util.Assert("executor.optimize.command-count", len(s.cmds) == cmdCountBeforeOptimize, "optimize: command count must not change during optimization (before=%d, after=%d)", cmdCountBeforeOptimize, len(s.cmds))
-	util.Assert("executor.optimize.finalcachekey", finalCacheKey != "" && !keyValid, "optimize: finalCacheKey can't be empty")
+	if hasContext {
+		util.Assert("executor.optimize.keyValid", keyValid, "optimize: key must be valid")
+	}
+	if hasContext || keyValid {
+		util.Assert("executor.optimize.finalcachekey", finalCacheKey != "", "optimize: finalCacheKey can't be empty")
+	}
 	return finalCacheKey, nil
 }
 
@@ -960,9 +968,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			if stage.BaseImageStoredLocally {
 				args = stageArgs[stage.BaseImageIndex]
 			}
-			if args == nil {
-				logrus.Panicf("stages must be processed in order. base stage %d not yet in stageArgs", stage.BaseImageIndex)
-			}
+			util.Assert("executor.build.stage-order", args != nil, "stages must be processed in order: base stage %d not yet in stageArgs", stage.BaseImageIndex)
 
 			sb, err := newStageBuilder(baseImage, args, opts, stage, fileContext)
 			if err != nil {
@@ -1049,9 +1055,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if stage.BaseImageStoredLocally {
 			args = stageArgs[stage.BaseImageIndex]
 		}
-		if args == nil {
-			logrus.Panicf("stages must be processed in order. base stage %d not yet in stageArgs", stage.BaseImageIndex)
-		}
+		util.Assert("executor.build.stage-order", args != nil, "stages must be processed in order: base stage %d not yet in stageArgs", stage.BaseImageIndex)
 		// args is a pointer but is cloned inside newStageBuilder, so sharing it is safe.
 		sb, err := newStageBuilder(
 			baseImage, args, opts, stage,
@@ -1079,8 +1083,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
 		}
-		if opts.Cache && precomputedKey != "" && precomputedKey != finalCacheKey {
-			logrus.Panicf("Assertion failed: precomputed finalCacheKey %q != built finalCacheKey %q for stage %d", precomputedKey, finalCacheKey, stage.Index)
+		if opts.Cache && precomputedKey != "" {
+			util.Assert("executor.build.cache-lookahead", precomputedKey == finalCacheKey, "precomputed finalCacheKey %q != built finalCacheKey %q for stage %d", precomputedKey, finalCacheKey, stage.Index)
 		}
 
 		stageArgs[stage.Index] = sb.args
