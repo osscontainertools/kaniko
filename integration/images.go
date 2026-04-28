@@ -272,6 +272,8 @@ var cacheHitOutputChecks = map[string]func(string, []byte) error{
 	},
 }
 
+// can be removed once buildkit releases this fix
+// https://github.com/moby/buildkit/issues/6712
 var imageChecks = map[string]func(*testing.T, string){
 	"Dockerfile_test_issue_mz334": func(t *testing.T, kanikoImage string) {
 		t.Helper()
