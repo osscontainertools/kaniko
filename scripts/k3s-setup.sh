@@ -20,7 +20,7 @@ export INSTALL_K3S_EXEC="--write-kubeconfig-mode=0644"
 mkdir -p "${HOME}/.kube"
 export K3S_KUBECONFIG_OUTPUT="${HOME}/.kube/config"
 export KUBECONFIG="${HOME}/.kube/config"
-curl -sfL https://get.k3s.io | sh -
+INSTALL_K3S_VERSION="v1.35.3+k3s1" curl -sfL https://get.k3s.io | sh -
 export SCRIPT_PATH="$(realpath $(dirname $0))"
 timeout 5m bash -c 'until kubectl cluster-info 2>/dev/null | grep "CoreDNS" >/dev/null; do sleep 1; done'
 # Install local registry and have it listen on localhost:5000
