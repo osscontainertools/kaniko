@@ -95,6 +95,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_mz473":                {"KANIKO_DIR=/kaniko2"},
 	"Dockerfile_test_issue_mz511":                {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_mz529":                {"FF_KANIKO_SQUASH_STAGES=0"},
+	"Dockerfile_test_issue_mz661":                {"KANIKO_DIR=/kaniko2"},
 }
 
 var KanikoEnv = []string{
@@ -190,6 +191,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	// in the kaniko image and can therefore safely be deleted.
 	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=/etc/nsswitch.conf"},
 	"Dockerfile_test_issue_mz529": {"--cleanup"},
+	"Dockerfile_test_issue_mz661": {"--secret=id=kaniko,src=/kaniko/executor"},
 }
 
 var expectErr = map[string]int{
