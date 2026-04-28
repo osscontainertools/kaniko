@@ -1045,7 +1045,7 @@ func TestCopySymlink(t *testing.T) {
 			if err := os.Symlink(tc.linkTarget, link); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := CopySymlink(link, dest, FileContext{}); err != nil {
+			if _, err := CopySymlink(link, dest, FileContext{}, false); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := os.Lstat(dest); err != nil {
@@ -1167,7 +1167,7 @@ func Test_CopyFile_skips_self(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ignored, err := CopyFile(tempFile, tempFile, FileContext{}, DoNotChangeUID, DoNotChangeGID, fs.FileMode(0o600), true)
+	ignored, err := CopyFile(tempFile, tempFile, FileContext{}, DoNotChangeUID, DoNotChangeGID, fs.FileMode(0o600), true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
