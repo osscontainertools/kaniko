@@ -824,7 +824,7 @@ func CopySymlink(src, dest string, context FileContext) (bool, error) {
 		return true, nil
 	}
 	if CheckIgnoreList(dest) {
-		logrus.Debugf("Skipping copy for ignored path: %s", dest)
+		logrus.Warnf("Skipping copy for ignored path: %s", dest)
 		return true, nil
 	}
 	if FilepathExists(dest) {
@@ -849,7 +849,7 @@ func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod fs.Fi
 		return true, nil
 	}
 	if CheckIgnoreList(dest) {
-		logrus.Debugf("Skipping copy for ignored path: %s", dest)
+		logrus.Warnf("Skipping copy for ignored path: %s", dest)
 		return true, nil
 	}
 	if src == dest {

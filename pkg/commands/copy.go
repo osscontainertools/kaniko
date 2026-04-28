@@ -151,7 +151,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 			return fmt.Errorf("find destination path: %w", err)
 		}
 		if util.CheckIgnoreList(destPath) {
-			logrus.Debugf("Skipping copy for ignored path: %s", destPath)
+			logrus.Warnf("Skipping copy for ignored path: %s", destPath)
 			return nil
 		}
 
