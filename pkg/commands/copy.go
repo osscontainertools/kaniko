@@ -152,6 +152,8 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		}
 		if util.HasFilepathPrefix(destPath, kConfig.KanikoDir, false) {
 			logrus.Warnf("Skipping copy targeting kaniko directory: %s", destPath)
+			logrus.Info("Writes to the kaniko directory are blocked to prevent overwriting the executor.")
+			logrus.Info("To copy files there, relocate kaniko with KANIKO_DIR: https://github.com/osscontainertools/kaniko#bootstrapping-kaniko")
 			return nil
 		}
 

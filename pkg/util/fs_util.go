@@ -825,6 +825,8 @@ func CopySymlink(src, dest string, context FileContext) (bool, error) {
 	}
 	if HasFilepathPrefix(dest, config.KanikoDir, false) {
 		logrus.Warnf("Skipping copy targeting kaniko directory: %s", dest)
+		logrus.Info("Writes to the kaniko directory are blocked to prevent overwriting the executor.")
+		logrus.Info("To copy files there, relocate kaniko with KANIKO_DIR: https://github.com/osscontainertools/kaniko#bootstrapping-kaniko")
 		return true, nil
 	}
 	if FilepathExists(dest) {
@@ -850,6 +852,8 @@ func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod fs.Fi
 	}
 	if HasFilepathPrefix(dest, config.KanikoDir, false) {
 		logrus.Warnf("Skipping copy targeting kaniko directory: %s", dest)
+		logrus.Info("Writes to the kaniko directory are blocked to prevent overwriting the executor.")
+		logrus.Info("To copy files there, relocate kaniko with KANIKO_DIR: https://github.com/osscontainertools/kaniko#bootstrapping-kaniko")
 		return true, nil
 	}
 	if src == dest {
