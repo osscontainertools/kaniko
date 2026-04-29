@@ -95,6 +95,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_mz473":                {"KANIKO_DIR=/kaniko2"},
 	"Dockerfile_test_issue_mz511":                {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_mz529":                {"FF_KANIKO_SQUASH_STAGES=0"},
+	"Dockerfile_test_issue_mz661":                {"KANIKO_DIR=/kaniko2"},
 }
 
 var KanikoEnv = []string{
@@ -120,6 +121,7 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_target":      {"--target=second"},
 	"Dockerfile_test_issue_cg188": {"--secret=id=netrc,env=SECRET"},
 	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=context/foo"},
+	"Dockerfile_test_issue_mz661": {"--secret=id=kaniko,src=context/foo"},
 	// provenance forces ociv1 on buildkit but for these images we emit dockerv2 in kaniko
 	"Dockerfile_test_mv_add":                       {"--provenance=false"},
 	"Dockerfile_test_snapshotter_ignorelist":       {"--provenance=false"},
@@ -190,6 +192,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	// in the kaniko image and can therefore safely be deleted.
 	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=/etc/nsswitch.conf"},
 	"Dockerfile_test_issue_mz529": {"--cleanup"},
+	"Dockerfile_test_issue_mz661": {"--secret=id=kaniko,src=/kaniko/executor"},
 }
 
 var expectErr = map[string]int{

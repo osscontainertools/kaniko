@@ -1,0 +1,10 @@
+# mz661: in kaniko v1.27.3, when running with KANIKO_DIR=/kaniko2 to relocate the
+# executor, moveKanikoDir runs before resolveSecrets. A --secret with src= pointing
+# into the original kaniko dir (e.g. src=/kaniko/.netrc) is moved away before the
+# secret is resolved, causing "open /kaniko/.netrc: no such file or directory".
+
+# /kaniko/executor is used as the secret source here only because it is a file that
+# already exists in the container, standing in for any real credential file.
+# Verify here that the secret is accessible inside the build.
+FROM busybox
+RUN --mount=type=secret,id=kaniko test -s /run/secrets/kaniko
