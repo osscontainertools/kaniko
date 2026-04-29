@@ -1,14 +1,19 @@
 FROM busybox AS first
 RUN touch /bli
 RUN touch /blubb
+LABEL from=first
 
 FROM first AS second
 RUN touch /bla
+LABEL from=second
 
 FROM second AS third
 RUN touch /bli
 
-FROM second AS final
+FROM first AS clean
+RUN touch /clean
+
+FROM clean AS final
 COPY --from=first /blubb /blubb
 COPY --from=third /bli /bli
 RUN ls -lah /blubb
