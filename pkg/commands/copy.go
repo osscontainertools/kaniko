@@ -150,8 +150,8 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		if err != nil {
 			return fmt.Errorf("find destination path: %w", err)
 		}
-		if util.CheckIgnoreList(destPath) {
-			logrus.Warnf("Skipping copy for ignored path: %s", destPath)
+		if util.HasFilepathPrefix(destPath, kConfig.KanikoDir, false) {
+			logrus.Warnf("Skipping copy targeting kaniko directory: %s", destPath)
 			return nil
 		}
 

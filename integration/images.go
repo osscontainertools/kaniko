@@ -287,7 +287,7 @@ var warmerOutputChecks = map[string]func(string, []byte) error{
 // Dockerfiles listed here are required to emit that warning; all others must emit no warnings.
 var expectedWarnings = map[string]string{
 	// mz640: COPY to /kaniko (ignored path) must warn rather than silently skip.
-	"Dockerfile_test_issue_mz560": "Skipping copy for ignored path",
+	"Dockerfile_test_issue_mz560": "Skipping copy targeting kaniko directory",
 }
 
 func checkNoWarnings(dockerfile string, out []byte) error {

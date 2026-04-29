@@ -823,8 +823,8 @@ func CopySymlink(src, dest string, context FileContext) (bool, error) {
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
 	}
-	if CheckIgnoreList(dest) {
-		logrus.Warnf("Skipping copy for ignored path: %s", dest)
+	if HasFilepathPrefix(dest, config.KanikoDir, false) {
+		logrus.Warnf("Skipping copy targeting kaniko directory: %s", dest)
 		return true, nil
 	}
 	if FilepathExists(dest) {
@@ -848,8 +848,8 @@ func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod fs.Fi
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
 	}
-	if CheckIgnoreList(dest) {
-		logrus.Warnf("Skipping copy for ignored path: %s", dest)
+	if HasFilepathPrefix(dest, config.KanikoDir, false) {
+		logrus.Warnf("Skipping copy targeting kaniko directory: %s", dest)
 		return true, nil
 	}
 	if src == dest {
