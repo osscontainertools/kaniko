@@ -55,4 +55,9 @@ FLAGS+=(
   "--repo=${IMAGE_REPO}"
 )
 
+if [[ -n ${COVERAGE_DIR} ]]; then
+  FLAGS+=("--coverage-dir=${COVERAGE_DIR}")
+fi
+
 go test ./integration/... "${FLAGS[@]}" "$@"
+

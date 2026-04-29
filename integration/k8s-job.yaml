@@ -17,12 +17,25 @@ spec:
           value: "1"
         - name: FF_KANIKO_RUN_MOUNT_BIND
           value: "1"
+        {{- if .CoverageDir}}
+        - name: GOCOVERDIR
+          value: /covdata
+        {{- end}}
         volumeMounts:
         - name: context
           mountPath: /workspace
+        {{- if .CoverageDir}}
+        - name: covdata
+          mountPath: /covdata
+        {{- end}}
       restartPolicy: Never
       volumes:
       - name: context
         hostPath:
           path: {{.Context}}
+      {{- if .CoverageDir}}
+      - name: covdata
+        hostPath:
+          path: {{.CoverageDir}}
+      {{- end}}
   backoffLimit: 1

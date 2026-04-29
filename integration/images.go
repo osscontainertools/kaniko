@@ -56,6 +56,15 @@ const (
 	AlpineImage          = "alpine-image"
 )
 
+var coverageDir string
+
+func addCoverageFlags(flags []string) []string {
+	if coverageDir == "" {
+		return flags
+	}
+	return append(flags, "-v", coverageDir+":/covdata", "-e", "GOCOVERDIR=/covdata")
+}
+
 // Arguments to build Dockerfiles with, used for both docker and kaniko builds
 var argsMap = map[string][]string{
 	"Dockerfile_test_run":        {"file=/file"},
@@ -584,6 +593,7 @@ func populateVolumeCache(logf logger, serviceAccount string) error {
 		cmd = append(cmd, "-e", envVariable)
 	}
 	cmd = addServiceAccountFlags(cmd, serviceAccount)
+	cmd = addCoverageFlags(cmd)
 	cmd = append(cmd,
 		WarmerImage,
 		"-c", cacheDir,
@@ -644,6 +654,7 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 	buildArgs = append(buildArgs, "--build-arg", "IMAGE_REPO="+config.imageRepo)
 
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
+	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", path.Join(buildContextPath, dockerfilesPath, dockerfile),
 		"-d", kanikoImage,
@@ -704,6 +715,7 @@ func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTes
 		executorImage = exec
 	}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
+	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", path.Join(buildContextPath, dockerfilesPath, dockerfile),
 		"-d", kanikoImage,
@@ -774,6 +786,7 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 		executorImage = exec
 	}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
+	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -867,6 +880,7 @@ func buildKanikoImage(
 		executorImage = exec
 	}
 
+	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", kanikoDockerfilePath,
 		"-d", kanikoImage,

@@ -20,6 +20,7 @@ jobs:
     env:
       IMAGE_REPO: 'localhost:5000'
       REGISTRY: 'localhost:5000'
+      COVERAGE_DIR: '${{ github.workspace }}/out/covdata'
 
     strategy:
       fail-fast: false
@@ -53,3 +54,13 @@ jobs:
 
       - run: make install-diffoci k3s-setup
       - run: make ${{ matrix.make-target }}
+
+      - name: Convert and upload coverage
+        run: |
+          go tool covdata textfmt -i out/covdata -o coverage.txt
+
+      - uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+        with:
+          files: coverage.txt
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
