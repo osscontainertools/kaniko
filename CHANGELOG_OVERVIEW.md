@@ -6,7 +6,7 @@
 * selinux v1.12.0: GHSA-cgrx-mc8f-2prm
 * remove binary artifacts: by @tlk in https://github.com/mzihlmann/kaniko/pull/54
 * golang.org/x/crypto 0.44.0: CVE-2025-47914 CVE-2025-58181
-* github.com/go-git/go-git/v5 5.16.0: CVE-2026-25934 CVE-2026-34165 CVE-2026-33762
+* github.com/go-git/go-git/v5 5.16.0: CVE-2026-25934 CVE-2026-34165 CVE-2026-33762 CVE-2026-41506
 * go.opentelemetry.io/otel/sdk 1.39.0: CVE-2026-24051 CVE-2026-39883
 * github.com/cloudflare/circl 1.6.1: CVE-2026-1229
 * google.golang.org/grpc v1.79.1: CVE-2026-33186
@@ -97,6 +97,7 @@
 * `FF_KANIKO_CLEAN_KANIKO_DIR=true` cleanup kaniko workspace on failure too: https://github.com/osscontainertools/kaniko/pull/453 https://github.com/osscontainertools/kaniko/pull/532
 * multitarget builds - part 1: https://github.com/osscontainertools/kaniko/pull/485
 * `FF_KANIKO_OCI_SCRATCH_BASE=false` oci scratch base image: https://github.com/osscontainertools/kaniko/pull/612
+* `kaniko-alpine` image (`martizih/kaniko:alpine`): https://github.com/osscontainertools/kaniko/pull/647 https://github.com/osscontainertools/kaniko/pull/659
 
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55

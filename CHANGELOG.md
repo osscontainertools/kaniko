@@ -1,3 +1,39 @@
+# v1.27.4 Release 2026-04-30
+
+## Community Update
+Many thanks to @ehfd for reporting an issue fixed in this release.
+
+## What's Changed
+### Security
+* github.com/go-git/go-git/v5 v5.17.2: CVE-2026-41506
+
+### Bugfixes
+* FROM-only stages produce an empty cross-stage cache key causing a panic on the next build when the source image changes: https://github.com/osscontainertools/kaniko/pull/656
+* secrets with paths inside the kaniko dir fail when `KANIKO_DIR` points to a non-default location: https://github.com/osscontainertools/kaniko/pull/662
+
+### Usability
+* `kaniko-alpine` image (`martizih/kaniko:alpine`): https://github.com/osscontainertools/kaniko/pull/647 https://github.com/osscontainertools/kaniko/pull/659
+
+### Maintenance
+* build(deps): bump github.com/go-git/go-git/v5 from 5.17.2 to 5.18.0: https://github.com/osscontainertools/kaniko/pull/646
+* build(deps): bump github.com/aws/aws-sdk-go-v2 from 1.41.5 to 1.41.7: https://github.com/osscontainertools/kaniko/pull/650 https://github.com/osscontainertools/kaniko/pull/665
+* build(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.32.15 to 1.32.17: https://github.com/osscontainertools/kaniko/pull/650 https://github.com/osscontainertools/kaniko/pull/665
+* build(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager from 0.1.16 to 0.1.19: https://github.com/osscontainertools/kaniko/pull/650 https://github.com/osscontainertools/kaniko/pull/654 https://github.com/osscontainertools/kaniko/pull/665
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.99.0 to 1.100.1: https://github.com/osscontainertools/kaniko/pull/650 https://github.com/osscontainertools/kaniko/pull/654 https://github.com/osscontainertools/kaniko/pull/665
+* build(deps): bump github.com/docker/docker-credential-helpers from 0.9.5 to 0.9.6: https://github.com/osscontainertools/kaniko/pull/650
+* build(deps): bump github.com/moby/moby/api from 1.54.1 to 1.54.2: https://github.com/osscontainertools/kaniko/pull/650
+* build(deps): bump step-security/harden-runner from 2.18.0 to 2.19.0: https://github.com/osscontainertools/kaniko/pull/649
+* build(deps): bump github.com/docker/cli from 29.4.0 to 29.4.1: https://github.com/osscontainertools/kaniko/pull/651
+* build(deps): bump docker/setup-docker-action from 5.0.0 to 5.1.0: https://github.com/osscontainertools/kaniko/pull/657
+* build(deps): bump google.golang.org/api from 0.276.0 to 0.277.0: https://github.com/osscontainertools/kaniko/pull/666
+
+### Fork Related
+* deprecate `--kaniko-dir` CLI flag, use the `KANIKO_DIR` environment variable instead (removal planned for v1.28.0): https://github.com/osscontainertools/kaniko/pull/653
+* coverage report for integration tests: https://github.com/osscontainertools/kaniko/pull/660
+* `FF_KANIKO_CACHE_LOOKAHEAD=false` precompute final cache keys for all stages before build: https://github.com/osscontainertools/kaniko/pull/542
+* add assertions throughout the build to enforce invariants: https://github.com/osscontainertools/kaniko/pull/621
+
+
 # v1.27.3 Release 2026-04-17
 
 ## What's Changed
