@@ -202,6 +202,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	// in the kaniko image and can therefore safely be deleted.
 	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=/etc/nsswitch.conf"},
 	"Dockerfile_test_issue_mz529": {"--cleanup"},
+	"Dockerfile_test_issue_mz595": {"--cleanup"},
 	"Dockerfile_test_issue_mz661": {"--secret=id=kaniko,src=/kaniko/executor"},
 }
 
