@@ -105,6 +105,8 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_mz511":                {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_mz529":                {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_mz661":                {"KANIKO_DIR=/kaniko2"},
+	"Dockerfile_test_stopsignal":                 {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
+	"Dockerfile_test_healthcheck":                {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
 }
 
 var KanikoEnv = []string{
