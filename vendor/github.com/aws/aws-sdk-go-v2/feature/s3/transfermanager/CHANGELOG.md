@@ -1,3 +1,7 @@
+# v0.1.20 (2026-04-30)
+
+* **Bug Fix**: Reinstate Location output field on Upload operations.
+
 # v0.1.19 (2026-04-29)
 
 * **Dependency Update**: Update to smithy-go v1.25.1.
