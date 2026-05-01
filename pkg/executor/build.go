@@ -931,8 +931,14 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	logrus.Infof("Built cross stage deps: %v", crossStageDependencies)
 
 	util.Assert("executor.build.stages-nonempty", len(kanikoStages) > 0, "no stages to build")
-	if opts.Dryrun {
-		return nil, RenderStages(kanikoStages, opts, fileContext, crossStageDependencies)
+	if opts.Dryrun || config.EnvBool("KANIKO_PRINT_PLAN") {
+		err := RenderStages(kanikoStages, opts, fileContext, crossStageDependencies)
+		if err != nil {
+			return nil, err
+		}
+		if opts.Dryrun {
+			return nil, nil
+		}
 	}
 
 	// Some stages may refer to other random images, not previous stages

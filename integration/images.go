@@ -120,6 +120,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_RUN_MOUNT_BIND=1",
 	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=1",
 	"FF_KANIKO_CACHE_LOOKAHEAD=1",
+	"KANIKO_PRINT_PLAN=1",
 }
 
 var WarmerEnv = []string{
