@@ -215,9 +215,11 @@ func TestRun(t *testing.T) {
 			buildImage(t, dockerfile, imageBuilder)
 
 			dockerImage := GetDockerImage(config.imageRepo, dockerfile)
+			podmanImage := GetPodmanImage(config.imageRepo, dockerfile)
 			kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 
 			containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+			containerDiff(t, podmanImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch", "--extra-ignore-annotations")
 		})
 	}
 
@@ -1239,7 +1241,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 }
 
 func meetsRequirements() bool {
-	requiredTools := []string{"diffoci"}
+	requiredTools := []string{"diffoci", "podman"}
 	hasRequirements := true
 	for _, tool := range requiredTools {
 		_, err := exec.LookPath(tool)
