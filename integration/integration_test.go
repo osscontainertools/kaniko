@@ -1288,18 +1288,18 @@ func meetsRequirements() bool {
 // containerDiff compares the container images image1 and image2.
 func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	// workaround for container-diff OCI issue https://github.com/GoogleContainerTools/container-diff/issues/389
-	dockerPullCmd := exec.Command("docker", "pull", image1)
-	out := RunCommand(dockerPullCmd, t)
+	pullArgs := append([]string{"pull"}, platformMap[t.Name()]...)
+	out := RunCommand(exec.Command("docker", append(pullArgs, image1)...), t)
 	t.Logf("docker pull cmd output for image1 = %s", string(out))
 	image1 = daemonPrefix + image1
 
-	dockerPullCmd = exec.Command("docker", "pull", image2)
-	out = RunCommand(dockerPullCmd, t)
+	out = RunCommand(exec.Command("docker", append(pullArgs, image2)...), t)
 	t.Logf("docker pull cmd output for image2 = %s", string(out))
 	image2 = daemonPrefix + image2
 
 	flags = append([]string{"diff"}, flags...)
 	flags = append(flags, image1, image2, "--ignore-image-name", "--ignore-image-timestamps")
+	flags = append(flags, platformMap[t.Name()]...)
 	flags = append(flags, diffArgsMap[t.Name()]...)
 
 	containerdiffCmd := exec.Command("diffoci", flags...)

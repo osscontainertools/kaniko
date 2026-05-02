@@ -136,6 +136,7 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=context/foo"},
 	"Dockerfile_test_issue_mz661": {"--secret=id=kaniko,src=context/foo"},
 	// provenance forces ociv1 on buildkit but for these images we emit dockerv2 in kaniko
+	"Dockerfile_test_cross_compile":                {"--platform=linux/arm64"},
 	"Dockerfile_test_mv_add":                       {"--provenance=false"},
 	"Dockerfile_test_snapshotter_ignorelist":       {"--provenance=false"},
 	"Dockerfile_test_whitelist":                    {"--provenance=false"},
@@ -204,7 +205,8 @@ var additionalKanikoFlagsMap = map[string][]string{
 	// mz511: we're using /etc/nsswitch.conf because it pre-exists
 	// in the kaniko image and can therefore safely be deleted.
 	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=/etc/nsswitch.conf"},
-	"Dockerfile_test_ignore_path": {"--ignore-path=/kaniko-extra-file", "--ignore-path=/kaniko-extra-dir"},
+	"Dockerfile_test_ignore_path":    {"--ignore-path=/kaniko-extra-file", "--ignore-path=/kaniko-extra-dir"},
+	"Dockerfile_test_cross_compile": {"--custom-platform=linux/arm64"},
 	"Dockerfile_test_issue_mz529": {"--cleanup"},
 	"Dockerfile_test_issue_mz595": {"--cleanup"},
 	"Dockerfile_test_issue_mz661": {"--secret=id=kaniko,src=/kaniko/executor"},
@@ -213,6 +215,11 @@ var additionalKanikoFlagsMap = map[string][]string{
 var expectErr = map[string]int{
 	"Dockerfile_test_issue_cg326_1": 1,
 	"Dockerfile_test_add_404":       1,
+}
+
+// Platform overrides for docker pull and diffoci, keyed by test name.
+var platformMap = map[string][]string{
+	"TestRun/test_Dockerfile_test_cross_compile": {"--platform=linux/arm64"},
 }
 
 // Arguments to diffoci when comparing dockerfiles
@@ -227,7 +234,8 @@ var diffArgsMap = map[string][]string{
 	// when we untar we overwrite the parent directory, buildkit doesnt
 	"TestRun/test_Dockerfile_test_add": {"--extra-ignore-file-permissions"},
 	// Verify we don't store root directory
-	"TestRun/test_Dockerfile_test_root": {"--extra-ignore-layer-length-mismatch=false"},
+	"TestRun/test_Dockerfile_test_root":           {"--extra-ignore-layer-length-mismatch=false"},
+	"TestRun/test_Dockerfile_test_cross_compile": {"--platform=linux/arm64"},
 	// --ignore-path must suppress the kaniko-only file; layer-length-mismatch would mask the difference
 	"TestRun/test_Dockerfile_test_ignore_path": {"--extra-ignore-layer-length-mismatch=false"},
 	// FROM scratch we start with root, buildkit doesnt
