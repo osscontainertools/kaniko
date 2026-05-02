@@ -29,6 +29,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -747,6 +748,39 @@ func TestReplaceFolderWithFileOrLink(t *testing.T) {
 					t.Errorf("Last layer should not add whiteout files to deleted directory but found %s", file)
 				}
 			}
+		})
+	}
+}
+
+func TestSnapshotModes(t *testing.T) {
+	t.Parallel()
+	const dockerfile = "Dockerfile_test_run"
+
+	_, ex, _, _ := runtime.Caller(0)
+	cwd := filepath.Dir(ex)
+
+	buildArgs := []string{
+		"--build-arg", "file=/file",
+		"--build-arg", "IMAGE_REPO=" + config.imageRepo,
+	}
+
+	build := func(t *testing.T, mode string) string {
+		t.Helper()
+		tag := GetKanikoImage(config.imageRepo, dockerfile+"-snapshot-"+mode)
+		kanikoArgs := []string{"-c", buildContextPath, "--snapshot-mode=" + mode}
+		if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, kanikoArgs, tag, cwd, config.gcsBucket, config.gcsClient, config.serviceAccount, false); err != nil {
+			t.Fatalf("kaniko build with --snapshot-mode=%s: %v", mode, err)
+		}
+		return tag
+	}
+
+	refImage := build(t, "full")
+
+	for _, mode := range []string{"redo", "time"} {
+		t.Run(mode, func(t *testing.T) {
+			t.Parallel()
+			modeImage := build(t, mode)
+			containerDiff(t, refImage, modeImage, "--ignore-timestamps")
 		})
 	}
 }
