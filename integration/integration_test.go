@@ -1086,25 +1086,34 @@ func TestBuildWithAnnotations(t *testing.T) {
 }
 
 func onBuildDiff(t *testing.T, image1, image2 string) {
-	img1, err := getImageConfig(image1)
+	opts := platformRemoteOpts(t.Name())
+	img1, err := getImageConfig(image1, opts...)
 	if err != nil {
 		t.Fatalf("Failed to get image config for (%s): %s", image1, err)
 	}
-	img2, err := getImageConfig(image2)
+	img2, err := getImageConfig(image2, opts...)
 	if err != nil {
 		t.Fatalf("Failed to get image config for (%s): %s", image2, err)
 	}
 	testutil.CheckDeepEqual(t, img1.Config.OnBuild, img2.Config.OnBuild)
 }
 
+func platformRemoteOpts(testName string) []remote.Option {
+	if p, ok := platformMap[testName]; ok {
+		return []remote.Option{remote.WithPlatform(p)}
+	}
+	return nil
+}
+
 func checkLayers(t *testing.T, image1, image2 string, offset int) {
 	t.Helper()
-	img1, err := getImageDetails(image1)
+	opts := platformRemoteOpts(t.Name())
+	img1, err := getImageDetails(image1, opts...)
 	if err != nil {
 		t.Fatalf("Couldn't get details from image reference for (%s): %s", image1, err)
 	}
 
-	img2, err := getImageDetails(image2)
+	img2, err := getImageDetails(image2, opts...)
 	if err != nil {
 		t.Fatalf("Couldn't get details from image reference for (%s): %s", image2, err)
 	}
@@ -1115,12 +1124,12 @@ func checkLayers(t *testing.T, image1, image2 string, offset int) {
 	}
 }
 
-func getImageConfig(image string) (*v1.ConfigFile, error) {
+func getImageConfig(image string, opts ...remote.Option) (*v1.ConfigFile, error) {
 	ref, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't parse reference to image %s: %w", image, err)
 	}
-	imgRef, err := remote.Image(ref)
+	imgRef, err := remote.Image(ref, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't get reference to image %s from remote: %w", image, err)
 	}
@@ -1131,16 +1140,16 @@ func getImageConfig(image string) (*v1.ConfigFile, error) {
 	return cfg, nil
 }
 
-func getImage(image string) (v1.Image, error) {
+func getImage(image string, opts ...remote.Option) (v1.Image, error) {
 	ref, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't parse reference to image %s: %w", image, err)
 	}
-	return remote.Image(ref)
+	return remote.Image(ref, opts...)
 }
 
-func getImageDetails(image string) (*imageDetails, error) {
-	imgRef, err := getImage(image)
+func getImageDetails(image string, opts ...remote.Option) (*imageDetails, error) {
+	imgRef, err := getImage(image, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("Couldn't get reference to image %s from remote: %w", image, err)
 	}
@@ -1288,7 +1297,13 @@ func meetsRequirements() bool {
 // containerDiff compares the container images image1 and image2.
 func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	// workaround for container-diff OCI issue https://github.com/GoogleContainerTools/container-diff/issues/389
-	pullArgs := append([]string{"pull"}, platformMap[t.Name()]...)
+	var pullArgs []string
+	if p, ok := platformMap[t.Name()]; ok {
+		platformFlag := fmt.Sprintf("--platform=%s/%s", p.OS, p.Architecture)
+		pullArgs = append(pullArgs, platformFlag)
+		flags = append(flags, platformFlag)
+	}
+	pullArgs = append([]string{"pull"}, pullArgs...)
 	out := RunCommand(exec.Command("docker", append(pullArgs, image1)...), t)
 	t.Logf("docker pull cmd output for image1 = %s", string(out))
 	image1 = daemonPrefix + image1
@@ -1299,7 +1314,6 @@ func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 
 	flags = append([]string{"diff"}, flags...)
 	flags = append(flags, image1, image2, "--ignore-image-name", "--ignore-image-timestamps")
-	flags = append(flags, platformMap[t.Name()]...)
 	flags = append(flags, diffArgsMap[t.Name()]...)
 
 	containerdiffCmd := exec.Command("diffoci", flags...)

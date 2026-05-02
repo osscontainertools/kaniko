@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/util/bucket"
@@ -218,9 +219,9 @@ var expectErr = map[string]int{
 }
 
 // Platform overrides for docker pull and diffoci, keyed by test name.
-var platformMap = map[string][]string{
-	"TestRun/test_Dockerfile_test_cross_compile":          {"--platform=linux/arm64"},
-	"TestLayers/test_layer_Dockerfile_test_cross_compile": {"--platform=linux/arm64"},
+var platformMap = map[string]v1.Platform{
+	"TestRun/test_Dockerfile_test_cross_compile":          {OS: "linux", Architecture: "arm64"},
+	"TestLayers/test_layer_Dockerfile_test_cross_compile": {OS: "linux", Architecture: "arm64"},
 }
 
 // Arguments to diffoci when comparing dockerfiles
