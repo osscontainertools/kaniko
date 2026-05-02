@@ -219,7 +219,8 @@ var expectErr = map[string]int{
 
 // Platform overrides for docker pull and diffoci, keyed by test name.
 var platformMap = map[string][]string{
-	"TestRun/test_Dockerfile_test_cross_compile": {"--platform=linux/arm64"},
+	"TestRun/test_Dockerfile_test_cross_compile":          {"--platform=linux/arm64"},
+	"TestLayers/test_layer_Dockerfile_test_cross_compile": {"--platform=linux/arm64"},
 }
 
 // Arguments to diffoci when comparing dockerfiles
