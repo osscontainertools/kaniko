@@ -204,12 +204,12 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_cg188":            {"--secret=id=netrc,env=SECRET"},
 	// mz511: we're using /etc/nsswitch.conf because it pre-exists
 	// in the kaniko image and can therefore safely be deleted.
-	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=/etc/nsswitch.conf"},
-	"Dockerfile_test_ignore_path":    {"--ignore-path=/kaniko-extra-file", "--ignore-path=/kaniko-extra-dir"},
+	"Dockerfile_test_issue_mz511":   {"--secret=id=netrc,src=/etc/nsswitch.conf"},
+	"Dockerfile_test_ignore_path":   {"--ignore-path=/kaniko-extra-file", "--ignore-path=/kaniko-extra-dir"},
 	"Dockerfile_test_cross_compile": {"--custom-platform=linux/arm64"},
-	"Dockerfile_test_issue_mz529": {"--cleanup"},
-	"Dockerfile_test_issue_mz595": {"--cleanup"},
-	"Dockerfile_test_issue_mz661": {"--secret=id=kaniko,src=/kaniko/executor"},
+	"Dockerfile_test_issue_mz529":   {"--cleanup"},
+	"Dockerfile_test_issue_mz595":   {"--cleanup"},
+	"Dockerfile_test_issue_mz661":   {"--secret=id=kaniko,src=/kaniko/executor"},
 }
 
 var expectErr = map[string]int{
@@ -234,7 +234,7 @@ var diffArgsMap = map[string][]string{
 	// when we untar we overwrite the parent directory, buildkit doesnt
 	"TestRun/test_Dockerfile_test_add": {"--extra-ignore-file-permissions"},
 	// Verify we don't store root directory
-	"TestRun/test_Dockerfile_test_root":           {"--extra-ignore-layer-length-mismatch=false"},
+	"TestRun/test_Dockerfile_test_root":          {"--extra-ignore-layer-length-mismatch=false"},
 	"TestRun/test_Dockerfile_test_cross_compile": {"--platform=linux/arm64"},
 	// --ignore-path must suppress the kaniko-only file; layer-length-mismatch would mask the difference
 	"TestRun/test_Dockerfile_test_ignore_path": {"--extra-ignore-layer-length-mismatch=false"},
