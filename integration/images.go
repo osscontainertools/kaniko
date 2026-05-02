@@ -883,6 +883,11 @@ func buildKanikoImage(
 
 	// build kaniko image
 	additionalFlags := append(buildArgs, kanikoArgs...)
+	additionalFlags = append(additionalFlags,
+		"--digest-file=/dev/stdout",
+		"--image-name-with-digest-file=/dev/stdout",
+		"--image-name-tag-with-digest-file=/dev/stdout",
+	)
 	logf("Going to build image with kaniko: %s, flags: %s \n", kanikoImage, additionalFlags)
 
 	dockerRunFlags := []string{
