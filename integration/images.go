@@ -204,7 +204,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	// mz511: we're using /etc/nsswitch.conf because it pre-exists
 	// in the kaniko image and can therefore safely be deleted.
 	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=/etc/nsswitch.conf"},
-	"Dockerfile_test_ignore_path":  {"--ignore-path=/kaniko-extra-file", "--ignore-path=/kaniko-extra-dir"},
+	"Dockerfile_test_ignore_path": {"--ignore-path=/kaniko-extra-file", "--ignore-path=/kaniko-extra-dir"},
 	"Dockerfile_test_issue_mz529": {"--cleanup"},
 	"Dockerfile_test_issue_mz595": {"--cleanup"},
 	"Dockerfile_test_issue_mz661": {"--secret=id=kaniko,src=/kaniko/executor"},
