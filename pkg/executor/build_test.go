@@ -539,7 +539,7 @@ func TestInitializeConfig(t *testing.T) {
 
 func Test_newLayerCache_defaultCache(t *testing.T) {
 	t.Run("default layer cache is registry cache", func(t *testing.T) {
-		layerCache := newLayerCache(&config.KanikoOptions{CacheRepo: "some-cache-repo"})
+		layerCache := NewLayerCache(&config.KanikoOptions{CacheRepo: "some-cache-repo"})
 		foundCache, ok := layerCache.(*cache.RegistryCache)
 		if !ok {
 			t.Error("expected layer cache to be a registry cache")
@@ -554,7 +554,7 @@ func Test_newLayerCache_defaultCache(t *testing.T) {
 
 func Test_newLayerCache_layoutCache(t *testing.T) {
 	t.Run("when cache repo has 'oci:' prefix layer cache is layout cache", func(t *testing.T) {
-		layerCache := newLayerCache(&config.KanikoOptions{CacheRepo: "oci:/some-cache-repo"})
+		layerCache := NewLayerCache(&config.KanikoOptions{CacheRepo: "oci:/some-cache-repo"})
 		foundCache, ok := layerCache.(*cache.LayoutCache)
 		if !ok {
 			t.Error("expected layer cache to be a layout cache")
@@ -631,13 +631,13 @@ func Test_stageBuilder_optimize_cacheProbeAfterMiss(t *testing.T) {
 			}
 
 			cf := &v1.ConfigFile{}
-			lc := &fakeLayerCache{img: &fakeImage{}, hits: hits}
+			lc := &FakeLayerCache{img: &fakeImage{}, hits: hits}
 			sb := &stageBuilder{cf: cf, args: dockerfile.NewBuildArgs([]string{})}
 			sb.cmds = makeCommands()
 
 			ck := CompositeCache{}
 			opts := &config.KanikoOptions{Cache: true}
-			if _, err := sb.optimize(&ck, cf.Config, sb.args, opts, util.FileContext{}, lc, nil, nil, true); err != nil {
+			if _, _, err := sb.optimize(&ck, cf.Config, sb.args, opts, util.FileContext{}, lc, nil, nil, true); err != nil {
 				t.Fatalf("optimize returned error: %v", err)
 			}
 
@@ -686,7 +686,7 @@ func Test_stageBuilder_optimize(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cf := &v1.ConfigFile{}
-			lc := &fakeLayerCache{retrieve: tc.retrieve}
+			lc := &FakeLayerCache{retrieve: tc.retrieve}
 			sb := &stageBuilder{cf: cf, args: dockerfile.NewBuildArgs([]string{})}
 			ck := CompositeCache{}
 			file, err := os.CreateTemp("", "foo")
@@ -698,7 +698,7 @@ func Test_stageBuilder_optimize(t *testing.T) {
 				cacheCommand: MockCachedDockerCommand{},
 			}
 			sb.cmds = []commands.DockerCommand{command}
-			_, err = sb.optimize(&ck, cf.Config, sb.args, tc.opts, util.FileContext{}, lc, nil, nil, true)
+			_, _, err = sb.optimize(&ck, cf.Config, sb.args, tc.opts, util.FileContext{}, lc, nil, nil, true)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -978,7 +978,7 @@ func Test_stageBuilder_build(t *testing.T) {
 		description        string
 		opts               *config.KanikoOptions
 		args               map[string]string
-		layerCache         *fakeLayerCache
+		layerCache         *FakeLayerCache
 		expectedCacheKeys  []string
 		pushedCacheKeys    []string
 		commands           []commands.DockerCommand
@@ -1047,7 +1047,7 @@ func Test_stageBuilder_build(t *testing.T) {
 				description: "fake command cache enabled and key in cache",
 				opts:        &config.KanikoOptions{Cache: true},
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
-				layerCache: &fakeLayerCache{
+				layerCache: &FakeLayerCache{
 					retrieve: true,
 				},
 				expectedCacheKeys: []string{hash},
@@ -1080,7 +1080,7 @@ func Test_stageBuilder_build(t *testing.T) {
 				description: "fake command cache enabled with tar compression disabled and key in cache",
 				opts:        &config.KanikoOptions{Cache: true, CompressedCaching: false},
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
-				layerCache: &fakeLayerCache{
+				layerCache: &FakeLayerCache{
 					retrieve: true,
 				},
 				expectedCacheKeys: []string{hash},
@@ -1105,7 +1105,7 @@ func Test_stageBuilder_build(t *testing.T) {
 		{
 			description: "fake command cache disabled and key in cache",
 			opts:        &config.KanikoOptions{Cache: false},
-			layerCache: &fakeLayerCache{
+			layerCache: &FakeLayerCache{
 				retrieve: true,
 			},
 		},
@@ -1158,7 +1158,7 @@ func Test_stageBuilder_build(t *testing.T) {
 						},
 					},
 				},
-				layerCache: &fakeLayerCache{
+				layerCache: &FakeLayerCache{
 					retrieve: true,
 					img: fakeImage{
 						ImageLayers: []v1.Layer{
@@ -1217,7 +1217,7 @@ COPY %s foo.txt
 				description: "copy command cache enabled and key is not in cache",
 				opts:        opts,
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
-				layerCache:  &fakeLayerCache{},
+				layerCache:  &FakeLayerCache{},
 				image: fakeImage{
 					ImageLayers: []v1.Layer{
 						fakeLayer{
@@ -1294,8 +1294,8 @@ COPY %s bar.txt
 				opts:        &config.KanikoOptions{Cache: true, CacheCopyLayers: true, CacheRunLayers: true},
 				rootDir:     dir,
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
-				layerCache: &fakeLayerCache{
-					keySequence: []string{hash1},
+				layerCache: &FakeLayerCache{
+					KeySequence: []string{hash1},
 					img:         image,
 				},
 				image: image,
@@ -1367,8 +1367,8 @@ RUN foobar
 				opts:        &config.KanikoOptions{Cache: true, CacheRunLayers: true},
 				rootDir:     dir,
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
-				layerCache: &fakeLayerCache{
-					keySequence: []string{runHash},
+				layerCache: &FakeLayerCache{
+					KeySequence: []string{runHash},
 					img:         image,
 				},
 				image:             image,
@@ -1407,9 +1407,9 @@ RUN foobar
 				expectedCacheKeys: []string{hash},
 				commands:          []commands.DockerCommand{command},
 				// layer key needs to be read.
-				layerCache: &fakeLayerCache{
+				layerCache: &FakeLayerCache{
 					img:         &fakeImage{ImageLayers: []v1.Layer{fakeLayer{}}},
-					keySequence: []string{hash},
+					KeySequence: []string{hash},
 				},
 				rootDir: dir,
 			}
@@ -1443,9 +1443,9 @@ RUN foobar
 					"arg": "value",
 				},
 				// layer key that exists
-				layerCache: &fakeLayerCache{
+				layerCache: &FakeLayerCache{
 					img:         &fakeImage{ImageLayers: []v1.Layer{fakeLayer{}}},
-					keySequence: []string{hash},
+					KeySequence: []string{hash},
 				},
 				expectedCacheKeys: []string{hash},
 				commands:          []commands.DockerCommand{command},
@@ -1487,9 +1487,9 @@ RUN foobar
 					"arg": "anotherValue",
 				},
 				// layer for arg=value already exists
-				layerCache: &fakeLayerCache{
+				layerCache: &FakeLayerCache{
 					img:         &fakeImage{ImageLayers: []v1.Layer{fakeLayer{}}},
-					keySequence: []string{hash1},
+					KeySequence: []string{hash1},
 				},
 				expectedCacheKeys: []string{hash2},
 				pushedCacheKeys:   []string{hash2},
@@ -1539,7 +1539,7 @@ RUN foobar
 			snap := &fakeSnapShotter{file: fileName}
 			lc := tc.layerCache
 			if lc == nil {
-				lc = &fakeLayerCache{}
+				lc = &FakeLayerCache{}
 			}
 			keys := []string{}
 			_image := tc.image
@@ -1571,7 +1571,7 @@ RUN foobar
 				getFSFromImage = tc.mockGetFSFromImage
 			}
 			compositeKey := NewCompositeCache(sb.baseImageDigest)
-			_, err := sb.optimize(compositeKey, sb.cf.Config, sb.args, tc.opts, util.FileContext{}, lc, nil, nil, true)
+			_, _, err := sb.optimize(compositeKey, sb.cf.Config, sb.args, tc.opts, util.FileContext{}, lc, nil, nil, true)
 			if err != nil {
 				t.Errorf("failed to optimize instructions: %v", err)
 			}

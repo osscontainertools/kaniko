@@ -1,0 +1,24 @@
+FROM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d AS first
+UNPACK busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+RUN touch /blubb
+SAVE STAGE /kaniko/stages/0
+SAVE FILES [/blubb] /kaniko/deps/0
+CLEAN
+
+FROM first AS second
+UNPACK /kaniko/stages/0
+RUN touch /bla
+SAVE STAGE /kaniko/stages/1
+CLEAN
+
+FROM second AS third
+UNPACK /kaniko/stages/1
+RUN touch /bli
+SAVE FILES [/bli] /kaniko/deps/2
+CLEAN
+
+FROM second AS final
+UNPACK /kaniko/stages/1
+COPY --from=first /blubb /blubb
+COPY --from=third /bli /bli
+RUN ls -lah /blubb

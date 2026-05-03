@@ -29,11 +29,13 @@ import (
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
 	testissuemz195 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz195"
 	testissuemz333 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz333"
+	testissuemz334 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz334"
 	testissuemz338 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz338"
 	testissuemz480 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz480"
 	testissuemz487 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz487"
 	testunittests "github.com/osscontainertools/kaniko/golden/testdata/test_unittests"
 	"github.com/osscontainertools/kaniko/golden/types"
+	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/executor"
 	"github.com/sirupsen/logrus"
@@ -63,6 +65,7 @@ func renderCommand(env map[string]string, args []string) string {
 var allTests = map[string][]types.GoldenTests{
 	"test_issue_mz195": {testissuemz195.Tests},
 	"test_issue_mz333": {testissuemz333.Tests},
+	"test_issue_mz334": {testissuemz334.Tests},
 	"test_issue_mz338": {testissuemz338.Tests},
 	"test_issue_mz487": {testissuemz487.Tests},
 	"test_issue_mz480": {testissuemz480.Tests},
@@ -93,6 +96,11 @@ func TestRun(t *testing.T) {
 							}
 
 							opts := config.KanikoOptions{}
+							origNewLayerCache := executor.NewLayerCache
+							executor.NewLayerCache = func(_ *config.KanikoOptions) cache.LayerCache {
+								return &executor.FakeLayerCache{KeySequence: test.KeySequence}
+							}
+							t.Cleanup(func() { executor.NewLayerCache = origNewLayerCache })
 							exec := &cobra.Command{
 								Use: "kaniko",
 							}
