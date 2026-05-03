@@ -47,6 +47,7 @@ const (
 
 	dockerPrefix     = "docker-"
 	kanikoPrefix     = "kaniko-"
+	podmanPrefix     = "podman-"
 	buildContextPath = "/workspace"
 	cacheDir         = "/workspace/cache"
 	baseImageToCache = "debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56"
@@ -363,6 +364,10 @@ func GetKanikoImage(imageRepo, dockerfile string) string {
 	return strings.ToLower(imageRepo + kanikoPrefix + dockerfile)
 }
 
+func GetPodmanImage(imageRepo, dockerfile string) string {
+	return strings.ToLower(imageRepo + podmanPrefix + dockerfile)
+}
+
 // GetVersionedKanikoImage versions constructs the name of the kaniko image that would be built
 // with the dockerfile and versions it for cache testing
 func GetVersionedKanikoImage(imageRepo, dockerfile string, version int) string {
@@ -516,6 +521,52 @@ func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfile
 	return nil
 }
 
+// BuildPodmanImage builds dockerfile using podman and pushes the result to the registry.
+func (d *DockerFileBuilder) BuildPodmanImage(t *testing.T, imageRepo, dockerfilesPath, dockerfile string) error {
+	t.Logf("Building podman image for Dockerfile %s\n", dockerfile)
+	_, ex, _, _ := runtime.Caller(0)
+	cwd := filepath.Dir(ex)
+
+	var buildArgs []string
+	for _, arg := range argsMap[dockerfile] {
+		buildArgs = append(buildArgs, "--build-arg", arg)
+	}
+	buildArgs = append(buildArgs, "--build-arg", "IMAGE_REPO="+imageRepo)
+
+	podmanImage := GetPodmanImage(imageRepo, dockerfile)
+
+	podmanArgs := []string{"build", "--no-cache", "-t", podmanImage}
+	if dockerfilesPath != "" {
+		podmanArgs = append(podmanArgs, "-f", path.Join(dockerfilesPath, dockerfile))
+	}
+	podmanArgs = append(podmanArgs, cwd)
+	podmanArgs = append(podmanArgs, buildArgs...)
+	for _, flag := range additionalDockerFlagsMap[dockerfile] {
+		// --provenance is a BuildKit-only flag; podman does not support it
+		if !strings.HasPrefix(flag, "--provenance") {
+			podmanArgs = append(podmanArgs, flag)
+		}
+	}
+
+	podmanCmd := exec.Command("podman", podmanArgs...)
+	if env, ok := envsMap[dockerfile]; ok {
+		podmanCmd.Env = append(podmanCmd.Env, env...)
+	}
+
+	out, err := RunCommandWithoutTest(podmanCmd)
+	if err != nil {
+		return fmt.Errorf("failed to build image %s with podman command %q: %w %s", podmanImage, podmanCmd.Args, err, string(out))
+	}
+	t.Logf("Built image for Dockerfile %s as %s. podman build output: %s\n", dockerfile, podmanImage, out)
+
+	pushCmd := exec.Command("podman", "push", "--tls-verify=false", podmanImage)
+	out, err = RunCommandWithoutTest(pushCmd)
+	if err != nil {
+		return fmt.Errorf("failed to push image %s with podman command %q: %w %s", podmanImage, pushCmd.Args, err, string(out))
+	}
+	return nil
+}
+
 // BuildImage will build dockerfile (located at dockerfilesPath) using both kaniko and docker.
 // The resulting image will be tagged with imageRepo. If the dockerfile will be built with
 // context (i.e. it is in `buildContextTests`) the context will be pulled from gcsBucket.
@@ -569,7 +620,12 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 	if err := d.BuildDockerImage(t, imageRepo, dockerfilesPath, dockerfile, contextDir); err != nil {
 		return err
 	}
+	timing.DefaultRun.Stop(timer)
 
+	timer = timing.Start(dockerfile + "_podman")
+	if err := d.BuildPodmanImage(t, imageRepo, dockerfilesPath, dockerfile); err != nil {
+		return err
+	}
 	timing.DefaultRun.Stop(timer)
 
 	contextFlag := "-c"
