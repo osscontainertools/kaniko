@@ -535,7 +535,7 @@ func (d *DockerFileBuilder) BuildPodmanImage(t *testing.T, imageRepo, dockerfile
 
 	podmanImage := GetPodmanImage(imageRepo, dockerfile)
 
-	podmanArgs := []string{"build", "--no-cache", "--platform", "linux/" + runtime.GOARCH, "-t", podmanImage}
+	podmanArgs := []string{"build", "--no-cache", "-t", podmanImage}
 	if dockerfilesPath != "" {
 		podmanArgs = append(podmanArgs, "-f", path.Join(dockerfilesPath, dockerfile))
 	}
