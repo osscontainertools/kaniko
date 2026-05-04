@@ -12,8 +12,6 @@ In this file you'll find info on:
     - [Commit Messages](#commit-messages)
     - [Coding standards](#coding-standards)
   - [Finding something to work on](#finding-something-to-work-on)
-  [code](#coding-standards)
-- [Finding something to work on](#finding-something-to-work-on)
 
 ## Code reviews
 

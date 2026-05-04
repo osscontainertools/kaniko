@@ -14,6 +14,7 @@ First you will need to setup your GitHub account and create a fork:
 
 Once you have those, you can iterate on kaniko:
 
+1. [Build kaniko](#building-kaniko)
 1. [Run your instance of kaniko](README.md#running-kaniko)
 1. [Verifying kaniko builds](#verifying-kaniko-builds)
 1. [Run kaniko tests](#testing-kaniko)
@@ -22,9 +23,6 @@ When you're ready, you can [create a PR](#creating-a-pr)!
 
 ## Checkout your fork
 
-The Go tools require that you clone the repository to the `src/github.com/osscontainertools/kaniko` directory
-in your [`GOPATH`](https://go.dev/wiki/SettingGOPATH).
-
 To check out this repository:
 
 1. Create your own [fork of this
@@ -32,8 +30,6 @@ To check out this repository:
 2. Clone it to your machine:
 
   ```shell
-  mkdir -p ${GOPATH}/src/github.com/osscontainertools
-  cd ${GOPATH}/src/github.com/osscontainertools
   git clone git@github.com:${YOUR_GITHUB_USERNAME}/kaniko.git
   cd kaniko
   git remote add upstream git@github.com:osscontainertools/kaniko.git
@@ -42,6 +38,16 @@ To check out this repository:
 
 _Adding the `upstream` remote sets you up nicely for regularly [syncing your
 fork](https://help.github.com/articles/syncing-a-fork/)._
+
+## Building kaniko
+
+Build the kaniko executor binary with:
+
+```shell
+make
+```
+
+Note that the resulting binary cannot and should not be run directly on your host machine. As part of a normal build, kaniko performs destructive filesystem operations that are safe only inside a container. See [Running kaniko](README.md#running-kaniko) for how to run it.
 
 ## Verifying kaniko builds
 
@@ -128,13 +134,14 @@ Then you can launch integration tests as follows:
 make integration-test
 ```
 
-You can also run tests with `go test`, for example to run tests individually:
+You can also run individual test suites:
 
 ```shell
-go test ./integration -v --bucket $GCS_BUCKET --repo $IMAGE_REPO -run TestLayers/test_layer_Dockerfile_test_copy_bucket
+make integration-test-layers
+make integration-test-run
+make integration-test-k8s
+make integration-test-misc
 ```
-
-These tests will be kicked off by [reviewers](#reviews) for submitted PRs by the kokoro task.
 
 #### Local integration tests
 
@@ -166,7 +173,7 @@ of each run to that file location.
 ```shell
 docker run -v $(pwd):/workspace -v ~/.config:/root/.config \
 -e BENCHMARK_FILE=/workspace/benchmark_file \
-<YOUR-REGISTRY>/<YOUR-REPO>/<KANIKO-EXECUTOR> \
+ghcr.io/osscontainertools/kaniko:latest \
 --dockerfile=<path to Dockerfile> --context=/workspace \
 --destination=<YOUR-REGISTRY>/<YOUR-REPO>/new-image
 ```
@@ -177,29 +184,14 @@ Additionally, the integration tests can output benchmarking information to a `be
 BENCHMARK=true go test -v --bucket $GCS_BUCKET --repo $IMAGE_REPO
 ```
 
-#### Benchmarking your GCB runs
-If you are GCB builds are slow, you can check which phases in kaniko are bottlenecks or taking more time.
-To do this, add "BENCHMARK_ENV" to your cloudbuild.yaml like this.
-```shell script
-steps:
-- name: '<YOUR-REGISTRY>/<YOUR-REPO>/<KANIKO-EXECUTOR>'
-  args:
-  - --build-arg=NUM=${_COUNT}
-  - --no-push
-  - --snapshot-mode=redo
-  env:
-  - 'BENCHMARK_FILE=gs://$PROJECT_ID/gcb/benchmark_file'
-```
-You can download the file `gs://$PROJECT_ID/gcb/benchmark_file` using `gsutil cp` command.
-
 #### Profiling
 
-If your builds are taking long, we recently added support to analyze kaniko
-function calls using [Slow Jam](https://github.com/google/slowjam) To start
+If your builds are taking long, you can analyze kaniko
+function calls using [Slow Jam](https://github.com/google/slowjam). To start
 profiling,
 
 1. Add an environment variable `STACKLOG_PATH` to your
-   [pod definition](https://github.com/osscontainertools/kaniko/blob/master/examples/pod-build-profile.yaml#L15).
+   [pod definition](https://github.com/osscontainertools/kaniko/blob/main/examples/pod-build-profile.yaml#L15).
 2. If you are using the kaniko `debug` image, you can copy the file in the
    `pre-stop` container lifecycle hook.
 
@@ -215,6 +207,4 @@ When you have changes you would like to propose to kaniko, you will need to:
 
 ### Reviews
 
-Each PR must be reviewed by a maintainer. This maintainer will add the `kokoro:run` label
-to a PR to kick of [the integration tests](#integration-tests), which must pass for the PR
-to be submitted.
+Each PR must be reviewed by a maintainer. Maintainers will trigger [the integration tests](#integration-tests) in CI, which must pass for the PR to be submitted.

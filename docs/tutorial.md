@@ -88,7 +88,6 @@ $ kubectl get pods
 NAME     READY   STATUS      RESTARTS   AGE
 kaniko   0/1     Completed   0          34s
 $ kubectl logs kaniko
-➜ kubectl logs kaniko
 INFO[0000] Resolved base name ubuntu to ubuntu
 INFO[0000] Resolved base name ubuntu to ubuntu
 INFO[0000] Downloading base image ubuntu
@@ -110,15 +109,15 @@ INFO[0001] ENTRYPOINT ["/bin/bash", "-c", "echo hello"]
 If as expected, the kaniko will build image and push to dockerhub successfully. Pull the image to local and run it to test:
 
 ```shell
-$ sudo docker run -it <user-name>/<repo-name>
-Unable to find image 'debuggy/helloworld:latest' locally
-latest: Pulling from debuggy/helloworld
+$ sudo docker run -it myuser/hello-kaniko
+Unable to find image 'myuser/hello-kaniko:latest' locally
+latest: Pulling from myuser/hello-kaniko
 5667fdb72017: Pull complete
 d83811f270d5: Pull complete
 ee671aafb583: Pull complete
 7fc152dfb3a6: Pull complete
 Digest: sha256:2707d17754ea99ce0cf15d84a7282ae746a44ff90928c2064755ee3b35c1057b
-Status: Downloaded newer image for debuggy/helloworld:latest
+Status: Downloaded newer image for myuser/hello-kaniko:latest
 hello
 ```
 
