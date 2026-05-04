@@ -11,7 +11,7 @@ The version number is decided in advance. A patch release will never contain beh
 
 ## Feature flags
 
-Because minor releases are infrequent, new behavior ships immediately behind a [feature flag](../README.md#feature-flags) rather than waiting for the next minor cycle. This gives users who want to try the feature early a way to opt in, while everyone else gets the usual patch-release stability guarantee.
+Because minor releases are infrequent, new behavior ships immediately behind a [feature flag](../README.md#feature-flags) rather than waiting for the next minor cycle. This gives users who want to try the feature early a way to opt-in, while everyone else gets the usual patch-release stability guarantee.
 
 The graduation lifecycle of a feature flag is:
 
