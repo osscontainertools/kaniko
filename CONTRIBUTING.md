@@ -35,12 +35,12 @@ Reference the related issue in the subject using a short prefix to indicate whic
 | `cgNNN` | Chainguard fork (`chainguard-dev/kaniko`) |
 | `NNN` (no prefix) | Original Google repository (`GoogleContainerTools/kaniko`) |
 
-For bug fixes, add a body paragraph explaining what the bug was and how the fix works:
+For bug fixes, add a body paragraph describing the incorrect behavior and why the fix resolves it:
 
 ```
-mz123: what was changed
+mz123: short description of the fix
 
-What was the buggy behaviour and why does this fix it.
+Description of what was going wrong and why this change corrects it.
 ```
 
 For simple changes with no associated issue, a subject line alone is fine.
