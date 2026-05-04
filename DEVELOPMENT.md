@@ -31,13 +31,13 @@ cmd/
   warmer/         # cache warmer entry point
 pkg/
   commands/       # Dockerfile command implementations (COPY, RUN, ADD, …)
-  executor/       # core build logic — build.go is the heart of the build loop
+  executor/       # core build logic (build.go is the heart of the build loop)
   snapshot/       # filesystem snapshotting
   dockerfile/     # Dockerfile parsing
   buildcontext/   # build context sources (local, GCS, S3, git, …)
   image/          # image pulling and pushing
   cache/          # cache lookup (remote layer cache and warmer-primed base images)
-  warmer/         # warmer implementation — populates the local base image cache
+  warmer/         # warmer implementation, populates the local base image cache
   util/           # shared utilities
 deploy/           # Dockerfiles for the published kaniko images
 integration/      # integration tests and test Dockerfiles
@@ -81,7 +81,7 @@ Note that the resulting binary cannot and should not be run directly on your hos
 After `make`, the executor binary is at `out/executor`. Mount it into the debug image to run your local build:
 
 ```shell
-# Build only — no push, useful for quick iteration
+# Build only, no push, useful for quick iteration
 docker run --rm \
   -v $(pwd)/out/executor:/kaniko/executor \
   -v $(pwd)/integration:/workspace \
@@ -102,7 +102,7 @@ docker run --network=host --rm \
 
 Swap in any Dockerfile from `integration/dockerfiles/` or write your own.
 
-Note: `run_in_docker.sh` in the repo root is a different tool — it runs the published kaniko image against a user-provided Dockerfile and is not intended for testing local code changes.
+Note: `run_in_docker.sh` in the repo root is a different tool. It runs the published kaniko image against a user-provided Dockerfile and is not intended for testing local code changes.
 
 ## Verifying kaniko builds
 
@@ -129,7 +129,7 @@ make test
 
 ### Golden Tests
 
-Golden tests verify the build plan kaniko computes for a given Dockerfile — the sequence of stages, steps, and cache keys it would execute — without actually building anything. See [testplan.md](docs/testplan.md) for more detail on what they cover.
+Golden tests verify the build plan kaniko computes for a given Dockerfile (the sequence of stages, steps, and cache keys it would execute) without actually building anything. See [testplan.md](docs/testplan.md) for more detail on what they cover.
 
 Run them with:
 
@@ -276,7 +276,7 @@ profiling,
 When you have changes you would like to propose to kaniko, you will need to:
 
 1. Ensure the commit message(s) follow the style described in [CONTRIBUTING.md](CONTRIBUTING.md#commit-messages)
-1. If your change introduces new behavior, wrap it in a feature flag — see [docs/releases.md](docs/releases.md) for when this is required
+1. If your change introduces new behavior, wrap it in a feature flag. See [docs/releases.md](docs/releases.md) for when this is required
 1. [Create a pull request](https://help.github.com/articles/creating-a-pull-request-from-a-fork/)
 
 ### Reviews
