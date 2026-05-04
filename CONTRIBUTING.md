@@ -35,16 +35,10 @@ Reference the related issue in the subject using a short prefix to indicate whic
 | `cgNNN` | Chainguard fork (`chainguard-dev/kaniko`) |
 | `NNN` (no prefix) | Original Google repository (`GoogleContainerTools/kaniko`) |
 
-Include the PR number in parentheses at the end of the subject line:
-
-```
-mz661: resolve secrets before moving kaniko dir (#662)
-```
-
 For bug fixes, add a body paragraph explaining what the bug was and how the fix works:
 
 ```
-mz661: resolve secrets before moving kaniko dir (#662)
+mz661: resolve secrets before moving kaniko dir
 
 When KANIKO_DIR is set to a path other than the executor directory,
 moveKanikoDir relocates all files under the original kaniko dir before
