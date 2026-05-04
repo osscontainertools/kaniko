@@ -197,7 +197,7 @@ Their focus is to keep dependencies up to date and patch security issues, keepin
 kaniko releases are published as images on [ghcr.io/osscontainertools/kaniko](https://github.com/orgs/osscontainertools/packages/container/package/kaniko) and on Docker Hub as [martizih/kaniko](https://hub.docker.com/r/martizih/kaniko).
 
 Release notes and source code archives are available on the [releases
-section](https://github.com/osscontainertools/kaniko/releases).
+section](https://github.com/osscontainertools/kaniko/releases). For the release cadence and feature flag graduation policy, see [docs/releases.md](docs/releases.md).
 
 Images available from other vendors:
 

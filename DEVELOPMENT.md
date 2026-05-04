@@ -275,9 +275,8 @@ profiling,
 
 When you have changes you would like to propose to kaniko, you will need to:
 
-1. Ensure the commit message(s) describe what issue you are fixing and how you are fixing it
-   (include references to [issue numbers](https://help.github.com/articles/closing-issues-using-keywords/)
-   if appropriate)
+1. Ensure the commit message(s) follow the style described in [CONTRIBUTING.md](CONTRIBUTING.md#commit-messages)
+1. If your change introduces new behavior, wrap it in a feature flag — see [docs/releases.md](docs/releases.md) for when this is required
 1. [Create a pull request](https://help.github.com/articles/creating-a-pull-request-from-a-fork/)
 
 ### Reviews

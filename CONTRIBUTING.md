@@ -10,7 +10,8 @@ In this file you'll find info on:
   - [Code reviews](#code-reviews)
   - [Standards](#standards)
     - [Commit Messages](#commit-messages)
-    - [Coding standards](#coding-standards)
+    - [Feature flags](#feature-flags)
+  - [Coding standards](#coding-standards)
   - [Finding something to work on](#finding-something-to-work-on)
 
 ## Code reviews
@@ -55,6 +56,10 @@ The fix moves resolveSecrets before moveKanikoDir.
 ```
 
 For simple changes with no associated issue, a subject line alone is fine.
+
+### Feature flags
+
+New behavior that would change kaniko's output or semantics must ship behind a feature flag rather than directly. This keeps patch releases stable. See [docs/releases.md](docs/releases.md) for the full policy and a guide on when a feature flag is needed.
 
 ### Coding standards
 
