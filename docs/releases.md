@@ -31,4 +31,4 @@ When in doubt, open an issue and ask.
 
 ## Security fixes
 
-We do not cut special releases to address CVEs. Security fixes are committed to `main` immediately and ship as part of the normal release cycle. If you cannot wait for the next scheduled release, images built from `main` are available as `ghcr.io/osscontainertools/kaniko-dev` and go through the same automated testing as tagged releases.
+We do not cut special releases to address CVEs. Security fixes are committed to `main` immediately and ship as part of the normal release cycle. If you cannot wait for the next scheduled release, images built from `main` are available as `ghcr.io/osscontainertools/kaniko-dev`, tagged with the commit hash, and go through the same automated testing as tagged releases.
