@@ -1,7 +1,7 @@
 <!-- 🎉🎉🎉 Thank you for the PR!!! 🎉🎉🎉 -->
 
 
-Fixes #<issue number> _in case of a bug fix, this should point to a bug and any other related issue(s)_
+Fixes mzNNN _in case of a bug fix, this should point to a bug and any other related issue(s)_
 
 **Description**
 
@@ -13,8 +13,7 @@ your descriptive commit message(s)! -->
 These are the criteria that every PR should meet, please check them off as you
 review them:
 
-- [ ] Includes [unit tests](../DEVELOPMENT.md#creating-a-pr)
-- [ ] Adds integration tests if needed.
+- [ ] Adds integration tests if the output changes, or golden tests if the build plan changes.
 
 _See [the contribution guide](../CONTRIBUTING.md) for more details._
 
@@ -22,7 +21,7 @@ _See [the contribution guide](../CONTRIBUTING.md) for more details._
 **Reviewer Notes**
 
 - [ ] The code flow looks good.
-- [ ] Unit tests and or integration tests added.
+- [ ] Integration or golden tests added where appropriate.
 
 
 **Release Notes**
