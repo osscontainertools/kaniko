@@ -24,7 +24,7 @@ fi
 dockerfile=$1
 context=$2
 destination=$3
-executor_image="martizih/kaniko:latest"
+executor_image="ghcr.io/osscontainertools/kaniko:latest"
 
 cache="false"
 if [[ -n "$4" ]]; then

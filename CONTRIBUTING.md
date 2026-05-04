@@ -26,23 +26,35 @@ This section describes the standards we will try to maintain in this repo.
 
 ### Commit Messages
 
-All commit messages should follow
-[these best practices](https://chris.beams.io/posts/git-commit/), specifically:
+Reference the related issue in the subject using a short prefix to indicate which repository the issue lives in:
 
-- Start with a subject line
-- Contain a body that explains _why_ you're making the change you're making
-- Reference an issue number if one exists, closing it if applicable (with text
-  such as
-  ["Fixes #245" or "Closes #111"](https://help.github.com/articles/closing-issues-using-keywords/))
+| Prefix | Repository |
+|--------|-----------|
+| `mzNNN` | This repository (`osscontainertools/kaniko`, formerly `mzihlmann/kaniko`) |
+| `cgNNN` | Chainguard fork (`chainguard-dev/kaniko`) |
+| `NNN` (no prefix) | Original Google repository (`GoogleContainerTools/kaniko`) |
 
-Aim for [2 paragraphs in the body](https://www.youtube.com/watch?v=PJjmw9TRB7s).
-Not sure what to put? Include:
+Include the PR number in parentheses at the end of the subject line:
 
-- What is the problem being solved?
-- Why is this the best approach?
-- What other approaches did you consider?
-- What side effects will this approach have?
-- What future work remains to be done?
+```
+mz661: resolve secrets before moving kaniko dir (#662)
+```
+
+For bug fixes, add a body paragraph explaining what the bug was and how the fix works:
+
+```
+mz661: resolve secrets before moving kaniko dir (#662)
+
+When KANIKO_DIR is set to a path other than the executor directory,
+moveKanikoDir relocates all files under the original kaniko dir before
+resolveSecrets runs. Any --secret with src= pointing into that dir is
+therefore missing by the time its path is read, causing the build to
+fail with "no such file or directory".
+
+The fix moves resolveSecrets before moveKanikoDir.
+```
+
+For simple changes with no associated issue, a subject line alone is fine.
 
 ### Coding standards
 
