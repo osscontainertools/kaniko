@@ -35,13 +35,7 @@ Reference the related issue in the subject using a short prefix to indicate whic
 | `cgNNN` | Chainguard fork (`chainguard-dev/kaniko`) |
 | `NNN` (no prefix) | Original Google repository (`GoogleContainerTools/kaniko`) |
 
-For bug fixes, add a body paragraph describing the incorrect behavior and why the fix resolves it:
-
-```
-mz123: short description of the fix
-
-Description of what was going wrong and why this change corrects it.
-```
+For bug fixes, add a body paragraph describing the incorrect behavior and why the fix resolves it.
 
 For simple changes with no associated issue, a subject line alone is fine.
 
