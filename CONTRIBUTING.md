@@ -38,15 +38,9 @@ Reference the related issue in the subject using a short prefix to indicate whic
 For bug fixes, add a body paragraph explaining what the bug was and how the fix works:
 
 ```
-mz661: resolve secrets before moving kaniko dir
+mz123: what was changed
 
-When KANIKO_DIR is set to a path other than the executor directory,
-moveKanikoDir relocates all files under the original kaniko dir before
-resolveSecrets runs. Any --secret with src= pointing into that dir is
-therefore missing by the time its path is read, causing the build to
-fail with "no such file or directory".
-
-The fix moves resolveSecrets before moveKanikoDir.
+What was the buggy behaviour and why does this fix it.
 ```
 
 For simple changes with no associated issue, a subject line alone is fine.
