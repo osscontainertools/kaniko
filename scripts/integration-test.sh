@@ -28,8 +28,6 @@ function start_local_tls_registry {
       2>/dev/null
     # kanikotest:kanikotest
     docker run --rm --entrypoint htpasswd httpd:2 -Bbn kanikotest kanikotest > "${dir}/htpasswd"
-    printf '{"auths":{"127.0.0.2:5001":{"auth":"%s"}}}' \
-      "$(printf 'kanikotest:kanikotest' | base64 -w0)" > "${dir}/config.json"
     docker rm -f kaniko-tls-registry 2>/dev/null || true
     docker run -d --name kaniko-tls-registry \
       -p 127.0.0.2:5001:5000 \
@@ -44,7 +42,6 @@ function start_local_tls_registry {
       registry:2
   fi
   export TLS_REGISTRY_CERT="${dir}/tls.crt"
-  export TLS_REGISTRY_AUTH_CONFIG="${dir}/config.json"
 }
 
 # TODO: to get this working, we need a way to override the gcs endpoint of kaniko at runtime
