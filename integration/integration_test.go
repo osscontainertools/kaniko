@@ -1300,10 +1300,15 @@ func TestAlpineTLS(t *testing.T) {
 	if caCert == "" {
 		t.Fatal("TLS_REGISTRY_CERT not set")
 	}
+	dockerConfig := os.Getenv("TLS_REGISTRY_AUTH_CONFIG")
+	if dockerConfig == "" {
+		t.Fatal("TLS_REGISTRY_AUTH_CONFIG not set")
+	}
+
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
 	dest := "127.0.0.2:5001/kaniko/mz595-tls:latest"
-	_, err := buildKanikoImage(
+	if _, err := buildKanikoImage(
 		t.Logf,
 		dockerfilesPath,
 		"Dockerfile_test_issue_mz595",
@@ -1311,9 +1316,8 @@ func TestAlpineTLS(t *testing.T) {
 		[]string{"-c", buildContextPath},
 		dest,
 		cwd,
-		"", nil, config.serviceAccount, false, caCert,
-	)
-	if err != nil {
+		"", nil, config.serviceAccount, false, caCert, dockerConfig,
+	); err != nil {
 		t.Error(err)
 	}
 }

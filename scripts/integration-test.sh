@@ -21,21 +21,30 @@ function start_local_registry {
 
 function start_local_tls_registry {
   local dir="/tmp/kaniko-tls-registry"
-  if ! { [[ -f "${dir}/tls.crt" ]] && docker start kaniko-tls-registry 2>/dev/null; }; then
+  if ! { [[ -f "${dir}/tls.crt" ]] && [[ -f "${dir}/htpasswd" ]] && docker start kaniko-tls-registry 2>/dev/null; }; then
     mkdir -p "${dir}"
     openssl req -x509 -newkey rsa:2048 -keyout "${dir}/tls.key" -out "${dir}/tls.crt" \
       -days 3650 -nodes -subj "/CN=127.0.0.2" -addext "subjectAltName=IP:127.0.0.2" \
       2>/dev/null
+    # kanikotest:kanikotest
+    docker run --rm --entrypoint htpasswd httpd:2 -Bbn kanikotest kanikotest > "${dir}/htpasswd"
+    printf '{"auths":{"127.0.0.2:5001":{"auth":"%s"}}}' \
+      "$(printf 'kanikotest:kanikotest' | base64 -w0)" > "${dir}/config.json"
     docker rm -f kaniko-tls-registry 2>/dev/null || true
     docker run -d --name kaniko-tls-registry \
       -p 127.0.0.2:5001:5000 \
       -v "${dir}/tls.crt:/certs/tls.crt:ro" \
       -v "${dir}/tls.key:/certs/tls.key:ro" \
+      -v "${dir}/htpasswd:/auth/htpasswd:ro" \
       -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/tls.crt \
       -e REGISTRY_HTTP_TLS_KEY=/certs/tls.key \
+      -e REGISTRY_AUTH=htpasswd \
+      -e REGISTRY_AUTH_HTPASSWD_REALM=Registry \
+      -e REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd \
       registry:2
   fi
   export TLS_REGISTRY_CERT="${dir}/tls.crt"
+  export TLS_REGISTRY_AUTH_CONFIG="${dir}/config.json"
 }
 
 # TODO: to get this working, we need a way to override the gcs endpoint of kaniko at runtime
