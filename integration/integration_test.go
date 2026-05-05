@@ -1048,7 +1048,7 @@ func TestBuildWithAnnotations(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
-	containerDiff(t, dockerImage, kanikoImage, "--ignore-history", "--extra-ignore-annotations")
+	containerDiff(t, dockerImage, kanikoImage, "--ignore-history")
 }
 
 func onBuildDiff(t *testing.T, image1, image2 string) {
