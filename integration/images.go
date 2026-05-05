@@ -568,7 +568,7 @@ func (d *DockerFileBuilder) BuildKanikoImage(t *testing.T, config *integrationTe
 	timer := timing.Start(dockerfile + "_kaniko")
 	defer timing.DefaultRun.Stop(timer)
 	_, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
-		cwd, config.gcsBucket, config.gcsClient, config.serviceAccount, false)
+		cwd, config.gcsBucket, config.gcsClient, config.serviceAccount, false, "")
 	return err
 }
 
@@ -614,7 +614,7 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 	kanikoImage := GetKanikoImage(imageRepo, dockerfile)
 	timer = timing.Start(dockerfile + "_kaniko")
 	if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
-		contextDir, gcsBucket, gcsClient, serviceAccount, true); err != nil {
+		contextDir, gcsBucket, gcsClient, serviceAccount, true, ""); err != nil {
 		return err
 	}
 	timing.DefaultRun.Stop(timer)
@@ -869,6 +869,7 @@ func buildKanikoImage(
 	gcsClient *storage.Client,
 	serviceAccount string,
 	shdUpload bool,
+	tlsCACert string,
 ) (string, error) {
 	benchmarkEnv := "BENCHMARK_FILE=false"
 	benchmarkDir, err := os.MkdirTemp("", "")
@@ -925,6 +926,11 @@ func buildKanikoImage(
 	executorImage := ExecutorImage
 	if exec, ok := executorImages[dockerfile]; ok {
 		executorImage = exec
+	}
+
+	if tlsCACert != "" {
+		dockerRunFlags = append(dockerRunFlags,
+			"-v", tlsCACert+":/kaniko/ssl/certs/test-registry-ca.crt:ro")
 	}
 
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)

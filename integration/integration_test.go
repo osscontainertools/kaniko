@@ -1294,6 +1294,30 @@ func meetsRequirements() bool {
 	return hasRequirements
 }
 
+// mz677: verify that the kaniko-alpine executor can push with tls
+func TestAlpineTLS(t *testing.T) {
+	caCert := os.Getenv("TLS_REGISTRY_CERT")
+	if caCert == "" {
+		t.Fatal("TLS_REGISTRY_CERT not set")
+	}
+	_, ex, _, _ := runtime.Caller(0)
+	cwd := filepath.Dir(ex)
+	dest := "127.0.0.2:5001/kaniko/mz595-tls:latest"
+	_, err := buildKanikoImage(
+		t.Logf,
+		dockerfilesPath,
+		"Dockerfile_test_issue_mz595",
+		nil,
+		[]string{"-c", buildContextPath},
+		dest,
+		cwd,
+		"", nil, config.serviceAccount, false, caCert,
+	)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 // containerDiff compares the container images image1 and image2.
 func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	// workaround for container-diff OCI issue https://github.com/GoogleContainerTools/container-diff/issues/389
