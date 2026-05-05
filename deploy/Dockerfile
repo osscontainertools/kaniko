@@ -13,7 +13,7 @@
 # limitations under the License.
 
 ARG BUILDPLATFORM
-FROM --platform=$BUILDPLATFORM golang:1.26.2 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.2@sha256:5f3787b7f902c07c7ec4f3aa91a301a3eda8133aa32661a3b3a3a86ab3a68a36 AS builder
 WORKDIR /src
 
 # This arg is passed by docker buildx & contains the target CPU architecture (e.g., amd64, arm64, etc.)
@@ -52,11 +52,11 @@ RUN make COVER="$COVER" out/executor out/warmer \
 
 # Generate latest ca-certificates
 ARG BUILDPLATFORM
-FROM --platform=$BUILDPLATFORM debian:bookworm-slim AS certs
+FROM --platform=$BUILDPLATFORM debian:trixie-slim@sha256:e18da95f66066b7c5fa31491b524e83121271eca59a3d140f4906c8d0a090367 AS certs
 RUN apt update && apt install -y ca-certificates
 
 # use musl busybox since it's staticly compiled on all platforms
-FROM busybox:musl AS busybox
+FROM busybox:musl@sha256:19b646668802469d968a05342a601e78da4322a414a7c09b1c9ee25165042138 AS busybox
 RUN mkdir -p /kaniko && chmod 777 /kaniko
 
 FROM scratch AS kaniko-base-slim
@@ -84,16 +84,26 @@ ENV DOCKER_CREDENTIAL_GCR_CONFIG=/kaniko/.config/gcloud/docker_credential_gcr_co
 WORKDIR /workspace
 
 # mz446: there is no tini binary release on riscv64
-FROM kaniko-base AS kaniko-base-tini
-ARG TARGETARCH
-ARG TINI_VERSION=v0.19.0
-ADD --chmod=555 \
-    https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-static-${TARGETARCH} \
+FROM kaniko-base AS kaniko-base-amd64
+ADD --checksum=sha256:c5b0666b4cb676901f90dfcb37106783c5fe2077b04590973b885950611b30ee \
+    --chown=0:0 --chmod=555 \
+    https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-amd64 \
     /kaniko/tini
-FROM kaniko-base-tini AS kaniko-base-amd64
-FROM kaniko-base-tini AS kaniko-base-arm64
-FROM kaniko-base-tini AS kaniko-base-s390x
-FROM kaniko-base-tini AS kaniko-base-ppc64le
+FROM kaniko-base AS kaniko-base-arm64
+ADD --checksum=sha256:eae1d3aa50c48fb23b8cbdf4e369d0910dfc538566bfd09df89a774aa84a48b9 \
+    --chown=0:0 --chmod=555 \
+    https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-arm64 \
+    /kaniko/tini
+FROM kaniko-base AS kaniko-base-s390x
+ADD --checksum=sha256:95657aec2459ff06123e0674565da625c50704b1db86373cd91afc3c0dcce997 \
+    --chown=0:0 --chmod=555 \
+    https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-s390x \
+    /kaniko/tini
+FROM kaniko-base AS kaniko-base-ppc64le
+ADD --checksum=sha256:b913a6d5be168a14cfe5f27238a181a12aece281e30a57e5d31a148bc5dfb687 \
+    --chown=0:0 --chmod=555 \
+    https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-ppc64le \
+    /kaniko/tini
 FROM kaniko-base AS kaniko-base-riscv64
 FROM kaniko-base-${TARGETARCH} AS kaniko-base-2
 
@@ -111,7 +121,7 @@ COPY --from=builder /src/out/executor /kaniko/executor
 
 ENTRYPOINT ["/kaniko/executor"]
 
-FROM alpine AS kaniko-alpine
+FROM alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11 AS kaniko-alpine
 
 RUN apk add --no-cache ca-certificates git
 
