@@ -126,6 +126,8 @@ FROM alpine:3.23.4@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a
 RUN apk add --no-cache ca-certificates git
 
 COPY --from=builder /src/out/executor /kaniko/executor
+COPY --from=builder /kaniko/.docker /kaniko/.docker
+COPY --from=certs /etc/ssl/certs/ca-certificates.crt /kaniko/ssl/certs/
 
 # mz446: there is no tini binary release on riscv64
 ARG TARGETARCH
@@ -135,7 +137,10 @@ RUN --mount=from=kaniko-base-2,source=/kaniko,target=/mnt/kaniko \
 # mz595: pre-existing alpine files would result in invalid build outputs.
 # with these flags we wipe the filesystem before build, circumventing this issue.
 ENV KANIKO_PRESERVE_CONTEXT=1 \
-    KANIKO_PRE_CLEANUP=1
+    KANIKO_PRE_CLEANUP=1 \
+    DOCKER_CONFIG=/kaniko/.docker/ \
+    DOCKER_CREDENTIAL_GCR_CONFIG=/kaniko/.config/gcloud/docker_credential_gcr_config.json \
+    SSL_CERT_DIR=/kaniko/ssl/certs
 
 ENTRYPOINT ["/kaniko/executor"]
 
