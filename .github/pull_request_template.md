@@ -1,7 +1,7 @@
 <!-- 🎉🎉🎉 Thank you for the PR!!! 🎉🎉🎉 -->
 
 
-Fixes mzNNN _in case of a bug fix, this should point to a bug and any other related issue(s)_
+Fixes #NNN _in case of a bug fix, this should point to a bug and any other related issue(s)_
 
 **Description**
 
