@@ -10,10 +10,9 @@ In this file you'll find info on:
   - [Code reviews](#code-reviews)
   - [Standards](#standards)
     - [Commit Messages](#commit-messages)
-    - [Coding standards](#coding-standards)
+    - [Feature flags](#feature-flags)
+  - [Coding standards](#coding-standards)
   - [Finding something to work on](#finding-something-to-work-on)
-  [code](#coding-standards)
-- [Finding something to work on](#finding-something-to-work-on)
 
 ## Code reviews
 
@@ -28,23 +27,21 @@ This section describes the standards we will try to maintain in this repo.
 
 ### Commit Messages
 
-All commit messages should follow
-[these best practices](https://chris.beams.io/posts/git-commit/), specifically:
+Reference the related issue in the subject using a short prefix to indicate which repository the issue lives in:
 
-- Start with a subject line
-- Contain a body that explains _why_ you're making the change you're making
-- Reference an issue number if one exists, closing it if applicable (with text
-  such as
-  ["Fixes #245" or "Closes #111"](https://help.github.com/articles/closing-issues-using-keywords/))
+| Prefix | Repository |
+|--------|-----------|
+| `mzNNN` | This repository (`osscontainertools/kaniko`, formerly `mzihlmann/kaniko`) |
+| `cgNNN` | Chainguard fork (`chainguard-dev/kaniko`) |
+| `NNN` (no prefix) | Original Google repository (`GoogleContainerTools/kaniko`) |
 
-Aim for [2 paragraphs in the body](https://www.youtube.com/watch?v=PJjmw9TRB7s).
-Not sure what to put? Include:
+For bug fixes, add a body paragraph describing the incorrect behavior and why the fix resolves it.
 
-- What is the problem being solved?
-- Why is this the best approach?
-- What other approaches did you consider?
-- What side effects will this approach have?
-- What future work remains to be done?
+For simple changes with no associated issue, a subject line alone is fine.
+
+### Feature flags
+
+New behavior that would change kaniko's output or semantics must ship behind a feature flag rather than directly. This keeps patch releases stable. See [docs/releases.md](docs/releases.md) for the full policy and a guide on when a feature flag is needed.
 
 ### Coding standards
 

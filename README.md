@@ -23,7 +23,7 @@ Dockerfile completely in userspace. This enables building container images in
 environments that can't easily or securely run a Docker daemon, such as a
 standard Kubernetes cluster.
 
-kaniko is meant to be run as an image: `martizih/kaniko:latest`. We do **not** recommend
+kaniko is meant to be run as an image: `ghcr.io/osscontainertools/kaniko:latest`. We do **not** recommend
 running the kaniko executor binary in another image, as it might not work as you
 expect - see [Known Issues](#known-issues).
 
@@ -197,7 +197,7 @@ Their focus is to keep dependencies up to date and patch security issues, keepin
 kaniko releases are published as images on [ghcr.io/osscontainertools/kaniko](https://github.com/orgs/osscontainertools/packages/container/package/kaniko) and on Docker Hub as [martizih/kaniko](https://hub.docker.com/r/martizih/kaniko).
 
 Release notes and source code archives are available on the [releases
-section](https://github.com/osscontainertools/kaniko/releases).
+section](https://github.com/osscontainertools/kaniko/releases). For the release cadence and feature flag graduation policy, see [docs/releases.md](docs/releases.md).
 
 Images available from other vendors:
 
@@ -341,7 +341,7 @@ Input data, using docker:
 
 ```shell
 echo -e 'FROM alpine \nRUN echo "created from standard input"' > Dockerfile | tar -cf - Dockerfile | gzip -9 | docker run \
-  --interactive -v $(pwd):/workspace <YOUR-REGISTRY>/<YOUR-REPO>/<KANIKO-EXECUTOR> \
+  --interactive -v $(pwd):/workspace ghcr.io/osscontainertools/kaniko:latest \
   --context tar://stdin \
   --destination=<YOUR-REGISTRY>/$project/$image:$tag>
 ```
@@ -353,14 +353,14 @@ completely dockerless:
 ```shell
 echo -e 'FROM alpine \nRUN echo "created from standard input"' > Dockerfile | tar -cf - Dockerfile | gzip -9 | kubectl run kaniko \
 --rm --stdin=true \
---image=<YOUR-REGISTRY>/<YOUR-REPO>/<KANIKO-EXECUTOR> --restart=Never \
+--image=ghcr.io/osscontainertools/kaniko:latest --restart=Never \
 --overrides='{
   "apiVersion": "v1",
   "spec": {
     "containers": [
       {
         "name": "kaniko",
-        "image": "<YOUR-REGISTRY>/<YOUR-REPO>/<KANIKO-EXECUTOR>",
+        "image": "ghcr.io/osscontainertools/kaniko:latest",
         "stdin": true,
         "stdinOnce": true,
         "args": [
@@ -448,7 +448,7 @@ metadata:
 spec:
   containers:
     - name: kaniko
-      image: <YOUR-REGISTRY>/<YOUR-REPO>/<KANIKO-EXECUTOR>
+      image: ghcr.io/osscontainertools/kaniko:latest
       args:
         - "--dockerfile=<path to Dockerfile within the build context>"
         - "--context=gs://<GCS bucket>/<path to .tar.gz>"
@@ -479,7 +479,7 @@ a container is running in gVisor.
 
 ```shell
 docker run --runtime=runsc -v $(pwd):/workspace -v ~/.config:/root/.config \
-<YOUR-REGISTRY>/<YOUR-REPO>/<KANIKO-EXECUTOR> \
+ghcr.io/osscontainertools/kaniko:latest \
 --dockerfile=<path to Dockerfile> --context=/workspace \
 --destination=<YOUR-REGISTRY>/<YOUR-REPO>/my-image --force
 ```
@@ -498,7 +498,7 @@ To run kaniko in GCB, add it to your build config as a build step:
 
 ```yaml
 steps:
-  - name: <YOUR-REGISTRY>/<YOUR-REPO>/<KANIKO-EXECUTOR>
+  - name: ghcr.io/osscontainertools/kaniko:latest
     args:
       [
         "--dockerfile=<path to Dockerfile within the build context>",
@@ -524,7 +524,7 @@ For example, when using gcloud and GCR you could run kaniko as follows:
 docker run \
     -v "$HOME"/.config/gcloud:/root/.config/gcloud \
     -v /path/to/context:/workspace \
-    gcr.io/kaniko-project/executor:latest \
+    ghcr.io/osscontainertools/kaniko:latest \
     --dockerfile /workspace/Dockerfile \
     --destination "gcr.io/$PROJECT_ID/$IMAGE_NAME:$TAG" \
     --context dir:///workspace/
@@ -591,7 +591,7 @@ build:
 ```
 This is just an illustrative extract, please find the full [.gitlab-ci.yml](./docs/bootstrap.gitlab-ci.yml) here.
 
-With this two step approach we can now indeed bootstrap kaniko in kaniko. However, it is not really necessary to rebuild that intermediate bootstrap image every time, we can reuse it from a different build. Hence I provide a dedicated image `martizih/kaniko:bootstrap` that can be used for that purpose.
+With this two step approach we can now indeed bootstrap kaniko in kaniko. However, it is not really necessary to rebuild that intermediate bootstrap image every time, we can reuse it from a different build. Hence I provide a dedicated image `ghcr.io/osscontainertools/kaniko:bootstrap` that can be used for that purpose.
 
 
 ### Caching
@@ -621,9 +621,9 @@ kaniko pod. To do so, the cache must first be populated, as it is read-only. We
 provide a kaniko cache warming image at `gcr.io/kaniko-project/warmer`:
 
 ```shell
-docker run -v $(pwd):/workspace gcr.io/kaniko-project/warmer:latest --cache-dir=/workspace/cache --image=<image to cache> --image=<another image to cache>
-docker run -v $(pwd):/workspace gcr.io/kaniko-project/warmer:latest --cache-dir=/workspace/cache --dockerfile=<path to dockerfile>
-docker run -v $(pwd):/workspace gcr.io/kaniko-project/warmer:latest --cache-dir=/workspace/cache --dockerfile=<path to dockerfile> --build-arg version=1.19
+docker run -v $(pwd):/workspace ghcr.io/osscontainertools/kaniko:warmer --cache-dir=/workspace/cache --image=<image to cache> --image=<another image to cache>
+docker run -v $(pwd):/workspace ghcr.io/osscontainertools/kaniko:warmer --cache-dir=/workspace/cache --dockerfile=<path to dockerfile>
+docker run -v $(pwd):/workspace ghcr.io/osscontainertools/kaniko:warmer --cache-dir=/workspace/cache --dockerfile=<path to dockerfile> --build-arg version=1.19
 ```
 
 `--image` can be specified for any number of desired images. `--dockerfile` can
@@ -1233,7 +1233,7 @@ the kaniko executor image along with a busybox shell to enter.
 You can launch the debug image with a shell entrypoint:
 
 ```shell
-docker run -it --entrypoint=/busybox/sh gcr.io/kaniko-project/executor:debug
+docker run -it --entrypoint=/busybox/sh ghcr.io/osscontainertools/kaniko:debug
 ```
 
 ## Security
@@ -1276,7 +1276,7 @@ Note that to verify images after v1.26.0 you require cosign v3.
 $ cosign verify \
   --certificate-identity-regexp "https://github.com/osscontainertools/kaniko/.github/workflows/images.yaml@.*" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-  martizih/kaniko:latest
+  ghcr.io/osscontainertools/kaniko:latest
 ```
 
 kaniko images for older versions [1.24.1 - 1.25.5] can be verified using
@@ -1284,7 +1284,7 @@ kaniko images for older versions [1.24.1 - 1.25.5] can be verified using
 $ cosign verify \
   --certificate-identity-regexp "https://github.com/mzihlmann/kaniko/.github/workflows/images.yaml@.*" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-  martizih/kaniko:latest
+  ghcr.io/osscontainertools/kaniko:latest
 ```
 
 ## Creating Multi-arch Container Manifests Using Kaniko and Manifest-tool
@@ -1354,7 +1354,7 @@ build-container:
     # run each build on a suitable, preconfigured runner (must match the target architecture)
     - runner-${ARCH}
   image:
-    name: gcr.io/kaniko-project/executor:debug
+    name: ghcr.io/osscontainertools/kaniko:debug
     entrypoint: [""]
   script:
     # build the container image for the current arch using kaniko

@@ -20,7 +20,7 @@ Get your docker registry user and password encoded in base64
 Create a `config.json` file with your Docker registry url and the previous
 generated base64 string
 
-**Note:** Please use v1 endpoint. See #1209 for more details
+**Note:** Please use the v1 endpoint. See [GoogleContainerTools/kaniko#1209](https://github.com/GoogleContainerTools/kaniko/issues/1209) for more details.
 
 ```json
 {
@@ -35,7 +35,7 @@ generated base64 string
 Run kaniko with the `config.json` inside `/kaniko/.docker/config.json`
 
 ```shell
-docker run -ti --rm -v `pwd`:/workspace -v `pwd`/config.json:/kaniko/.docker/config.json:ro gcr.io/kaniko-project/executor:latest --dockerfile=Dockerfile --destination=yourimagename
+docker run -ti --rm -v `pwd`:/workspace -v `pwd`/config.json:/kaniko/.docker/config.json:ro ghcr.io/osscontainertools/kaniko:latest --dockerfile=Dockerfile --destination=yourimagename
 ```
 
 ## Pushing to Google GCR
@@ -54,7 +54,7 @@ steps:
 
 ```shell
 docker run -ti --rm -e GOOGLE_APPLICATION_CREDENTIALS=/kaniko/config.json \
--v `pwd`:/workspace -v `pwd`/kaniko-secret.json:/kaniko/config.json:ro gcr.io/kaniko-project/executor:latest \
+-v `pwd`:/workspace -v `pwd`/kaniko-secret.json:/kaniko/config.json:ro ghcr.io/osscontainertools/kaniko:latest \
 --dockerfile=Dockerfile --destination=yourimagename
 ```
 
@@ -129,7 +129,7 @@ metadata:
 spec:
   containers:
     - name: kaniko
-      image: gcr.io/kaniko-project/executor:latest
+      image: ghcr.io/osscontainertools/kaniko:latest
       args:
         - "--dockerfile=<path to Dockerfile within the build context>"
         - "--context=s3://<bucket name>/<path to .tar.gz>"
@@ -211,7 +211,7 @@ metadata:
 spec:
   containers:
     - name: kaniko
-      image: gcr.io/kaniko-project/executor:latest
+      image: ghcr.io/osscontainertools/kaniko:latest
       args:
         - "--dockerfile=<path to Dockerfile within the build context>"
         - "--context=s3://<bucket name>/<path to .tar.gz>"
@@ -258,7 +258,7 @@ For example, for Artifactory cloud users, the docker registry should be:
 
 Run kaniko with the `config.json` inside `/kaniko/.docker/config.json`
 
-    docker run -ti --rm -v `pwd`:/workspace -v `pwd`/config.json:/kaniko/.docker/config.json:ro gcr.io/kaniko-project/executor:latest --dockerfile=Dockerfile --destination=yourimagename
+    docker run -ti --rm -v `pwd`:/workspace -v `pwd`/config.json:/kaniko/.docker/config.json:ro ghcr.io/osscontainertools/kaniko:latest --dockerfile=Dockerfile --destination=yourimagename
 
 After the image is uploaded, using the JFrog CLI, you can
 [collect](https://www.jfrog.com/confluence/display/CLI/CLI+for+JFrog+Artifactory#CLIforJFrogArtifactory-PushingDockerImagesUsingKaniko)

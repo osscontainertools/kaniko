@@ -30,7 +30,7 @@ We are doing our best to get to this. Please help us by helping us prioritize yo
 
  | **Description** | **Yes/No** |
  |----------------|---------------|
- | Please check if this a new feature you are proposing        | <ul><li>- [ ] </li></ul>|
+ | Please check if this is a new feature you are proposing        | <ul><li>- [ ] </li></ul>|
  | Please check if the build works in docker but not in kaniko | <ul><li>- [ ] </li></ul>|
  | Please check if this error is seen when you use `--cache` flag | <ul><li>- [ ] </li></ul>|
  | Please check if your dockerfile is a multistage dockerfile | <ul><li>- [ ] </li></ul>|
