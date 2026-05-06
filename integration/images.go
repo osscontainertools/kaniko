@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/util/bucket"
@@ -105,6 +106,8 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_mz511":                {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_mz529":                {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_mz661":                {"KANIKO_DIR=/kaniko2"},
+	"Dockerfile_test_stopsignal":                 {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
+	"Dockerfile_test_healthcheck":                {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
 }
 
 var KanikoEnv = []string{
@@ -120,6 +123,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_RUN_MOUNT_BIND=1",
 	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=1",
 	"FF_KANIKO_CACHE_LOOKAHEAD=1",
+	"KANIKO_PRINT_PLAN=1",
 }
 
 var WarmerEnv = []string{
@@ -133,6 +137,7 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=context/foo"},
 	"Dockerfile_test_issue_mz661": {"--secret=id=kaniko,src=context/foo"},
 	// provenance forces ociv1 on buildkit but for these images we emit dockerv2 in kaniko
+	"Dockerfile_test_cross_compile":                {"--platform=linux/" + crossCompileArch},
 	"Dockerfile_test_mv_add":                       {"--provenance=false"},
 	"Dockerfile_test_snapshotter_ignorelist":       {"--provenance=false"},
 	"Dockerfile_test_whitelist":                    {"--provenance=false"},
@@ -200,14 +205,30 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_cg188":            {"--secret=id=netrc,env=SECRET"},
 	// mz511: we're using /etc/nsswitch.conf because it pre-exists
 	// in the kaniko image and can therefore safely be deleted.
-	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=/etc/nsswitch.conf"},
-	"Dockerfile_test_issue_mz529": {"--cleanup"},
-	"Dockerfile_test_issue_mz661": {"--secret=id=kaniko,src=/kaniko/executor"},
+	"Dockerfile_test_issue_mz511":   {"--secret=id=netrc,src=/etc/nsswitch.conf"},
+	"Dockerfile_test_ignore_path":   {"--ignore-path=/kaniko-extra-file", "--ignore-path=/kaniko-extra-dir"},
+	"Dockerfile_test_cross_compile": {"--custom-platform=linux/" + crossCompileArch},
+	"Dockerfile_test_issue_mz529":   {"--cleanup"},
+	"Dockerfile_test_issue_mz595":   {"--cleanup"},
+	"Dockerfile_test_issue_mz661":   {"--secret=id=kaniko,src=/kaniko/executor"},
 }
 
 var expectErr = map[string]int{
 	"Dockerfile_test_issue_cg326_1": 1,
 	"Dockerfile_test_add_404":       1,
+}
+
+var crossCompileArch = func() string {
+	if runtime.GOARCH == "amd64" {
+		return "arm64"
+	}
+	return "amd64"
+}()
+
+// Platform overrides for docker pull and diffoci, keyed by test name.
+var platformMap = map[string]v1.Platform{
+	"TestRun/test_Dockerfile_test_cross_compile":          {OS: "linux", Architecture: crossCompileArch},
+	"TestLayers/test_layer_Dockerfile_test_cross_compile": {OS: "linux", Architecture: crossCompileArch},
 }
 
 // Arguments to diffoci when comparing dockerfiles
@@ -222,7 +243,10 @@ var diffArgsMap = map[string][]string{
 	// when we untar we overwrite the parent directory, buildkit doesnt
 	"TestRun/test_Dockerfile_test_add": {"--extra-ignore-file-permissions"},
 	// Verify we don't store root directory
-	"TestRun/test_Dockerfile_test_root": {"--extra-ignore-layer-length-mismatch=false"},
+	"TestRun/test_Dockerfile_test_root":          {"--extra-ignore-layer-length-mismatch=false"},
+	"TestRun/test_Dockerfile_test_cross_compile": {"--platform=linux/" + crossCompileArch},
+	// --ignore-path must suppress the kaniko-only file; layer-length-mismatch would mask the difference
+	"TestRun/test_Dockerfile_test_ignore_path": {"--extra-ignore-layer-length-mismatch=false"},
 	// FROM scratch we start with root, buildkit doesnt
 	"TestRun/test_Dockerfile_test_workdir_with_user": {"--extra-ignore-file-permissions"},
 	// We don't handle user nobody=-1 nogroup=-1 correctly
@@ -868,6 +892,11 @@ func buildKanikoImage(
 
 	// build kaniko image
 	additionalFlags := append(buildArgs, kanikoArgs...)
+	additionalFlags = append(additionalFlags,
+		"--digest-file=/dev/stdout",
+		"--image-name-with-digest-file=/dev/stdout",
+		"--image-name-tag-with-digest-file=/dev/stdout",
+	)
 	logf("Going to build image with kaniko: %s, flags: %s \n", kanikoImage, additionalFlags)
 
 	dockerRunFlags := []string{

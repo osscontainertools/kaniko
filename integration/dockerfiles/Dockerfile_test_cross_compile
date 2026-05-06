@@ -1,0 +1,9 @@
+FROM alpine AS base
+LABEL stage=base
+COPY context/foo /base/foo
+
+FROM base AS app
+WORKDIR /app
+COPY --from=base /base/foo /app/foo
+ENV GREETING=hello
+LABEL test=cross-compile

@@ -1,0 +1,9 @@
+FROM alpine
+# Create extra files only under kaniko so that --ignore-path is what makes the
+# kaniko and docker output match. Docker never creates them, so without
+# --ignore-path the kaniko image would contain them and the diff would fail.
+RUN mkdir /app && echo "normal" > /app/data.txt && \
+    if ls -l /proc/1/exe | grep -q '/kaniko/executor'; then \
+        touch /kaniko-extra-file && \
+        mkdir /kaniko-extra-dir && touch /kaniko-extra-dir/child.txt; \
+    fi
