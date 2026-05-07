@@ -138,6 +138,7 @@ RUN --mount=from=kaniko-base-2,source=/kaniko,target=/mnt/kaniko \
 # with these flags we wipe the filesystem before build, circumventing this issue.
 ENV KANIKO_PRESERVE_CONTEXT=1 \
     KANIKO_PRE_CLEANUP=1 \
+    KANIKO_CLEANUP=1 \
     DOCKER_CONFIG=/kaniko/.docker/ \
     DOCKER_CREDENTIAL_GCR_CONFIG=/kaniko/.config/gcloud/docker_credential_gcr_config.json \
     SSL_CERT_DIR=/kaniko/ssl/certs
