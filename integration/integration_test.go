@@ -768,7 +768,7 @@ func TestSnapshotModes(t *testing.T) {
 		t.Helper()
 		tag := GetKanikoImage(config.imageRepo, dockerfile+"-snapshot-"+mode)
 		kanikoArgs := []string{"-c", buildContextPath, "--snapshot-mode=" + mode}
-		if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, kanikoArgs, tag, cwd, config.gcsBucket, config.gcsClient, config.serviceAccount, false); err != nil {
+		if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, kanikoArgs, tag, cwd, config.gcsBucket, config.gcsClient, config.serviceAccount, false, "", ""); err != nil {
 			t.Fatalf("kaniko build with --snapshot-mode=%s: %v", mode, err)
 		}
 		return tag
