@@ -21,13 +21,8 @@ function start_local_registry {
 
 function start_local_tls_registry {
   local dir="/tmp/kaniko-tls-registry"
-  if ! { [[ -f "${dir}/tls.crt" ]] && [[ -f "${dir}/htpasswd" ]] && docker start kaniko-tls-registry 2>/dev/null; }; then
-    mkdir -p "${dir}"
-    openssl req -x509 -newkey rsa:2048 -keyout "${dir}/tls.key" -out "${dir}/tls.crt" \
-      -days 3650 -nodes -subj "/CN=127.0.0.2" -addext "subjectAltName=IP:127.0.0.2" \
-      2>/dev/null
-    # kanikotest:kanikotest
-    docker run --rm --entrypoint htpasswd httpd:2 -Bbn kanikotest kanikotest > "${dir}/htpasswd"
+  "$(dirname "$0")/setup-tls-registry-creds.sh"
+  if ! docker start kaniko-tls-registry 2>/dev/null; then
     docker rm -f kaniko-tls-registry 2>/dev/null || true
     docker run -d --name kaniko-tls-registry \
       -p 127.0.0.2:5001:5000 \
@@ -41,7 +36,6 @@ function start_local_tls_registry {
       -e REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd \
       registry:2
   fi
-  export TLS_REGISTRY_CERT="${dir}/tls.crt"
 }
 
 # TODO: to get this working, we need a way to override the gcs endpoint of kaniko at runtime
@@ -85,5 +79,6 @@ if [[ -n ${COVERAGE_DIR} ]]; then
   FLAGS+=("--coverage-dir=${COVERAGE_DIR}")
 fi
 
-go test ./integration/... "${FLAGS[@]}" "$@"
+export TLS_REGISTRY_CERT="/tmp/kaniko-tls-registry/tls.crt"
+go test -v ./integration/... "${FLAGS[@]}" "$@"
 
