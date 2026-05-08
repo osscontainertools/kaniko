@@ -40,8 +40,9 @@ kubectl create secret generic local-tls-registry-auth \
 
 # Install local registry and have it listen on localhost:5000
 sudo cp "${SCRIPT_PATH}/local-registry-helm.yaml" /var/lib/rancher/k3s/server/manifests/
-# Wait until install of the registry completes
-timeout 5m bash -c 'until kubectl get -n kube-system pod 2>/dev/null | grep local-registry | grep Completed >/dev/null; do sleep 1; done'
+# Wait until both helm chart installs complete
+timeout 10m bash -c 'until kubectl get -n kube-system pod 2>/dev/null | grep "^helm-install-local-registry-" | grep -v tls | grep Completed >/dev/null; do sleep 1; done'
+timeout 10m bash -c 'until kubectl get -n kube-system pod 2>/dev/null | grep "^helm-install-local-tls-registry-" | grep Completed >/dev/null; do sleep 1; done'
 # Wait until registry becomes available on localhost:5000
 timeout 5m bash -c 'until nc -z localhost 5000; do sleep 1; done'
 timeout 5m bash -c 'until nc -z 127.0.0.2 5001; do sleep 1; done'
