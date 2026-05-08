@@ -16,7 +16,7 @@ require (
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589
 	github.com/containerd/platforms v1.0.0-rc.4
 	github.com/docker/cli v29.4.3+incompatible
-	github.com/docker/docker-credential-helpers v0.9.6
+	github.com/docker/docker-credential-helpers v0.9.7
 	github.com/ePirat/docker-credential-gitlabci v1.0.0
 	github.com/go-git/go-billy/v5 v5.9.0
 	github.com/go-git/go-git/v5 v5.19.0
