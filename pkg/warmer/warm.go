@@ -121,6 +121,25 @@ func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	finalCachePath := path.Join(cacheDir, digest.String())
 	finalMfstPath := finalCachePath + ".json"
 
+	// Serialize the recheck+rename against other warmer processes sharing
+	// this cache volume. Holding the lock only around this step (not across
+	// the download above) keeps concurrent warmers for the same image from
+	// trampling each other's renames while still letting them run in
+	// parallel against the network.
+	release, err := acquireCacheLock(cacheDir, digest.String())
+	if err != nil {
+		return fmt.Errorf("failed to acquire cache lock: %w", err)
+	}
+	defer release()
+
+	// Another warmer may have finished while we were downloading or waiting
+	// on the lock. If so, drop our copy rather than overwrite theirs — the
+	// content is by-digest immutable, so either tarball is equivalent.
+	if _, statErr := os.Stat(finalCachePath); statErr == nil {
+		logrus.Infof("Image %v became available in cache while warming; keeping existing copy", img)
+		return nil
+	}
+
 	err = os.Rename(f.Name(), finalCachePath)
 	if err != nil {
 		return err
@@ -160,6 +179,22 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	}
 
 	finalCachePath := path.Join(cacheDir, digest.String())
+
+	// Serialize the recheck+rename against other warmer processes sharing
+	// this cache volume. Unlike the tarball path (which silently overwrote),
+	// os.Rename of a directory onto a non-empty destination fails with
+	// ENOTEMPTY on Linux, so unsynchronized concurrent warms here are an
+	// outright error, not just wasted work.
+	release, err := acquireCacheLock(cacheDir, digest.String())
+	if err != nil {
+		return fmt.Errorf("failed to acquire cache lock: %w", err)
+	}
+	defer release()
+
+	if _, statErr := os.Stat(finalCachePath); statErr == nil {
+		logrus.Infof("Image %v became available in cache while warming; keeping existing copy", img)
+		return nil
+	}
 
 	err = os.Rename(tmp, finalCachePath)
 	if err != nil {
