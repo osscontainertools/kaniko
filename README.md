@@ -139,6 +139,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE`](#flag-ff_kaniko_buildkit_arg_env_precedence)
       - [Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`](#flag-ff_kaniko_infer_cross_stage_cache_key)
       - [Flag `FF_KANIKO_CACHE_LOOKAHEAD`](#flag-ff_kaniko_cache_lookahead)
+      - [Flag `FF_KANIKO_CACHE_PROBE_AFTER_MISS`](#flag-ff_kaniko_cache_probe_after_miss)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1204,6 +1205,15 @@ Becomes default in `v1.28.0`.
 #### Flag `FF_KANIKO_CACHE_LOOKAHEAD`
 
 Set this flag to `true` to run a precompute pass before the build loop that derives each stage's final cache key ahead of time. The build loop still recomputes each key during its own `optimize()` call and asserts that it matches the precomputed value. This is a developer assertion to verify the new precompute pass is correct, there is no benefit to enabling it in production.
+Defaults to `false`.
+
+#### Flag `FF_KANIKO_CACHE_PROBE_AFTER_MISS`
+
+By default, a single layer cache miss within a stage disables every subsequent cache lookup in that same stage. A 30-step Dockerfile with one transient miss at step 3 will rebuild the remaining 27 layers locally even when later layers are still cached in the registry.
+
+Set this flag to `true` to keep probing the cache after a miss. Cached tar diffs apply cleanly on top of locally-rebuilt prior layers under the same determinism assumption the cache scheme already requires (cache keys encode commands and inputs, not prior-layer outputs).
+
+The other `stopCache` site — `COPY --from` in the precompute pass — is intentionally not affected by this flag. That one signals "key cannot be computed without the file context", not a transient miss, and is required for correctness.
 Defaults to `false`.
 
 ### Assertion Overrides
