@@ -1,3 +1,48 @@
+# v1.27.5 Release 2026-05-15
+
+## Community Update
+@iahsanGill made their first contribution in https://github.com/osscontainertools/kaniko/pull/703
+
+Also many thanks to @mosauter, @phoenix-frozen, and @cmellazchy for reporting issues fixed in this release.
+
+## What's Changed
+### Security
+* github.com/docker/cli v29.4.1: CVE-2025-15558
+* github.com/go-git/go-billy/v5 v5.8.0: CVE-2026-44973 CVE-2026-44740
+* github.com/go-git/go-git/v5 v5.18.0: CVE-2026-45022
+* go stdlib v1.26.2: CVE-2026-33811 CVE-2026-33814 CVE-2026-39820 CVE-2026-39836 CVE-2026-42499 CVE-2026-39823 CVE-2026-39825 CVE-2026-39826
+
+### Bugfixes
+* `kaniko-alpine` push fails with `UNAUTHORIZED` and TLS verification fails after pre-cleanup: https://github.com/osscontainertools/kaniko/pull/678
+* COPY instructions silently skip files in the ignore list with no output at the default log level: https://github.com/osscontainertools/kaniko/pull/663
+
+### Caching
+* `FF_KANIKO_CACHE_PROBE_AFTER_MISS=false` keep probing the cache after a layer miss: by @iahsanGill in https://github.com/osscontainertools/kaniko/pull/703
+
+### Maintenance
+* build(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager from 0.1.19 to 0.1.21: https://github.com/osscontainertools/kaniko/pull/670 https://github.com/osscontainertools/kaniko/pull/687
+* build(deps): bump github.com/docker/cli from 29.4.1 to 29.5.0: https://github.com/osscontainertools/kaniko/pull/670 https://github.com/osscontainertools/kaniko/pull/687 https://github.com/osscontainertools/kaniko/pull/701
+* build(deps): bump step-security/harden-runner from 2.19.0 to 2.19.3: https://github.com/osscontainertools/kaniko/pull/675 https://github.com/osscontainertools/kaniko/pull/699 https://github.com/osscontainertools/kaniko/pull/702
+* build(deps): bump google.golang.org/api from 0.277.0 to 0.279.0: https://github.com/osscontainertools/kaniko/pull/681 https://github.com/osscontainertools/kaniko/pull/696
+* build(deps): bump debian in /deploy: https://github.com/osscontainertools/kaniko/pull/683 https://github.com/osscontainertools/kaniko/pull/691
+* build(deps): bump golang in /deploy: https://github.com/osscontainertools/kaniko/pull/682 https://github.com/osscontainertools/kaniko/pull/688 https://github.com/osscontainertools/kaniko/pull/692 https://github.com/osscontainertools/kaniko/pull/695 https://github.com/osscontainertools/kaniko/pull/698
+* build(deps): bump github.com/go-git/go-billy/v5 from 5.8.0 to 5.9.0: https://github.com/osscontainertools/kaniko/pull/684
+* build(deps): bump github.com/go-git/go-git/v5 from 5.18.0 to 5.19.0: https://github.com/osscontainertools/kaniko/pull/685
+* build(deps): bump sigstore/cosign-installer from 4.1.1 to 4.1.2: https://github.com/osscontainertools/kaniko/pull/686
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.100.1 to 1.101.0: https://github.com/osscontainertools/kaniko/pull/687
+* build(deps): bump github.com/docker/docker-credential-helpers from 0.9.6 to 0.9.7: https://github.com/osscontainertools/kaniko/pull/689
+* build(deps): bump golang.org/x/sys from 0.43.0 to 0.44.0: https://github.com/osscontainertools/kaniko/pull/690
+* build(deps): bump github.com/moby/buildkit from 0.29.0 to 0.30.0: https://github.com/osscontainertools/kaniko/pull/697
+* build(deps): bump github.com/Azure/azure-sdk-for-go/sdk/storage/azblob from 1.6.4 to 1.7.0: https://github.com/osscontainertools/kaniko/pull/700
+
+### Fork Related
+* encode the release process as slash commands: https://github.com/osscontainertools/kaniko/pull/671
+* harden CI: https://github.com/osscontainertools/kaniko/pull/664
+* pin ubuntu:24.04 digest in test Dockerfiles to avoid OCI annotation mismatch: https://github.com/osscontainertools/kaniko/pull/680
+* docs overhaul: https://github.com/osscontainertools/kaniko/pull/676
+* improve integration test coverage: https://github.com/osscontainertools/kaniko/pull/669
+
+
 # v1.27.4 Release 2026-04-30
 
 ## Community Update

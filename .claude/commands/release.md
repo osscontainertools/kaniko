@@ -36,6 +36,7 @@ Usage: `/release <version>`
    ### Security        CVE fixes, hardening
    ### Bugfixes        incorrect behavior now fixed; "no feature flag" means the fix itself is not gated by a new flag — bugs in code paths enabled by an existing flag are still Bugfixes
    ### Standardization FF flags correcting spec-violating behavior (diverged from Docker/OCI, flag gates fix for backwards compat)
+   ### Caching         cache correctness or cache-hit-rate improvements
    ### Performance     speed/resource
    ### Usability       FF flags or options adding new user-facing capabilities
    ### Maintenance     build(deps): bumps
@@ -86,12 +87,18 @@ Usage: `/release <version>`
     - **Bugfixes**: only bugs that existed in Google's v1.24.0 and are now fixed. Omit bugs introduced and fixed entirely in our fork.
     - **All other sections**: new features and user-visible changes a Google-version user gains by switching.
 
-13. **Attribution check** — for each PR, check if a referenced issue was opened by an external contributor (not mzihlmann or dependabot). If so, add between release header and `## What's Changed`:
+13. **Attribution check** — external contributors (not mzihlmann/dependabot). First-timers: PR authors where the following returns only the current PR:
+    ```bash
+    gh pr list --repo osscontainertools/kaniko --state merged --author <login> --json number
+    ```
+    Reporters: authors of issues closed in this release. If either non-empty, insert between release header and `## What's Changed`:
     ```
     ## Community Update
-    Many thanks to @username for reporting an issue fixed in this release.
+    @user made their first contribution in URL
+
+    Also many thanks to @reporter1 and @reporter2 for reporting issues fixed in this release.
     ```
-    "an issue" / "issues" depending on count. Only include reporters whose issue is closed in this release. Also add `by @username in URL` for externally authored PRs.
+    Omit either line if its group is empty. "an issue"/"issues" by count. Also add `by @username in URL` to externally-authored PR entries.
 
 14. **Consistency check** — compare entry style, capitalisation, and backtick usage against the two previous release entries. Fix deviations.
 
