@@ -285,6 +285,15 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 	}
 
 	stopCache := false
+	// FF_KANIKO_CACHE_PROBE_AFTER_MISS: when set, a regular cache miss no
+	// longer disables lookups for the remaining layers in the stage. Cached
+	// tar diffs apply cleanly on top of locally-rebuilt prior layers under
+	// the same determinism assumption the cache scheme already requires.
+	// The other stopCache=true site (COPY --from in the precompute pass) is
+	// untouched — that one signals "key cannot be computed without the file
+	// context", not a transient miss.
+	probeAfterMiss := config.EnvBool("FF_KANIKO_CACHE_PROBE_AFTER_MISS")
+	sawCacheMiss := false
 	finalCacheKey, err := compositeKey.Hash()
 	if err != nil {
 		return "", err
@@ -359,11 +368,17 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 					logrus.Debugf("Failed to retrieve layer: %s", err)
 					logrus.Infof("No cached layer found for cmd %s", command.String())
 					logrus.Debugf("Key missing was: %s", compositeKey.Key())
-					stopCache = true
+					sawCacheMiss = true
+					if !probeAfterMiss {
+						stopCache = true
+					}
 					continue
 				}
 
 				if cacheCmd := command.CacheCommand(img); cacheCmd != nil {
+					if sawCacheMiss {
+						logrus.Debugf("Applying cached layer for cmd %s after an earlier miss in the same stage (FF_KANIKO_CACHE_PROBE_AFTER_MISS)", command.String())
+					}
 					logrus.Infof("Using caching version of cmd: %s", command.String())
 					s.cmds[i] = cacheCmd
 				}
