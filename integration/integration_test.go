@@ -768,7 +768,7 @@ func TestSnapshotModes(t *testing.T) {
 		t.Helper()
 		tag := GetKanikoImage(config.imageRepo, dockerfile+"-snapshot-"+mode)
 		kanikoArgs := []string{"-c", buildContextPath, "--snapshot-mode=" + mode}
-		if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, kanikoArgs, tag, cwd, config.gcsBucket, config.gcsClient, config.serviceAccount, false); err != nil {
+		if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, kanikoArgs, tag, cwd, config.gcsBucket, config.gcsClient, config.serviceAccount, false, "", ""); err != nil {
 			t.Fatalf("kaniko build with --snapshot-mode=%s: %v", mode, err)
 		}
 		return tag
@@ -1292,6 +1292,50 @@ func meetsRequirements() bool {
 		}
 	}
 	return hasRequirements
+}
+
+// mz677: verify that the kaniko-alpine executor can push with tls
+func TestAlpineTLS(t *testing.T) {
+	caCert := os.Getenv("TLS_REGISTRY_CERT")
+	if caCert == "" {
+		t.Fatal("TLS_REGISTRY_CERT not set")
+	}
+
+	dockerConfigDir, err := os.MkdirTemp("", "kaniko-docker-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dockerConfigDir)
+
+	loginCmd := exec.Command("docker", "run", "--rm", "--net=host",
+		"-v", dockerConfigDir+":/kaniko/.docker",
+		"-v", caCert+":/kaniko/ssl/certs/test-registry-ca.crt:ro",
+		AlpineImage, "login",
+		"--username", "kanikotest",
+		"--password", "kanikotest",
+		"127.0.0.2:5001",
+	)
+	out, err := loginCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("kaniko login failed: %v\n%s", err, out)
+	}
+
+	_, ex, _, _ := runtime.Caller(0)
+	cwd := filepath.Dir(ex)
+	dest := "127.0.0.2:5001/kaniko/mz595-tls:latest"
+	_, err = buildKanikoImage(
+		t.Logf,
+		dockerfilesPath,
+		"Dockerfile_test_issue_mz595",
+		nil,
+		[]string{"-c", buildContextPath},
+		dest,
+		cwd,
+		"", nil, config.serviceAccount, false, caCert, filepath.Join(dockerConfigDir, "config.json"),
+	)
+	if err != nil {
+		t.Error(err)
+	}
 }
 
 // containerDiff compares the container images image1 and image2.

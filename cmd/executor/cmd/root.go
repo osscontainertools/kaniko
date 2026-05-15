@@ -295,7 +295,7 @@ func AddKanikoOptionsFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().BoolVarP(&opts.Cache, "cache", "", false, "Use cache when building image")
 	cmd.Flags().BoolVarP(&opts.CompressedCaching, "compressed-caching", "", true, "Compress the cached layers. Decreases build time, but increases memory usage.")
 	cmd.Flags().BoolVarP(&opts.PreCleanup, "pre-cleanup", "", config.EnvBool("KANIKO_PRE_CLEANUP"), "Clean the filesystem before the build")
-	cmd.Flags().BoolVarP(&opts.Cleanup, "cleanup", "", false, "Clean the filesystem at the end")
+	cmd.Flags().BoolVarP(&opts.Cleanup, "cleanup", "", config.EnvBool("KANIKO_CLEANUP"), "Clean the filesystem at the end")
 	cmd.Flags().DurationVarP(&opts.CacheTTL, "cache-ttl", "", time.Hour*336, "Cache timeout, requires value and unit of duration -> ex: 6h. Defaults to two weeks.")
 	cmd.Flags().VarP(&opts.InsecureRegistries, "insecure-registry", "", "Insecure registry using plain HTTP to push and pull. Set it repeatedly for multiple registries.")
 	cmd.Flags().VarP(&opts.SkipTLSVerifyRegistries, "skip-tls-verify-registry", "", "Insecure registry ignoring TLS verify to push and pull. Set it repeatedly for multiple registries.")

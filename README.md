@@ -702,6 +702,8 @@ Defaults to `false`. Can also be set via the `KANIKO_PRE_CLEANUP` environment va
 
 Set this flag to clean the filesystem and kaniko's working directory at the end of the build.
 
+Defaults to `false`. Can also be set via the `KANIKO_CLEANUP` environment variable.
+
 #### Flag `--compression`
 
 Use this flag to select the compression algorithm `[gzip, zstd]`. Defaults to `gzip`.
