@@ -140,6 +140,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`](#flag-ff_kaniko_infer_cross_stage_cache_key)
       - [Flag `FF_KANIKO_CACHE_LOOKAHEAD`](#flag-ff_kaniko_cache_lookahead)
       - [Flag `FF_KANIKO_CACHE_PROBE_AFTER_MISS`](#flag-ff_kaniko_cache_probe_after_miss)
+      - [Flag `FF_KANIKO_WARMER_CACHE_LOCK`](#flag-ff_kaniko_warmer_cache_lock)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1217,6 +1218,13 @@ Set this flag to `true` to keep probing the cache after a miss. Cached tar diffs
 
 The other `stopCache` site — `COPY --from` in the precompute pass — is intentionally not affected by this flag. That one signals "key cannot be computed without the file context", not a transient miss, and is required for correctness.
 Defaults to `false`.
+
+#### Flag `FF_KANIKO_WARMER_CACHE_LOCK`
+
+Multiple warmer processes sharing a cache volume can race on the final rename to `cacheDir/<digest>`. With [`FF_KANIKO_OCI_WARMER`](#flag-ff_kaniko_oci_warmer) the rename fails with `ENOTEMPTY` and the loser exits non-zero.
+Set this flag to `true` to serialize the recheck + rename via a per-digest `flock(2)` on `cacheDir/.warmer-locks/<digest>.lock`.
+Defaults to `false`.
+Becomes default in `v1.28.0`.
 
 ### Assertion Overrides
 
