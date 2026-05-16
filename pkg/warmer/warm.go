@@ -128,10 +128,13 @@ func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 		}
 		defer release()
 
-		if _, statErr := os.Stat(finalCachePath); statErr == nil {
+		_, lookupErr := cw.Local(&opts.CacheOptions, digest.String())
+		if lookupErr == nil || cache.IsExpired(lookupErr) {
 			logrus.Infof("Image %v became available in cache while waiting for lock; keeping existing copy", img)
 			return nil
 		}
+		_ = os.RemoveAll(finalCachePath)
+		_ = os.Remove(finalMfstPath)
 	}
 
 	if err := cw.Write(cacheRef, image); err != nil {
@@ -186,10 +189,15 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 		}
 		defer release()
 
-		if _, statErr := os.Stat(finalCachePath); statErr == nil {
+		_, lookupErr := cw.Local(&opts.CacheOptions, digest.String())
+		if lookupErr == nil || cache.IsExpired(lookupErr) {
 			logrus.Infof("Image %v became available in cache while waiting for lock; keeping existing copy", img)
 			return nil
 		}
+		_ = os.RemoveAll(finalCachePath)
+		// mz364: finalCachePath+".json" is the legacy tarball manifest sidecar.
+		// Drop this once the tarball cache format is removed (FF_KANIKO_OCI_WARMER deprecated)
+		_ = os.Remove(finalCachePath + ".json")
 	}
 
 	if err := cw.Write(cacheRef, image); err != nil {
