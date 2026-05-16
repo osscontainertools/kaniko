@@ -31,15 +31,8 @@ const warmerLockDir = ".warmer-locks"
 
 // acquireCacheLock takes an exclusive flock on cacheDir/.warmer-locks/<key>.lock
 // and returns a release closure. It is used by warmToFile and ociWarmToFile to
-// serialize the final-rename step for the same digest across processes sharing
+// serialize the cache write for the same digest across processes sharing
 // the same cache volume.
-//
-// The lock is held only around the destination recheck and rename, not across
-// the image download itself. Concurrent warmers fetching the same image will
-// each pay the download cost; the lock simply guarantees that only one of
-// them moves the result into place. This avoids ENOTEMPTY rename failures
-// (FF_KANIKO_OCI_WARMER, which renames a directory) and silent overwrites
-// (the legacy tarball path, which renames a file).
 func acquireCacheLock(cacheDir, key string) (func(), error) {
 	lockDir := filepath.Join(cacheDir, warmerLockDir)
 	if err := os.MkdirAll(lockDir, 0o755); err != nil {
