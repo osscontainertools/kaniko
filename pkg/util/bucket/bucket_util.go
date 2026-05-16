@@ -18,7 +18,6 @@ package bucket
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/url"
 	"strings"
@@ -39,16 +38,6 @@ func Upload(ctx context.Context, bucketName string, path string, r io.Reader, cl
 		return err
 	}
 	return nil
-}
-
-// Delete will remove the content at path. path should be the full path
-// to a file in GCS.
-func Delete(ctx context.Context, bucketName string, path string, client *storage.Client) error {
-	err := client.Bucket(bucketName).Object(path).Delete(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to delete file at %s in gcs bucket %v: %w", path, bucketName, err)
-	}
-	return err
 }
 
 // ReadCloser will create io.ReadCloser for the specified bucket and path
