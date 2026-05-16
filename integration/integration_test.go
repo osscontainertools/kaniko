@@ -863,6 +863,8 @@ func TestWarmer(t *testing.T) {
 // Attempt to warm an image two times : first time should populate the cache, second time should find the image in the cache.
 func TestWarmerTwice(t *testing.T) {
 	t.Parallel()
+	// mz364: subtests share one cache volume so concurrent warmers exercise the TOCTOU race
+	tmpDir := t.TempDir()
 	dockerfiles := map[string]bool{
 		"debian:trixie-slim": true,
 		"debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56": true,  // image-index requires remote lookup
@@ -871,11 +873,6 @@ func TestWarmerTwice(t *testing.T) {
 	for dockerfile, remoteLookup := range dockerfiles {
 		t.Run("test_warmer_twice_"+dockerfile, func(t *testing.T) {
 			t.Parallel()
-			tmpDir, err := os.MkdirTemp("", "")
-			if err != nil {
-				t.Fatal("failed to create tmpdir")
-			}
-			defer os.RemoveAll(tmpDir)
 
 			// Start a sleeping warmer container
 			dockerRunFlags := []string{"run", "--net=host"}
