@@ -17,7 +17,6 @@ limitations under the License.
 package integration
 
 import (
-	"compress/gzip"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -25,10 +24,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
-
-	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
 // TestHTTPSBuildcontext exercises the https:// tarball build context. The
@@ -50,40 +46,13 @@ func TestHTTPSBuildcontext(t *testing.T) {
 		t.Fatalf("load TLS keypair: %v", err)
 	}
 
-	tmp := t.TempDir()
-	srcDir := filepath.Join(tmp, "ctx")
-	err = os.Mkdir(srcDir, 0o755)
+	tarPath := filepath.Join(t.TempDir(), "context.tar.gz")
+	tarCmd := exec.Command("tar", "-czf", tarPath, "Dockerfile_test_run_2")
+	tarCmd.Dir = dockerfilesPath
+	tarOut, err := tarCmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("mkdir: %v", err)
+		t.Fatalf("tar: %v\n%s", err, tarOut)
 	}
-	err = os.WriteFile(filepath.Join(srcDir, "Dockerfile"),
-		[]byte("FROM debian:12.10\nRUN echo \"hey\"\n"), 0o644)
-	if err != nil {
-		t.Fatalf("write Dockerfile: %v", err)
-	}
-
-	tarPath := filepath.Join(tmp, "context.tar.gz")
-	tarFile, err := os.Create(tarPath)
-	if err != nil {
-		t.Fatalf("create tarball: %v", err)
-	}
-	gw := gzip.NewWriter(tarFile)
-	err = util.CreateTarballOfDirectory(srcDir, gw)
-	if err != nil {
-		t.Fatalf("tar srcDir: %v", err)
-	}
-	err = gw.Close()
-	if err != nil {
-		t.Fatalf("close gzip: %v", err)
-	}
-	err = tarFile.Close()
-	if err != nil {
-		t.Fatalf("close tarball: %v", err)
-	}
-
-	// CreateTarballOfDirectory strips only the leading "/", so the Dockerfile
-	// lands at the host's absolute path (minus the slash) inside the tarball.
-	dockerfileInTar := filepath.Join(strings.TrimPrefix(srcDir, "/"), "Dockerfile")
 
 	listener, err := net.Listen("tcp", "127.0.0.2:0")
 	if err != nil {
@@ -102,6 +71,8 @@ func TestHTTPSBuildcontext(t *testing.T) {
 
 	tarballURL := fmt.Sprintf("https://%s/context.tar.gz", listener.Addr().String())
 
+	// Build with docker by piping the same tarball over stdin so the daemon
+	// does not have to trust the self-signed cert.
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_https")
 	f, err := os.Open(tarPath)
 	if err != nil {
@@ -109,7 +80,7 @@ func TestHTTPSBuildcontext(t *testing.T) {
 	}
 	defer f.Close()
 	dockerCmd := exec.Command("docker", "build", "--push",
-		"-f", dockerfileInTar, "-t", dockerImage, "-")
+		"-f", "Dockerfile_test_run_2", "-t", dockerImage, "-")
 	dockerCmd.Stdin = f
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -125,7 +96,7 @@ func TestHTTPSBuildcontext(t *testing.T) {
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-c", tarballURL,
-		"-f", dockerfileInTar,
+		"-f", "Dockerfile_test_run_2",
 		"-d", kanikoImage,
 	)
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
