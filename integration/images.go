@@ -127,6 +127,7 @@ var KanikoEnv = []string{
 
 var WarmerEnv = []string{
 	"FF_KANIKO_OCI_WARMER=1",
+	"FF_KANIKO_WARMER_CACHE_LOCK=1",
 }
 
 // Arguments to build Dockerfiles with when building with docker
