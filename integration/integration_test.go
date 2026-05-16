@@ -272,35 +272,44 @@ func getBranchCommitAndURL() (branch, commit, url string) {
 	return
 }
 
-// testGitBuildcontextHelper builds the same Dockerfile from a git context with
-// docker and kaniko and compares the results.
 func testGitBuildcontextHelper(t *testing.T, dockerRef, kanikoRef, imageName string, kanikoExtraFlags ...string) {
-	t.Helper()
+	t.Log("testGitBuildcontextHelper docker", dockerRef, "kaniko", kanikoRef)
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_test_run_2", integrationPath, dockerfilesPath)
 
+	// Build with docker
 	dockerImage := GetDockerImage(config.imageRepo, imageName)
-	dockerCmd := exec.Command("docker", "build", "--push",
-		"-t", dockerImage, "-f", dockerfile, dockerRef)
+	dockerCmd := exec.Command("docker",
+		[]string{
+			"build",
+			"--push",
+			"-t", dockerImage,
+			"-f", dockerfile,
+			dockerRef,
+		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
-		t.Fatalf("docker build failed: %v\n%s", err, out)
+		t.Errorf("Failed to build image %s with docker command %q: %s %s", dockerImage, dockerCmd.Args, err, string(out))
 	}
 
+	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, imageName)
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
-		"-f", dockerfile, "-d", kanikoImage, "-c", kanikoRef)
+		"-f", dockerfile,
+		"-d", kanikoImage,
+		"-c", kanikoRef)
 	dockerRunFlags = append(dockerRunFlags, kanikoExtraFlags...)
+
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
+
 	out, err = RunCommandWithoutTest(kanikoCmd)
 	if err != nil {
-		t.Fatalf("kaniko build failed: %v\n%s", err, out)
+		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, dockerImage, kanikoImage, "--semantic",
-		"--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 }
 
 // TestGitBuildcontext explicitly names the main branch
