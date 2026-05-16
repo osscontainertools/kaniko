@@ -876,6 +876,8 @@ func TestWarmerTwice(t *testing.T) {
 
 			// Start a sleeping warmer container
 			dockerRunFlags := []string{"run", "--net=host"}
+			// mz364: run as host user so cache files can be removed
+			dockerRunFlags = append(dockerRunFlags, "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()))
 			dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 			for _, envVariable := range WarmerEnv {
 				dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
