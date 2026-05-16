@@ -1400,20 +1400,6 @@ func reviewConfig(stage config.KanikoStage, config *v1.Config) {
 	}
 }
 
-// iterates over a list of KanikoStage and resolves instructions referring to earlier stages
-// returns a mapping of stage name to stage id, f.e - ["first": 0, "second": 1, "target": 2]
-func ResolveCrossStageInstructions(stages []config.KanikoStage) map[string]int {
-	nameToIndex := make(map[string]int)
-	for _, stage := range stages {
-		if stage.Name != "" {
-			nameToIndex[stage.Name] = stage.Index
-		}
-	}
-
-	logrus.Debugf("Built stage name to index map: %v", nameToIndex)
-	return nameToIndex
-}
-
 // mz507: withoutAnnotations returns an image whose manifest has no annotations.
 // mutate.Annotations only merges into existing annotations and cannot delete
 // keys, so we wrap the image to intercept Manifest and RawManifest instead.
