@@ -17,20 +17,9 @@ limitations under the License.
 package util
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"testing"
-
-	"github.com/osscontainertools/kaniko/testutil"
 )
-
-func TestGetInputFrom(t *testing.T) {
-	validInput := []byte("Valid\n")
-	validReader := bufio.NewReader(bytes.NewReader((validInput)))
-	validValue, err := GetInputFrom(validReader)
-	testutil.CheckErrorAndDeepEqual(t, false, err, validInput, validValue)
-}
 
 func makeRetryFunc(numFailures int) retryFunc {
 	i := -1
