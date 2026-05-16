@@ -1066,13 +1066,6 @@ func IsSymlink(fi os.FileInfo) bool {
 
 var ErrNotSymLink = errors.New("not a symlink")
 
-func GetSymLink(path string) (string, error) {
-	if err := getSymlink(path); err != nil {
-		return "", err
-	}
-	return os.Readlink(path)
-}
-
 func EvalSymLink(path string) (string, error) {
 	if err := getSymlink(path); err != nil {
 		return "", err

@@ -303,53 +303,6 @@ func TestEmptySnapshotFS(t *testing.T) {
 	}
 }
 
-func TestFileWithLinks(t *testing.T) {
-	link := "baz/link"
-	tcs := []struct {
-		name           string
-		path           string
-		linkFileTarget string
-		expected       []string
-		shouldErr      bool
-	}{
-		{
-			name:           "given path is a symlink that points to a valid target",
-			path:           link,
-			linkFileTarget: "file",
-			expected:       []string{link, "baz/file"},
-		},
-		{
-			name:           "given path is a symlink points to non existing path",
-			path:           link,
-			linkFileTarget: "does-not-exists",
-			expected:       []string{link},
-		},
-		{
-			name:           "given path is a regular file",
-			path:           "kaniko/file",
-			linkFileTarget: "file",
-			expected:       []string{"kaniko/file"},
-		},
-	}
-
-	for _, tt := range tcs {
-		t.Run(tt.name, func(t *testing.T) {
-			testDir, err := setUpTestDir(t)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := setupSymlink(testDir, link, tt.linkFileTarget); err != nil {
-				t.Fatalf("could not set up symlink due to %s", err)
-			}
-			actual, err := filesWithLinks(filepath.Join(testDir, tt.path))
-			if err != nil {
-				t.Fatalf("unexpected error %s", err)
-			}
-			sortAndCompareFilepaths(t, testDir, tt.expected, actual)
-		})
-	}
-}
-
 func TestSnapshotPreservesFileOrder(t *testing.T) {
 	newFiles := map[string]string{
 		"foo":     "newbaz1",
@@ -576,20 +529,6 @@ func TestSnapshotOmitsUnameGname(t *testing.T) {
 			t.Fatalf("Expected Uname/Gname for %s to be empty: Uname = '%s', Gname = '%s'", hdr.Name, hdr.Uname, hdr.Gname)
 		}
 	}
-}
-
-func setupSymlink(dir string, link string, target string) error {
-	return os.Symlink(target, filepath.Join(dir, link))
-}
-
-func sortAndCompareFilepaths(t *testing.T, testDir string, expected []string, actual []string) {
-	expectedFullPaths := make([]string, len(expected))
-	for i, file := range expected {
-		expectedFullPaths[i] = filepath.Join(testDir, file)
-	}
-	sort.Strings(expectedFullPaths)
-	sort.Strings(actual)
-	testutil.CheckDeepEqual(t, expectedFullPaths, actual)
 }
 
 func setUpTestDir(t *testing.T) (string, error) {
