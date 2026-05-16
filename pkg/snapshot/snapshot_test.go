@@ -65,7 +65,7 @@ func TestSnapshotFSFileChange(t *testing.T) {
 		fooPath: "newbaz1",
 		batPath: "baz",
 	}
-	for _, path := range util.ParentDirectoriesWithoutLeadingSlash(batPath) {
+	for _, path := range parentDirectoriesWithoutLeadingSlash(batPath) {
 		if path == config.RootDir {
 			continue
 		}
@@ -154,7 +154,7 @@ func TestSnapshotFSChangePermissions(t *testing.T) {
 	snapshotFiles := map[string]string{
 		batPathWithoutLeadingSlash: "baz2",
 	}
-	for _, path := range util.ParentDirectoriesWithoutLeadingSlash(batPathWithoutLeadingSlash) {
+	for _, path := range parentDirectoriesWithoutLeadingSlash(batPathWithoutLeadingSlash) {
 		if path == config.RootDir {
 			continue
 		}
@@ -223,7 +223,7 @@ func TestSnapshotFSReplaceDirWithLink(t *testing.T) {
 		filepath.Join(testDirWithoutLeadingSlash, "bar"),
 		filepath.Join(testDirWithoutLeadingSlash, "foo"),
 	}
-	for _, path := range util.ParentDirectoriesWithoutLeadingSlash(filepath.Join(testDir, "foo")) {
+	for _, path := range parentDirectoriesWithoutLeadingSlash(filepath.Join(testDir, "foo")) {
 		if path == config.RootDir {
 			continue
 		}
@@ -261,7 +261,7 @@ func TestSnapshotFiles(t *testing.T) {
 	expectedFiles := []string{
 		filepath.Join(testDirWithoutLeadingSlash, "foo"),
 	}
-	for _, path := range util.ParentDirectoriesWithoutLeadingSlash(filepath.Join(testDir, "foo")) {
+	for _, path := range parentDirectoriesWithoutLeadingSlash(filepath.Join(testDir, "foo")) {
 		if path == config.RootDir {
 			continue
 		}
@@ -631,6 +631,24 @@ func setUpTest(t *testing.T) (string, *Snapshotter, func(), error) {
 	}
 
 	return testDir, snapshotter, cleanup, nil
+}
+
+// parentDirectoriesWithoutLeadingSlash returns a list of paths to all parent directories
+// all subdirectories do not contain a leading /
+// Ex. /some/temp/dir -> [/, some, some/temp, some/temp/dir]
+func parentDirectoriesWithoutLeadingSlash(path string) []string {
+	path = filepath.Clean(path)
+	dirs := strings.Split(path, "/")
+	dirPath := ""
+	paths := []string{config.RootDir}
+	for index, dir := range dirs {
+		if dir == "" || index == (len(dirs)-1) {
+			continue
+		}
+		dirPath = filepath.Join(dirPath, dir)
+		paths = append(paths, dirPath)
+	}
+	return paths
 }
 
 func listFilesInTar(path string) ([]string, error) {
