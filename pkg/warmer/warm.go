@@ -122,11 +122,11 @@ func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	finalMfstPath := finalCachePath + ".json"
 
 	if config.EnvBool("FF_KANIKO_WARMER_CACHE_LOCK") {
-		release, err := acquireCacheLock(cacheDir, digest.String())
+		lock, err := acquireCacheLock(cacheDir, digest.String())
 		if err != nil {
 			return fmt.Errorf("failed to acquire cache lock: %w", err)
 		}
-		defer release()
+		defer lock.Release()
 
 		_, lookupErr := cw.Local(&opts.CacheOptions, digest.String())
 		if lookupErr == nil || cache.IsExpired(lookupErr) {
@@ -183,11 +183,11 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	finalCachePath := path.Join(cacheDir, digest.String())
 
 	if config.EnvBool("FF_KANIKO_WARMER_CACHE_LOCK") {
-		release, err := acquireCacheLock(cacheDir, digest.String())
+		lock, err := acquireCacheLock(cacheDir, digest.String())
 		if err != nil {
 			return fmt.Errorf("failed to acquire cache lock: %w", err)
 		}
-		defer release()
+		defer lock.Release()
 
 		_, lookupErr := cw.Local(&opts.CacheOptions, digest.String())
 		if lookupErr == nil || cache.IsExpired(lookupErr) {
