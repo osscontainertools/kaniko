@@ -45,6 +45,7 @@ const (
 	kanikoPrefix     = "kaniko-"
 	buildContextPath = "/workspace"
 	cacheDir         = "/workspace/cache"
+	baseImageToCache = "debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56"
 
 	ExecutorImageMoved   = "executor-image-moved"
 	ExecutorImageTainted = "executor-image-tainted"
@@ -694,6 +695,34 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 	}
 	if err := checkNoWarnings(dockerfile, out); err != nil {
 		return err
+	}
+	return nil
+}
+
+func populateVolumeCache(logf logger) error {
+	fmt.Println("Populating warmer cache")
+	_, ex, _, _ := runtime.Caller(0)
+	cwd := filepath.Dir(ex)
+	cmd := []string{
+		"run", "--net=host",
+		"-v", cwd + ":/workspace",
+	}
+	for _, envVariable := range WarmerEnv {
+		cmd = append(cmd, "-e", envVariable)
+	}
+	cmd = addAuthFlags(cmd)
+	cmd = addCoverageFlags(cmd)
+	cmd = append(cmd,
+		WarmerImage,
+		"-c", cacheDir,
+		"-i", baseImageToCache,
+	)
+
+	warmerCmd := exec.Command("docker", cmd...)
+	out, err := RunCommandWithoutTest(warmerCmd)
+	logf(string(out))
+	if err != nil {
+		return fmt.Errorf("failed to warm kaniko cache: %w", err)
 	}
 	return nil
 }
