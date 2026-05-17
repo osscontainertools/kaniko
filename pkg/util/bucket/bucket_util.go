@@ -27,19 +27,6 @@ import (
 	"google.golang.org/api/option"
 )
 
-// Upload uploads everything from Reader to the bucket under path
-func Upload(ctx context.Context, bucketName string, path string, r io.Reader, client *storage.Client) error {
-	bucket := client.Bucket(bucketName)
-	w := bucket.Object(path).NewWriter(ctx)
-	if _, err := io.Copy(w, r); err != nil {
-		return err
-	}
-	if err := w.Close(); err != nil {
-		return err
-	}
-	return nil
-}
-
 // ReadCloser will create io.ReadCloser for the specified bucket and path
 func ReadCloser(ctx context.Context, bucketName string, path string, client *storage.Client) (io.ReadCloser, error) {
 	bucket := client.Bucket(bucketName)

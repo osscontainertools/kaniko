@@ -19,7 +19,6 @@ package buildcontext
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 
@@ -41,19 +40,6 @@ func (g *GCS) UnpackTarFromBuildContext() (string, error) {
 		return "", fmt.Errorf("getting bucketname and filepath from context: %w", err)
 	}
 	return kConfig.BuildContextDir, unpackTarFromGCSBucket(bucketName, filepath, kConfig.BuildContextDir)
-}
-
-func UploadToBucket(r io.Reader, dest string) error {
-	ctx := context.Background()
-	bucketName, filepath, err := bucket.GetNameAndFilepathFromURI(dest)
-	if err != nil {
-		return fmt.Errorf("getting bucketname and filepath from dest: %w", err)
-	}
-	client, err := bucket.NewClient(ctx)
-	if err != nil {
-		return err
-	}
-	return bucket.Upload(ctx, bucketName, filepath, r, client)
 }
 
 // unpackTarFromGCSBucket unpacks the context.tar.gz file in the given bucket to the given directory
