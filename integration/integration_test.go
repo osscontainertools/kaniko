@@ -913,6 +913,7 @@ func TestWarmerTwice(t *testing.T) {
 			// Start a sleeping warmer container
 			dockerRunFlags := []string{"run", "--net=host"}
 			dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+			dockerRunFlags = addCoverageFlags(dockerRunFlags)
 			for _, envVariable := range WarmerEnv {
 				dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 			}
