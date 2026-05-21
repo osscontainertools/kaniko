@@ -163,69 +163,79 @@ func GetFSFromLayers(root string, layers []v1.Layer, opts ...FSOpt) ([]string, e
 
 	extractedFiles := []string{}
 	for i, l := range layers {
-		if mediaType, err := l.MediaType(); err == nil {
-			logrus.Tracef("Extracting layer %d of media type %s", i, mediaType)
-		} else {
-			logrus.Tracef("Extracting layer %d", i)
-		}
-
-		r, err := l.Uncompressed()
+		extracted, err := extractLayer(i, l, root, cfg)
 		if err != nil {
 			return nil, err
 		}
-		defer r.Close()
+		extractedFiles = append(extractedFiles, extracted...)
+	}
+	return extractedFiles, nil
+}
 
-		tr := tar.NewReader(r)
-		for {
-			hdr, err := tr.Next()
-			if errors.Is(err, io.EOF) {
-				break
-			}
+func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, error) {
+	if mediaType, err := l.MediaType(); err == nil {
+		logrus.Tracef("Extracting layer %d of media type %s", i, mediaType)
+	} else {
+		logrus.Tracef("Extracting layer %d", i)
+	}
 
-			if err != nil {
-				return nil, fmt.Errorf("error reading tar %d: %w", i, err)
-			}
+	r, err := l.Uncompressed()
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
 
-			cleanedName := filepath.Clean(hdr.Name)
-			if cleanedName == ".." || strings.HasPrefix(cleanedName, "../") {
-				return nil, fmt.Errorf("tar entry %q is not allowed: references parent directory", hdr.Name)
-			}
-			path := filepath.Join(root, cleanedName)
-			base := filepath.Base(path)
-			dir := filepath.Dir(path)
-
-			if strings.HasPrefix(base, archive.WhiteoutPrefix) {
-				logrus.Tracef("Whiting out %s", path)
-
-				name := strings.TrimPrefix(base, archive.WhiteoutPrefix)
-				path := filepath.Join(dir, name)
-
-				if CheckCleanedPathAgainstIgnoreList(path) {
-					logrus.Tracef("Not deleting %s, as it's ignored", path)
-					continue
-				}
-				if childDirInIgnoreList(path) {
-					logrus.Tracef("Not deleting %s, as it contains a ignored path", path)
-					continue
-				}
-
-				if err := os.RemoveAll(path); err != nil {
-					return nil, fmt.Errorf("removing whiteout %s: %w", hdr.Name, err)
-				}
-
-				if !cfg.includeWhiteout {
-					logrus.Trace("Not including whiteout files")
-					continue
-				}
-
-			}
-
-			if err := cfg.extractFunc(root, hdr, cleanedName, tr); err != nil {
-				return nil, err
-			}
-
-			extractedFiles = append(extractedFiles, filepath.Join(root, cleanedName))
+	extractedFiles := []string{}
+	tr := tar.NewReader(r)
+	for {
+		hdr, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			break
 		}
+
+		if err != nil {
+			return nil, fmt.Errorf("error reading tar %d: %w", i, err)
+		}
+
+		cleanedName := filepath.Clean(hdr.Name)
+		if cleanedName == ".." || strings.HasPrefix(cleanedName, "../") {
+			return nil, fmt.Errorf("tar entry %q is not allowed: references parent directory", hdr.Name)
+		}
+		path := filepath.Join(root, cleanedName)
+		base := filepath.Base(path)
+		dir := filepath.Dir(path)
+
+		if strings.HasPrefix(base, archive.WhiteoutPrefix) {
+			logrus.Tracef("Whiting out %s", path)
+
+			name := strings.TrimPrefix(base, archive.WhiteoutPrefix)
+			path := filepath.Join(dir, name)
+
+			if CheckCleanedPathAgainstIgnoreList(path) {
+				logrus.Tracef("Not deleting %s, as it's ignored", path)
+				continue
+			}
+			if childDirInIgnoreList(path) {
+				logrus.Tracef("Not deleting %s, as it contains a ignored path", path)
+				continue
+			}
+
+			if err := os.RemoveAll(path); err != nil {
+				return nil, fmt.Errorf("removing whiteout %s: %w", hdr.Name, err)
+			}
+
+			if !cfg.includeWhiteout {
+				logrus.Trace("Not including whiteout files")
+				continue
+			}
+
+		}
+
+		if err := cfg.extractFunc(root, hdr, cleanedName, tr); err != nil {
+			return nil, err
+		}
+
+		extractedFiles = append(extractedFiles, filepath.Join(root, cleanedName))
 	}
 	return extractedFiles, nil
 }
