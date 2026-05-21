@@ -5,7 +5,7 @@ go 1.26
 toolchain go1.26.3
 
 require (
-	cloud.google.com/go/storage v1.62.1
+	cloud.google.com/go/storage v1.62.2
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.7.0
 	github.com/GoogleCloudPlatform/docker-credential-gcr/v2 v2.1.32
 	github.com/aws/aws-sdk-go-v2 v1.41.7
@@ -15,7 +15,7 @@ require (
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.12.0
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589
 	github.com/containerd/platforms v1.0.0-rc.4
-	github.com/docker/cli v29.5.0+incompatible
+	github.com/docker/cli v29.5.2+incompatible
 	github.com/docker/docker-credential-helpers v0.9.7
 	github.com/ePirat/docker-credential-gitlabci v1.0.0
 	github.com/go-git/go-billy/v5 v5.9.0
