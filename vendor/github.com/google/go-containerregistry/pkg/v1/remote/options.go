@@ -45,7 +45,6 @@ type options struct {
 	retryBackoff                   Backoff
 	retryPredicate                 retry.Predicate
 	retryStatusCodes               []int
-	limiter                        *pullLimiter
 
 	// Only these options can overwrite Reuse()d options.
 	platform v1.Platform
@@ -93,7 +92,6 @@ var fastBackoff = Backoff{
 
 var defaultRetryStatusCodes = []int{
 	http.StatusRequestTimeout,
-	http.StatusTooManyRequests, // 429: OCI distribution-spec rate limit; TooManyRequestsErrorCode is already classified temporary in transport/error.go
 	http.StatusInternalServerError,
 	http.StatusBadGateway,
 	http.StatusServiceUnavailable,
@@ -144,7 +142,6 @@ func makeOptions(opts ...Option) (*options, error) {
 			return nil, err
 		}
 	}
-	o.limiter = newPullLimiter(o.jobs)
 
 	switch {
 	case o.auth != nil && o.keychain != nil:

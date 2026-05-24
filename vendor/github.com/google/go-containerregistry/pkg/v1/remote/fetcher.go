@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -41,9 +40,8 @@ const (
 
 // fetcher implements methods for reading from a registry.
 type fetcher struct {
-	target  resource
-	client  *http.Client
-	limiter *pullLimiter
+	target resource
+	client *http.Client
 }
 
 func makeFetcher(ctx context.Context, target resource, o *options) (*fetcher, error) {
@@ -71,38 +69,8 @@ func makeFetcher(ctx context.Context, target resource, o *options) (*fetcher, er
 	}
 	return &fetcher{
 		target: target,
-		client: &http.Client{
-			Transport:     tr,
-			CheckRedirect: checkRedirectSSRF,
-		},
-		limiter: o.limiter,
+		client: &http.Client{Transport: tr},
 	}, nil
-}
-
-// checkRedirectSSRF rejects HTTP redirects that cross from a public host to a
-// private or link-local IP literal. This prevents a malicious registry from
-// issuing a 302 to a cloud instance metadata service (e.g. 169.254.169.254)
-// or another internal network address during blob or manifest downloads.
-//
-// Same-host redirects and redirects to non-IP hostnames (including DNS names
-// that may resolve to private addresses) are allowed. The first redirect in
-// the chain uses the original request URL as the "origin host" via
-// req.Response.Request, falling back to req.URL when no prior response exists.
-func checkRedirectSSRF(req *http.Request, via []*http.Request) error {
-	if len(via) == 0 || req.Response == nil {
-		return nil
-	}
-	origHost := via[0].URL.Hostname()
-	destHost := req.URL.Hostname()
-	if destHost == origHost {
-		return nil // same-host redirect is always allowed
-	}
-	if ip := net.ParseIP(destHost); ip != nil {
-		if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsPrivate() || ip.IsUnspecified() {
-			return fmt.Errorf("SSRF protection: redirect from %q to private/link-local host %q denied", origHost, destHost)
-		}
-	}
-	return nil
 }
 
 func (f *fetcher) Do(req *http.Request) (*http.Response, error) {
@@ -194,20 +162,11 @@ func (f *fetcher) fetchManifest(ctx context.Context, ref name.Reference, accepta
 	}
 
 	var artifactType string
-	var annotations map[string]string
 	mf, _ := v1.ParseManifest(bytes.NewReader(manifest))
 	// Failing to parse as a manifest should just be ignored.
 	// The manifest might not be valid, and that's okay.
-	if mf != nil {
-		// Per the OCI distribution spec, artifactType on the descriptor is
-		// set to the manifest's artifactType if present, otherwise it falls
-		// back to the config descriptor's mediaType.
-		if mf.ArtifactType != "" {
-			artifactType = mf.ArtifactType
-		} else {
-			artifactType = string(mf.Config.MediaType)
-		}
-		annotations = mf.Annotations
+	if mf != nil && !mf.Config.MediaType.IsConfig() {
+		artifactType = string(mf.Config.MediaType)
 	}
 
 	// Do nothing for tags; I give up.
@@ -224,7 +183,6 @@ func (f *fetcher) fetchManifest(ctx context.Context, ref name.Reference, accepta
 		Size:         size,
 		MediaType:    mediaType,
 		ArtifactType: artifactType,
-		Annotations:  annotations,
 	}
 
 	return manifest, &desc, nil
@@ -289,30 +247,18 @@ func (f *fetcher) headManifest(ctx context.Context, ref name.Reference, acceptab
 
 func (f *fetcher) fetchBlob(ctx context.Context, size int64, h v1.Hash) (io.ReadCloser, error) {
 	u := f.url("blobs", h.String())
-	return f.fetchBlobURL(ctx, u, size, h)
-}
-
-func (f *fetcher) fetchBlobURL(ctx context.Context, u url.URL, size int64, h v1.Hash) (io.ReadCloser, error) {
-	release, err := f.limiter.acquire(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	if err != nil {
-		release()
 		return nil, err
 	}
 
 	resp, err := f.client.Do(req.WithContext(ctx))
 	if err != nil {
-		release()
 		return nil, redact.Error(err)
 	}
 
 	if err := transport.CheckError(resp, http.StatusOK); err != nil {
 		resp.Body.Close()
-		release()
 		return nil, err
 	}
 
@@ -323,22 +269,11 @@ func (f *fetcher) fetchBlobURL(ctx context.Context, u url.URL, size int64, h v1.
 		if size == verify.SizeUnknown {
 			size = hsize
 		} else if hsize != size {
-			resp.Body.Close()
-			release()
 			return nil, fmt.Errorf("GET %s: Content-Length header %d does not match expected size %d", u.String(), hsize, size)
 		}
 	}
 
-	rc, err := verify.ReadCloser(resp.Body, size, h)
-	if err != nil {
-		resp.Body.Close()
-		release()
-		return nil, err
-	}
-	return &limitedReadCloser{
-		ReadCloser: rc,
-		release:    release,
-	}, nil
+	return verify.ReadCloser(resp.Body, size, h)
 }
 
 func (f *fetcher) headBlob(ctx context.Context, h v1.Hash) (*http.Response, error) {
@@ -359,57 +294,6 @@ func (f *fetcher) headBlob(ctx context.Context, h v1.Hash) (*http.Response, erro
 	}
 
 	return resp, nil
-}
-
-// validateForeignURL rejects foreign layer URLs that use a disallowed scheme
-// or resolve to a private / link-local IP address (SSRF protection). DNS-based
-// SSRF is out of scope, matching transport.validateRealmURL.
-func validateForeignURL(rawURL string, insecure bool) error {
-	u, err := url.Parse(rawURL)
-	if err != nil {
-		return fmt.Errorf("parsing foreign layer URL %q: %w", rawURL, err)
-	}
-	switch u.Scheme {
-	case "https":
-	case "http":
-		if !insecure {
-			return fmt.Errorf("foreign layer URL scheme %q not allowed for a secure registry; use https", u.Scheme)
-		}
-	default:
-		return fmt.Errorf("foreign layer URL scheme %q not allowed; must be https (or http for insecure registries)", u.Scheme)
-	}
-	host := u.Hostname()
-	if ip := net.ParseIP(host); ip != nil {
-		if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsPrivate() || ip.IsUnspecified() {
-			return fmt.Errorf("foreign layer URL host %q is a private or link-local address", host)
-		}
-	}
-	return nil
-}
-
-// fetchForeignBlobURL fetches a foreign-layer blob, validating every redirect
-// destination through validateForeignURL (SSRF protection).
-func (f *fetcher) fetchForeignBlobURL(ctx context.Context, u url.URL, size int64, h v1.Hash, insecure bool) (io.ReadCloser, error) {
-	safeClient := &http.Client{
-		Transport: f.client.Transport,
-		CheckRedirect: func(req *http.Request, _ []*http.Request) error {
-			return validateForeignURL(req.URL.String(), insecure)
-		},
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := safeClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
-		return nil, fmt.Errorf("GET %s: unexpected status %s", u.String(), resp.Status)
-	}
-	return verify.ReadCloser(resp.Body, size, h)
 }
 
 func (f *fetcher) blobExists(ctx context.Context, h v1.Hash) (bool, error) {
