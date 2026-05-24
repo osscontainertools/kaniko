@@ -835,7 +835,7 @@ func TestReproducible(t *testing.T) {
 			build(t, dockerfile, ref1)
 			containerDiff(t, ref0, ref1)
 
-			// And make sure the inherited base layers were not mutated.
+			// mz731: make sure the inherited base layers were not mutated.
 			base := layerDigests(t, baseRef)
 			kaniko := layerDigests(t, ref0)
 			testutil.CheckDeepEqual(t, base, kaniko[:len(base)])
