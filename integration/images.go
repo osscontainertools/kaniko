@@ -299,6 +299,7 @@ var cacheHitOutputChecks = map[string]func(string, []byte) error{
 		for _, cmd := range []string{
 			"COPY --from=first /blubb /blubb",
 			"COPY --from=third /bli /bli",
+			"COPY --from=debian:12.10 /etc/os-release /external-os-release",
 		} {
 			if !strings.Contains(string(out), "Cache hit via inferred cross-stage key for cmd: "+cmd) {
 				return fmt.Errorf("expected inferred-key cache hit for %q but found none in output", cmd)

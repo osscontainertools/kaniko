@@ -16,4 +16,5 @@ RUN touch /clean
 FROM clean AS final
 COPY --from=first /blubb /blubb
 COPY --from=third /bli /bli
+COPY --from=debian:12.10 /etc/os-release /external-os-release
 RUN ls -lah /blubb

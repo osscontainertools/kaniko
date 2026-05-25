@@ -638,7 +638,7 @@ func Test_stageBuilder_optimize_cacheProbeAfterMiss(t *testing.T) {
 
 			ck := CompositeCache{}
 			opts := &config.KanikoOptions{Cache: true}
-			if _, err := sb.optimize(&ck, cf.Config, sb.args, opts, util.FileContext{}, lc, nil, true); err != nil {
+			if _, err := sb.optimize(&ck, cf.Config, sb.args, opts, util.FileContext{}, lc, nil, nil, true); err != nil {
 				t.Fatalf("optimize returned error: %v", err)
 			}
 
@@ -699,7 +699,7 @@ func Test_stageBuilder_optimize(t *testing.T) {
 				cacheCommand: MockCachedDockerCommand{},
 			}
 			sb.cmds = []commands.DockerCommand{command}
-			_, err = sb.optimize(&ck, cf.Config, sb.args, tc.opts, util.FileContext{}, lc, nil, true)
+			_, err = sb.optimize(&ck, cf.Config, sb.args, tc.opts, util.FileContext{}, lc, nil, nil, true)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -958,11 +958,11 @@ func Test_stageBuilder_populateCompositeKey(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			ck1, err := populateCompositeKey(dockerCommand1, []string{}, ck, tc.cmd1.args, tc.cmd1.env, fc, nil)
+			ck1, err := populateCompositeKey(dockerCommand1, []string{}, ck, tc.cmd1.args, tc.cmd1.env, fc, nil, nil)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
-			ck2, err := populateCompositeKey(dockerCommand2, []string{}, ck, tc.cmd2.args, tc.cmd2.env, fc, nil)
+			ck2, err := populateCompositeKey(dockerCommand2, []string{}, ck, tc.cmd2.args, tc.cmd2.env, fc, nil, nil)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -1576,11 +1576,11 @@ RUN foobar
 				getFSFromImage = tc.mockGetFSFromImage
 			}
 			compositeKey := NewCompositeCache(sb.baseImageDigest)
-			_, err := sb.optimize(compositeKey, sb.cf.Config, sb.args, tc.opts, util.FileContext{}, lc, nil, true)
+			_, err := sb.optimize(compositeKey, sb.cf.Config, sb.args, tc.opts, util.FileContext{}, lc, nil, nil, true)
 			if err != nil {
 				t.Errorf("failed to optimize instructions: %v", err)
 			}
-			err = sb.build(*compositeKey, tc.opts, util.FileContext{}, snap, tc.crossStageDeps, nil)
+			err = sb.build(*compositeKey, tc.opts, util.FileContext{}, snap, tc.crossStageDeps, nil, nil)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -1745,6 +1745,7 @@ func Test_stageBuild_populateCompositeKeyForCopyCommand(t *testing.T) {
 						dockerfile.NewBuildArgs([]string{}),
 						[]string{},
 						fc,
+						nil,
 						nil,
 					)
 					if err != nil {
