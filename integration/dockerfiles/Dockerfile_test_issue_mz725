@@ -1,0 +1,19 @@
+ARG IMAGE_REPO
+
+# Stage `base` is pushed by test setup (`docker build --target=base`); a Go
+# helper then mutates its OCI Config (Env entry without `=`, relative
+# WorkingDir, User=root) and pushes back to the same tag. The result is a
+# malformed-but-valid image — unproducible by docker/podman/buildah but
+# reachable from any hand-crafted OCI producer.
+FROM busybox AS base
+RUN echo 'single' >> /etc/group
+
+FROM ${IMAGE_REPO}malformed-oci:latest
+# mz727: UpdateConfigEnv index-OOB on a Config.Env entry without `=`.
+ENV NEW=val
+# mz726: ToAbsPath assertion when Config.WorkingDir is relative.
+WORKDIR sub
+# mz725: ReplacementEnvs nil-deref on a Config.Env entry without `=`.
+USER root
+# mz728: SyscallCredentials reads /etc/group; no-CGO parser OOBs on `single`.
+RUN id

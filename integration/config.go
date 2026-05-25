@@ -29,6 +29,7 @@ type integrationTestConfig struct {
 	onbuildCopyImage        string
 	hardlinkBaseImage       string
 	hijackBaseImage         string
+	malformedOCIImage       string
 	nvidiaOperatorBaseImage string
 	serviceAccount          string
 	dockerMajorVersion      int
