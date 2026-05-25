@@ -317,10 +317,10 @@ func UpdateConfigEnv(envVars []instructions.KeyValuePair, config *v1.Config, rep
 	// First, convert config.Env array to []instruction.KeyValuePair
 	var kvps []instructions.KeyValuePair
 	for _, env := range config.Env {
-		entry := strings.SplitN(env, "=", 2)
+		key, value, _ := strings.Cut(env, "=")
 		kvps = append(kvps, instructions.KeyValuePair{
-			Key:   entry[0],
-			Value: entry[1],
+			Key:   key,
+			Value: value,
 		})
 	}
 	// Iterate through new environment variables, and replace existing keys
