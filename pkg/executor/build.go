@@ -896,7 +896,7 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 	if opts.PreCleanup {
 		printf("CLEAN\n")
 	}
-	for idx, s := range stages {
+	for _, s := range stages {
 		if s.Name != "" {
 			printf("FROM %s AS %s\n", s.BaseName, s.Name)
 		} else {
@@ -910,7 +910,7 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 		for jdx, c := range s.Commands {
 			if opts.Cache && opts.CacheCopyLayers && config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && config.EnvBool("FF_KANIKO_CACHE_LOOKAHEAD") {
 				if copyCmd, ok := c.(*instructions.CopyCommand); ok && copyCmd.From != "" {
-					ci := cacheInfo[idx]
+					ci := cacheInfo[s.Index]
 					if ck := ci.redirectKeys[jdx]; ck != "" {
 						if ci.redirectHits[jdx] {
 							printf("CACHE REDIRECT HIT: %s\n", ck)
@@ -921,7 +921,7 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 				}
 			}
 			if opts.Cache && config.EnvBool("FF_KANIKO_CACHE_LOOKAHEAD") {
-				ci := cacheInfo[idx]
+				ci := cacheInfo[s.Index]
 				if ck := ci.cacheKeys[jdx]; ck != "" {
 					if ci.cacheHits[jdx] {
 						printf("CACHE HIT: %s\n", ck)
@@ -1013,7 +1013,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	if opts.Cache && config.EnvBool("FF_KANIKO_CACHE_LOOKAHEAD") {
 		layerCache := NewLayerCache(opts)
 		images := make([]v1.Image, lastStage.Index+1)
-		for idx, stage := range kanikoStages {
+		for _, stage := range kanikoStages {
 			var baseImage v1.Image
 			if stage.BaseImageStoredLocally {
 				baseImage = images[stage.BaseImageIndex]
@@ -1050,7 +1050,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			if err != nil {
 				return nil, fmt.Errorf("precompute: failed to optimize stage %d: %w", stage.Index, err)
 			}
-			cacheInfo[idx] = ci
+			cacheInfo[stage.Index] = ci
 			if finalCacheKey != "" {
 				stageFinalCacheKeys[stage.Index] = finalCacheKey
 			}
@@ -1157,12 +1157,26 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 		// Apply optimizations to the instructions.
 		precomputedKey := stageFinalCacheKeys[stage.Index]
-		finalCacheKey, _, err := sb.optimize(compositeKey, sb.cf.Config, sb.args.Clone(), opts, fileContext, NewLayerCache(opts), stageFinalCacheKeys, externalImageDigests, true)
+		finalCacheKey, buildCi, err := sb.optimize(compositeKey, sb.cf.Config, sb.args.Clone(), opts, fileContext, NewLayerCache(opts), stageFinalCacheKeys, externalImageDigests, true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
 		}
 		if opts.Cache && precomputedKey != "" {
 			util.Assert("executor.build.cache-lookahead", precomputedKey == finalCacheKey, "precomputed finalCacheKey %q != built finalCacheKey %q for stage %d", precomputedKey, finalCacheKey, stage.Index)
+		}
+		if opts.Cache && cacheInfo[stage.Index] != nil {
+			precompute := cacheInfo[stage.Index]
+			util.Assert("executor.build.cache-lookahead.length", len(precompute.cacheKeys) == len(buildCi.cacheKeys), "stage %d: precompute cacheKeys length %d != build %d", stage.Index, len(precompute.cacheKeys), len(buildCi.cacheKeys))
+			for i := range precompute.cacheKeys {
+				if precompute.cacheKeys[i] != "" {
+					util.Assert("executor.build.cache-lookahead.cache-key", precompute.cacheKeys[i] == buildCi.cacheKeys[i], "stage %d cmd %d: precompute cacheKey %q != build %q", stage.Index, i, precompute.cacheKeys[i], buildCi.cacheKeys[i])
+					util.Assert("executor.build.cache-lookahead.cache-hit", precompute.cacheHits[i] == buildCi.cacheHits[i], "stage %d cmd %d: precompute cacheHit %v != build %v (key %q)", stage.Index, i, precompute.cacheHits[i], buildCi.cacheHits[i], precompute.cacheKeys[i])
+				}
+				if precompute.redirectKeys[i] != "" {
+					util.Assert("executor.build.cache-lookahead.redirect-key", precompute.redirectKeys[i] == buildCi.redirectKeys[i], "stage %d cmd %d: precompute redirectKey %q != build %q", stage.Index, i, precompute.redirectKeys[i], buildCi.redirectKeys[i])
+					util.Assert("executor.build.cache-lookahead.redirect-hit", precompute.redirectHits[i] == buildCi.redirectHits[i], "stage %d cmd %d: precompute redirectHit %v != build %v (key %q)", stage.Index, i, precompute.redirectHits[i], buildCi.redirectHits[i], precompute.redirectKeys[i])
+				}
+			}
 		}
 
 		stageArgs[stage.Index] = sb.args
