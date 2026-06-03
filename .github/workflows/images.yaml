@@ -98,7 +98,7 @@ jobs:
           remove-large-packages: 'true'
           remove-cached-tools: 'true'
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
 
@@ -182,7 +182,7 @@ jobs:
 
       # If a tag push, use crane to add more tags.
       - if: steps.context.outputs.is_release == 'true'
-        uses: imjasonh/setup-crane@6da1ae018866400525525ce74ff892880c099987 # v0.5
+        uses: imjasonh/setup-crane@59c71e96a00b28651f10369ba3359a6d730740a0 # v0.6
 
       - if: steps.context.outputs.is_release == 'true'
         name: Apply release tags
