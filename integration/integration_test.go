@@ -173,6 +173,9 @@ func buildRequiredImages() error {
 		name:    "Building hijack base image",
 		command: []string{"docker", "build", "--push", "-t", config.hijackBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz560", "--target", "base", "."},
 	}, {
+		name:    "Building mz753 base image",
+		command: []string{"docker", "build", "--push", "-t", config.nvidiaOperatorBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz753", "--target", "base", "."},
+	}, {
 		name:    "Building kaniko image based on alpine",
 		command: []string{"docker", "build", coverArg, "-t", AlpineImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-alpine", ".."},
 	}}
@@ -1278,6 +1281,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 	c.onbuildCopyImage = c.imageRepo + "onbuild-copy:latest"
 	c.hardlinkBaseImage = c.imageRepo + "hardlink-base:latest"
 	c.hijackBaseImage = c.imageRepo + "hijack:latest"
+	c.nvidiaOperatorBaseImage = c.imageRepo + "nvidia-operator-base:latest"
 	return &c
 }
 
