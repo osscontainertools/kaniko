@@ -279,6 +279,39 @@ func childDirInIgnoreList(path string) bool {
 	return false
 }
 
+func removeAllSkipIgnored(path string) (skip bool, err error) {
+	if !config.EnvBool("FF_KANIKO_PRESERVE_MOUNTED_PATHS") || !childDirInIgnoreList(path) {
+		return false, os.RemoveAll(path)
+	}
+	logrus.Debugf("Not removing %s, as it contains an ignored path", path)
+	err = filepath.WalkDir(path, func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return nil
+		}
+		if p == path {
+			return nil
+		}
+		if CheckCleanedPathAgainstIgnoreList(p) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if childDirInIgnoreList(p) {
+			return nil
+		}
+		rmErr := os.RemoveAll(p)
+		if rmErr != nil {
+			return rmErr
+		}
+		if d.IsDir() {
+			return filepath.SkipDir
+		}
+		return nil
+	})
+	return true, err
+}
+
 // UnTar returns a list of files that have been extracted from the tar archive at r to the path at dest
 func UnTar(r io.Reader, dest string) ([]string, error) {
 	var extractedFiles []string
@@ -339,8 +372,12 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		// Check if something already exists at path (symlinks etc.)
 		// If so, delete it
 		if FilepathExists(path) {
-			if err := os.RemoveAll(path); err != nil {
+			skip, err := removeAllSkipIgnored(path)
+			if err != nil {
 				return fmt.Errorf("error removing %s to make way for new file: %w", path, err)
+			}
+			if skip {
+				return nil
 			}
 		}
 
@@ -397,8 +434,12 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		// Check if something already exists at path
 		// If so, delete it
 		if FilepathExists(path) {
-			if err := os.RemoveAll(path); err != nil {
+			skip, err := removeAllSkipIgnored(path)
+			if err != nil {
 				return fmt.Errorf("error removing %s to make way for new link: %w", hdr.Name, err)
+			}
+			if skip {
+				return nil
 			}
 		}
 		cleanedLink := filepath.Clean(hdr.Linkname)
@@ -419,8 +460,12 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		// Check if something already exists at path
 		// If so, delete it
 		if FilepathExists(path) {
-			if err := os.RemoveAll(path); err != nil {
+			skip, err := removeAllSkipIgnored(path)
+			if err != nil {
 				return fmt.Errorf("error removing %s to make way for new symlink: %w", hdr.Name, err)
+			}
+			if skip {
+				return nil
 			}
 		}
 		if err := os.Symlink(hdr.Linkname, path); err != nil {
