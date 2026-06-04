@@ -18,7 +18,6 @@ package bucket
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/url"
 	"strings"
@@ -27,29 +26,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"google.golang.org/api/option"
 )
-
-// Upload uploads everything from Reader to the bucket under path
-func Upload(ctx context.Context, bucketName string, path string, r io.Reader, client *storage.Client) error {
-	bucket := client.Bucket(bucketName)
-	w := bucket.Object(path).NewWriter(ctx)
-	if _, err := io.Copy(w, r); err != nil {
-		return err
-	}
-	if err := w.Close(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// Delete will remove the content at path. path should be the full path
-// to a file in GCS.
-func Delete(ctx context.Context, bucketName string, path string, client *storage.Client) error {
-	err := client.Bucket(bucketName).Object(path).Delete(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to delete file at %s in gcs bucket %v: %w", path, bucketName, err)
-	}
-	return err
-}
 
 // ReadCloser will create io.ReadCloser for the specified bucket and path
 func ReadCloser(ctx context.Context, bucketName string, path string, client *storage.Client) (io.ReadCloser, error) {

@@ -177,34 +177,18 @@ In either case, you will need the following tools:
 
 * [`diffoci`](https://github.com/mzihlmann/diffoci#installation)
 
-#### GCloud
+#### Registry
 
-To run integration tests with your GCloud Storage, you will also need the following tools:
+To run integration tests against a real registry, you will need:
 
-* [`gcloud`](https://cloud.google.com/sdk/install)
-* [`gsutil`](https://cloud.google.com/storage/docs/gsutil_install)
-* A bucket in [GCS](https://cloud.google.com/storage/) which you have write access to via
-  the user currently logged into `gcloud`
-* An image repo which you have write access to via the user currently logged into `gcloud`
+* An image repo which you have write access to
 * A docker account and a `~/.docker/config.json` with login credentials if you run
   into rate limiting problems during tests.
 
-Once this step done, you must override the project using environment variables:
-
-* `GCS_BUCKET` - The name of your GCS bucket
-* `IMAGE_REPO` - The path to your Docker image repo on your registry host
-
-This can be done as follows:
+Override the target via the `IMAGE_REPO` environment variable:
 
 ```shell
-export GCS_BUCKET="gs://<your bucket>"
 export IMAGE_REPO="YOUR-REGISTRY/YOUR-REPO"
-```
-
-Login for both user and application credentials
-```shell
-gcloud auth login
-gcloud auth application-default login
 ```
 
 Then you can launch integration tests as follows:
@@ -260,7 +244,7 @@ Additionally, the integration tests can output benchmarking information to a `be
 `integration` directory if the `BENCHMARK` environment variable is set to `true.`
 
 ```shell
-BENCHMARK=true go test -v --bucket $GCS_BUCKET --repo $IMAGE_REPO
+BENCHMARK=true go test -v --repo $IMAGE_REPO
 ```
 
 #### Profiling

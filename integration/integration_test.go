@@ -19,7 +19,6 @@ package integration
 import (
 	"archive/tar"
 	"bytes"
-	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -43,9 +42,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/osscontainertools/kaniko/pkg/timing"
-	"github.com/osscontainertools/kaniko/pkg/util/bucket"
 	"github.com/osscontainertools/kaniko/testutil"
-	"google.golang.org/api/option"
 )
 
 var (
@@ -75,35 +72,6 @@ func getDockerMajorVersion() int {
 }
 
 func launchTests(m *testing.M) (int, error) {
-	if config.isGcrRepository() {
-		contextFilePath, err := CreateIntegrationTarball()
-		if err != nil {
-			return 1, fmt.Errorf("Failed to create tarball of integration files for build context: %w", err)
-		}
-
-		bucketName, item, err := bucket.GetNameAndFilepathFromURI(config.gcsBucket)
-		if err != nil {
-			return 1, fmt.Errorf("failed to get bucket name from uri: %w", err)
-		}
-		contextFile, err := os.Open(contextFilePath)
-		if err != nil {
-			return 1, fmt.Errorf("failed to read file at path %v: %w", contextFilePath, err)
-		}
-		err = bucket.Upload(context.Background(), bucketName, item, contextFile, config.gcsClient)
-		if err != nil {
-			return 1, fmt.Errorf("Failed to upload build context: %w", err)
-		}
-
-		if err = os.Remove(contextFilePath); err != nil {
-			return 1, fmt.Errorf("Failed to remove tarball at %s: %w", contextFilePath, err)
-		}
-
-		deleteFunc := func() {
-			bucket.Delete(context.Background(), bucketName, item, config.gcsClient)
-		}
-		RunOnInterrupt(deleteFunc)
-		defer deleteFunc()
-	}
 	if err := buildRequiredImages(); err != nil {
 		return 1, fmt.Errorf("Error while building images: %w", err)
 	}
@@ -314,7 +282,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, imageName)
 	dockerRunFlags := []string{"run", "--net=host"}
-	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
@@ -385,7 +353,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_git_subpath")
 	dockerRunFlags := []string{"run", "--net=host"}
-	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(
 		dockerRunFlags,
@@ -429,7 +397,7 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_mirror")
 	dockerRunFlags := []string{"run", "--net=host"}
-	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
@@ -471,7 +439,7 @@ func TestBuildViaRegistryMap(t *testing.T) {
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_map")
 	dockerRunFlags := []string{"run", "--net=host"}
-	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
@@ -498,7 +466,7 @@ func TestBuildSkipFallback(t *testing.T) {
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_skip_fallback")
 	dockerRunFlags := []string{"run", "--net=host"}
-	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
@@ -539,7 +507,7 @@ func TestKanikoDir(t *testing.T) {
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_kaniko_dir")
 	dockerRunFlags := []string{"run", "--net=host"}
-	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
@@ -583,7 +551,7 @@ func TestBuildWithLabels(t *testing.T) {
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_label")
 	dockerRunFlags := []string{"run", "--net=host"}
-	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
@@ -624,7 +592,7 @@ func TestBuildWithHTTPError(t *testing.T) {
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_add_404")
 	dockerRunFlags := []string{"run", "--net=host"}
-	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
@@ -768,7 +736,7 @@ func TestSnapshotModes(t *testing.T) {
 		t.Helper()
 		tag := GetKanikoImage(config.imageRepo, dockerfile+"-snapshot-"+mode)
 		kanikoArgs := []string{"-c", buildContextPath, "--snapshot-mode=" + mode}
-		if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, kanikoArgs, tag, cwd, config.gcsBucket, config.gcsClient, config.serviceAccount, false, "", ""); err != nil {
+		if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, kanikoArgs, tag, cwd, "", ""); err != nil {
 			t.Fatalf("kaniko build with --snapshot-mode=%s: %v", mode, err)
 		}
 		return tag
@@ -830,7 +798,7 @@ func TestCache(t *testing.T) {
 
 func TestWarmer(t *testing.T) {
 	t.Parallel()
-	populateVolumeCache(t.Logf, config.serviceAccount)
+	populateVolumeCache(t.Logf)
 
 	for dockerfile := range imageBuilder.TestWarmerDockerfiles {
 		t.Run("test_warmer_"+dockerfile, func(t *testing.T) {
@@ -879,7 +847,7 @@ func TestWarmerTwice(t *testing.T) {
 
 			// Start a sleeping warmer container
 			dockerRunFlags := []string{"run", "--net=host"}
-			dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+			dockerRunFlags = addAuthFlags(dockerRunFlags)
 			for _, envVariable := range WarmerEnv {
 				dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 			}
@@ -956,7 +924,6 @@ func TestRelativePaths(t *testing.T) {
 			t.Logf,
 			config.imageRepo,
 			dockerfile,
-			config.serviceAccount,
 			contextPath,
 		)
 		if err != nil {
@@ -1016,7 +983,7 @@ func TestExitCodePropagation(t *testing.T) {
 			"run",
 			"-v", contextVolume,
 		}
-		dockerFlags = addServiceAccountFlags(dockerFlags, "")
+		dockerFlags = addAuthFlags(dockerFlags)
 		dockerFlags = addCoverageFlags(dockerFlags)
 		dockerFlags = append(dockerFlags, ExecutorImage,
 			"-c", "dir:///workspace/",
@@ -1069,7 +1036,7 @@ func TestBuildWithAnnotations(t *testing.T) {
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_annotation")
 	dockerRunFlags := []string{"run", "--net=host"}
-	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
@@ -1222,55 +1189,17 @@ func (i imageDetails) String() string {
 func initIntegrationTestConfig() *integrationTestConfig {
 	var c integrationTestConfig
 
-	var gcsEndpoint string
-	var disableGcsAuth bool
-	flag.StringVar(&c.gcsBucket, "bucket", "gs://kaniko-test-bucket", "The gcs bucket argument to uploaded the tar-ed contents of the `integration` dir to.")
-	flag.StringVar(&c.imageRepo, "repo", "gcr.io/kaniko-test", "The (docker) image repo to build and push images to during the test. `gcloud` must be authenticated with this repo or serviceAccount must be set.")
-	flag.StringVar(&c.serviceAccount, "serviceAccount", "", "The path to the service account push images to GCR and upload/download files to GCS.")
-	flag.StringVar(&gcsEndpoint, "gcs-endpoint", "", "Custom endpoint for GCS. Used for local integration tests")
-	flag.BoolVar(&disableGcsAuth, "disable-gcs-auth", false, "Disable GCS Authentication. Used for local integration tests")
+	flag.StringVar(&c.imageRepo, "repo", "gcr.io/kaniko-test", "The (docker) image repo to build and push images to during the test.")
 	// adds the possibility to run a single dockerfile. This is useful since running all images can exhaust the dockerhub pull limit
 	flag.StringVar(&c.dockerfilesPattern, "dockerfiles-pattern", "Dockerfile_test*", "The pattern to match dockerfiles with")
 	flag.StringVar(&coverageDir, "coverage-dir", "", "Collect executor coverage data into this directory.")
 	flag.Parse()
 
-	if len(c.serviceAccount) > 0 {
-		absPath, err := filepath.Abs("../" + c.serviceAccount)
-		if err != nil {
-			log.Fatalf("Error getting absolute path for service account: %s\n", c.serviceAccount)
-		}
-		if _, err := os.Stat(absPath); os.IsNotExist(err) {
-			log.Fatalf("Service account does not exist: %s\n", absPath)
-		}
-		c.serviceAccount = absPath
-		os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", absPath)
-	}
-
 	if c.imageRepo == "" {
 		log.Fatal("You must provide a image repository")
 	}
-
-	if c.isGcrRepository() && c.gcsBucket == "" {
-		log.Fatalf("You must provide a gcs bucket when using a Google Container Registry (\"%s\" was provided)", c.imageRepo)
-	}
 	if !strings.HasSuffix(c.imageRepo, "/") {
 		c.imageRepo = c.imageRepo + "/"
-	}
-
-	if c.gcsBucket != "" {
-		var opts []option.ClientOption
-		if gcsEndpoint != "" {
-			opts = append(opts, option.WithEndpoint(gcsEndpoint))
-		}
-		if disableGcsAuth {
-			opts = append(opts, option.WithoutAuthentication())
-		}
-
-		gcsClient, err := bucket.NewClient(context.Background(), opts...)
-		if err != nil {
-			log.Fatalf("Could not create a new Google Storage Client: %s", err)
-		}
-		c.gcsClient = gcsClient
 	}
 
 	c.dockerMajorVersion = getDockerMajorVersion()
@@ -1331,7 +1260,7 @@ func TestAlpineTLS(t *testing.T) {
 		[]string{"-c", buildContextPath},
 		dest,
 		cwd,
-		"", nil, config.serviceAccount, false, caCert, filepath.Join(dockerConfigDir, "config.json"),
+		caCert, filepath.Join(dockerConfigDir, "config.json"),
 	)
 	if err != nil {
 		t.Error(err)
