@@ -123,6 +123,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_CACHE_LOOKAHEAD=1",
 	"FF_KANIKO_PRESERVE_MOUNTED_PATHS=1",
 	"FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=1",
+	"FF_KANIKO_SCOPED_DOCKERIGNORE=1",
 	"KANIKO_PRINT_PLAN=1",
 }
 
@@ -758,6 +759,32 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 		return err
 	}
 	return nil
+}
+
+func (d *DockerFileBuilder) buildCachedImageInContext(logf logger, config *integrationTestConfig, cacheRepo, dockerfile, contextDir string, version int) error {
+	_, ex, _, _ := runtime.Caller(0)
+	cwd := filepath.Dir(ex)
+
+	kanikoImage := GetVersionedKanikoImage(config.imageRepo, filepath.Base(contextDir), version)
+
+	dockerRunFlags := []string{"run", "--net=host", "-v", cwd + ":/workspace"}
+	for _, envVariable := range KanikoEnv {
+		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
+	}
+	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+	dockerRunFlags = addCoverageFlags(dockerRunFlags)
+	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
+		"-f", path.Join(buildContextPath, dockerfile),
+		"-c", path.Join(buildContextPath, contextDir),
+		"-d", kanikoImage,
+		"--cache=true",
+		"--cache-copy-layers",
+		"--cache-repo", cacheRepo,
+		"--cache-dir", cacheDir)
+
+	out, err := RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
+	logf(string(out))
+	return err
 }
 
 // buildCachedImage builds the image for testing caching via kaniko warmer cache where version is the nth time this image has been built

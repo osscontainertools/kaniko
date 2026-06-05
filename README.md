@@ -146,6 +146,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_PRESERVE_MOUNTED_PATHS`](#flag-ff_kaniko_preserve_mounted_paths)
       - [Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`](#flag-ff_kaniko_reproducible_preserve_base_layers)
       - [Flag `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE`](#flag-ff_kaniko_deprecate_inter_stage_restore)
+      - [Flag `FF_KANIKO_SCOPED_DOCKERIGNORE`](#flag-ff_kaniko_scoped_dockerignore)
     - [Assertion Overrides](#assertion-overrides)
     - [Debug Image](#debug-image)
   - [Security](#security)
@@ -1285,6 +1286,12 @@ Becomes default in `v1.28.0`.
 Deprecates the inter-stage restore performed by [`--preserve-context`](#flag---preserve-context) when used without [`--pre-cleanup`](#flag---pre-cleanup). Set to `1` to fully disable the restore between stages. The original motivation, smuggling secrets across stages, is now served by `RUN --mount=type=secret`.
 Defaults to `false`.
 Becomes default in `v1.28.0`.
+
+#### Flag `FF_KANIKO_SCOPED_DOCKERIGNORE`
+
+Scopes `.dockerignore` patterns to the build context. Without it, an absolute path outside the context (such as an intermediate `/kaniko/...` source of a multi-stage `COPY --from`) is matched against the patterns; with an allowlist `.dockerignore` (e.g. `*` then `!keep`) the catch-all wrongly excludes it, dropping it from the layer cache key and serving a stale image when only that file changed. Set this flag to `true` to never match paths outside the context.
+Defaults to `false`.
+Currently no plans to activate.
 
 ### Assertion Overrides
 

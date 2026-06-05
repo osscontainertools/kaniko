@@ -1119,6 +1119,38 @@ func Test_correctDockerignoreFileIsUsed(t *testing.T) {
 	}
 }
 
+func Test_ExcludesFile_AbsoluteOutsideBuildContext(t *testing.T) {
+	t.Setenv("FF_KANIKO_SCOPED_DOCKERIGNORE", "1")
+	tempDir := t.TempDir()
+
+	// dockerignore, allowlist style
+	dockerignoreContent := "*\n!src\n"
+	dockerignorePath := filepath.Join(tempDir, ".dockerignore")
+	if err := os.WriteFile(dockerignorePath, []byte(dockerignoreContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	fileContext, err := NewFileContextFromDockerfile("", tempDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	allowedFile := filepath.Join(tempDir, "src/main.ts")
+	if fileContext.ExcludesFile(allowedFile) {
+		t.Errorf("expected allowed file '%s' to be NOT excluded", allowedFile)
+	}
+
+	ignoredFile := filepath.Join(tempDir, "README.md")
+	if !fileContext.ExcludesFile(ignoredFile) {
+		t.Errorf("expected ignored file '%s' to be excluded", ignoredFile)
+	}
+
+	outsideFile := "/kaniko/1/app/dist/src/main.js"
+	if fileContext.ExcludesFile(outsideFile) {
+		t.Errorf("expected intermediate absolute file '%s' outside build context to be NOT excluded", outsideFile)
+	}
+}
+
 func Test_CopyFile_skips_self(t *testing.T) {
 	t.Parallel()
 	tempDir := t.TempDir()

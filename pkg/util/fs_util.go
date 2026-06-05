@@ -989,6 +989,8 @@ func (c FileContext) ExcludesFile(path string) bool {
 			logrus.Errorf("Unable to get relative path, including %s in build: %v", path, err)
 			return false
 		}
+	} else if filepath.IsAbs(path) && config.EnvBool("FF_KANIKO_SCOPED_DOCKERIGNORE") {
+		return false
 	}
 	match, err := patternmatcher.Matches(path, c.ExcludedFiles)
 	if err != nil {
