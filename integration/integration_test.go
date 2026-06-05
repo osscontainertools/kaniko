@@ -1033,6 +1033,36 @@ func verifyBuildWith(t *testing.T, cache, dockerfile string) {
 	}
 }
 
+// mz762: with a `*` + `!test.txt` allowlist .dockerignore, the allowlisted file's
+// `/kaniko/...` COPY --from source was matched by `*` and dropped from the cache key,
+// serving a stale layer when only that file changed. The two contexts are identical
+// but for test.txt; built against one cache repo the images must differ — but be
+// identical once test.txt is ignored.
+func TestCacheInvalidatesOnAllowlistedFileChange(t *testing.T) {
+	t.Parallel()
+
+	cacheRepo := filepath.Join(config.imageRepo, "cache", "mz762", strconv.FormatInt(time.Now().UnixNano(), 10))
+
+	const dockerfile = "testdata/test_issue_mz762/Dockerfile"
+
+	if err := imageBuilder.buildCachedImageInContext(t.Logf, config, cacheRepo, dockerfile, "testdata/test_issue_mz762/original", 0); err != nil {
+		t.Fatalf("error building original image: %v", err)
+	}
+
+	if err := imageBuilder.buildCachedImageInContext(t.Logf, config, cacheRepo, dockerfile, "testdata/test_issue_mz762/changed", 0); err != nil {
+		t.Fatalf("error building changed image: %v", err)
+	}
+
+	original := GetVersionedKanikoImage(config.imageRepo, "original", 0)
+	changed := GetVersionedKanikoImage(config.imageRepo, "changed", 0)
+
+	if out, err := RunCommandWithoutTest(diffoci(t, original, changed, "", "--semantic")); err == nil {
+		t.Errorf("mz762: images identical after changing the allowlisted COPY --from source — stale cached layer served:\n%s", out)
+	}
+
+	containerDiff(t, original, changed, "--semantic", "--extra-ignore-files=app/test.txt")
+}
+
 func TestRelativePaths(t *testing.T) {
 	t.Parallel()
 	dockerfile := "Dockerfile_relative_copy"
@@ -1542,16 +1572,13 @@ func TestCustomPlatformVariant(t *testing.T) {
 	testutil.CheckDeepEqual(t, "v7", cfg.Variant)
 }
 
-// containerDiff compares the container images image1 and image2.
-func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
+func diffoci(t *testing.T, image1, image2, platform string, flags ...string) *exec.Cmd {
 	// workaround for container-diff OCI issue https://github.com/GoogleContainerTools/container-diff/issues/389
-	var pullArgs []string
-	if p, ok := platformMap[t.Name()]; ok {
-		platformFlag := fmt.Sprintf("--platform=%s/%s", p.OS, p.Architecture)
-		pullArgs = append(pullArgs, platformFlag)
-		flags = append(flags, platformFlag)
+	pullArgs := []string{"pull"}
+	if platform != "" {
+		pullArgs = append(pullArgs, "--platform="+platform)
+		flags = append(flags, "--platform="+platform)
 	}
-	pullArgs = append([]string{"pull"}, pullArgs...)
 	out := RunCommand(exec.Command("docker", append(pullArgs, image1)...), t)
 	t.Logf("docker pull cmd output for image1 = %s", string(out))
 	image1 = daemonPrefix + image1
@@ -1561,10 +1588,19 @@ func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	image2 = daemonPrefix + image2
 
 	flags = append([]string{"diff"}, flags...)
-	flags = append(flags, image1, image2, "--ignore-image-name", "--ignore-image-timestamps")
-	flags = append(flags, diffArgsMap[t.Name()]...)
+	flags = append(flags, image1, image2)
 
-	containerdiffCmd := exec.Command("diffoci", flags...)
-	diff := RunCommand(containerdiffCmd, t)
+	return exec.Command("diffoci", flags...)
+}
+
+// containerDiff compares the container images image1 and image2 and fails if they differ.
+func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
+	var platform string
+	if p, ok := platformMap[t.Name()]; ok {
+		platform = fmt.Sprintf("%s/%s", p.OS, p.Architecture)
+	}
+	flags = append(flags, "--ignore-image-name", "--ignore-image-timestamps")
+	flags = append(flags, diffArgsMap[t.Name()]...)
+	diff := RunCommand(diffoci(t, image1, image2, platform, flags...), t)
 	t.Logf("diff = %s", string(diff))
 }
