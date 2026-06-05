@@ -595,7 +595,7 @@ func Test_stageBuilder_optimize(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cf := &v1.ConfigFile{}
-			lc := &FakeLayerCache{retrieve: tc.retrieve}
+			lc := &fakeLayerCache{retrieve: tc.retrieve}
 			sb := &stageBuilder{cf: cf, args: dockerfile.NewBuildArgs([]string{})}
 			ck := CompositeCache{}
 			file, err := os.CreateTemp("", "foo")
@@ -887,7 +887,7 @@ func Test_stageBuilder_build(t *testing.T) {
 		description        string
 		opts               *config.KanikoOptions
 		args               map[string]string
-		layerCache         *FakeLayerCache
+		layerCache         *fakeLayerCache
 		expectedCacheKeys  []string
 		pushedCacheKeys    []string
 		commands           []commands.DockerCommand
@@ -956,7 +956,7 @@ func Test_stageBuilder_build(t *testing.T) {
 				description: "fake command cache enabled and key in cache",
 				opts:        &config.KanikoOptions{Cache: true},
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
-				layerCache: &FakeLayerCache{
+				layerCache: &fakeLayerCache{
 					retrieve: true,
 				},
 				expectedCacheKeys: []string{hash},
@@ -989,7 +989,7 @@ func Test_stageBuilder_build(t *testing.T) {
 				description: "fake command cache enabled with tar compression disabled and key in cache",
 				opts:        &config.KanikoOptions{Cache: true, CompressedCaching: false},
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
-				layerCache: &FakeLayerCache{
+				layerCache: &fakeLayerCache{
 					retrieve: true,
 				},
 				expectedCacheKeys: []string{hash},
@@ -1014,7 +1014,7 @@ func Test_stageBuilder_build(t *testing.T) {
 		{
 			description: "fake command cache disabled and key in cache",
 			opts:        &config.KanikoOptions{Cache: false},
-			layerCache: &FakeLayerCache{
+			layerCache: &fakeLayerCache{
 				retrieve: true,
 			},
 		},
@@ -1067,7 +1067,7 @@ func Test_stageBuilder_build(t *testing.T) {
 						},
 					},
 				},
-				layerCache: &FakeLayerCache{
+				layerCache: &fakeLayerCache{
 					retrieve: true,
 					img: fakeImage{
 						ImageLayers: []v1.Layer{
@@ -1126,7 +1126,7 @@ COPY %s foo.txt
 				description: "copy command cache enabled and key is not in cache",
 				opts:        opts,
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
-				layerCache:  &FakeLayerCache{},
+				layerCache:  &fakeLayerCache{},
 				image: fakeImage{
 					ImageLayers: []v1.Layer{
 						fakeLayer{
@@ -1203,8 +1203,8 @@ COPY %s bar.txt
 				opts:        &config.KanikoOptions{Cache: true, CacheCopyLayers: true, CacheRunLayers: true},
 				rootDir:     dir,
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
-				layerCache: &FakeLayerCache{
-					KeySequence: []string{hash1},
+				layerCache: &fakeLayerCache{
+					keySequence: []string{hash1},
 					img:         image,
 				},
 				image: image,
@@ -1276,8 +1276,8 @@ RUN foobar
 				opts:        &config.KanikoOptions{Cache: true, CacheRunLayers: true},
 				rootDir:     dir,
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
-				layerCache: &FakeLayerCache{
-					KeySequence: []string{runHash},
+				layerCache: &fakeLayerCache{
+					keySequence: []string{runHash},
 					img:         image,
 				},
 				image:             image,
@@ -1316,9 +1316,9 @@ RUN foobar
 				expectedCacheKeys: []string{hash},
 				commands:          []commands.DockerCommand{command},
 				// layer key needs to be read.
-				layerCache: &FakeLayerCache{
+				layerCache: &fakeLayerCache{
 					img:         &fakeImage{ImageLayers: []v1.Layer{fakeLayer{}}},
-					KeySequence: []string{hash},
+					keySequence: []string{hash},
 				},
 				rootDir: dir,
 			}
@@ -1352,9 +1352,9 @@ RUN foobar
 					"arg": "value",
 				},
 				// layer key that exists
-				layerCache: &FakeLayerCache{
+				layerCache: &fakeLayerCache{
 					img:         &fakeImage{ImageLayers: []v1.Layer{fakeLayer{}}},
-					KeySequence: []string{hash},
+					keySequence: []string{hash},
 				},
 				expectedCacheKeys: []string{hash},
 				commands:          []commands.DockerCommand{command},
@@ -1396,9 +1396,9 @@ RUN foobar
 					"arg": "anotherValue",
 				},
 				// layer for arg=value already exists
-				layerCache: &FakeLayerCache{
+				layerCache: &fakeLayerCache{
 					img:         &fakeImage{ImageLayers: []v1.Layer{fakeLayer{}}},
-					KeySequence: []string{hash1},
+					keySequence: []string{hash1},
 				},
 				expectedCacheKeys: []string{hash2},
 				pushedCacheKeys:   []string{hash2},
@@ -1448,7 +1448,7 @@ RUN foobar
 			snap := &fakeSnapShotter{file: fileName}
 			lc := tc.layerCache
 			if lc == nil {
-				lc = &FakeLayerCache{}
+				lc = &fakeLayerCache{}
 			}
 			keys := []string{}
 			_image := tc.image

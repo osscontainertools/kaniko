@@ -150,20 +150,19 @@ func (m MockCachedDockerCommand) Layer() v1.Layer {
 	return nil
 }
 
-type FakeLayerCache struct {
+type fakeLayerCache struct {
 	retrieve     bool
 	receivedKeys []string
 	img          v1.Image
-	KeySequence  []string
-	Redirects    []string
+	keySequence  []string
 }
 
-func (f *FakeLayerCache) RetrieveLayer(key string) (v1.Image, error) {
+func (f *fakeLayerCache) RetrieveLayer(key string) (v1.Image, error) {
 	f.receivedKeys = append(f.receivedKeys, key)
 
-	if len(f.KeySequence) > 0 {
-		if f.KeySequence[0] == key {
-			f.KeySequence = f.KeySequence[1:]
+	if len(f.keySequence) > 0 {
+		if f.keySequence[0] == key {
+			f.keySequence = f.keySequence[1:]
 			return f.img, nil
 		}
 		return f.img, errors.New("could not find layer")

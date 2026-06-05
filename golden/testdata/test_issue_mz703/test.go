@@ -11,7 +11,7 @@ var Tests = types.GoldenTests{
 			Env: map[string]string{
 				"FF_KANIKO_CACHE_LOOKAHEAD": "1",
 			},
-			KeySequence: []string{
+			CachedKeys: []string{
 				"2b9fe1fa3aca624785f33c81b10e22fdd7957bbe1791e0b390432b7dcd8d3b3c",
 				"fbd83b67ae5fc062049c8f0f8caf849790fad221667b7b49db5bc5e53847dfbf",
 			},
@@ -23,7 +23,7 @@ var Tests = types.GoldenTests{
 				"FF_KANIKO_CACHE_LOOKAHEAD":        "1",
 				"FF_KANIKO_CACHE_PROBE_AFTER_MISS": "1",
 			},
-			KeySequence: []string{
+			CachedKeys: []string{
 				"2b9fe1fa3aca624785f33c81b10e22fdd7957bbe1791e0b390432b7dcd8d3b3c",
 				"fbd83b67ae5fc062049c8f0f8caf849790fad221667b7b49db5bc5e53847dfbf",
 			},

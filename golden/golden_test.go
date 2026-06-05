@@ -18,6 +18,7 @@ package golden
 
 import (
 	"bytes"
+	"errors"
 	"flag"
 	"os"
 	"path/filepath"
@@ -26,6 +27,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
 	testissuemz195 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz195"
 	testissuemz333 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz333"
@@ -42,6 +44,19 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
+
+type fakeLayerCache struct {
+	cachedKeys []string
+}
+
+func (f *fakeLayerCache) RetrieveLayer(key string) (v1.Image, error) {
+	for _, k := range f.cachedKeys {
+		if k == key {
+			return nil, nil
+		}
+	}
+	return nil, errors.New("could not find layer")
+}
 
 func renderCommand(env map[string]string, args []string) string {
 	var parts []string
@@ -100,7 +115,7 @@ func TestRun(t *testing.T) {
 							opts := config.KanikoOptions{}
 							origNewLayerCache := executor.NewLayerCache
 							executor.NewLayerCache = func(_ *config.KanikoOptions) cache.LayerCache {
-								return &executor.FakeLayerCache{KeySequence: test.KeySequence}
+								return &fakeLayerCache{cachedKeys: test.CachedKeys}
 							}
 							t.Cleanup(func() { executor.NewLayerCache = origNewLayerCache })
 							exec := &cobra.Command{
