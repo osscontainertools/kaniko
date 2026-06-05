@@ -141,6 +141,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_CACHE_LOOKAHEAD`](#flag-ff_kaniko_cache_lookahead)
       - [Flag `FF_KANIKO_CACHE_PROBE_AFTER_MISS`](#flag-ff_kaniko_cache_probe_after_miss)
       - [Flag `FF_KANIKO_WARMER_CACHE_LOCK`](#flag-ff_kaniko_warmer_cache_lock)
+      - [Flag `FF_KANIKO_PRESERVE_MOUNTED_PATHS`](#flag-ff_kaniko_preserve_mounted_paths)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1224,6 +1225,12 @@ Defaults to `false`.
 Multiple warmer processes sharing a cache volume can race on the final rename to `cacheDir/<digest>`. With [`FF_KANIKO_OCI_WARMER`](#flag-ff_kaniko_oci_warmer) the rename fails with `ENOTEMPTY` and the loser exits non-zero.
 Set this flag to `true` to serialize the recheck + rename via a per-digest `flock(2)` on `cacheDir/.warmer-locks/<digest>.lock`.
 Defaults to `false`.
+Becomes default in `v1.28.0`.
+
+#### Flag `FF_KANIKO_PRESERVE_MOUNTED_PATHS`
+
+When a container runtime bind-mounts files read-only into the build container — as the NVIDIA GPU operator does with driver artifacts (`nvidia-smi`, `libnvidia*`, firmware blobs) on GPU nodes — and a base image layer ships a directory along that mount path as a symlink, kaniko `os.RemoveAll`s the directory while unpacking to make way for the symlink. The recursive remove hits the read-only bind mount and the build fails with `unlinkat ...: device or resource busy`.
+Set this flag to `true` to skip removing a directory that contains a mounted (ignored) path: its other contents are still cleared, but the mount is preserved and the conflicting layer entry is left in place, matching how `DeleteFilesystem` already treats mounts. Defaults to `false`.
 Becomes default in `v1.28.0`.
 
 ### Assertion Overrides

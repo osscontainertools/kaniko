@@ -122,6 +122,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_RUN_MOUNT_BIND=1",
 	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=1",
 	"FF_KANIKO_CACHE_LOOKAHEAD=1",
+	"FF_KANIKO_PRESERVE_MOUNTED_PATHS=1",
 	"KANIKO_PRINT_PLAN=1",
 }
 
@@ -876,6 +877,12 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 	return nil
 }
 
+var extraDockerRunFlags = map[string]func(contextDir string) []string{
+	"Dockerfile_test_issue_mz753": func(ctx string) []string {
+		return []string{"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/opt/driver/lib.so:ro"}
+	},
+}
+
 func buildKanikoImage(
 	logf logger,
 	dockerfilesPath string,
@@ -955,6 +962,10 @@ func buildKanikoImage(
 	if tlsCACert != "" {
 		dockerRunFlags = append(dockerRunFlags,
 			"-v", tlsCACert+":/kaniko/ssl/certs/test-registry-ca.crt:ro")
+	}
+
+	if fn, ok := extraDockerRunFlags[dockerfile]; ok {
+		dockerRunFlags = append(dockerRunFlags, fn(contextDir)...)
 	}
 
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)

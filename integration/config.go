@@ -23,16 +23,17 @@ import (
 )
 
 type integrationTestConfig struct {
-	gcsBucket          string
-	imageRepo          string
-	onbuildBaseImage   string
-	onbuildCopyImage   string
-	hardlinkBaseImage  string
-	hijackBaseImage    string
-	serviceAccount     string
-	dockerMajorVersion int
-	gcsClient          *storage.Client
-	dockerfilesPattern string
+	gcsBucket               string
+	imageRepo               string
+	onbuildBaseImage        string
+	onbuildCopyImage        string
+	hardlinkBaseImage       string
+	hijackBaseImage         string
+	nvidiaOperatorBaseImage string
+	serviceAccount          string
+	dockerMajorVersion      int
+	gcsClient               *storage.Client
+	dockerfilesPattern      string
 }
 
 const gcrRepoPrefix string = "gcr.io/"

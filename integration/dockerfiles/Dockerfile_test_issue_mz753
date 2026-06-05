@@ -1,0 +1,13 @@
+# mz753: through kaniko v1.27.x, builds aborted with "device or resource busy" when
+# a container runtime (e.g. the NVIDIA device plugin) bind-mounts driver files
+# read-only into the build container under a directory the base image replaces with
+# a symlink. The harness reproduces it by mounting a file at /opt/driver/lib.so so
+# /opt/driver is a real directory, while the base stage below ships /opt/driver as a
+# symlink: unpacking it, kaniko removed the directory to make way for the symlink and
+# hit the busy mount. The mounted path must be preserved instead.
+ARG IMAGE_REPO
+FROM busybox AS base
+RUN mkdir -p /opt/real && ln -s /opt/real /opt/driver
+
+FROM ${IMAGE_REPO}nvidia-operator-base:latest
+RUN echo mz753
