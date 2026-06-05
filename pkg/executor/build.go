@@ -1011,7 +1011,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	stageArgs := make([]*dockerfile.BuildArgs, lastStage.Index+1)
 	cacheInfo := make([]*stageCacheInfo, lastStage.Index+1)
 	if opts.Cache && config.EnvBool("FF_KANIKO_CACHE_LOOKAHEAD") {
-		layerCache := NewLayerCache(opts)
 		images := make([]v1.Image, lastStage.Index+1)
 		for _, stage := range kanikoStages {
 			var baseImage v1.Image
@@ -1046,7 +1045,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				compositeKey = NewCompositeCache(sb.baseImageDigest)
 			}
 
-			finalCacheKey, ci, err := sb.optimize(compositeKey, sb.cf.Config, sb.args, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, externalImageDigests, false)
+			finalCacheKey, ci, err := sb.optimize(compositeKey, sb.cf.Config, sb.args, opts, fileContext, NewLayerCache(opts), stageFinalCacheKeys, externalImageDigests, false)
 			if err != nil {
 				return nil, fmt.Errorf("precompute: failed to optimize stage %d: %w", stage.Index, err)
 			}
