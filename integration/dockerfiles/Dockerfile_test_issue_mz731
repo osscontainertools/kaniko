@@ -1,0 +1,11 @@
+# mz731: --reproducible used to re-tar every layer to zero timestamps,
+# including layers inherited from the FROM image. That gave base-layer
+# blobs fresh digests on every build and broke registry layer reuse even
+# though kaniko had not touched them.
+#
+# Pin the base by digest so the inherited layers are deterministic, then
+# add one RUN so kaniko produces at least one layer of its own. The test
+# asserts that the leading layers of the kaniko output match the digests
+# of the upstream base image exactly.
+FROM alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a
+RUN echo 'hi' > /root/hi.txt

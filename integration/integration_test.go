@@ -223,6 +223,9 @@ func TestRun(t *testing.T) {
 			if _, ok := expectErr[dockerfile]; ok {
 				t.SkipNow()
 			}
+			if _, ok := imageBuilder.TestReproducibleDockerfiles[dockerfile]; ok {
+				t.SkipNow()
+			}
 
 			buildImage(t, dockerfile, imageBuilder)
 
@@ -838,6 +841,48 @@ func buildImage(t *testing.T, dockerfile string, imageBuilder *DockerFileBuilder
 }
 
 // Build each image with kaniko twice, and then make sure they're exactly the same
+func TestReproducible(t *testing.T) {
+	t.Parallel()
+	_, ex, _, _ := runtime.Caller(0)
+	cwd := filepath.Dir(ex)
+
+	build := func(t *testing.T, dockerfile, ref string) {
+		t.Helper()
+		var buildArgs []string
+		for _, arg := range argsMap[dockerfile] {
+			buildArgs = append(buildArgs, "--build-arg", arg)
+		}
+		buildArgs = append(buildArgs, "--build-arg", "IMAGE_REPO="+config.imageRepo)
+		flags := []string{"-c", buildContextPath, "--reproducible"}
+		flags = append(flags, additionalKanikoFlagsMap[dockerfile]...)
+		_, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, flags, ref,
+			cwd, config.gcsBucket, config.gcsClient, config.serviceAccount, false, "", "")
+		if err != nil {
+			t.Fatalf("build %s -> %s: %v", dockerfile, ref, err)
+		}
+	}
+	const baseRef = "alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a"
+	for dockerfile := range imageBuilder.TestReproducibleDockerfiles {
+		if match, _ := filepath.Match(config.dockerfilesPattern, dockerfile); !match {
+			continue
+		}
+		t.Run("test_reproducible_"+dockerfile, func(t *testing.T) {
+			dockerfile := dockerfile
+			t.Parallel()
+			ref0 := GetVersionedKanikoImage(config.imageRepo, dockerfile, 0)
+			ref1 := GetVersionedKanikoImage(config.imageRepo, dockerfile, 1)
+			build(t, dockerfile, ref0)
+			build(t, dockerfile, ref1)
+			containerDiff(t, ref0, ref1)
+
+			// mz731: make sure the inherited base layers were not mutated.
+			base := layerDigests(t, baseRef)
+			kaniko := layerDigests(t, ref0)
+			testutil.CheckDeepEqual(t, base, kaniko[:len(base)])
+		})
+	}
+}
+
 func TestCache(t *testing.T) {
 	t.Parallel()
 	// Build dockerfiles with registry cache
@@ -1252,6 +1297,27 @@ func getImage(image string, opts ...remote.Option) (v1.Image, error) {
 		return nil, fmt.Errorf("Couldn't parse reference to image %s: %w", image, err)
 	}
 	return remote.Image(ref, opts...)
+}
+
+func layerDigests(t *testing.T, image string) []string {
+	t.Helper()
+	img, err := getImage(image)
+	if err != nil {
+		t.Fatalf("getImage %s: %v", image, err)
+	}
+	layers, err := img.Layers()
+	if err != nil {
+		t.Fatalf("%s layers: %v", image, err)
+	}
+	out := make([]string, len(layers))
+	for i, l := range layers {
+		d, err := l.Digest()
+		if err != nil {
+			t.Fatalf("%s[%d] digest: %v", image, i, err)
+		}
+		out[i] = d.String()
+	}
+	return out
 }
 
 func getImageDetails(image string, opts ...remote.Option) (*imageDetails, error) {

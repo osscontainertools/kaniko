@@ -17,7 +17,6 @@ limitations under the License.
 package executor
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -1023,7 +1022,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				}
 			}
 			if config.EnvBool("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS") {
-				baseImage = withoutAnnotations(baseImage)
+				baseImage = image_util.WithoutAnnotations(baseImage)
 			}
 			args := baseArgs
 			if stage.BaseImageStoredLocally {
@@ -1124,7 +1123,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return nil, fmt.Errorf("failed to get baseImage: %w", err)
 		}
 		if config.EnvBool("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS") {
-			baseImage = withoutAnnotations(baseImage)
+			baseImage = image_util.WithoutAnnotations(baseImage)
 		}
 
 		args := baseArgs
@@ -1225,6 +1224,12 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				sourceImage, err = mutate.Canonical(sourceImage)
 				if err != nil {
 					return nil, err
+				}
+				if config.EnvBool("FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS") {
+					sourceImage, err = image_util.ReplaceBase(sourceImage, baseImage)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 			if len(opts.Annotations) > 0 {
@@ -1492,37 +1497,4 @@ func reviewConfig(stage config.KanikoStage, config *v1.Config) {
 	if entrypoint && !cmd {
 		config.Cmd = nil
 	}
-}
-
-// mz507: withoutAnnotations returns an image whose manifest has no annotations.
-// mutate.Annotations only merges into existing annotations and cannot delete
-// keys, so we wrap the image to intercept Manifest and RawManifest instead.
-func withoutAnnotations(img v1.Image) v1.Image {
-	return &noAnnotationsImage{Image: img}
-}
-
-type noAnnotationsImage struct {
-	v1.Image
-}
-
-func (n *noAnnotationsImage) Manifest() (*v1.Manifest, error) {
-	m, err := n.Image.Manifest()
-	if err != nil {
-		return nil, err
-	}
-	stripped := *m
-	stripped.Annotations = nil
-	return &stripped, nil
-}
-
-func (n *noAnnotationsImage) RawManifest() ([]byte, error) {
-	m, err := n.Manifest()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(m)
-}
-
-func (n *noAnnotationsImage) Digest() (v1.Hash, error) {
-	return partial.Digest(n)
 }

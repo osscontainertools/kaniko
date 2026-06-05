@@ -25,7 +25,6 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -123,6 +122,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=1",
 	"FF_KANIKO_CACHE_LOOKAHEAD=1",
 	"FF_KANIKO_PRESERVE_MOUNTED_PATHS=1",
+	"FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=1",
 	"KANIKO_PRINT_PLAN=1",
 }
 
@@ -391,10 +391,7 @@ func checkArgsNotPrinted(dockerfile string, out []byte) error {
 	return nil
 }
 
-var (
-	bucketContextTests = []string{"Dockerfile_test_copy_bucket"}
-	reproducibleTests  = []string{"Dockerfile_test_reproducible"}
-)
+var bucketContextTests = []string{"Dockerfile_test_copy_bucket"}
 
 // GetDockerImage constructs the name of the docker image that would be built with
 // dockerfile if it was tagged with imageRepo.
@@ -447,11 +444,12 @@ func (s *syncMap[K, V]) LoadOrStore(key K, val V) (V, bool) {
 // keeps track of which files have been built.
 type DockerFileBuilder struct {
 	// Holds all available docker files and whether or not they've been built
-	filesBuilt              syncMap[string, func() error]
-	DockerfilesToIgnore     map[string]struct{}
-	TestCacheDockerfiles    map[string]struct{}
-	TestOCICacheDockerfiles map[string]struct{}
-	TestWarmerDockerfiles   map[string]struct{}
+	filesBuilt                  syncMap[string, func() error]
+	DockerfilesToIgnore         map[string]struct{}
+	TestCacheDockerfiles        map[string]struct{}
+	TestOCICacheDockerfiles     map[string]struct{}
+	TestWarmerDockerfiles       map[string]struct{}
+	TestReproducibleDockerfiles map[string]struct{}
 }
 
 type logger func(string, ...any)
@@ -491,6 +489,10 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 	}
 	d.TestWarmerDockerfiles = map[string]struct{}{
 		"Dockerfile_test_issue_mz320": {},
+	}
+	d.TestReproducibleDockerfiles = map[string]struct{}{
+		"Dockerfile_test_copy_reproducible": {},
+		"Dockerfile_test_issue_mz731":       {},
 	}
 	return &d
 }
@@ -628,7 +630,7 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 
 	additionalKanikoFlags := additionalKanikoFlagsMap[dockerfile]
 	additionalKanikoFlags = append(additionalKanikoFlags, contextFlag, contextPath)
-	if slices.Contains(reproducibleTests, dockerfile) {
+	if _, ok := d.TestReproducibleDockerfiles[dockerfile]; ok {
 		additionalKanikoFlags = append(additionalKanikoFlags, "--reproducible")
 	}
 

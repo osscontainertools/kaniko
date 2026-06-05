@@ -123,7 +123,6 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--image-fs-extract-retry`](#flag---image-fs-extract-retry)
       - [Flag `--image-download-retry`](#flag---image-download-retry)
     - [Feature Flags](#feature-flags)
-    - [Assertion Overrides](#assertion-overrides)
       - [Flag `FF_KANIKO_COPY_AS_ROOT`](#flag-ff_kaniko_copy_as_root)
       - [Flag `FF_KANIKO_SQUASH_STAGES`](#flag-ff_kaniko_squash_stages)
       - [Flag `FF_KANIKO_IGNORE_CACHED_MANIFEST`](#flag-ff_kaniko_ignore_cached_manifest)
@@ -144,11 +143,10 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_CACHE_LOOKAHEAD`](#flag-ff_kaniko_cache_lookahead)
       - [Flag `FF_KANIKO_CACHE_PROBE_AFTER_MISS`](#flag-ff_kaniko_cache_probe_after_miss)
       - [Flag `FF_KANIKO_WARMER_CACHE_LOCK`](#flag-ff_kaniko_warmer_cache_lock)
-<<<<<<< HEAD
       - [Flag `FF_KANIKO_PRESERVE_MOUNTED_PATHS`](#flag-ff_kaniko_preserve_mounted_paths)
-=======
+      - [Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`](#flag-ff_kaniko_reproducible_preserve_base_layers)
       - [Flag `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE`](#flag-ff_kaniko_deprecate_inter_stage_restore)
->>>>>>> f46373069 (gate inter-stage context restore behind FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE)
+    - [Assertion Overrides](#assertion-overrides)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1273,6 +1271,13 @@ Becomes default in `v1.28.0`.
 
 When a container runtime bind-mounts files read-only into the build container — as the NVIDIA GPU operator does with driver artifacts (`nvidia-smi`, `libnvidia*`, firmware blobs) on GPU nodes — and a base image layer ships a directory along that mount path as a symlink, kaniko `os.RemoveAll`s the directory while unpacking to make way for the symlink. The recursive remove hits the read-only bind mount and the build fails with `unlinkat ...: device or resource busy`.
 Set this flag to `true` to skip removing a directory that contains a mounted (ignored) path: its other contents are still cleared, but the mount is preserved and the conflicting layer entry is left in place, matching how `DeleteFilesystem` already treats mounts. Defaults to `false`.
+Becomes default in `v1.28.0`.
+
+#### Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`
+
+`--reproducible` re-tars every layer to zero its timestamps, including layers inherited from the `FROM` image. Base-layer blobs get fresh digests on every build and stop matching the upstream registry, defeating layer reuse even though kaniko changed nothing in them.
+Set this flag to `true` to re-time only kaniko-appended layers and pass base layers through unchanged.
+Defaults to `false`.
 Becomes default in `v1.28.0`.
 
 #### Flag `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE`
