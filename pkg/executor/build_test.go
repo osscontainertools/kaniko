@@ -539,7 +539,7 @@ func TestInitializeConfig(t *testing.T) {
 
 func Test_newLayerCache_defaultCache(t *testing.T) {
 	t.Run("default layer cache is registry cache", func(t *testing.T) {
-		layerCache := newLayerCache(&config.KanikoOptions{CacheRepo: "some-cache-repo"})
+		layerCache := NewLayerCache(&config.KanikoOptions{CacheRepo: "some-cache-repo"})
 		foundCache, ok := layerCache.(*cache.RegistryCache)
 		if !ok {
 			t.Error("expected layer cache to be a registry cache")
@@ -554,7 +554,7 @@ func Test_newLayerCache_defaultCache(t *testing.T) {
 
 func Test_newLayerCache_layoutCache(t *testing.T) {
 	t.Run("when cache repo has 'oci:' prefix layer cache is layout cache", func(t *testing.T) {
-		layerCache := newLayerCache(&config.KanikoOptions{CacheRepo: "oci:/some-cache-repo"})
+		layerCache := NewLayerCache(&config.KanikoOptions{CacheRepo: "oci:/some-cache-repo"})
 		foundCache, ok := layerCache.(*cache.LayoutCache)
 		if !ok {
 			t.Error("expected layer cache to be a layout cache")
@@ -565,97 +565,6 @@ func Test_newLayerCache_layoutCache(t *testing.T) {
 			)
 		}
 	})
-}
-
-// Test_stageBuilder_optimize_cacheProbeAfterMiss verifies the
-// FF_KANIKO_CACHE_PROBE_AFTER_MISS feature flag. By default (flag unset) the
-// legacy stop-on-first-miss cascade is preserved. When the flag is set to
-// true, optimize() keeps probing the cache for subsequent layers in the
-// stage after a miss.
-//
-// Three commands are constructed with hits=[true, false, true]. With the
-// flag set, all three lookups happen and the first/third commands are
-// substituted with their cached forms. With the flag unset (legacy), only
-// two lookups happen (the miss stops further probing) and only the first
-// command is substituted.
-func Test_stageBuilder_optimize_cacheProbeAfterMiss(t *testing.T) {
-	hits := []bool{true, false, true}
-
-	makeCommands := func() []commands.DockerCommand {
-		out := make([]commands.DockerCommand, len(hits))
-		for i := range hits {
-			f, err := os.CreateTemp("", "kaniko-optimize-test")
-			if err != nil {
-				t.Fatal(err)
-			}
-			t.Cleanup(func() { os.Remove(f.Name()) })
-			out[i] = MockDockerCommand{
-				command:      fmt.Sprintf("cmd-%d", i),
-				contextFiles: []string{f.Name()},
-				cacheCommand: MockCachedDockerCommand{},
-			}
-		}
-		return out
-	}
-
-	tests := []struct {
-		name              string
-		ffValue           string // "" means unset
-		wantLookups       int
-		wantSubstitutions int
-	}{
-		{
-			name:              "legacy default (flag unset) — stops after first miss",
-			ffValue:           "",
-			wantLookups:       2,
-			wantSubstitutions: 1,
-		},
-		{
-			name:              "FF_KANIKO_CACHE_PROBE_AFTER_MISS=true — all layers probed",
-			ffValue:           "true",
-			wantLookups:       3,
-			wantSubstitutions: 2,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			if tc.ffValue != "" {
-				t.Setenv("FF_KANIKO_CACHE_PROBE_AFTER_MISS", tc.ffValue)
-			} else {
-				// t.Setenv would also clear at cleanup; we want the variable
-				// genuinely unset for this case so config.EnvBool returns
-				// the documented default (false).
-				t.Setenv("FF_KANIKO_CACHE_PROBE_AFTER_MISS", "")
-				os.Unsetenv("FF_KANIKO_CACHE_PROBE_AFTER_MISS")
-			}
-
-			cf := &v1.ConfigFile{}
-			lc := &fakeLayerCache{img: &fakeImage{}, hits: hits}
-			sb := &stageBuilder{cf: cf, args: dockerfile.NewBuildArgs([]string{})}
-			sb.cmds = makeCommands()
-
-			ck := CompositeCache{}
-			opts := &config.KanikoOptions{Cache: true}
-			if _, err := sb.optimize(&ck, cf.Config, sb.args, opts, util.FileContext{}, lc, nil, nil, true); err != nil {
-				t.Fatalf("optimize returned error: %v", err)
-			}
-
-			if got := len(lc.receivedKeys); got != tc.wantLookups {
-				t.Errorf("cache lookups: got %d, want %d (keys=%v)", got, tc.wantLookups, lc.receivedKeys)
-			}
-
-			substituted := 0
-			for _, c := range sb.cmds {
-				if _, ok := c.(MockCachedDockerCommand); ok {
-					substituted++
-				}
-			}
-			if substituted != tc.wantSubstitutions {
-				t.Errorf("command substitutions: got %d, want %d", substituted, tc.wantSubstitutions)
-			}
-		})
-	}
 }
 
 func Test_stageBuilder_optimize(t *testing.T) {
@@ -698,7 +607,7 @@ func Test_stageBuilder_optimize(t *testing.T) {
 				cacheCommand: MockCachedDockerCommand{},
 			}
 			sb.cmds = []commands.DockerCommand{command}
-			_, err = sb.optimize(&ck, cf.Config, sb.args, tc.opts, util.FileContext{}, lc, nil, nil, true)
+			_, _, err = sb.optimize(&ck, cf.Config, sb.args, tc.opts, util.FileContext{}, lc, nil, nil, true)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -1571,7 +1480,7 @@ RUN foobar
 				getFSFromImage = tc.mockGetFSFromImage
 			}
 			compositeKey := NewCompositeCache(sb.baseImageDigest)
-			_, err := sb.optimize(compositeKey, sb.cf.Config, sb.args, tc.opts, util.FileContext{}, lc, nil, nil, true)
+			_, _, err := sb.optimize(compositeKey, sb.cf.Config, sb.args, tc.opts, util.FileContext{}, lc, nil, nil, true)
 			if err != nil {
 				t.Errorf("failed to optimize instructions: %v", err)
 			}

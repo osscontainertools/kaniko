@@ -60,6 +60,7 @@ var (
 	mkdirPermissions os.FileMode = 0o755
 	pushCache                    = pushLayerToCache
 	pushPointer                  = pushCachePointer
+	NewLayerCache                = newLayerCacheImpl
 )
 
 type snapShotter interface {
@@ -77,6 +78,13 @@ type stageBuilder struct {
 	baseImageDigest string
 	cmds            []commands.DockerCommand
 	args            *dockerfile.BuildArgs
+}
+
+type stageCacheInfo struct {
+	redirectKeys []string
+	redirectHits []bool
+	cacheKeys    []string
+	cacheHits    []bool
 }
 
 func makeSnapshotter(opts *config.KanikoOptions) (*snapshot.Snapshotter, error) {
@@ -141,9 +149,6 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 		if err != nil {
 			return nil, err
 		}
-		if command == nil {
-			continue
-		}
 		s.cmds = append(s.cmds, command)
 	}
 	s.args.AddMetaArgs(stage.MetaArgs)
@@ -184,7 +189,7 @@ func initConfig(img partial.WithConfigFile, opts *config.KanikoOptions) (*v1.Con
 	return imageConfig, nil
 }
 
-func newLayerCache(opts *config.KanikoOptions) cache.LayerCache {
+func newLayerCacheImpl(opts *config.KanikoOptions) cache.LayerCache {
 	if isOCILayout(opts.CacheRepo) {
 		return &cache.LayoutCache{
 			Opts: opts,
@@ -275,10 +280,16 @@ func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (
 	return NewCompositeCache(rawKey), nil
 }
 
-func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, args *dockerfile.BuildArgs, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string, hasContext bool) (string, error) {
+func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, args *dockerfile.BuildArgs, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string, hasContext bool) (string, *stageCacheInfo, error) {
 	keyValid := compositeKeyPtr != nil
 	if hasContext {
 		util.Assert("executor.optimize.keyValid", keyValid, "optimize: key must be valid")
+	}
+	ci := &stageCacheInfo{
+		redirectKeys: make([]string, len(s.cmds)),
+		redirectHits: make([]bool, len(s.cmds)),
+		cacheKeys:    make([]string, len(s.cmds)),
+		cacheHits:    make([]bool, len(s.cmds)),
 	}
 	var compositeKey CompositeCache
 	if keyValid {
@@ -297,7 +308,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 	sawCacheMiss := false
 	finalCacheKey, err := compositeKey.Hash()
 	if err != nil {
-		return "", err
+		return "", ci, err
 	}
 	cmdCountBeforeOptimize := len(s.cmds)
 	// Possibly replace commands with their cached implementations.
@@ -321,35 +332,41 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 
 			files, err := command.FilesUsedFromContext(&cfg, args)
 			if err != nil {
-				return "", fmt.Errorf("failed to get files used from context: %w", err)
+				return "", ci, fmt.Errorf("failed to get files used from context: %w", err)
 			}
 
 			prevCompositeKey := compositeKey.Clone()
 			compositeKey, err = populateCompositeKey(command, files, compositeKey, args, cfg.Env, fileContext, nil, nil)
 			if err != nil {
-				return "", err
+				return "", ci, err
 			}
 
 			// mz334: assert the inferred key pointer resolves to the same content key.
 			if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
 				inferredKey, err := populateCompositeKey(command, nil, prevCompositeKey, args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 				if err == nil {
+					inferredCK, err := inferredKey.Hash()
+					if err != nil {
+						return "", ci, err
+					}
+					ci.redirectKeys[i] = inferredCK
 					contentKey, err := redirectCacheKey(inferredKey, layerCache)
 					if err != nil {
-						return "", err
+						return "", ci, err
 					}
 					if contentKey != nil {
 						ick, err := contentKey.Hash()
 						if err != nil {
-							return "", err
+							return "", ci, err
 						}
 						ck, err := compositeKey.Hash()
 						if err != nil {
-							return "", err
+							return "", ci, err
 						}
 						util.Assert("executor.compositekey.key-match", ick == ck, "pointer inferred content key %v does not match the computed content key %v", ick, ck)
 						// mz334: log when the inferred key produced the hit (integration test observability only).
 						logrus.Infof("Cache hit via inferred cross-stage key for cmd: %s", command.String())
+						ci.redirectHits[i] = true
 					}
 				}
 			}
@@ -357,11 +374,12 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 			logrus.Debugf("Optimize: composite key for command %v %v", command.String(), compositeKey)
 			ck, err := compositeKey.Hash()
 			if err != nil {
-				return "", fmt.Errorf("failed to hash composite key: %w", err)
+				return "", ci, fmt.Errorf("failed to hash composite key: %w", err)
 			}
 
 			logrus.Debugf("Optimize: cache key for command %v %v", command.String(), ck)
 			finalCacheKey = ck
+			ci.cacheKeys[i] = ck
 
 			if command.ShouldCacheOutput() && !stopCache {
 				img, err := layerCache.RetrieveLayer(ck)
@@ -376,6 +394,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 					continue
 				}
 
+				ci.cacheHits[i] = true
 				if cacheCmd := command.CacheCommand(img); cacheCmd != nil {
 					if sawCacheMiss {
 						logrus.Debugf("Applying cached layer for cmd %s after an earlier miss in the same stage (FF_KANIKO_CACHE_PROBE_AFTER_MISS)", command.String())
@@ -389,7 +408,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 		// Mutate the config for any commands that require it.
 		if command.MetadataOnly() {
 			if err := command.ExecuteCommand(&cfg, args); err != nil {
-				return "", err
+				return "", ci, err
 			}
 		}
 	}
@@ -402,7 +421,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 	if hasContext || keyValid {
 		util.Assert("executor.optimize.finalcachekey", finalCacheKey != "", "optimize: finalCacheKey can't be empty")
 	}
-	return finalCacheKey, nil
+	return finalCacheKey, ci, nil
 }
 
 func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string) error {
@@ -410,6 +429,9 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	// Unpack file system to root if we need to.
 	shouldUnpack := false
 	for _, cmd := range s.cmds {
+		if cmd == nil {
+			continue
+		}
 		if cmd.RequiresUnpackedFS() {
 			logrus.Infof("Unpacking rootfs as cmd %s requires it.", cmd.String())
 			shouldUnpack = true
@@ -861,7 +883,7 @@ var (
 	Out io.Writer = os.Stdout
 )
 
-func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string) (retErr error) {
+func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string) (retErr error) {
 	printf := func(format string, args ...any) {
 		if retErr == nil {
 			_, retErr = fmt.Fprintf(Out, format, args...)
@@ -885,7 +907,29 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 		} else {
 			printf("UNPACK %s\n", s.BaseName)
 		}
-		for _, c := range s.Commands {
+		for jdx, c := range s.Commands {
+			if opts.Cache && opts.CacheCopyLayers && config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && config.EnvBool("FF_KANIKO_CACHE_LOOKAHEAD") {
+				if copyCmd, ok := c.(*instructions.CopyCommand); ok && copyCmd.From != "" {
+					ci := cacheInfo[s.Index]
+					if ck := ci.redirectKeys[jdx]; ck != "" {
+						if ci.redirectHits[jdx] {
+							printf("CACHE REDIRECT HIT: %s\n", ck)
+						} else {
+							printf("CACHE REDIRECT MISS: %s\n", ck)
+						}
+					}
+				}
+			}
+			if opts.Cache && config.EnvBool("FF_KANIKO_CACHE_LOOKAHEAD") {
+				ci := cacheInfo[s.Index]
+				if ck := ci.cacheKeys[jdx]; ck != "" {
+					if ci.cacheHits[jdx] {
+						printf("CACHE HIT: %s\n", ck)
+					} else {
+						printf("CACHE MISS: %s\n", ck)
+					}
+				}
+			}
 			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
 			if err != nil {
 				return err
@@ -949,18 +993,9 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	logrus.Infof("Built cross stage deps: %v", crossStageDependencies)
 
 	util.Assert("executor.build.stages-nonempty", len(kanikoStages) > 0, "no stages to build")
-	if opts.Dryrun || config.EnvBool("KANIKO_PRINT_PLAN") {
-		err := RenderStages(kanikoStages, opts, fileContext, crossStageDependencies)
-		if err != nil {
-			return nil, err
-		}
-		if opts.Dryrun {
-			return nil, nil
-		}
-	}
 
 	// Some stages may refer to other random images, not previous stages
-	externalImageDigests, err := fetchExtraStages(kanikoStages, opts)
+	externalImageDigests, extraStageImages, err := resolveExtraStageDigests(kanikoStages, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -974,6 +1009,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 
 	stageArgs := make([]*dockerfile.BuildArgs, lastStage.Index+1)
+	cacheInfo := make([]*stageCacheInfo, lastStage.Index+1)
 	if opts.Cache && config.EnvBool("FF_KANIKO_CACHE_LOOKAHEAD") {
 		images := make([]v1.Image, lastStage.Index+1)
 		for _, stage := range kanikoStages {
@@ -1009,16 +1045,31 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				compositeKey = NewCompositeCache(sb.baseImageDigest)
 			}
 
-			finalCacheKey, err := sb.optimize(compositeKey, sb.cf.Config, sb.args, opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, externalImageDigests, false)
+			finalCacheKey, ci, err := sb.optimize(compositeKey, sb.cf.Config, sb.args, opts, fileContext, NewLayerCache(opts), stageFinalCacheKeys, externalImageDigests, false)
 			if err != nil {
 				return nil, fmt.Errorf("precompute: failed to optimize stage %d: %w", stage.Index, err)
 			}
+			cacheInfo[stage.Index] = ci
 			if finalCacheKey != "" {
 				stageFinalCacheKeys[stage.Index] = finalCacheKey
 			}
 			stageArgs[stage.Index] = sb.args
 			images[stage.Index] = baseImage
 		}
+	}
+
+	if opts.Dryrun || config.EnvBool("KANIKO_PRINT_PLAN") {
+		err := RenderStages(kanikoStages, cacheInfo, opts, fileContext, crossStageDependencies)
+		if err != nil {
+			return nil, err
+		}
+		if opts.Dryrun {
+			return nil, nil
+		}
+	}
+
+	if err := downloadExtraStages(extraStageImages); err != nil {
+		return nil, err
 	}
 
 	var tarball string
@@ -1104,12 +1155,26 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 		// Apply optimizations to the instructions.
 		precomputedKey := stageFinalCacheKeys[stage.Index]
-		finalCacheKey, err := sb.optimize(compositeKey, sb.cf.Config, sb.args.Clone(), opts, fileContext, newLayerCache(opts), stageFinalCacheKeys, externalImageDigests, true)
+		finalCacheKey, buildCi, err := sb.optimize(compositeKey, sb.cf.Config, sb.args.Clone(), opts, fileContext, NewLayerCache(opts), stageFinalCacheKeys, externalImageDigests, true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
 		}
 		if opts.Cache && precomputedKey != "" {
 			util.Assert("executor.build.cache-lookahead", precomputedKey == finalCacheKey, "precomputed finalCacheKey %q != built finalCacheKey %q for stage %d", precomputedKey, finalCacheKey, stage.Index)
+		}
+		if opts.Cache && cacheInfo[stage.Index] != nil {
+			precompute := cacheInfo[stage.Index]
+			util.Assert("executor.build.cache-lookahead.length", len(precompute.cacheKeys) == len(buildCi.cacheKeys), "stage %d: precompute cacheKeys length %d != build %d", stage.Index, len(precompute.cacheKeys), len(buildCi.cacheKeys))
+			for i := range precompute.cacheKeys {
+				if precompute.cacheKeys[i] != "" {
+					util.Assert("executor.build.cache-lookahead.cache-key", precompute.cacheKeys[i] == buildCi.cacheKeys[i], "stage %d cmd %d: precompute cacheKey %q != build %q", stage.Index, i, precompute.cacheKeys[i], buildCi.cacheKeys[i])
+					util.Assert("executor.build.cache-lookahead.cache-hit", precompute.cacheHits[i] == buildCi.cacheHits[i], "stage %d cmd %d: precompute cacheHit %v != build %v (key %q)", stage.Index, i, precompute.cacheHits[i], buildCi.cacheHits[i], precompute.cacheKeys[i])
+				}
+				if precompute.redirectKeys[i] != "" {
+					util.Assert("executor.build.cache-lookahead.redirect-key", precompute.redirectKeys[i] == buildCi.redirectKeys[i], "stage %d cmd %d: precompute redirectKey %q != build %q", stage.Index, i, precompute.redirectKeys[i], buildCi.redirectKeys[i])
+					util.Assert("executor.build.cache-lookahead.redirect-hit", precompute.redirectHits[i] == buildCi.redirectHits[i], "stage %d cmd %d: precompute redirectHit %v != build %v (key %q)", stage.Index, i, precompute.redirectHits[i], buildCi.redirectHits[i], precompute.redirectKeys[i])
+				}
+			}
 		}
 
 		stageArgs[stage.Index] = sb.args
@@ -1298,11 +1363,12 @@ func deduplicatePaths(paths []string) []string {
 	return deduped
 }
 
-func fetchExtraStages(stages []config.KanikoStage, opts *config.KanikoOptions) (map[string]string, error) {
-	t := timing.Start("Fetching Extra Stages")
+func resolveExtraStageDigests(stages []config.KanikoStage, opts *config.KanikoOptions) (map[string]string, map[string]v1.Image, error) {
+	t := timing.Start("Resolving Extra Stage Digests")
 	defer timing.DefaultRun.Stop(t)
 
 	externalImageDigests := make(map[string]string)
+	images := make(map[string]v1.Image)
 	for _, s := range stages {
 		for _, cmd := range s.Commands {
 			c, ok := cmd.(*instructions.CopyCommand)
@@ -1316,31 +1382,45 @@ func fetchExtraStages(stages []config.KanikoStage, opts *config.KanikoOptions) (
 			if fromIndex, err := strconv.Atoi(c.From); err == nil {
 				// If it is an integer stage index, validate that it is actually a previous index
 				if s.Index <= fromIndex || fromIndex < 0 {
-					return nil, fmt.Errorf("%s refers to invalid stage: %d", c.String(), fromIndex)
+					return nil, nil, fmt.Errorf("%s refers to invalid stage: %d", c.String(), fromIndex)
 				}
 				continue
 			}
 
-			// This must be an image name, fetch it.
+			if _, ok := images[c.From]; ok {
+				continue
+			}
+
+			// This must be an image name, fetch its manifest.
 			logrus.Debugf("Found extra base image stage %s", c.From)
 			sourceImage, err := remote.RetrieveRemoteImage(c.From, opts.RegistryOptions, opts.CustomPlatform)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			digest, err := sourceImage.Digest()
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			externalImageDigests[c.From] = digest.String()
-			if err := saveStageAsTarball(c.From, sourceImage); err != nil {
-				return nil, err
-			}
-			if err := extractImageToDependencyDir(c.From, sourceImage); err != nil {
-				return nil, err
-			}
+			images[c.From] = sourceImage
 		}
 	}
-	return externalImageDigests, nil
+	return externalImageDigests, images, nil
+}
+
+func downloadExtraStages(images map[string]v1.Image) error {
+	t := timing.Start("Fetching Extra Stages")
+	defer timing.DefaultRun.Stop(t)
+
+	for name, sourceImage := range images {
+		if err := saveStageAsTarball(name, sourceImage); err != nil {
+			return err
+		}
+		if err := extractImageToDependencyDir(name, sourceImage); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func extractImageToDependencyDir(name string, image v1.Image) error {

@@ -155,22 +155,10 @@ type fakeLayerCache struct {
 	receivedKeys []string
 	img          v1.Image
 	keySequence  []string
-	// hits, if non-nil, takes precedence over retrieve/keySequence. hits[i]
-	// determines whether the i-th call (zero-indexed) returns a hit. Calls
-	// past len(hits) miss. Used to script miss-then-hit scenarios in tests.
-	hits []bool
 }
 
 func (f *fakeLayerCache) RetrieveLayer(key string) (v1.Image, error) {
-	callIdx := len(f.receivedKeys)
 	f.receivedKeys = append(f.receivedKeys, key)
-
-	if f.hits != nil {
-		if callIdx < len(f.hits) && f.hits[callIdx] {
-			return f.img, nil
-		}
-		return nil, errors.New("could not find layer")
-	}
 
 	if len(f.keySequence) > 0 {
 		if f.keySequence[0] == key {
