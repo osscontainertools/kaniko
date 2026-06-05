@@ -1325,11 +1325,8 @@ func initIntegrationTestConfig() *integrationTestConfig {
 	c.onbuildCopyImage = c.imageRepo + "onbuild-copy:latest"
 	c.hardlinkBaseImage = c.imageRepo + "hardlink-base:latest"
 	c.hijackBaseImage = c.imageRepo + "hijack:latest"
-<<<<<<< HEAD
-	c.nvidiaOperatorBaseImage = c.imageRepo + "nvidia-operator-base:latest"
-=======
 	c.malformedOCIImage = c.imageRepo + "malformed-oci:latest"
->>>>>>> f56c642a5 (mz725: integration test for malformed image)
+	c.nvidiaOperatorBaseImage = c.imageRepo + "nvidia-operator-base:latest"
 	return &c
 }
 
