@@ -179,15 +179,6 @@ func SHA256(r io.Reader) (string, error) {
 	return hex.EncodeToString(hasher.Sum(make([]byte, 0, hasher.Size()))), nil
 }
 
-// GetInputFrom returns Reader content
-func GetInputFrom(r io.Reader) ([]byte, error) {
-	output, err := io.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-	return output, nil
-}
-
 type retryFunc func() error
 
 // Retry retries an operation

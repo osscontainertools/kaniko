@@ -25,7 +25,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
-	"strconv"
 	"testing"
 
 	"github.com/containerd/platforms"
@@ -1145,7 +1144,6 @@ func Test_stageBuilder_build(t *testing.T) {
 			if err != nil {
 				t.Errorf("Failed to parse stages to Kaniko Stages: %s", err)
 			}
-			_ = ResolveCrossStageInstructions(kanikoStages)
 			stage := kanikoStages[0]
 
 			cmds := stage.Commands
@@ -1212,7 +1210,6 @@ COPY %s foo.txt
 			if err != nil {
 				t.Errorf("Failed to parse stages to Kaniko Stages: %s", err)
 			}
-			_ = ResolveCrossStageInstructions(kanikoStages)
 			stage := kanikoStages[0]
 
 			cmds := stage.Commands
@@ -1289,7 +1286,6 @@ COPY %s bar.txt
 			if err != nil {
 				t.Errorf("Failed to parse stages to Kaniko Stages: %s", err)
 			}
-			_ = ResolveCrossStageInstructions(kanikoStages)
 			stage := kanikoStages[0]
 
 			cmds := stage.Commands
@@ -1363,7 +1359,6 @@ RUN foobar
 			if err != nil {
 				t.Errorf("Failed to parse stages to Kaniko Stages: %s", err)
 			}
-			_ = ResolveCrossStageInstructions(kanikoStages)
 			stage := kanikoStages[0]
 
 			cmds := stage.Commands
@@ -1763,50 +1758,6 @@ func Test_stageBuild_populateCompositeKeyForCopyCommand(t *testing.T) {
 				})
 			}
 		})
-	}
-}
-
-func Test_ResolveCrossStageInstructions(t *testing.T) {
-	df := `
-	FROM scratch
-	RUN echo hi > /hi
-
-	FROM scratch AS second
-	COPY --from=0 /hi /hi2
-
-	FROM scratch AS tHiRd
-	COPY --from=second /hi2 /hi3
-	COPY --from=1 /hi2 /hi3
-
-	FROM scratch
-	COPY --from=thIrD /hi3 /hi4
-	COPY --from=third /hi3 /hi4
-	COPY --from=2 /hi3 /hi4
-	`
-	stages, metaArgs, err := dockerfile.Parse([]byte(df))
-	if err != nil {
-		t.Fatal(err)
-	}
-	opts := &config.KanikoOptions{}
-	kanikoStages, err := dockerfile.MakeKanikoStages(opts, stages, metaArgs)
-	if err != nil {
-		t.Fatal(err)
-	}
-	stageToIdx := ResolveCrossStageInstructions(kanikoStages)
-	for index, stage := range stages {
-		if index == 0 {
-			continue
-		}
-		expectedStage := strconv.Itoa(index - 1)
-		for _, command := range stage.Commands {
-			copyCmd := command.(*instructions.CopyCommand)
-			if copyCmd.From != expectedStage {
-				t.Fatalf("unexpected copy command: %s resolved to stage %s, expected %s", copyCmd.String(), copyCmd.From, expectedStage)
-			}
-		}
-
-		expectedMap := map[string]int{"second": 1, "third": 2}
-		testutil.CheckDeepEqual(t, expectedMap, stageToIdx)
 	}
 }
 

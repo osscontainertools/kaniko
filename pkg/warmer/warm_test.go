@@ -24,7 +24,6 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
-	"github.com/osscontainertools/kaniko/pkg/fakes"
 )
 
 const (
@@ -37,7 +36,7 @@ func Test_Warmer_Warm_not_in_cache(t *testing.T) {
 
 	cw := &Warmer{
 		Remote: func(_ string, _ config.RegistryOptions, _ string) (v1.Image, error) {
-			return fakes.FakeImage{}, nil
+			return FakeImage{}, nil
 		},
 		Local: func(_ *config.CacheOptions, _ string) (v1.Image, error) {
 			return nil, cache.NotFoundErr{}
@@ -65,10 +64,10 @@ func Test_Warmer_Warm_in_cache_not_expired(t *testing.T) {
 
 	cw := &Warmer{
 		Remote: func(_ string, _ config.RegistryOptions, _ string) (v1.Image, error) {
-			return fakes.FakeImage{}, nil
+			return FakeImage{}, nil
 		},
 		Local: func(_ *config.CacheOptions, _ string) (v1.Image, error) {
-			return fakes.FakeImage{}, nil
+			return FakeImage{}, nil
 		},
 		TarWriter:      tarBuf,
 		ManifestWriter: manifestBuf,
@@ -93,10 +92,10 @@ func Test_Warmer_Warm_in_cache_expired(t *testing.T) {
 
 	cw := &Warmer{
 		Remote: func(_ string, _ config.RegistryOptions, _ string) (v1.Image, error) {
-			return fakes.FakeImage{}, nil
+			return FakeImage{}, nil
 		},
 		Local: func(_ *config.CacheOptions, _ string) (v1.Image, error) {
-			return fakes.FakeImage{}, cache.ExpiredErr{}
+			return FakeImage{}, cache.ExpiredErr{}
 		},
 		TarWriter:      tarBuf,
 		ManifestWriter: manifestBuf,

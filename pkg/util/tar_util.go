@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,26 +47,6 @@ func NewTar(f io.Writer) Tar {
 		w:         w,
 		hardlinks: map[uint64]string{},
 	}
-}
-
-func CreateTarballOfDirectory(pathToDir string, f io.Writer) error {
-	if !filepath.IsAbs(pathToDir) {
-		return errors.New("pathToDir is not absolute")
-	}
-	tarWriter := NewTar(f)
-	defer tarWriter.Close()
-
-	walkFn := func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !filepath.IsAbs(path) {
-			return fmt.Errorf("path %v is not absolute, cant read file", path)
-		}
-		return tarWriter.AddFileToTar(path)
-	}
-
-	return fs.WalkDir(FSys, pathToDir, walkFn)
 }
 
 // Close will close any open streams used by Tar.

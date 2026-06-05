@@ -65,7 +65,7 @@ func TestSnapshotFSFileChange(t *testing.T) {
 		fooPath: "newbaz1",
 		batPath: "baz",
 	}
-	for _, path := range util.ParentDirectoriesWithoutLeadingSlash(batPath) {
+	for _, path := range parentDirectoriesWithoutLeadingSlash(batPath) {
 		if path == config.RootDir {
 			continue
 		}
@@ -154,7 +154,7 @@ func TestSnapshotFSChangePermissions(t *testing.T) {
 	snapshotFiles := map[string]string{
 		batPathWithoutLeadingSlash: "baz2",
 	}
-	for _, path := range util.ParentDirectoriesWithoutLeadingSlash(batPathWithoutLeadingSlash) {
+	for _, path := range parentDirectoriesWithoutLeadingSlash(batPathWithoutLeadingSlash) {
 		if path == config.RootDir {
 			continue
 		}
@@ -223,7 +223,7 @@ func TestSnapshotFSReplaceDirWithLink(t *testing.T) {
 		filepath.Join(testDirWithoutLeadingSlash, "bar"),
 		filepath.Join(testDirWithoutLeadingSlash, "foo"),
 	}
-	for _, path := range util.ParentDirectoriesWithoutLeadingSlash(filepath.Join(testDir, "foo")) {
+	for _, path := range parentDirectoriesWithoutLeadingSlash(filepath.Join(testDir, "foo")) {
 		if path == config.RootDir {
 			continue
 		}
@@ -261,7 +261,7 @@ func TestSnapshotFiles(t *testing.T) {
 	expectedFiles := []string{
 		filepath.Join(testDirWithoutLeadingSlash, "foo"),
 	}
-	for _, path := range util.ParentDirectoriesWithoutLeadingSlash(filepath.Join(testDir, "foo")) {
+	for _, path := range parentDirectoriesWithoutLeadingSlash(filepath.Join(testDir, "foo")) {
 		if path == config.RootDir {
 			continue
 		}
@@ -300,53 +300,6 @@ func TestEmptySnapshotFS(t *testing.T) {
 
 	if _, err := tr.Next(); !errors.Is(err, io.EOF) {
 		t.Fatal("no files expected in tar, found files.")
-	}
-}
-
-func TestFileWithLinks(t *testing.T) {
-	link := "baz/link"
-	tcs := []struct {
-		name           string
-		path           string
-		linkFileTarget string
-		expected       []string
-		shouldErr      bool
-	}{
-		{
-			name:           "given path is a symlink that points to a valid target",
-			path:           link,
-			linkFileTarget: "file",
-			expected:       []string{link, "baz/file"},
-		},
-		{
-			name:           "given path is a symlink points to non existing path",
-			path:           link,
-			linkFileTarget: "does-not-exists",
-			expected:       []string{link},
-		},
-		{
-			name:           "given path is a regular file",
-			path:           "kaniko/file",
-			linkFileTarget: "file",
-			expected:       []string{"kaniko/file"},
-		},
-	}
-
-	for _, tt := range tcs {
-		t.Run(tt.name, func(t *testing.T) {
-			testDir, err := setUpTestDir(t)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := setupSymlink(testDir, link, tt.linkFileTarget); err != nil {
-				t.Fatalf("could not set up symlink due to %s", err)
-			}
-			actual, err := filesWithLinks(filepath.Join(testDir, tt.path))
-			if err != nil {
-				t.Fatalf("unexpected error %s", err)
-			}
-			sortAndCompareFilepaths(t, testDir, tt.expected, actual)
-		})
 	}
 }
 
@@ -578,20 +531,6 @@ func TestSnapshotOmitsUnameGname(t *testing.T) {
 	}
 }
 
-func setupSymlink(dir string, link string, target string) error {
-	return os.Symlink(target, filepath.Join(dir, link))
-}
-
-func sortAndCompareFilepaths(t *testing.T, testDir string, expected []string, actual []string) {
-	expectedFullPaths := make([]string, len(expected))
-	for i, file := range expected {
-		expectedFullPaths[i] = filepath.Join(testDir, file)
-	}
-	sort.Strings(expectedFullPaths)
-	sort.Strings(actual)
-	testutil.CheckDeepEqual(t, expectedFullPaths, actual)
-}
-
 func setUpTestDir(t *testing.T) (string, error) {
 	testDir := t.TempDir()
 	files := map[string]string{
@@ -631,6 +570,24 @@ func setUpTest(t *testing.T) (string, *Snapshotter, func(), error) {
 	}
 
 	return testDir, snapshotter, cleanup, nil
+}
+
+// parentDirectoriesWithoutLeadingSlash returns a list of paths to all parent directories
+// all subdirectories do not contain a leading /
+// Ex. /some/temp/dir -> [/, some, some/temp, some/temp/dir]
+func parentDirectoriesWithoutLeadingSlash(path string) []string {
+	path = filepath.Clean(path)
+	dirs := strings.Split(path, "/")
+	dirPath := ""
+	paths := []string{config.RootDir}
+	for index, dir := range dirs {
+		if dir == "" || index == (len(dirs)-1) {
+			continue
+		}
+		dirPath = filepath.Join(dirPath, dir)
+		paths = append(paths, dirPath)
+	}
+	return paths
 }
 
 func listFilesInTar(path string) ([]string, error) {

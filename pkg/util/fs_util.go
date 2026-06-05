@@ -598,24 +598,6 @@ func ParentDirectories(path string) []string {
 	return paths
 }
 
-// ParentDirectoriesWithoutLeadingSlash returns a list of paths to all parent directories
-// all subdirectories do not contain a leading /
-// Ex. /some/temp/dir -> [/, some, some/temp, some/temp/dir]
-func ParentDirectoriesWithoutLeadingSlash(path string) []string {
-	path = filepath.Clean(path)
-	dirs := strings.Split(path, "/")
-	dirPath := ""
-	paths := []string{config.RootDir}
-	for index, dir := range dirs {
-		if dir == "" || index == (len(dirs)-1) {
-			continue
-		}
-		dirPath = filepath.Join(dirPath, dir)
-		paths = append(paths, dirPath)
-	}
-	return paths
-}
-
 // FilepathExists returns true if the path exists
 func FilepathExists(path string) bool {
 	_, err := os.Lstat(path)
@@ -1128,13 +1110,6 @@ func IsSymlink(fi os.FileInfo) bool {
 }
 
 var ErrNotSymLink = errors.New("not a symlink")
-
-func GetSymLink(path string) (string, error) {
-	if err := getSymlink(path); err != nil {
-		return "", err
-	}
-	return os.Readlink(path)
-}
 
 func EvalSymLink(path string) (string, error) {
 	if err := getSymlink(path); err != nil {

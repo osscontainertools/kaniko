@@ -35,7 +35,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
-	"github.com/osscontainertools/kaniko/pkg/mocks/go-containerregistry/mockv1"
 	"github.com/osscontainertools/kaniko/testutil"
 )
 
@@ -223,38 +222,6 @@ func Test_ParentDirectories(t *testing.T) {
 			config.RootDir = tt.rootDir
 			actual := ParentDirectories(tt.path)
 
-			testutil.CheckErrorAndDeepEqual(t, false, nil, tt.expected, actual)
-		})
-	}
-}
-
-func Test_ParentDirectoriesWithoutLeadingSlash(t *testing.T) {
-	tests := []struct {
-		name     string
-		path     string
-		expected []string
-	}{
-		{
-			name: "regular path",
-			path: "/path/to/dir",
-			expected: []string{
-				"/",
-				"path",
-				"path/to",
-			},
-		},
-		{
-			name: "current directory",
-			path: ".",
-			expected: []string{
-				"/",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			actual := ParentDirectoriesWithoutLeadingSlash(tt.path)
 			testutil.CheckErrorAndDeepEqual(t, false, nil, tt.expected, actual)
 		})
 	}
@@ -1250,7 +1217,7 @@ func Test_GetFSFromLayers_with_whiteouts_include_whiteout_enabled(t *testing.T) 
 
 	f(expectedFiles, tw)
 
-	mockLayer := mockv1.NewMockLayer(ctrl)
+	mockLayer := NewMockLayer(ctrl)
 	mockLayer.EXPECT().MediaType().Return(types.OCILayer, nil)
 
 	rc := io.NopCloser(buf)
@@ -1265,7 +1232,7 @@ func Test_GetFSFromLayers_with_whiteouts_include_whiteout_enabled(t *testing.T) 
 
 	f(secondLayerFiles, tw)
 
-	mockLayer2 := mockv1.NewMockLayer(ctrl)
+	mockLayer2 := NewMockLayer(ctrl)
 	mockLayer2.EXPECT().MediaType().Return(types.OCILayer, nil)
 
 	rc = io.NopCloser(buf)
@@ -1362,7 +1329,7 @@ func Test_GetFSFromLayers_with_whiteouts_include_whiteout_disabled(t *testing.T)
 
 	f(expectedFiles, tw)
 
-	mockLayer := mockv1.NewMockLayer(ctrl)
+	mockLayer := NewMockLayer(ctrl)
 	mockLayer.EXPECT().MediaType().Return(types.OCILayer, nil)
 	layerFiles := []string{
 		filepath.Join(root, "foobar"),
@@ -1384,7 +1351,7 @@ func Test_GetFSFromLayers_with_whiteouts_include_whiteout_disabled(t *testing.T)
 
 	f(secondLayerFiles, tw)
 
-	mockLayer2 := mockv1.NewMockLayer(ctrl)
+	mockLayer2 := NewMockLayer(ctrl)
 	mockLayer2.EXPECT().MediaType().Return(types.OCILayer, nil)
 
 	rc = io.NopCloser(buf)
@@ -1471,7 +1438,7 @@ func Test_GetFSFromLayers_ignorelist(t *testing.T) {
 
 	f(expectedFiles, tw)
 
-	mockLayer := mockv1.NewMockLayer(ctrl)
+	mockLayer := NewMockLayer(ctrl)
 	mockLayer.EXPECT().MediaType().Return(types.OCILayer, nil)
 	layerFiles := []string{
 		filepath.Join(root, ".wh.testdir"),
@@ -1526,7 +1493,7 @@ func Test_GetFSFromLayers_ignorelist(t *testing.T) {
 
 	f(expectedFiles, tw)
 
-	mockLayer = mockv1.NewMockLayer(ctrl)
+	mockLayer = NewMockLayer(ctrl)
 	mockLayer.EXPECT().MediaType().Return(types.OCILayer, nil)
 	layerFiles = []string{
 		filepath.Join(root, ".wh.testdir"),
@@ -1601,7 +1568,7 @@ func Test_GetFSFromLayers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mockLayer := mockv1.NewMockLayer(ctrl)
+	mockLayer := NewMockLayer(ctrl)
 	mockLayer.EXPECT().MediaType().Return(types.OCILayer, nil)
 
 	rc := io.NopCloser(buf)
