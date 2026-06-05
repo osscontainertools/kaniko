@@ -41,11 +41,10 @@ func ToAbsPath(path string, workdir string) string {
 	if filepath.IsAbs(path) {
 		result = path
 	} else {
-		if workdir != "" {
-			result = filepath.Join(workdir, path)
-		} else {
-			result = filepath.Join("/", path)
+		if !filepath.IsAbs(workdir) {
+			workdir = "/" + workdir
 		}
+		result = filepath.Join(workdir, path)
 	}
 	util.Assert("workdir.abs-path", filepath.IsAbs(result), "ToAbsPath must return an absolute path, got %q (path=%q, workdir=%q)", result, path, workdir)
 	return result

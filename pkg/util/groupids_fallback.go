@@ -87,6 +87,9 @@ func localGroups(r io.Reader) []*group {
 
 		// wheel:*:0:root,anotherGrp
 		parts := strings.SplitN(string(line), ":", 4)
+		if len(parts) < 4 {
+			continue
+		}
 		if _, err := strconv.Atoi(parts[2]); err != nil {
 			continue
 		}

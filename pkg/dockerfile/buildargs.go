@@ -103,7 +103,11 @@ func (b *BuildArgs) ReplacementEnvs(envs []string) []string {
 	}
 	result := make([]string, 0, len(merged))
 	for key, val := range merged {
-		result = append(result, fmt.Sprintf("%s=%s", key, *val))
+		if val == nil {
+			result = append(result, key)
+		} else {
+			result = append(result, fmt.Sprintf("%s=%s", key, *val))
+		}
 	}
 	// Args can add keys but must not remove existing env keys.
 	util.Assert("buildargs.replacement-envs.min-size", nenvs <= len(result), "ReplacementEnvs: result (%d) is smaller than de-duplicated envs (%d)", len(result), nenvs)

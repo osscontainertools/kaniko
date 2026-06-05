@@ -173,6 +173,9 @@ func buildRequiredImages() error {
 		name:    "Building hijack base image",
 		command: []string{"docker", "build", "--push", "-t", config.hijackBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz560", "--target", "base", "."},
 	}, {
+		name:    "Building malformed-oci base image",
+		command: []string{"docker", "build", "--push", "-t", config.malformedOCIImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz725", "--target", "base", "."},
+	}, {
 		name:    "Building mz753 base image",
 		command: []string{"docker", "build", "--push", "-t", config.nvidiaOperatorBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz753", "--target", "base", "."},
 	}, {
@@ -190,6 +193,11 @@ func buildRequiredImages() error {
 
 	maliciousRef := strings.ToLower(config.imageRepo + "path-traversal-malicious:latest")
 	err := pushMaliciousPathTraversalImage(maliciousRef)
+	if err != nil {
+		return err
+	}
+
+	err = mutateMalformedOCIImageConfig(config.malformedOCIImage)
 	if err != nil {
 		return err
 	}
@@ -727,6 +735,38 @@ func pushMaliciousPathTraversalImage(imageRef string) error {
 	}
 	if err := remote.Write(ref, img, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
 		return fmt.Errorf("pushing malicious image to %s: %v", imageRef, err)
+	}
+	return nil
+}
+
+// mutateMalformedOCIImageConfig mutest a base image
+// in a way that is impossible with regular build tools
+func mutateMalformedOCIImageConfig(imageRef string) error {
+	ref, err := name.ParseReference(imageRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing image ref %s: %v", imageRef, err)
+	}
+	base, err := remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		return fmt.Errorf("pulling malformed-oci base image: %v", err)
+	}
+
+	cf, err := base.ConfigFile()
+	if err != nil {
+		return fmt.Errorf("reading malformed-oci base image config: %v", err)
+	}
+	cf = cf.DeepCopy()
+	cf.Config.Env = []string{"GOOD=value", "MALFORMED_NO_EQUALS"}
+	cf.Config.WorkingDir = "relwd"
+	cf.Config.User = "root"
+	img, err := mutate.ConfigFile(base, cf)
+	if err != nil {
+		return fmt.Errorf("mutating malformed-oci image config: %v", err)
+	}
+
+	err = remote.Write(ref, img, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		return fmt.Errorf("pushing mutated malformed-oci image to %s: %v", imageRef, err)
 	}
 	return nil
 }
@@ -1344,6 +1384,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 	c.onbuildCopyImage = c.imageRepo + "onbuild-copy:latest"
 	c.hardlinkBaseImage = c.imageRepo + "hardlink-base:latest"
 	c.hijackBaseImage = c.imageRepo + "hijack:latest"
+	c.malformedOCIImage = c.imageRepo + "malformed-oci:latest"
 	c.nvidiaOperatorBaseImage = c.imageRepo + "nvidia-operator-base:latest"
 	return &c
 }
