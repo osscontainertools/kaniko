@@ -912,8 +912,10 @@ func RenderStages(stages []config.KanikoStage, opts *config.KanikoOptions, fileC
 			printf("SAVE FILES %v %s%d\n", filesToSave, config.KanikoInterStageDepsDir, s.Index)
 		}
 		printf("CLEAN\n\n")
-		if opts.PreserveContext && !opts.PreCleanup {
-			printf("RESTORE CONTEXT\n\n")
+		if !config.EnvBool("FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE") {
+			if opts.PreserveContext && !opts.PreCleanup {
+				printf("RESTORE CONTEXT\n\n")
+			}
 		}
 	}
 	util.Unreachable("we should always have a final stage")
@@ -1196,15 +1198,17 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if err := util.DeleteFilesystem(); err != nil {
 			return nil, fmt.Errorf("deleting file system after stage %d: %w", stage.Index, err)
 		}
-		if opts.PreserveContext && !opts.PreCleanup {
-			if tarball == "" {
-				return nil, errors.New("context snapshot is missing")
+		if !config.EnvBool("FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE") {
+			if opts.PreserveContext && !opts.PreCleanup {
+				if tarball == "" {
+					return nil, errors.New("context snapshot is missing")
+				}
+				_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
+				if err != nil {
+					return nil, fmt.Errorf("failed to unpack context snapshot: %w", err)
+				}
+				logrus.Info("Context restored")
 			}
-			_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
-			if err != nil {
-				return nil, fmt.Errorf("failed to unpack context snapshot: %w", err)
-			}
-			logrus.Info("Context restored")
 		}
 	}
 

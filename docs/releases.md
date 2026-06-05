@@ -21,6 +21,9 @@ The graduation lifecycle of a feature flag is:
 
 This means a new behavior is opt-in for at least two weeks and up to three months, then opt-out for a further three months before the flag disappears entirely. Users have between three and six months to react to any change. We expect most users to upgrade roughly once per quarter rather than every two weeks, so in practice the full window is available to them.
 
+- `FF_KANIKO_*` gates a new feature, `true` enables it.
+- `FF_KANIKO_DEPRECATE_*` gates the removal of existing behavior, `true` removes it.
+
 ## Do I need a feature flag?
 
 The goal of a feature flag is to let users upgrade kaniko safely without surprises. Any change that could affect whether a build succeeds, what image it produces, or how long it takes should be gated behind a flag, even if the change is correct, even if it is a performance improvement, and even if the previous behavior was technically wrong. Some users will have built workflows around the old behavior and need time to migrate. Others will be running kaniko in environments where a new code path fails in ways the old one did not. A feature flag gives them the escape hatch.

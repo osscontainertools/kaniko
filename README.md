@@ -144,7 +144,11 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_CACHE_LOOKAHEAD`](#flag-ff_kaniko_cache_lookahead)
       - [Flag `FF_KANIKO_CACHE_PROBE_AFTER_MISS`](#flag-ff_kaniko_cache_probe_after_miss)
       - [Flag `FF_KANIKO_WARMER_CACHE_LOCK`](#flag-ff_kaniko_warmer_cache_lock)
+<<<<<<< HEAD
       - [Flag `FF_KANIKO_PRESERVE_MOUNTED_PATHS`](#flag-ff_kaniko_preserve_mounted_paths)
+=======
+      - [Flag `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE`](#flag-ff_kaniko_deprecate_inter_stage_restore)
+>>>>>>> f46373069 (gate inter-stage context restore behind FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1269,6 +1273,12 @@ Becomes default in `v1.28.0`.
 
 When a container runtime bind-mounts files read-only into the build container — as the NVIDIA GPU operator does with driver artifacts (`nvidia-smi`, `libnvidia*`, firmware blobs) on GPU nodes — and a base image layer ships a directory along that mount path as a symlink, kaniko `os.RemoveAll`s the directory while unpacking to make way for the symlink. The recursive remove hits the read-only bind mount and the build fails with `unlinkat ...: device or resource busy`.
 Set this flag to `true` to skip removing a directory that contains a mounted (ignored) path: its other contents are still cleared, but the mount is preserved and the conflicting layer entry is left in place, matching how `DeleteFilesystem` already treats mounts. Defaults to `false`.
+Becomes default in `v1.28.0`.
+
+#### Flag `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE`
+
+Deprecates the inter-stage restore performed by [`--preserve-context`](#flag---preserve-context) when used without [`--pre-cleanup`](#flag---pre-cleanup). Set to `1` to fully disable the restore between stages. The original motivation, smuggling secrets across stages, is now served by `RUN --mount=type=secret`.
+Defaults to `false`.
 Becomes default in `v1.28.0`.
 
 ### Assertion Overrides
