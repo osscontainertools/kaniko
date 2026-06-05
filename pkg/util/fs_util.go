@@ -983,18 +983,26 @@ func getExcludedFiles(dockerfilePath, buildcontext string) ([]string, error) {
 // Usually this is specified via .dockerignore
 func (c FileContext) ExcludesFile(path string) bool {
 	if HasFilepathPrefix(path, c.Root, false) {
+		// Path is inside the current context.
+		// Convert it to relative and let it fall through to the Matches() check.
 		var err error
 		path, err = filepath.Rel(c.Root, path)
 		if err != nil {
 			logrus.Errorf("Unable to get relative path, including %s in build: %v", path, err)
 			return false
 		}
+	} else if filepath.IsAbs(path) {
+		// Path is absolute and outside the current context.
+		// We return false and do not run matches.
+		return false
 	}
+
 	match, err := patternmatcher.Matches(path, c.ExcludedFiles)
 	if err != nil {
 		logrus.Errorf("Error matching, including %s in build: %v", path, err)
 		return false
 	}
+
 	return match
 }
 
