@@ -60,6 +60,9 @@ expect - see [Known Issues](#known-issues).
       - [Caching Layers](#caching-layers)
       - [Caching Base Images](#caching-base-images)
     - [Pushing to Different Registries](#pushing-to-different-registries)
+    - [Subcommands](#subcommands)
+      - [Subcommand `login`](#subcommand-login)
+      - [Subcommand `push`](#subcommand-push)
     - [Additional Flags](#additional-flags)
       - [Flag `--build-arg`](#flag---build-arg)
       - [Flag `--cache`](#flag---cache)
@@ -642,6 +645,26 @@ for how to use with kubernetes clusters and persistent cache volumes.
 For registry-specific setup instructions (Docker Hub, GCR, ECR, ACR, JFrog,
 registry mirrors and maps) see **[docs/registries.md](docs/registries.md)**.
 
+### Subcommands
+
+In addition to the default build-and-push flow, the `executor` binary exposes a small set of subcommands.
+
+#### Subcommand `login`
+
+`executor login <registry>` stores registry credentials in the Docker config file at `$DOCKER_CONFIG/config.json` (the executor image sets `DOCKER_CONFIG=/kaniko/.docker/`), so subsequent `executor` invocations can authenticate to the registry without a credential helper.
+
+Flags:
+
+- `-u, --username <user>` — username for the registry (required).
+- `-p, --password <pass>` — password or token; mutually exclusive with `--password-stdin`.
+- `--password-stdin` — read the password from standard input; useful for piping a secret without exposing it in the process list.
+
+#### Subcommand `push`
+
+`executor push <path> --destination <ref>` reads a pre-built image and pushes it to one or more registries, skipping the build entirely. The path may point at a docker-save format tarball produced by [`--tar-path`](#flag---tar-path) or at an OCI image layout directory produced by [`--oci-layout-path`](#flag---oci-layout-path). All registry, auth, retry, and digest-file flags are the same as on the build command. See the canonical workflow under [`--tar-path`](#flag---tar-path).
+
+The artifact must contain exactly one image. Multi-image tarballs and indexes are not supported.
+
 ### Additional Flags
 
 #### Flag `--build-arg`
@@ -1030,6 +1053,21 @@ kaniko will snapshot the filesystem.
 Set this flag as `--tar-path=<path>` to save the image as a tarball at path. You
 need to set `--destination` as well (for example `--destination=image`). If you
 want to save the image as tarball only you also need to set `--no-push`.
+
+A common use case is to scan the tarball for vulnerabilities before pushing.
+The companion [`executor push`](#subcommand-push) subcommand pushes a tarball
+produced by `--tar-path --no-push` without re-running the build:
+
+```bash
+# 1. Build to a tarball
+/kaniko/executor --tar-path=/tmp/image.tar --no-push ...
+
+# 2. Scan
+trivy image --input /tmp/image.tar --exit-code 1
+
+# 3. Push only if the scan passes — same binary, no extra tooling
+/kaniko/executor push /tmp/image.tar --destination registry.example.com/myapp:latest
+```
 
 #### Flag `--target`
 

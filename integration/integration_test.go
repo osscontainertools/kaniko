@@ -1092,6 +1092,65 @@ func TestBuildWithAnnotations(t *testing.T) {
 	containerDiff(t, dockerImage, kanikoImage, "--ignore-history")
 }
 
+func TestPushFromArtifact(t *testing.T) {
+	t.Parallel()
+	branch, _, url := getBranchCommitAndURL()
+	dockerfile := integrationPath + "/testdata/Dockerfile.trivial"
+
+	for _, outFlag := range []string{"tar-path", "oci-layout-path"} {
+		t.Run(outFlag, func(t *testing.T) {
+			t.Parallel()
+
+			directImage := GetKanikoImage(config.imageRepo, "Dockerfile_push_from_"+outFlag+"_direct")
+			fromArtifactImage := GetKanikoImage(config.imageRepo, "Dockerfile_push_from_"+outFlag)
+
+			out, err := exec.Command("docker", "volume", "create", outFlag).CombinedOutput()
+			if err != nil {
+				t.Fatalf("docker volume create %s: %v\n%s", outFlag, err, out)
+			}
+			t.Cleanup(func() {
+				exec.Command("docker", "volume", "rm", outFlag).Run()
+			})
+
+			runExecutor := func(executorArgs ...string) {
+				t.Helper()
+				flags := []string{"run", "--rm", "--net=host", "-v", outFlag + ":/out"}
+				flags = addServiceAccountFlags(flags, config.serviceAccount)
+				flags = addCoverageFlags(flags)
+				flags = append(flags, ExecutorImage)
+				flags = append(flags, executorArgs...)
+				cmd := exec.Command("docker", flags...)
+				if out, err := RunCommandWithoutTest(cmd); err != nil {
+					t.Fatalf("%v: %v\n%s", cmd.Args, err, string(out))
+				}
+			}
+
+			// Reference: direct kaniko build & push, reproducible.
+			runExecutor(
+				"-f", dockerfile,
+				"-c", KanikoGitRepo(url, "", branch),
+				"-d", directImage,
+				"--reproducible",
+			)
+
+			// Two-step: build to an artifact (no push), then push from it.
+			runExecutor(
+				"-f", dockerfile,
+				"-c", KanikoGitRepo(url, "", branch),
+				"--no-push",
+				"--"+outFlag, "/out/image",
+				"--reproducible",
+			)
+			runExecutor(
+				"push", "/out/image",
+				"-d", fromArtifactImage,
+			)
+
+			containerDiff(t, directImage, fromArtifactImage)
+		})
+	}
+}
+
 func onBuildDiff(t *testing.T, image1, image2 string) {
 	opts := platformRemoteOpts(t.Name())
 	img1, err := getImageConfig(image1, opts...)
