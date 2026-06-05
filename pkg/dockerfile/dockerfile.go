@@ -106,8 +106,7 @@ func Parse(b []byte) ([]instructions.Stage, []instructions.ArgCommand, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	lintOptionStr, _, _, ok := parser.ParseDirective("check", b)
-	util.Assert("dockerfile.parse-directive.consistency", ok == (lintOptionStr != ""), "ParseDirective: ok=%t lintOptionStr=%q", ok, lintOptionStr)
+	lintOptionStr, _, _, _ := parser.ParseDirective("check", b)
 	lintConfig, err := linter.ParseLintOptions(lintOptionStr)
 	if err != nil {
 		return nil, nil, fmt.Errorf("parsing lint options: %w", err)
@@ -262,7 +261,7 @@ func ParseCommands(cmdArray []string) ([]instructions.Command, error) {
 // ResolveCrossStageCommands resolves any calls to previous stages with names to indices
 // Ex. --from=secondStage should be --from=1 for easier processing later on
 // As third party library lowers stage name in FROM instruction, this function resolves stage case insensitively.
-func resolveCrossStageCommands(cmds []instructions.Command, stageNameToIdx map[string]int) {
+func resolveCrossStageCommands(cmds []instructions.Command, stageNameToIdx map[string]int, nStages int) error {
 	for _, cmd := range cmds {
 		switch c := cmd.(type) {
 		case *instructions.CopyCommand:
@@ -270,9 +269,15 @@ func resolveCrossStageCommands(cmds []instructions.Command, stageNameToIdx map[s
 				if val, ok := stageNameToIdx[strings.ToLower(c.From)]; ok {
 					c.From = strconv.Itoa(val)
 				}
+				if idx, err := strconv.Atoi(c.From); err == nil {
+					if idx < 0 || idx >= nStages {
+						return fmt.Errorf("COPY --from=%d refers to a stage that does not exist", idx)
+					}
+				}
 			}
 		}
 	}
+	return nil
 }
 
 // resolveStagesArgs resolves all the args from list of stages
@@ -290,6 +295,9 @@ func resolveStagesArgs(stages []instructions.Stage, args []string) error {
 }
 
 func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, metaArgs []instructions.ArgCommand) ([]config.KanikoStage, error) {
+	if len(stages) == 0 {
+		return nil, errors.New("dockerfile must contain at least one FROM instruction")
+	}
 	targetStages, err := targetStages(stages, opts.Target)
 	if err != nil {
 		return nil, fmt.Errorf("error finding target stage: %w", err)
@@ -352,7 +360,10 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			return nil, fmt.Errorf("failed to parse ONBUILD instructions: %w", err)
 		}
 		stage.Commands = append(cmds, stage.Commands...)
-		resolveCrossStageCommands(stage.Commands, stageByName)
+		err = resolveCrossStageCommands(stage.Commands, stageByName, len(stages))
+		if err != nil {
+			return nil, fmt.Errorf("stage %d: %w", i, err)
+		}
 		if baseImageStoredLocally {
 			stagesDependencies[baseImageIndex]++
 		}
