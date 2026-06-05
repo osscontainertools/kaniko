@@ -1069,11 +1069,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 	}
 
-	// Some stages may refer to other random images, not previous stages
-	if err := fetchExtraStages(kanikoStages, opts); err != nil {
-		return nil, err
-	}
-
 	var tarball string
 	err = util.InitIgnoreList()
 	if err != nil {
