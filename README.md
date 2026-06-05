@@ -1222,8 +1222,8 @@ Defaults to `false`.
 
 #### Flag `FF_KANIKO_WARMER_CACHE_LOCK`
 
-Multiple warmer processes sharing a cache volume can race on the final rename to `cacheDir/<digest>`. With [`FF_KANIKO_OCI_WARMER`](#flag-ff_kaniko_oci_warmer) the rename fails with `ENOTEMPTY` and the loser exits non-zero.
-Set this flag to `true` to serialize the recheck + rename via a per-digest `flock(2)` on `cacheDir/.warmer-locks/<digest>.lock`.
+Multiple warmer processes sharing a cache volume can race when warming the same image; with [`FF_KANIKO_OCI_WARMER`](#flag-ff_kaniko_oci_warmer) one of them may exit with an error.
+Set this flag to `true` to coordinate concurrent warmers and avoid redundant downloads. Corrupt or wrong-format cache entries are detected and replaced, making [`FF_KANIKO_OCI_WARMER`](#flag-ff_kaniko_oci_warmer) toggles transparent.
 Defaults to `false`.
 Becomes default in `v1.28.0`.
 

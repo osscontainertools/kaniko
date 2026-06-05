@@ -33,11 +33,11 @@ import (
 func TestAcquireCacheLock_CreatesLockDir(t *testing.T) {
 	cacheDir := t.TempDir()
 
-	release, err := acquireCacheLock(cacheDir, "sha256:abcd")
+	lock, err := acquireCacheLock(cacheDir, "sha256:abcd")
 	if err != nil {
 		t.Fatalf("acquireCacheLock returned error: %v", err)
 	}
-	defer release()
+	defer lock.Release()
 
 	lockDir := filepath.Join(cacheDir, warmerLockDir)
 	info, err := os.Stat(lockDir)
@@ -69,12 +69,12 @@ func TestAcquireCacheLock_MutualExclusionSameKey(t *testing.T) {
 	for range n {
 		go func() {
 			defer wg.Done()
-			release, err := acquireCacheLock(cacheDir, key)
+			lock, err := acquireCacheLock(cacheDir, key)
 			if err != nil {
 				t.Errorf("acquireCacheLock returned error: %v", err)
 				return
 			}
-			defer release()
+			defer lock.Release()
 
 			cur := atomic.AddInt32(&inCritical, 1)
 			for {
@@ -99,20 +99,20 @@ func TestAcquireCacheLock_MutualExclusionSameKey(t *testing.T) {
 func TestAcquireCacheLock_DifferentKeysDoNotBlock(t *testing.T) {
 	cacheDir := t.TempDir()
 
-	releaseA, err := acquireCacheLock(cacheDir, "sha256:aaa")
+	lockA, err := acquireCacheLock(cacheDir, "sha256:aaa")
 	if err != nil {
 		t.Fatalf("first acquire failed: %v", err)
 	}
-	defer releaseA()
+	defer lockA.Release()
 
 	// Acquiring a different key from the same process must succeed without
 	// blocking. We use a tight timeout via a goroutine to avoid hanging the
 	// test if the assumption breaks.
 	done := make(chan error, 1)
 	go func() {
-		release, err := acquireCacheLock(cacheDir, "sha256:bbb")
+		lock, err := acquireCacheLock(cacheDir, "sha256:bbb")
 		if err == nil {
-			release()
+			lock.Release()
 		}
 		done <- err
 	}()
@@ -127,13 +127,19 @@ func TestAcquireCacheLock_DifferentKeysDoNotBlock(t *testing.T) {
 	}
 }
 
-func TestAcquireCacheLock_ReleaseIsIdempotent(t *testing.T) {
+func TestAcquireCacheLock_DoubleReleasePanics(t *testing.T) {
 	cacheDir := t.TempDir()
 
-	release, err := acquireCacheLock(cacheDir, "sha256:once")
+	lock, err := acquireCacheLock(cacheDir, "sha256:once")
 	if err != nil {
 		t.Fatalf("acquireCacheLock returned error: %v", err)
 	}
-	release()
-	release() // must not panic, must not error
+	lock.Release()
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("expected panic on double release, got nil")
+		}
+	}()
+	lock.Release()
 }

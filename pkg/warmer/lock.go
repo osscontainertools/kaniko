@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/osscontainertools/kaniko/pkg/util"
 	"golang.org/x/sys/unix"
 )
 
@@ -30,19 +31,18 @@ import (
 const warmerLockDir = ".warmer-locks"
 
 // acquireCacheLock takes an exclusive flock on cacheDir/.warmer-locks/<key>.lock
-// and returns a release closure. It is used by warmToFile and ociWarmToFile to
-// serialize the final-rename step for the same digest across processes sharing
+// and returns a cacheLock. It is used by warmToFile and ociWarmToFile to
+// serialize the cache write for the same digest across processes sharing
 // the same cache volume.
-//
-// The lock is held only around the destination recheck and rename, not across
-// the image download itself. Concurrent warmers fetching the same image will
-// each pay the download cost; the lock simply guarantees that only one of
-// them moves the result into place. This avoids ENOTEMPTY rename failures
-// (FF_KANIKO_OCI_WARMER, which renames a directory) and silent overwrites
-// (the legacy tarball path, which renames a file).
-func acquireCacheLock(cacheDir, key string) (func(), error) {
+type cacheLock struct {
+	f        *os.File
+	released bool
+}
+
+func acquireCacheLock(cacheDir, key string) (*cacheLock, error) {
 	lockDir := filepath.Join(cacheDir, warmerLockDir)
-	if err := os.MkdirAll(lockDir, 0o755); err != nil {
+	err := os.MkdirAll(lockDir, 0o755)
+	if err != nil {
 		return nil, fmt.Errorf("creating warmer lock dir %s: %w", lockDir, err)
 	}
 
@@ -52,21 +52,20 @@ func acquireCacheLock(cacheDir, key string) (func(), error) {
 		return nil, fmt.Errorf("opening warmer lock %s: %w", lockPath, err)
 	}
 
-	if err := unix.Flock(int(f.Fd()), unix.LOCK_EX); err != nil {
+	err = unix.Flock(int(f.Fd()), unix.LOCK_EX)
+	if err != nil {
 		f.Close()
 		return nil, fmt.Errorf("acquiring exclusive lock on %s: %w", lockPath, err)
 	}
 
-	released := false
-	return func() {
-		if released {
-			return
-		}
-		released = true
-		// Best effort: log nothing here, callers don't have a logger handle
-		// and a failure to unlock is not something they can act on. Closing
-		// the fd will release the flock regardless via kernel cleanup.
-		_ = unix.Flock(int(f.Fd()), unix.LOCK_UN)
-		_ = f.Close()
-	}, nil
+	return &cacheLock{f: f}, nil
+}
+
+// Release unlocks the flock and closes the underlying fd. It must be called
+// exactly once per successful acquireCacheLock.
+func (l *cacheLock) Release() {
+	util.Assert("warmer.cache-lock.single-release", !l.released, "Release() must not be called twice")
+	l.released = true
+	_ = unix.Flock(int(l.f.Fd()), unix.LOCK_UN)
+	_ = l.f.Close()
 }

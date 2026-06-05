@@ -108,7 +108,7 @@ func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 		ManifestWriter: mtfsFile,
 	}
 
-	digest, err := cw.Warm(img, opts)
+	cacheRef, image, digest, err := cw.Resolve(img, opts)
 	if err != nil {
 		if cache.IsAlreadyCached(err) {
 			logrus.Infof("Image already in cache: %v", img)
@@ -122,24 +122,24 @@ func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	finalMfstPath := finalCachePath + ".json"
 
 	if config.EnvBool("FF_KANIKO_WARMER_CACHE_LOCK") {
-		// Serialize the recheck+rename against other warmer processes sharing
-		// this cache volume. Holding the lock only around this step (not across
-		// the download above) keeps concurrent warmers for the same image from
-		// trampling each other's renames while still letting them run in
-		// parallel against the network.
-		release, err := acquireCacheLock(cacheDir, digest.String())
+		lock, err := acquireCacheLock(cacheDir, digest.String())
 		if err != nil {
 			return fmt.Errorf("failed to acquire cache lock: %w", err)
 		}
-		defer release()
+		defer lock.Release()
 
-		// Another warmer may have finished while we were downloading or waiting
-		// on the lock. If so, drop our copy rather than overwrite theirs — the
-		// content is by-digest immutable, so either tarball is equivalent.
-		if _, statErr := os.Stat(finalCachePath); statErr == nil {
-			logrus.Infof("Image %v became available in cache while warming; keeping existing copy", img)
+		_, lookupErr := cw.Local(&opts.CacheOptions, digest.String())
+		if lookupErr == nil || cache.IsExpired(lookupErr) {
+			logrus.Infof("Image %v became available in cache while waiting for lock; keeping existing copy", img)
 			return nil
 		}
+		_ = os.RemoveAll(finalCachePath)
+		_ = os.Remove(finalMfstPath)
+	}
+
+	if err := cw.Write(cacheRef, image); err != nil {
+		logrus.Warnf("Error while trying to warm image: %v %v", img, err)
+		return err
 	}
 
 	err = os.Rename(f.Name(), finalCachePath)
@@ -170,7 +170,7 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 		TmpDir: tmp,
 	}
 
-	digest, err := cw.Warm(img, opts)
+	cacheRef, image, digest, err := cw.Resolve(img, opts)
 	if err != nil {
 		if cache.IsAlreadyCached(err) {
 			logrus.Infof("Image already in cache: %v", img)
@@ -183,21 +183,26 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	finalCachePath := path.Join(cacheDir, digest.String())
 
 	if config.EnvBool("FF_KANIKO_WARMER_CACHE_LOCK") {
-		// Serialize the recheck+rename against other warmer processes sharing
-		// this cache volume. Unlike the tarball path (which silently overwrote),
-		// os.Rename of a directory onto a non-empty destination fails with
-		// ENOTEMPTY on Linux, so unsynchronized concurrent warms here are an
-		// outright error, not just wasted work.
-		release, err := acquireCacheLock(cacheDir, digest.String())
+		lock, err := acquireCacheLock(cacheDir, digest.String())
 		if err != nil {
 			return fmt.Errorf("failed to acquire cache lock: %w", err)
 		}
-		defer release()
+		defer lock.Release()
 
-		if _, statErr := os.Stat(finalCachePath); statErr == nil {
-			logrus.Infof("Image %v became available in cache while warming; keeping existing copy", img)
+		_, lookupErr := cw.Local(&opts.CacheOptions, digest.String())
+		if lookupErr == nil || cache.IsExpired(lookupErr) {
+			logrus.Infof("Image %v became available in cache while waiting for lock; keeping existing copy", img)
 			return nil
 		}
+		_ = os.RemoveAll(finalCachePath)
+		// mz364: finalCachePath+".json" is the legacy tarball manifest sidecar.
+		// Drop this once the tarball cache format is removed (FF_KANIKO_OCI_WARMER deprecated)
+		_ = os.Remove(finalCachePath + ".json")
+	}
+
+	if err := cw.Write(cacheRef, image); err != nil {
+		logrus.Warnf("Error while trying to warm image: %v %v", img, err)
+		return err
 	}
 
 	err = os.Rename(tmp, finalCachePath)
@@ -230,9 +235,19 @@ type Warmer struct {
 // Warm retrieves a Docker image and populates the supplied buffer with the image content and manifest
 // or returns an AlreadyCachedErr if the image is present in the cache.
 func (w *Warmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error) {
+	cacheRef, img, digest, err := w.Resolve(image, opts)
+	if err != nil {
+		return v1.Hash{}, err
+	}
+	return digest, w.Write(cacheRef, img)
+}
+
+// Resolve fetches the image manifest and resolves its digest, short-circuiting
+// with AlreadyCachedErr if the local cache already holds it.
+func (w *Warmer) Resolve(image string, opts *config.WarmerOptions) (name.Reference, v1.Image, v1.Hash, error) {
 	cacheRef, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
-		return v1.Hash{}, fmt.Errorf("failed to verify image name: %s: %w", image, err)
+		return nil, nil, v1.Hash{}, fmt.Errorf("failed to verify image name: %s: %w", image, err)
 	}
 
 	// mz320: If we have a digest reference, we can try a cache lookup directly.
@@ -243,7 +258,7 @@ func (w *Warmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error)
 			cacheKey := d.DigestStr()
 			_, err := w.Local(&opts.CacheOptions, cacheKey)
 			if err == nil || cache.IsExpired(err) {
-				return v1.Hash{}, cache.AlreadyCachedErr{}
+				return nil, nil, v1.Hash{}, cache.AlreadyCachedErr{}
 			} else {
 				// mz320: But in case it is a cache miss, not all hope is lost.
 				// It could have also been the digest for an image-index.
@@ -258,12 +273,12 @@ func (w *Warmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error)
 
 	img, err := w.Remote(image, opts.RegistryOptions, opts.CustomPlatform)
 	if err != nil || img == nil {
-		return v1.Hash{}, fmt.Errorf("failed to retrieve image: %s: %w", image, err)
+		return nil, nil, v1.Hash{}, fmt.Errorf("failed to retrieve image: %s: %w", image, err)
 	}
 
 	digest, err := img.Digest()
 	if err != nil {
-		return v1.Hash{}, fmt.Errorf("failed to retrieve digest: %s: %w", image, err)
+		return nil, nil, v1.Hash{}, fmt.Errorf("failed to retrieve digest: %s: %w", image, err)
 	}
 
 	if !opts.Force {
@@ -278,25 +293,30 @@ func (w *Warmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error)
 			_, err = w.Local(&opts.CacheOptions, cacheKey)
 		}
 		if err == nil || cache.IsExpired(err) {
-			return v1.Hash{}, cache.AlreadyCachedErr{}
+			return nil, nil, v1.Hash{}, cache.AlreadyCachedErr{}
 		}
 	}
 
-	err = tarball.Write(cacheRef, img, w.TarWriter)
-	if err != nil {
-		return v1.Hash{}, fmt.Errorf("failed to write %s to tar buffer: %w", image, err)
+	return cacheRef, img, digest, nil
+}
+
+// Write streams the image as a Docker tarball to TarWriter and its raw
+// manifest to ManifestWriter.
+func (w *Warmer) Write(cacheRef name.Reference, img v1.Image) error {
+	if err := tarball.Write(cacheRef, img, w.TarWriter); err != nil {
+		return fmt.Errorf("failed to write %s to tar buffer: %w", cacheRef.String(), err)
 	}
 
 	mfst, err := img.RawManifest()
 	if err != nil {
-		return v1.Hash{}, fmt.Errorf("failed to retrieve manifest for %s: %w", image, err)
+		return fmt.Errorf("failed to retrieve manifest for %s: %w", cacheRef.String(), err)
 	}
 
 	if _, err := w.ManifestWriter.Write(mfst); err != nil {
-		return v1.Hash{}, fmt.Errorf("failed to save manifest to buffer for %s: %w", image, err)
+		return fmt.Errorf("failed to save manifest to buffer for %s: %w", cacheRef.String(), err)
 	}
 
-	return digest, nil
+	return nil
 }
 
 type OciWarmer struct {
@@ -308,9 +328,19 @@ type OciWarmer struct {
 // Warm retrieves a Docker image and populates the supplied buffer with the image content and manifest
 // or returns an AlreadyCachedErr if the image is present in the cache.
 func (w *OciWarmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error) {
+	cacheRef, img, digest, err := w.Resolve(image, opts)
+	if err != nil {
+		return v1.Hash{}, err
+	}
+	return digest, w.Write(cacheRef, img)
+}
+
+// Resolve fetches the image manifest and resolves its digest, short-circuiting
+// with AlreadyCachedErr if the local cache already holds it.
+func (w *OciWarmer) Resolve(image string, opts *config.WarmerOptions) (name.Reference, v1.Image, v1.Hash, error) {
 	cacheRef, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
-		return v1.Hash{}, fmt.Errorf("failed to verify image name: %s: %w", image, err)
+		return nil, nil, v1.Hash{}, fmt.Errorf("failed to verify image name: %s: %w", image, err)
 	}
 
 	// mz320: If we have a digest reference, we can try a cache lookup directly.
@@ -321,7 +351,7 @@ func (w *OciWarmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, err
 			cacheKey := d.DigestStr()
 			_, err := w.Local(&opts.CacheOptions, cacheKey)
 			if err == nil || cache.IsExpired(err) {
-				return v1.Hash{}, cache.AlreadyCachedErr{}
+				return nil, nil, v1.Hash{}, cache.AlreadyCachedErr{}
 			} else {
 				// mz320: But in case it is a cache miss, not all hope is lost.
 				// It could have also been the digest for an image-index.
@@ -336,12 +366,12 @@ func (w *OciWarmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, err
 
 	img, err := w.Remote(image, opts.RegistryOptions, opts.CustomPlatform)
 	if err != nil || img == nil {
-		return v1.Hash{}, fmt.Errorf("failed to retrieve image: %s: %w", image, err)
+		return nil, nil, v1.Hash{}, fmt.Errorf("failed to retrieve image: %s: %w", image, err)
 	}
 
 	digest, err := img.Digest()
 	if err != nil {
-		return v1.Hash{}, fmt.Errorf("failed to retrieve digest: %s: %w", image, err)
+		return nil, nil, v1.Hash{}, fmt.Errorf("failed to retrieve digest: %s: %w", image, err)
 	}
 
 	if !opts.Force {
@@ -356,23 +386,28 @@ func (w *OciWarmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, err
 			_, err = w.Local(&opts.CacheOptions, cacheKey)
 		}
 		if err == nil || cache.IsExpired(err) {
-			return v1.Hash{}, cache.AlreadyCachedErr{}
+			return nil, nil, v1.Hash{}, cache.AlreadyCachedErr{}
 		}
 	}
 
+	return cacheRef, img, digest, nil
+}
+
+// Write materializes the image as an ocilayout under TmpDir.
+func (w *OciWarmer) Write(cacheRef name.Reference, img v1.Image) error {
 	p, err := layout.Write(w.TmpDir, empty.Index)
 	if err != nil {
-		return v1.Hash{}, fmt.Errorf("failed to create ocilayout for: %s: %w", image, err)
+		return fmt.Errorf("failed to create ocilayout for: %s: %w", cacheRef.String(), err)
 	}
 
 	err = p.AppendImage(img, layout.WithAnnotations(map[string]string{
 		"org.opencontainers.image.ref.name": cacheRef.Name(),
 	}))
 	if err != nil {
-		return v1.Hash{}, fmt.Errorf("failed to append image %s to ocilayout: %w", image, err)
+		return fmt.Errorf("failed to append image %s to ocilayout: %w", cacheRef.String(), err)
 	}
 
-	return digest, nil
+	return nil
 }
 
 func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
