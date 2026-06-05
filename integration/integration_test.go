@@ -1446,6 +1446,36 @@ func TestAlpineTLS(t *testing.T) {
 	}
 }
 
+// mz745: in kaniko v1.27.0 --custom-platform folds an architecture variant like linux/arm/v7
+// into Architecture="arm/v7". diffoci ignores the config platform fields, so rather than a
+// docker diff we reuse the cross_compile dockerfile and assert OS/Architecture/Variant directly.
+func TestCustomPlatformVariant(t *testing.T) {
+	_, ex, _, _ := runtime.Caller(0)
+	cwd := filepath.Dir(ex)
+	kanikoImage := GetKanikoImage(config.imageRepo, "issue_mz745")
+	_, err := buildKanikoImage(
+		t.Logf,
+		dockerfilesPath,
+		"Dockerfile_test_cross_compile",
+		nil,
+		[]string{"--custom-platform=linux/arm/v7", "-c", buildContextPath},
+		kanikoImage,
+		cwd,
+		"", nil, config.serviceAccount, false, "", "",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := getImageConfig(kanikoImage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.CheckDeepEqual(t, "linux", cfg.OS)
+	testutil.CheckDeepEqual(t, "arm", cfg.Architecture)
+	testutil.CheckDeepEqual(t, "v7", cfg.Variant)
+}
+
 // containerDiff compares the container images image1 and image2.
 func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	// workaround for container-diff OCI issue https://github.com/GoogleContainerTools/container-diff/issues/389
