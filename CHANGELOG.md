@@ -1,3 +1,69 @@
+# v1.27.6 Release 2026-06-05
+
+## Community Update
+@vidbregar made their first contribution in https://github.com/osscontainertools/kaniko/pull/763
+
+Also many thanks to @cmellazchy, @pstoeckle, @nphantasm, and @YevheniiSemendiak for reporting issues fixed in this release.
+
+An extraordinary thank you to @0hlov3 for reviewing 11 PRs this cycle.
+
+## What's Changed
+### Security
+* github.com/go-git/go-git/v5 v5.19.0: CVE-2026-45571 CVE-2026-45570 GHSA-w5pp-99ch-qj29
+* go stdlib v1.26.3: CVE-2026-42504 CVE-2026-27145 CVE-2026-42507
+* golang.org/x/crypto v0.51.0: CVE-2026-39827 CVE-2026-39828 CVE-2026-39829 CVE-2026-39830 CVE-2026-39831 CVE-2026-39832 CVE-2026-39833 CVE-2026-39834 CVE-2026-39835 CVE-2026-42508 CVE-2026-46595 CVE-2026-46597 CVE-2026-46598
+* golang.org/x/net v0.54.0: CVE-2026-25680 CVE-2026-25681 CVE-2026-27136 CVE-2026-39821 CVE-2026-42502 CVE-2026-42506
+
+### Bugfixes
+* malformed Dockerfile input now errors instead of crashing: https://github.com/osscontainertools/kaniko/pull/733
+* malformed base-image config now errors instead of crashing: https://github.com/osscontainertools/kaniko/pull/742
+* `--custom-platform` mangles a variant into `linux/arm/v7/v7`: https://github.com/osscontainertools/kaniko/pull/746
+
+### Standardization
+* `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=false` `--reproducible` leaves base-image layers untouched so they still match the registry: https://github.com/osscontainertools/kaniko/pull/732
+* `FF_KANIKO_SCOPED_DOCKERIGNORE=false` scope `.dockerignore` patterns to the build context: by @vidbregar in https://github.com/osscontainertools/kaniko/pull/763
+
+### Caching
+* `FF_KANIKO_WARMER_CACHE_LOCK=false` coordinate concurrent warmers on a shared cache volume: by @iahsanGill in https://github.com/osscontainertools/kaniko/pull/705 https://github.com/osscontainertools/kaniko/pull/706
+
+### Usability
+* `FF_KANIKO_PRESERVE_MOUNTED_PATHS=false` keep read-only bind mounts (e.g. NVIDIA GPU driver artifacts) in place during extraction: https://github.com/osscontainertools/kaniko/pull/754
+* `executor push` subcommand pushes a pre-built tarball or OCI layout without a separate `crane` binary: https://github.com/osscontainertools/kaniko/pull/737
+* `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE=false` deprecate the `--preserve-context` inter-stage restore: https://github.com/osscontainertools/kaniko/pull/710
+
+### Maintenance
+* build(deps): bump codecov/codecov-action from 6.0.0 to 6.0.1: https://github.com/osscontainertools/kaniko/pull/711
+* build(deps): bump debian in /deploy: https://github.com/osscontainertools/kaniko/pull/714 https://github.com/osscontainertools/kaniko/pull/716
+* build(deps): bump golang in /deploy: https://github.com/osscontainertools/kaniko/pull/715 https://github.com/osscontainertools/kaniko/pull/738 https://github.com/osscontainertools/kaniko/pull/755
+* build(deps): bump github.com/go-git/go-git/v5 from 5.19.0 to 5.19.1: https://github.com/osscontainertools/kaniko/pull/713
+* build(deps): bump step-security/harden-runner from 2.19.3 to 2.19.4: https://github.com/osscontainertools/kaniko/pull/718
+* build(deps): bump docker/build-push-action from 7.1.0 to 7.2.0: https://github.com/osscontainertools/kaniko/pull/718
+* build(deps): bump cloud.google.com/go/storage from 1.62.1 to 1.62.3: https://github.com/osscontainertools/kaniko/pull/717 https://github.com/osscontainertools/kaniko/pull/759
+* build(deps): bump github.com/docker/cli from 29.5.0 to 29.5.3: https://github.com/osscontainertools/kaniko/pull/717 https://github.com/osscontainertools/kaniko/pull/757
+* build(deps): bump google.golang.org/api from 0.279.0 to 0.283.0: https://github.com/osscontainertools/kaniko/pull/722 https://github.com/osscontainertools/kaniko/pull/751
+* build(deps): bump golang.org/x/sys from 0.44.0 to 0.45.0: https://github.com/osscontainertools/kaniko/pull/723
+* build(deps): bump docker/login-action from 4.1.0 to 4.2.0: https://github.com/osscontainertools/kaniko/pull/730
+* build(deps): bump docker/setup-buildx-action from 4.0.0 to 4.1.0: https://github.com/osscontainertools/kaniko/pull/735
+* build(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.32.17 to 1.32.23: https://github.com/osscontainertools/kaniko/pull/736 https://github.com/osscontainertools/kaniko/pull/744 https://github.com/osscontainertools/kaniko/pull/759 https://github.com/osscontainertools/kaniko/pull/761
+* build(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager from 0.1.21 to 0.2.7: https://github.com/osscontainertools/kaniko/pull/736 https://github.com/osscontainertools/kaniko/pull/750 https://github.com/osscontainertools/kaniko/pull/759 https://github.com/osscontainertools/kaniko/pull/761 https://github.com/osscontainertools/kaniko/pull/764
+* build(deps): bump busybox in /deploy: https://github.com/osscontainertools/kaniko/pull/734 https://github.com/osscontainertools/kaniko/pull/739
+* build(deps): bump docker/setup-qemu-action from 4.0.0 to 4.1.0: https://github.com/osscontainertools/kaniko/pull/743
+* build(deps): bump docker/setup-docker-action from 5.1.0 to 5.2.0: https://github.com/osscontainertools/kaniko/pull/743
+* build(deps): bump github.com/aws/aws-sdk-go-v2 from 1.41.7 to 1.41.12: https://github.com/osscontainertools/kaniko/pull/744 https://github.com/osscontainertools/kaniko/pull/759 https://github.com/osscontainertools/kaniko/pull/761
+* build(deps): bump actions/checkout from 6.0.2 to 6.0.3: https://github.com/osscontainertools/kaniko/pull/747
+* build(deps): bump imjasonh/setup-crane from 0.5 to 0.6: https://github.com/osscontainertools/kaniko/pull/747
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.101.0 to 1.103.2: https://github.com/osscontainertools/kaniko/pull/761
+* build(deps): bump github.com/google/go-containerregistry from 0.21.5 to 0.21.6: https://github.com/osscontainertools/kaniko/pull/719
+* build(deps): bump golang.org/x/crypto from 0.51.0 to 0.52.0: https://github.com/osscontainertools/kaniko/pull/766
+
+### Fork Related
+* `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=false` infer the cross-stage cache key for `COPY --from=<external image>` from its manifest digest: https://github.com/osscontainertools/kaniko/pull/741
+* `FF_KANIKO_CACHE_LOOKAHEAD=false` render the dryrun plan after cache lookahead so it shows cache hits/misses: https://github.com/osscontainertools/kaniko/pull/674
+
+### Refactorings
+* remove dead code: https://github.com/osscontainertools/kaniko/pull/707
+
+
 # v1.27.5 Release 2026-05-15
 
 ## Community Update
