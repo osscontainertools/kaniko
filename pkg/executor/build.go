@@ -995,7 +995,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	util.Assert("executor.build.stages-nonempty", len(kanikoStages) > 0, "no stages to build")
 
 	// Some stages may refer to other random images, not previous stages
-	externalImageDigests, err := fetchExtraStages(kanikoStages, opts)
+	externalImageDigests, extraStageImages, err := resolveExtraStageDigests(kanikoStages, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -1067,6 +1067,10 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if opts.Dryrun {
 			return nil, nil
 		}
+	}
+
+	if err := downloadExtraStages(extraStageImages); err != nil {
+		return nil, err
 	}
 
 	var tarball string
@@ -1358,11 +1362,12 @@ func deduplicatePaths(paths []string) []string {
 	return deduped
 }
 
-func fetchExtraStages(stages []config.KanikoStage, opts *config.KanikoOptions) (map[string]string, error) {
-	t := timing.Start("Fetching Extra Stages")
+func resolveExtraStageDigests(stages []config.KanikoStage, opts *config.KanikoOptions) (map[string]string, map[string]v1.Image, error) {
+	t := timing.Start("Resolving Extra Stage Digests")
 	defer timing.DefaultRun.Stop(t)
 
 	externalImageDigests := make(map[string]string)
+	images := make(map[string]v1.Image)
 	for _, s := range stages {
 		for _, cmd := range s.Commands {
 			c, ok := cmd.(*instructions.CopyCommand)
@@ -1376,31 +1381,45 @@ func fetchExtraStages(stages []config.KanikoStage, opts *config.KanikoOptions) (
 			if fromIndex, err := strconv.Atoi(c.From); err == nil {
 				// If it is an integer stage index, validate that it is actually a previous index
 				if s.Index <= fromIndex || fromIndex < 0 {
-					return nil, fmt.Errorf("%s refers to invalid stage: %d", c.String(), fromIndex)
+					return nil, nil, fmt.Errorf("%s refers to invalid stage: %d", c.String(), fromIndex)
 				}
 				continue
 			}
 
-			// This must be an image name, fetch it.
+			if _, ok := images[c.From]; ok {
+				continue
+			}
+
+			// This must be an image name, fetch its manifest.
 			logrus.Debugf("Found extra base image stage %s", c.From)
 			sourceImage, err := remote.RetrieveRemoteImage(c.From, opts.RegistryOptions, opts.CustomPlatform)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			digest, err := sourceImage.Digest()
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			externalImageDigests[c.From] = digest.String()
-			if err := saveStageAsTarball(c.From, sourceImage); err != nil {
-				return nil, err
-			}
-			if err := extractImageToDependencyDir(c.From, sourceImage); err != nil {
-				return nil, err
-			}
+			images[c.From] = sourceImage
 		}
 	}
-	return externalImageDigests, nil
+	return externalImageDigests, images, nil
+}
+
+func downloadExtraStages(images map[string]v1.Image) error {
+	t := timing.Start("Fetching Extra Stages")
+	defer timing.DefaultRun.Stop(t)
+
+	for name, sourceImage := range images {
+		if err := saveStageAsTarball(name, sourceImage); err != nil {
+			return err
+		}
+		if err := extractImageToDependencyDir(name, sourceImage); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func extractImageToDependencyDir(name string, image v1.Image) error {
