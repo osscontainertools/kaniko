@@ -1,14 +1,15 @@
 ## What's changed since Google's v1.24.0
 ### Security
-* go stdlib v1.24.3: CVE-2025-0913 CVE-2025-4673 CVE-2025-4674 CVE-2025-22874 CVE-2025-47906 CVE-2025-47907 CVE-2025-47912 CVE-2025-58183 CVE-2025-58185 CVE-2025-58186 CVE-2025-58187 CVE-2025-58188 CVE-2025-58189 CVE-2025-61723 CVE-2025-61724 CVE-2025-61725 CVE-2025-61729 CVE-2025-61727 CVE-2025-61726 CVE-2025-61728 CVE-2025-61730 CVE-2025-68121 CVE-2026-27137 CVE-2026-25679 CVE-2026-27142 CVE-2026-27138 CVE-2026-27139 CVE-2026-32280 CVE-2026-33810 CVE-2026-32281 CVE-2026-32283 CVE-2026-32282 CVE-2026-32289 CVE-2026-32288 CVE-2026-33811 CVE-2026-33814 CVE-2026-39820 CVE-2026-39836 CVE-2026-42499 CVE-2026-39823 CVE-2026-39825 CVE-2026-39826
+* go stdlib v1.24.3: CVE-2025-0913 CVE-2025-4673 CVE-2025-4674 CVE-2025-22874 CVE-2025-47906 CVE-2025-47907 CVE-2025-47912 CVE-2025-58183 CVE-2025-58185 CVE-2025-58186 CVE-2025-58187 CVE-2025-58188 CVE-2025-58189 CVE-2025-61723 CVE-2025-61724 CVE-2025-61725 CVE-2025-61729 CVE-2025-61727 CVE-2025-61726 CVE-2025-61728 CVE-2025-61730 CVE-2025-68121 CVE-2026-27137 CVE-2026-25679 CVE-2026-27142 CVE-2026-27138 CVE-2026-27139 CVE-2026-32280 CVE-2026-33810 CVE-2026-32281 CVE-2026-32283 CVE-2026-32282 CVE-2026-32289 CVE-2026-32288 CVE-2026-33811 CVE-2026-33814 CVE-2026-39820 CVE-2026-39836 CVE-2026-42499 CVE-2026-39823 CVE-2026-39825 CVE-2026-39826 CVE-2026-42504 CVE-2026-27145 CVE-2026-42507
 * containerd v1.7.27: GHSA-m6hq-p25p-ffr2 GHSA-pwhc-rpq9-4c8w
 * containerd-v2 v2.1.1: GHSA-m6hq-p25p-ffr2 GHSA-pwhc-rpq9-4c8w
 * selinux v1.12.0: GHSA-cgrx-mc8f-2prm
 * remove binary artifacts: by @tlk in https://github.com/mzihlmann/kaniko/pull/54
-* golang.org/x/crypto 0.44.0: CVE-2025-47914 CVE-2025-58181
+* golang.org/x/crypto 0.44.0: CVE-2025-47914 CVE-2025-58181 CVE-2026-39827 CVE-2026-39828 CVE-2026-39829 CVE-2026-39830 CVE-2026-39831 CVE-2026-39832 CVE-2026-39833 CVE-2026-39834 CVE-2026-39835 CVE-2026-42508 CVE-2026-46595 CVE-2026-46597 CVE-2026-46598
+* golang.org/x/net 0.40.0: CVE-2026-25680 CVE-2026-25681 CVE-2026-27136 CVE-2026-39821 CVE-2026-42502 CVE-2026-42506
 * github.com/docker/cli v29.4.1: CVE-2025-15558
 * github.com/go-git/go-billy/v5 v5.8.0: CVE-2026-44973 CVE-2026-44740
-* github.com/go-git/go-git/v5 5.16.0: CVE-2026-25934 CVE-2026-34165 CVE-2026-33762 CVE-2026-41506 CVE-2026-45022
+* github.com/go-git/go-git/v5 5.16.0: CVE-2026-25934 CVE-2026-34165 CVE-2026-33762 CVE-2026-41506 CVE-2026-45022 CVE-2026-45571 CVE-2026-45570 GHSA-w5pp-99ch-qj29
 * go.opentelemetry.io/otel/sdk 1.39.0: CVE-2026-24051 CVE-2026-39883
 * github.com/cloudflare/circl 1.6.1: CVE-2026-1229
 * google.golang.org/grpc v1.79.1: CVE-2026-33186
@@ -33,6 +34,8 @@
 * image-index digests causes warmer cache misses: https://github.com/osscontainertools/kaniko/pull/321
 * refs/pull is not a valid branchname: https://github.com/osscontainertools/kaniko/pull/509
 * ARG values leak across sibling stages in multi-stage builds: https://github.com/osscontainertools/kaniko/pull/623
+* malformed Dockerfile input now errors instead of crashing: https://github.com/osscontainertools/kaniko/pull/733
+* malformed base-image config now errors instead of crashing: https://github.com/osscontainertools/kaniko/pull/742
 
 ### Standardization
 * sticky bit gets lost on COPY: https://github.com/mzihlmann/kaniko/pull/45
@@ -59,6 +62,8 @@
 * `FF_KANIKO_PRESERVE_HARDLINKS=false` preserve hardlinks during `COPY --from`: https://github.com/osscontainertools/kaniko/pull/630
 * `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE=false` upstream ENV shadows local ARG: https://github.com/osscontainertools/kaniko/pull/624
 * `FF_KANIKO_RUN_MOUNT_BIND=false` support for `RUN --mount=type=bind`: https://github.com/osscontainertools/kaniko/pull/615
+* `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=false` `--reproducible` leaves base-image layers untouched so they still match the registry: https://github.com/osscontainertools/kaniko/pull/732
+* `FF_KANIKO_SCOPED_DOCKERIGNORE=false` scope `.dockerignore` patterns to the build context: by @vidbregar in https://github.com/osscontainertools/kaniko/pull/763
 
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
@@ -69,6 +74,7 @@
 * ADD learned to cache its output layer: https://github.com/mzihlmann/kaniko/pull/24
 * whiteout annotations to prevent cache misses through `--annotation`: https://github.com/mzihlmann/kaniko/pull/209
 * `FF_KANIKO_CACHE_PROBE_AFTER_MISS=false` keep probing the cache after a layer miss: by @iahsanGill in https://github.com/osscontainertools/kaniko/pull/703
+* `FF_KANIKO_WARMER_CACHE_LOCK=false` coordinate concurrent warmers on a shared cache volume: by @iahsanGill in https://github.com/osscontainertools/kaniko/pull/705 https://github.com/osscontainertools/kaniko/pull/706
 
 ### Performance
 * `FF_KANIKO_SQUASH_STAGES=true` squash stages together, speeding up build: https://github.com/mzihlmann/kaniko/pull/141 https://github.com/osscontainertools/kaniko/pull/283
@@ -101,6 +107,8 @@
 * multitarget builds - part 1: https://github.com/osscontainertools/kaniko/pull/485
 * `FF_KANIKO_OCI_SCRATCH_BASE=false` oci scratch base image: https://github.com/osscontainertools/kaniko/pull/612
 * `kaniko-alpine` image (`martizih/kaniko:alpine`): https://github.com/osscontainertools/kaniko/pull/647 https://github.com/osscontainertools/kaniko/pull/659
+* `executor push` subcommand pushes a pre-built tarball or OCI layout without a separate `crane` binary: https://github.com/osscontainertools/kaniko/pull/737
+* `FF_KANIKO_PRESERVE_MOUNTED_PATHS=false` keep read-only bind mounts (e.g. NVIDIA GPU driver artifacts) in place during extraction: https://github.com/osscontainertools/kaniko/pull/754
 
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
