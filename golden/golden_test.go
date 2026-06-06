@@ -22,12 +22,15 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
 	testissuemz195 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz195"
 	testissuemz333 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz333"
@@ -45,17 +48,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// mirrors pkg/executor/push.go
+const cachePointerLabel = "kaniko.cache.pointer-target"
+
 type fakeLayerCache struct {
 	cachedKeys []string
 }
 
 func (f *fakeLayerCache) RetrieveLayer(key string) (v1.Image, error) {
-	for _, k := range f.cachedKeys {
-		if k == key {
-			return nil, nil
-		}
+	if !slices.Contains(f.cachedKeys, key) {
+		return nil, errors.New("could not find layer")
 	}
-	return nil, errors.New("could not find layer")
+	cf := &v1.ConfigFile{}
+	cf.Config.Labels = map[string]string{cachePointerLabel: key}
+	return mutate.ConfigFile(empty.Image, cf)
 }
 
 func renderCommand(env map[string]string, args []string) string {
