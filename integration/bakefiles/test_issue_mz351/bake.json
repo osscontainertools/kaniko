@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "targets": {
+    "app": {
+      "target": "app",
+      "destination": ["test_issue_mz351:latest"]
+    }
+  }
+}
