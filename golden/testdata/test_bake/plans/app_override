@@ -1,0 +1,8 @@
+FROM alpine AS app
+  STREAM alpine
+RUN install
+RUN build app
+PUSH [registry.example.com/app:override]
+  UPLOAD sha256:55afa1ecc21d2bb5e5045f32dafee56272ffd89860bac26f6c32123439af26a4
+  UPLOAD RUN install
+  UPLOAD RUN build app
