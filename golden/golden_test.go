@@ -163,8 +163,8 @@ func TestMain(m *testing.M) {
 func renderPlan(t *testing.T, opts *config.KanikoOptions, cachedKeys []string) string {
 	t.Helper()
 	origNewLayerCache := executor.NewLayerCache
-	executor.NewLayerCache = func(_ *config.KanikoOptions) cache.LayerCache {
-		return &fakeLayerCache{cachedKeys: cachedKeys}
+	executor.NewLayerCache = func(opts *config.KanikoOptions) cache.LayerCache {
+		return &fakeLayerCache{opts: opts, cachedKeys: cachedKeys}
 	}
 	t.Cleanup(func() { executor.NewLayerCache = origNewLayerCache })
 
@@ -216,11 +216,6 @@ func TestRun(t *testing.T) {
 							config.InitFeatureFlags()
 
 							opts := config.KanikoOptions{}
-							origNewLayerCache := executor.NewLayerCache
-							executor.NewLayerCache = func(opts *config.KanikoOptions) cache.LayerCache {
-								return &fakeLayerCache{opts: opts, cachedKeys: test.CachedKeys}
-							}
-							t.Cleanup(func() { executor.NewLayerCache = origNewLayerCache })
 							exec := &cobra.Command{
 								Use: "kaniko",
 							}
@@ -265,8 +260,9 @@ func TestBake(t *testing.T) {
 							}
 
 							opts := config.KanikoOptions{}
+							var set []string
 							exec := &cobra.Command{Use: "bake"}
-							cmd.AddSharedBuildFlags(exec, &opts)
+							cmd.AddBakeFlags(exec, &opts, &set)
 							args := []string{
 								filepath.Join(testDir, "bake.json"),
 								"--dryrun",
@@ -279,7 +275,7 @@ func TestBake(t *testing.T) {
 							cmd.ValidateFlags(&opts)
 
 							rest := exec.Flags().Args()
-							if err := cmd.ConfigureFromBakefile(&opts, rest[0], rest[1:]); err != nil {
+							if err := cmd.ConfigureFromBakefile(&opts, rest[0], rest[1:], set); err != nil {
 								t.Fatal(err)
 							}
 
