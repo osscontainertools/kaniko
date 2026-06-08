@@ -26,9 +26,9 @@ import (
 )
 
 // TestBake is a smoke test for the bake subcommand. For each folder under
-// bakefiles/ it builds the bakefile's target and checks the result matches the
-// same stage built directly with --target. The build goes via an artifact and
-// a separate push because the test registry cannot be baked into the fixture.
+// bakefiles/ it builds the bakefile's target with kaniko and the equivalent
+// docker bake HCL with buildx, then checks the two images match. The push
+// destinations are injected with --set, so the fixtures stay registry-agnostic.
 func TestBake(t *testing.T) {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -61,29 +61,32 @@ func TestBake(t *testing.T) {
 			if len(targets) != 1 {
 				t.Fatalf("want a single target, got %d", len(targets))
 			}
+			target := targets[0]
 
-			outDir := t.TempDir()
-			directImage := GetKanikoImage(config.imageRepo, name+"_direct")
-			bakeImage := GetKanikoImage(config.imageRepo, name)
+			kanikoImage := GetKanikoImage(config.imageRepo, name)
+			dockerImage := GetDockerImage(config.imageRepo, name)
 
-			runExecutor := func(args ...string) {
-				t.Helper()
-				flags := []string{"run", "--rm", "--net=host", "-v", ctxDir + ":/ctx", "-v", outDir + ":/out"}
-				flags = addServiceAccountFlags(flags, config.serviceAccount)
-				flags = addCoverageFlags(flags)
-				flags = append(flags, ExecutorImage)
-				flags = append(flags, args...)
-				cmd := exec.Command("docker", flags...)
-				if out, err := RunCommandWithoutTest(cmd); err != nil {
-					t.Fatalf("%v: %v\n%s", cmd.Args, err, string(out))
-				}
+			kanikoFlags := []string{"run", "--rm", "--net=host", "-v", ctxDir + ":/ctx"}
+			kanikoFlags = addServiceAccountFlags(kanikoFlags, config.serviceAccount)
+			kanikoFlags = addCoverageFlags(kanikoFlags)
+			kanikoFlags = append(kanikoFlags, ExecutorImage,
+				"bake", "/ctx/bake.json", "-c", "/ctx",
+				"--set", target.ID+".destination="+kanikoImage)
+			kanikoCmd := exec.Command("docker", kanikoFlags...)
+			if out, err := RunCommandWithoutTest(kanikoCmd); err != nil {
+				t.Fatalf("%v: %v\n%s", kanikoCmd.Args, err, string(out))
 			}
 
-			runExecutor("bake", "/ctx/bake.json", "-c", "/ctx", "--no-push", "--tar-path", "/out/image")
-			runExecutor("push", "/out/image", "-d", bakeImage)
-			runExecutor("-c", "/ctx", "--target", targets[0].Stage, "-d", directImage)
+			dockerCmd := exec.Command("docker", "buildx", "bake",
+				"-f", "docker-bake.hcl",
+				"--set", target.ID+".tags="+dockerImage,
+				"--push")
+			dockerCmd.Dir = ctxDir
+			if out, err := RunCommandWithoutTest(dockerCmd); err != nil {
+				t.Fatalf("%v: %v\n%s", dockerCmd.Args, err, string(out))
+			}
 
-			containerDiff(t, directImage, bakeImage)
+			containerDiff(t, dockerImage, kanikoImage, "--ignore-history")
 		})
 	}
 }

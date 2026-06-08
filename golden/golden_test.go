@@ -194,8 +194,9 @@ func TestBake(t *testing.T) {
 							}
 
 							opts := config.KanikoOptions{}
+							var set []string
 							exec := &cobra.Command{Use: "bake"}
-							cmd.AddSharedBuildFlags(exec, &opts)
+							cmd.AddBakeFlags(exec, &opts, &set)
 							args := []string{
 								filepath.Join(testDir, "bake.json"),
 								"--dryrun",
@@ -208,7 +209,7 @@ func TestBake(t *testing.T) {
 							cmd.ValidateFlags(&opts)
 
 							rest := exec.Flags().Args()
-							if err := cmd.ConfigureFromBakefile(&opts, rest[0], rest[1:]); err != nil {
+							if err := cmd.ConfigureFromBakefile(&opts, rest[0], rest[1:], set); err != nil {
 								t.Fatal(err)
 							}
 

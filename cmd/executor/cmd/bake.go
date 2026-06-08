@@ -26,21 +26,37 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var bakeSet []string
+
 func init() {
-	AddSharedBuildFlags(bakeCmd, opts)
+	AddBakeFlags(bakeCmd, opts, &bakeSet)
 	addHiddenFlags(bakeCmd)
 	RootCmd.AddCommand(bakeCmd)
 }
 
-// ConfigureFromBakefile parses the bakefile, selects the single target, and
-// applies its stage and destinations to opts.
-func ConfigureFromBakefile(opts *config.KanikoOptions, path string, selection []string) error {
+func AddBakeFlags(cmd *cobra.Command, opts *config.KanikoOptions, set *[]string) {
+	AddSharedBuildFlags(cmd, opts)
+	cmd.Flags().StringArrayVar(set, "set", nil, "Override a bakefile target field: <target>.<field>=<value>. Set it repeatedly for multiple overrides.")
+}
+
+func ConfigureFromBakefile(opts *config.KanikoOptions, path string, selection, set []string) error {
 	bakefile, err := bake.Parse(path)
 	if err != nil {
 		return err
 	}
 	targets, err := bakefile.Resolve(selection)
 	if err != nil {
+		return err
+	}
+	overrides := make([]bake.Override, 0, len(set))
+	for _, s := range set {
+		o, err := bake.ParseOverride(s)
+		if err != nil {
+			return err
+		}
+		overrides = append(overrides, o)
+	}
+	if err := bake.ApplyOverrides(targets, overrides); err != nil {
 		return err
 	}
 	if len(targets) != 1 {
@@ -75,7 +91,7 @@ build args and other settings come from the usual flags.`,
 		if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {
 			return err
 		}
-		if err := ConfigureFromBakefile(opts, args[0], args[1:]); err != nil {
+		if err := ConfigureFromBakefile(opts, args[0], args[1:], bakeSet); err != nil {
 			return err
 		}
 		return runBuild(opts)
