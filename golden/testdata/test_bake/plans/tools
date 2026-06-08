@@ -1,0 +1,5 @@
+FROM alpine AS tools
+UNPACK alpine
+RUN install
+RUN build tools
+PUSH [registry.example.com/tools:latest]

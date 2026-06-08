@@ -1,0 +1,5 @@
+FROM alpine AS app
+UNPACK alpine
+RUN install
+RUN build app
+PUSH [registry.example.com/app:latest registry.example.com/app:v1]
