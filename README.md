@@ -149,6 +149,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE`](#flag-ff_kaniko_deprecate_inter_stage_restore)
       - [Flag `FF_KANIKO_SCOPED_DOCKERIGNORE`](#flag-ff_kaniko_scoped_dockerignore)
       - [Flag `FF_KANIKO_COPY_CACHEKEY_FOLD_ARGS`](#flag-ff_kaniko_copy_cachekey_fold_args)
+      - [Flag `FF_KANIKO_SKIP_RELABEL_RECOMPRESS`](#flag-ff_kaniko_skip_relabel_recompress)
     - [Assertion Overrides](#assertion-overrides)
     - [Debug Image](#debug-image)
   - [Security](#security)
@@ -1305,6 +1306,13 @@ Currently no plans to activate.
 
 A `COPY` or `ADD` layer cache key is built from the raw instruction text, so build args and env expanded in the instruction (for example `COPY foo /$A/foo`) do not enter the key. With `--cache-copy-layers` a build that only changes such a variable hits the layer cached for a different resolved value and serves a stale layer at the wrong path.
 Set this flag to `true` to fold the resolved build args and env into the cache key whenever a `COPY` or `ADD` instruction references a variable.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_SKIP_RELABEL_RECOMPRESS`
+
+When a cached layer is reused in an image of a different media-type vendor, kaniko not only relabels the layer but re-gzips it too. if the compression is unchanged, the re-encoded blob is byte-identical to the original.
+Set this flag to `true` to skip the unecessary re-compression and serve the relabeled already-compressed blob.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
