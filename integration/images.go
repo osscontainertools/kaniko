@@ -99,7 +99,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_1039":                 {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_2066":                 {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_1837":                 {"FF_KANIKO_SQUASH_STAGES=0"},
-	"Dockerfile_test_issue_mz775":                {"FF_KANIKO_SQUASH_STAGES=0", "FF_KANIKO_CACHE_LOOKAHEAD=0"},
+	"Dockerfile_test_issue_mz775":                {"FF_KANIKO_SQUASH_STAGES=0", "FF_KANIKO_CACHE_LOOKAHEAD=0", "FF_KANIKO_SKIP_RELABEL_RECOMPRESS=1"},
 	"Dockerfile_test_issue_cg188":                {"SECRET=blubb"},
 	"Dockerfile_test_issue_mz473":                {"KANIKO_DIR=/kaniko2"},
 	"Dockerfile_test_issue_mz511":                {"FF_KANIKO_SQUASH_STAGES=0"},
