@@ -1,0 +1,32 @@
+FROM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d AS first
+UNPACK busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+CACHE HIT: e6201ef5c7fab656a2bb0615888d02f181fc7677dbeaaace249484bbdbf79106
+RUN touch /blubb
+SAVE STAGE /kaniko/stages/0
+SAVE FILES [/blubb] /kaniko/deps/0
+CLEAN
+
+FROM first AS second
+UNPACK /kaniko/stages/0
+CACHE HIT: 09e840ef4fefde5c634154ead19bbff9cfa881073b77cb3c85a400fe215bd518
+RUN touch /bla
+SAVE STAGE /kaniko/stages/1
+CLEAN
+
+FROM second AS third
+UNPACK /kaniko/stages/1
+CACHE HIT: 26d0935bb7ffd5e1f69ecc89608706dfda254c8e9e217f8ccf171d6f3078e0d1
+RUN touch /bli
+SAVE FILES [/bli] /kaniko/deps/2
+CLEAN
+
+FROM second AS final
+UNPACK /kaniko/stages/1
+CACHE REDIRECT HIT: c8dcad366cc9096323cf121a96ee9ae0437840e8e324cb3c82e457fef8fd9a0f
+CACHE HIT: 92ece401b53237b1cb1a1a76f4b6c5a8985786382640c449926478a0c906c367
+COPY --from=first /blubb /blubb
+CACHE REDIRECT HIT: ac12aaca9dc32e6f46dbe8a81c7320d9183c47afc03864a06aab26162e3d839e
+CACHE HIT: 504aa65388888b60fc488199c324b1055d6193dc33f7a93aee592e77345f062a
+COPY --from=third /bli /bli
+CACHE HIT: 8a2e7b51565c0ae062ec5289398fcd9c36e40b6fe7da39051fb2b94d0da06c89
+RUN ls -lah /blubb
