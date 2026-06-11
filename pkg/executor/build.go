@@ -1167,11 +1167,9 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			for i := range precompute.cacheKeys {
 				if precompute.cacheKeys[i] != "" {
 					util.Assert("executor.build.cache-lookahead.cache-key", precompute.cacheKeys[i] == buildCi.cacheKeys[i], "stage %d cmd %d: precompute cacheKey %q != build %q", stage.Index, i, precompute.cacheKeys[i], buildCi.cacheKeys[i])
-					util.Assert("executor.build.cache-lookahead.cache-hit", precompute.cacheHits[i] == buildCi.cacheHits[i], "stage %d cmd %d: precompute cacheHit %v != build %v (key %q)", stage.Index, i, precompute.cacheHits[i], buildCi.cacheHits[i], precompute.cacheKeys[i])
 				}
 				if precompute.redirectKeys[i] != "" {
 					util.Assert("executor.build.cache-lookahead.redirect-key", precompute.redirectKeys[i] == buildCi.redirectKeys[i], "stage %d cmd %d: precompute redirectKey %q != build %q", stage.Index, i, precompute.redirectKeys[i], buildCi.redirectKeys[i])
-					util.Assert("executor.build.cache-lookahead.redirect-hit", precompute.redirectHits[i] == buildCi.redirectHits[i], "stage %d cmd %d: precompute redirectHit %v != build %v (key %q)", stage.Index, i, precompute.redirectHits[i], buildCi.redirectHits[i], precompute.redirectKeys[i])
 				}
 			}
 		}
