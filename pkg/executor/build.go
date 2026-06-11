@@ -279,7 +279,7 @@ func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (
 	return NewCompositeCache(rawKey), nil
 }
 
-func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, args *dockerfile.BuildArgs, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string, hasContext bool) (string, *stageCacheInfo, error) {
+func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, args *dockerfile.BuildArgs, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string, hasContext bool) (string, *stageCacheInfo, v1.Config, error) {
 	keyValid := compositeKeyPtr != nil
 	if hasContext {
 		util.Assert("executor.optimize.keyValid", keyValid, "optimize: key must be valid")
@@ -307,7 +307,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 	sawCacheMiss := false
 	finalCacheKey, err := compositeKey.Hash()
 	if err != nil {
-		return "", ci, err
+		return "", ci, v1.Config{}, err
 	}
 	cmdCountBeforeOptimize := len(s.cmds)
 	// Possibly replace commands with their cached implementations.
@@ -331,13 +331,13 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 
 			files, err := command.FilesUsedFromContext(&cfg, args)
 			if err != nil {
-				return "", ci, fmt.Errorf("failed to get files used from context: %w", err)
+				return "", ci, v1.Config{}, fmt.Errorf("failed to get files used from context: %w", err)
 			}
 
 			prevCompositeKey := compositeKey.Clone()
 			compositeKey, err = populateCompositeKey(command, files, compositeKey, args, cfg.Env, fileContext, nil, nil)
 			if err != nil {
-				return "", ci, err
+				return "", ci, v1.Config{}, err
 			}
 
 			// mz334: assert the inferred key pointer resolves to the same content key.
@@ -346,21 +346,21 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 				if err == nil {
 					inferredCK, err := inferredKey.Hash()
 					if err != nil {
-						return "", ci, err
+						return "", ci, v1.Config{}, err
 					}
 					ci.redirectKeys[i] = inferredCK
 					contentKey, err := redirectCacheKey(inferredKey, layerCache)
 					if err != nil {
-						return "", ci, err
+						return "", ci, v1.Config{}, err
 					}
 					if contentKey != nil {
 						ick, err := contentKey.Hash()
 						if err != nil {
-							return "", ci, err
+							return "", ci, v1.Config{}, err
 						}
 						ck, err := compositeKey.Hash()
 						if err != nil {
-							return "", ci, err
+							return "", ci, v1.Config{}, err
 						}
 						util.Assert("executor.compositekey.key-match", ick == ck, "pointer inferred content key %v does not match the computed content key %v", ick, ck)
 						// mz334: log when the inferred key produced the hit (integration test observability only).
@@ -373,7 +373,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 			logrus.Debugf("Optimize: composite key for command %v %v", command.String(), compositeKey)
 			ck, err := compositeKey.Hash()
 			if err != nil {
-				return "", ci, fmt.Errorf("failed to hash composite key: %w", err)
+				return "", ci, v1.Config{}, fmt.Errorf("failed to hash composite key: %w", err)
 			}
 
 			logrus.Debugf("Optimize: cache key for command %v %v", command.String(), ck)
@@ -407,7 +407,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 		// Mutate the config for any commands that require it.
 		if command.MetadataOnly() {
 			if err := command.ExecuteCommand(&cfg, args); err != nil {
-				return "", ci, err
+				return "", ci, v1.Config{}, err
 			}
 		}
 	}
@@ -420,7 +420,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 	if hasContext || keyValid {
 		util.Assert("executor.optimize.finalcachekey", finalCacheKey != "", "optimize: finalCacheKey can't be empty")
 	}
-	return finalCacheKey, ci, nil
+	return finalCacheKey, ci, cfg, nil
 }
 
 func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string) error {
@@ -1011,6 +1011,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	cacheInfo := make([]*stageCacheInfo, lastStage.Index+1)
 	if opts.Cache && config.EnvBool("FF_KANIKO_CACHE_LOOKAHEAD") {
 		images := make([]v1.Image, lastStage.Index+1)
+		stageConfigs := make([]v1.Config, lastStage.Index+1)
 		for _, stage := range kanikoStages {
 			var baseImage v1.Image
 			if stage.BaseImageStoredLocally {
@@ -1044,7 +1045,11 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				compositeKey = NewCompositeCache(sb.baseImageDigest)
 			}
 
-			finalCacheKey, ci, err := sb.optimize(compositeKey, sb.cf.Config, sb.args, opts, fileContext, NewLayerCache(opts), stageFinalCacheKeys, externalImageDigests, false)
+			cfg := sb.cf.Config
+			if stage.BaseImageStoredLocally {
+				cfg = stageConfigs[stage.BaseImageIndex]
+			}
+			finalCacheKey, ci, resultCfg, err := sb.optimize(compositeKey, cfg, sb.args, opts, fileContext, NewLayerCache(opts), stageFinalCacheKeys, externalImageDigests, false)
 			if err != nil {
 				return nil, fmt.Errorf("precompute: failed to optimize stage %d: %w", stage.Index, err)
 			}
@@ -1053,6 +1058,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				stageFinalCacheKeys[stage.Index] = finalCacheKey
 			}
 			stageArgs[stage.Index] = sb.args
+			stageConfigs[stage.Index] = resultCfg
 			images[stage.Index] = baseImage
 		}
 	}
@@ -1154,7 +1160,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 		// Apply optimizations to the instructions.
 		precomputedKey := stageFinalCacheKeys[stage.Index]
-		finalCacheKey, buildCi, err := sb.optimize(compositeKey, sb.cf.Config, sb.args.Clone(), opts, fileContext, NewLayerCache(opts), stageFinalCacheKeys, externalImageDigests, true)
+		finalCacheKey, buildCi, _, err := sb.optimize(compositeKey, sb.cf.Config, sb.args.Clone(), opts, fileContext, NewLayerCache(opts), stageFinalCacheKeys, externalImageDigests, true)
 		if err != nil {
 			return nil, fmt.Errorf("failed to optimize instructions: %w", err)
 		}

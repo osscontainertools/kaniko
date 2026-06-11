@@ -1,0 +1,10 @@
+# mz782: FF_KANIKO_CACHE_LOOKAHEAD triggers an assert in v1.27.6.
+# the precompute pass derives the dependent stage's cache key from the
+# base stage's input image instead of its output, so it misses the ENV the base stage sets.
+# The dependent RUN folds the env into its key, so the precomputed key disagrees with the built one and the
+# executor panics on the "executor.build.cache-lookahead" assertion.
+FROM busybox AS base
+ENV BLUBB=BLA
+
+FROM base
+RUN true
