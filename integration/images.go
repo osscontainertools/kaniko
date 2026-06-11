@@ -99,6 +99,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_1039":                 {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_2066":                 {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_1837":                 {"FF_KANIKO_SQUASH_STAGES=0"},
+	"Dockerfile_test_issue_mz775":                {"FF_KANIKO_SQUASH_STAGES=0", "FF_KANIKO_CACHE_LOOKAHEAD=0", "FF_KANIKO_SKIP_RELABEL_RECOMPRESS=1"},
 	"Dockerfile_test_issue_cg188":                {"SECRET=blubb"},
 	"Dockerfile_test_issue_mz473":                {"KANIKO_DIR=/kaniko2"},
 	"Dockerfile_test_issue_mz511":                {"FF_KANIKO_SQUASH_STAGES=0"},
@@ -185,6 +186,7 @@ var executorImages = map[string]string{
 // Arguments to build Dockerfiles with when building with kaniko
 var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_add":                    {"--single-snapshot"},
+	"Dockerfile_test_issue_mz775":            {"--compressed-caching=false"},
 	"Dockerfile_test_issue_mz621":            {"--single-snapshot"},
 	"Dockerfile_test_run_new":                {"--use-new-run=true"},
 	"Dockerfile_test_run_redo":               {"--snapshot-mode=redo"},
@@ -481,6 +483,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz637":   {},
 		"Dockerfile_test_issue_mz334":   {},
 		"Dockerfile_test_issue_mz655":   {},
+		"Dockerfile_test_issue_mz775":   {},
 	}
 	d.TestOCICacheDockerfiles = map[string]struct{}{
 		"Dockerfile_test_cache_oci":         {},

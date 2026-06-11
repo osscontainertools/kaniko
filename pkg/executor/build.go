@@ -742,6 +742,17 @@ func convertMediaType(mt types.MediaType) types.MediaType {
 	}
 }
 
+func layerCompression(mt types.MediaType) config.Compression {
+	switch {
+	case strings.HasSuffix(string(mt), "zstd"):
+		return config.ZStd
+	case strings.HasSuffix(string(mt), "gzip"):
+		return config.GZip
+	default:
+		return ""
+	}
+}
+
 func convertLayerMediaType(layer v1.Layer, image v1.Image, opts *config.KanikoOptions) (v1.Layer, error) {
 	layerMediaType, err := layer.MediaType()
 	if err != nil {
@@ -765,7 +776,32 @@ func convertLayerMediaType(layer v1.Layer, image v1.Image, opts *config.KanikoOp
 		layerOpts = append(layerOpts, tarball.WithMediaType(targetMediaType))
 
 		if targetMediaType != "" {
-			return tarball.LayerFromOpener(layer.Uncompressed, layerOpts...)
+			srcCompression := layerCompression(layerMediaType)
+			dstCompression := layerCompression(targetMediaType)
+			if srcCompression != dstCompression || srcCompression == "" {
+				return tarball.LayerFromOpener(layer.Uncompressed, layerOpts...)
+			} else if config.EnvBool("FF_KANIKO_SKIP_RELABEL_RECOMPRESS") {
+				return tarball.LayerFromOpener(layer.Compressed, layerOpts...)
+			} else {
+				converted, err := tarball.LayerFromOpener(layer.Uncompressed, layerOpts...)
+				if err != nil {
+					return nil, err
+				}
+				relabeled, err := tarball.LayerFromOpener(layer.Compressed, layerOpts...)
+				if err != nil {
+					return nil, err
+				}
+				cd, err := converted.Digest()
+				if err != nil {
+					return nil, err
+				}
+				rd, err := relabeled.Digest()
+				if err != nil {
+					return nil, err
+				}
+				util.Assert("executor.convertlayer.relabel-digest", rd == cd, "relabel digest %s != re-gzip digest %s", rd, cd)
+				return converted, nil
+			}
 		}
 		return nil, fmt.Errorf(
 			"layer with media type %v cannot be converted to a media type that matches %v",

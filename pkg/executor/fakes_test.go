@@ -19,6 +19,7 @@ package executor
 
 import (
 	"bytes"
+	"compress/gzip"
 	"errors"
 	"io"
 
@@ -188,7 +189,11 @@ func (f fakeLayer) DiffID() (v1.Hash, error) {
 }
 
 func (f fakeLayer) Compressed() (io.ReadCloser, error) {
-	return nil, nil
+	var buf bytes.Buffer
+	zw, _ := gzip.NewWriterLevel(&buf, gzip.BestSpeed)
+	zw.Write(f.TarContent)
+	zw.Close()
+	return io.NopCloser(&buf), nil
 }
 
 func (f fakeLayer) Uncompressed() (io.ReadCloser, error) {
