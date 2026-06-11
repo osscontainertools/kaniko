@@ -52,7 +52,7 @@ RUN make COVER="$COVER" out/executor out/warmer \
 
 # Generate latest ca-certificates
 ARG BUILDPLATFORM
-FROM --platform=$BUILDPLATFORM debian:trixie-slim@sha256:b6e2a152f22a40ff69d92cb397223c906017e1391a73c952b588e51af8883bf8 AS certs
+FROM --platform=$BUILDPLATFORM debian:trixie-slim@sha256:4e401d95de7083948053197a9c3913343cd06b706bf15eb6a0c3ccd26f436a0e AS certs
 RUN apt update && apt install -y ca-certificates
 
 # use musl busybox since it's staticly compiled on all platforms
