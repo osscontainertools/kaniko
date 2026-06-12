@@ -1,5 +1,5 @@
 # mz789: the cache-lookahead precompute crashes on a stage whose local base
-# cannot be keyed. Panics on v1.27.4 with FF_KANIKO_CACHE_LOOKAHEAD enabled.
+# cannot be keyed. Panics on v1.27.6 with FF_KANIKO_CACHE_LOOKAHEAD enabled.
 # base has a COPY --from, so the precompute cannot key it. The final stage is
 # FROM base. The precompute cannot seed it (the base key is missing and it only
 # knows the root base image digest, not base's built digest), so it emits the
