@@ -1,0 +1,9 @@
+# mz791: a COPY to a variable path is not reflected in the layer cache key.
+# Fails on v1.27.6. IsArgsEnvsRequiredInCache is false for COPY and
+# command.String() is the raw instruction, so the resolved $A does not
+# contribute to the key. Built twice with --cache-copy-layers and a changing $A,
+# the second build reuses the first layer and the file lands at the wrong path.
+# Exercised by TestCacheCopyToVariablePath.
+FROM busybox
+ARG A
+COPY context/foo /$A/foo

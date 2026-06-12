@@ -1063,6 +1063,33 @@ func TestCacheInvalidatesOnAllowlistedFileChange(t *testing.T) {
 	containerDiff(t, original, changed, "--semantic", "--extra-ignore-files=app/test.txt")
 }
 
+// mz791: build Dockerfile_test_issue_mz791 twice with --cache-copy-layers and a
+// changing $A in the COPY destination. The COPY layer cache key ignores the
+// variable, so the second build reuses the first layer and the two images come
+// out identical even though the file should land at a different path.
+func TestCacheCopyToVariablePath(t *testing.T) {
+	t.Parallel()
+
+	cacheRepo := filepath.Join(config.imageRepo, "cache", "mz791", strconv.FormatInt(time.Now().UnixNano(), 10))
+
+	const dockerfile = "dockerfiles/Dockerfile_test_issue_mz791"
+	const context = ""
+
+	one := GetVersionedKanikoImage(config.imageRepo, "mz791", 0)
+	two := GetVersionedKanikoImage(config.imageRepo, "mz791", 1)
+
+	if err := imageBuilder.buildCachedImageWithBuildArg(t.Logf, config, cacheRepo, dockerfile, context, one, "A=one"); err != nil {
+		t.Fatalf("error building image with A=one: %v", err)
+	}
+	if err := imageBuilder.buildCachedImageWithBuildArg(t.Logf, config, cacheRepo, dockerfile, context, two, "A=two"); err != nil {
+		t.Fatalf("error building image with A=two: %v", err)
+	}
+
+	if out, err := RunCommandWithoutTest(diffoci(t, one, two, "", "--semantic")); err == nil {
+		t.Errorf("images identical after changing $A in the COPY path: the COPY layer cache key ignores the variable, so a stale layer was served:\n%s", out)
+	}
+}
+
 func TestRelativePaths(t *testing.T) {
 	t.Parallel()
 	dockerfile := "Dockerfile_relative_copy"
