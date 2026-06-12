@@ -1,0 +1,16 @@
+# mz789: the cache-lookahead precompute crashes on a stage whose local base
+# cannot be keyed. Panics on v1.27.4 with FF_KANIKO_CACHE_LOOKAHEAD enabled.
+# base has a COPY --from, so the precompute cannot key it. The final stage is
+# FROM base. The precompute cannot seed it (the base key is missing and it only
+# knows the root base image digest, not base's built digest), so it emits the
+# hash of an empty composite as the final stage's key. The build computes a real
+# key from base's built digest, the two disagree, and the executor panics on the
+# executor.build.cache-lookahead assertion.
+FROM busybox AS src
+RUN echo x > /x
+
+FROM busybox AS base
+COPY --from=src /x /x
+
+FROM base
+RUN echo y > /y
