@@ -305,9 +305,13 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 	// context", not a transient miss.
 	probeAfterMiss := config.EnvBool("FF_KANIKO_CACHE_PROBE_AFTER_MISS")
 	sawCacheMiss := false
-	finalCacheKey, err := compositeKey.Hash()
-	if err != nil {
-		return "", ci, v1.Config{}, err
+	finalCacheKey := ""
+	if keyValid {
+		hash, err := compositeKey.Hash()
+		if err != nil {
+			return "", ci, v1.Config{}, err
+		}
+		finalCacheKey = hash
 	}
 	cmdCountBeforeOptimize := len(s.cmds)
 	// Possibly replace commands with their cached implementations.
