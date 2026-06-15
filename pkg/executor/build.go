@@ -625,8 +625,10 @@ func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, sn
 	if files == nil || opts.SingleSnapshot {
 		snapshot, snapshotted, err = snapshotter.TakeSnapshotFS()
 	} else {
-		// Volumes are very weird. They get snapshotted in the next command.
-		files = append(files, util.Volumes()...)
+		if !config.EnvBool("FF_KANIKO_VOLUME_SKIP_MKDIR") {
+			// Volumes are very weird. They get snapshotted in the next command.
+			files = append(files, util.Volumes()...)
+		}
 		snapshot, snapshotted, err = snapshotter.TakeSnapshot(files, shdDelete)
 	}
 	timing.DefaultRun.Stop(t)
