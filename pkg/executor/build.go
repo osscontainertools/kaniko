@@ -565,7 +565,9 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				// So the only case where we don't need a filesystem is if all commands are MetadataOnly.
 				util.Assert("executor.build.metadata-only", command.MetadataOnly(), "build: non-MetadataOnly command %q ran without unpacked filesystem in stage %d", command.String(), s.index)
 			}
-			if command.MetadataOnly() && !opts.SingleSnapshot {
+			_, isVolume := command.(*commands.VolumeCommand)
+			volumeCreatesFiles := isVolume && !config.EnvBool("FF_KANIKO_VOLUME_SKIP_MKDIR")
+			if command.MetadataOnly() && !opts.SingleSnapshot && !volumeCreatesFiles {
 				// MetadataOnly commands must not change or even need the filesystem.
 				util.Assert("executor.build.without-fs", snapshotted == 0, "build: MetadataOnly command %q snapshotted %d file(s)", command.String(), snapshotted)
 			}
