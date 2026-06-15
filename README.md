@@ -138,6 +138,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_OCI_SCRATCH_BASE`](#flag-ff_kaniko_oci_scratch_base)
       - [Flag `FF_KANIKO_VOLUME_SKIP_MKDIR`](#flag-ff_kaniko_volume_skip_mkdir)
       - [Flag `FF_KANIKO_PRESERVE_HARDLINKS`](#flag-ff_kaniko_preserve_hardlinks)
+      - [Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`](#flag-ff_kaniko_skip_write_whiteouts)
       - [Flag `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE`](#flag-ff_kaniko_buildkit_arg_env_precedence)
       - [Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`](#flag-ff_kaniko_infer_cross_stage_cache_key)
       - [Flag `FF_KANIKO_CACHE_LOOKAHEAD`](#flag-ff_kaniko_cache_lookahead)
@@ -1221,6 +1222,12 @@ Becomes default in `v1.28.0`.
 When copying a directory via `COPY --from=<stage>`, kaniko copies each file independently, breaking hardlink relationships. Files that shared a single inode in the source stage become independent copies in the output image, which can significantly inflate image size for images that rely heavily on hardlinks (e.g. `git` installations where many binaries are hardlinked together).
 Set this flag to `true` to preserve hardlinks during `COPY --from`. Defaults to `false`.
 Becomes default in `v1.28.0`.
+
+#### Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`
+
+When kaniko extracts a cached layer it applies the layer's whiteouts by deleting the target files, but it also writes the `.wh.<name>` marker files onto the working filesystem. With `--cache-copy-layers` a later cross-stage `COPY --from=<stage>` copies such a marker verbatim and commits it as a real whiteout, so a cache-hit build deletes a file that the cache-miss build kept.
+Set this flag to `true` to skip writing the marker files, the deletion alone already applies the whiteout. Defaults to `false`.
+Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE`
 

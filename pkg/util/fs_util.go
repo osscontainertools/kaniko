@@ -225,7 +225,8 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 				return nil, fmt.Errorf("removing whiteout %s: %w", hdr.Name, err)
 			}
 
-			if !cfg.includeWhiteout {
+			// mz774: whiteout deletion is already applied, the marker is not needed in the filesystem
+			if !cfg.includeWhiteout || config.EnvBool("FF_KANIKO_SKIP_WRITE_WHITEOUTS") {
 				logrus.Trace("Not including whiteout files")
 				continue
 			}
