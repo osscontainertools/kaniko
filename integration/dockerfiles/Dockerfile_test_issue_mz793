@@ -1,0 +1,8 @@
+FROM busybox
+
+# mz793: VOLUME + --cache panics on assertion executor.build.without-fs since v1.27.4.
+# With FF_KANIKO_VOLUME_SKIP_MKDIR off, VOLUME creates the volume directory and it gets
+# snapshotted, but VolumeCommand reports MetadataOnly, so the without-fs assertion
+# (metadata-only commands snapshot zero files) fires. The assertion only holds once the
+# flag skips the mkdir, so it must be gated on the flag.
+VOLUME /data
