@@ -59,8 +59,7 @@ func (r *RunCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 }
 
 func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand, fileContext util.FileContext, secrets kConfig.SecretOptions) (reterr error) {
-	ff_secret := kConfig.EnvBoolDefault("FF_KANIKO_RUN_MOUNT_SECRET", true)
-	ff_bind := kConfig.EnvBool("FF_KANIKO_RUN_MOUNT_BIND")
+	ff_bind := kConfig.EnvBoolDefault("FF_KANIKO_RUN_MOUNT_BIND", true)
 	for _, f := range cmdRun.FlagsUsed {
 		if f != "mount" {
 			logrus.Warnf("#969 kaniko does not support '--%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", f)
@@ -134,7 +133,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					})
 				}
 			// https://docs.docker.com/reference/dockerfile/#run---mounttypesecret
-			case m.Type == instructions.MountTypeSecret && ff_secret:
+			case m.Type == instructions.MountTypeSecret:
 				secretId := m.CacheID
 				if secretId == "" {
 					secretId = filepath.Base(m.Target)
@@ -530,8 +529,8 @@ func runCmdFilesUsedFromContext(
 	config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd *instructions.RunCommand,
 	fileContext util.FileContext,
 ) ([]string, error) {
-	ff_bind := kConfig.EnvBool("FF_KANIKO_RUN_MOUNT_BIND")
-	if !ff_bind {
+	ff_bind := kConfig.EnvBoolDefault("FF_KANIKO_RUN_MOUNT_BIND", true)
+	if !ff_bind || len(cmd.FlagsUsed) == 0 {
 		return []string{}, nil
 	}
 

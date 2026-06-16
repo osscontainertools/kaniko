@@ -1022,7 +1022,7 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 			printf("SAVE FILES %v %s%d\n", filesToSave, config.KanikoInterStageDepsDir, s.Index)
 		}
 		printf("CLEAN\n\n")
-		if !config.EnvBool("FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE") {
+		if !config.EnvBoolDefault("FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE", true) {
 			if opts.PreserveContext && !opts.PreCleanup {
 				printf("RESTORE CONTEXT\n\n")
 			}
@@ -1089,7 +1089,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 					return nil, fmt.Errorf("precompute: failed to get baseImage: %w", err)
 				}
 			}
-			if config.EnvBool("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS") {
+			if config.EnvBoolDefault("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS", true) {
 				baseImage = image_util.WithoutAnnotations(baseImage)
 			}
 			args := baseArgs
@@ -1195,7 +1195,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to get baseImage: %w", err)
 		}
-		if config.EnvBool("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS") {
+		if config.EnvBoolDefault("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS", true) {
 			baseImage = image_util.WithoutAnnotations(baseImage)
 		}
 
@@ -1296,7 +1296,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				if err != nil {
 					return nil, err
 				}
-				if config.EnvBool("FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS") {
+				if config.EnvBoolDefault("FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS", true) {
 					sourceImage, err = image_util.ReplaceBase(sourceImage, baseImage)
 					if err != nil {
 						return nil, err
@@ -1341,7 +1341,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if err := util.DeleteFilesystem(); err != nil {
 			return nil, fmt.Errorf("deleting file system after stage %d: %w", stage.Index, err)
 		}
-		if !config.EnvBool("FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE") {
+		if !config.EnvBoolDefault("FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE", true) {
 			if opts.PreserveContext && !opts.PreCleanup {
 				if tarball == "" {
 					return nil, errors.New("context snapshot is missing")
