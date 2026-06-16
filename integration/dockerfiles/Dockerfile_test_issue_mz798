@@ -1,0 +1,16 @@
+# mz798: COPY and ADD accept symbolic --chmod notation, e.g. u=rwX,go=rX or go=u.
+# Symbolic notation has been part of the Dockerfile spec since v1.14. Modes resolve
+# per entry against the source mode and entry type, so capital X becomes execute on
+# directories and on already-executable files only.
+# The resulting modes are verified by diffing against the docker build.
+FROM scratch
+
+# The exact case from the issue: copy the user bits onto group and other.
+COPY --chmod=go=u context/foo /symfile_foo
+COPY --chmod=go=u context/qux/quz /symfile_quz
+
+# The docs example: directories become 755 and plain files 644 in one COPY.
+COPY --chmod=u=rwX,go=rX context/qux /symdir
+
+# A relative clause through ADD: strip the write bit from every class.
+ADD --chmod=a-w context/qux/qup /symfile_qup

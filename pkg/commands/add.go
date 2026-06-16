@@ -18,7 +18,6 @@ package commands
 
 import (
 	"fmt"
-	"io/fs"
 	"path/filepath"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -48,12 +47,9 @@ type AddCommand struct {
 func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 
-	chmod, useDefaultChmod, err := util.GetChmod(a.cmd.Chmod, replacementEnvs)
+	chmod, _, err := util.GetChmod(a.cmd.Chmod, replacementEnvs)
 	if err != nil {
 		return fmt.Errorf("getting permissions from chmod: %w", err)
-	}
-	if useDefaultChmod {
-		chmod = fs.FileMode(0o600)
 	}
 
 	uid, gid, err := util.GetActiveUserGroup(config.User, a.cmd.Chown, replacementEnvs)
@@ -80,7 +76,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				return err
 			}
 			logrus.Infof("Adding remote URL %s to %s", src, urlDest)
-			if err := util.DownloadFileToDest(src, urlDest, uid, gid, chmod); err != nil {
+			if err := util.DownloadFileToDest(src, urlDest, uid, gid, chmod.Apply(0o600)); err != nil {
 				return fmt.Errorf("downloading remote source file: %w", err)
 			}
 			a.snapshotFiles = append(a.snapshotFiles, urlDest)

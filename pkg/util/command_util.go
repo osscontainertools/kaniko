@@ -19,7 +19,6 @@ package util
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"net/url"
 	"os"
 	"os/user"
@@ -33,6 +32,7 @@ import (
 	"github.com/moby/buildkit/frontend/dockerfile/shell"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/sirupsen/logrus"
+	mode "github.com/tonistiigi/dchapes-mode"
 )
 
 // for testing
@@ -406,22 +406,19 @@ func GetUserGroup(chownStr string, env []string) (int64, int64, error) {
 	return int64(uid32), int64(gid32), nil
 }
 
-func GetChmod(chmodStr string, env []string) (chmod fs.FileMode, useDefault bool, err error) {
+func GetChmod(chmodStr string, env []string) (chmod mode.Set, useDefault bool, err error) {
 	if chmodStr == "" {
-		return fs.FileMode(0o644), true, nil
+		return mode.Set{}, true, nil
 	}
-
-	chmodStr, err = ResolveEnvironmentReplacement(chmodStr, env, false)
+	resolved, err := ResolveEnvironmentReplacement(chmodStr, env, false)
 	if err != nil {
-		return 0, false, err
+		return mode.Set{}, false, err
 	}
-
-	mode, err := strconv.ParseUint(chmodStr, 8, 32)
+	chmod, err = mode.ParseWithUmask(resolved, 0)
 	if err != nil {
-		return 0, false, fmt.Errorf("parsing value from chmod: %w", err)
+		return mode.Set{}, false, fmt.Errorf("parsing value from chmod: %w", err)
 	}
-	chmod = fs.FileMode(mode)
-	return
+	return chmod, false, nil
 }
 
 // Extract user and group id from a string formatted 'user:group'.

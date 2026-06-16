@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -36,6 +35,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/testutil"
+	mode "github.com/tonistiigi/dchapes-mode"
 )
 
 func Test_DetectFilesystemSkiplist(t *testing.T) {
@@ -1166,7 +1166,7 @@ func Test_CopyFile_skips_self(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ignored, err := CopyFile(tempFile, tempFile, FileContext{}, DoNotChangeUID, DoNotChangeGID, fs.FileMode(0o600), true)
+	ignored, err := CopyFile(tempFile, tempFile, FileContext{}, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true)
 	if err != nil {
 		t.Fatal(err)
 	}
