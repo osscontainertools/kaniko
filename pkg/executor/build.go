@@ -320,52 +320,73 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 		}
 		if opts.Cache && keyValid {
 			// During precompute (no file context): can't hash COPY --from contents.
-			if !hasContext {
-				if copyCmd, ok2 := commands.CastAbstractCopyCommand(command); ok2 && copyCmd.From() != "" {
+			copyCmd, isCopy := commands.CastAbstractCopyCommand(command)
+			if !hasContext && isCopy && copyCmd.From() != "" {
+				inferred := false
+				if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
+					inferredKey, err := populateCompositeKey(command, nil, compositeKey, args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
+					if err == nil {
+						inferredCK, err := inferredKey.Hash()
+						if err != nil {
+							return "", ci, err
+						}
+						ci.redirectKeys[i] = inferredCK
+						contentKey, err := redirectCacheKey(inferredKey, layerCache)
+						if err != nil {
+							return "", ci, err
+						}
+						if contentKey != nil {
+							compositeKey = *contentKey
+							inferred = true
+							ci.redirectHits[i] = true
+						}
+					}
+				}
+				if !inferred {
 					stopCache = true
 					keyValid = false
 					finalCacheKey = ""
 					continue // COPY is never MetadataOnly, safe to skip
 				}
-			}
+			} else {
+				files, err := command.FilesUsedFromContext(&cfg, args)
+				if err != nil {
+					return "", ci, fmt.Errorf("failed to get files used from context: %w", err)
+				}
 
-			files, err := command.FilesUsedFromContext(&cfg, args)
-			if err != nil {
-				return "", ci, fmt.Errorf("failed to get files used from context: %w", err)
-			}
+				prevCompositeKey := compositeKey.Clone()
+				compositeKey, err = populateCompositeKey(command, files, compositeKey, args, cfg.Env, fileContext, nil, nil)
+				if err != nil {
+					return "", ci, err
+				}
 
-			prevCompositeKey := compositeKey.Clone()
-			compositeKey, err = populateCompositeKey(command, files, compositeKey, args, cfg.Env, fileContext, nil, nil)
-			if err != nil {
-				return "", ci, err
-			}
-
-			// mz334: assert the inferred key pointer resolves to the same content key.
-			if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
-				inferredKey, err := populateCompositeKey(command, nil, prevCompositeKey, args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
-				if err == nil {
-					inferredCK, err := inferredKey.Hash()
-					if err != nil {
-						return "", ci, err
-					}
-					ci.redirectKeys[i] = inferredCK
-					contentKey, err := redirectCacheKey(inferredKey, layerCache)
-					if err != nil {
-						return "", ci, err
-					}
-					if contentKey != nil {
-						ick, err := contentKey.Hash()
+				// mz334: assert the inferred key pointer resolves to the same content key.
+				if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
+					inferredKey, err := populateCompositeKey(command, nil, prevCompositeKey, args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
+					if err == nil {
+						inferredCK, err := inferredKey.Hash()
 						if err != nil {
 							return "", ci, err
 						}
-						ck, err := compositeKey.Hash()
+						ci.redirectKeys[i] = inferredCK
+						contentKey, err := redirectCacheKey(inferredKey, layerCache)
 						if err != nil {
 							return "", ci, err
 						}
-						util.Assert("executor.compositekey.key-match", ick == ck, "pointer inferred content key %v does not match the computed content key %v", ick, ck)
-						// mz334: log when the inferred key produced the hit (integration test observability only).
-						logrus.Infof("Cache hit via inferred cross-stage key for cmd: %s", command.String())
-						ci.redirectHits[i] = true
+						if contentKey != nil {
+							ick, err := contentKey.Hash()
+							if err != nil {
+								return "", ci, err
+							}
+							ck, err := compositeKey.Hash()
+							if err != nil {
+								return "", ci, err
+							}
+							util.Assert("executor.compositekey.key-match", ick == ck, "pointer inferred content key %v does not match the computed content key %v", ick, ck)
+							// mz334: log when the inferred key produced the hit (integration test observability only).
+							logrus.Infof("Cache hit via inferred cross-stage key for cmd: %s", command.String())
+							ci.redirectHits[i] = true
+						}
 					}
 				}
 			}
