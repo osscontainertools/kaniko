@@ -586,7 +586,9 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				// So the only case where we don't need a filesystem is if all commands are MetadataOnly.
 				util.Assert("executor.build.metadata-only", command.MetadataOnly(), "build: non-MetadataOnly command %q ran without unpacked filesystem in stage %d", command.String(), s.index)
 			}
-			if command.MetadataOnly() && !opts.SingleSnapshot {
+			_, isVolume := command.(*commands.VolumeCommand)
+			volumeCreatesFiles := isVolume && !config.EnvBool("FF_KANIKO_VOLUME_SKIP_MKDIR")
+			if command.MetadataOnly() && !opts.SingleSnapshot && !volumeCreatesFiles {
 				// MetadataOnly commands must not change or even need the filesystem.
 				util.Assert("executor.build.without-fs", snapshotted == 0, "build: MetadataOnly command %q snapshotted %d file(s)", command.String(), snapshotted)
 			}
@@ -644,8 +646,10 @@ func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, sn
 	if files == nil || opts.SingleSnapshot {
 		snapshot, snapshotted, err = snapshotter.TakeSnapshotFS()
 	} else {
-		// Volumes are very weird. They get snapshotted in the next command.
-		files = append(files, util.Volumes()...)
+		if !config.EnvBool("FF_KANIKO_VOLUME_SKIP_MKDIR") {
+			// Volumes are very weird. They get snapshotted in the next command.
+			files = append(files, util.Volumes()...)
+		}
 		snapshot, snapshotted, err = snapshotter.TakeSnapshot(files, shdDelete)
 	}
 	timing.DefaultRun.Stop(t)
