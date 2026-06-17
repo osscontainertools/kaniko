@@ -1,0 +1,16 @@
+# mz787: the cache-lookahead precompute over-asserts hit predictions.
+# Panics since v1.27.6 with FF_KANIKO_CACHE_LOOKAHEAD enabled.
+# Stages a and b share an identical RUN, so they share a cache key. The
+# precompute looks up both before any build and sees two cold-cache misses.
+# The build pushes stage a's layer before stage b's lookup, so stage b hits
+# during the build. The keys match but the hit prediction does not, and the
+# executor panics on "executor.build.cache-lookahead.cache-hit" assertion.
+FROM busybox AS a
+RUN echo same > /same.txt
+
+FROM busybox AS b
+RUN echo same > /same.txt
+
+FROM busybox
+COPY --from=a /same.txt /a
+COPY --from=b /same.txt /b
