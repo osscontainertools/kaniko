@@ -40,6 +40,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
+	mode "github.com/tonistiigi/dchapes-mode"
 	"golang.org/x/sys/unix"
 )
 
@@ -718,7 +719,7 @@ type timestampUpdate struct {
 
 // CopyDir copies the file or directory at src to dest
 // It returns a list of files it copied over
-func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool) ([]string, error) {
+func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool) ([]string, error) {
 	files, err := RelativeFiles("", src)
 	if err != nil {
 		return nil, fmt.Errorf("copying dir: %w", err)
@@ -746,7 +747,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 		if file == "." {
 			logrus.Tracef("Creating directory %s", destPath)
 
-			mode := os.FileMode(0o755)
+			perm := os.FileMode(0o755)
 			if !useDefaultChmod && config.EnvBool("FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS") {
 				// mz507: Here we want to implement chmod on implicit dirs to be
 				// compatible with buildkit. buildkit's mkdir does not whiteout the umask.
@@ -754,11 +755,11 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 				old := syscall.Umask(0)
 				syscall.Umask(old)
 				umask := os.FileMode(old)
-				mode = chmod & ^umask
+				perm = chmod.Apply(fi.Mode()) & ^umask
 			}
 
 			uid, gid := DetermineTargetFileOwnership(fi, uid, gid)
-			if err := MkdirAllWithPermissions(destPath, mode, uid, gid); err != nil {
+			if err := MkdirAllWithPermissions(destPath, perm, uid, gid); err != nil {
 				return nil, err
 			}
 		} else if fi.IsDir() {
@@ -771,7 +772,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 			if !useDefaultChmod {
 				// For existing directories, MkdirAll doesn't change the permissions, so run Chmod
 				// To force permissions into what is configured via the chmod parameter
-				if err = os.Chmod(destPath, chmod); err != nil {
+				if err = os.Chmod(destPath, chmod.Apply(fi.Mode())); err != nil {
 					return nil, err
 				}
 			}
@@ -789,12 +790,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod fs.Fil
 			isHardlink = true
 		} else {
 			// ... Else, we want to copy over a file
-			mode := chmod
-			if useDefaultChmod {
-				mode = fs.FileMode(0o600)
-			}
-
-			if _, err := CopyFile(fullPath, destPath, context, uid, gid, mode, useDefaultChmod); err != nil {
+			if _, err := CopyFile(fullPath, destPath, context, uid, gid, chmod, useDefaultChmod); err != nil {
 				return nil, err
 			}
 		}
@@ -882,7 +878,7 @@ func CopySymlink(src, dest string, context FileContext) (bool, error) {
 }
 
 // CopyFile copies the file at src to dest
-func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod fs.FileMode, useDefaultChmod bool) (bool, error) {
+func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool) (bool, error) {
 	if context.ExcludesFile(src) {
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
@@ -911,12 +907,12 @@ func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod fs.Fi
 	defer srcFile.Close()
 	uid, gid = DetermineTargetFileOwnership(fi, uid, gid)
 
-	mode := chmod
-	if useDefaultChmod {
-		mode = fi.Mode()
+	perm := fi.Mode()
+	if !useDefaultChmod {
+		perm = chmod.Apply(fi.Mode())
 	}
 
-	err = CreateFile(dest, srcFile, mode, uint32(uid), uint32(gid))
+	err = CreateFile(dest, srcFile, perm, uint32(uid), uint32(gid))
 	if err != nil {
 		return false, err
 	}

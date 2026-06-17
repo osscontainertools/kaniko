@@ -624,18 +624,19 @@ func TestGetChmod(t *testing.T) {
 			expected:    fs.FileMode(0o750),
 		},
 		{
+			description: "symbolic chmod",
+			chmod:       "u=rwX,go=rX",
+			expected:    fs.FileMode(0o644),
+		},
+		{
 			description: "empty chmod string",
 			expected:    fs.FileMode(0o600),
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
-			defaultChmod := fs.FileMode(0o600)
-			chmod, useDefault, err := GetChmod(tc.chmod, tc.env)
-			if useDefault {
-				chmod = defaultChmod
-			}
-			testutil.CheckErrorAndDeepEqual(t, tc.shdErr, err, tc.expected, chmod)
+			chmod, _, err := GetChmod(tc.chmod, tc.env)
+			testutil.CheckErrorAndDeepEqual(t, tc.shdErr, err, tc.expected, chmod.Apply(0o600))
 		})
 	}
 }
