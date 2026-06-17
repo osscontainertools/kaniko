@@ -99,6 +99,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_1039":                 {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_2066":                 {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_1837":                 {"FF_KANIKO_SQUASH_STAGES=0"},
+	"Dockerfile_test_issue_mz782":                {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_cg188":                {"SECRET=blubb"},
 	"Dockerfile_test_issue_mz793":                {"FF_KANIKO_VOLUME_SKIP_MKDIR=0"},
 	"Dockerfile_test_issue_mz473":                {"KANIKO_DIR=/kaniko2"},
@@ -487,6 +488,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz637":   {},
 		"Dockerfile_test_issue_mz334":   {},
 		"Dockerfile_test_issue_mz655":   {},
+		"Dockerfile_test_issue_mz782":   {},
 		"Dockerfile_test_issue_mz793":   {},
 	}
 	d.TestOCICacheDockerfiles = map[string]struct{}{
