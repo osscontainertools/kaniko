@@ -101,6 +101,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_1837":                 {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_mz782":                {"FF_KANIKO_SQUASH_STAGES=0"},
 	"Dockerfile_test_issue_cg188":                {"SECRET=blubb"},
+	"Dockerfile_test_issue_mz774":                {"FF_KANIKO_SKIP_WRITE_WHITEOUTS=1"},
 	"Dockerfile_test_issue_mz793":                {"FF_KANIKO_VOLUME_SKIP_MKDIR=0"},
 	"Dockerfile_test_issue_mz473":                {"KANIKO_DIR=/kaniko2"},
 	"Dockerfile_test_issue_mz511":                {"FF_KANIKO_SQUASH_STAGES=0"},
@@ -204,6 +205,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_cache_copy_oci":         {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_add":              {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz655":            {"--cache-copy-layers=true"},
+	"Dockerfile_test_issue_mz774":            {"--cache-copy-layers=true"},
 	"Dockerfile_test_volume_3":               {"--skip-unused-stages=false"},
 	"Dockerfile_test_multistage":             {"--skip-unused-stages=false"},
 	"Dockerfile_test_copy_root_multistage":   {"--skip-unused-stages=false"},
@@ -488,6 +490,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz637":   {},
 		"Dockerfile_test_issue_mz334":   {},
 		"Dockerfile_test_issue_mz655":   {},
+		"Dockerfile_test_issue_mz774":   {},
 		"Dockerfile_test_issue_mz782":   {},
 		"Dockerfile_test_issue_mz793":   {},
 	}

@@ -1,0 +1,17 @@
+# mz774: on v1.27.6 with --cache-copy-layers a cache-hit build drops /opt/keep,
+# while the cache-miss build that populated the cache keeps it.
+#
+# base creates /opt/keep in a RUN layer that nothing later in the stage reads.
+# mutate removes it. On a cache hit the cached rm layer is extracted with its
+# whiteout marker written to mutate's filesystem as a literal /opt/.wh.keep file.
+# final's COPY --from=mutate /opt/ then copies that marker verbatim and commits
+# it as a real whiteout, deleting /opt/keep. The cache-miss path does a real rm
+# so no marker exists and the COPY stays additive, hence the two builds diverge.
+FROM busybox AS base
+RUN mkdir -p /opt/keep && echo hi > /opt/keep/marker
+
+FROM base AS mutate
+RUN rm -rf /opt/keep
+
+FROM base AS final
+COPY --from=mutate /opt/ /opt/
