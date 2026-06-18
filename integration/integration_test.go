@@ -1345,6 +1345,11 @@ func TestPushFromArtifact(t *testing.T) {
 			runExecutor := func(executorArgs ...string) {
 				t.Helper()
 				flags := []string{"run", "--rm", "--net=host", "-v", outFlag + ":/out"}
+				// mz731 keeps OCI base layers verbatim on the direct push, but the
+				// docker-archive --tar-path writer rewrites them to docker mediatypes, so
+				// the push-from-artifact image would not match. Disable it so both paths
+				// re-tar the base identically.
+				flags = append(flags, "-e", "FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=0")
 				flags = addServiceAccountFlags(flags, config.serviceAccount)
 				flags = addCoverageFlags(flags)
 				flags = append(flags, ExecutorImage)
