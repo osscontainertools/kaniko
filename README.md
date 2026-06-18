@@ -1270,8 +1270,8 @@ Will be deprecated in `v1.29.0`.
 
 `--reproducible` re-tars every layer to zero its timestamps, including layers inherited from the `FROM` image. Base-layer blobs get fresh digests on every build and stop matching the upstream registry, defeating layer reuse even though kaniko changed nothing in them.
 Set this flag to `true` to re-time only kaniko-appended layers and pass base layers through unchanged.
-Defaults to `true`.
-Will be deprecated in `v1.29.0`.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE`
 

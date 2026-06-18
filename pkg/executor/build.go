@@ -1296,7 +1296,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				if err != nil {
 					return nil, err
 				}
-				if config.EnvBoolDefault("FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS", true) {
+				if config.EnvBool("FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS") {
 					sourceImage, err = image_util.ReplaceBase(sourceImage, baseImage)
 					if err != nil {
 						return nil, err
