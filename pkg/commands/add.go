@@ -128,6 +128,10 @@ func (a *AddCommand) String() string {
 	return a.cmd.String()
 }
 
+func (a *AddCommand) IsArgsEnvsRequiredInCache() bool {
+	return argsEnvsRequiredInCache(a.cmd.String())
+}
+
 func (a *AddCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
 	return addCmdFilesUsedFromContext(config, buildArgs, a.cmd, a.fileContext)
 }
@@ -213,6 +217,10 @@ func (ca *CachingAddCommand) String() string {
 		return "nil command"
 	}
 	return ca.cmd.String()
+}
+
+func (ca *CachingAddCommand) IsArgsEnvsRequiredInCache() bool {
+	return argsEnvsRequiredInCache(ca.String())
 }
 
 func addCmdFilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd *instructions.AddCommand,
