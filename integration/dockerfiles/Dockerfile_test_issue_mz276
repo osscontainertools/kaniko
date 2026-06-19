@@ -9,3 +9,5 @@ FROM first AS second
 ARG TARGETOS=linux
 ARG TARGETARCH=x86_64
 RUN test "${TARGETOS}-${TARGETARCH}" = "linux-x86_64"
+
+FROM first AS nosquash

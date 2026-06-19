@@ -7,5 +7,7 @@ RUN yum --disableplugin=subscription-manager install -y \
     && yum --disableplugin=subscription-manager clean all \
     && rm -rf /var/cache/yum /var/lib/yum/yumdb
 
-FROM base
+FROM base AS final
 RUN echo test
+
+FROM base AS nosquash

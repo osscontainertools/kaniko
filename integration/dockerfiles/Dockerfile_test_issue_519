@@ -9,3 +9,6 @@ RUN touch purr.txt
 
 FROM BUG_stage AS final_stage
 RUN touch mew.txt
+
+FROM base_stage AS nosquash1
+FROM BUG_stage AS nosquash2

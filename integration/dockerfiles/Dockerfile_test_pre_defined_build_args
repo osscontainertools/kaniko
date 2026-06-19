@@ -10,7 +10,7 @@ RUN echo "BUILDPLATFORM: ${BUILDPLATFORM}" | tee info1.txt && \
     echo "TARGETVARIANT: ${TARGETVARIANT}" | tee -a info1.txt && \
     echo "TARGETSTAGE: ${TARGETSTAGE}" | tee -a info1.txt
 
-FROM undefined
+FROM undefined AS final
 ARG BUILDPLATFORM
 ARG BUILDOS
 ARG BUILDARCH
@@ -30,3 +30,5 @@ RUN echo "BUILDPLATFORM: ${BUILDPLATFORM}" | tee info2.txt && \
     echo "TARGETVARIANT: ${TARGETVARIANT}" | tee -a info2.txt && \
     echo "TARGETSTAGE: ${TARGETSTAGE}" | tee -a info2.txt
 RUN uname -a
+
+FROM undefined AS nosquash

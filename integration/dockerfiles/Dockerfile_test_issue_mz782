@@ -6,5 +6,7 @@
 FROM busybox AS base
 ENV BLUBB=BLA
 
-FROM base
+FROM base AS final
 RUN true
+
+FROM base AS nosquash

@@ -16,3 +16,6 @@ FROM base-custom AS base-custom2
 ARG OTHER
 RUN echo "custom:: $NAME" >> D.txt
 RUN echo "custom:: $OTHER" >> D.txt
+FROM base AS nosquash1
+FROM base-dev AS nosquash2
+FROM base-custom AS nosquash3

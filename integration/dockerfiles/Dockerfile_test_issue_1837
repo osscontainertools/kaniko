@@ -6,5 +6,7 @@ RUN dnf install -y iputils \
 
 RUN setcap cap_net_raw+ep /bin/ping || exit 1
 
-FROM base
+FROM base AS final
 RUN [ ! -z "$(getcap /bin/ping)" ] || exit 1
+
+FROM base AS nosquash
