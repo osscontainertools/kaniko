@@ -27,7 +27,7 @@ require (
 	github.com/minio/highwayhash v1.0.4
 	github.com/moby/buildkit v0.31.0
 	github.com/moby/go-archive v0.2.0
-	github.com/moby/moby/api v1.54.2
+	github.com/moby/moby/api v1.55.0
 	github.com/moby/patternmatcher v0.6.1
 	github.com/moby/sys/signal v0.7.1
 	github.com/otiai10/copy v1.14.1
