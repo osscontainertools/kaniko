@@ -388,19 +388,17 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			Index:                  i,
 		}
 	}
-	if config.EnvBoolDefault("FF_KANIKO_SQUASH_STAGES", true) {
-		for i, s := range kanikoStages {
-			if buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
-				if s.BaseImageStoredLocally && stagesDependencies[s.BaseImageIndex] == 1 && copyDependencies[s.BaseImageIndex] == 0 {
-					sb := kanikoStages[s.BaseImageIndex]
-					// squash stages[i] into stages[i].BaseName
-					logrus.Infof("Squashing stages: %s into %s", s.Name, sb.Name)
-					// We squash the base stage into the current stage because,
-					// no one else depends on the base stage so it can be freely moved,
-					// the current stage might depend on other stages so it is not safe to move it.
-					kanikoStages[i] = squash(sb, s)
-					stagesDependencies[s.BaseImageIndex] = 0
-				}
+	for i, s := range kanikoStages {
+		if buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
+			if s.BaseImageStoredLocally && stagesDependencies[s.BaseImageIndex] == 1 && copyDependencies[s.BaseImageIndex] == 0 {
+				sb := kanikoStages[s.BaseImageIndex]
+				// squash stages[i] into stages[i].BaseName
+				logrus.Infof("Squashing stages: %s into %s", s.Name, sb.Name)
+				// We squash the base stage into the current stage because,
+				// no one else depends on the base stage so it can be freely moved,
+				// the current stage might depend on other stages so it is not safe to move it.
+				kanikoStages[i] = squash(sb, s)
+				stagesDependencies[s.BaseImageIndex] = 0
 			}
 		}
 	}

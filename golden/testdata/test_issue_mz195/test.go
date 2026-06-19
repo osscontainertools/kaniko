@@ -20,13 +20,6 @@ var Tests = types.GoldenTests{
 			Plan: "push",
 		},
 		{
-			Args: []string{"--no-push"},
-			Env: map[string]string{
-				"FF_KANIKO_SQUASH_STAGES": "0",
-			},
-			Plan: "nosquash",
-		},
-		{
 			Args: []string{"--no-push", "--target=fourth-stage"},
 			Plan: "fourth",
 		},

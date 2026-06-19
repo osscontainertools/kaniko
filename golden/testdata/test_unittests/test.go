@@ -12,33 +12,12 @@ var Tests = []types.GoldenTests{
 				Plan: "wo_copyfrom_dev",
 			},
 			{
-				Args: []string{"--no-push", "--target=base-dev"},
-				Env: map[string]string{
-					"FF_KANIKO_SQUASH_STAGES": "0",
-				},
-				Plan: "wo_copyfrom_dev",
-			},
-			{
 				Args: []string{"--no-push", "--target=base-prod"},
-				Plan: "wo_copyfrom_prod",
-			},
-			{
-				Args: []string{"--no-push", "--target=base-prod"},
-				Env: map[string]string{
-					"FF_KANIKO_SQUASH_STAGES": "0",
-				},
 				Plan: "wo_copyfrom_prod",
 			},
 			{
 				Args: []string{"--no-push"},
 				Plan: "wo_copyfrom_final",
-			},
-			{
-				Args: []string{"--no-push"},
-				Env: map[string]string{
-					"FF_KANIKO_SQUASH_STAGES": "0",
-				},
-				Plan: "wo_copyfrom_final_nosquash",
 			},
 		},
 	},
@@ -87,22 +66,8 @@ var Tests = []types.GoldenTests{
 				Plan: "two_copyfrom_and_arg_base",
 			},
 			{
-				Args: []string{"--no-push", "--target=base"},
-				Env: map[string]string{
-					"FF_KANIKO_SQUASH_STAGES": "0",
-				},
-				Plan: "two_copyfrom_and_arg_base",
-			},
-			{
 				Args: []string{"--no-push"},
 				Plan: "two_copyfrom_and_arg_final",
-			},
-			{
-				Args: []string{"--no-push"},
-				Env: map[string]string{
-					"FF_KANIKO_SQUASH_STAGES": "0",
-				},
-				Plan: "two_copyfrom_and_arg_final_no_squash",
 			},
 		},
 	},

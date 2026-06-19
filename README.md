@@ -124,7 +124,6 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--image-download-retry`](#flag---image-download-retry)
     - [Feature Flags](#feature-flags)
       - [Flag `FF_KANIKO_COPY_AS_ROOT`](#flag-ff_kaniko_copy_as_root)
-      - [Flag `FF_KANIKO_SQUASH_STAGES`](#flag-ff_kaniko_squash_stages)
       - [Flag `FF_KANIKO_IGNORE_CACHED_MANIFEST`](#flag-ff_kaniko_ignore_cached_manifest)
       - [Flag `FF_KANIKO_RUN_MOUNT_SECRET`](#flag-ff_kaniko_run_mount_secret)
       - [Flag `FF_KANIKO_RUN_MOUNT_BIND`](#flag-ff_kaniko_run_mount_bind)
@@ -1126,13 +1125,6 @@ delay of 1 second. Defaults to `0`.
 When files are copied from context, kaniko will copy them as the current user. But according to [dockerfile specification](https://docs.docker.com/reference/dockerfile/#copy---chown---chmod) they should always be copied as `root:root` unless specified otherwise.
 Set this flag to `true` to implement COPY as specified. Defaults to `false`.
 Currently no plans to activate.
-
-#### Flag `FF_KANIKO_SQUASH_STAGES`
-
-Many multi-stage Dockerfiles include intermediate stages that only become relevant if we were to build multiple build targets. As kaniko can only build a single target at a time, they can be squashed together without changing the final build output.
-Set this flag to `true` to squash stages together.
-Defaults to `true`.
-Will be deprecated in `v1.28.0`.
 
 #### Flag `FF_KANIKO_IGNORE_CACHED_MANIFEST`
 

@@ -134,7 +134,6 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz247":                {"--target=final"},
 	"Dockerfile_test_issue_mz276":                {"--target=second"},
 	"Dockerfile_test_issue_2066":                 {"--target=b"},
-	"Dockerfile_test_issue_mz782":                {"--target=final"},
 	"Dockerfile_test_issue_mz789":                {"--target=final"},
 	"Dockerfile_test_target":                     {"--target=second"},
 	"Dockerfile_test_issue_mz529":                {"--target=final"},
