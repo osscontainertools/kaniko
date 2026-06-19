@@ -5,8 +5,7 @@
 # executor panics on the "executor.build.cache-lookahead" assertion.
 FROM busybox AS base
 ENV BLUBB=BLA
+FROM base AS nosquash
 
 FROM base AS final
 RUN true
-
-FROM base AS nosquash

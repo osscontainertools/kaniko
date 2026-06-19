@@ -3,6 +3,7 @@ FROM busybox AS first
 # we can mount a secret to a target file
 RUN --mount=type=secret,id=netrc,target=/root/.netrc \
     cat /root/.netrc
+FROM first AS nosquash
 
 # and the secret is persisted in multistage builds
 FROM first AS second
@@ -17,5 +18,3 @@ RUN rm /etc/nsswitch.conf
 
 RUN --mount=type=secret,id=netrc,target=/root/.netrc \
     cat /root/.netrc
-
-FROM first AS nosquash

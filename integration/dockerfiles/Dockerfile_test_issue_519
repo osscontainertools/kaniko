@@ -2,13 +2,12 @@
 
 FROM alpine AS base_stage
 RUN touch meow.txt
+FROM base_stage AS nosquash1
 
 FROM base_stage AS BUG_stage
 RUN touch purr.txt
+FROM BUG_stage AS nosquash2
 
 
 FROM BUG_stage AS final_stage
 RUN touch mew.txt
-
-FROM base_stage AS nosquash1
-FROM BUG_stage AS nosquash2

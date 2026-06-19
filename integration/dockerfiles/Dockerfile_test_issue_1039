@@ -6,8 +6,7 @@ RUN yum --disableplugin=subscription-manager install -y \
         make-3.82-24.el7 \
     && yum --disableplugin=subscription-manager clean all \
     && rm -rf /var/cache/yum /var/lib/yum/yumdb
+FROM base AS nosquash
 
 FROM base AS final
 RUN echo test
-
-FROM base AS nosquash

@@ -6,6 +6,7 @@
 FROM busybox AS base
 
 RUN touch test
+FROM base AS nosquash
 
 # This issue only manifests with multistage builds: intermediate stages are saved as tarballs
 # under /kaniko/stages/ and the final v1.Image holds a lazy reference to those files.
@@ -14,5 +15,3 @@ RUN touch test
 FROM base AS final
 
 RUN touch blubb
-
-FROM base AS nosquash

@@ -14,11 +14,10 @@ RUN mkdir /run \
 # As it is now a symlink, we don't snapshot any files or directories
 # that come later alphabetically. Our /var/www happens to be skipped accidentally.
 RUN mkdir -p /var/www
+FROM base AS nosquash
 
 # This can be seen easily when building a multistage image, as we load the image
 # from the snapshots, dropping all files/folders that were just lying around.
 FROM base AS final
 RUN ls -la /var \
     && test -d /var/www
-
-FROM base AS nosquash

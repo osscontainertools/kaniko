@@ -11,8 +11,7 @@ RUN echo x > /x
 
 FROM busybox AS base
 COPY --from=src /x /x
+FROM base AS nosquash
 
 FROM base AS final
 RUN echo y > /y
-
-FROM base AS nosquash
