@@ -1315,7 +1315,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return pushImage, nil
 		}
 		if stage.SaveStage {
-			if err := saveStageAsTarball(strconv.Itoa(stage.Index), sourceImage); err != nil {
+			if err := saveStage(strconv.Itoa(stage.Index), sourceImage); err != nil {
 				return nil, err
 			}
 		}
@@ -1489,7 +1489,7 @@ func downloadExtraStages(images map[string]v1.Image) error {
 	defer timing.DefaultRun.Stop(t)
 
 	for name, sourceImage := range images {
-		if err := saveStageAsTarball(name, sourceImage); err != nil {
+		if err := saveStage(name, sourceImage); err != nil {
 			return err
 		}
 		if err := extractImageToDependencyDir(name, sourceImage); err != nil {
@@ -1511,8 +1511,8 @@ func extractImageToDependencyDir(name string, image v1.Image) error {
 	return err
 }
 
-func saveStageAsTarball(path string, image v1.Image) error {
-	t := timing.Start("Saving stage as tarball")
+func saveStage(path string, image v1.Image) error {
+	t := timing.Start("Saving stage")
 	defer timing.DefaultRun.Stop(t)
 	destRef, err := name.NewTag("temp/tag", name.WeakValidation)
 	if err != nil {
@@ -1523,17 +1523,13 @@ func saveStageAsTarball(path string, image v1.Image) error {
 	if err := os.MkdirAll(filepath.Dir(tarPath), 0o750); err != nil {
 		return err
 	}
-	if config.EnvBoolDefault("FF_KANIKO_OCI_STAGES", true) {
-		p, err := layout.Write(tarPath, empty.Index)
-		if err != nil {
-			return err
-		}
-		return p.AppendImage(image, layout.WithAnnotations(map[string]string{
-			"org.opencontainers.image.ref.name": destRef.Name(),
-		}))
-	} else {
-		return tarball.WriteToFile(tarPath, destRef, image)
+	p, err := layout.Write(tarPath, empty.Index)
+	if err != nil {
+		return err
 	}
+	return p.AppendImage(image, layout.WithAnnotations(map[string]string{
+		"org.opencontainers.image.ref.name": destRef.Name(),
+	}))
 }
 
 func getHasher(snapshotMode string) (func(string) (string, error), error) {

@@ -126,7 +126,6 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_COPY_AS_ROOT`](#flag-ff_kaniko_copy_as_root)
       - [Flag `FF_KANIKO_IGNORE_CACHED_MANIFEST`](#flag-ff_kaniko_ignore_cached_manifest)
       - [Flag `FF_KANIKO_RUN_MOUNT_BIND`](#flag-ff_kaniko_run_mount_bind)
-      - [Flag `FF_KANIKO_OCI_STAGES`](#flag-ff_kaniko_oci_stages)
       - [Flag `FF_KANIKO_DISABLE_HTTP2`](#flag-ff_kaniko_disable_http2)
       - [Flag `FF_KANIKO_OCI_WARMER`](#flag-ff_kaniko_oci_warmer)
       - [Flag `FF_KANIKO_RUN_VIA_TINI`](#flag-ff_kaniko_run_via_tini)
@@ -1143,13 +1142,6 @@ RUN --mount=type=bind,source=requirements.txt,target=/tmp/requirements.txt \
 cross-stage bind mounts `from=<stage>` are not yet supported.
 Defaults to `true`.
 Will be deprecated in `v1.29.0`.
-
-#### Flag `FF_KANIKO_OCI_STAGES`
-
-To switch between stages Kaniko has to store in a local directory temporarily. So far this is done using tarballs from go-containerregistry. However, this approach creates two problems. The tarball writer only supports dockerv2 mediatype, so when building a multi-stage image we forcefully rewrite all images to that mediatype. Secondly, the performance of that approach is suboptimal, as the manifest is not stored and has to be recalculated (ie. digest hash) upon reload. With this change we use ocilayout instead. Ocilayout folders support arbitrary mediatypes and store the manifest alongside the image data.
-Set this flag to `true` to store inter-stage dependencies as ocilayout.
-Defaults to `true`.
-Will be deprecated in `v1.29.0`. Kept as a fallback for mz775.
 
 #### Flag `FF_KANIKO_DISABLE_HTTP2`
 

@@ -27,7 +27,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
-	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/cache"
@@ -81,13 +80,9 @@ func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, b
 		return EmptyBaseImage, nil
 	}
 	// Next, check if the base image of the current stage is built from a previous stage
-	// If so, retrieve the image from the stored tarball
+	// If so, retrieve the image from the stored OCI layout
 	if baseImageStoredLocally {
-		if config.EnvBoolDefault("FF_KANIKO_OCI_STAGES", true) {
-			return retrieveOciImage(baseImageIndex)
-		} else {
-			return tarballImage(baseImageIndex)
-		}
+		return retrieveOciImage(baseImageIndex)
 	}
 
 	// Finally, check if local caching is enabled
@@ -110,12 +105,6 @@ func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, b
 
 	// Otherwise, initialize image as usual
 	return RetrieveRemoteImage(currentBaseName, opts.RegistryOptions, opts.CustomPlatform)
-}
-
-func tarballImage(index int) (v1.Image, error) {
-	tarPath := filepath.Join(config.KanikoIntermediateStagesDir, strconv.Itoa(index))
-	logrus.Infof("Base image from previous stage %d found, using saved tar at path %s", index, tarPath)
-	return tarball.ImageFromPath(tarPath, nil)
 }
 
 func ociImage(index int) (v1.Image, error) {
