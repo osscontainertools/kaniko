@@ -6,7 +6,7 @@ var Tests = types.GoldenTests{
 	Name:       "test_issue_mz791",
 	Dockerfile: "Dockerfile",
 	Tests: []types.GoldenTest{
-		// Without FF_KANIKO_COPY_CACHEKEY_FOLD_ARGS the COPY is keyed on the raw
+		// Without FF_KANIKO_CACHEKEY_FOLD_ARGS the COPY is keyed on the raw
 		// instruction, so A=one and A=two share one cache key and a build that only
 		// changes A serves a stale layer. The two plans are identical.
 		{
@@ -32,7 +32,7 @@ var Tests = types.GoldenTests{
 			Env: map[string]string{
 				"FF_KANIKO_CACHE_LOOKAHEAD":             "1",
 				"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "1",
-				"FF_KANIKO_COPY_CACHEKEY_FOLD_ARGS":     "1",
+				"FF_KANIKO_CACHEKEY_FOLD_ARGS":          "1",
 			},
 			Plan: "folded_one",
 		},
@@ -41,7 +41,7 @@ var Tests = types.GoldenTests{
 			Env: map[string]string{
 				"FF_KANIKO_CACHE_LOOKAHEAD":             "1",
 				"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "1",
-				"FF_KANIKO_COPY_CACHEKEY_FOLD_ARGS":     "1",
+				"FF_KANIKO_CACHEKEY_FOLD_ARGS":          "1",
 			},
 			Plan: "folded_two",
 		},

@@ -187,7 +187,7 @@ func (c *CopyCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerf
 }
 
 func argsEnvsRequiredInCache(instruction string) bool {
-	return kConfig.EnvBool("FF_KANIKO_COPY_CACHEKEY_FOLD_ARGS") && strings.Contains(instruction, "$")
+	return kConfig.EnvBool("FF_KANIKO_CACHEKEY_FOLD_ARGS") && strings.Contains(instruction, "$")
 }
 
 func (c *CopyCommand) MetadataOnly() bool {

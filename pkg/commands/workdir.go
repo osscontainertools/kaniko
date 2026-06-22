@@ -92,6 +92,10 @@ func (w *WorkdirCommand) String() string {
 	return w.cmd.String()
 }
 
+func (w *WorkdirCommand) IsArgsEnvsRequiredInCache() bool {
+	return argsEnvsRequiredInCache(w.cmd.String())
+}
+
 // CacheCommand returns true since this command should be cached
 func (w *WorkdirCommand) CacheCommand(img v1.Image) DockerCommand {
 	return &CachingWorkdirCommand{
@@ -182,6 +186,10 @@ func (wr *CachingWorkdirCommand) String() string {
 		return "nil command"
 	}
 	return wr.cmd.String()
+}
+
+func (wr *CachingWorkdirCommand) IsArgsEnvsRequiredInCache() bool {
+	return argsEnvsRequiredInCache(wr.String())
 }
 
 func (wr *CachingWorkdirCommand) MetadataOnly() bool {
