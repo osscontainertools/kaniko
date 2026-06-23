@@ -59,6 +59,17 @@ func ResolveEnvironmentReplacementList(values, envs []string, isFilepath bool) (
 	return resolvedValues, nil
 }
 
+// ResolveVariables interpolates build args and env into a string, leaving
+// quotes, escapes, unset variables, and wildcards verbatim.
+func ResolveVariables(value string, envs []string) (string, error) {
+	shlex := shell.NewLex(parser.DefaultEscapeToken)
+	shlex.RawQuotes = true
+	shlex.RawEscapes = true
+	shlex.SkipUnsetEnv = true
+	resolved, _, err := shlex.ProcessWord(value, shell.EnvsFromSlice(envs))
+	return resolved, err
+}
+
 // ResolveEnvironmentReplacement resolves replacing env variables in some text from envs
 // It takes in a string representation of the command, the value to be resolved, and a list of envs (config.Env)
 // Ex: value = $foo/newdir, envs = [foo=/foodir], then this should return /foodir/newdir

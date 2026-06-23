@@ -92,6 +92,10 @@ func (w *WorkdirCommand) String() string {
 	return w.cmd.String()
 }
 
+func (w *WorkdirCommand) CacheKey(replacementEnvs []string) (string, error) {
+	return util.ResolveVariables(w.cmd.String(), replacementEnvs)
+}
+
 // CacheCommand returns true since this command should be cached
 func (w *WorkdirCommand) CacheCommand(img v1.Image) DockerCommand {
 	return &CachingWorkdirCommand{
@@ -182,6 +186,10 @@ func (wr *CachingWorkdirCommand) String() string {
 		return "nil command"
 	}
 	return wr.cmd.String()
+}
+
+func (wr *CachingWorkdirCommand) CacheKey(replacementEnvs []string) (string, error) {
+	return util.ResolveVariables(wr.String(), replacementEnvs)
 }
 
 func (wr *CachingWorkdirCommand) MetadataOnly() bool {

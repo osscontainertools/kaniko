@@ -238,7 +238,16 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	}
 
 	// Add the next command to the cache key.
-	compositeKey.AddKey(command.String())
+	keyString := command.String()
+	resolver, ok := command.(commands.CacheKeyResolver)
+	if ok && config.EnvBool("FF_KANIKO_RESOLVE_CACHE_KEY") {
+		resolved, err := resolver.CacheKey(replacementEnvs)
+		if err != nil {
+			return compositeKey, fmt.Errorf("resolving cache key: %w", err)
+		}
+		keyString = resolved
+	}
+	compositeKey.AddKey(keyString)
 
 	if stageFinalCacheKeys != nil {
 		// mz334: COPY --from shortcut — use the source stage's cache key or the external image digest instead of hashing files.

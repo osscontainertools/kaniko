@@ -151,6 +151,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_COPY_CACHEKEY_FOLD_ARGS`](#flag-ff_kaniko_copy_cachekey_fold_args)
       - [Flag `FF_KANIKO_SKIP_RELABEL_RECOMPRESS`](#flag-ff_kaniko_skip_relabel_recompress)
       - [Flag `FF_KANIKO_SECUREJOIN_EXTRACTION`](#flag-ff_kaniko_securejoin_extraction)
+      - [Flag `FF_KANIKO_RESOLVE_CACHE_KEY`](#flag-ff_kaniko_resolve_cache_key)
     - [Assertion Overrides](#assertion-overrides)
     - [Debug Image](#debug-image)
   - [Security](#security)
@@ -1303,10 +1304,10 @@ Scopes `.dockerignore` patterns to the build context. Without it, an absolute pa
 Defaults to `false`.
 Currently no plans to activate.
 
-#### Flag `FF_KANIKO_COPY_CACHEKEY_FOLD_ARGS`
+#### Flag `FF_KANIKO_RESOLVE_CACHE_KEY`
 
-A `COPY` or `ADD` layer cache key is built from the raw instruction text, so build args and env expanded in the instruction (for example `COPY foo /$A/foo`) do not enter the key. With `--cache-copy-layers` a build that only changes such a variable hits the layer cached for a different resolved value and serves a stale layer at the wrong path.
-Set this flag to `true` to fold the resolved build args and env into the cache key whenever a `COPY` or `ADD` instruction references a variable.
+A `COPY`, `ADD` or `WORKDIR` layer cache key is built from the raw instruction text, so build args and env expanded in the instruction (for example `COPY foo /$A/foo` or `WORKDIR /$A/foo`) do not enter the key. A build that only changes such a variable can hit stale cache entries.
+Set this flag to `true` to interpolate build args and env.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
