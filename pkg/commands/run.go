@@ -429,6 +429,22 @@ func (r *RunCommand) String() string {
 	return r.cmd.String()
 }
 
+func (r *RunCommand) CacheKey(replacementEnvs []string) (string, error) {
+	return runCacheKey(r.cmd), nil
+}
+
+// runCacheKey appends the raw heredoc bodies to the instruction text
+func runCacheKey(cmd *instructions.RunCommand) string {
+	var key strings.Builder
+	key.WriteString(cmd.String())
+	for _, f := range cmd.Files {
+		key.WriteString("\n")
+		key.WriteString(f.Data)
+		key.WriteString(f.Name)
+	}
+	return key.String()
+}
+
 func (c *RunCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
 	return runCmdFilesUsedFromContext(config, buildArgs, c.cmd, c.fileContext)
 }
@@ -475,6 +491,10 @@ type CachingRunCommand struct {
 
 func (cr *CachingRunCommand) IsArgsEnvsRequiredInCache() bool {
 	return true
+}
+
+func (cr *CachingRunCommand) CacheKey(replacementEnvs []string) (string, error) {
+	return runCacheKey(cr.cmd), nil
 }
 
 func (cr *CachingRunCommand) ExecuteCommand(_ *v1.Config, _ *dockerfile.BuildArgs) error {
