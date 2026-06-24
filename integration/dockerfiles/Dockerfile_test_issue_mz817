@@ -1,0 +1,19 @@
+# mz817: on v1.27.6 COPY heredoc does not expand build variables.
+# Docker applies Dockerfile word-expansion to a COPY heredoc body when the
+# delimiter is unquoted: ${VAR} expands and \${VAR} keeps the literal text with
+# the backslash stripped. A quoted delimiter (<<'EOF') leaves the body verbatim.
+# kaniko writes the body verbatim in every case, so the expanded files diverge.
+FROM scratch
+
+ENV DO_EXPAND=expanded
+
+# unquoted delimiter expands ${DO_EXPAND}, keeps \${DO_EXPAND} literal
+COPY <<EOF /tmp/expand.txt
+value=${DO_EXPAND}
+escaped=\${DO_EXPAND}
+EOF
+
+# quoted delimiter leaves the body untouched
+COPY <<'EOF' /tmp/literal.txt
+value=${DO_EXPAND}
+EOF
