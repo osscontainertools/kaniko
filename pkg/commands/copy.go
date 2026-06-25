@@ -204,7 +204,7 @@ func resolvedCacheKey(instruction string, contents []instructions.SourceContent,
 	key.WriteString(resolved)
 	for _, src := range contents {
 		content := src.Data
-		if src.Expand {
+		if src.Expand && kConfig.EnvBool("FF_KANIKO_EXPAND_HEREDOC") {
 			content, err = util.ResolveEnvironmentReplacementRaw(src.Data, replacementEnvs)
 			if err != nil {
 				return "", err
