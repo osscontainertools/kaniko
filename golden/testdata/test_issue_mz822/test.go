@@ -24,12 +24,15 @@ var Tests = types.GoldenTests{
 			Plan: "unresolved_two",
 		},
 		// With the flag the resolved heredoc body is folded into the key, so the
-		// COPY cache key tracks A. The two plans differ in the COPY key.
+		// COPY cache key tracks A. The unquoted delimiter expands the body, so
+		// FF_KANIKO_EXPAND_HEREDOC must be on for the key to match what the
+		// executor writes. The two plans differ in the COPY key.
 		{
 			Args: []string{"--no-push", "--cache", "--build-arg", "A=one"},
 			Env: map[string]string{
 				"FF_KANIKO_CACHE_LOOKAHEAD":   "1",
 				"FF_KANIKO_RESOLVE_CACHE_KEY": "1",
+				"FF_KANIKO_EXPAND_HEREDOC":    "1",
 			},
 			Plan: "resolved_one",
 		},
@@ -38,6 +41,7 @@ var Tests = types.GoldenTests{
 			Env: map[string]string{
 				"FF_KANIKO_CACHE_LOOKAHEAD":   "1",
 				"FF_KANIKO_RESOLVE_CACHE_KEY": "1",
+				"FF_KANIKO_EXPAND_HEREDOC":    "1",
 			},
 			Plan: "resolved_two",
 		},
