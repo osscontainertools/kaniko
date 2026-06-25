@@ -150,6 +150,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_SCOPED_DOCKERIGNORE`](#flag-ff_kaniko_scoped_dockerignore)
       - [Flag `FF_KANIKO_COPY_CACHEKEY_FOLD_ARGS`](#flag-ff_kaniko_copy_cachekey_fold_args)
       - [Flag `FF_KANIKO_SKIP_RELABEL_RECOMPRESS`](#flag-ff_kaniko_skip_relabel_recompress)
+      - [Flag `FF_KANIKO_SECUREJOIN_EXTRACTION`](#flag-ff_kaniko_securejoin_extraction)
     - [Assertion Overrides](#assertion-overrides)
     - [Debug Image](#debug-image)
   - [Security](#security)
@@ -1315,6 +1316,13 @@ When a cached layer is reused in an image of a different media-type vendor, kani
 Set this flag to `true` to skip the unecessary re-compression and serve the relabeled already-compressed blob.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_SECUREJOIN_EXTRACTION`
+
+When unpacking image layers kaniko joins each tar entry path lexically, so a malicious base image can ship an escaping symlink followed by a write through it and land the write outside the extraction root, for example overwriting `/kaniko/tini` to gain RCE.
+Set this flag to `true` to resolve each entry's parent with SecureJoin so the write stays contained inside the destination.
+Defaults to `true`.
+Will be deprecated in `v1.29.0`.
 
 ### Assertion Overrides
 

@@ -1,0 +1,15 @@
+FROM busybox
+
+# Attack 2: symlink path traversal.
+# A malicious upstream image can escape the dependency dir via a symlink even
+# though the explicit "../" form (Attack 1) is now rejected.
+# Before build, we prefetch, untar and store images in /kaniko/deps/<imagename>.
+# The image layer contains a symlink "evil" -> "../../.." followed by a regular
+# file "evil/tini". kaniko stores the symlink verbatim, then writes the file
+# through it: os.Create("/kaniko/deps/<imagename>/evil/tini") follows "evil"
+# and lands on "/kaniko/tini", overwriting kaniko's own tini binary.
+# The "../" check on entry names does not catch this because "evil/tini" has no "..".
+# Multiple levels of ".." are needed because image names are not slugified.
+COPY --from=localhost:5000/symlink-traversal-malicious:latest marker marker
+
+RUN ls -la /kaniko || true

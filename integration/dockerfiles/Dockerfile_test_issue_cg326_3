@@ -1,0 +1,13 @@
+FROM busybox
+
+# Regression flagged against the cg326 symlink-target check.
+# Some base images ship a symlink with more ".." than its depth. Real example,
+# sonarsource/sonar-scanner-cli@sha256:23ca0f137965d9dff2198074043fd48d386280bc5d0ccac8c8349cea4cf096a9:
+#   usr/lib/jvm/java-21-amazon-corretto.x86_64/lib/security/cacerts
+#     -> ../../../../../../../../../../etc/pki/java/cacerts
+# The extra ".." are a sled, the OS clamps them at the root so it resolves to
+# /etc/pki/java/cacerts. The lexical check wrongly rejected it (filepath.Clean
+# leaves a leading "../"). Crafted synthetically to avoid pulling 200MB in CI.
+COPY --from=localhost:5000/excess-dotdot-symlink:latest marker marker
+
+RUN ls -la / || true

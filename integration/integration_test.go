@@ -197,6 +197,18 @@ func buildRequiredImages() error {
 		return err
 	}
 
+	symlinkMaliciousRef := strings.ToLower(config.imageRepo + "symlink-traversal-malicious:latest")
+	err = pushMaliciousSymlinkTraversalImage(symlinkMaliciousRef)
+	if err != nil {
+		return err
+	}
+
+	excessDotdotRef := strings.ToLower(config.imageRepo + "excess-dotdot-symlink:latest")
+	err = pushExcessDotdotSymlinkImage(excessDotdotRef)
+	if err != nil {
+		return err
+	}
+
 	err = mutateMalformedOCIImageConfig(config.malformedOCIImage)
 	if err != nil {
 		return err
@@ -738,6 +750,109 @@ func pushMaliciousPathTraversalImage(imageRef string) error {
 	}
 	if err := remote.Write(ref, img, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
 		return fmt.Errorf("pushing malicious image to %s: %v", imageRef, err)
+	}
+	return nil
+}
+
+// pushMaliciousSymlinkTraversalImage creates and pushes a minimal OCI image whose
+// single layer escapes the extraction dir through a symlink. The layer holds a
+// symlink "evil" -> "/kaniko" followed by a regular file "evil/tini". Docker
+// cannot produce such a layer, so the image is crafted programmatically.
+func pushMaliciousSymlinkTraversalImage(imageRef string) error {
+	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		if err := tw.WriteHeader(&tar.Header{
+			Name:     "marker",
+			Typeflag: tar.TypeReg,
+			Size:     0,
+			Mode:     0o644,
+		}); err != nil {
+			return nil, err
+		}
+		if err := tw.WriteHeader(&tar.Header{
+			Name:     "evil",
+			Typeflag: tar.TypeSymlink,
+			Linkname: "../../..",
+			Mode:     0o777,
+		}); err != nil {
+			return nil, err
+		}
+		payload := "#!/bin/sh\necho WARN HIJACKED"
+		if err := tw.WriteHeader(&tar.Header{
+			Name:     "evil/tini",
+			Typeflag: tar.TypeReg,
+			Size:     int64(len(payload)),
+			Mode:     0o755,
+		}); err != nil {
+			return nil, err
+		}
+		if _, err := tw.Write([]byte(payload)); err != nil {
+			return nil, err
+		}
+		tw.Close()
+		return io.NopCloser(bytes.NewReader(buf.Bytes())), nil
+	})
+	if err != nil {
+		return fmt.Errorf("creating symlink-traversal layer: %v", err)
+	}
+
+	img, err := mutate.AppendLayers(empty.Image, layer)
+	if err != nil {
+		return fmt.Errorf("appending layer to empty image: %v", err)
+	}
+
+	ref, err := name.ParseReference(imageRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing image ref %s: %v", imageRef, err)
+	}
+	if err := remote.Write(ref, img, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
+		return fmt.Errorf("pushing malicious image to %s: %v", imageRef, err)
+	}
+	return nil
+}
+
+// pushExcessDotdotSymlinkImage pushes a minimal image whose layer holds a
+// symlink with more ".." than its depth, mirroring the Corretto-via-RPM cacerts
+// link (e.g. sonarsource/sonar-scanner-cli). The OS clamps it at the root.
+func pushExcessDotdotSymlinkImage(imageRef string) error {
+	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		if err := tw.WriteHeader(&tar.Header{
+			Name:     "marker",
+			Typeflag: tar.TypeReg,
+			Size:     0,
+			Mode:     0o644,
+		}); err != nil {
+			return nil, err
+		}
+		if err := tw.WriteHeader(&tar.Header{
+			Name:     "usr/lib/jvm/java-21-amazon-corretto.x86_64/lib/security/cacerts",
+			Typeflag: tar.TypeSymlink,
+			Linkname: "../../../../../../../../../../etc/pki/java/cacerts",
+			Mode:     0o777,
+		}); err != nil {
+			return nil, err
+		}
+		tw.Close()
+		return io.NopCloser(bytes.NewReader(buf.Bytes())), nil
+	})
+	if err != nil {
+		return fmt.Errorf("creating excess-dotdot-symlink layer: %v", err)
+	}
+
+	img, err := mutate.AppendLayers(empty.Image, layer)
+	if err != nil {
+		return fmt.Errorf("appending layer to empty image: %v", err)
+	}
+
+	ref, err := name.ParseReference(imageRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing image ref %s: %v", imageRef, err)
+	}
+	if err := remote.Write(ref, img, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
+		return fmt.Errorf("pushing excess-dotdot-symlink image to %s: %v", imageRef, err)
 	}
 	return nil
 }
