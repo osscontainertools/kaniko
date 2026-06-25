@@ -158,7 +158,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		}
 
 		data := src.Data
-		if src.Expand {
+		if src.Expand && kConfig.EnvBool("FF_KANIKO_EXPAND_HEREDOC") {
 			expanded, err := util.ResolveEnvironmentReplacementRaw(src.Data, replacementEnvs)
 			if err != nil {
 				return fmt.Errorf("expanding heredoc content: %w", err)
