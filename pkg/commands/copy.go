@@ -178,16 +178,12 @@ func (c *CopyCommand) String() string {
 	return c.cmd.String()
 }
 
-func (c *CopyCommand) IsArgsEnvsRequiredInCache() bool {
-	return argsEnvsRequiredInCache(c.cmd.String())
+func (c *CopyCommand) CacheKey(replacementEnvs []string) (string, error) {
+	return util.ResolveVariables(c.cmd.String(), replacementEnvs)
 }
 
 func (c *CopyCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
 	return copyCmdFilesUsedFromContext(config, buildArgs, c.cmd, c.fileContext)
-}
-
-func argsEnvsRequiredInCache(instruction string) bool {
-	return kConfig.EnvBool("FF_KANIKO_COPY_CACHEKEY_FOLD_ARGS") && strings.Contains(instruction, "$")
 }
 
 func (c *CopyCommand) MetadataOnly() bool {
@@ -277,8 +273,8 @@ func (cr *CachingCopyCommand) String() string {
 	return cr.cmd.String()
 }
 
-func (cr *CachingCopyCommand) IsArgsEnvsRequiredInCache() bool {
-	return argsEnvsRequiredInCache(cr.String())
+func (cr *CachingCopyCommand) CacheKey(replacementEnvs []string) (string, error) {
+	return util.ResolveVariables(cr.String(), replacementEnvs)
 }
 
 func (cr *CachingCopyCommand) From() string {

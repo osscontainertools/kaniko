@@ -138,6 +138,36 @@ func Test_EnvReplacement(t *testing.T) {
 	}
 }
 
+// Test_ResolveVariables checks the COPY/ADD/WORKDIR cache-key resolution.
+// The parity cases guard against under-invalidation: a referenced variable must
+// resolve to the same value the executor uses at build time. Unset vars and
+// wildcards are left verbatim by design and checked literally.
+func Test_ResolveVariables(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		value    string
+		envs     []string
+		expected string
+		parity   bool
+	}{
+		{name: "plain var", value: "/$A/foo", envs: []string{"A=one"}, expected: "/one/foo", parity: true},
+		{name: "braced var", value: "/${A}/foo", envs: []string{"A=two"}, expected: "/two/foo", parity: true},
+		{name: "no var", value: "/static/foo", envs: []string{"A=one"}, expected: "/static/foo", parity: true},
+		{name: "two vars", value: "/$A/$B", envs: []string{"A=one", "B=two"}, expected: "/one/two", parity: true},
+		{name: "unset var verbatim", value: "/$MISSING/foo", envs: []string{"A=one"}, expected: "/$MISSING/foo"},
+		{name: "wildcard verbatim", value: "/$A/*.txt", envs: []string{"A=one"}, expected: "/one/*.txt"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := ResolveVariables(test.value, test.envs)
+			testutil.CheckErrorAndDeepEqual(t, false, err, test.expected, got)
+			if test.parity {
+				want, err := ResolveEnvironmentReplacement(test.value, test.envs, false)
+				testutil.CheckErrorAndDeepEqual(t, false, err, want, got)
+			}
+		})
+	}
+}
+
 var buildContextPath = "../../integration/"
 
 var destinationFilepathTests = []struct {

@@ -66,6 +66,11 @@ type DockerCommand interface {
 	IsArgsEnvsRequiredInCache() bool
 }
 
+// Implement to derive the cache key from command with build args and env interpolated
+type CacheKeyResolver interface {
+	CacheKey(replacementEnvs []string) (string, error)
+}
+
 func GetCommand(cmd instructions.Command, fileContext util.FileContext, secrets config.SecretOptions, useNewRun bool, cacheCopy bool, cacheRun bool) (DockerCommand, error) {
 	switch c := cmd.(type) {
 	case *instructions.RunCommand:
