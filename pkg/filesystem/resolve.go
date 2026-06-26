@@ -35,10 +35,11 @@ import (
 // * If path is a symlink, resolve it's target. If the target is not ignored add it to the
 // output set.
 // * Add all ancestors of each path to the output set.
-func ResolvePaths(paths []string, wl []util.IgnoreListEntry) (pathsToAdd []string, err error) {
+func ResolvePaths(paths []string, wl []util.IgnoreListEntry) ([]string, error) {
 	logrus.Tracef("Resolving paths %s", paths)
 
 	fileSet := make(map[string]bool)
+	pathsToAdd := []string{}
 
 	for _, f := range paths {
 		// If the given path is part of the ignorelist ignore it
@@ -69,7 +70,7 @@ func ResolvePaths(paths []string, wl []util.IgnoreListEntry) (pathsToAdd []strin
 		if e != nil {
 			if !os.IsNotExist(e) {
 				logrus.Errorf("Couldn't eval %s with link %s", f, link)
-				return
+				return nil, e
 			}
 
 			logrus.Tracef("Symlink path %s, target does not exist", f)
@@ -94,7 +95,7 @@ func ResolvePaths(paths []string, wl []util.IgnoreListEntry) (pathsToAdd []strin
 
 	// Also add parent directories to keep the permission of them correctly.
 	pathsToAdd = filesWithParentDirs(pathsToAdd)
-	return
+	return pathsToAdd, nil
 }
 
 // filesWithParentDirs returns every ancestor path for each provided file path.

@@ -271,9 +271,10 @@ func TestExpectError(t *testing.T) {
 	}
 }
 
-func getBranchCommitAndURL() (branch, commit, url string) {
+func getBranchCommitAndURL() (string, string, string) {
 	repo := os.Getenv("GITHUB_REPOSITORY")
-	commit = os.Getenv("GITHUB_SHA")
+	commit := os.Getenv("GITHUB_SHA")
+	branch := ""
 	if _, isPR := os.LookupEnv("GITHUB_HEAD_REF"); isPR {
 		branch = "main"
 	} else {
@@ -288,8 +289,8 @@ func getBranchCommitAndURL() (branch, commit, url string) {
 		branch = "main"
 	}
 	log.Printf("repo=%q / commit=%q / branch=%q", repo, commit, branch)
-	url = "github.com/" + repo
-	return
+	url := "github.com/" + repo
+	return branch, commit, url
 }
 
 func DockerGitRepo(url string, commit string, branch string) string {
