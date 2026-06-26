@@ -50,7 +50,7 @@ func Test_StandardImage(t *testing.T) {
 	defer func() {
 		RetrieveRemoteImage = original
 	}()
-	mock := func(image string, opts config.RegistryOptions, _ string) (v1.Image, error) {
+	mock := func(_ string, _ config.RegistryOptions, _ string) (v1.Image, error) {
 		return nil, nil
 	}
 	RetrieveRemoteImage = mock
@@ -87,7 +87,7 @@ func Test_OciImage(t *testing.T) {
 	defer func() {
 		retrieveOciImage = original
 	}()
-	mock := func(index int) (v1.Image, error) {
+	mock := func(_ int) (v1.Image, error) {
 		return nil, nil
 	}
 	retrieveOciImage = mock

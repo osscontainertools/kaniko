@@ -117,7 +117,7 @@ func ValidateFlags(opts *config.KanikoOptions) {
 // RootCmd is the kaniko command that is run
 var RootCmd = &cobra.Command{
 	Use: "executor",
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
 		if cmd.Use == "executor" {
 
 			if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {
@@ -186,7 +186,7 @@ var RootCmd = &cobra.Command{
 		}
 		return nil
 	},
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		if !checkContained() {
 			if !force {
 				exit(errors.New("kaniko should only be run inside of a container, run with the --force flag if you are sure you want to continue"))

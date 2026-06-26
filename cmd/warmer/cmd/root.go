@@ -54,7 +54,7 @@ func init() {
 
 var RootCmd = &cobra.Command{
 	Use: "cache warmer",
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
 		if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {
 			return err
 		}
@@ -95,7 +95,7 @@ var RootCmd = &cobra.Command{
 
 		return nil
 	},
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		if _, err := os.Stat(opts.CacheDir); os.IsNotExist(err) {
 			err = os.MkdirAll(opts.CacheDir, 0o755)
 			if err != nil {
