@@ -1,0 +1,24 @@
+# mz775: in v1.27.6 saving the base stage deadlocks in when saving as ocilayout.
+#
+# Due to the way we construct the image below, the stage ends up with many layers
+# that share the same compressed digest. The OCI layout writer fans out a goroutine
+# per manifest entry and they all write that single blob at once,
+# The first goroutine to rename the blob into place wins. The rest then find it already on disk
+# and return early, closing the gzip pipe without reading it to the end.
+# internal/gzip's writer goroutine fails its final flush on the closed pipe and returns
+# without closing the reader it wraps, the reader that holds the pullLimiter token, so the token leaks.
+# Once every token has leaked the remaining goroutines block forever acquiring one and the save never returns.
+FROM debian:12.10 AS base
+RUN echo 1 >/dev/null
+RUN echo 2 >/dev/null
+RUN echo 3 >/dev/null
+RUN echo 4 >/dev/null
+RUN echo 5 >/dev/null
+RUN echo 6 >/dev/null
+RUN echo 7 >/dev/null
+RUN echo 8 >/dev/null
+RUN echo 9 >/dev/null
+RUN echo 10 >/dev/null
+
+FROM base
+RUN echo done >/dev/null
