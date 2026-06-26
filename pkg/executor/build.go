@@ -634,7 +634,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		}
 	}
 
-	err = cacheGroup.Wait()
+	err := cacheGroup.Wait()
 	if err != nil {
 		logrus.Warnf("Error uploading layer to cache: %s", err)
 	}

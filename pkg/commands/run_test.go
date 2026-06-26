@@ -281,6 +281,7 @@ func Test_CachingRunCommand_ExecuteCommand(t *testing.T) {
 					t.Errorf("Expected extractFn to be called %v times but was called %v times", 1, *tc.count)
 				}
 				for _, file := range tc.extractedFiles {
+					match := false
 					cmdFiles := c.extractedFiles
 					if slices.Contains(cmdFiles, file) {
 						match = true

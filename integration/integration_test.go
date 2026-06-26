@@ -694,7 +694,7 @@ func TestLayers(t *testing.T) {
 			dockerImage := GetDockerImage(config.imageRepo, dockerfileTest)
 			kanikoImage := GetKanikoImage(config.imageRepo, dockerfileTest)
 			pushCmd := exec.Command("docker", "push", dockerImage)
-			RunCommand(t, pushCmd)
+			RunCommand(pushCmd, t)
 			checkLayers(t, dockerImage, kanikoImage, offset[dockerfileTest])
 			onBuildDiff(t, dockerImage, kanikoImage)
 		})
@@ -1235,7 +1235,7 @@ func TestExitCodePropagation(t *testing.T) {
 			"-t", dockerImage,
 			"-f", dockerfile,
 		}
-		dockerCmd := exec.Command("docker", append(dockerFlags, ctx)...)
+		dockerCmd := exec.Command("docker", append(dockerFlags, context)...)
 		dockerCmd.Env = append(dockerCmd.Env, "DOCKER_BUILDKIT=0")
 
 		out, kanikoErr := RunCommandWithoutTest(dockerCmd)

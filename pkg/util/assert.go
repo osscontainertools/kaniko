@@ -31,7 +31,7 @@ func init() {
 		return
 	}
 	disabledAssertions = make(map[string]struct{})
-	for _, name := range strings.Split(val, ",") {
+	for name := range strings.SplitSeq(val, ",") {
 		name = strings.TrimSpace(name)
 		if name != "" {
 			disabledAssertions[name] = struct{}{}

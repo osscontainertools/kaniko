@@ -54,7 +54,7 @@ func SyscallCredentials(userStr string) (*syscall.Credential, error) {
 		groups = append(groups, uint32(i))
 	}
 
-	if !(len(strings.Split(userStr, ":")) > 1) {
+	if len(strings.Split(userStr, ":")) <= 1 {
 		if u.Gid != "" {
 			gid, _ = getGID(u.Gid)
 		}

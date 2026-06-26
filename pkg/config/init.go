@@ -81,8 +81,10 @@ var DockerConfigDir = KanikoDir + "/.docker/"
 
 // KanikoSecretsDir is a where user defined secrets are stored
 // KanikoSecretsBeforeDir is where secrets are staged before moveKanikoDir runs
-var KanikoSecretsBeforeDir = KanikoExeDir + "/secrets/"
-var KanikoSecretsDir = KanikoDir + "/secrets/"
+var (
+	KanikoSecretsBeforeDir = KanikoExeDir + "/secrets/"
+	KanikoSecretsDir       = KanikoDir + "/secrets/"
+)
 
 var TiniExec = KanikoDir + "/tini"
 

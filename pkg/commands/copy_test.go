@@ -258,6 +258,7 @@ func Test_CachingCopyCommand_ExecuteCommand(t *testing.T) {
 					t.Errorf("Expected extractFn to be called %v times but was called %v times", tc.expectedCount, *tc.count)
 				}
 				for _, file := range tc.extractedFiles {
+					match := false
 					cFiles := c.FilesToSnapshot()
 					if slices.Contains(cFiles, file) {
 						match = true
