@@ -357,9 +357,17 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 		return fmt.Errorf("resolving user %s: %w", userAndGroup[0], err)
 	}
 
+	credential := userStr
+	if kConfig.EnvBool("FF_KANIKO_RUN_HONOR_GROUP") {
+		credential, err = util.ResolveEnvironmentReplacement(u, replacementEnvs, false)
+		if err != nil {
+			return fmt.Errorf("resolving user %s: %w", u, err)
+		}
+	}
+
 	// If specified, run the command as a specific user
-	if userStr != "" {
-		cmd.SysProcAttr.Credential, err = util.SyscallCredentials(userStr)
+	if credential != "" {
+		cmd.SysProcAttr.Credential, err = util.SyscallCredentials(credential)
 		if err != nil {
 			return fmt.Errorf("credentials: %w", err)
 		}

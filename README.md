@@ -149,6 +149,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_SECUREJOIN_EXTRACTION`](#flag-ff_kaniko_securejoin_extraction)
       - [Flag `FF_KANIKO_RESOLVE_CACHE_KEY`](#flag-ff_kaniko_resolve_cache_key)
       - [Flag `FF_KANIKO_UNTAR_SKIP_ROOT`](#flag-ff_kaniko_untar_skip_root)
+      - [Flag `FF_KANIKO_RUN_HONOR_GROUP`](#flag-ff_kaniko_run_honor_group)
     - [Assertion Overrides](#assertion-overrides)
     - [Debug Image](#debug-image)
   - [Security](#security)
@@ -1302,6 +1303,13 @@ Will be deprecated in `v1.29.0`.
 
 When `ADD` extracts a local tar archive into a directory, kaniko applies the archive's root `.` entry to the destination directory and overwrites its mode and ownership, while docker leaves the destination untouched.
 Set this flag to `true` to skip the root `.` entry when untarring.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_RUN_HONOR_GROUP`
+
+When a stage sets `USER user:group`, `RUN` applies only the user and the gid falls back to the user's primary group, so an explicit group is silently dropped.
+Set this flag to `true` to pass the full `user:group` to the command so `RUN` runs with the requested group, matching docker.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
