@@ -73,9 +73,9 @@ ENV SSL_CERT_DIR=/kaniko/ssl/certs
 
 FROM kaniko-base-slim AS kaniko-base
 
-COPY --from=builder --chown=0:0 /src/out/docker-credential-gcr /kaniko/docker-credential-gcr
-COPY --from=builder --chown=0:0 /src/out/docker-credential-ecr-login /kaniko/docker-credential-ecr-login
-COPY --from=builder --chown=0:0 /src/out/docker-credential-acr-env /kaniko/docker-credential-acr-env
+COPY --from=builder --chown=0:0 --chmod=500 /src/out/docker-credential-gcr /kaniko/docker-credential-gcr
+COPY --from=builder --chown=0:0 --chmod=500 /src/out/docker-credential-ecr-login /kaniko/docker-credential-ecr-login
+COPY --from=builder --chown=0:0 --chmod=500 /src/out/docker-credential-acr-env /kaniko/docker-credential-acr-env
 
 COPY --from=builder /kaniko/.docker /kaniko/.docker
 
