@@ -118,6 +118,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=1",
 	"FF_KANIKO_SCOPED_DOCKERIGNORE=1",
 	"FF_KANIKO_RESOLVE_CACHE_KEY=1",
+	"FF_KANIKO_UNTAR_SKIP_ROOT=1",
 	"KANIKO_PRINT_PLAN=1",
 }
 
@@ -250,8 +251,6 @@ var diffArgsMap = map[string][]string{
 	// docker is wrong. we do copy the symlink correctly.
 	"TestRun/test_Dockerfile_test_copy_symlink": {"--extra-ignore-files=workdirAnother/relative_link"},
 	"TestRun/test_Dockerfile_test_multistage":   {"--extra-ignore-files=new"},
-	// when we untar we overwrite the parent directory, buildkit doesnt
-	"TestRun/test_Dockerfile_test_add": {"--extra-ignore-file-permissions"},
 	// Verify we don't store root directory
 	"TestRun/test_Dockerfile_test_root":          {"--extra-ignore-layer-length-mismatch=false"},
 	"TestRun/test_Dockerfile_test_cross_compile": {"--platform=linux/" + crossCompileArch},
