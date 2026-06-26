@@ -32,6 +32,7 @@ import (
 	"syscall"
 	"time"
 
+	securejoin "github.com/cyphar/filepath-securejoin"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/go-archive"
 	"github.com/moby/patternmatcher"
@@ -86,6 +87,8 @@ var defaultIgnoreList = []IgnoreListEntry{
 var ignorelist = append([]IgnoreListEntry{}, defaultIgnoreList...)
 
 var volumes = []string{}
+
+var secureExtraction = config.EnvBoolDefault("FF_KANIKO_SECUREJOIN_EXTRACTION", true)
 
 type FileContext struct {
 	Root          string
@@ -204,13 +207,20 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 		}
 		path := filepath.Join(root, cleanedName)
 		base := filepath.Base(path)
-		dir := filepath.Dir(path)
 
 		if strings.HasPrefix(base, archive.WhiteoutPrefix) {
-			logrus.Tracef("Whiting out %s", path)
+			dir := filepath.Dir(path)
+			if secureExtraction {
+				securePath, err := securejoin.SecureJoin(root, cleanedName)
+				if err != nil {
+					return nil, fmt.Errorf("resolving whiteout path for %q: %w", hdr.Name, err)
+				}
+				dir = filepath.Dir(securePath)
+			}
 
 			name := strings.TrimPrefix(base, archive.WhiteoutPrefix)
 			path := filepath.Join(dir, name)
+			logrus.Tracef("Whiting out %s", path)
 
 			if CheckCleanedPathAgainstIgnoreList(path) {
 				logrus.Tracef("Not deleting %s, as it's ignored", path)
@@ -350,7 +360,24 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		return fmt.Errorf("tar entry %q is not allowed: references parent directory", hdr.Name)
 	}
 
-	path := filepath.Join(dest, cleanedName)
+	var path string
+	if secureExtraction {
+		// cg330: SecureJoin the parent only, then append the basename lexically. Joining
+		// the full name would resolve the final component when it is a symlink we
+		// mean to overwrite, writing through it and creating loops like
+		// bin/sh -> dash -> dash.
+		secureDir, err := securejoin.SecureJoin(dest, filepath.Dir(cleanedName))
+		if err != nil {
+			if !errors.Is(err, syscall.ELOOP) {
+				return fmt.Errorf("resolving path for %q: %w", hdr.Name, err)
+			}
+			logrus.Warnf("Skipping %q: parent path cannot be securely resolved (symlink loop)", hdr.Name)
+			return nil
+		}
+		path = filepath.Join(secureDir, filepath.Base(cleanedName))
+	} else {
+		path = filepath.Join(dest, cleanedName)
+	}
 	base := filepath.Base(path)
 	dir := filepath.Dir(path)
 	mode := hdr.FileInfo().Mode()
@@ -373,7 +400,7 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		// It's possible a file is in the tar before its directory,
 		// or a file was copied over a directory prior to now
 		fi, err := os.Stat(dir)
-		if os.IsNotExist(err) || !fi.IsDir() {
+		if err != nil || !fi.IsDir() {
 			logrus.Debugf("Base %s for file %s does not exist. Creating.", base, path)
 
 			if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -420,6 +447,14 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		}
 	case tar.TypeDir:
 		logrus.Tracef("Creating dir %s", path)
+		if secureExtraction {
+			fi, lerr := os.Lstat(path)
+			if lerr == nil && fi.Mode()&os.ModeSymlink != 0 {
+				if err := os.Remove(path); err != nil {
+					return fmt.Errorf("error removing symlink %s to make way for new directory: %w", path, err)
+				}
+			}
+		}
 		if err := MkdirAllWithPermissions(path, mode, int64(uid), int64(gid)); err != nil {
 			return err
 		}
@@ -458,7 +493,16 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		if cleanedLink == ".." || strings.HasPrefix(cleanedLink, "../") {
 			return fmt.Errorf("hardlink target %q is not allowed: references parent directory", hdr.Linkname)
 		}
-		link := filepath.Clean(filepath.Join(dest, hdr.Linkname))
+		var link string
+		if secureExtraction {
+			resolved, err := securejoin.SecureJoin(dest, hdr.Linkname)
+			if err != nil {
+				return fmt.Errorf("invalid hardlink target %q: %w", hdr.Linkname, err)
+			}
+			link = resolved
+		} else {
+			link = filepath.Clean(filepath.Join(dest, hdr.Linkname))
+		}
 		if err := os.Link(link, path); err != nil {
 			return err
 		}
