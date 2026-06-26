@@ -1,0 +1,5 @@
+# mz841: ADD of a local tar applies the archive root "." entry to the destination
+# dir, so /target flips from 0700 to 0755 on v1.27.6. docker ignores the root entry.
+FROM alpine:3.20
+RUN mkdir -m 0700 /target
+ADD context/tars/file.tar /target/
