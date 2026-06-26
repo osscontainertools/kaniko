@@ -1,4 +1,5 @@
 FROM debian:12 AS first
 CMD ["mycmd"]
-FROM first
+FROM first AS nosquash
+FROM first AS final
 ENTRYPOINT ["myentrypoint"] # This should clear out CMD in the config metadata

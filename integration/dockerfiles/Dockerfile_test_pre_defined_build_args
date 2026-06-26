@@ -9,8 +9,9 @@ RUN echo "BUILDPLATFORM: ${BUILDPLATFORM}" | tee info1.txt && \
     echo "TARGETARCH: ${TARGETARCH}" | tee -a info1.txt && \
     echo "TARGETVARIANT: ${TARGETVARIANT}" | tee -a info1.txt && \
     echo "TARGETSTAGE: ${TARGETSTAGE}" | tee -a info1.txt
+FROM undefined AS nosquash
 
-FROM undefined
+FROM undefined AS final
 ARG BUILDPLATFORM
 ARG BUILDOS
 ARG BUILDARCH

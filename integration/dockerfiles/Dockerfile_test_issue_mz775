@@ -20,5 +20,6 @@ RUN echo 8 >/dev/null
 RUN echo 9 >/dev/null
 RUN echo 10 >/dev/null
 
-FROM base
+FROM base AS nosquash
+FROM base AS final
 RUN echo done >/dev/null

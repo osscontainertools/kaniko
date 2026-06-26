@@ -6,11 +6,12 @@
 FROM busybox AS base
 
 RUN touch test
+FROM base AS nosquash
 
 # This issue only manifests with multistage builds: intermediate stages are saved as tarballs
 # under /kaniko/stages/ and the final v1.Image holds a lazy reference to those files.
 # Cleaning /kaniko/stages/ before DoPush causes layer reads to fail on the now-missing files.
 # Single-stage builds are unaffected because their base layers come from the remote registry.
-FROM base
+FROM base AS final
 
 RUN touch blubb

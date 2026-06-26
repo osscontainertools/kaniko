@@ -3,6 +3,7 @@ FROM busybox AS first
 ARG TARGETOS
 ARG TARGETARCH
 RUN test "${TARGETOS}-${TARGETARCH}" = "linux-amd64"
+FROM first AS nosquash
 
 FROM first AS second
 
