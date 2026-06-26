@@ -43,14 +43,14 @@ func (h *HTTPSTar) UnpackTarFromBuildContext() (directory string, err error) {
 	tarPath := filepath.Join(directory, constants.ContextTar)
 	file, err := util.CreateTargetTarfile(tarPath)
 	if err != nil {
-		return
+		return directory, err
 	}
 
 	// Download tar file from remote https server
 	// and save it into the target tar file
 	resp, err := http.Get(h.context) //nolint:noctx
 	if err != nil {
-		return
+		return directory, err
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); err == nil && closeErr != nil {
@@ -69,7 +69,7 @@ func (h *HTTPSTar) UnpackTarFromBuildContext() (directory string, err error) {
 	logrus.Info("Retrieved https tar file")
 
 	if err = util.UnpackCompressedTar(tarPath, directory); err != nil {
-		return
+		return directory, err
 	}
 
 	logrus.Info("Extracted https tar file")
