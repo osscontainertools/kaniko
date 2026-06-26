@@ -1,0 +1,7 @@
+# mz839: USER user:group must run RUN with the explicit group.
+# kaniko v1.27.6 drops the group and the gid falls back to the user's primary
+# group, so the recorded gid is 0 instead of 4242.
+FROM debian:12.10
+RUN groupadd -g 4242 testgroup
+USER root:testgroup
+RUN echo "gid=$(id -g)" > /result.txt
