@@ -120,6 +120,10 @@ func TestMain(m *testing.M) {
 	}
 
 	config = initIntegrationTestConfig()
+	if err = generateTarFixtures(); err != nil {
+		fmt.Println("Couldn't generate tar fixtures", err)
+		os.Exit(1)
+	}
 	if allDockerfiles, err = FindDockerFiles(dockerfilesPath, config.dockerfilesPattern); err != nil {
 		fmt.Println("Coudn't create map of dockerfiles", err)
 		os.Exit(1)
