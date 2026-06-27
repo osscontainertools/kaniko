@@ -104,6 +104,7 @@ func TestBuildWithStdin(t *testing.T) {
 
 	dockerRunFlags := []string{"run", "--interactive", "--net=host", "-v", cwd + ":/workspace"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags,
 		ExecutorImage,
 		"-f", dockerfile,
