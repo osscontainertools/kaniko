@@ -17,6 +17,7 @@
 * prevent hijacking via `COPY --from=<image>`: https://github.com/osscontainertools/kaniko/pull/586
 * github.com/moby/buildkit 0.22.0: CVE-2026-33747 CVE-2026-33748
 * github.com/go-jose/go-jose/v4 v4.1.3: CVE-2026-34986
+* 🔗 `FF_KANIKO_SECUREJOIN_EXTRACTION=true` symlink-based path traversal during tar extraction prevented with SecureJoin: by @8none1 in https://github.com/osscontainertools/kaniko/pull/828
 
 ### Bugfixes
 * cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3
@@ -51,19 +52,21 @@
 * cache mounts: https://github.com/osscontainertools/kaniko/pull/245 https://github.com/osscontainertools/kaniko/pull/274 https://github.com/osscontainertools/kaniko/pull/284
 * skip-unused-stages invalidates numeric references: https://github.com/osscontainertools/kaniko/pull/306
 * cache mount option implements additional flags: https://github.com/osscontainertools/kaniko/pull/390
-* `FF_KANIKO_RUN_MOUNT_SECRET=true` secret mounts: https://github.com/osscontainertools/kaniko/pull/391 https://github.com/osscontainertools/kaniko/pull/409
+* secret mounts: https://github.com/osscontainertools/kaniko/pull/391 https://github.com/osscontainertools/kaniko/pull/409
 * `FF_KANIKO_RUN_VIA_TINI=false` reap zombie processes: https://github.com/osscontainertools/kaniko/pull/211 https://github.com/osscontainertools/kaniko/pull/450
 * Skip chown/chmod for paths in ignore list: by @mesaglio in https://github.com/osscontainertools/kaniko/pull/435
 * resolve remote `ONBUILD` instructions: https://github.com/osscontainertools/kaniko/pull/354
 * `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=false` add buildkit compatibility mode: https://github.com/osscontainertools/kaniko/pull/510
 * activate dockerfile linter: https://github.com/osscontainertools/kaniko/pull/590
-* `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS=false` stop propagating base image annotations: https://github.com/osscontainertools/kaniko/pull/566 https://github.com/osscontainertools/kaniko/pull/605
-* `FF_KANIKO_VOLUME_SKIP_MKDIR=false` skip implicit mkdir in `VOLUME`: https://github.com/osscontainertools/kaniko/pull/638
-* `FF_KANIKO_PRESERVE_HARDLINKS=false` preserve hardlinks during `COPY --from`: https://github.com/osscontainertools/kaniko/pull/630
-* `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE=false` upstream ENV shadows local ARG: https://github.com/osscontainertools/kaniko/pull/624
-* `FF_KANIKO_RUN_MOUNT_BIND=false` support for `RUN --mount=type=bind`: https://github.com/osscontainertools/kaniko/pull/615
+* `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS=true` stop propagating base image annotations: https://github.com/osscontainertools/kaniko/pull/566 https://github.com/osscontainertools/kaniko/pull/605
+* `FF_KANIKO_VOLUME_SKIP_MKDIR=true` skip implicit mkdir in `VOLUME`: https://github.com/osscontainertools/kaniko/pull/638
+* `FF_KANIKO_PRESERVE_HARDLINKS=true` preserve hardlinks during `COPY --from`: https://github.com/osscontainertools/kaniko/pull/630
+* `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE=true` upstream ENV shadows local ARG: https://github.com/osscontainertools/kaniko/pull/624
+* `FF_KANIKO_RUN_MOUNT_BIND=true` support for `RUN --mount=type=bind`: https://github.com/osscontainertools/kaniko/pull/615
 * `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=false` `--reproducible` leaves base-image layers untouched so they still match the registry: https://github.com/osscontainertools/kaniko/pull/732
 * `FF_KANIKO_SCOPED_DOCKERIGNORE=false` scope `.dockerignore` patterns to the build context: by @vidbregar in https://github.com/osscontainertools/kaniko/pull/763
+* `FF_KANIKO_SKIP_WRITE_WHITEOUTS=false` cross-stage `COPY --from` on a cache hit copies whiteout markers as real files and silently deletes targets in later builds: https://github.com/osscontainertools/kaniko/pull/796
+* `FF_KANIKO_UNTAR_SKIP_ROOT=false` `ADD` with a tar archive overwrites the destination directory mode and ownership from the archive root entry, unlike Docker: https://github.com/osscontainertools/kaniko/pull/842
 
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
@@ -74,15 +77,18 @@
 * ADD learned to cache its output layer: https://github.com/mzihlmann/kaniko/pull/24
 * whiteout annotations to prevent cache misses through `--annotation`: https://github.com/mzihlmann/kaniko/pull/209
 * `FF_KANIKO_CACHE_PROBE_AFTER_MISS=false` keep probing the cache after a layer miss: by @iahsanGill in https://github.com/osscontainertools/kaniko/pull/703
-* `FF_KANIKO_WARMER_CACHE_LOCK=false` coordinate concurrent warmers on a shared cache volume: by @iahsanGill in https://github.com/osscontainertools/kaniko/pull/705 https://github.com/osscontainertools/kaniko/pull/706
+* `FF_KANIKO_WARMER_CACHE_LOCK=true` coordinate concurrent warmers on a shared cache volume: by @iahsanGill in https://github.com/osscontainertools/kaniko/pull/705 https://github.com/osscontainertools/kaniko/pull/706
+* `FF_KANIKO_SKIP_RELABEL_RECOMPRESS=false` skip re-gzip when relabeling a cached layer to a different media type: https://github.com/osscontainertools/kaniko/pull/778
+* `FF_KANIKO_RESOLVE_CACHE_KEY=false` `COPY`, `ADD`, and `WORKDIR` layer cache keys now reflect build args and env referenced in the instruction: https://github.com/osscontainertools/kaniko/pull/792 https://github.com/osscontainertools/kaniko/pull/801 https://github.com/osscontainertools/kaniko/pull/837
+* `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=false` infer the cross-stage `COPY --from` cache key instead of hashing the copied files, so it hits without unpacking the source stage: https://github.com/osscontainertools/kaniko/pull/618 https://github.com/osscontainertools/kaniko/pull/741 https://github.com/osscontainertools/kaniko/pull/767
 
 ### Performance
-* `FF_KANIKO_SQUASH_STAGES=true` squash stages together, speeding up build: https://github.com/mzihlmann/kaniko/pull/141 https://github.com/osscontainertools/kaniko/pull/283
-* `FF_KANIKO_OCI_STAGES=true` use ocilayout instead of tarballs during stage transitions: https://github.com/mzihlmann/kaniko/pull/303
+* squash stages together, speeding up build: https://github.com/mzihlmann/kaniko/pull/141 https://github.com/osscontainertools/kaniko/pull/283
+* use ocilayout instead of tarballs during stage transitions: https://github.com/mzihlmann/kaniko/pull/303
 * recompute whether a stage must be saved: https://github.com/osscontainertools/kaniko/pull/335
 * port digest optimization to warmer: https://github.com/osscontainertools/kaniko/pull/325
 * `FF_KANIKO_DISABLE_HTTP2=false` stop forcing http/2.0: https://github.com/osscontainertools/kaniko/pull/340
-* `FF_KANIKO_OCI_WARMER=false` ocilayout warmer: https://github.com/osscontainertools/kaniko/pull/307
+* `FF_KANIKO_OCI_WARMER=true` ocilayout warmer: https://github.com/osscontainertools/kaniko/pull/307
 
 ### Usability
 * if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
@@ -108,7 +114,9 @@
 * `FF_KANIKO_OCI_SCRATCH_BASE=false` oci scratch base image: https://github.com/osscontainertools/kaniko/pull/612
 * `kaniko-alpine` image (`martizih/kaniko:alpine`): https://github.com/osscontainertools/kaniko/pull/647 https://github.com/osscontainertools/kaniko/pull/659
 * `executor push` subcommand pushes a pre-built tarball or OCI layout without a separate `crane` binary: https://github.com/osscontainertools/kaniko/pull/737
-* `FF_KANIKO_PRESERVE_MOUNTED_PATHS=false` keep read-only bind mounts (e.g. NVIDIA GPU driver artifacts) in place during extraction: https://github.com/osscontainertools/kaniko/pull/754
+* `FF_KANIKO_PRESERVE_MOUNTED_PATHS=true` keep read-only bind mounts (e.g. NVIDIA GPU driver artifacts) in place during extraction: https://github.com/osscontainertools/kaniko/pull/754
+* `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE=true` deprecate the `--preserve-context` inter-stage restore: https://github.com/osscontainertools/kaniko/pull/710
+* `COPY` and `ADD` `--chmod` now accepts symbolic notation (e.g. `go=u`, `u=rwX,go=rX`) in addition to octal: https://github.com/osscontainertools/kaniko/pull/800
 
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55

@@ -1,3 +1,143 @@
+# v1.28.0 Release 2026-06-28
+## Update Notice
+In this Release we activated these feature-flags:
+* [FF_KANIKO_RUN_MOUNT_BIND](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_run_mount_bind)
+* [FF_KANIKO_VOLUME_SKIP_MKDIR](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_volume_skip_mkdir)
+* [FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_buildkit_arg_env_precedence)
+* [FF_KANIKO_PRESERVE_HARDLINKS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_preserve_hardlinks)
+* [FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_deprecate_inter_stage_restore)
+* [FF_KANIKO_NO_PROPAGATE_ANNOTATIONS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_no_propagate_annotations)
+* [FF_KANIKO_PRESERVE_MOUNTED_PATHS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_preserve_mounted_paths)
+* [FF_KANIKO_OCI_WARMER](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_oci_warmer)
+* [FF_KANIKO_WARMER_CACHE_LOCK](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_warmer_cache_lock)
+
+> ⚠️ Some of these flags change how cache keys are computed. In particular `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS` shifts every base-image-derived key, and `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE` changes keys for builds with `ARG`/`ENV`. Existing cache entries are invalidated, so the first build after upgrading is a full rebuild that repopulates the cache.
+
+> ⚠️ `FF_KANIKO_OCI_WARMER` switches the warmer to an OCI layout, so an existing warmer cache can no longer be used and can be deleted.
+
+`FF_KANIKO_RUN_MOUNT_BIND` lets you mount a file from the build context into a `RUN` step instead of `COPY`-ing it in, so it never lands in a layer:
+```dockerfile
+RUN --mount=type=bind,source=requirements.txt,target=requirements.txt \
+  uv pip install -r requirements.txt
+```
+
+> ℹ️ Cross-stage bind mounts `from=<stage>` are not yet supported.
+
+`FF_KANIKO_VOLUME_SKIP_MKDIR` stops kaniko from creating the directory declared by `VOLUME`, matching docker. Creating it gave the directory a fresh `mtime` on every run, which broke cache hits in downstream stages, so until now a `VOLUME` was silently invalidating your cache. If a later step relies on the directory existing, create it yourself with `RUN`, or `WORKDIR` if your base image has no shell:
+```dockerfile
+VOLUME /data
+WORKDIR /data
+```
+
+`FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE` resolves an `ARG` and `ENV` of the same name by declaration order, matching BuildKit. An `ARG` declared after an `ENV` (including one inherited from a base image) now wins, where kaniko previously let the `ENV` win unconditionally:
+```dockerfile
+FROM alpine AS base
+ENV HELLO=upstream
+
+FROM base AS child
+ARG HELLO
+RUN echo $HELLO   # now prints the --build-arg value, not "upstream"
+```
+If you relied on the old behaviour, move the `ENV` after the `ARG` so it keeps overriding.
+
+`FF_KANIKO_PRESERVE_HARDLINKS` keeps hardlinks intact when you `COPY --from=<image>` a remote image instead of expanding each into an independent file, which can significantly shrink images that rely on hardlinks (e.g. `git` installs where many binaries share one inode). No migration needed, the output is smaller for the same input.
+
+> ℹ️ Hardlinks from other build stages are not yet preserved, only from remote images.
+
+`FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE` disables the inter-stage restore that `--preserve-context` performed between stages. Its original purpose, smuggling secrets across stages, is now served by `RUN --mount=type=secret`:
+```dockerfile
+RUN --mount=type=secret,id=netrc,target=/root/.netrc \
+  uv pip install -r requirements.txt
+```
+
+`FF_KANIKO_NO_PROPAGATE_ANNOTATIONS` stops copying the base image's OCI manifest annotations onto your built image, matching docker. Building `FROM ubuntu:24.04` previously inherited ubuntu's annotations, so your image falsely advertised itself as ubuntu:
+```json
+"org.opencontainers.image.url": "https://hub.docker.com/_/ubuntu",
+"org.opencontainers.image.source": "https://git.launchpad.net/cloud-images/+oci/ubuntu-base",
+"org.opencontainers.image.version": "24.04"
+```
+
+`FF_KANIKO_PRESERVE_MOUNTED_PATHS` lets you run kaniko on a pod that requests an NVIDIA GPU. The GPU operator bind-mounts driver artifacts read-only into the build container, and kaniko used to fail with `device or resource busy` when a base layer shipped a directory along one of those mount paths. It now leaves the mount in place.
+
+`FF_KANIKO_OCI_WARMER` stores the warmer cache as an OCI layout, so a build from warmer cache now produces the same image as building straight from the registry. The old tarball format forced every image to the docker mediatype. The flag is passed to both the warmer and the executor. `FF_KANIKO_WARMER_CACHE_LOCK` lets you run several warmers against one shared cache volume without them racing or re-downloading the same image.
+
+You can roll-back those changes by overriding them in the environment ie.
+```yaml
+job:
+  variables:
+    FF_KANIKO_RUN_MOUNT_BIND: "0"
+    FF_KANIKO_NO_PROPAGATE_ANNOTATIONS: "0"
+    FF_KANIKO_VOLUME_SKIP_MKDIR: "0"
+    FF_KANIKO_PRESERVE_HARDLINKS: "0"
+    FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE: "0"
+    FF_KANIKO_PRESERVE_MOUNTED_PATHS: "0"
+    FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE: "0"
+    FF_KANIKO_OCI_WARMER: "0"
+    FF_KANIKO_WARMER_CACHE_LOCK: "0"
+```
+Please also notify us by [filing a new issue](https://github.com/osscontainertools/kaniko/issues/new/choose).
+
+We further removed these feature-flags:
+* `FF_KANIKO_SQUASH_STAGES`
+* `FF_KANIKO_OCI_STAGES`
+* `FF_KANIKO_RUN_MOUNT_SECRET`
+
+Their behavior is now unconditional, they have no effect and can be removed.
+
+## Community Update
+Many thanks to @FrancisQuaisr, @bootc, and @E314c for reporting issues fixed in this release.
+
+## What's Changed
+### Security
+* 🔗 `FF_KANIKO_SECUREJOIN_EXTRACTION=true` symlink-based path traversal during tar extraction prevented with SecureJoin: by @8none1 in https://github.com/osscontainertools/kaniko/pull/828
+
+### Bugfixes
+* cache lookahead trips the cache-key assertion when a stage is `FROM` a base that sets `ENV`: https://github.com/osscontainertools/kaniko/pull/783
+* cache lookahead trips the cache-hit assertion when the cache changes between the precompute and build passes: https://github.com/osscontainertools/kaniko/pull/788
+* cache lookahead trips the cache-key assertion when a stage includes a cross-stage `COPY --from` that cannot be precomputed: https://github.com/osscontainertools/kaniko/pull/790
+* `VOLUME` with `--cache` trips the `without-fs` assertion: https://github.com/osscontainertools/kaniko/pull/795
+
+### Standardization
+* `FF_KANIKO_SKIP_WRITE_WHITEOUTS=false` cross-stage `COPY --from` on a cache hit copies whiteout markers as real files and silently deletes targets in later builds: https://github.com/osscontainertools/kaniko/pull/796
+* `FF_KANIKO_UNTAR_SKIP_ROOT=false` `ADD` with a tar archive overwrites the destination directory mode and ownership from the archive root entry: https://github.com/osscontainertools/kaniko/pull/842
+* `COPY` and `ADD` `--chmod` now accepts symbolic notation (e.g. `go=u`, `u=rwX,go=rX`) in addition to octal: https://github.com/osscontainertools/kaniko/pull/800
+
+### Caching
+* `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=false` cross-stage COPY cache key is now consumed during build, completing the inference chain: https://github.com/osscontainertools/kaniko/pull/767
+* `FF_KANIKO_RESOLVE_CACHE_KEY=false` `COPY`, `ADD`, and `WORKDIR` layer cache keys now reflect build args and env referenced in the instruction so a variable change invalidates the right entries: https://github.com/osscontainertools/kaniko/pull/792 https://github.com/osscontainertools/kaniko/pull/801 https://github.com/osscontainertools/kaniko/pull/837
+
+### Performance
+* `FF_KANIKO_SKIP_RELABEL_RECOMPRESS=false` skip re-gzip when relabeling a cached layer to a different media type: https://github.com/osscontainertools/kaniko/pull/778
+
+### Maintenance
+* build(deps): bump golang.org/x/sync from 0.20.0 to 0.21.0: https://github.com/osscontainertools/kaniko/pull/771
+* build(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager from 0.2.7 to 0.2.11: https://github.com/osscontainertools/kaniko/pull/769 https://github.com/osscontainertools/kaniko/pull/776 https://github.com/osscontainertools/kaniko/pull/786 https://github.com/osscontainertools/kaniko/pull/803
+* build(deps): bump codecov/codecov-action from 6.0.1 to 7.0.0: https://github.com/osscontainertools/kaniko/pull/768
+* build(deps): bump golang.org/x/sys from 0.45.0 to 0.46.0: https://github.com/osscontainertools/kaniko/pull/770
+* build(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.32.23 to 1.32.25: https://github.com/osscontainertools/kaniko/pull/776 https://github.com/osscontainertools/kaniko/pull/786
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.103.2 to 1.104.0: https://github.com/osscontainertools/kaniko/pull/776 https://github.com/osscontainertools/kaniko/pull/803
+* build(deps): bump github.com/docker/docker-credential-helpers from 0.9.7 to 0.9.8: https://github.com/osscontainertools/kaniko/pull/776
+* build(deps): bump github.com/aws/aws-sdk-go-v2 from 1.41.12 to 1.42.0: https://github.com/osscontainertools/kaniko/pull/776 https://github.com/osscontainertools/kaniko/pull/786 https://github.com/osscontainertools/kaniko/pull/803
+* build(deps): bump golang in /deploy: https://github.com/osscontainertools/kaniko/pull/779 https://github.com/osscontainertools/kaniko/pull/785 https://github.com/osscontainertools/kaniko/pull/797 https://github.com/osscontainertools/kaniko/pull/818
+* build(deps): bump alpine in /deploy from 3.23.4 to 3.24.1: https://github.com/osscontainertools/kaniko/pull/780 https://github.com/osscontainertools/kaniko/pull/799
+* build(deps): bump google.golang.org/api from 0.283.0 to 0.286.0: https://github.com/osscontainertools/kaniko/pull/781 https://github.com/osscontainertools/kaniko/pull/804 https://github.com/osscontainertools/kaniko/pull/815
+* build(deps): bump debian in /deploy: https://github.com/osscontainertools/kaniko/pull/784 https://github.com/osscontainertools/kaniko/pull/819
+* build(deps): bump github.com/Azure/azure-sdk-for-go/sdk/storage/azblob from 1.7.0 to 1.8.0: https://github.com/osscontainertools/kaniko/pull/794
+* build(deps): bump github.com/google/go-containerregistry from 0.21.6 to 0.21.7: https://github.com/osscontainertools/kaniko/pull/805
+* build(deps): bump github.com/moby/buildkit from 0.30.0 to 0.31.1: https://github.com/osscontainertools/kaniko/pull/807 https://github.com/osscontainertools/kaniko/pull/826
+* build(deps): bump actions/checkout from 6.0.3 to 7.0.0: https://github.com/osscontainertools/kaniko/pull/806
+* build(deps): bump github.com/docker/cli from 29.5.3 to 29.6.1: https://github.com/osscontainertools/kaniko/pull/810 https://github.com/osscontainertools/kaniko/pull/838
+* build(deps): bump github.com/moby/moby/api from 1.54.2 to 1.55.0: https://github.com/osscontainertools/kaniko/pull/809
+* build(deps): bump actions/setup-go from 6.4.0 to 6.5.0: https://github.com/osscontainertools/kaniko/pull/820
+* build(deps): bump cloud.google.com/go/storage from 1.62.3 to 1.63.0: https://github.com/osscontainertools/kaniko/pull/829
+* build(deps): bump github.com/cyphar/filepath-securejoin from 0.6.1 to 0.7.0: https://github.com/osscontainertools/kaniko/pull/830
+* bump docker to 29.5.2 and k3s to v1.36.2 in integration tests: https://github.com/osscontainertools/kaniko/pull/827
+* build(deps): bump imjasonh/setup-crane from 0.6 to 0.7: https://github.com/osscontainertools/kaniko/pull/845
+
+### Usability
+* graduate feature flags for v1.28.0 release: https://github.com/osscontainertools/kaniko/pull/802 https://github.com/osscontainertools/kaniko/pull/811
+
+
 # v1.27.6 Release 2026-06-05
 
 ## Community Update
