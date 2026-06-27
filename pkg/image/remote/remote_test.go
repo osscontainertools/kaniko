@@ -194,7 +194,7 @@ func Test_RetrieveRemoteImage_skipFallback(t *testing.T) {
 		SkipDefaultRegistryFallback: false,
 	}
 
-	remoteImageFunc = func(ref name.Reference, options ...remote.Option) (v1.Image, error) {
+	remoteImageFunc = func(ref name.Reference, _ ...remote.Option) (v1.Image, error) {
 		if ref.Context().Registry.Name() == registryMirror {
 			return nil, errors.New("no image found")
 		}
@@ -220,7 +220,7 @@ func Test_RetryRetrieveRemoteImageSucceeds(t *testing.T) {
 		ImageDownloadRetry: 2,
 	}
 	attempts := 0
-	remoteImageFunc = func(ref name.Reference, options ...remote.Option) (v1.Image, error) {
+	remoteImageFunc = func(_ name.Reference, _ ...remote.Option) (v1.Image, error) {
 		if attempts < 2 {
 			attempts++
 			return nil, errors.New("no image found")
@@ -241,7 +241,7 @@ func Test_NoRetryRetrieveRemoteImageFails(t *testing.T) {
 		ImageDownloadRetry: 0,
 	}
 	attempts := 0
-	remoteImageFunc = func(ref name.Reference, options ...remote.Option) (v1.Image, error) {
+	remoteImageFunc = func(_ name.Reference, _ ...remote.Option) (v1.Image, error) {
 		if attempts < 1 {
 			attempts++
 			return nil, errors.New("no image found")

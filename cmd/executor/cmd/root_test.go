@@ -120,7 +120,7 @@ func TestResolveEnvironmentBuildArgs(t *testing.T) {
 			description: "do not replace when environment variable is present and value is specified",
 			input:       []string{"variable1=value1", "variable2=value2"},
 			expected:    []string{"variable1=value1", "variable2=value2"},
-			mockedEnvironmentResolver: func(variable string) string {
+			mockedEnvironmentResolver: func(_ string) string {
 				return "unexpected"
 			},
 		},
@@ -128,7 +128,7 @@ func TestResolveEnvironmentBuildArgs(t *testing.T) {
 			description: "do not replace when environment variable is present and empty value is specified",
 			input:       []string{"variable1="},
 			expected:    []string{"variable1="},
-			mockedEnvironmentResolver: func(variable string) string {
+			mockedEnvironmentResolver: func(_ string) string {
 				return "unexpected"
 			},
 		},
@@ -136,7 +136,7 @@ func TestResolveEnvironmentBuildArgs(t *testing.T) {
 			description: "replace with empty value when environment variable is not present or empty and value is not specified",
 			input:       []string{"variable1", "variable2=value2"},
 			expected:    []string{"variable1=", "variable2=value2"},
-			mockedEnvironmentResolver: func(variable string) string {
+			mockedEnvironmentResolver: func(_ string) string {
 				return ""
 			},
 		},

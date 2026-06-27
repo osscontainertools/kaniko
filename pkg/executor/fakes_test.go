@@ -57,7 +57,7 @@ type MockDockerCommand struct {
 	argToCompositeCache bool
 }
 
-func (m MockDockerCommand) ExecuteCommand(c *v1.Config, args *dockerfile.BuildArgs) error { return nil }
+func (m MockDockerCommand) ExecuteCommand(_ *v1.Config, _ *dockerfile.BuildArgs) error { return nil }
 func (m MockDockerCommand) String() string {
 	return m.command
 }
@@ -70,11 +70,11 @@ func (m MockDockerCommand) ProvidesFilesToSnapshot() bool {
 	return true
 }
 
-func (m MockDockerCommand) CacheCommand(image v1.Image) commands.DockerCommand {
+func (m MockDockerCommand) CacheCommand(_ v1.Image) commands.DockerCommand {
 	return m.cacheCommand
 }
 
-func (m MockDockerCommand) FilesUsedFromContext(c *v1.Config, args *dockerfile.BuildArgs) ([]string, error) {
+func (m MockDockerCommand) FilesUsedFromContext(_ *v1.Config, _ *dockerfile.BuildArgs) ([]string, error) {
 	return m.contextFiles, nil
 }
 
@@ -103,7 +103,7 @@ type MockCachedDockerCommand struct {
 	argToCompositeCache bool
 }
 
-func (m MockCachedDockerCommand) ExecuteCommand(c *v1.Config, args *dockerfile.BuildArgs) error {
+func (m MockCachedDockerCommand) ExecuteCommand(_ *v1.Config, _ *dockerfile.BuildArgs) error {
 	return nil
 }
 
@@ -119,7 +119,7 @@ func (m MockCachedDockerCommand) ProvidesFilesToSnapshot() bool {
 	return true
 }
 
-func (m MockCachedDockerCommand) CacheCommand(image v1.Image) commands.DockerCommand {
+func (m MockCachedDockerCommand) CacheCommand(_ v1.Image) commands.DockerCommand {
 	return nil
 }
 
@@ -127,7 +127,7 @@ func (m MockCachedDockerCommand) ShouldDetectDeletedFiles() bool {
 	return false
 }
 
-func (m MockCachedDockerCommand) FilesUsedFromContext(c *v1.Config, args *dockerfile.BuildArgs) ([]string, error) {
+func (m MockCachedDockerCommand) FilesUsedFromContext(_ *v1.Config, _ *dockerfile.BuildArgs) ([]string, error) {
 	return m.contextFiles, nil
 }
 

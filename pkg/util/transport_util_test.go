@@ -41,7 +41,7 @@ func (m *mockedCertPool) append(path string) error {
 
 type mockedKeyPairLoader struct{}
 
-func (p *mockedKeyPairLoader) load(certFile, keyFile string) (tls.Certificate, error) {
+func (p *mockedKeyPairLoader) load(_, _ string) (tls.Certificate, error) {
 	foo := tls.Certificate{}
 	return foo, nil
 }
@@ -57,7 +57,7 @@ func Test_makeTransport(t *testing.T) {
 		{
 			name: "SkipTLSVerify set",
 			opts: config.RegistryOptions{SkipTLSVerify: true},
-			check: func(config *tls.Config, pool *mockedCertPool, err error) {
+			check: func(config *tls.Config, _ *mockedCertPool, _ error) {
 				if !config.InsecureSkipVerify {
 					t.Errorf("makeTransport().TLSClientConfig.InsecureSkipVerify not set while SkipTLSVerify set")
 				}
@@ -66,7 +66,7 @@ func Test_makeTransport(t *testing.T) {
 		{
 			name: "SkipTLSVerifyRegistries set with expected registry",
 			opts: config.RegistryOptions{SkipTLSVerifyRegistries: []string{registryName}},
-			check: func(config *tls.Config, pool *mockedCertPool, err error) {
+			check: func(config *tls.Config, _ *mockedCertPool, _ error) {
 				if !config.InsecureSkipVerify {
 					t.Errorf("makeTransport().TLSClientConfig.InsecureSkipVerify not set while SkipTLSVerifyRegistries set with registry name")
 				}
@@ -75,7 +75,7 @@ func Test_makeTransport(t *testing.T) {
 		{
 			name: "SkipTLSVerifyRegistries set with other registry",
 			opts: config.RegistryOptions{SkipTLSVerifyRegistries: []string{"other." + registryName}},
-			check: func(config *tls.Config, pool *mockedCertPool, err error) {
+			check: func(config *tls.Config, _ *mockedCertPool, _ error) {
 				if config.InsecureSkipVerify {
 					t.Errorf("makeTransport().TLSClientConfig.InsecureSkipVerify set while SkipTLSVerifyRegistries not set with registry name")
 				}
@@ -84,7 +84,7 @@ func Test_makeTransport(t *testing.T) {
 		{
 			name: "RegistriesCertificates set for registry",
 			opts: config.RegistryOptions{RegistriesCertificates: map[string]string{registryName: "/path/to/the/certificate.cert"}},
-			check: func(config *tls.Config, pool *mockedCertPool, err error) {
+			check: func(_ *tls.Config, pool *mockedCertPool, _ error) {
 				if len(pool.certificatesPath) != 1 || pool.certificatesPath[0] != "/path/to/the/certificate.cert" {
 					t.Errorf("makeTransport().RegistriesCertificates certificate not appended to system certificates")
 				}
@@ -93,7 +93,7 @@ func Test_makeTransport(t *testing.T) {
 		{
 			name: "RegistriesCertificates set for another registry",
 			opts: config.RegistryOptions{RegistriesCertificates: map[string]string{fmt.Sprintf("other.%s=", registryName): "/path/to/the/certificate.cert"}},
-			check: func(config *tls.Config, pool *mockedCertPool, err error) {
+			check: func(_ *tls.Config, pool *mockedCertPool, _ error) {
 				if len(pool.certificatesPath) != 0 {
 					t.Errorf("makeTransport().RegistriesCertificates certificate appended to system certificates while added for other registry")
 				}
@@ -102,7 +102,7 @@ func Test_makeTransport(t *testing.T) {
 		{
 			name: "RegistriesClientCertificates set for registry",
 			opts: config.RegistryOptions{RegistriesClientCertificates: map[string]string{registryName: "/path/to/client/certificate.cert,/path/to/client/key.key"}},
-			check: func(config *tls.Config, pool *mockedCertPool, err error) {
+			check: func(config *tls.Config, _ *mockedCertPool, _ error) {
 				if len(config.Certificates) != 1 {
 					t.Errorf("makeTransport().RegistriesClientCertificates not loaded for desired registry")
 				}
@@ -111,7 +111,7 @@ func Test_makeTransport(t *testing.T) {
 		{
 			name: "RegistriesClientCertificates set for another registry",
 			opts: config.RegistryOptions{RegistriesClientCertificates: map[string]string{"other." + registryName: "/path/to/client/certificate.cert,/path/to/key.key,/path/to/extra.crt"}},
-			check: func(config *tls.Config, pool *mockedCertPool, err error) {
+			check: func(config *tls.Config, _ *mockedCertPool, _ error) {
 				if len(config.Certificates) != 0 {
 					t.Errorf("makeTransport().RegistriesClientCertificates certificate loaded for other registry")
 				}
@@ -120,7 +120,7 @@ func Test_makeTransport(t *testing.T) {
 		{
 			name: "RegistriesClientCertificates incorrect cert format",
 			opts: config.RegistryOptions{RegistriesClientCertificates: map[string]string{registryName: "/path/to/client/certificate.cert"}},
-			check: func(config *tls.Config, pool *mockedCertPool, err error) {
+			check: func(config *tls.Config, _ *mockedCertPool, err error) {
 				if config != nil {
 					t.Errorf("makeTransport().RegistriesClientCertificates was incorrectly loaded without both client/key (config was not nil)")
 				}
@@ -135,7 +135,7 @@ func Test_makeTransport(t *testing.T) {
 		{
 			name: "RegistriesClientCertificates incorrect cert format extra",
 			opts: config.RegistryOptions{RegistriesClientCertificates: map[string]string{registryName: "/path/to/client/certificate.cert,/path/to/key.key,/path/to/extra.crt"}},
-			check: func(config *tls.Config, pool *mockedCertPool, err error) {
+			check: func(config *tls.Config, _ *mockedCertPool, err error) {
 				if config != nil {
 					t.Errorf("makeTransport().RegistriesClientCertificates was incorrectly loaded with extra paths in comma split (config was not nil)")
 				}
@@ -161,7 +161,7 @@ func Test_makeTransport(t *testing.T) {
 		}
 		systemCertLoader = certPool
 		systemKeyPairLoader = &mockedKeyPairLoader{}
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(tt.name, func(_ *testing.T) {
 			tr, err := MakeTransport(tt.opts, registryName)
 			var tlsConfig *tls.Config
 			if err == nil {

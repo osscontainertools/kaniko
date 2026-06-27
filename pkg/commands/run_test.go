@@ -113,7 +113,7 @@ func Test_addDefaultHOME(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			original := userLookup
-			userLookup = func(username string) (*user.User, error) { return test.mockUser, test.lookupError }
+			userLookup = func(_ string) (*user.User, error) { return test.mockUser, test.lookupError }
 			defer func() {
 				userLookup = original
 			}()

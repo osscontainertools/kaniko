@@ -222,7 +222,7 @@ type CachingCopyCommand struct {
 	extractFn      util.ExtractFunction
 }
 
-func (cr *CachingCopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
+func (cr *CachingCopyCommand) ExecuteCommand(_ *v1.Config, _ *dockerfile.BuildArgs) error {
 	logrus.Infof("Found cached layer, extracting to filesystem")
 	var err error
 

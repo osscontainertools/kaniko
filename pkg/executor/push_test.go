@@ -318,7 +318,7 @@ func resetCalledCount() {
 	checkPushPermsCallCount = 0
 }
 
-func fakeCheckPushPermission(ref name.Reference, kc authn.Keychain, t http.RoundTripper) error {
+func fakeCheckPushPermission(_ name.Reference, _ authn.Keychain, _ http.RoundTripper) error {
 	checkPushPermsCallCount++
 	return nil
 }
@@ -449,7 +449,7 @@ func TestSkipPushPermission(t *testing.T) {
 	}
 }
 
-func TestHelperProcess(t *testing.T) {
+func TestHelperProcess(_ *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}
