@@ -38,6 +38,10 @@ fi
 
 echo "Running go tests..."
 export KANIKO_DIR="/kaniko"
+# Keep cache keys stable across the v1.28.0 graduation: FF_KANIKO_NO_PROPAGATE_ANNOTATIONS
+# defaults on now and would shift every base-image-derived key in the plans. Golden checks
+# the cache-key mechanism, not annotation propagation, so pin it off for the whole suite.
+export FF_KANIKO_NO_PROPAGATE_ANNOTATIONS=0
 go test ${FLAGS[@]} ./golden/golden_test.go ${EXTRA_FLAGS[@]} \
   | sed ''/PASS/s//$(printf "${GREEN}PASS${RESET}")/'' \
   | sed ''/FAIL/s//$(printf "${RED}FAIL${RESET}")/''

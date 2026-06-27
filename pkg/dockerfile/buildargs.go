@@ -93,7 +93,7 @@ func (b *BuildArgs) ReplacementEnvs(envs []string) []string {
 	nenvs := len(merged)
 	args := b.GetAllAllowed()
 	for key, val := range args {
-		if config.EnvBool("FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE") {
+		if config.EnvBoolDefault("FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE", true) {
 			// 3344: args always override envs
 			merged[key] = &val
 		} else if _, exists := merged[key]; !exists {

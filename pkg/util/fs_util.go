@@ -302,7 +302,7 @@ func childDirInIgnoreList(path string) bool {
 }
 
 func removeAllSkipIgnored(path string) (skip bool, err error) {
-	if !config.EnvBool("FF_KANIKO_PRESERVE_MOUNTED_PATHS") || !childDirInIgnoreList(path) {
+	if !config.EnvBoolDefault("FF_KANIKO_PRESERVE_MOUNTED_PATHS", true) || !childDirInIgnoreList(path) {
 		return false, os.RemoveAll(path)
 	}
 	logrus.Debugf("Not removing %s, as it contains an ignored path", path)
@@ -775,7 +775,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 	var copiedFiles []string
 	var updates []timestampUpdate
 	hardlinksSeen := make(map[uint64]string)
-	preserveHardlinks := config.EnvBool("FF_KANIKO_PRESERVE_HARDLINKS")
+	preserveHardlinks := config.EnvBoolDefault("FF_KANIKO_PRESERVE_HARDLINKS", true)
 	for _, file := range files {
 		fullPath := filepath.Join(src, file)
 		if context.ExcludesFile(fullPath) {

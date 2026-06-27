@@ -196,7 +196,7 @@ func LocalSource(opts *config.CacheOptions, cacheKey string) (v1.Image, error) {
 	}
 
 	logrus.Infof("Found %s in local cache", cacheKey)
-	if config.EnvBool("FF_KANIKO_OCI_WARMER") {
+	if config.EnvBoolDefault("FF_KANIKO_OCI_WARMER", true) {
 		return ociCachedImageFromPath(path)
 	} else {
 		return cachedImageFromPath(path)

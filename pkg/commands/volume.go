@@ -51,7 +51,7 @@ func (v *VolumeCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.
 		existingVolumes[volume] = x
 		util.AddVolumePathToIgnoreList(volume)
 
-		if !kconfig.EnvBool("FF_KANIKO_VOLUME_SKIP_MKDIR") {
+		if !kconfig.EnvBoolDefault("FF_KANIKO_VOLUME_SKIP_MKDIR", true) {
 			// Only create and snapshot the dir if it didn't exist already
 			if _, err := os.Stat(volume); os.IsNotExist(err) {
 				logrus.Infof("Creating directory %s", volume)

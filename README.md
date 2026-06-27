@@ -125,9 +125,7 @@ expect - see [Known Issues](#known-issues).
     - [Feature Flags](#feature-flags)
       - [Flag `FF_KANIKO_COPY_AS_ROOT`](#flag-ff_kaniko_copy_as_root)
       - [Flag `FF_KANIKO_IGNORE_CACHED_MANIFEST`](#flag-ff_kaniko_ignore_cached_manifest)
-      - [Flag `FF_KANIKO_RUN_MOUNT_SECRET`](#flag-ff_kaniko_run_mount_secret)
       - [Flag `FF_KANIKO_RUN_MOUNT_BIND`](#flag-ff_kaniko_run_mount_bind)
-      - [Flag `FF_KANIKO_OCI_STAGES`](#flag-ff_kaniko_oci_stages)
       - [Flag `FF_KANIKO_DISABLE_HTTP2`](#flag-ff_kaniko_disable_http2)
       - [Flag `FF_KANIKO_OCI_WARMER`](#flag-ff_kaniko_oci_warmer)
       - [Flag `FF_KANIKO_RUN_VIA_TINI`](#flag-ff_kaniko_run_via_tini)
@@ -1134,16 +1132,6 @@ This is done to speedup manifest retrieval, but has adverse effects in some scen
 Set this flag to `true` to ignore stored manifest.json in the cache directory. Defaults to `false`.
 Currently no plans to activate.
 
-#### Flag `FF_KANIKO_RUN_MOUNT_SECRET`
-
-Set this flag to `true` to implement secret mounts in `RUN` statements, ie.
-```dockerfile
-RUN --mount=type=secret,id=netrc,target=/root/.netrc \
-  uv pip install -r requirements.txt
-```
-Defaults to `true`.
-Will be deprecated in `v1.28.0`.
-
 #### Flag `FF_KANIKO_RUN_MOUNT_BIND`
 
 Set this flag to `true` to enable bind mounts in `RUN` statements, ie.
@@ -1152,15 +1140,8 @@ RUN --mount=type=bind,source=requirements.txt,target=/tmp/requirements.txt \
   uv pip install -r /tmp/requirements.txt
 ```
 cross-stage bind mounts `from=<stage>` are not yet supported.
-Defaults to `false`.
-Becomes default in `v1.28.0`.
-
-#### Flag `FF_KANIKO_OCI_STAGES`
-
-To switch between stages Kaniko has to store in a local directory temporarily. So far this is done using tarballs from go-containerregistry. However, this approach creates two problems. The tarball writer only supports dockerv2 mediatype, so when building a multi-stage image we forcefully rewrite all images to that mediatype. Secondly, the performance of that approach is suboptimal, as the manifest is not stored and has to be recalculated (ie. digest hash) upon reload. With this change we use ocilayout instead. Ocilayout folders support arbitrary mediatypes and store the manifest alongside the image data.
-Set this flag to `true` to store inter-stage dependencies as ocilayout.
 Defaults to `true`.
-Will be deprecated in `v1.28.0`.
+Will be deprecated in `v1.29.0`.
 
 #### Flag `FF_KANIKO_DISABLE_HTTP2`
 
@@ -1171,9 +1152,9 @@ Currently no plans to activate.
 #### Flag `FF_KANIKO_OCI_WARMER`
 
 Warmer stores images in a tarball via go-containerregistry. However, this approach creates two problems. The tarball writer only supports dockerv2 mediatype, so building from warmer cache might result in a different output image than building from remote, as we forcefully rewrite all images to that mediatype. Secondly, the performance/usability of that approach is suboptimal, as we either store the manifest in a separate file, causing consistency issues or recalculate upon load (see [`FF_KANIKO_IGNORE_CACHED_MANIFEST`](#flag-ff_kaniko_ignore_cached_manifest)). With this change we use ocilayout instead. Ocilayout folders support arbitrary mediatypes and store the manifest alongside the image data.
-Set this flag to `true` to store warmer cache images as ocilayout. Note that this flag has to be passed to both warmer and executor. Note that currently there is no mutex lock mechanism yet, so it does not support multiple parallel writes.
-Defaults to `false`.
-Becomes default in `v1.28.0`, if we manage to resolve the mutex lock issue by then.
+Set this flag to `true` to store warmer cache images as ocilayout. Note that this flag has to be passed to both warmer and executor.
+Defaults to `true`.
+Will be deprecated in `v1.29.0`.
 
 #### Flag `FF_KANIKO_RUN_VIA_TINI`
 
@@ -1181,7 +1162,7 @@ Kaniko usually runs as PID1 in the container, but kaniko currently does not impl
 Set this flag to `true` to run any `RUN` commands via `tini` init system as subreaper, to properly handle zombie processes.
 Note that for this feature to work the tini binary must be available as `/kaniko/tini`.
 Defaults to `false`.
-Becomes default in `v1.28.0`.
+Becomes default in `v1.29.0`, once the `tini` binary ships for RISC-V.
 
 #### Flag `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS`
 
@@ -1197,8 +1178,8 @@ Defaults to `true`.
 #### Flag `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS`
 
 When building from a base image that carries OCI manifest annotations (e.g. `org.opencontainers.image.url`, `org.opencontainers.image.version`), kaniko by default propagates those annotations into the output image manifest. This differs from Docker/BuildKit behaviour, which does not carry base image annotations forward into derived images.
-Set this flag to `true` to strip base image manifest annotations from the output, matching Docker behaviour. Defaults to `false`.
-Becomes default in `v1.28.0`.
+Set this flag to `true` to strip base image manifest annotations from the output, matching Docker behaviour. Defaults to `true`.
+Will be deprecated in `v1.29.0`.
 
 #### Flag `FF_KANIKO_OCI_SCRATCH_BASE`
 
@@ -1210,14 +1191,14 @@ Currently no plans to activate.
 
 Kaniko creates the directory declared by `VOLUME` on the filesystem; Docker/BuildKit does not.
 This causes a cache bug in multistage builds, the directory gets a fresh `mtime` on every run, which breaks cache hits in downstream stages.
-Set this flag to `true` to skip the implicit directory creation, matching Docker/BuildKit behaviour. Defaults to `false`.
-Becomes default in `v1.28.0`.
+Set this flag to `true` to skip the implicit directory creation, matching Docker/BuildKit behaviour. Defaults to `true`.
+Will be deprecated in `v1.29.0`.
 
 #### Flag `FF_KANIKO_PRESERVE_HARDLINKS`
 
 When copying a directory via `COPY --from=<stage>`, kaniko copies each file independently, breaking hardlink relationships. Files that shared a single inode in the source stage become independent copies in the output image, which can significantly inflate image size for images that rely heavily on hardlinks (e.g. `git` installations where many binaries are hardlinked together).
-Set this flag to `true` to preserve hardlinks during `COPY --from`. Defaults to `false`.
-Becomes default in `v1.28.0`.
+Set this flag to `true` to preserve hardlinks during `COPY --from`. Defaults to `true`.
+Will be deprecated in `v1.29.0`.
 
 #### Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`
 
@@ -1240,15 +1221,15 @@ ARG HELLO
 RUN echo $HELLO   # prints the --build-arg value, not "upstream"
 ```
 
-Set this flag to `true` to enable BuildKit-compatible ARG/ENV precedence. Defaults to `false`.
-Becomes default in `v1.28.0`.
+Set this flag to `true` to enable BuildKit-compatible ARG/ENV precedence. Defaults to `true`.
+Will be deprecated in `v1.29.0`.
 
 #### Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`
 
 When a multi-stage build uses `COPY --from=<stage>`, kaniko normally hashes the copied files from the source stage's filesystem to compute the downstream cache key. The source stage's `finalCacheKey` is a deterministic function of its build inputs and can be used as a stable proxy for those file contents, so the downstream cache key can be inferred without accessing the filesystem at all. This is a preparatory optimisation for a future change that will avoid unpacking the source stage's filesystem entirely when all downstream stages are also fully cached.
 Set this flag to `true` to add additional cache entries for the shortcuts, currently they do not yet allow optimization.
 Requires `--cache-copy-layers`. Defaults to `false`.
-Becomes default in `v1.28.0`.
+Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_CACHE_LOOKAHEAD`
 
@@ -1268,27 +1249,27 @@ Defaults to `false`.
 
 Multiple warmer processes sharing a cache volume can race when warming the same image; with [`FF_KANIKO_OCI_WARMER`](#flag-ff_kaniko_oci_warmer) one of them may exit with an error.
 Set this flag to `true` to coordinate concurrent warmers and avoid redundant downloads. Corrupt or wrong-format cache entries are detected and replaced, making [`FF_KANIKO_OCI_WARMER`](#flag-ff_kaniko_oci_warmer) toggles transparent.
-Defaults to `false`.
-Becomes default in `v1.28.0`.
+Defaults to `true`.
+Will be deprecated in `v1.29.0`.
 
 #### Flag `FF_KANIKO_PRESERVE_MOUNTED_PATHS`
 
 When a container runtime bind-mounts files read-only into the build container — as the NVIDIA GPU operator does with driver artifacts (`nvidia-smi`, `libnvidia*`, firmware blobs) on GPU nodes — and a base image layer ships a directory along that mount path as a symlink, kaniko `os.RemoveAll`s the directory while unpacking to make way for the symlink. The recursive remove hits the read-only bind mount and the build fails with `unlinkat ...: device or resource busy`.
-Set this flag to `true` to skip removing a directory that contains a mounted (ignored) path: its other contents are still cleared, but the mount is preserved and the conflicting layer entry is left in place, matching how `DeleteFilesystem` already treats mounts. Defaults to `false`.
-Becomes default in `v1.28.0`.
+Set this flag to `true` to skip removing a directory that contains a mounted (ignored) path: its other contents are still cleared, but the mount is preserved and the conflicting layer entry is left in place, matching how `DeleteFilesystem` already treats mounts. Defaults to `true`.
+Will be deprecated in `v1.29.0`.
 
 #### Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`
 
 `--reproducible` re-tars every layer to zero its timestamps, including layers inherited from the `FROM` image. Base-layer blobs get fresh digests on every build and stop matching the upstream registry, defeating layer reuse even though kaniko changed nothing in them.
 Set this flag to `true` to re-time only kaniko-appended layers and pass base layers through unchanged.
 Defaults to `false`.
-Becomes default in `v1.28.0`.
+Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE`
 
 Deprecates the inter-stage restore performed by [`--preserve-context`](#flag---preserve-context) when used without [`--pre-cleanup`](#flag---pre-cleanup). Set to `1` to fully disable the restore between stages. The original motivation, smuggling secrets across stages, is now served by `RUN --mount=type=secret`.
-Defaults to `false`.
-Becomes default in `v1.28.0`.
+Defaults to `true`.
+Will be deprecated in `v1.29.0`.
 
 #### Flag `FF_KANIKO_SCOPED_DOCKERIGNORE`
 
