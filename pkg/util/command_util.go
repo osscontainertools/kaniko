@@ -97,6 +97,16 @@ func ResolveEnvironmentReplacement(value string, envs []string, isFilepath bool)
 	return fp, nil
 }
 
+// ResolveEnvironmentReplacementRaw resolves env variables in raw content such as a
+// heredoc body. Unlike ResolveEnvironmentReplacement it leaves quotes intact
+// (SkipProcessQuotes), matching how docker expands COPY/ADD heredoc contents.
+func ResolveEnvironmentReplacementRaw(value string, envs []string) (string, error) {
+	shlex := shell.NewLex(parser.DefaultEscapeToken)
+	shlex.SkipProcessQuotes = true
+	fp, _, err := shlex.ProcessWord(value, shell.EnvsFromSlice(envs))
+	return fp, err
+}
+
 func ResolveEnvAndWildcards(sd instructions.SourcesAndDest, fileContext FileContext, envs []string) ([]string, string, error) {
 	// First, resolve any environment replacement
 	resolvedEnvs, err := ResolveEnvironmentReplacementList(sd.SourcePaths, envs, true)
