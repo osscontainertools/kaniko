@@ -32,6 +32,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
+	testbake "github.com/osscontainertools/kaniko/golden/testdata/test_bake"
 	testissuemz195 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz195"
 	testissuemz333 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz333"
 	testissuemz334 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz334"
@@ -107,6 +108,42 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
+func renderPlan(t *testing.T, opts *config.KanikoOptions, cachedKeys []string) string {
+	t.Helper()
+	origNewLayerCache := executor.NewLayerCache
+	executor.NewLayerCache = func(_ *config.KanikoOptions) cache.LayerCache {
+		return &fakeLayerCache{cachedKeys: cachedKeys}
+	}
+	t.Cleanup(func() { executor.NewLayerCache = origNewLayerCache })
+
+	var buf bytes.Buffer
+	executor.Out = &buf
+	if _, err := executor.DoBuild(opts); err != nil {
+		t.Error(err)
+	}
+	return buf.String()
+}
+
+// comparePlan diffs output against the golden plan at planPath, or rewrites it
+// when -update is set.
+func comparePlan(t *testing.T, planPath, output string) {
+	t.Helper()
+	if update {
+		if err := os.WriteFile(planPath, []byte(output), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	expectedPlan, err := os.ReadFile(planPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := strings.Trim(string(expectedPlan), "\n")
+	if diff := cmp.Diff(expected, strings.Trim(output, "\n")); diff != "" {
+		t.Errorf("plan mismatch (-expected +got):\n%s", diff)
+	}
+}
+
 func TestRun(t *testing.T) {
 	logrus.SetLevel(logrus.WarnLevel)
 
@@ -123,11 +160,6 @@ func TestRun(t *testing.T) {
 							}
 
 							opts := config.KanikoOptions{}
-							origNewLayerCache := executor.NewLayerCache
-							executor.NewLayerCache = func(_ *config.KanikoOptions) cache.LayerCache {
-								return &fakeLayerCache{cachedKeys: test.CachedKeys}
-							}
-							t.Cleanup(func() { executor.NewLayerCache = origNewLayerCache })
 							exec := &cobra.Command{
 								Use: "kaniko",
 							}
@@ -143,31 +175,56 @@ func TestRun(t *testing.T) {
 							}
 							cmd.ValidateFlags(&opts)
 
-							var buf bytes.Buffer
-							executor.Out = &buf
-							_, err = executor.DoBuild(&opts)
-							if err != nil {
-								t.Error(err)
+							output := renderPlan(t, &opts, test.CachedKeys)
+							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), output)
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
+var bakeTests = map[string][]types.GoldenTests{
+	"test_bake": {testbake.Tests},
+}
+
+func TestBake(t *testing.T) {
+	logrus.SetLevel(logrus.WarnLevel)
+
+	for testName, testSuites := range bakeTests {
+		t.Run(testName, func(t *testing.T) {
+			testDir := filepath.Join("testdata", testName)
+			for _, testSuite := range testSuites {
+				t.Run(testSuite.Name, func(t *testing.T) {
+					for _, test := range testSuite.Tests {
+						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
+							for k, v := range test.Env {
+								t.Setenv(k, v)
 							}
 
-							planPath := filepath.Join(testDir, "plans", test.Plan)
-							if update {
-								err = os.WriteFile(planPath, buf.Bytes(), 0o644)
-								if err != nil {
-									t.Fatal(err)
-								}
-							} else {
-								output := strings.Trim(buf.String(), "\n")
-								expectedPlan, err := os.ReadFile(planPath)
-								if err != nil {
-									t.Fatal(err)
-								}
-								expected := strings.Trim(string(expectedPlan), "\n")
-
-								if diff := cmp.Diff(expected, output); diff != "" {
-									t.Errorf("plan mismatch (-expected +got):\n%s", diff)
-								}
+							opts := config.KanikoOptions{}
+							var set []string
+							exec := &cobra.Command{Use: "bake"}
+							cmd.AddBakeFlags(exec, &opts, &set)
+							args := []string{
+								filepath.Join(testDir, "bake.json"),
+								"--dryrun",
+								"--dockerfile=" + filepath.Join(testDir, testSuite.Dockerfile),
 							}
+							args = append(args, test.Args...)
+							if err := exec.ParseFlags(args); err != nil {
+								t.Fatal(err)
+							}
+							cmd.ValidateFlags(&opts)
+
+							rest := exec.Flags().Args()
+							if err := cmd.ConfigureFromBakefile(&opts, rest[0], rest[1:], set); err != nil {
+								t.Fatal(err)
+							}
+
+							output := renderPlan(t, &opts, test.CachedKeys)
+							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), output)
 						})
 					}
 				})

@@ -1,0 +1,11 @@
+FROM busybox AS stage1
+RUN echo "stage1 done" > /stage1.txt
+
+FROM busybox AS final
+COPY --from=stage1 /stage1.txt /stage1.txt
+RUN if ls -l /proc/1/exe | grep -q '/kaniko/executor'; then \
+        [ ! -d /kaniko ]; \
+        [ -f /kaniko2/executor ]; \
+    else \
+        echo "PID1 is not Kaniko, skipping check"; \
+    fi

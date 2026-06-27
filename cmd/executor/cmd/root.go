@@ -114,50 +114,70 @@ func ValidateFlags(opts *config.KanikoOptions) {
 	}
 }
 
+func setupBuild() error {
+	ValidateFlags(opts)
+
+	// mz661: resolveSecrets must run before moveKanikoDir so that secret src=
+	// paths pointing into the original kaniko dir are still valid when copied.
+	if err := resolveSecrets(); err != nil {
+		return fmt.Errorf("error resolving secrets: %w", err)
+	}
+
+	// Command line flag takes precedence over the KANIKO_DIR environment variable.
+	dir := config.KanikoDir
+	if opts.KanikoDir != "" {
+		dir = opts.KanikoDir
+	}
+
+	if dir != config.KanikoExeDir {
+		err := moveKanikoDir(config.KanikoExeDir, dir)
+		if err != nil {
+			return err
+		}
+	}
+
+	resolveEnvironmentBuildArgs(opts.BuildArgs, os.Getenv)
+
+	if err := cacheFlagsValid(); err != nil {
+		return fmt.Errorf("cache flags invalid: %w", err)
+	}
+	if err := resolveSourceContext(); err != nil {
+		return fmt.Errorf("error resolving source context: %w", err)
+	}
+	if err := resolveDockerfilePath(); err != nil {
+		return fmt.Errorf("error resolving dockerfile path: %w", err)
+	}
+	// Update ignored paths
+	if opts.IgnoreVarRun {
+		// /var/run is a special case. It's common to mount in /var/run/docker.sock
+		// or something similar which leads to a special mount on the /var/run/docker.sock
+		// file itself, but the directory to exist in the image with no way to tell if it came
+		// from the base image or not.
+		logrus.Trace("Adding /var/run to default ignore list")
+		util.AddToDefaultIgnoreList(util.IgnoreListEntry{
+			Path:            "/var/run",
+			PrefixMatchOnly: false,
+		})
+	}
+	for _, p := range opts.IgnorePaths {
+		util.AddToDefaultIgnoreList(util.IgnoreListEntry{
+			Path:            p,
+			PrefixMatchOnly: false,
+		})
+	}
+	return nil
+}
+
 // RootCmd is the kaniko command that is run
 var RootCmd = &cobra.Command{
 	Use: "executor",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if cmd.Use == "executor" {
-
 			if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {
 				return err
 			}
-
-			ValidateFlags(opts)
-
-			// mz661: resolveSecrets must run before moveKanikoDir so that secret src=
-			// paths pointing into the original kaniko dir are still valid when copied.
-			if err := resolveSecrets(); err != nil {
-				return fmt.Errorf("error resolving secrets: %w", err)
-			}
-
-			// Command line flag takes precedence over the KANIKO_DIR environment variable.
-			dir := config.KanikoDir
-			if opts.KanikoDir != "" {
-				dir = opts.KanikoDir
-			}
-
-			if dir != config.KanikoExeDir {
-				err := moveKanikoDir(config.KanikoExeDir, dir)
-				if err != nil {
-					return err
-				}
-			}
-
-			resolveEnvironmentBuildArgs(opts.BuildArgs, os.Getenv)
-
 			if !opts.NoPush && len(opts.Destinations) == 0 {
 				return errors.New("you must provide --destination, or use --no-push")
-			}
-			if err := cacheFlagsValid(); err != nil {
-				return fmt.Errorf("cache flags invalid: %w", err)
-			}
-			if err := resolveSourceContext(); err != nil {
-				return fmt.Errorf("error resolving source context: %w", err)
-			}
-			if err := resolveDockerfilePath(); err != nil {
-				return fmt.Errorf("error resolving dockerfile path: %w", err)
 			}
 			if len(opts.Destinations) == 0 && opts.ImageNameDigestFile != "" {
 				return errors.New("you must provide --destination if setting ImageNameDigestFile")
@@ -165,107 +185,108 @@ var RootCmd = &cobra.Command{
 			if len(opts.Destinations) == 0 && opts.ImageNameTagDigestFile != "" {
 				return errors.New("you must provide --destination if setting ImageNameTagDigestFile")
 			}
-			// Update ignored paths
-			if opts.IgnoreVarRun {
-				// /var/run is a special case. It's common to mount in /var/run/docker.sock
-				// or something similar which leads to a special mount on the /var/run/docker.sock
-				// file itself, but the directory to exist in the image with no way to tell if it came
-				// from the base image or not.
-				logrus.Trace("Adding /var/run to default ignore list")
-				util.AddToDefaultIgnoreList(util.IgnoreListEntry{
-					Path:            "/var/run",
-					PrefixMatchOnly: false,
-				})
-			}
-			for _, p := range opts.IgnorePaths {
-				util.AddToDefaultIgnoreList(util.IgnoreListEntry{
-					Path:            p,
-					PrefixMatchOnly: false,
-				})
-			}
 		}
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		if !checkContained() {
-			if !force {
-				exit(errors.New("kaniko should only be run inside of a container, run with the --force flag if you are sure you want to continue"))
-			}
-			logrus.Warn("Kaniko is being run outside of a container. This can have dangerous effects on your system")
-		}
-		if !opts.NoPush || opts.CacheRepo != "" {
-			if err := executor.CheckPushPermissions(opts); err != nil {
-				logrus.Warnf("make sure you entered the correct tag name, that you are authenticated correctly, and try again.")
-				// mz280: remind users that DOCKER_AUTH_CONFIG gets prioritized by docker-cli
-				// https://github.com/docker/cli/pull/6171
-				_, ok := os.LookupEnv("DOCKER_AUTH_CONFIG")
-				if ok {
-					logrus.Warnf("note that your DOCKER_AUTH_CONFIG env variable can shadow credentials from configfile")
-					logrus.Warnf("see https://github.com/osscontainertools/kaniko/issues/280#issuecomment-3498449955")
-				}
-				exit(fmt.Errorf("error checking push permissions: %w", err))
-			}
-		}
-		if err := resolveRelativePaths(); err != nil {
-			exit(fmt.Errorf("error resolving relative paths to absolute paths: %w", err))
-		}
-		if err := os.Chdir("/"); err != nil {
-			exit(fmt.Errorf("error changing to root dir: %w", err))
-		}
-		if opts.Cleanup && config.EnvBoolDefault("FF_KANIKO_CLEAN_KANIKO_DIR", true) {
-			defer func() {
-				if err := config.Cleanup(); err != nil {
-					logrus.Warnf("error cleaning kaniko dir: %v", err)
-				}
-			}()
-		}
-		image, err := executor.DoBuild(opts)
-		if err != nil {
-			exit(fmt.Errorf("error building image: %w", err))
-		}
-		if err := executor.DoPush(image, opts); err != nil {
-			exit(fmt.Errorf("error pushing image: %w", err))
-		}
-
-		benchmarkFile := os.Getenv("BENCHMARK_FILE")
-		// false is a keyword for integration tests to turn off benchmarking
-		if benchmarkFile != "" && benchmarkFile != "false" {
-			s, err := timing.JSON()
-			if err != nil {
-				logrus.Warnf("Unable to write benchmark file: %s", err)
-				return
-			}
-			if strings.HasPrefix(benchmarkFile, "gs://") {
-				logrus.Info("Uploading to gcs")
-				if err := buildcontext.UploadToBucket(strings.NewReader(s), benchmarkFile); err != nil {
-					logrus.Infof("Unable to upload %s due to %v", benchmarkFile, err)
-				}
-				logrus.Infof("Benchmark file written at %s", benchmarkFile)
-			} else {
-				f, err := os.Create(benchmarkFile)
-				if err != nil {
-					logrus.Warnf("Unable to create benchmarking file %s: %s", benchmarkFile, err)
-					return
-				}
-				defer f.Close()
-				_, err = f.WriteString(s)
-				if err != nil {
-					logrus.Warnf("Unable to write to benchmarking file %s: %s", benchmarkFile, err)
-					return
-				}
-				logrus.Infof("Benchmark file written at %s", benchmarkFile)
-			}
+		if err := runBuild(opts); err != nil {
+			exit(err)
 		}
 	},
 }
 
+func runBuild(opts *config.KanikoOptions) error {
+	if err := setupBuild(); err != nil {
+		return err
+	}
+	if !checkContained() {
+		if !force {
+			return errors.New("kaniko should only be run inside of a container, run with the --force flag if you are sure you want to continue")
+		}
+		logrus.Warn("Kaniko is being run outside of a container. This can have dangerous effects on your system")
+	}
+	if !opts.NoPush || opts.CacheRepo != "" {
+		if err := executor.CheckPushPermissions(opts); err != nil {
+			logrus.Warnf("make sure you entered the correct tag name, that you are authenticated correctly, and try again.")
+			// mz280: remind users that DOCKER_AUTH_CONFIG gets prioritized by docker-cli
+			// https://github.com/docker/cli/pull/6171
+			_, ok := os.LookupEnv("DOCKER_AUTH_CONFIG")
+			if ok {
+				logrus.Warnf("note that your DOCKER_AUTH_CONFIG env variable can shadow credentials from configfile")
+				logrus.Warnf("see https://github.com/osscontainertools/kaniko/issues/280#issuecomment-3498449955")
+			}
+			return fmt.Errorf("error checking push permissions: %w", err)
+		}
+	}
+	if err := resolveRelativePaths(); err != nil {
+		return fmt.Errorf("error resolving relative paths to absolute paths: %w", err)
+	}
+	if err := os.Chdir("/"); err != nil {
+		return fmt.Errorf("error changing to root dir: %w", err)
+	}
+	if opts.Cleanup && config.EnvBoolDefault("FF_KANIKO_CLEAN_KANIKO_DIR", true) {
+		defer func() {
+			if err := config.Cleanup(); err != nil {
+				logrus.Warnf("error cleaning kaniko dir: %v", err)
+			}
+		}()
+	}
+	image, err := executor.DoBuild(opts)
+	if err != nil {
+		return fmt.Errorf("error building image: %w", err)
+	}
+	if err := executor.DoPush(image, opts); err != nil {
+		return fmt.Errorf("error pushing image: %w", err)
+	}
+	writeBenchmark()
+	return nil
+}
+
+func writeBenchmark() {
+	benchmarkFile := os.Getenv("BENCHMARK_FILE")
+	// false is a keyword for integration tests to turn off benchmarking
+	if benchmarkFile == "" || benchmarkFile == "false" {
+		return
+	}
+	s, err := timing.JSON()
+	if err != nil {
+		logrus.Warnf("Unable to write benchmark file: %s", err)
+		return
+	}
+	if strings.HasPrefix(benchmarkFile, "gs://") {
+		logrus.Info("Uploading to gcs")
+		if err := buildcontext.UploadToBucket(strings.NewReader(s), benchmarkFile); err != nil {
+			logrus.Infof("Unable to upload %s due to %v", benchmarkFile, err)
+		}
+		logrus.Infof("Benchmark file written at %s", benchmarkFile)
+		return
+	}
+	f, err := os.Create(benchmarkFile)
+	if err != nil {
+		logrus.Warnf("Unable to create benchmarking file %s: %s", benchmarkFile, err)
+		return
+	}
+	defer f.Close()
+	_, err = f.WriteString(s)
+	if err != nil {
+		logrus.Warnf("Unable to write to benchmarking file %s: %s", benchmarkFile, err)
+		return
+	}
+	logrus.Infof("Benchmark file written at %s", benchmarkFile)
+}
+
 // addKanikoOptionsFlags configures opts
 func AddKanikoOptionsFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
+	AddSharedBuildFlags(cmd, opts)
+	cmd.Flags().VarP(&opts.Destinations, "destination", "d", "Registry the final image should be pushed to. Set it repeatedly for multiple destinations.")
+	cmd.Flags().StringSliceVarP(&opts.Target, "target", "", []string{}, "Set the target stages to build, the first in the list denotes the stage to be pushed")
+}
+
+func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().StringVarP(&opts.DockerfilePath, "dockerfile", "f", "Dockerfile", "Path to the dockerfile to be built.")
 	cmd.Flags().StringVarP(&opts.SrcContext, "context", "c", "/workspace/", "Path to the dockerfile build context.")
 	cmd.Flags().StringVarP(&ctxSubPath, "context-sub-path", "", "", "Sub path within the given context.")
 	cmd.Flags().StringVarP(&opts.Bucket, "bucket", "b", "", "Name of the GCS bucket from which to access build context as tarball.")
-	cmd.Flags().VarP(&opts.Destinations, "destination", "d", "Registry the final image should be pushed to. Set it repeatedly for multiple destinations.")
 	cmd.Flags().StringVarP(&opts.SnapshotMode, "snapshot-mode", "", "full", "Change the file attributes inspected during snapshotting")
 	cmd.Flags().StringVarP(&opts.CustomPlatform, "custom-platform", "", "", "Specify the build platform if different from the current host")
 	cmd.Flags().VarP(&opts.BuildArgs, "build-arg", "", "This flag allows you to pass in ARG values at build time. Set it repeatedly for multiple values.")
@@ -274,7 +295,6 @@ func AddKanikoOptionsFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().StringVarP(&opts.TarPath, "tar-path", "", "", "Path to save the image in as a tarball instead of pushing")
 	cmd.Flags().BoolVarP(&opts.SingleSnapshot, "single-snapshot", "", false, "Take a single snapshot at the end of the build.")
 	cmd.Flags().BoolVarP(&opts.Reproducible, "reproducible", "", false, "Strip timestamps out of the image to make it reproducible")
-	cmd.Flags().StringSliceVarP(&opts.Target, "target", "", []string{}, "Set the target stages to build, the first in the list denotes the stage to be pushed")
 	cmd.Flags().BoolVarP(&opts.NoPush, "no-push", "", false, "Do not push the image to the registry")
 	cmd.Flags().BoolVarP(&opts.NoPushCache, "no-push-cache", "", false, "Do not push the cache layers to the registry")
 	cmd.Flags().StringVarP(&opts.CacheRepo, "cache-repo", "", "", "Specify a repository to use as a cache, otherwise one will be inferred from the destination provided; when prefixed with 'oci:' the repository will be written in OCI image layout format at the path provided")
