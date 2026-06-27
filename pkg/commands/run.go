@@ -158,7 +158,6 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 						return fmt.Errorf("environment variable for secret %q not set: %s", secretId, s.Src)
 					}
 					secretData = []byte(val)
-					val = ""
 				} else {
 					secretData, err = os.ReadFile(s.Src)
 					if err != nil {

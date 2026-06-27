@@ -169,6 +169,5 @@ func Test_makeTransport(t *testing.T) {
 			}
 			tt.check(tlsConfig, certPool, err)
 		})
-
 	}
 }

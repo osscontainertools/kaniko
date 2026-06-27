@@ -440,7 +440,6 @@ func FindDockerFiles(dir, dockerfilesPattern string) ([]string, error) {
 		// Remove the leading directory from the path
 		dockerfile = dockerfile[len("dockerfiles/"):]
 		dockerfiles = append(dockerfiles, dockerfile)
-
 	}
 	return dockerfiles, err
 }

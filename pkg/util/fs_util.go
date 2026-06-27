@@ -240,7 +240,6 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 				logrus.Trace("Not including whiteout files")
 				continue
 			}
-
 		}
 
 		if err := cfg.extractFunc(root, hdr, cleanedName, tr); err != nil {

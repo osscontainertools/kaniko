@@ -766,7 +766,7 @@ func TestExtractFile(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tc := tc
 			t.Parallel()
-			r := ""
+			var r string
 
 			if tc.tmpdir != "" {
 				r = tc.tmpdir
