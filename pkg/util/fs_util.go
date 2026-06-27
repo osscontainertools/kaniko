@@ -772,12 +772,26 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 	if err != nil {
 		return nil, fmt.Errorf("copying dir: %w", err)
 	}
+	return copyDirInner(files, src, dest, context, uid, gid, chmod, useDefaultChmod, false)
+}
+
+// copyDirInner copies the given files from src to dest. skipIgnoreList bypasses
+// the ignore-list/kaniko-directory guards, used when persisting a stage's files
+// for cross-stage COPY --from (CopyPaths), where the destination is the internal
+// dependency dir under /kaniko and must not be skipped.
+func copyDirInner(files []string, src, dest string, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool) ([]string, error) {
 	var copiedFiles []string
 	var updates []timestampUpdate
 	hardlinksSeen := make(map[uint64]string)
 	preserveHardlinks := config.EnvBoolDefault("FF_KANIKO_PRESERVE_HARDLINKS", true)
 	for _, file := range files {
 		fullPath := filepath.Join(src, file)
+		if skipIgnoreList && HasFilepathPrefix(fullPath, config.KanikoDir, false) {
+			// When persisting a stage for cross-stage COPY --from we bypass the
+			// ignore-list, but kaniko's own directory (and its contents) must
+			// never be saved. RelativeFiles is flat, so match the whole subtree.
+			continue
+		}
 		if context.ExcludesFile(fullPath) {
 			logrus.Debugf("%s found in .dockerignore, ignoring", src)
 			continue
@@ -787,7 +801,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 			return nil, fmt.Errorf("copying dir: %w", err)
 		}
 		destPath := filepath.Join(dest, file)
-		if CheckIgnoreList(destPath) {
+		if !skipIgnoreList && CheckIgnoreList(destPath) {
 			logrus.Debugf("Skipping copy for ignored path: %s", destPath)
 			continue
 		}
@@ -826,7 +840,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 			}
 		} else if IsSymlink(fi) {
 			// If file is a symlink, we want to create the same relative symlink
-			if _, err := CopySymlink(fullPath, destPath, context); err != nil {
+			if _, err := CopySymlink(fullPath, destPath, context, skipIgnoreList); err != nil {
 				return nil, err
 			}
 		} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok && preserveHardlinks {
@@ -838,7 +852,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 			isHardlink = true
 		} else {
 			// ... Else, we want to copy over a file
-			if _, err := CopyFile(fullPath, destPath, context, uid, gid, chmod, useDefaultChmod); err != nil {
+			if _, err := CopyFile(fullPath, destPath, context, uid, gid, chmod, useDefaultChmod, skipIgnoreList); err != nil {
 				return nil, err
 			}
 		}
@@ -848,7 +862,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 		copiedFiles = append(copiedFiles, destPath)
 	}
 	for _, u := range updates {
-		err = CopyTimestamps(u.src, u.dest)
+		err := CopyTimestamps(u.src, u.dest)
 		if err != nil {
 			return nil, err
 		}
@@ -899,12 +913,12 @@ func MoveDir(src, dest string) error {
 }
 
 // CopySymlink copies the symlink at src to dest.
-func CopySymlink(src, dest string, context FileContext) (bool, error) {
+func CopySymlink(src, dest string, context FileContext, skipIgnoreList bool) (bool, error) {
 	if context.ExcludesFile(src) {
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
 	}
-	if HasFilepathPrefix(dest, config.KanikoDir, false) {
+	if !skipIgnoreList && HasFilepathPrefix(dest, config.KanikoDir, false) {
 		logrus.Warnf("Skipping copy targeting kaniko directory: %s", dest)
 		logrus.Info("Writes to the kaniko directory are blocked to prevent overwriting the executor.")
 		logrus.Info("To copy files there, relocate kaniko with KANIKO_DIR: https://github.com/osscontainertools/kaniko#bootstrapping-kaniko")
@@ -926,12 +940,12 @@ func CopySymlink(src, dest string, context FileContext) (bool, error) {
 }
 
 // CopyFile copies the file at src to dest
-func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool) (bool, error) {
+func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool) (bool, error) {
 	if context.ExcludesFile(src) {
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
 	}
-	if HasFilepathPrefix(dest, config.KanikoDir, false) {
+	if !skipIgnoreList && HasFilepathPrefix(dest, config.KanikoDir, false) {
 		logrus.Warnf("Skipping copy targeting kaniko directory: %s", dest)
 		logrus.Info("Writes to the kaniko directory are blocked to prevent overwriting the executor.")
 		logrus.Info("To copy files there, relocate kaniko with KANIKO_DIR: https://github.com/osscontainertools/kaniko#bootstrapping-kaniko")
@@ -1185,47 +1199,44 @@ func getSymlink(path string) error {
 	return nil
 }
 
-// For cross stage dependencies kaniko must persist the referenced path so that it can be used in
-// the dependent stage. For symlinks we copy the target path because copying the symlink would
-// result in a dead link
-func CopyFileOrSymlink(src string, destDir string, root string) error {
-	destFile := filepath.Join(destDir, src)
-	src = filepath.Join(root, src)
-	fi, err := os.Lstat(src)
-	if err != nil {
-		return fmt.Errorf("getting file info: %w", err)
-	}
-	if IsSymlink(fi) {
-		link, err := os.Readlink(src)
+// CopyPaths persists the given paths from srcRoot to dstRoot for cross-stage
+// COPY --from. Unlike a per-file copy it preserves hardlinks (via copyDirInner's
+// inode tracking, gated by FF_KANIKO_PRESERVE_HARDLINKS) so multiply-linked
+// files are not duplicated into independent copies in the dependent stage.
+// Paths are copied verbatim with skipIgnoreList set, since the destination is
+// the internal dependency dir under /kaniko and must not be skipped.
+func CopyPaths(srcRoot, dstRoot string, paths []string) error {
+	for _, p := range paths {
+		src := filepath.Join(srcRoot, p)
+		dst := filepath.Join(dstRoot, p)
+		fi, err := os.Lstat(src)
 		if err != nil {
-			return fmt.Errorf("copying file or symlink: %w", err)
+			return fmt.Errorf("copying %s: %w", p, err)
 		}
-		if err := createParentDirectory(destFile, DoNotChangeUID, DoNotChangeGID); err != nil {
-			return err
+		if fi.IsDir() {
+			files, err := RelativeFiles("", src)
+			if err != nil {
+				return fmt.Errorf("copying %s: %w", p, err)
+			}
+			if _, err := copyDirInner(files, src, dst, FileContext{}, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true, true); err != nil {
+				return fmt.Errorf("copying %s: %w", p, err)
+			}
+			continue
 		}
-		return os.Symlink(link, destFile)
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			return fmt.Errorf("copying %s: %w", p, err)
+		}
+		if IsSymlink(fi) {
+			if _, err := CopySymlink(src, dst, FileContext{}, true); err != nil {
+				return fmt.Errorf("copying %s: %w", p, err)
+			}
+		} else {
+			if _, err := CopyFile(src, dst, FileContext{}, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true, true); err != nil {
+				return fmt.Errorf("copying %s: %w", p, err)
+			}
+		}
 	}
-	opts := otiai10Cpy.Options{
-		PreserveTimes: true,
-		Skip: func(info os.FileInfo, src, dest string) (bool, error) {
-			return strings.HasSuffix(src, config.KanikoDir), nil
-		},
-		FS: FSys,
-	}
-	if err := otiai10Cpy.Copy(src, destFile, opts); err != nil {
-		return fmt.Errorf("copying file: %w", err)
-	}
-	if err := CopyOwnership(src, destDir, root); err != nil {
-		return fmt.Errorf("copying ownership: %w", err)
-	}
-	if err := os.Chmod(destFile, fi.Mode()); err != nil {
-		return fmt.Errorf("copying file mode: %w", err)
-	}
-	if err := CopyTimestamps(src, destFile); err != nil {
-		return fmt.Errorf("copying file timestamps: %w", err)
-	}
-
-	return CopyCapabilities(src, destFile)
+	return nil
 }
 
 // CopyOwnership copies the file or directory ownership recursively at src to dest

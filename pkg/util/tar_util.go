@@ -99,7 +99,9 @@ func (t *Tar) AddFileToTar(p string) error {
 
 	hardlink, linkDst := t.checkHardlink(p, i)
 	if hardlink {
-		hdr.Linkname = linkDst
+		// Linkname must be relative (same form as hdr.Name) so ExtractFile
+		// reconstructs it as filepath.Join(dest, hdr.Linkname).
+		hdr.Linkname = strings.TrimLeft(strings.TrimPrefix(linkDst, config.RootDir), "/")
 		hdr.Typeflag = tar.TypeLink
 		hdr.Size = 0
 	}
