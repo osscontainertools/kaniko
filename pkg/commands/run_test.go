@@ -29,9 +29,28 @@ import (
 	"testing"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/testutil"
 )
+
+func Test_RunCommand_CacheKey_IncludesHeredocBody(t *testing.T) {
+	// Two RUN heredocs that differ only in body share the instruction line
+	// "RUN <<EOF", so the body must enter the cache key or a changed script
+	// serves a stale layer.
+	run := func(body string) *RunCommand {
+		cmd := &instructions.RunCommand{}
+		cmd.Files = []instructions.ShellInlineFile{{Name: "EOF", Data: body}}
+		return &RunCommand{cmd: cmd}
+	}
+	hello, err := run("echo hello").CacheKey(nil)
+	testutil.CheckError(t, false, err)
+	world, err := run("echo world").CacheKey(nil)
+	testutil.CheckError(t, false, err)
+	if hello == world {
+		t.Errorf("expected distinct cache keys for differing heredoc bodies, got %q for both", hello)
+	}
+}
 
 func Test_addDefaultHOME(t *testing.T) {
 	tests := []struct {
