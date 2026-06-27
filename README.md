@@ -151,6 +151,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_SKIP_RELABEL_RECOMPRESS`](#flag-ff_kaniko_skip_relabel_recompress)
       - [Flag `FF_KANIKO_SECUREJOIN_EXTRACTION`](#flag-ff_kaniko_securejoin_extraction)
       - [Flag `FF_KANIKO_RESOLVE_CACHE_KEY`](#flag-ff_kaniko_resolve_cache_key)
+      - [Flag `FF_KANIKO_UNTAR_SKIP_ROOT`](#flag-ff_kaniko_untar_skip_root)
     - [Assertion Overrides](#assertion-overrides)
     - [Debug Image](#debug-image)
   - [Security](#security)
@@ -1316,6 +1317,13 @@ When unpacking image layers kaniko joins each tar entry path lexically, so a mal
 Set this flag to `true` to resolve each entry's parent with SecureJoin so the write stays contained inside the destination.
 Defaults to `true`.
 Will be deprecated in `v1.29.0`.
+
+#### Flag `FF_KANIKO_UNTAR_SKIP_ROOT`
+
+When `ADD` extracts a local tar archive into a directory, kaniko applies the archive's root `.` entry to the destination directory and overwrites its mode and ownership, while docker leaves the destination untouched.
+Set this flag to `true` to skip the root `.` entry when untarring.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
 
 ### Assertion Overrides
 

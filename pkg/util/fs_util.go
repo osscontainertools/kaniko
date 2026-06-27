@@ -347,6 +347,9 @@ func UnTar(r io.Reader, dest string) ([]string, error) {
 			return nil, err
 		}
 		cleanedName := filepath.Clean(hdr.Name)
+		if cleanedName == "." && config.EnvBool("FF_KANIKO_UNTAR_SKIP_ROOT") {
+			continue
+		}
 		if err := ExtractFile(dest, hdr, cleanedName, tr); err != nil {
 			return nil, err
 		}
