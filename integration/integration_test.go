@@ -295,7 +295,7 @@ func getBranchCommitAndURL() (branch, commit, url string) {
 	}
 	log.Printf("repo=%q / commit=%q / branch=%q", repo, commit, branch)
 	url = "github.com/" + repo
-	return
+	return branch, commit, url
 }
 
 func DockerGitRepo(url string, commit string, branch string) string {

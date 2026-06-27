@@ -34,7 +34,7 @@ func TestGetGitPullMethod(t *testing.T) {
 			testName: "noEnv",
 			setEnv: func() (expectedValue string) {
 				expectedValue = gitPullMethodHTTPS
-				return
+				return expectedValue
 			},
 		},
 		{
@@ -42,7 +42,7 @@ func TestGetGitPullMethod(t *testing.T) {
 			setEnv: func() (expectedValue string) {
 				_ = os.Setenv(gitPullMethodEnvKey, "")
 				expectedValue = gitPullMethodHTTPS
-				return
+				return expectedValue
 			},
 		},
 		{
@@ -54,7 +54,7 @@ func TestGetGitPullMethod(t *testing.T) {
 				} else {
 					expectedValue = gitPullMethodHTTP
 				}
-				return
+				return expectedValue
 			},
 		},
 		{
@@ -62,7 +62,7 @@ func TestGetGitPullMethod(t *testing.T) {
 			setEnv: func() (expectedValue string) {
 				_ = os.Setenv(gitPullMethodEnvKey, gitPullMethodHTTPS)
 				expectedValue = gitPullMethodHTTPS
-				return
+				return expectedValue
 			},
 		},
 		{
@@ -70,7 +70,7 @@ func TestGetGitPullMethod(t *testing.T) {
 			setEnv: func() (expectedValue string) {
 				_ = os.Setenv(gitPullMethodEnvKey, "unknown")
 				expectedValue = gitPullMethodHTTPS
-				return
+				return expectedValue
 			},
 		},
 	}
@@ -92,7 +92,7 @@ func TestGetGitAuth(t *testing.T) {
 			testName: "noEnv",
 			setEnv: func() (expectedValue transport.AuthMethod) {
 				expectedValue = nil
-				return
+				return expectedValue
 			},
 		},
 		{
@@ -100,7 +100,7 @@ func TestGetGitAuth(t *testing.T) {
 			setEnv: func() (expectedValue transport.AuthMethod) {
 				_ = os.Setenv(gitAuthUsernameEnvKey, "")
 				expectedValue = nil
-				return
+				return expectedValue
 			},
 		},
 		{
@@ -108,7 +108,7 @@ func TestGetGitAuth(t *testing.T) {
 			setEnv: func() (expectedValue transport.AuthMethod) {
 				_ = os.Setenv(gitAuthPasswordEnvKey, "")
 				expectedValue = nil
-				return
+				return expectedValue
 			},
 		},
 		{
@@ -117,7 +117,7 @@ func TestGetGitAuth(t *testing.T) {
 				_ = os.Setenv(gitAuthUsernameEnvKey, "")
 				_ = os.Setenv(gitAuthPasswordEnvKey, "")
 				expectedValue = nil
-				return
+				return expectedValue
 			},
 		},
 		{
@@ -126,7 +126,7 @@ func TestGetGitAuth(t *testing.T) {
 				username := "foo"
 				_ = os.Setenv(gitAuthUsernameEnvKey, username)
 				expectedValue = &http.BasicAuth{Username: username}
-				return
+				return expectedValue
 			},
 		},
 		{
@@ -135,7 +135,7 @@ func TestGetGitAuth(t *testing.T) {
 				pass := "super-secret-password-1234"
 				_ = os.Setenv(gitAuthPasswordEnvKey, pass)
 				expectedValue = &http.BasicAuth{Password: pass}
-				return
+				return expectedValue
 			},
 		},
 		{
@@ -146,7 +146,7 @@ func TestGetGitAuth(t *testing.T) {
 				_ = os.Setenv(gitAuthUsernameEnvKey, username)
 				_ = os.Setenv(gitAuthPasswordEnvKey, pass)
 				expectedValue = &http.BasicAuth{Username: username, Password: pass}
-				return
+				return expectedValue
 			},
 		},
 		{
@@ -155,7 +155,7 @@ func TestGetGitAuth(t *testing.T) {
 				token := "some-other-token"
 				_ = os.Setenv(gitAuthTokenEnvKey, token)
 				expectedValue = &http.BasicAuth{Username: token}
-				return
+				return expectedValue
 			},
 		},
 		{
@@ -168,7 +168,7 @@ func TestGetGitAuth(t *testing.T) {
 				_ = os.Setenv(gitAuthPasswordEnvKey, pass)
 				_ = os.Setenv(gitAuthTokenEnvKey, token)
 				expectedValue = &http.BasicAuth{Username: token}
-				return
+				return expectedValue
 			},
 		},
 	}
