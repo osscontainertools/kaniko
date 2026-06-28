@@ -235,26 +235,18 @@ var RootCmd = &cobra.Command{
 				logrus.Warnf("Unable to write benchmark file: %s", err)
 				return
 			}
-			if strings.HasPrefix(benchmarkFile, "gs://") {
-				logrus.Info("Uploading to gcs")
-				if err := buildcontext.UploadToBucket(strings.NewReader(s), benchmarkFile); err != nil {
-					logrus.Infof("Unable to upload %s due to %v", benchmarkFile, err)
-				}
-				logrus.Infof("Benchmark file written at %s", benchmarkFile)
-			} else {
-				f, err := os.Create(benchmarkFile)
-				if err != nil {
-					logrus.Warnf("Unable to create benchmarking file %s: %s", benchmarkFile, err)
-					return
-				}
-				defer f.Close()
-				_, err = f.WriteString(s)
-				if err != nil {
-					logrus.Warnf("Unable to write to benchmarking file %s: %s", benchmarkFile, err)
-					return
-				}
-				logrus.Infof("Benchmark file written at %s", benchmarkFile)
+			f, err := os.Create(benchmarkFile)
+			if err != nil {
+				logrus.Warnf("Unable to create benchmarking file %s: %s", benchmarkFile, err)
+				return
 			}
+			defer f.Close()
+			_, err = f.WriteString(s)
+			if err != nil {
+				logrus.Warnf("Unable to write to benchmarking file %s: %s", benchmarkFile, err)
+				return
+			}
+			logrus.Infof("Benchmark file written at %s", benchmarkFile)
 		}
 	},
 }
