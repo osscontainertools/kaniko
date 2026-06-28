@@ -1,0 +1,6 @@
+FROM busybox
+# busybox ships without /proc and /sys. buildkit creates them as mountpoints on
+# the first RUN and commits the empty dirs into that layer, while kaniko ignores
+# them as they are mounts in its own environment. Baking them into the base means
+# buildkit has nothing new to commit, so both builders agree.
+RUN mkdir -p /proc /sys

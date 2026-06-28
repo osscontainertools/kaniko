@@ -25,6 +25,7 @@ import (
 type integrationTestConfig struct {
 	gcsBucket               string
 	imageRepo               string
+	busyboxBaseImage        string
 	onbuildBaseImage        string
 	onbuildCopyImage        string
 	hardlinkBaseImage       string
