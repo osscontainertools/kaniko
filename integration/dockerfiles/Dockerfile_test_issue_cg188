@@ -1,4 +1,5 @@
-FROM busybox AS first
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS first
 
 # we can mount a secret to a target file
 RUN --mount=type=secret,id=netrc \

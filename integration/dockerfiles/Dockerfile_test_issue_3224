@@ -1,4 +1,5 @@
-FROM busybox
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
 
 # 3224: Spawn a short-lived child
 # then check if it became a zombie

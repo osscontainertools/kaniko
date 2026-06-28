@@ -5,7 +5,7 @@ ARG IMAGE_REPO
 # WorkingDir, User=root) and pushes back to the same tag. The result is a
 # malformed-but-valid image — unproducible by docker/podman/buildah but
 # reachable from any hand-crafted OCI producer.
-FROM busybox AS base
+FROM ${IMAGE_REPO}busybox AS base
 RUN echo 'single' >> /etc/group
 
 FROM ${IMAGE_REPO}malformed-oci:latest

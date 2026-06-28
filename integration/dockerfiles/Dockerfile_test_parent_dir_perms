@@ -1,4 +1,5 @@
-FROM busybox
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
 
 RUN adduser --disabled-password --gecos "" --uid 1000 user
 RUN mkdir -p /home/user/foo

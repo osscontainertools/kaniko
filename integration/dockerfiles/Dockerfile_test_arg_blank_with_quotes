@@ -1,11 +1,12 @@
+ARG IMAGE_REPO
 ARG FILE_NAME=""
 
-FROM busybox:latest AS builder
+FROM ${IMAGE_REPO}busybox AS builder
 ARG FILE_NAME
 
 RUN echo $FILE_NAME && touch /$FILE_NAME.txt && stat /$FILE_NAME.txt;
 
-FROM busybox:latest
+FROM ${IMAGE_REPO}busybox
 ARG FILE_NAME
 
 RUN echo $FILE_NAME && touch /$FILE_NAME.txt && stat /$FILE_NAME.txt;

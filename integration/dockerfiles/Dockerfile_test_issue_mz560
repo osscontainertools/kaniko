@@ -6,7 +6,7 @@
 # This sounds bad, but is actually by design. It is not less secure than having an `ONBUILD` per-se.
 # Docker build is RCE as a service, that is the reason why kaniko does run without privileges.
 ARG IMAGE_REPO
-FROM busybox AS base
+FROM ${IMAGE_REPO}busybox AS base
 # We simulate command injection by hijacking the tini binary
 
 # First we hijack it by adding a hijacked binary to this base image.

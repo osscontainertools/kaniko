@@ -1,4 +1,5 @@
-FROM busybox AS first
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS first
 
 ARG TARGETOS
 ARG TARGETARCH
