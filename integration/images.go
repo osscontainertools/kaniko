@@ -237,10 +237,10 @@ var diffArgsMap = map[string][]string{
 	// /root/.config 0x1c0 0x1ed
 	// I suspect the issue is that /root/.config pre-exists,
 	// it's where we store the docker credentials.
-	"TestWithContext/test_with_context_issue-1020": {"--extra-ignore-files=root/.config/"},
+	"TestWithContext/test_with_context_issue-1020": {"--extra-ignore-files=root/.config/", "--extra-ignore-layer-length-mismatch"},
 	// docker is wrong. we do copy the symlink correctly.
-	"TestRun/test_Dockerfile_test_copy_symlink": {"--extra-ignore-files=workdirAnother/relative_link"},
-	"TestRun/test_Dockerfile_test_multistage":   {"--extra-ignore-files=new"},
+	"TestRun/test_Dockerfile_test_copy_symlink":  {"--extra-ignore-files=workdirAnother/relative_link"},
+	"TestRun/test_Dockerfile_test_multistage":    {"--extra-ignore-files=new", "--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_cross_compile": {"--platform=linux/" + crossCompileArch},
 	// kaniko adds parent directories of changed paths to the full-filesystem snapshot
 	"TestRun/test_Dockerfile_test_volume":   {"--extra-ignore-layer-length-mismatch"},
@@ -261,11 +261,47 @@ var diffArgsMap = map[string][]string{
 	// mz511: We delete the builtin file /etc/nsswitch.conf to verify that secrets are persisted
 	// But we discovered a new issue with this. For builtins, buildkit will emit "whiteout" files,
 	// to remember that it was removed, we don't. So we end up with a diff in the resulting image.
-	"TestRun/test_Dockerfile_test_issue_mz511": {"--extra-ignore-files=etc/.wh.nsswitch.conf"},
+	"TestRun/test_Dockerfile_test_issue_mz511": {"--extra-ignore-files=etc/.wh.nsswitch.conf", "--extra-ignore-layer-length-mismatch"},
 	// mz793: with FF_KANIKO_VOLUME_SKIP_MKDIR off, VOLUME creates the directory fresh on
 	// each build, so its mtime differs between the two cached builds. That divergence is the
 	// known volume non-determinism the flag fixes, here we only assert the build no longer panics.
 	"TestCache/test_cache_Dockerfile_test_issue_mz793": {"--extra-ignore-files=data/"},
+	// Layer-length divergences from buildkit, enforced per-test instead of globally so new
+	// tests still catch regressions. These are pre-existing kaniko layer-composition
+	// differences (no COPY dedup, ignorelisted paths in ADDed tars, ONBUILD base re-emission,
+	// empty package-manager dirs); reasons are pinned per-test from local diffoci runs.
+	"TestRun/test_Dockerfile_test_add":                       {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_arg_blank_with_quotes":     {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_arg_multi":                 {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_arg_multi_with_quotes":     {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_cache_install_oci":         {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_complex_substitution":      {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_copy_same_file_many_times": {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_dangling_symlink":          {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_meta_arg":                  {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_mv_add":                    {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_registry":                  {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_scratch":                   {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_969":                 {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_1007":                {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_1039":                {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_1568":                {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_1837":                {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_2049":                {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_2066":                {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_3393":                {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_cg73":                {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_cg188":               {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz247":               {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz332":               {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz455":               {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz560":               {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz725":               {"--extra-ignore-layer-length-mismatch"},
+	"TestWithContext/test_with_context_issue-57":             {"--extra-ignore-layer-length-mismatch"},
+	"TestWithContext/test_with_context_issue-1568":           {"--extra-ignore-layer-length-mismatch"},
+	"TestK8s/test_k8s_with_context_issue-57":                 {"--extra-ignore-layer-length-mismatch"},
+	"TestK8s/test_k8s_with_context_issue-1020":               {"--extra-ignore-layer-length-mismatch"},
+	"TestK8s/test_k8s_with_context_issue-1568":               {"--extra-ignore-layer-length-mismatch"},
 }
 
 // output check to do when building with kaniko
