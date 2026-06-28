@@ -158,6 +158,9 @@ func buildRequiredImages() error {
 		name:    "Building busybox base image",
 		command: []string{"docker", "build", "--push", "-t", config.busyboxBaseImage, "-f", dockerfilesPath + "/Dockerfile_busybox_base", "."},
 	}, {
+		name:    "Building alpine base image",
+		command: []string{"docker", "build", "--push", "-t", config.alpineBaseImage, "-f", dockerfilesPath + "/Dockerfile_alpine_base", "."},
+	}, {
 		name:    "Building onbuild base image",
 		command: []string{"docker", "build", "--push", "-t", config.onbuildBaseImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_base", "."},
 	}, {
@@ -1595,6 +1598,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 
 	c.dockerMajorVersion = getDockerMajorVersion()
 	c.busyboxBaseImage = c.imageRepo + "busybox:latest"
+	c.alpineBaseImage = c.imageRepo + "alpine:latest"
 	c.onbuildBaseImage = c.imageRepo + "onbuild-base:latest"
 	c.onbuildCopyImage = c.imageRepo + "onbuild-copy:latest"
 	c.hardlinkBaseImage = c.imageRepo + "hardlink-base:latest"

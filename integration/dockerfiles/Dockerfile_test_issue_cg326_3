@@ -1,4 +1,5 @@
-FROM busybox
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
 
 # Regression flagged against the cg326 symlink-target check.
 # Some base images ship a symlink with more ".." than its depth. Real example,

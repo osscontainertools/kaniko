@@ -1,3 +1,4 @@
+ARG IMAGE_REPO
 # mz444: Kaniko always supported the KANIKO_DIR environment variable,
 # which can be used to relocate kaniko folder after boot.
 # This is useful for bootstrapping kaniko itself. However, kaniko v1.26.4
@@ -11,5 +12,5 @@ ENV SSL_CERT_DIR=/opt/kaniko/ssl/certs
 ENTRYPOINT ["/opt/kaniko/executor"]
 
 # And then verify that if we build with this executor the /kaniko dir is indeed empty
-FROM busybox:latest
+FROM ${IMAGE_REPO}busybox
 RUN [ ! -d /kaniko ]

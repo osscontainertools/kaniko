@@ -1,4 +1,5 @@
-FROM busybox AS base
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS base
 
 # mz247: Starting with v1.25.3 we introduced a regression
 # in this PR https://github.com/mzihlmann/kaniko/pull/180

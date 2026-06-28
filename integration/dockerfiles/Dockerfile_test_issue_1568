@@ -1,4 +1,5 @@
-FROM busybox
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
 
 # we can mount a directory from context to a target as specificed
 RUN --mount=type=bind,source=context,rw,target=/tmp/bli/bla/ \

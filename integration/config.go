@@ -26,6 +26,7 @@ type integrationTestConfig struct {
 	gcsBucket               string
 	imageRepo               string
 	busyboxBaseImage        string
+	alpineBaseImage         string
 	onbuildBaseImage        string
 	onbuildCopyImage        string
 	hardlinkBaseImage       string
