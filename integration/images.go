@@ -18,7 +18,6 @@ package integration
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -29,12 +28,9 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
-	"cloud.google.com/go/storage"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/osscontainertools/kaniko/pkg/util"
-	"github.com/osscontainertools/kaniko/pkg/util/bucket"
 )
 
 const (
@@ -424,8 +420,6 @@ func checkArgsNotPrinted(dockerfile string, out []byte) error {
 	return nil
 }
 
-var bucketContextTests = []string{"Dockerfile_test_copy_bucket"}
-
 // GetDockerImage constructs the name of the docker image that would be built with
 // dockerfile if it was tagged with imageRepo.
 func GetDockerImage(imageRepo, dockerfile string) string {
@@ -535,21 +529,10 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 	return &d
 }
 
-func addServiceAccountFlags(flags []string, serviceAccount string) []string {
-	if len(serviceAccount) > 0 {
-		flags = append(flags, "-e",
-			"GOOGLE_APPLICATION_CREDENTIALS=/secret/"+filepath.Base(serviceAccount),
-			"-v", filepath.Dir(serviceAccount)+":/secret/")
-	} else {
-		gcloudConfig := os.Getenv("HOME") + "/.config/gcloud"
-		if util.FilepathExists(gcloudConfig) {
-			flags = append(flags, "-v", gcloudConfig+":/root/.config/gcloud")
-		}
-
-		dockerConfig := os.Getenv("HOME") + "/.docker/config.json"
-		if util.FilepathExists(dockerConfig) {
-			flags = append(flags, "-v", dockerConfig+":/root/.docker/config.json", "-e", "DOCKER_CONFIG=/root/.docker")
-		}
+func addAuthFlags(flags []string) []string {
+	dockerConfig := os.Getenv("HOME") + "/.docker/config.json"
+	if util.FilepathExists(dockerConfig) {
+		flags = append(flags, "-v", dockerConfig+":/root/.docker/config.json", "-e", "DOCKER_CONFIG=/root/.docker")
 	}
 	return flags
 }
@@ -602,8 +585,7 @@ func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfile
 }
 
 // BuildImage will build dockerfile (located at dockerfilesPath) using both kaniko and docker.
-// The resulting image will be tagged with imageRepo. If the dockerfile will be built with
-// context (i.e. it is in `buildContextTests`) the context will be pulled from gcsBucket.
+// The resulting image will be tagged with imageRepo.
 func (d *DockerFileBuilder) BuildImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile string) error {
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
@@ -627,7 +609,7 @@ func (d *DockerFileBuilder) BuildKanikoImage(t *testing.T, config *integrationTe
 
 	kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 	_, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
-		cwd, config.gcsBucket, config.gcsClient, config.serviceAccount, false, "", "")
+		cwd, "", "")
 	return err
 }
 
@@ -639,7 +621,7 @@ func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrat
 }
 
 func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile, contextDir string) error {
-	gcsBucket, gcsClient, serviceAccount, imageRepo := config.gcsBucket, config.gcsClient, config.serviceAccount, config.imageRepo
+	imageRepo := config.imageRepo
 
 	var buildArgs []string
 	buildArgFlag := "--build-arg"
@@ -652,62 +634,24 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 		return err
 	}
 
-	contextFlag := "-c"
-	contextPath := buildContextPath
-	for _, d := range bucketContextTests {
-		if d == dockerfile {
-			contextFlag = "-b"
-			contextPath = gcsBucket
-		}
-	}
-
 	additionalKanikoFlags := additionalKanikoFlagsMap[dockerfile]
-	additionalKanikoFlags = append(additionalKanikoFlags, contextFlag, contextPath)
+	additionalKanikoFlags = append(additionalKanikoFlags, "-c", buildContextPath)
 	if _, ok := d.TestReproducibleDockerfiles[dockerfile]; ok {
 		additionalKanikoFlags = append(additionalKanikoFlags, "--reproducible")
 	}
 
 	kanikoImage := GetKanikoImage(imageRepo, dockerfile)
 	if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
-		contextDir, gcsBucket, gcsClient, serviceAccount, true, "", ""); err != nil {
+		contextDir, "", ""); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func populateVolumeCache(logf logger, serviceAccount string) error {
-	fmt.Println("Populating warmer cache")
-	_, ex, _, _ := runtime.Caller(0)
-	cwd := filepath.Dir(ex)
-	cmd := []string{
-		"run", "--net=host",
-		"-v", os.Getenv("HOME") + "/.config/gcloud:/root/.config/gcloud",
-		"-v", cwd + ":/workspace",
-	}
-	for _, envVariable := range WarmerEnv {
-		cmd = append(cmd, "-e", envVariable)
-	}
-	cmd = addServiceAccountFlags(cmd, serviceAccount)
-	cmd = addCoverageFlags(cmd)
-	cmd = append(cmd,
-		WarmerImage,
-		"-c", cacheDir,
-		"-i", baseImageToCache,
-	)
-
-	warmerCmd := exec.Command("docker", cmd...)
-	out, err := RunCommandWithoutTest(warmerCmd)
-	logf(string(out))
-	if err != nil {
-		return fmt.Errorf("failed to warm kaniko cache: %w", err)
-	}
-	return nil
-}
-
 // buildCachedImage builds the image for testing caching via kaniko where version is the nth time this image has been built
 func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTestConfig, cacheRepo, dockerfilesPath, dockerfile string, version int, args []string) error {
-	imageRepo, serviceAccount := config.imageRepo, config.serviceAccount
+	imageRepo := config.imageRepo
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
 
@@ -749,7 +693,7 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 	}
 	buildArgs = append(buildArgs, "--build-arg", "IMAGE_REPO="+config.imageRepo)
 
-	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
+	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", path.Join(buildContextPath, dockerfilesPath, dockerfile),
@@ -801,7 +745,7 @@ func (d *DockerFileBuilder) buildCachedImageInContext(logf logger, config *integ
 	for _, envVariable := range KanikoEnv {
 		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
-	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", path.Join(buildContextPath, dockerfile),
@@ -817,9 +761,37 @@ func (d *DockerFileBuilder) buildCachedImageInContext(logf logger, config *integ
 	return err
 }
 
+func populateVolumeCache(logf logger) error {
+	fmt.Println("Populating warmer cache")
+	_, ex, _, _ := runtime.Caller(0)
+	cwd := filepath.Dir(ex)
+	cmd := []string{
+		"run", "--net=host",
+		"-v", cwd + ":/workspace",
+	}
+	for _, envVariable := range WarmerEnv {
+		cmd = append(cmd, "-e", envVariable)
+	}
+	cmd = addAuthFlags(cmd)
+	cmd = addCoverageFlags(cmd)
+	cmd = append(cmd,
+		WarmerImage,
+		"-c", cacheDir,
+		"-i", baseImageToCache,
+	)
+
+	warmerCmd := exec.Command("docker", cmd...)
+	out, err := RunCommandWithoutTest(warmerCmd)
+	logf(string(out))
+	if err != nil {
+		return fmt.Errorf("failed to warm kaniko cache: %w", err)
+	}
+	return nil
+}
+
 // buildCachedImage builds the image for testing caching via kaniko warmer cache where version is the nth time this image has been built
 func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTestConfig, dockerfilesPath, dockerfile string, version int, args []string, cache bool) error {
-	imageRepo, serviceAccount := config.imageRepo, config.serviceAccount
+	imageRepo := config.imageRepo
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
 
@@ -836,7 +808,7 @@ func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTes
 	if exec, ok := executorImages[dockerfile]; ok {
 		executorImage = exec
 	}
-	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
+	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", path.Join(buildContextPath, dockerfilesPath, dockerfile),
@@ -875,7 +847,7 @@ func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTes
 }
 
 // buildRelativePathsImage builds the images for testing passing relatives paths to Kaniko
-func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dockerfile, serviceAccount, buildContextPath string) error {
+func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dockerfile, buildContextPath string) error {
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
 
@@ -905,7 +877,7 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 	if exec, ok := executorImages[dockerfile]; ok {
 		executorImage = exec
 	}
-	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
+	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", dockerfile,
@@ -947,10 +919,6 @@ func buildKanikoImage(
 	kanikoArgs []string,
 	kanikoImage string,
 	contextDir string,
-	gcsBucket string,
-	gcsClient *storage.Client,
-	serviceAccount string,
-	shdUpload bool,
 	tlsCACert string,
 	dockerConfig string,
 ) (string, error) {
@@ -962,16 +930,6 @@ func buildKanikoImage(
 
 	if b, err := strconv.ParseBool(os.Getenv("BENCHMARK")); err == nil && b {
 		benchmarkEnv = "BENCHMARK_FILE=/benchmarks/" + dockerfile
-		if shdUpload {
-			benchmarkFile := path.Join(benchmarkDir, dockerfile)
-			fileName := fmt.Sprintf("run_%s_%s", time.Now().Format("2006-01-02-15:04"), dockerfile)
-			dst := path.Join("benchmarks", fileName)
-			file, err := os.Open(benchmarkFile)
-			if err != nil {
-				return "", err
-			}
-			defer bucket.Upload(context.Background(), gcsBucket, dst, file, gcsClient)
-		}
 	}
 
 	// build kaniko image
@@ -1002,7 +960,7 @@ func buildKanikoImage(
 	if dockerConfig != "" {
 		dockerRunFlags = append(dockerRunFlags, "-v", dockerConfig+":/kaniko/.docker/config.json:ro")
 	} else {
-		dockerRunFlags = addServiceAccountFlags(dockerRunFlags, serviceAccount)
+		dockerRunFlags = addAuthFlags(dockerRunFlags)
 	}
 
 	kanikoDockerfilePath := path.Join(buildContextPath, dockerfilesPath, dockerfile)

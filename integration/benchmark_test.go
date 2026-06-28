@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -61,8 +60,7 @@ func TestSnapshotBenchmark(t *testing.T) {
 				buildArgs := []string{"--build-arg", fmt.Sprintf("NUM=%d", num)}
 				var benchmarkDir string
 				benchmarkDir, *err = buildKanikoImage(t.Logf, "", dockerfile,
-					buildArgs, []string{}, kanikoImage, contextDir, config.gcsBucket, config.gcsClient,
-					config.serviceAccount, false, "", "")
+					buildArgs, []string{}, kanikoImage, contextDir, "", "")
 				if *err != nil {
 					return
 				}
@@ -113,64 +111,4 @@ func newResult(t *testing.T, f string) result {
 	}
 	t.Log(r)
 	return r
-}
-
-func TestSnapshotBenchmarkGcloud(t *testing.T) {
-	if b, err := strconv.ParseBool(os.Getenv("BENCHMARK")); err != nil || !b {
-		t.SkipNow()
-	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	contextDir := filepath.Join(cwd, "benchmark_fs")
-
-	nums := []int{10000, 50000, 100000, 200000, 300000, 500000, 700000}
-
-	var wg sync.WaitGroup
-	t.Log("Number of Files,Total Build Time,Walking Filesystem, Resolving Files")
-	for _, num := range nums {
-		t.Run(fmt.Sprintf("test_benchmark_%d", num), func(t *testing.T) {
-			t.Parallel()
-			wg.Add(1)
-			go func(num int) {
-				dir, err := runInGcloud(contextDir, num)
-				if err != nil {
-					t.Errorf("error when running in gcloud %v", err)
-					return
-				}
-				r := newResult(t, filepath.Join(dir, "results"))
-				t.Logf("%d,%f,%f,%f, %f", num, r.totalBuildTime, r.walkingFiles, r.resolvingFiles, r.hashingFiles)
-				wg.Done()
-				defer os.Remove(dir)
-				defer os.Chdir(cwd)
-			}(num)
-		})
-	}
-	wg.Wait()
-}
-
-func runInGcloud(dir string, num int) (string, error) {
-	os.Chdir(dir)
-	cmd := exec.Command("gcloud", "builds",
-		"submit", "--config=cloudbuild.yaml",
-		fmt.Sprintf("--substitutions=_COUNT=%d", num))
-	_, err := RunCommandWithoutTest(cmd)
-	if err != nil {
-		return "", err
-	}
-
-	// grab gcs and to temp dir and return
-	tmpDir, err := os.MkdirTemp("", strconv.Itoa(num))
-	if err != nil {
-		return "", err
-	}
-	src := fmt.Sprintf("%s/gcb/benchmark_file_%d", config.gcsBucket, num)
-	dest := filepath.Join(tmpDir, "results")
-	copyCommand := exec.Command("gsutil", "cp", src, dest)
-	_, err = RunCommandWithoutTest(copyCommand)
-	if err != nil {
-		return "", fmt.Errorf("failed to download file to GCS bucket %s: %w", src, err)
-	}
-	return tmpDir, nil
 }
