@@ -125,14 +125,12 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz661": {"--secret=id=kaniko,src=context/foo"},
 	// provenance forces ociv1 on buildkit but for these images we emit dockerv2 in kaniko
 	"Dockerfile_test_cross_compile":                {"--platform=linux/" + crossCompileArch},
-	"Dockerfile_test_mv_add":                       {"--provenance=false"},
 	"Dockerfile_test_snapshotter_ignorelist":       {"--provenance=false"},
 	"Dockerfile_test_whitelist":                    {"--provenance=false"},
 	"Dockerfile_test_volume_4":                     {"--provenance=false"},
 	"Dockerfile_test_volume_3":                     {"--provenance=false"},
 	"Dockerfile_test_meta_arg":                     {"--provenance=false"},
 	"Dockerfile_test_replaced_symlinks":            {"--provenance=false"},
-	"Dockerfile_test_registry":                     {"--provenance=false"},
 	"Dockerfile_test_pre_defined_build_args":       {"--provenance=false"},
 	"Dockerfile_test_replaced_hardlinks":           {"--provenance=false"},
 	"Dockerfile_test_issue_647":                    {"--provenance=false"},
@@ -140,14 +138,11 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_1837":                   {"--provenance=false"},
 	"Dockerfile_test_issue_2049":                   {"--provenance=false"},
 	"Dockerfile_test_issue_1039":                   {"--provenance=false"},
-	"Dockerfile_test_dangling_symlink":             {"--provenance=false"},
 	"Dockerfile_test_copyadd_chmod":                {"--provenance=false"},
-	"Dockerfile_test_copy_same_file_many_times":    {"--provenance=false"},
 	"Dockerfile_test_copy_reproducible":            {"--provenance=false"},
 	"Dockerfile_test_copy_chown_intermediate_dirs": {"--provenance=false"},
 	"Dockerfile_test_copy":                         {"--provenance=false"},
 	"Dockerfile_test_copy_bucket":                  {"--provenance=false"},
-	"Dockerfile_test_complex_substitution":         {"--provenance=false"},
 	"Dockerfile_test_cache_copy_oci":               {"--provenance=false"},
 	"Dockerfile_test_add_url_with_arg":             {"--provenance=false"},
 	"Dockerfile_test_add_dest_symlink_dir":         {"--provenance=false"},
@@ -266,21 +261,14 @@ var diffArgsMap = map[string][]string{
 	// each build, so its mtime differs between the two cached builds. That divergence is the
 	// known volume non-determinism the flag fixes, here we only assert the build no longer panics.
 	"TestCache/test_cache_Dockerfile_test_issue_mz793": {"--extra-ignore-files=data/"},
-	// Layer-length divergences from buildkit, enforced per-test instead of globally so new
-	// tests still catch regressions. These are pre-existing kaniko layer-composition
-	// differences (no COPY dedup, ignorelisted paths in ADDed tars, ONBUILD base re-emission,
-	// empty package-manager dirs); reasons are pinned per-test from local diffoci runs.
+	// Layer-length divergences from buildkit, enforced per-test instead of globally
 	"TestRun/test_Dockerfile_test_add":                       {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_arg_blank_with_quotes":     {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_arg_multi":                 {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_arg_multi_with_quotes":     {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_cache_install_oci":         {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_complex_substitution":      {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_copy_same_file_many_times": {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_dangling_symlink":          {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_meta_arg":                  {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_mv_add":                    {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_registry":                  {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_scratch":                   {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_issue_969":                 {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_issue_1007":                {"--extra-ignore-layer-length-mismatch"},
