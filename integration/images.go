@@ -242,6 +242,9 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_copy_symlink": {"--extra-ignore-files=workdirAnother/relative_link"},
 	"TestRun/test_Dockerfile_test_multistage":   {"--extra-ignore-files=new"},
 	"TestRun/test_Dockerfile_test_cross_compile": {"--platform=linux/" + crossCompileArch},
+	// kaniko adds parent directories of changed paths to the full-filesystem snapshot
+	"TestRun/test_Dockerfile_test_volume":   {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_volume_2": {"--extra-ignore-layer-length-mismatch"},
 	// FROM scratch we start with root, buildkit doesnt
 	"TestRun/test_Dockerfile_test_workdir_with_user": {"--extra-ignore-file-permissions"},
 	// We don't handle user nobody=-1 nogroup=-1 correctly

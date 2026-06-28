@@ -221,6 +221,7 @@ func TestSnapshotFSReplaceDirWithLink(t *testing.T) {
 	testDirWithoutLeadingSlash := strings.TrimLeft(testDir, "/")
 	expectedFiles := []string{
 		filepath.Join(testDirWithoutLeadingSlash, "bar"),
+		filepath.Join(testDirWithoutLeadingSlash, "foo"),
 	}
 	for _, path := range parentDirectoriesWithoutLeadingSlash(filepath.Join(testDir, "foo")) {
 		if path == config.RootDir {
