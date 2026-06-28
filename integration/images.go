@@ -241,11 +241,7 @@ var diffArgsMap = map[string][]string{
 	// docker is wrong. we do copy the symlink correctly.
 	"TestRun/test_Dockerfile_test_copy_symlink": {"--extra-ignore-files=workdirAnother/relative_link"},
 	"TestRun/test_Dockerfile_test_multistage":   {"--extra-ignore-files=new"},
-	// Verify we don't store root directory
-	"TestRun/test_Dockerfile_test_root":          {"--extra-ignore-layer-length-mismatch=false"},
 	"TestRun/test_Dockerfile_test_cross_compile": {"--platform=linux/" + crossCompileArch},
-	// --ignore-path must suppress the kaniko-only file; layer-length-mismatch would mask the difference
-	"TestRun/test_Dockerfile_test_ignore_path": {"--extra-ignore-layer-length-mismatch=false"},
 	// FROM scratch we start with root, buildkit doesnt
 	"TestRun/test_Dockerfile_test_workdir_with_user": {"--extra-ignore-file-permissions"},
 	// We don't handle user nobody=-1 nogroup=-1 correctly
@@ -263,9 +259,6 @@ var diffArgsMap = map[string][]string{
 	// But we discovered a new issue with this. For builtins, buildkit will emit "whiteout" files,
 	// to remember that it was removed, we don't. So we end up with a diff in the resulting image.
 	"TestRun/test_Dockerfile_test_issue_mz511": {"--extra-ignore-files=etc/.wh.nsswitch.conf"},
-	// mz595: surprisingly the missing files are **not** picked up if we ignore layer-length-mismatch,
-	// which we do by default in TestRun, we should move to disable that globally urgently.
-	"TestRun/test_Dockerfile_test_issue_mz595": {"--extra-ignore-layer-length-mismatch=false"},
 	// mz793: with FF_KANIKO_VOLUME_SKIP_MKDIR off, VOLUME creates the directory fresh on
 	// each build, so its mtime differs between the two cached builds. That divergence is the
 	// known volume non-determinism the flag fixes, here we only assert the build no longer panics.
