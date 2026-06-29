@@ -151,6 +151,9 @@ var RootCmd = &cobra.Command{
 			if !opts.NoPush && len(opts.Destinations) == 0 {
 				return errors.New("you must provide --destination, or use --no-push")
 			}
+			if opts.ImageFormat == config.ImageFormatDocker && opts.Compression == config.ZStd {
+				return errors.New("--compression=zstd cannot be used with --image-format=docker, the Docker schema2 format has no zstd layer media type, use --image-format=oci")
+			}
 			if err := cacheFlagsValid(); err != nil {
 				return fmt.Errorf("cache flags invalid: %w", err)
 			}
