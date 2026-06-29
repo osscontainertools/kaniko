@@ -342,6 +342,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -413,6 +414,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
 	dockerRunFlags = append(
 		dockerRunFlags,
 		ExecutorImage,
@@ -457,6 +459,7 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -499,6 +502,7 @@ func TestBuildViaRegistryMap(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -526,6 +530,7 @@ func TestBuildSkipFallback(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -567,6 +572,7 @@ func TestKanikoDir(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -611,6 +617,7 @@ func TestBuildWithLabels(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -652,6 +659,7 @@ func TestBuildWithHTTPError(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -1255,6 +1263,7 @@ func TestExitCodePropagation(t *testing.T) {
 		}
 		dockerFlags = addServiceAccountFlags(dockerFlags, "")
 		dockerFlags = addCoverageFlags(dockerFlags)
+		dockerFlags = addKanikoEnvFlags(dockerFlags)
 		dockerFlags = append(dockerFlags, ExecutorImage,
 			"-c", "dir:///workspace/",
 			"-f", "./Dockerfile_exit_code_propagation",
@@ -1308,6 +1317,7 @@ func TestBuildWithAnnotations(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -1345,6 +1355,12 @@ func TestPushFromArtifact(t *testing.T) {
 			runExecutor := func(executorArgs ...string) {
 				t.Helper()
 				flags := []string{"run", "--rm", "--net=host", "-v", outFlag + ":/out"}
+				flags = addKanikoEnvFlags(flags)
+				// mz731 keeps OCI base layers verbatim on the direct push, but the
+				// docker-archive --tar-path writer rewrites them to docker mediatypes, so
+				// the push-from-artifact image would not match. Disable it (after the
+				// KanikoEnv default) so both paths re-tar the base identically.
+				flags = append(flags, "-e", "FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=0")
 				flags = addServiceAccountFlags(flags, config.serviceAccount)
 				flags = addCoverageFlags(flags)
 				flags = append(flags, ExecutorImage)

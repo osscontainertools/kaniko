@@ -64,6 +64,15 @@ func addCoverageFlags(flags []string) []string {
 	return append(flags, "-v", coverageDir+":/covdata", "-e", "GOCOVERDIR=/covdata")
 }
 
+// addKanikoEnvFlags passes the suite's feature-flag matrix (KanikoEnv) to the executor
+// container. Every executor invocation must use it so all tests exercise the same flags.
+func addKanikoEnvFlags(flags []string) []string {
+	for _, envVariable := range KanikoEnv {
+		flags = append(flags, "-e", envVariable)
+	}
+	return flags
+}
+
 // Arguments to build Dockerfiles with, used for both docker and kaniko builds
 var argsMap = map[string][]string{
 	"Dockerfile_test_run":        {"file=/file"},
