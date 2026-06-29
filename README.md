@@ -75,6 +75,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--cleanup`](#flag---cleanup)
       - [Flag `--compression`](#flag---compression)
       - [Flag `--compression-level`](#flag---compression-level)
+      - [Flag `--image-format`](#flag---image-format)
       - [Flag `--compressed-caching`](#flag---compressed-caching)
       - [Flag `--context-sub-path`](#flag---context-sub-path)
       - [Flag `--credential-helpers`](#flag---credential-helpers)
@@ -741,6 +742,10 @@ Use this flag to select the compression algorithm `[gzip, zstd]`. Defaults to `g
 #### Flag `--compression-level`
 
 Use this flag to select the compression level. Defaults to `-1` (no compression)
+
+#### Flag `--image-format`
+
+Use this flag to select the output image media type `[docker, oci]`. `docker` writes a Docker schema2 manifest, `oci` writes an OCI image manifest. When unset, kaniko inherits the format of the base image.
 
 #### Flag `--compressed-caching`
 
