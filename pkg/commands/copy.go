@@ -25,6 +25,7 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -58,7 +59,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		}
 	} else {
 		user := config.User
-		if kConfig.EnvBool("FF_KANIKO_COPY_AS_ROOT") {
+		if kConfig.FF.CopyAsRoot {
 			// According to spec: https://docs.docker.com/reference/dockerfile/#copy---chown---chmod
 			//   All files and directories copied from the build context
 			//   are created with a default UID and GID of 0.
@@ -376,7 +377,7 @@ func copyCmdFilesUsedFromContext(
 		files = append(files, fullPath)
 	}
 
-	util.Assert("copy.files-count", len(files) <= len(srcs), "copyCmdFilesUsedFromContext: result cannot exceed source count (srcs=%d, files=%d)", len(srcs), len(files))
+	assert.Assert("copy.files-count", len(files) <= len(srcs), "copyCmdFilesUsedFromContext: result cannot exceed source count (srcs=%d, files=%d)", len(srcs), len(files))
 	logrus.Debugf("Using files from context: %v", files)
 
 	return files, nil

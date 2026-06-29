@@ -22,6 +22,7 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -246,7 +247,7 @@ func addCmdFilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildAr
 	}
 
 	// Remote URLs and tar archives are filtered out, so the result cannot exceed the source count.
-	util.Assert("add.files-count", len(files) <= len(srcs), "addCmdFilesUsedFromContext: result exceeds source count (srcs=%d, files=%d)", len(srcs), len(files))
+	assert.Assert("add.files-count", len(files) <= len(srcs), "addCmdFilesUsedFromContext: result exceeds source count (srcs=%d, files=%d)", len(srcs), len(files))
 	logrus.Infof("Using files from context: %v", files)
 	return files, nil
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
@@ -56,16 +57,16 @@ func ReplaceBase(img, base v1.Image) (v1.Image, error) {
 	}
 
 	// img must have at least as many layers as base; otherwise base can't be a prefix of img.
-	util.Assert("image.replacebase.base-layer-fit", len(baseLayers) <= len(imgLayers),
+	assert.Assert("image.replacebase.base-layer-fit", len(baseLayers) <= len(imgLayers),
 		"base has %d layers, img has %d", len(baseLayers), len(imgLayers))
 	// Same invariant in history terms — base's history must fit within img's prefix.
-	util.Assert("image.replacebase.base-history-fit", len(baseCfg.History) <= len(imgCfg.History),
+	assert.Assert("image.replacebase.base-history-fit", len(baseCfg.History) <= len(imgCfg.History),
 		"base has %d history entries, img has %d", len(baseCfg.History), len(imgCfg.History))
 	// EmptyLayer flags must agree across the base prefix; if they diverge, the splice would
 	// either attach a layer to an EmptyLayer history entry or leave a non-empty entry without
 	// a layer, producing a corrupt manifest.
 	for i := range baseCfg.History {
-		util.Assert("image.replacebase.base-history-alignment",
+		assert.Assert("image.replacebase.base-history-alignment",
 			imgCfg.History[i].EmptyLayer == baseCfg.History[i].EmptyLayer,
 			"history[%d] EmptyLayer differs: img=%v base=%v",
 			i, imgCfg.History[i].EmptyLayer, baseCfg.History[i].EmptyLayer)

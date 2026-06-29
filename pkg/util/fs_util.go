@@ -88,8 +88,6 @@ var ignorelist = append([]IgnoreListEntry{}, defaultIgnoreList...)
 
 var volumes = []string{}
 
-var secureExtraction = config.EnvBoolDefault("FF_KANIKO_SECUREJOIN_EXTRACTION", true)
-
 type FileContext struct {
 	Root          string
 	ExcludedFiles []string
@@ -211,7 +209,7 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 
 		if strings.HasPrefix(base, archive.WhiteoutPrefix) {
 			dir := filepath.Dir(path)
-			if secureExtraction {
+			if config.FF.SecurejoinExtraction {
 				securePath, err := securejoin.SecureJoin(root, cleanedName)
 				if err != nil {
 					return nil, fmt.Errorf("resolving whiteout path for %q: %w", hdr.Name, err)
@@ -237,7 +235,7 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 			}
 
 			// mz774: whiteout deletion is already applied, the marker is not needed in the filesystem
-			if !cfg.includeWhiteout || config.EnvBool("FF_KANIKO_SKIP_WRITE_WHITEOUTS") {
+			if !cfg.includeWhiteout || config.FF.SkipWriteWhiteouts {
 				logrus.Trace("Not including whiteout files")
 				continue
 			}
@@ -302,7 +300,7 @@ func childDirInIgnoreList(path string) bool {
 }
 
 func removeAllSkipIgnored(path string) (skip bool, err error) {
-	if !config.EnvBoolDefault("FF_KANIKO_PRESERVE_MOUNTED_PATHS", true) || !childDirInIgnoreList(path) {
+	if !config.FF.PreserveMountedPaths || !childDirInIgnoreList(path) {
 		return false, os.RemoveAll(path)
 	}
 	logrus.Debugf("Not removing %s, as it contains an ignored path", path)
@@ -347,7 +345,7 @@ func UnTar(r io.Reader, dest string) ([]string, error) {
 			return nil, err
 		}
 		cleanedName := filepath.Clean(hdr.Name)
-		if cleanedName == "." && config.EnvBool("FF_KANIKO_UNTAR_SKIP_ROOT") {
+		if cleanedName == "." && config.FF.UntarSkipRoot {
 			continue
 		}
 		if err := ExtractFile(dest, hdr, cleanedName, tr); err != nil {
@@ -364,7 +362,7 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 	}
 
 	var path string
-	if secureExtraction {
+	if config.FF.SecurejoinExtraction {
 		// cg330: SecureJoin the parent only, then append the basename lexically. Joining
 		// the full name would resolve the final component when it is a symlink we
 		// mean to overwrite, writing through it and creating loops like
@@ -450,7 +448,7 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		}
 	case tar.TypeDir:
 		logrus.Tracef("Creating dir %s", path)
-		if secureExtraction {
+		if config.FF.SecurejoinExtraction {
 			fi, lerr := os.Lstat(path)
 			if lerr == nil && fi.Mode()&os.ModeSymlink != 0 {
 				if err := os.Remove(path); err != nil {
@@ -497,7 +495,7 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 			return fmt.Errorf("hardlink target %q is not allowed: references parent directory", hdr.Linkname)
 		}
 		var link string
-		if secureExtraction {
+		if config.FF.SecurejoinExtraction {
 			resolved, err := securejoin.SecureJoin(dest, hdr.Linkname)
 			if err != nil {
 				return fmt.Errorf("invalid hardlink target %q: %w", hdr.Linkname, err)
@@ -775,7 +773,6 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 	var copiedFiles []string
 	var updates []timestampUpdate
 	hardlinksSeen := make(map[uint64]string)
-	preserveHardlinks := config.EnvBoolDefault("FF_KANIKO_PRESERVE_HARDLINKS", true)
 	for _, file := range files {
 		fullPath := filepath.Join(src, file)
 		if context.ExcludesFile(fullPath) {
@@ -796,7 +793,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 			logrus.Tracef("Creating directory %s", destPath)
 
 			perm := os.FileMode(0o755)
-			if !useDefaultChmod && config.EnvBool("FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS") {
+			if !useDefaultChmod && config.FF.CopyChmodOnImplicitDirs {
 				// mz507: Here we want to implement chmod on implicit dirs to be
 				// compatible with buildkit. buildkit's mkdir does not whiteout the umask.
 				// As ours does we have to apply the umask here beforehand.
@@ -829,7 +826,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 			if _, err := CopySymlink(fullPath, destPath, context); err != nil {
 				return nil, err
 			}
-		} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok && preserveHardlinks {
+		} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok && config.FF.PreserveHardlinks {
 			// #2594: inode already copied — create a hardlink instead of duplicating content.
 			logrus.Tracef("Creating hardlink %s -> %s", destPath, linkDst)
 			if err := os.Link(linkDst, destPath); err != nil {
@@ -1040,7 +1037,7 @@ func (c FileContext) ExcludesFile(path string) bool {
 			logrus.Errorf("Unable to get relative path, including %s in build: %v", path, err)
 			return false
 		}
-	} else if filepath.IsAbs(path) && config.EnvBool("FF_KANIKO_SCOPED_DOCKERIGNORE") {
+	} else if filepath.IsAbs(path) && config.FF.ScopedDockerignore {
 		return false
 	}
 	if c.matcher != nil {

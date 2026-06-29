@@ -123,6 +123,10 @@ func TestRun(t *testing.T) {
 							for k, v := range test.Env {
 								t.Setenv(k, v)
 							}
+							// Feature flags resolve once at startup; re-resolve so
+							// this subtest's env takes effect, and restore afterwards.
+							config.InitFeatureFlags()
+							t.Cleanup(config.InitFeatureFlags)
 
 							opts := config.KanikoOptions{}
 							origNewLayerCache := executor.NewLayerCache

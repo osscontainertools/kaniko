@@ -59,7 +59,7 @@ func WarmCache(opts *config.WarmerOptions) error {
 	logrus.Debugf("%s\n", images)
 
 	errs := 0
-	if config.EnvBoolDefault("FF_KANIKO_OCI_WARMER", true) {
+	if config.FF.OCIWarmer {
 		for _, img := range images {
 			err := ociWarmToFile(cacheDir, img, opts)
 			if err != nil {
@@ -121,7 +121,7 @@ func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	finalCachePath := path.Join(cacheDir, digest.String())
 	finalMfstPath := finalCachePath + ".json"
 
-	if config.EnvBoolDefault("FF_KANIKO_WARMER_CACHE_LOCK", true) {
+	if config.FF.WarmerCacheLock {
 		lock, err := acquireCacheLock(cacheDir, digest.String())
 		if err != nil {
 			return fmt.Errorf("failed to acquire cache lock: %w", err)
@@ -182,7 +182,7 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 
 	finalCachePath := path.Join(cacheDir, digest.String())
 
-	if config.EnvBoolDefault("FF_KANIKO_WARMER_CACHE_LOCK", true) {
+	if config.FF.WarmerCacheLock {
 		lock, err := acquireCacheLock(cacheDir, digest.String())
 		if err != nil {
 			return fmt.Errorf("failed to acquire cache lock: %w", err)
