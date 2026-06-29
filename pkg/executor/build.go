@@ -717,6 +717,8 @@ func saveSnapshotToLayer(tarPath string, imageMediaType types.MediaType, opts *c
 		} else {
 			layerOpts = append(layerOpts, tarball.WithMediaType(types.OCILayer))
 		}
+	} else if opts.Compression == config.ZStd {
+		logrus.Warn("ignoring --compression=zstd, the Docker schema2 output format has no zstd layer media type, use --image-format=oci for zstd layers")
 	}
 
 	layer, err := tarball.LayerFromFile(tarPath, layerOpts...)
