@@ -191,6 +191,12 @@ We are grateful to the organizations and individuals who support our project.
 
 We thank L3montree for their generous support and commitment to open-source sustainability.
 
+[<img src="docs/sponsors/siemens-logo.svg" alt="Siemens" width="250">](https://opensource.siemens.com)
+
+**[Siemens](https://opensource.siemens.com)**
+
+We thank Siemens for their generous support, and especially the team behind [opensource.siemens.com](https://opensource.siemens.com).
+
 ### Individuals
 **[Sped0n](https://github.com/Sped0n)**
 
