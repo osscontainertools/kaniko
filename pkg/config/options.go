@@ -77,6 +77,7 @@ type KanikoOptions struct {
 	ImageNameTagDigestFile       string
 	OCILayoutPath                string
 	Compression                  Compression
+	ImageFormat                  ImageFormat
 	CompressionLevel             int
 	ImageFSExtractRetry          int
 	SingleSnapshot               bool
@@ -180,6 +181,34 @@ func (c *Compression) Set(v string) error {
 
 func (c *Compression) Type() string {
 	return "compression"
+}
+
+// ImageFormat is the output image media type
+// unset means inherit from the base image (legacy behaviour)
+type ImageFormat string
+
+const (
+	ImageFormatInherit ImageFormat = ""
+	ImageFormatDocker  ImageFormat = "docker"
+	ImageFormatOCI     ImageFormat = "oci"
+)
+
+func (f *ImageFormat) String() string {
+	return string(*f)
+}
+
+func (f *ImageFormat) Set(v string) error {
+	switch v {
+	case "docker", "oci":
+		*f = ImageFormat(v)
+		return nil
+	default:
+		return errors.New(`must be either "docker" or "oci"`)
+	}
+}
+
+func (f *ImageFormat) Type() string {
+	return "imageformat"
 }
 
 // WarmerOptions are options that are set by command line arguments to the cache warmer.

@@ -1,0 +1,4 @@
+# mz849: --image-format=docker forces Docker schema2 output
+# and overrides the OCI scratch base.
+FROM scratch
+COPY context/foo /foo
