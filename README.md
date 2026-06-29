@@ -149,6 +149,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_SECUREJOIN_EXTRACTION`](#flag-ff_kaniko_securejoin_extraction)
       - [Flag `FF_KANIKO_RESOLVE_CACHE_KEY`](#flag-ff_kaniko_resolve_cache_key)
       - [Flag `FF_KANIKO_UNTAR_SKIP_ROOT`](#flag-ff_kaniko_untar_skip_root)
+      - [Flag `FF_KANIKO_EXPAND_HEREDOC`](#flag-ff_kaniko_expand_heredoc)
     - [Assertion Overrides](#assertion-overrides)
     - [Debug Image](#debug-image)
   - [Security](#security)
@@ -1302,6 +1303,13 @@ Will be deprecated in `v1.29.0`.
 
 When `ADD` extracts a local tar archive into a directory, kaniko applies the archive's root `.` entry to the destination directory and overwrites its mode and ownership, while docker leaves the destination untouched.
 Set this flag to `true` to skip the root `.` entry when untarring.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_EXPAND_HEREDOC`
+
+Docker applies Dockerfile word-expansion to a `COPY` or `ADD` heredoc body when the delimiter is unquoted, so `${VAR}` expands and `\${VAR}` keeps the literal text. A quoted delimiter (`<<'EOF'`) leaves the body verbatim. kaniko writes the body verbatim in every case, so the expanded files diverge from Docker.
+Set this flag to `true` to expand build args and env in unquoted `COPY` and `ADD` heredoc bodies.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
