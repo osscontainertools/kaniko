@@ -19,6 +19,7 @@ package commands
 import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
@@ -61,7 +62,7 @@ func updateLabels(labels []instructions.KeyValuePair, config *v1.Config, buildAr
 	}
 
 	config.Labels = existingLabels
-	util.Assert("label.count-monotone", len(config.Labels) >= prevLabelCount, "LABEL must not remove labels: count went from %d to %d", prevLabelCount, len(config.Labels))
+	assert.Assert("label.count-monotone", len(config.Labels) >= prevLabelCount, "LABEL must not remove labels: count went from %d to %d", prevLabelCount, len(config.Labels))
 	return nil
 }
 

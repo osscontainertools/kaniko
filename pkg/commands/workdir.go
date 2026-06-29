@@ -23,6 +23,7 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -46,7 +47,7 @@ func ToAbsPath(path string, workdir string) string {
 		}
 		result = filepath.Join(workdir, path)
 	}
-	util.Assert("workdir.abs-path", filepath.IsAbs(result), "ToAbsPath must return an absolute path, got %q (path=%q, workdir=%q)", result, path, workdir)
+	assert.Assert("workdir.abs-path", filepath.IsAbs(result), "ToAbsPath must return an absolute path, got %q (path=%q, workdir=%q)", result, path, workdir)
 	return result
 }
 

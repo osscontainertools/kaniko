@@ -29,6 +29,7 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
@@ -59,7 +60,7 @@ func (r *RunCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 }
 
 func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand, fileContext util.FileContext, secrets kConfig.SecretOptions) (reterr error) {
-	ff_bind := kConfig.EnvBoolDefault("FF_KANIKO_RUN_MOUNT_BIND", true)
+	ff_bind := kConfig.FF.RunMountBind
 	for _, f := range cmdRun.FlagsUsed {
 		if f != "mount" {
 			logrus.Warnf("#969 kaniko does not support '--%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", f)
@@ -320,7 +321,7 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 				continue
 			}
 			// Replacement envs must be in KEY=VALUE form.
-			util.Assert("run.path-separator", len(entry) == 2, "replacement env matching \"PATH\" has no '=' separator")
+			assert.Assert("run.path-separator", len(entry) == 2, "replacement env matching \"PATH\" has no '=' separator")
 			oldPath := os.Getenv("PATH")
 			err := os.Setenv("PATH", entry[1])
 			if err != nil {
@@ -334,11 +335,11 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 		}
 	}
 
-	util.Assert("run.command-nonempty", len(newCommand) > 0, "runCommandInExec: newCommand is empty")
+	assert.Assert("run.command-nonempty", len(newCommand) > 0, "runCommandInExec: newCommand is empty")
 	logrus.Infof("Cmd: %s", newCommand[0])
 	logrus.Infof("Args: %s", newCommand[1:])
 
-	if kConfig.EnvBool("FF_KANIKO_RUN_VIA_TINI") {
+	if kConfig.FF.RunViaTini {
 		newCommand = append([]string{kConfig.TiniExec, "-s", "--"}, newCommand...)
 	}
 
@@ -376,7 +377,7 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("starting command: %w", err)
 	}
-	util.Assert("run.process-set", cmd.Process != nil, "cmd.Process must be set after a successful Start()")
+	assert.Assert("run.process-set", cmd.Process != nil, "cmd.Process must be set after a successful Start()")
 
 	pgid, err := syscall.Getpgid(cmd.Process.Pid)
 	if err != nil {
@@ -529,7 +530,7 @@ func runCmdFilesUsedFromContext(
 	config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd *instructions.RunCommand,
 	fileContext util.FileContext,
 ) ([]string, error) {
-	ff_bind := kConfig.EnvBoolDefault("FF_KANIKO_RUN_MOUNT_BIND", true)
+	ff_bind := kConfig.FF.RunMountBind
 	if !ff_bind || len(cmd.FlagsUsed) == 0 {
 		return []string{}, nil
 	}

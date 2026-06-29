@@ -22,6 +22,7 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	kconfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -51,7 +52,7 @@ func (v *VolumeCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.
 		existingVolumes[volume] = x
 		util.AddVolumePathToIgnoreList(volume)
 
-		if !kconfig.EnvBoolDefault("FF_KANIKO_VOLUME_SKIP_MKDIR", true) {
+		if !kconfig.FF.VolumeSkipMkdir {
 			// Only create and snapshot the dir if it didn't exist already
 			if _, err := os.Stat(volume); os.IsNotExist(err) {
 				logrus.Infof("Creating directory %s", volume)
@@ -62,7 +63,7 @@ func (v *VolumeCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.
 		}
 	}
 	config.Volumes = existingVolumes
-	util.Assert("volume.count-monotone", len(config.Volumes) >= prevVolumeCount, "VOLUME must not remove volumes: count went from %d to %d", prevVolumeCount, len(config.Volumes))
+	assert.Assert("volume.count-monotone", len(config.Volumes) >= prevVolumeCount, "VOLUME must not remove volumes: count went from %d to %d", prevVolumeCount, len(config.Volumes))
 	return nil
 }
 
