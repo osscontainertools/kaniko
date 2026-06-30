@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"maps"
 
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 )
@@ -63,7 +64,7 @@ func (l *LayeredMap) Key() (string, error) {
 	var adds map[string]string
 	var deletes map[string]struct{}
 
-	util.Assert("layeredmap.slices-sync", len(l.adds) == len(l.deletes), "LayeredMap adds/deletes slices are out of sync (adds=%d, deletes=%d)", len(l.adds), len(l.deletes))
+	assert.Assert("layeredmap.slices-sync", len(l.adds) == len(l.deletes), "LayeredMap adds/deletes slices are out of sync (adds=%d, deletes=%d)", len(l.adds), len(l.deletes))
 	if len(l.adds) != 0 {
 		adds = l.adds[len(l.adds)-1]
 		deletes = l.deletes[len(l.deletes)-1]
@@ -96,7 +97,7 @@ func (l *LayeredMap) getCurrentImage() map[string]string {
 	maps.Copy(current, l.currentImage)
 
 	// Add the last layer on top.
-	util.Assert("layeredmap.slices-sync", len(l.adds) == len(l.deletes), "LayeredMap adds/deletes slices are out of sync (adds=%d, deletes=%d)", len(l.adds), len(l.deletes))
+	assert.Assert("layeredmap.slices-sync", len(l.adds) == len(l.deletes), "LayeredMap adds/deletes slices are out of sync (adds=%d, deletes=%d)", len(l.adds), len(l.deletes))
 	addedFiles := l.adds[len(l.adds)-1]
 	deletedFiles := l.deletes[len(l.deletes)-1]
 
@@ -141,7 +142,7 @@ func (l *LayeredMap) GetCurrentPaths() map[string]struct{} {
 // AddDelete will delete the specific files in the current layer.
 func (l *LayeredMap) AddDelete(s string) error {
 	// A layer must exist before files can be deleted.
-	util.Assert("layeredmap.delete-before-snapshot", len(l.deletes) > 0, "LayeredMap.AddDelete called before Snapshot()")
+	assert.Assert("layeredmap.delete-before-snapshot", len(l.deletes) > 0, "LayeredMap.AddDelete called before Snapshot()")
 	l.isCurrentImageValid = false
 
 	l.deletes[len(l.deletes)-1][s] = struct{}{}
@@ -151,7 +152,7 @@ func (l *LayeredMap) AddDelete(s string) error {
 // Add will add the specified file s to the current layer.
 func (l *LayeredMap) Add(s string) error {
 	// A layer must exist before files can be added.
-	util.Assert("layeredmap.add-before-snapshot", len(l.adds) > 0, "LayeredMap.Add called before Snapshot()")
+	assert.Assert("layeredmap.add-before-snapshot", len(l.adds) > 0, "LayeredMap.Add called before Snapshot()")
 	l.isCurrentImageValid = false
 
 	// Use hash function and add to layers

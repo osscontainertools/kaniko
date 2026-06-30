@@ -23,8 +23,8 @@ import (
 
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/config"
-	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
 // builtinAllowedBuildArgs is list of built-in allowed build args
@@ -93,7 +93,7 @@ func (b *BuildArgs) ReplacementEnvs(envs []string) []string {
 	nenvs := len(merged)
 	args := b.GetAllAllowed()
 	for key, val := range args {
-		if config.EnvBoolDefault("FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE", true) {
+		if config.FF.BuildkitArgEnvPrecedence {
 			// 3344: args always override envs
 			merged[key] = &val
 		} else if _, exists := merged[key]; !exists {
@@ -110,9 +110,9 @@ func (b *BuildArgs) ReplacementEnvs(envs []string) []string {
 		}
 	}
 	// Args can add keys but must not remove existing env keys.
-	util.Assert("buildargs.replacement-envs.min-size", nenvs <= len(result), "ReplacementEnvs: result (%d) is smaller than de-duplicated envs (%d)", len(result), nenvs)
+	assert.Assert("buildargs.replacement-envs.min-size", nenvs <= len(result), "ReplacementEnvs: result (%d) is smaller than de-duplicated envs (%d)", len(result), nenvs)
 	// Result is bounded by the union of unique env keys and arg keys.
-	util.Assert("buildargs.replacement-envs.max-size", len(result) <= nenvs+len(args), "ReplacementEnvs: result (%d) exceeds de-duplicated envs (%d) + args (%d)", len(result), nenvs, len(args))
+	assert.Assert("buildargs.replacement-envs.max-size", len(result) <= nenvs+len(args), "ReplacementEnvs: result (%d) exceeds de-duplicated envs (%d) + args (%d)", len(result), nenvs, len(args))
 	return result
 }
 

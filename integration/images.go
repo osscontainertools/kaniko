@@ -347,6 +347,8 @@ var warmerOutputChecks = map[string]func(string, []byte) error{
 var expectedWarnings = map[string]string{
 	// mz640: COPY to /kaniko (ignored path) must warn rather than silently skip.
 	"Dockerfile_test_issue_mz560": "Skipping copy targeting kaniko directory",
+	// mz793: the test disables FF_KANIKO_VOLUME_SKIP_MKDIR, which the flag registry warns about.
+	"Dockerfile_test_issue_mz793": "feature flags explicitly disabled, please create an issue for your use-case: FF_KANIKO_VOLUME_SKIP_MKDIR",
 }
 
 func checkNoWarnings(dockerfile string, out []byte) error {

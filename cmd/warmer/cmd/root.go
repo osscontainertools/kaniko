@@ -58,6 +58,7 @@ var RootCmd = &cobra.Command{
 		if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {
 			return err
 		}
+		config.LogFeatureFlags()
 
 		// Allow setting --registry-maps using an environment variable.
 		// some users use warmer with --regisry-mirror before v1.21.0

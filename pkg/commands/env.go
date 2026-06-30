@@ -37,7 +37,7 @@ func (e *EnvCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		return err
 	}
 	// 3344: An ENV declared after an ARG of the same name overrides it.
-	if kConfig.EnvBoolDefault("FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE", true) {
+	if kConfig.FF.BuildkitArgEnvPrecedence {
 		for _, keyVal := range newEnvs {
 			buildArgs.RemoveArg(keyVal.Key)
 		}
