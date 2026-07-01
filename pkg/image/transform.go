@@ -18,11 +18,13 @@ package image
 
 import (
 	"encoding/json"
+	"strings"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/partial"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
@@ -98,6 +100,30 @@ func ReplaceBase(img, base v1.Image) (v1.Image, error) {
 	finalCfg.RootFS = stackedCfg.RootFS
 	finalCfg.History = stackedCfg.History
 	return mutate.ConfigFile(stacked, finalCfg)
+}
+
+func AssertConsistentMediaType(img v1.Image) error {
+	man, err := img.Manifest()
+	if err != nil {
+		return err
+	}
+	oci, docker := false, false
+	classify := func(mt types.MediaType) {
+		s := string(mt)
+		switch {
+		case strings.Contains(s, types.OCIVendorPrefix):
+			oci = true
+		case strings.Contains(s, types.DockerVendorPrefix):
+			docker = true
+		}
+	}
+	classify(man.MediaType)
+	classify(man.Config.MediaType)
+	for _, l := range man.Layers {
+		classify(l.MediaType)
+	}
+	util.Assert("image.consistent-media-type", !(oci && docker), "manifest mixes OCI and docker media types")
+	return nil
 }
 
 // WithoutAnnotations returns an image whose manifest has no annotations.

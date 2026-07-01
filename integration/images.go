@@ -499,6 +499,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 	d.TestReproducibleDockerfiles = map[string]struct{}{
 		"Dockerfile_test_copy_reproducible": {},
 		"Dockerfile_test_issue_mz731":       {},
+		"Dockerfile_test_issue_mz851":       {},
 	}
 	return &d
 }
