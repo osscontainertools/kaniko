@@ -102,7 +102,10 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 	if !stage.Push {
 		_opts.Labels = []string{}
 	}
-	sourceImage = applyImageFormat(sourceImage, opts.ImageFormat)
+	sourceImage, err := applyImageFormat(sourceImage, opts.ImageFormat)
+	if err != nil {
+		return nil, err
+	}
 	imageConfig, err := initializeConfig(sourceImage, &_opts)
 	if err != nil {
 		return nil, err
@@ -749,20 +752,14 @@ func extractMediaTypeVendor(mt types.MediaType) string {
 	return types.DockerVendorPrefix
 }
 
-func applyImageFormat(image v1.Image, format config.ImageFormat) v1.Image {
+func applyImageFormat(image v1.Image, format config.ImageFormat) (v1.Image, error) {
 	switch format {
 	case config.ImageFormatOCI:
-		return mutate.ConfigMediaType(
-			mutate.MediaType(image, types.OCIManifestSchema1),
-			types.OCIConfigJSON,
-		)
+		return image_util.WithMediaType(image, types.OCIManifestSchema1)
 	case config.ImageFormatDocker:
-		return mutate.ConfigMediaType(
-			mutate.MediaType(image, types.DockerManifestSchema2),
-			types.DockerConfigJSON,
-		)
+		return image_util.WithMediaType(image, types.DockerManifestSchema2)
 	default:
-		return image
+		return image, nil
 	}
 }
 

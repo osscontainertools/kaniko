@@ -154,6 +154,12 @@ var RootCmd = &cobra.Command{
 			if opts.ImageFormat == config.ImageFormatDocker && opts.Compression == config.ZStd {
 				return errors.New("--compression=zstd cannot be used with --image-format=docker, the Docker schema2 format has no zstd layer media type, use --image-format=oci")
 			}
+			if opts.TarPath != "" && opts.ImageFormat == config.ImageFormatOCI {
+				return errors.New("--tar-path writes a Docker schema2 tarball and cannot be used with --image-format=oci, use --oci-layout-path to write an OCI image")
+			}
+			if opts.TarPath != "" && opts.Compression == config.ZStd {
+				return errors.New("--compression=zstd cannot be used with --tar-path, the Docker schema2 tarball has no zstd layer media type, use --oci-layout-path for zstd layers")
+			}
 			if err := cacheFlagsValid(); err != nil {
 				return fmt.Errorf("cache flags invalid: %w", err)
 			}

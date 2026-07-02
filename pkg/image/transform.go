@@ -18,6 +18,7 @@ package image
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -181,4 +182,82 @@ func (n *noAnnotationsImage) RawManifest() ([]byte, error) {
 
 func (n *noAnnotationsImage) Digest() (v1.Hash, error) {
 	return partial.Digest(n)
+}
+
+func WithMediaType(img v1.Image, manifestMT types.MediaType) (v1.Image, error) {
+	vendor := mediaTypeVendor(manifestMT)
+	configMT := types.DockerConfigJSON
+	if vendor == types.OCIVendorPrefix {
+		configMT = types.OCIConfigJSON
+	}
+	relabeled, err := relabelLayers(img, vendor)
+	if err != nil {
+		return nil, err
+	}
+	return mutate.ConfigMediaType(mutate.MediaType(relabeled, manifestMT), configMT), nil
+}
+
+func relabelLayers(img v1.Image, vendor string) (v1.Image, error) {
+	man, err := img.Manifest()
+	if err != nil {
+		return nil, err
+	}
+	relabeled := man.DeepCopy()
+	for i := range relabeled.Layers {
+		mt, err := relabelLayerMediaType(relabeled.Layers[i].MediaType, vendor)
+		if err != nil {
+			return nil, err
+		}
+		relabeled.Layers[i].MediaType = mt
+	}
+	return &layerRelabeledImage{Image: img, manifest: relabeled}, nil
+}
+
+type layerRelabeledImage struct {
+	v1.Image
+	manifest *v1.Manifest
+}
+
+func (i *layerRelabeledImage) Manifest() (*v1.Manifest, error) {
+	return i.manifest.DeepCopy(), nil
+}
+
+func (i *layerRelabeledImage) RawManifest() ([]byte, error) {
+	return json.Marshal(i.manifest)
+}
+
+func mediaTypeVendor(mt types.MediaType) string {
+	if strings.Contains(string(mt), types.OCIVendorPrefix) {
+		return types.OCIVendorPrefix
+	}
+	return types.DockerVendorPrefix
+}
+
+func relabelLayerMediaType(mt types.MediaType, vendor string) (types.MediaType, error) {
+	if mediaTypeVendor(mt) == vendor {
+		return mt, nil
+	}
+	switch vendor {
+	case types.OCIVendorPrefix:
+		switch mt {
+		case types.DockerLayer:
+			return types.OCILayer, nil
+		case types.DockerUncompressedLayer:
+			return types.OCIUncompressedLayer, nil
+		case types.DockerForeignLayer:
+			return types.OCIRestrictedLayer, nil
+		}
+	case types.DockerVendorPrefix:
+		switch mt {
+		case types.OCILayer:
+			return types.DockerLayer, nil
+		case types.OCIUncompressedLayer:
+			return types.DockerUncompressedLayer, nil
+		case types.OCIRestrictedLayer:
+			return types.DockerForeignLayer, nil
+		case types.OCILayerZStd:
+			return "", fmt.Errorf("cannot relabel zstd layer %q to docker schema2, which has no zstd media type, use --image-format=oci", mt)
+		}
+	}
+	return "", fmt.Errorf("cannot relabel layer media type %q to %s", mt, vendor)
 }
