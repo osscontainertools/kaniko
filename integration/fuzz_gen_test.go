@@ -75,6 +75,7 @@ type fileKind int
 const (
 	kindRegular fileKind = iota
 	kindSymlink
+	kindHardlink
 	kindTar
 )
 
@@ -124,6 +125,20 @@ func generate(s *source, bases []string) genResult {
 		tarName = "arc.tar"
 		ctx = append(ctx, fileSpec{name: tarName, kind: kindTar})
 	}
+	// A hardlink into the context, to exercise how COPY treats hardlinked sources.
+	hlinkName := ""
+	if s.chance(2) {
+		hlinkName = "hlink"
+		ctx = append(ctx, fileSpec{name: hlinkName, kind: kindHardlink, target: regulars[0]})
+	}
+	// A context subdirectory, to exercise a directory COPY (the CopyDir path).
+	dirName := ""
+	if s.chance(2) {
+		dirName = "d0"
+		ctx = append(ctx,
+			fileSpec{name: "d0/f0", content: "d0-f0\n", mode: 0o644},
+			fileSpec{name: "d0/f1", content: "d0-f1\n", mode: 0o600})
+	}
 
 	uids := []string{"0", "1000", "65534"}
 	modes := []string{"0644", "0600", "0755", "0700", "0777"}
@@ -151,7 +166,7 @@ func generate(s *source, bases []string) genResult {
 
 		ninstr := 2 + s.intn(6)
 		for i := 0; i < ninstr; i++ {
-			switch s.intn(20) {
+			switch s.intn(26) {
 			case 0, 1, 2:
 				// COPY a context file, sometimes with --chown or --chmod, the areas
 				// where docker and kaniko most often disagree on ownership and mode.
@@ -229,6 +244,38 @@ func generate(s *source, bases []string) genResult {
 				} else {
 					fmt.Fprintf(&b, "HEALTHCHECK CMD /bin/true\n")
 				}
+			case 20:
+				// ARG with a default, made observable by writing it to a file.
+				fmt.Fprintf(&b, "ARG FUZZ_ARG_%d=arg%d\nRUN echo $FUZZ_ARG_%d > /arg%d\n", i, i, i, i)
+			case 21:
+				// Glob COPY of every context file.
+				fmt.Fprintf(&b, "COPY ctx* /glob%d/\n", i)
+			case 22:
+				// Multi-source COPY (needs a trailing-slash dir dest).
+				if len(regulars) >= 2 {
+					fmt.Fprintf(&b, "COPY %s %s /multi%d/\n", regulars[0], regulars[1], i)
+				} else {
+					fmt.Fprintf(&b, "ENV FUZZ_KEY_%d=value%d\n", i, i)
+				}
+			case 23:
+				// Directory COPY, exercising the CopyDir path and its implicit-dir chmod.
+				if dirName != "" {
+					fmt.Fprintf(&b, "COPY %s /dircopy%d/\n", dirName, i)
+				} else {
+					f := srcPick(s, regulars)
+					fmt.Fprintf(&b, "COPY %s /dest/%s\n", f, f)
+				}
+			case 24:
+				// COPY a hardlinked source.
+				if hlinkName != "" {
+					fmt.Fprintf(&b, "COPY %s /dest/%s\n", hlinkName, hlinkName)
+				} else {
+					f := srcPick(s, regulars)
+					fmt.Fprintf(&b, "COPY %s /dest/%s\n", f, f)
+				}
+			case 25:
+				// COPY --from an external image, exercising cross-image copy.
+				fmt.Fprintf(&b, "COPY --from=%s /etc/hostname /ext%d\n", srcPick(s, bases), i)
 			}
 		}
 	}
