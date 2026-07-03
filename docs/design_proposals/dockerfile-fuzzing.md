@@ -169,6 +169,28 @@ The cache backend is itself a generated choice. The suite already exercises two:
 
 A case that produces a clean docker comparison but a dirty cache comparison is a real finding and one the current handpicked cache suite can only catch on the Dockerfiles someone thought to add. Randomising the input is where this earns its keep.
 
+## Additional oracles
+
+The docker and cache oracles are cross-tool and cache-consistency checks. Two more oracles find bugs neither can, and two others only arbitrate rather than find.
+
+### Build-twice determinism, two modes
+
+Build the same case with kaniko twice, no cache, and compare. Any difference is a nondeterminism bug, found with docker out of the loop entirely. It runs in two modes because the two catch different things.
+
+- Ignore-timestamps mode. Compare with file timestamps ignored. This catches structural nondeterminism: layer count, file set, ordering, mode, ownership, and media type that vary between two runs of the identical input.
+- Reproducible mode. Build both with `--reproducible` and compare byte-strict, timestamps included. `--reproducible` pins timestamps to the epoch, so any remaining difference, including a stray non-epoch mtime, is a reproducibility defect. This is the tighter of the two and directly guards the mz731 and mz851 reproducibility work.
+
+This is the cheapest new oracle and the earlier cache flake already hinted the nondeterminism class exists.
+
+### tar-path versus push consistency
+
+One build writes `--tar-path` and also pushes, and the two outputs must be the same image. This targets a known seam: the preserve-base-layers work had a tar-path media-type divergence. The wrinkle is that `--tar-path` always writes a docker v2 manifest, while the pushed image mirrors the base media type. So the comparison either forces the push to docker v2 as well, or restricts this oracle to docker v2 bases, so that a media-type difference the tar path dictates by design is not misread as a finding. Everything below the manifest media type, the layers and config, must match exactly.
+
+### Deferred or arbitration-only
+
+- Previous-release regression. HEAD executor versus a pinned prior release on the same input. This is a CI regression guard, not a bug finder for now, so it belongs in the scheduled job rather than the local campaign.
+- buildah as a third implementation. It will not find new bugs, but it arbitrates when docker and kaniko disagree: if buildah agrees with docker, kaniko is the outlier, and if it agrees with kaniko, the case is likely a docker quirk rather than a kaniko bug. Useful for triage, not for discovery, and the heaviest to set up.
+
 ## Severity and crash detection
 
 A crash beats a diff. A Dockerfile that makes the kaniko executor panic, trip an assertion, or hit unreachable code is a higher-value finding than one that merely produces a different image, and it is ranked above every diff class.
