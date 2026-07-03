@@ -58,6 +58,17 @@ These are OCI conformance invariants. Violating them produces a structurally mal
 |---|---|---|
 | `reproducible.epoch-timestamps` | with `--reproducible`, every tar header ModTime in an emitted layer is the epoch | timestamp leaks that break reproducibility, mz731 and mz851 territory; assert in the tar writer gated on the option rather than diffing after the fact |
 
+## Deterministic leak assertions, no garbage collection
+
+Go has no builtin leak detector that fits here. `-race` finds races not leaks, `goleak` is goroutine-scoped and test-only, and the common file-leak canary uses `runtime.SetFinalizer` to panic when an unclosed file is collected, which depends on the garbage collector running and is therefore nondeterministic. We want the opposite: a leak that fires deterministically, every run, at a fixed point.
+
+The fit for kaniko is a resource registry plus an exit-time assertion, the same shape as the existing `warmer.cache-lock.single-release` invariant.
+
+- `leak.files-unclosed`. Route descriptor access through the existing `util.FSys` abstraction. Register on open, deregister on close, and assert the registry is empty at end of build. No finalizer, no GC, fires through the fuzzer's crash path like any assertion.
+- `leak.tempfiles-unremoved`. Same registry idea for `CreateTemp`. Snapshot tars and other scratch files must all be consumed or removed by exit.
+
+Related defect found while surveying: `Tar.Close()` discards the `tar.Writer` flush error. A failed final flush is a silently truncated layer. That should return the error or assert on it regardless of the leak work.
+
 ## What assertions will not catch
 
 Honest limits, so the fuzzer's oracles stay in place alongside them.
