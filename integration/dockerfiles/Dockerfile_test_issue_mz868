@@ -1,0 +1,8 @@
+FROM alpine
+
+# mz868: a COPY whose destination resolves through a dangling symlink aborted the
+# build on kaniko v1.28.0 with "failed to eval symlinks", because resolveIfSymlink
+# lstats the missing target. docker writes through the link, so the build succeeds.
+RUN mkdir -p /dest && ln -s /nowhere-target /dest/linkS
+COPY context/foo /dest/linkS
+RUN readlink /dest/linkS && cat /dest/linkS
