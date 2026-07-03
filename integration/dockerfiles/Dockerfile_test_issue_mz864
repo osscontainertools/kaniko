@@ -1,0 +1,8 @@
+FROM alpine
+
+# mz864: WORKDIR chowns only the leaf directory it creates.
+# Diverges from buildkit on kaniko v1.28.0: the implicit parent /work stays
+# root owned while buildkit assigns the active USER to every dir it creates.
+USER 1000
+WORKDIR /work/dir4
+RUN stat -c '%u %g %n' /work /work/dir4
