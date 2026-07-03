@@ -236,7 +236,7 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 			}
 
 			// mz774: whiteout deletion is already applied, the marker is not needed in the filesystem
-			if !cfg.includeWhiteout || config.EnvBool("FF_KANIKO_SKIP_WRITE_WHITEOUTS") {
+			if !cfg.includeWhiteout || config.EnvBoolDefault("FF_KANIKO_SKIP_WRITE_WHITEOUTS", true) {
 				logrus.Trace("Not including whiteout files")
 				continue
 			}
@@ -347,7 +347,7 @@ func UnTar(r io.Reader, dest string) ([]string, error) {
 			return nil, err
 		}
 		cleanedName := filepath.Clean(hdr.Name)
-		if cleanedName == "." && config.EnvBool("FF_KANIKO_UNTAR_SKIP_ROOT") {
+		if cleanedName == "." && config.EnvBoolDefault("FF_KANIKO_UNTAR_SKIP_ROOT", true) {
 			continue
 		}
 		if err := ExtractFile(dest, hdr, cleanedName, tr); err != nil {

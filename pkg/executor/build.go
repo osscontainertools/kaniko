@@ -240,7 +240,7 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	// Add the next command to the cache key.
 	keyString := command.String()
 	resolver, ok := command.(commands.CacheKeyResolver)
-	if ok && config.EnvBool("FF_KANIKO_RESOLVE_CACHE_KEY") {
+	if ok && config.EnvBoolDefault("FF_KANIKO_RESOLVE_CACHE_KEY", true) {
 		resolved, err := resolver.CacheKey(replacementEnvs)
 		if err != nil {
 			return compositeKey, fmt.Errorf("resolving cache key: %w", err)
@@ -336,7 +336,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 			copyCmd, isCopy := commands.CastAbstractCopyCommand(command)
 			if !hasContext && isCopy && copyCmd.From() != "" {
 				inferred := false
-				if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
+				if config.EnvBoolDefault("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", true) && opts.CacheCopyLayers {
 					inferredKey, err := populateCompositeKey(command, nil, compositeKey, args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 					if err == nil {
 						inferredCK, err := inferredKey.Hash()
@@ -374,7 +374,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 				}
 
 				// mz334: assert the inferred key pointer resolves to the same content key.
-				if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
+				if config.EnvBoolDefault("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", true) && opts.CacheCopyLayers {
 					inferredKey, err := populateCompositeKey(command, nil, prevCompositeKey, args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 					if err == nil {
 						inferredCK, err := inferredKey.Hash()
@@ -531,7 +531,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				return err
 			}
 			// mz334: also compute the inferred key so we can push a pointer below.
-			if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
+			if config.EnvBoolDefault("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", true) && opts.CacheCopyLayers {
 				inferredKey, err := populateCompositeKey(command, nil, prevCompositeKey, s.args, s.cf.Config.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 				if err == nil {
 					inferredCacheKey, err = inferredKey.Hash()
@@ -816,7 +816,7 @@ func convertLayerMediaType(layer v1.Layer, image v1.Image, opts *config.KanikoOp
 		if targetMediaType != "" {
 			srcCompression := layerCompression(layerMediaType)
 			dstCompression := layerCompression(targetMediaType)
-			if config.EnvBool("FF_KANIKO_SKIP_RELABEL_RECOMPRESS") && srcCompression != "" && srcCompression == dstCompression {
+			if config.EnvBoolDefault("FF_KANIKO_SKIP_RELABEL_RECOMPRESS", true) && srcCompression != "" && srcCompression == dstCompression {
 				relabeled, err := tarball.LayerFromOpener(layer.Compressed, layerOpts...)
 				if err != nil {
 					return nil, err
@@ -974,7 +974,7 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 			printf("UNPACK %s\n", s.BaseName)
 		}
 		for jdx, c := range s.Commands {
-			if opts.Cache && opts.CacheCopyLayers && config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && config.EnvBool("FF_KANIKO_CACHE_LOOKAHEAD") {
+			if opts.Cache && opts.CacheCopyLayers && config.EnvBoolDefault("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", true) && config.EnvBool("FF_KANIKO_CACHE_LOOKAHEAD") {
 				if copyCmd, ok := c.(*instructions.CopyCommand); ok && copyCmd.From != "" {
 					ci := cacheInfo[s.Index]
 					if ck := ci.redirectKeys[jdx]; ck != "" {
@@ -1296,7 +1296,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				if err != nil {
 					return nil, err
 				}
-				if config.EnvBool("FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS") {
+				if config.EnvBoolDefault("FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS", true) {
 					sourceImage, err = image_util.ReplaceBase(sourceImage, baseImage)
 					if err != nil {
 						return nil, err
