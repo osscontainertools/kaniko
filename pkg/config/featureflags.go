@@ -29,7 +29,6 @@ import (
 type FeatureFlags struct {
 	AddChecksum                    bool
 	AddUnpack                      bool
-	BuildkitArgEnvPrecedence       bool
 	CacheHashBlake3                bool
 	CacheLookahead                 bool
 	CacheProbeAfterMiss            bool
@@ -41,25 +40,19 @@ type FeatureFlags struct {
 	CopySkipSpecialFiles           bool
 	CrossRepoMount                 bool
 	DeferCachePush                 bool
-	DeprecateInterStageRestore     bool
 	DeprecateLayerlessCacheEntries bool
 	DisableHTTP2                   bool
 	ExpandHeredoc                  bool
 	HashDirFraming                 bool
-	IgnoreCachedManifest           bool
 	InferCrossStageCacheKey        bool
 	LayerHints                     bool
 	NativeCopy                     bool
-	NoPropagateAnnotations         bool
 	OCIScratchBase                 bool
-	OCIWarmer                      bool
 	PathScopedRegistryAuth         bool
 	PeekArchiveHeader              bool
 	PlatformCacheKey               bool
 	PoolRegistryConnections        bool
 	PrecompileDockerignore         bool
-	PreserveHardlinks              bool
-	PreserveMountedPaths           bool
 	PreserveMountedSymlinks        bool
 	RelativeLinkTargets            bool
 	ReproduciblePreserveBaseLayers bool
@@ -67,11 +60,9 @@ type FeatureFlags struct {
 	ResolveCacheKey                bool
 	RollingCacheKey                bool
 	RunHonorGroup                  bool
-	RunMountBind                   bool
 	RunViaTini                     bool
 	ScopedDockerignore             bool
 	ScopedRegistryCertificates     bool
-	SecurejoinExtraction           bool
 	SharedBaseCache                bool
 	SkipCachedStages               bool
 	SkipRelabelRecompress          bool
@@ -79,8 +70,6 @@ type FeatureFlags struct {
 	UnpackXz                       bool
 	UnpackZstd                     bool
 	UntarSkipRoot                  bool
-	VolumeSkipMkdir                bool
-	WarmerCacheLock                bool
 }
 
 var FF FeatureFlags
@@ -118,7 +107,6 @@ func InitFeatureFlags() {
 	FF = FeatureFlags{
 		AddChecksum:                    featureFlag("FF_KANIKO_ADD_CHECKSUM", false),
 		AddUnpack:                      featureFlag("FF_KANIKO_ADD_UNPACK", false),
-		BuildkitArgEnvPrecedence:       featureFlag("FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE", true),
 		CacheHashBlake3:                featureFlag("FF_KANIKO_CACHE_HASH_BLAKE3", false),
 		CacheLookahead:                 featureFlag("FF_KANIKO_CACHE_LOOKAHEAD", false),
 		CacheProbeAfterMiss:            featureFlag("FF_KANIKO_CACHE_PROBE_AFTER_MISS", false),
@@ -130,37 +118,29 @@ func InitFeatureFlags() {
 		CopySkipSpecialFiles:           featureFlag("FF_KANIKO_COPY_SKIP_SPECIAL_FILES", false),
 		CrossRepoMount:                 featureFlag("FF_KANIKO_CROSS_REPO_MOUNT", false),
 		DeferCachePush:                 featureFlag("FF_KANIKO_DEFER_CACHE_PUSH", false),
-		DeprecateInterStageRestore:     featureFlag("FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE", true),
 		DeprecateLayerlessCacheEntries: featureFlag("FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES", false),
 		DisableHTTP2:                   featureFlag("FF_KANIKO_DISABLE_HTTP2", false),
 		ExpandHeredoc:                  featureFlag("FF_KANIKO_EXPAND_HEREDOC", false),
 		HashDirFraming:                 featureFlag("FF_KANIKO_HASH_DIR_FRAMING", false),
-		IgnoreCachedManifest:           featureFlag("FF_KANIKO_IGNORE_CACHED_MANIFEST", false),
 		InferCrossStageCacheKey:        featureFlag("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", true),
 		LayerHints:                     featureFlag("FF_KANIKO_LAYER_HINTS", false),
 		NativeCopy:                     featureFlag("FF_KANIKO_NATIVE_COPY", false),
-		NoPropagateAnnotations:         featureFlag("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS", true),
 		OCIScratchBase:                 featureFlag("FF_KANIKO_OCI_SCRATCH_BASE", false),
-		OCIWarmer:                      featureFlag("FF_KANIKO_OCI_WARMER", true),
 		PathScopedRegistryAuth:         featureFlag("FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH", false),
 		PeekArchiveHeader:              featureFlag("FF_KANIKO_PEEK_ARCHIVE_HEADER", false),
 		PlatformCacheKey:               featureFlag("FF_KANIKO_PLATFORM_CACHE_KEY", false),
 		PoolRegistryConnections:        featureFlag("FF_KANIKO_POOL_REGISTRY_CONNECTIONS", false),
 		PrecompileDockerignore:         featureFlag("FF_KANIKO_PRECOMPILE_DOCKERIGNORE", false),
-		PreserveHardlinks:              featureFlag("FF_KANIKO_PRESERVE_HARDLINKS", true),
 		RelativeLinkTargets:            featureFlag("FF_KANIKO_RELATIVE_LINK_TARGETS", true),
-		PreserveMountedPaths:           featureFlag("FF_KANIKO_PRESERVE_MOUNTED_PATHS", true),
 		PreserveMountedSymlinks:        featureFlag("FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS", false),
 		ReproduciblePreserveBaseLayers: featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS", true),
 		ReproduciblePreserveFormat:     featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT", false),
 		ResolveCacheKey:                featureFlag("FF_KANIKO_RESOLVE_CACHE_KEY", true),
 		RollingCacheKey:                featureFlag("FF_KANIKO_ROLLING_CACHE_KEY", false),
 		RunHonorGroup:                  featureFlag("FF_KANIKO_RUN_HONOR_GROUP", false),
-		RunMountBind:                   featureFlag("FF_KANIKO_RUN_MOUNT_BIND", true),
 		RunViaTini:                     featureFlag("FF_KANIKO_RUN_VIA_TINI", false),
 		ScopedDockerignore:             featureFlag("FF_KANIKO_SCOPED_DOCKERIGNORE", false),
 		ScopedRegistryCertificates:     featureFlag("FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES", true),
-		SecurejoinExtraction:           featureFlag("FF_KANIKO_SECUREJOIN_EXTRACTION", true),
 		SharedBaseCache:                featureFlag("FF_KANIKO_SHARED_BASE_CACHE", true),
 		SkipCachedStages:               featureFlag("FF_KANIKO_SKIP_CACHED_STAGES", true),
 		SkipRelabelRecompress:          featureFlag("FF_KANIKO_SKIP_RELABEL_RECOMPRESS", true),
@@ -168,8 +148,6 @@ func InitFeatureFlags() {
 		UnpackXz:                       featureFlag("FF_KANIKO_UNPACK_XZ", false),
 		UnpackZstd:                     featureFlag("FF_KANIKO_UNPACK_ZSTD", false),
 		UntarSkipRoot:                  featureFlag("FF_KANIKO_UNTAR_SKIP_ROOT", true),
-		VolumeSkipMkdir:                featureFlag("FF_KANIKO_VOLUME_SKIP_MKDIR", true),
-		WarmerCacheLock:                featureFlag("FF_KANIKO_WARMER_CACHE_LOCK", true),
 	}
 
 	fields := reflect.TypeFor[FeatureFlags]().NumField()
