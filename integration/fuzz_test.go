@@ -36,6 +36,7 @@ type severity int
 const (
 	sevClean severity = iota
 	sevDockerDiff
+	sevDeterminismDiff
 	sevCacheDiff
 	sevBuildOutcome
 	sevCrash
@@ -45,6 +46,8 @@ func (s severity) String() string {
 	switch s {
 	case sevDockerDiff:
 		return "DOCKER_DIFF"
+	case sevDeterminismDiff:
+		return "DETERMINISM_DIFF"
 	case sevCacheDiff:
 		return "CACHE_DIFF"
 	case sevBuildOutcome:
@@ -94,8 +97,9 @@ func detectCrash(out string) string {
 // so it does not run as part of the normal suite. Env knobs: FUZZ_CASES=N (case
 // count), FUZZ_DURATION=30m (run to a deadline, wins over FUZZ_CASES), FUZZ_WORKERS=4
 // (concurrent cases), FUZZ_SEED (first seed), FUZZ_OUT (artifact dir, also holds a
-// live summary.txt). Under parallelism a finding is reproduced from its written
-// Dockerfile, not from the seed alone, since corpus state affects seed inputs.
+// live summary.txt), FUZZ_DETERMINISM=1 (also run the build-twice determinism oracle,
+// which adds kaniko builds per case). Under parallelism a finding is reproduced from
+// its written Dockerfile, not from the seed alone, since corpus state affects inputs.
 func TestFuzz(t *testing.T) {
 	casesStr := os.Getenv("FUZZ_CASES")
 	durStr := os.Getenv("FUZZ_DURATION")
@@ -417,6 +421,18 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 			return f
 		}
 	}
+
+	// determinism oracle: kaniko must agree with itself across two independent
+	// builds of the same context, docker out of the loop. Gated behind
+	// FUZZ_DETERMINISM because it adds kaniko builds per case. Two modes catch
+	// different classes, so a divergence is a nondeterminism bug either way.
+	if os.Getenv("FUZZ_DETERMINISM") == "1" {
+		if f := determinismOracle(label, dir, kanikoImage, fail); f != nil {
+			f.known = dockerCls.known
+			return f
+		}
+	}
+
 	// A docker diff made only of known classes is the expected baseline: counted,
 	// not reported. Only a row that matches no known class is a finding.
 	if len(dockerCls.novel) > 0 {
@@ -425,6 +441,55 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		return f
 	}
 	return &finding{seed: seed, sev: sevClean, known: dockerCls.known}
+}
+
+// determinismOracle builds the case again with kaniko and checks that kaniko agrees
+// with itself, docker out of the loop. fresh is the already-built non-reproducible
+// image for the structural comparison. Returns a finding on any nondeterminism, else
+// nil. It removes the extra images it creates.
+func determinismOracle(label, dir, fresh string, fail func(severity, string, string) *finding) *finding {
+	repo := config.imageRepo
+
+	// Mode 1, structural: a second fresh build must match the first apart from
+	// timestamps. Any difference in layers, files, mode, ownership, or media type
+	// between two runs of the identical input is nondeterminism.
+	b := strings.ToLower(repo + kanikoPrefix + label + "-det-b")
+	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", b))
+	out, err := runFuzzKaniko(dir, b, nil, "")
+	if crash := detectCrash(out); crash != "" {
+		return fail(sevCrash, crash, out)
+	}
+	if err != nil {
+		return fail(sevDeterminismDiff, "second build failed while the first succeeded", out)
+	}
+	structuralIgnores := []string{"--ignore-image-name", "--ignore-image-timestamps", "--ignore-file-timestamps"}
+	d, same, _ := runFuzzDiffoci(fresh, b, structuralIgnores)
+	if !same {
+		return fail(sevDeterminismDiff, "two builds differ (structural)", d)
+	}
+
+	// Mode 2, reproducible: two --reproducible builds must be byte-identical, so the
+	// comparison excuses only the image name. --reproducible pins timestamps to the
+	// epoch, so any remaining difference is a reproducibility defect.
+	r0 := strings.ToLower(repo + kanikoPrefix + label + "-det-r0")
+	r1 := strings.ToLower(repo + kanikoPrefix + label + "-det-r1")
+	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", r0, r1))
+	o0, e0 := runFuzzKaniko(dir, r0, []string{"--reproducible"}, "")
+	if crash := detectCrash(o0); crash != "" {
+		return fail(sevCrash, crash, o0)
+	}
+	o1, e1 := runFuzzKaniko(dir, r1, []string{"--reproducible"}, "")
+	if crash := detectCrash(o1); crash != "" {
+		return fail(sevCrash, crash, o1)
+	}
+	if e0 != nil || e1 != nil {
+		return fail(sevDeterminismDiff, "reproducible build failed", o0+"\n"+o1)
+	}
+	d, same, _ = runFuzzDiffoci(r0, r1, []string{"--ignore-image-name"})
+	if !same {
+		return fail(sevDeterminismDiff, "two reproducible builds differ (byte-strict)", d)
+	}
+	return nil
 }
 
 // runFuzzCase generates the case for one seed, evaluates it, records the coverage
