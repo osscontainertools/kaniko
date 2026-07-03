@@ -109,7 +109,15 @@ func generate(s *source, bases []string) genResult {
 		ctx = append(ctx, fileSpec{
 			name:    name,
 			content: fmt.Sprintf("fuzz-content-%d\n", i),
-			mode:    srcPick(s, []fs.FileMode{0o644, 0o600, 0o755, 0o444}),
+			// Includes setuid, setgid, and sticky bits to exercise how the tar path
+			// preserves special bits, an area diffoci compares as a mode diff. Modes
+			// without owner-read are excluded: the buildkit client runs as the invoking
+			// user and cannot read them, while kaniko reads the mounted context as root,
+			// so they produce a context-access artifact rather than a build divergence.
+			mode: srcPick(s, []fs.FileMode{
+				0o644, 0o600, 0o755, 0o444, 0o777,
+				fs.ModeSetuid | 0o755, fs.ModeSetgid | 0o750, fs.ModeSticky | 0o777,
+			}),
 		})
 		regulars = append(regulars, name)
 	}
@@ -139,6 +147,12 @@ func generate(s *source, bases []string) genResult {
 			fileSpec{name: "d0/f0", content: "d0-f0\n", mode: 0o644},
 			fileSpec{name: "d0/f1", content: "d0-f1\n", mode: 0o600})
 	}
+	// A source with a space in its name, to exercise odd-path handling.
+	oddName := ""
+	if s.chance(2) {
+		oddName = "odd name.txt"
+		ctx = append(ctx, fileSpec{name: oddName, content: "odd\n", mode: 0o644})
+	}
 
 	uids := []string{"0", "1000", "65534"}
 	modes := []string{"0644", "0600", "0755", "0700", "0777"}
@@ -166,7 +180,7 @@ func generate(s *source, bases []string) genResult {
 
 		ninstr := 2 + s.intn(6)
 		for i := 0; i < ninstr; i++ {
-			switch s.intn(26) {
+			switch s.intn(27) {
 			case 0, 1, 2:
 				// COPY a context file, sometimes with --chown or --chmod, the areas
 				// where docker and kaniko most often disagree on ownership and mode.
@@ -276,6 +290,14 @@ func generate(s *source, bases []string) genResult {
 			case 25:
 				// COPY --from an external image, exercising cross-image copy.
 				fmt.Fprintf(&b, "COPY --from=%s /etc/hostname /ext%d\n", srcPick(s, bases), i)
+			case 26:
+				// COPY a source whose name has a space, using the exec form.
+				if oddName != "" {
+					fmt.Fprintf(&b, "COPY [%q, %q]\n", oddName, fmt.Sprintf("/dest/oddname%d", i))
+				} else {
+					f := srcPick(s, regulars)
+					fmt.Fprintf(&b, "COPY %s /dest/%s\n", f, f)
+				}
 			}
 		}
 	}
