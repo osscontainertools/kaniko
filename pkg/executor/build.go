@@ -599,9 +599,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				// So the only case where we don't need a filesystem is if all commands are MetadataOnly.
 				util.Assert("executor.build.metadata-only", command.MetadataOnly(), "build: non-MetadataOnly command %q ran without unpacked filesystem in stage %d", command.String(), s.index)
 			}
-			_, isVolume := command.(*commands.VolumeCommand)
-			volumeCreatesFiles := isVolume && !config.EnvBoolDefault("FF_KANIKO_VOLUME_SKIP_MKDIR", true)
-			if command.MetadataOnly() && !opts.SingleSnapshot && !volumeCreatesFiles {
+			if command.MetadataOnly() && !opts.SingleSnapshot {
 				// MetadataOnly commands must not change or even need the filesystem.
 				util.Assert("executor.build.without-fs", snapshotted == 0, "build: MetadataOnly command %q snapshotted %d file(s)", command.String(), snapshotted)
 			}
@@ -659,10 +657,6 @@ func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, sn
 	if files == nil || opts.SingleSnapshot {
 		snapshot, snapshotted, err = snapshotter.TakeSnapshotFS()
 	} else {
-		if !config.EnvBoolDefault("FF_KANIKO_VOLUME_SKIP_MKDIR", true) {
-			// Volumes are very weird. They get snapshotted in the next command.
-			files = append(files, util.Volumes()...)
-		}
 		snapshot, snapshotted, err = snapshotter.TakeSnapshot(files, shdDelete)
 	}
 	timing.DefaultRun.Stop(t)
@@ -1022,11 +1016,6 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 			printf("SAVE FILES %v %s%d\n", filesToSave, config.KanikoInterStageDepsDir, s.Index)
 		}
 		printf("CLEAN\n\n")
-		if !config.EnvBoolDefault("FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE", true) {
-			if opts.PreserveContext && !opts.PreCleanup {
-				printf("RESTORE CONTEXT\n\n")
-			}
-		}
 	}
 	util.Unreachable("we should always have a final stage")
 	return retErr
@@ -1089,9 +1078,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 					return nil, fmt.Errorf("precompute: failed to get baseImage: %w", err)
 				}
 			}
-			if config.EnvBoolDefault("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS", true) {
-				baseImage = image_util.WithoutAnnotations(baseImage)
-			}
+			baseImage = image_util.WithoutAnnotations(baseImage)
 			args := baseArgs
 			if stage.BaseImageStoredLocally {
 				args = stageArgs[stage.BaseImageIndex]
@@ -1195,9 +1182,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to get baseImage: %w", err)
 		}
-		if config.EnvBoolDefault("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS", true) {
-			baseImage = image_util.WithoutAnnotations(baseImage)
-		}
+		baseImage = image_util.WithoutAnnotations(baseImage)
 
 		args := baseArgs
 		if stage.BaseImageStoredLocally {
@@ -1340,18 +1325,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		// Delete the filesystem
 		if err := util.DeleteFilesystem(); err != nil {
 			return nil, fmt.Errorf("deleting file system after stage %d: %w", stage.Index, err)
-		}
-		if !config.EnvBoolDefault("FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE", true) {
-			if opts.PreserveContext && !opts.PreCleanup {
-				if tarball == "" {
-					return nil, errors.New("context snapshot is missing")
-				}
-				_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
-				if err != nil {
-					return nil, fmt.Errorf("failed to unpack context snapshot: %w", err)
-				}
-				logrus.Info("Context restored")
-			}
 		}
 	}
 

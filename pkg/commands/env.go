@@ -19,7 +19,6 @@ package commands
 import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
-	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
 )
@@ -37,10 +36,8 @@ func (e *EnvCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		return err
 	}
 	// 3344: An ENV declared after an ARG of the same name overrides it.
-	if kConfig.EnvBoolDefault("FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE", true) {
-		for _, keyVal := range newEnvs {
-			buildArgs.RemoveArg(keyVal.Key)
-		}
+	for _, keyVal := range newEnvs {
+		buildArgs.RemoveArg(keyVal.Key)
 	}
 	return nil
 }

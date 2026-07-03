@@ -59,21 +59,11 @@ func WarmCache(opts *config.WarmerOptions) error {
 	logrus.Debugf("%s\n", images)
 
 	errs := 0
-	if config.EnvBoolDefault("FF_KANIKO_OCI_WARMER", true) {
-		for _, img := range images {
-			err := ociWarmToFile(cacheDir, img, opts)
-			if err != nil {
-				logrus.Warnf("Error while trying to warm image: %v %v", img, err)
-				errs++
-			}
-		}
-	} else {
-		for _, img := range images {
-			err := warmToFile(cacheDir, img, opts)
-			if err != nil {
-				logrus.Warnf("Error while trying to warm image: %v %v", img, err)
-				errs++
-			}
+	for _, img := range images {
+		err := ociWarmToFile(cacheDir, img, opts)
+		if err != nil {
+			logrus.Warnf("Error while trying to warm image: %v %v", img, err)
+			errs++
 		}
 	}
 
@@ -81,78 +71,6 @@ func WarmCache(opts *config.WarmerOptions) error {
 		return errors.New("failed to warm any of the given images")
 	}
 
-	return nil
-}
-
-// Download image in temporary files then move files to final destination
-func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
-	f, err := os.CreateTemp(cacheDir, "warmingImage.*")
-	if err != nil {
-		return err
-	}
-	// defer called in reverse order
-	defer os.Remove(f.Name())
-	defer f.Close()
-
-	mtfsFile, err := os.CreateTemp(cacheDir, "warmingManifest.*")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(mtfsFile.Name())
-	defer mtfsFile.Close()
-
-	cw := &Warmer{
-		Remote:         remote.RetrieveRemoteImage,
-		Local:          cache.LocalSource,
-		TarWriter:      f,
-		ManifestWriter: mtfsFile,
-	}
-
-	cacheRef, image, digest, err := cw.Resolve(img, opts)
-	if err != nil {
-		if cache.IsAlreadyCached(err) {
-			logrus.Infof("Image already in cache: %v", img)
-			return nil
-		}
-		logrus.Warnf("Error while trying to warm image: %v %v", img, err)
-		return err
-	}
-
-	finalCachePath := path.Join(cacheDir, digest.String())
-	finalMfstPath := finalCachePath + ".json"
-
-	if config.EnvBoolDefault("FF_KANIKO_WARMER_CACHE_LOCK", true) {
-		lock, err := acquireCacheLock(cacheDir, digest.String())
-		if err != nil {
-			return fmt.Errorf("failed to acquire cache lock: %w", err)
-		}
-		defer lock.Release()
-
-		_, lookupErr := cw.Local(&opts.CacheOptions, digest.String())
-		if lookupErr == nil || cache.IsExpired(lookupErr) {
-			logrus.Infof("Image %v became available in cache while waiting for lock; keeping existing copy", img)
-			return nil
-		}
-		_ = os.RemoveAll(finalCachePath)
-		_ = os.Remove(finalMfstPath)
-	}
-
-	if err := cw.Write(cacheRef, image); err != nil {
-		logrus.Warnf("Error while trying to warm image: %v %v", img, err)
-		return err
-	}
-
-	err = os.Rename(f.Name(), finalCachePath)
-	if err != nil {
-		return err
-	}
-
-	err = os.Rename(mtfsFile.Name(), finalMfstPath)
-	if err != nil {
-		return fmt.Errorf("failed to rename manifest file: %w", err)
-	}
-
-	logrus.Debugf("Wrote %s to cache", img)
 	return nil
 }
 
@@ -182,23 +100,21 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 
 	finalCachePath := path.Join(cacheDir, digest.String())
 
-	if config.EnvBoolDefault("FF_KANIKO_WARMER_CACHE_LOCK", true) {
-		lock, err := acquireCacheLock(cacheDir, digest.String())
-		if err != nil {
-			return fmt.Errorf("failed to acquire cache lock: %w", err)
-		}
-		defer lock.Release()
-
-		_, lookupErr := cw.Local(&opts.CacheOptions, digest.String())
-		if lookupErr == nil || cache.IsExpired(lookupErr) {
-			logrus.Infof("Image %v became available in cache while waiting for lock; keeping existing copy", img)
-			return nil
-		}
-		_ = os.RemoveAll(finalCachePath)
-		// mz364: finalCachePath+".json" is the legacy tarball manifest sidecar.
-		// Drop this once the tarball cache format is removed (FF_KANIKO_OCI_WARMER deprecated)
-		_ = os.Remove(finalCachePath + ".json")
+	lock, err := acquireCacheLock(cacheDir, digest.String())
+	if err != nil {
+		return fmt.Errorf("failed to acquire cache lock: %w", err)
 	}
+	defer lock.Release()
+
+	_, lookupErr := cw.Local(&opts.CacheOptions, digest.String())
+	if lookupErr == nil || cache.IsExpired(lookupErr) {
+		logrus.Infof("Image %v became available in cache while waiting for lock; keeping existing copy", img)
+		return nil
+	}
+	_ = os.RemoveAll(finalCachePath)
+	// mz364: finalCachePath+".json" is the legacy tarball manifest sidecar.
+	// Drop this once the tarball cache format is removed (FF_KANIKO_OCI_WARMER deprecated)
+	_ = os.Remove(finalCachePath + ".json")
 
 	if err := cw.Write(cacheRef, image); err != nil {
 		logrus.Warnf("Error while trying to warm image: %v %v", img, err)
