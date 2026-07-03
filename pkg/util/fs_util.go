@@ -1106,6 +1106,20 @@ func MkdirAllWithPermissions(path string, mode os.FileMode, uid, gid int64) erro
 		return fmt.Errorf("error calling stat on %s: %w", path, err)
 	}
 
+	var parents []string
+	if config.FF.ChownOnImplicitDirs {
+		for dir := filepath.Dir(path); dir != "/" && dir != "." && dir != ""; dir = filepath.Dir(dir) {
+			_, serr := os.Lstat(dir)
+			if serr == nil {
+				break
+			}
+			if !os.IsNotExist(serr) {
+				return fmt.Errorf("error calling stat on %s: %w", dir, serr)
+			}
+			parents = append(parents, dir)
+		}
+	}
+
 	// mkdir respects the process' umask
 	// so we can't copy the correct permissions from source
 	// if umask is set to anything other than 0
@@ -1124,6 +1138,12 @@ func MkdirAllWithPermissions(path string, mode os.FileMode, uid, gid int64) erro
 	}
 	if err := os.Chown(path, int(uid), int(gid)); err != nil {
 		return err
+	}
+	for _, dir := range parents {
+		err = os.Chown(dir, int(uid), int(gid))
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

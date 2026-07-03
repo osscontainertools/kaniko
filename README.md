@@ -131,6 +131,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_OCI_WARMER`](#flag-ff_kaniko_oci_warmer)
       - [Flag `FF_KANIKO_RUN_VIA_TINI`](#flag-ff_kaniko_run_via_tini)
       - [Flag `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS`](#flag-ff_kaniko_copy_chmod_on_implicit_dirs)
+      - [Flag `FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS`](#flag-ff_kaniko_chown_on_implicit_dirs)
       - [Flag `FF_KANIKO_CLEAN_KANIKO_DIR`](#flag-ff_kaniko_clean_kaniko_dir)
       - [Flag `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS`](#flag-ff_kaniko_no_propagate_annotations)
       - [Flag `FF_KANIKO_OCI_SCRATCH_BASE`](#flag-ff_kaniko_oci_scratch_base)
@@ -1223,6 +1224,12 @@ Becomes default in `v1.29.0`, once the `tini` binary ships for RISC-V.
 
 When files are copied into a non-existing directory, both kaniko and buildkit will create the directory and all required parent directories implicitly. If chmod option is given, buildkit will apply the chmod not only on the copied files & folders, but on all implicit parent dirs too. Kaniko will use regular folder permissions (0755) on parent directories instead and only apply the chmod on the explicitly created files & folders.
 Set this flag to `true` to implement COPY chmod like buildkit. Defaults to `false`.
+Currently no plans to activate.
+
+#### Flag `FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS`
+
+When `WORKDIR` creates a directory whose parents do not exist yet, kaniko creates the parents but leaves them owned by root, assigning the active `USER` only to the final directory. buildkit assigns the active `USER` to every directory it creates, so `WORKDIR /work/dir` under `USER 1000` leaves `/work` owned by root in kaniko but by `1000` in buildkit.
+Set this flag to `true` to chown every implicitly created directory to the active user, matching buildkit. Defaults to `false`.
 Currently no plans to activate.
 
 #### Flag `FF_KANIKO_CLEAN_KANIKO_DIR`
