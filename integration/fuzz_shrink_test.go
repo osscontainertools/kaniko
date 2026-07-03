@@ -136,15 +136,10 @@ func removeAt(lines []string, i int) []string {
 	return append(out, lines[i+1:]...)
 }
 
-// genFromLines rebuilds a genResult from Dockerfile lines and keeps only the
-// context files still referenced, so the minimal reproducer carries no dead files.
+// genFromLines rebuilds a genResult from Dockerfile lines, keeping the full
+// context. Unreferenced context files do not affect the build, and keeping them
+// avoids mishandling directory or hardlink entries whose Dockerfile reference
+// (e.g. COPY d0) does not match the per-file context names (d0/f0, d0/f1).
 func genFromLines(lines []string, ctx []fileSpec) genResult {
-	dockerfile := strings.Join(lines, "\n") + "\n"
-	var kept []fileSpec
-	for _, f := range ctx {
-		if strings.Contains(dockerfile, " "+f.name+" ") || strings.Contains(dockerfile, " "+f.name+"\n") {
-			kept = append(kept, f)
-		}
-	}
-	return genResult{dockerfile: dockerfile, context: kept}
+	return genResult{dockerfile: strings.Join(lines, "\n") + "\n", context: ctx}
 }
