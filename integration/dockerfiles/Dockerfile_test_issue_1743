@@ -1,7 +1,7 @@
 # 1743: COPY --from=<stage> breaks hardlinks on v1.28.1. The stage is persisted
 # into kaniko's dependency dir one file at a time before the copy runs, so files
-# sharing an inode arrive as independent full copies and FF_KANIKO_PRESERVE_HARDLINKS
-# has nothing left to keep. 2594 covers the same for COPY --from=<image>.
+# sharing an inode arrive as independent full copies and the hardlink-preserving
+# extraction has nothing left to keep. 2594 covers the same for COPY --from=<image>.
 ARG IMAGE_REPO
 FROM ${IMAGE_REPO}busybox AS builder
 RUN mkdir /work \
