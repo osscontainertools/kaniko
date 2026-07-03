@@ -254,6 +254,17 @@ func writeToTar(t util.Tar, files, whiteouts []string) error {
 	timer := timing.Start("Writing tar file")
 	defer timer.End()
 
+	whiteoutSet := make(map[string]struct{}, len(whiteouts))
+	for _, w := range whiteouts {
+		whiteoutSet[w] = struct{}{}
+	}
+	for _, f := range files {
+		// The snapshotter must decide a path either changed or was deleted;
+		// both at once is contradictory.
+		_, conflicting := whiteoutSet[f]
+		util.Assert("snapshot.add-whiteout-disjoint", !conflicting, "path %q must not be both added and whited out in one snapshot", f)
+	}
+
 	// Now create the tar.
 	addedPaths := make(map[string]bool)
 	addedPaths[config.RootDir] = true
