@@ -168,7 +168,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		}
 
 		srcFile := strings.NewReader(data)
-		err = util.CreateFile(destPath, srcFile, chmod.Apply(0o644), uint32(uid), uint32(gid))
+		err = util.CreateFile(destPath, srcFile, chmod.Apply(0o644), chmod.Apply(0o755), uint32(uid), uint32(gid))
 		if err != nil {
 			return fmt.Errorf("creating file: %w", err)
 		}
