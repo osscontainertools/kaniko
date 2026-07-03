@@ -290,23 +290,20 @@ func resolveIfSymlink(destPath string) (string, error) {
 
 	newPath := destPath
 	for newPath != "/" {
-		_, err := os.Lstat(newPath)
-		if err != nil {
-			if os.IsNotExist(err) {
-				dir, file := filepath.Split(newPath)
-				newPath = filepath.Clean(dir)
-				nonexistentPaths = append(nonexistentPaths, file)
-				continue
-			} else {
-				return "", fmt.Errorf("failed to lstat: %w", err)
-			}
+		resolved, err := filepath.EvalSymlinks(newPath)
+		if err == nil {
+			newPath = resolved
+			break
 		}
-
-		newPath, err = filepath.EvalSymlinks(newPath)
-		if err != nil {
+		if !os.IsNotExist(err) {
 			return "", fmt.Errorf("failed to eval symlinks: %w", err)
 		}
-		break
+		// mz868: newPath is missing or points through a dangling symlink. Peel the
+		// last component and keep resolving the parent so the destination is created
+		// rather than aborting the build.
+		dir, file := filepath.Split(newPath)
+		newPath = filepath.Clean(dir)
+		nonexistentPaths = append(nonexistentPaths, file)
 	}
 
 	for i := len(nonexistentPaths) - 1; i >= 0; i-- {
