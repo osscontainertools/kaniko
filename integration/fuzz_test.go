@@ -475,7 +475,12 @@ func writeContext(dir string, gen genResult) error {
 			if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 				return err
 			}
-			if err := os.WriteFile(p, []byte(f.content), f.mode); err != nil {
+			if err := os.WriteFile(p, []byte(f.content), 0o644); err != nil {
+				return err
+			}
+			// Chmod explicitly so the exact mode lands, including setuid, setgid, and
+			// sticky bits that WriteFile's umask-masked perm would drop.
+			if err := os.Chmod(p, f.mode); err != nil {
 				return err
 			}
 			if err := os.Chtimes(p, fixed, fixed); err != nil {
