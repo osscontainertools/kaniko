@@ -462,11 +462,19 @@ func writeContext(dir string, gen genResult) error {
 			if err := os.Symlink(f.target, p); err != nil {
 				return err
 			}
+		case kindHardlink:
+			if err := os.Link(filepath.Join(dir, f.target), p); err != nil {
+				return err
+			}
 		case kindTar:
 			if err := writeTarFixture(p); err != nil {
 				return err
 			}
 		default:
+			// f.name may contain a subdirectory (e.g. d0/f0), so ensure the parent exists.
+			if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+				return err
+			}
 			if err := os.WriteFile(p, []byte(f.content), f.mode); err != nil {
 				return err
 			}
