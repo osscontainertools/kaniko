@@ -155,17 +155,28 @@ func TestFuzz(t *testing.T) {
 	}
 	t.Logf("fuzz campaign: %s from seed %d, %d workers, artifacts in %s", bound, seedBase, workers, outDir)
 
-	// Mint the OCI-media-type base so the generator can select it and the OCI output
-	// path gets exercised alongside docker v2. Skip if it already exists so a long or
-	// repeated run does not depend on Docker Hub each time; --src-no-creds forces an
-	// anonymous pull, avoiding a stale credential in the environment.
+	// Mirror the upstream bases into the local registry once, so no build pulls from
+	// Docker Hub during the campaign (concurrent Docker Hub pulls get rate-limited and
+	// hang the executor). Each step is skipped if the target already exists. crane copy
+	// preserves the source media type, so alpine stays docker v2 and debian stays OCI.
 	ociBase := strings.ToLower(config.imageRepo + ociFuzzBaseTag)
-	if _, err := RunCommandWithoutTest(exec.Command("crane", "manifest", ociBase)); err != nil {
-		if out, err := RunCommandWithoutTest(exec.Command("skopeo", "copy", "--src-no-creds", "--format", "oci", "--dest-tls-verify=false",
-			"docker://"+alpineFuzzBase, "docker://"+ociBase)); err != nil {
-			t.Fatalf("failed to mint OCI base %s (skopeo required): %v\n%s", ociBase, err, out)
+	mirror := func(name, src, dst string, copyArgs ...string) {
+		if _, err := RunCommandWithoutTest(exec.Command("crane", "manifest", dst)); err == nil {
+			return
+		}
+		if out, err := RunCommandWithoutTest(exec.Command(copyArgs[0], copyArgs[1:]...)); err != nil {
+			t.Fatalf("failed to mirror %s base %s -> %s: %v\n%s", name, src, dst, err, out)
 		}
 	}
+	mirror("alpine", alpineFuzzBase, strings.ToLower(config.imageRepo+baseAlpineTag),
+		"crane", "copy", alpineFuzzBase, strings.ToLower(config.imageRepo+baseAlpineTag))
+	mirror("debian", debianFuzzBase, strings.ToLower(config.imageRepo+baseDebianTag),
+		"crane", "copy", debianFuzzBase, strings.ToLower(config.imageRepo+baseDebianTag))
+	// The OCI base is minted from alpine with skopeo; --src-no-creds forces an anonymous
+	// pull, avoiding a stale credential in the environment.
+	mirror("oci", alpineFuzzBase, ociBase,
+		"skopeo", "copy", "--src-no-creds", "--format", "oci", "--dest-tls-verify=false",
+		"docker://"+alpineFuzzBase, "docker://"+ociBase)
 
 	// Warm the base media-type cache single-threaded so the concurrent workers only
 	// read it (baseIsOCI would otherwise write the map from many goroutines).
@@ -516,14 +527,23 @@ func writeTarFixture(path string) error {
 	return tw.Close()
 }
 
-// ociFuzzBaseTag is the local OCI-media-type base the harness mints from alpine so
-// the fuzzer covers kaniko's OCI output path as well as docker v2.
-const ociFuzzBaseTag = "fuzz-oci-base:latest"
+// Local-registry base tags. The harness mirrors the pinned upstream bases into the
+// local registry once at setup, and the generator uses only these local refs, so a
+// kaniko or docker build never pulls from Docker Hub during the campaign. That avoids
+// the rate-limited pulls that otherwise hang the executor under concurrent workers.
+const (
+	ociFuzzBaseTag   = "fuzz-oci-base:latest"   // OCI media type, minted from alpine
+	baseAlpineTag    = "fuzz-base-alpine:latest" // docker v2, single layer
+	baseDebianTag    = "fuzz-base-debian:latest" // OCI index, multi layer
+)
 
-// fuzzBaseRefs is the base-image set the generator draws from: two docker v2 bases
-// and the minted OCI base. It needs config.imageRepo, so it is built at runtime.
 func fuzzBaseRefs() []string {
-	return []string{alpineFuzzBase, debianFuzzBase, strings.ToLower(config.imageRepo + ociFuzzBaseTag)}
+	repo := config.imageRepo
+	return []string{
+		strings.ToLower(repo + baseAlpineTag),
+		strings.ToLower(repo + baseDebianTag),
+		strings.ToLower(repo + ociFuzzBaseTag),
+	}
 }
 
 var baseOCICache = map[string]bool{}
