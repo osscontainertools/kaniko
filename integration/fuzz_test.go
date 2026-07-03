@@ -499,11 +499,20 @@ func runFuzzCase(t *testing.T, seed int64, input []byte, tracker *coverageTracke
 	label := fmt.Sprintf("fuzz-seed-%d", seed)
 
 	// The fresh build gets its own GOCOVERDIR so its coverage can be measured in
-	// isolation for the admission decision.
-	covDir, err := os.MkdirTemp("", "kaniko-fuzz-cov-")
-	if err == nil {
-		os.Chmod(covDir, 0o777)
+	// isolation for the admission decision. When a coverage-dir is set, persist each
+	// case's profile in a per-seed subdirectory of it (rather than a deleted temp) so
+	// the accumulated coverage is inspectable after the run with `go tool covdata`,
+	// which is how gaps, functions the fuzzer never reaches, are found.
+	var covDir string
+	if coverageDir != "" {
+		covDir = filepath.Join(coverageDir, fmt.Sprintf("cov-%d", seed))
+	} else {
+		covDir, _ = os.MkdirTemp("", "kaniko-fuzz-cov-")
 		defer os.RemoveAll(covDir)
+	}
+	if covDir != "" {
+		os.MkdirAll(covDir, 0o777)
+		os.Chmod(covDir, 0o777)
 	}
 
 	f := buildAndClassify(t, seed, label, gen, covDir, false)
