@@ -396,11 +396,15 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		// --cache-copy-layers is required for COPY layers to be served from cache;
 		// without it the consume build re-runs COPY and restamps wall-clock mtimes.
 		cacheArgs := []string{"--cache=true", "--cache-copy-layers=true", "--cache-repo=" + cacheRepo}
-		c0, ce0 := runFuzzKaniko(dir, v0, cacheArgs, "")
+		// Point the cache builds at the same per-case GOCOVERDIR as the fresh build.
+		// They run sequentially, so GOCOVERDIR just accumulates per-process files, and
+		// observe() then captures the union, including the pkg/cache paths the fresh
+		// build never touches.
+		c0, ce0 := runFuzzKaniko(dir, v0, cacheArgs, covDir)
 		if crash := detectCrash(c0); crash != "" {
 			return fail(sevCrash, crash, c0)
 		}
-		c1, ce1 := runFuzzKaniko(dir, v1, cacheArgs, "")
+		c1, ce1 := runFuzzKaniko(dir, v1, cacheArgs, covDir)
 		if crash := detectCrash(c1); crash != "" {
 			return fail(sevCrash, crash, c1)
 		}
