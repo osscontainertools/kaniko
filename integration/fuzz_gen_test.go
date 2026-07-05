@@ -323,6 +323,15 @@ func generate(s *source, bases []string) genResult {
 	if s.chance(3) {
 		flags = append(flags, "--compressed-caching=false")
 	}
+	// More output-neutral flags: the final image is unchanged, so all oracles stay
+	// valid. --cache-run-layers toggles RUN-layer caching (cache-side), --use-new-run
+	// selects the experimental snapshotless run implementation (RunV2).
+	if s.chance(4) {
+		flags = append(flags, "--cache-run-layers=false")
+	}
+	if s.chance(4) {
+		flags = append(flags, "--use-new-run")
+	}
 
 	return genResult{dockerfile: b.String(), context: ctx, kanikoFlags: flags}
 }
