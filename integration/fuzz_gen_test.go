@@ -88,10 +88,13 @@ type fileSpec struct {
 	mode    fs.FileMode
 }
 
-// genResult is a generated case: a Dockerfile plus the context it references.
+// genResult is a generated case: a Dockerfile, the context it references, and the
+// kaniko flags to build it with. The flags apply to every kaniko build in the case
+// (fresh, cache, determinism) so the kaniko-vs-kaniko oracles stay comparable.
 type genResult struct {
-	dockerfile string
-	context    []fileSpec
+	dockerfile  string
+	context     []fileSpec
+	kanikoFlags []string
 }
 
 // generate turns a byte source into a Dockerfile and its context. It does not try
@@ -302,5 +305,24 @@ func generate(s *source, bases []string) genResult {
 		}
 	}
 
-	return genResult{dockerfile: b.String(), context: ctx}
+	// Flag variety, drawn from the same byte source. These are output-neutral for
+	// the docker oracle (the final image should match docker regardless), except
+	// --single-snapshot, which squashes layers; buildAndClassify relaxes the docker
+	// layer-count comparison when it is present. All exercise flag-gated code and
+	// config parsing that a fixed flag set never reaches.
+	var flags []string
+	switch s.intn(3) {
+	case 1:
+		flags = append(flags, "--snapshot-mode=redo")
+	case 2:
+		flags = append(flags, "--snapshot-mode=time")
+	}
+	if s.chance(4) {
+		flags = append(flags, "--single-snapshot")
+	}
+	if s.chance(3) {
+		flags = append(flags, "--compressed-caching=false")
+	}
+
+	return genResult{dockerfile: b.String(), context: ctx, kanikoFlags: flags}
 }
