@@ -25,29 +25,49 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
+const emptyState = "0000000000000000000000000000000000000000000000000000000000000000"
+
 // NewCompositeCache returns an initialized composite cache object.
 func NewCompositeCache(initial ...string) *CompositeCache {
-	c := CompositeCache{
-		keys: initial,
-	}
+	c := CompositeCache{}
+	c.AddKey(initial...)
 	return &c
+}
+
+func ResumeCompositeCache(state string) *CompositeCache {
+	if !config.EnvBool("FF_KANIKO_ROLLING_CACHE_KEY") {
+		return NewCompositeCache(state)
+	}
+	return &CompositeCache{state: state, keys: []string{state}}
 }
 
 // CompositeCache is a type that generates a cache key from a series of keys.
 type CompositeCache struct {
-	keys []string
+	state string
+	keys  []string
 }
 
 // Clone returns an independent copy of the CompositeCache with its own backing array.
 func (s CompositeCache) Clone() CompositeCache {
-	return CompositeCache{keys: append([]string(nil), s.keys...)}
+	return CompositeCache{state: s.state, keys: append([]string(nil), s.keys...)}
 }
 
 // AddKey adds the specified key to the sequence.
 func (s *CompositeCache) AddKey(k ...string) {
+	if config.EnvBool("FF_KANIKO_ROLLING_CACHE_KEY") {
+		for _, key := range k {
+			state := s.state
+			if state == "" {
+				state = emptyState
+			}
+			digest := sha256.Sum256([]byte(state + key))
+			s.state = hex.EncodeToString(digest[:])
+		}
+	}
 	s.keys = append(s.keys, k...)
 }
 
@@ -56,9 +76,26 @@ func (s *CompositeCache) Key() string {
 	return strings.Join(s.keys, "-")
 }
 
+// State returns the representation that ResumeCompositeCache resumes from.
+func (s *CompositeCache) State() string {
+	if !config.EnvBool("FF_KANIKO_ROLLING_CACHE_KEY") {
+		return s.Key()
+	}
+	if s.state == "" {
+		return emptyState
+	}
+	return s.state
+}
+
 // Hash returns the composite key in a string SHA256 format.
 func (s *CompositeCache) Hash() (string, error) {
-	return util.SHA256(strings.NewReader(s.Key()))
+	if !config.EnvBool("FF_KANIKO_ROLLING_CACHE_KEY") {
+		return util.SHA256(strings.NewReader(s.Key()))
+	}
+	if s.state == "" {
+		return emptyState, nil
+	}
+	return s.state, nil
 }
 
 func (s *CompositeCache) AddPath(p string, context util.FileContext) error {
@@ -77,7 +114,7 @@ func (s *CompositeCache) AddPath(p string, context util.FileContext) error {
 		// Only add the hash of this directory to the key
 		// if there is any ignored content.
 		if !empty || !context.ExcludesFile(p) {
-			s.keys = append(s.keys, k)
+			s.AddKey(k)
 		}
 		return nil
 	}
@@ -93,7 +130,7 @@ func (s *CompositeCache) AddPath(p string, context util.FileContext) error {
 		return err
 	}
 
-	s.keys = append(s.keys, hex.EncodeToString(sha.Sum(nil)))
+	s.AddKey(hex.EncodeToString(sha.Sum(nil)))
 	return nil
 }
 

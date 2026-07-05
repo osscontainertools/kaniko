@@ -138,6 +138,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE`](#flag-ff_kaniko_buildkit_arg_env_precedence)
       - [Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`](#flag-ff_kaniko_infer_cross_stage_cache_key)
       - [Flag `FF_KANIKO_CACHE_LOOKAHEAD`](#flag-ff_kaniko_cache_lookahead)
+      - [Flag `FF_KANIKO_ROLLING_CACHE_KEY`](#flag-ff_kaniko_rolling_cache_key)
       - [Flag `FF_KANIKO_CACHE_PROBE_AFTER_MISS`](#flag-ff_kaniko_cache_probe_after_miss)
       - [Flag `FF_KANIKO_WARMER_CACHE_LOCK`](#flag-ff_kaniko_warmer_cache_lock)
       - [Flag `FF_KANIKO_PRESERVE_MOUNTED_PATHS`](#flag-ff_kaniko_preserve_mounted_paths)
@@ -1240,6 +1241,14 @@ Becomes default in `v1.29.0`.
 
 Set this flag to `true` to run a precompute pass before the build loop that derives each stage's final cache key ahead of time. The build loop still recomputes each key during its own `optimize()` call and asserts that it matches the precomputed value. This is a developer assertion to verify the new precompute pass is correct, there is no benefit to enabling it in production.
 Defaults to `false`.
+
+#### Flag `FF_KANIKO_ROLLING_CACHE_KEY`
+
+By default the composite cache joins all inputs with `-` and hashes the result. Since `-` is a legal input too, different sequences can join to the same text and collide, silently picking up the wrong cache layer.
+This flag switches to a rolling hash, think git, where `state = SHA256(state || input)`. This makes boundaries unambiguous and prevents collisions. It also prevents the hash input from growing, so key computation gets marginally cheaper. Toggling it changes every cache key, forcing a rebuild from scratch.
+Set this flag to `true` to enable the rolling cache key.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_CACHE_PROBE_AFTER_MISS`
 
