@@ -186,6 +186,14 @@ This is the cheapest new oracle and the earlier cache flake already hinted the n
 
 One build writes `--tar-path` and also pushes, and the two outputs must be the same image. This targets a known seam: the preserve-base-layers work had a tar-path media-type divergence. The wrinkle is that `--tar-path` always writes a docker v2 manifest, while the pushed image mirrors the base media type. So the comparison either forces the push to docker v2 as well, or restricts this oracle to docker v2 bases, so that a media-type difference the tar path dictates by design is not misread as a finding. Everything below the manifest media type, the layers and config, must match exactly.
 
+### Optimization-flag invariance
+
+A performance flag that only changes how kaniko caches or detects changes must not change what it builds. So building the same case twice, once with the flag and once without, must produce the same image, and, when caching, the same cache keys. A divergence is a bug in the optimization.
+
+The first target is `FF_KANIKO_CACHE_LOOKAHEAD` (with the related `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY` and `FF_KANIKO_RESOLVE_CACHE_KEY`). Build the case with `--cache` and the flag on, and again with it off, and compare the images byte-strict apart from image name and config timestamp. mz872 is exactly this class: lookahead over-folds later ARGs into an earlier command's aggregate cache key, which the internal `executor.build.cache-lookahead` assertion catches as a crash. This oracle also catches the silent variant, where lookahead does not crash but serves a wrong cached layer, which no assertion covers. It generalizes to any flag that is meant to be output-neutral, for example `--compressed-caching` and `--cache-run-layers`.
+
+The wrinkle is that the flag lives in the environment, not the build args, so the harness needs an env override on one of the two builds rather than a CLI flag. A case where the flag-on build crashes on an assertion is already caught by crash detection before this oracle runs.
+
 ### Deferred or arbitration-only
 
 - Previous-release regression. HEAD executor versus a pinned prior release on the same input. This is a CI regression guard, not a bug finder for now, so it belongs in the scheduled job rather than the local campaign.
