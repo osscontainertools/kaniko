@@ -109,7 +109,7 @@ func shrinkFinding(t *testing.T, target *finding, gen genResult) *finding {
 		changed = false
 		for i := 1; i < len(lines); i++ { // keep FROM at index 0
 			reduced := removeAt(lines, i)
-			if f := reproduces(genFromLines(reduced, gen.context)); f != nil {
+			if f := reproduces(genFromLines(reduced, gen.context, gen.kanikoFlags)); f != nil {
 				lines = reduced
 				best = f
 				changed = true
@@ -140,6 +140,6 @@ func removeAt(lines []string, i int) []string {
 // context. Unreferenced context files do not affect the build, and keeping them
 // avoids mishandling directory or hardlink entries whose Dockerfile reference
 // (e.g. COPY d0) does not match the per-file context names (d0/f0, d0/f1).
-func genFromLines(lines []string, ctx []fileSpec) genResult {
-	return genResult{dockerfile: strings.Join(lines, "\n") + "\n", context: ctx}
+func genFromLines(lines []string, ctx []fileSpec, flags []string) genResult {
+	return genResult{dockerfile: strings.Join(lines, "\n") + "\n", context: ctx, kanikoFlags: flags}
 }

@@ -347,7 +347,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 
 	// kaniko mirrors the final base's media type, so tell docker to emit the same.
 	_, dockerErr := runFuzzDocker(dir, dockerImage, baseIsOCI(finalBaseRef(gen.dockerfile)))
-	kanikoOut, kanikoErr := runFuzzKaniko(dir, kanikoImage, nil, covDir)
+	kanikoOut, kanikoErr := runFuzzKaniko(dir, kanikoImage, gen.kanikoFlags, covDir)
 
 	if crash := detectCrash(kanikoOut); crash != "" {
 		return fail(sevCrash, crash, kanikoOut)
@@ -377,6 +377,12 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	// docker oracle: cross-tool parity. File timestamps and tar format differ
 	// between the two tools by design, so those are the only diffs excused here.
 	dockerIgnores := []string{"--ignore-image-name", "--ignore-image-timestamps", "--ignore-file-timestamps"}
+	// --single-snapshot squashes kaniko's layers, so docker's per-instruction layer
+	// count legitimately differs; excuse layer-count here while still comparing file
+	// content and metadata.
+	if hasFlag(gen.kanikoFlags, "--single-snapshot") {
+		dockerIgnores = append(dockerIgnores, "--extra-ignore-layer-length-mismatch")
+	}
 	dockerDiff, dockerSame, derr := runFuzzDiffoci(dockerImage, kanikoImage, dockerIgnores)
 	if derr != nil && dockerSame {
 		t.Logf("[%s] docker-oracle diffoci error: %v", label, derr)
@@ -395,7 +401,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		v1 := GetVersionedKanikoImage(config.imageRepo, label, 1)
 		// --cache-copy-layers is required for COPY layers to be served from cache;
 		// without it the consume build re-runs COPY and restamps wall-clock mtimes.
-		cacheArgs := []string{"--cache=true", "--cache-copy-layers=true", "--cache-repo=" + cacheRepo}
+		cacheArgs := append([]string{"--cache=true", "--cache-copy-layers=true", "--cache-repo=" + cacheRepo}, gen.kanikoFlags...)
 		// Point the cache builds at the same per-case GOCOVERDIR as the fresh build.
 		// They run sequentially, so GOCOVERDIR just accumulates per-process files, and
 		// observe() then captures the union, including the pkg/cache paths the fresh
@@ -415,6 +421,13 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 			return f
 		}
 		cacheIgnores := []string{"--ignore-image-name", "--ignore-image-timestamps"}
+		// --single-snapshot re-snapshots the whole filesystem each build and restamps
+		// wall-clock mtimes, so a cached consume build's file timestamps legitimately
+		// differ from the populate build's. Excuse timestamps here while still comparing
+		// content, mode, ownership, and structure exactly.
+		if hasFlag(gen.kanikoFlags, "--single-snapshot") {
+			cacheIgnores = append(cacheIgnores, "--ignore-file-timestamps")
+		}
 		cacheDiff, cacheSame, _ := runFuzzDiffoci(v0, v1, cacheIgnores)
 
 		// The cache oracle uses no allowlist: both sides are kaniko building the
@@ -431,7 +444,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	// FUZZ_DETERMINISM because it adds kaniko builds per case. Two modes catch
 	// different classes, so a divergence is a nondeterminism bug either way.
 	if os.Getenv("FUZZ_DETERMINISM") == "1" {
-		if f := determinismOracle(label, dir, kanikoImage, fail); f != nil {
+		if f := determinismOracle(label, dir, kanikoImage, gen.kanikoFlags, fail); f != nil {
 			f.known = dockerCls.known
 			return f
 		}
@@ -451,7 +464,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 // with itself, docker out of the loop. fresh is the already-built non-reproducible
 // image for the structural comparison. Returns a finding on any nondeterminism, else
 // nil. It removes the extra images it creates.
-func determinismOracle(label, dir, fresh string, fail func(severity, string, string) *finding) *finding {
+func determinismOracle(label, dir, fresh string, flags []string, fail func(severity, string, string) *finding) *finding {
 	repo := config.imageRepo
 
 	// Mode 1, structural: a second fresh build must match the first apart from
@@ -459,7 +472,7 @@ func determinismOracle(label, dir, fresh string, fail func(severity, string, str
 	// between two runs of the identical input is nondeterminism.
 	b := strings.ToLower(repo + kanikoPrefix + label + "-det-b")
 	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", b))
-	out, err := runFuzzKaniko(dir, b, nil, "")
+	out, err := runFuzzKaniko(dir, b, flags, "")
 	if crash := detectCrash(out); crash != "" {
 		return fail(sevCrash, crash, out)
 	}
@@ -478,11 +491,11 @@ func determinismOracle(label, dir, fresh string, fail func(severity, string, str
 	r0 := strings.ToLower(repo + kanikoPrefix + label + "-det-r0")
 	r1 := strings.ToLower(repo + kanikoPrefix + label + "-det-r1")
 	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", r0, r1))
-	o0, e0 := runFuzzKaniko(dir, r0, []string{"--reproducible"}, "")
+	o0, e0 := runFuzzKaniko(dir, r0, append([]string{"--reproducible"}, flags...), "")
 	if crash := detectCrash(o0); crash != "" {
 		return fail(sevCrash, crash, o0)
 	}
-	o1, e1 := runFuzzKaniko(dir, r1, []string{"--reproducible"}, "")
+	o1, e1 := runFuzzKaniko(dir, r1, append([]string{"--reproducible"}, flags...), "")
 	if crash := detectCrash(o1); crash != "" {
 		return fail(sevCrash, crash, o1)
 	}
@@ -641,6 +654,15 @@ func cleanupFuzzImages(label string) {
 		GetVersionedKanikoImage(config.imageRepo, label, 1),
 	}
 	RunCommandWithoutTest(exec.Command("docker", append([]string{"rmi", "-f"}, refs...)...))
+}
+
+func hasFlag(flags []string, f string) bool {
+	for _, v := range flags {
+		if v == f {
+			return true
+		}
+	}
+	return false
 }
 
 func baseIsOCI(ref string) bool {
