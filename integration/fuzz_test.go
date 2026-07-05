@@ -37,6 +37,7 @@ const (
 	sevClean severity = iota
 	sevDockerDiff
 	sevDeterminismDiff
+	sevInvarianceDiff
 	sevCacheDiff
 	sevBuildOutcome
 	sevCrash
@@ -48,6 +49,8 @@ func (s severity) String() string {
 		return "DOCKER_DIFF"
 	case sevDeterminismDiff:
 		return "DETERMINISM_DIFF"
+	case sevInvarianceDiff:
+		return "INVARIANCE_DIFF"
 	case sevCacheDiff:
 		return "CACHE_DIFF"
 	case sevBuildOutcome:
@@ -97,9 +100,10 @@ func detectCrash(out string) string {
 // so it does not run as part of the normal suite. Env knobs: FUZZ_CASES=N (case
 // count), FUZZ_DURATION=30m (run to a deadline, wins over FUZZ_CASES), FUZZ_WORKERS=4
 // (concurrent cases), FUZZ_SEED (first seed), FUZZ_OUT (artifact dir, also holds a
-// live summary.txt), FUZZ_DETERMINISM=1 (also run the build-twice determinism oracle,
-// which adds kaniko builds per case). Under parallelism a finding is reproduced from
-// its written Dockerfile, not from the seed alone, since corpus state affects inputs.
+// live summary.txt), FUZZ_DETERMINISM=1 (also run the build-twice determinism oracle),
+// FUZZ_INVARIANCE=1 (also run the cache-lookahead on-vs-off invariance oracle); both add
+// kaniko builds per case. Under parallelism a finding is reproduced from its written
+// Dockerfile, not from the seed alone, since corpus state affects inputs.
 func TestFuzz(t *testing.T) {
 	casesStr := os.Getenv("FUZZ_CASES")
 	durStr := os.Getenv("FUZZ_DURATION")
@@ -421,11 +425,12 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 			return f
 		}
 		cacheIgnores := []string{"--ignore-image-name", "--ignore-image-timestamps"}
-		// --single-snapshot re-snapshots the whole filesystem each build and restamps
-		// wall-clock mtimes, so a cached consume build's file timestamps legitimately
-		// differ from the populate build's. Excuse timestamps here while still comparing
-		// content, mode, ownership, and structure exactly.
-		if hasFlag(gen.kanikoFlags, "--single-snapshot") {
+		// Some flags legitimately make a cached consume build restamp wall-clock mtimes:
+		// --single-snapshot re-snapshots the whole filesystem each build, and
+		// --cache-run-layers=false leaves RUN layers uncached so the consume build
+		// re-runs them. Excuse timestamps for those while still comparing content, mode,
+		// ownership, and structure exactly.
+		if hasFlag(gen.kanikoFlags, "--single-snapshot") || hasFlag(gen.kanikoFlags, "--cache-run-layers=false") {
 			cacheIgnores = append(cacheIgnores, "--ignore-file-timestamps")
 		}
 		cacheDiff, cacheSame, _ := runFuzzDiffoci(v0, v1, cacheIgnores)
@@ -436,6 +441,41 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 			f := fail(sevCacheDiff, "cache populate and consume differ", cacheDiff)
 			f.known = dockerCls.known
 			return f
+		}
+
+		// invariance oracle: cache-lookahead is a performance optimization and must not
+		// change output. Build the same case with --cache and the lookahead family of
+		// flags off, then compare the cache-consume image to the lookahead-on one (v1).
+		// A divergence is a lookahead bug (mz872 is the crashing variant; this catches
+		// the silent variant where a wrong cached layer is served). Gated: adds builds.
+		if os.Getenv("FUZZ_INVARIANCE") == "1" {
+			offEnv := []string{"FF_KANIKO_CACHE_LOOKAHEAD=0", "FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=0", "FF_KANIKO_RESOLVE_CACHE_KEY=0"}
+			offRepo := strings.ToLower(config.imageRepo + "fuzzcache-off-" + label)
+			offArgs := append([]string{"--cache=true", "--cache-copy-layers=true", "--cache-repo=" + offRepo}, gen.kanikoFlags...)
+			w0 := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-off0")
+			w1 := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-off1")
+			defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", w0, w1))
+			o0, oe0 := runFuzzKanikoEnv(dir, w0, offArgs, "", offEnv)
+			if crash := detectCrash(o0); crash != "" {
+				return fail(sevCrash, crash, o0)
+			}
+			o1, oe1 := runFuzzKanikoEnv(dir, w1, offArgs, "", offEnv)
+			if crash := detectCrash(o1); crash != "" {
+				return fail(sevCrash, crash, o1)
+			}
+			if oe0 == nil && oe1 == nil {
+				// The on and off images come from two independently populated caches
+				// built at different wall-clock times, so cached-layer file timestamps
+				// differ regardless of lookahead correctness. Compare content, mode,
+				// ownership, and structure exactly; a real lookahead output bug shows there.
+				invIgnores := []string{"--ignore-image-name", "--ignore-image-timestamps", "--ignore-file-timestamps"}
+				invDiff, invSame, _ := runFuzzDiffoci(v1, w1, invIgnores)
+				if !invSame {
+					f := fail(sevInvarianceDiff, "cache-lookahead changes output (on vs off)", invDiff)
+					f.known = dockerCls.known
+					return f
+				}
+			}
 		}
 	}
 
@@ -710,8 +750,18 @@ func runFuzzDocker(contextDir, image string, oci bool) (string, error) {
 // detect crashes and classify failures itself. When covDir is non-empty it is
 // mounted as GOCOVERDIR so the build's coverage can be measured in isolation.
 func runFuzzKaniko(contextDir, image string, extra []string, covDir string) (string, error) {
+	return runFuzzKanikoEnv(contextDir, image, extra, covDir, nil)
+}
+
+// runFuzzKanikoEnv is runFuzzKaniko with extra -e env vars appended after KanikoEnv.
+// docker keeps the last value for a repeated -e, so an override here wins over the
+// KanikoEnv default (used to flip FF_KANIKO_* flags off for the invariance oracle).
+func runFuzzKanikoEnv(contextDir, image string, extra []string, covDir string, envOverride []string) (string, error) {
 	flags := []string{"run", "--net=host", "-v", contextDir + ":/workspace:ro"}
 	for _, e := range KanikoEnv {
+		flags = append(flags, "-e", e)
+	}
+	for _, e := range envOverride {
 		flags = append(flags, "-e", e)
 	}
 	if covDir != "" {
