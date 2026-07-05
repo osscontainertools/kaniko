@@ -1,27 +1,9 @@
-FROM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d AS first
+FROM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d AS final
 UNPACK busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
 CACHE HIT: ec50b204a07f169d1beec66434b673ca44caf8b98ee6c98e886320969926d029
 RUN touch /blubb
-SAVE STAGE /kaniko/stages/0
-SAVE FILES [/blubb] /kaniko/deps/0
-CLEAN
-
-FROM first AS second
-UNPACK /kaniko/stages/0
 CACHE HIT: 9097bbf817837a54a5ba9b91d9d2a771a145d25f5389c96a4c3315119aa482a5
 RUN touch /bla
-SAVE STAGE /kaniko/stages/1
-CLEAN
-
-FROM second AS third
-UNPACK /kaniko/stages/1
-CACHE HIT: dd8070993f952ce8287efcf5c6b32d3d2399905c6fc8dc9b4036d4196b80e10f
-RUN touch /bli
-SAVE FILES [/bli] /kaniko/deps/2
-CLEAN
-
-FROM second AS final
-UNPACK /kaniko/stages/1
 CACHE REDIRECT HIT: 8ef1283833b79b08b093a99de08ffc3fed1fbbf8fb328f81e9d7561af0524e95
 CACHE HIT: 8ef1283833b79b08b093a99de08ffc3fed1fbbf8fb328f81e9d7561af0524e95
 COPY --from=first /blubb /blubb
