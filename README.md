@@ -3,7 +3,6 @@
 [![Unit tests](https://github.com/osscontainertools/kaniko/actions/workflows/unit-tests.yaml/badge.svg)](https://github.com/osscontainertools/kaniko/actions/workflows/unit-tests.yaml)
 [![Integration tests](https://github.com/osscontainertools/kaniko/actions/workflows/integration-tests.yaml/badge.svg)](https://github.com/osscontainertools/kaniko/actions/workflows/integration-tests.yaml)
 [![Build images](https://github.com/osscontainertools/kaniko/actions/workflows/images.yaml/badge.svg)](https://github.com/osscontainertools/kaniko/actions/workflows/images.yaml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/osscontainertools/kaniko)](https://goreportcard.com/report/github.com/osscontainertools/kaniko)
 [![codecov](https://codecov.io/gh/osscontainertools/kaniko/graph/badge.svg)](https://codecov.io/gh/osscontainertools/kaniko)
 
 ![kaniko logo](logo/Kaniko-Logo.png)
