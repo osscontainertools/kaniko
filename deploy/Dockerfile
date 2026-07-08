@@ -13,7 +13,7 @@
 # limitations under the License.
 
 ARG BUILDPLATFORM
-FROM --platform=$BUILDPLATFORM golang:1.26.4@sha256:f96cc555eb8db430159a3aa6797cd5bae561945b7b0fe7d0e284c63a3b291609 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27rc2@sha256:2317c8e806fe884a0d5f3d80d596dcd1369a4c211b7eba8d507718245e9e5831 AS builder
 WORKDIR /src
 
 # This arg is passed by docker buildx & contains the target CPU architecture (e.g., amd64, arm64, etc.)
