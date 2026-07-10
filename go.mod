@@ -39,7 +39,7 @@ require (
 	github.com/tonistiigi/dchapes-mode v0.0.0-20250318174251-73d941a28323
 	golang.org/x/sync v0.22.0
 	golang.org/x/sys v0.47.0
-	google.golang.org/api v0.287.1
+	google.golang.org/api v0.288.0
 )
 
 require (
