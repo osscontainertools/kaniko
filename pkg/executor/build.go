@@ -336,7 +336,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 			copyCmd, isCopy := commands.CastAbstractCopyCommand(command)
 			if !hasContext && isCopy && copyCmd.From() != "" {
 				inferred := false
-				if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
+				if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers && opts.CacheRunLayers {
 					inferredKey, err := populateCompositeKey(command, nil, compositeKey, args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 					if err == nil {
 						inferredCK, err := inferredKey.Hash()
@@ -374,7 +374,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 				}
 
 				// mz334: assert the inferred key pointer resolves to the same content key.
-				if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
+				if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers && opts.CacheRunLayers {
 					inferredKey, err := populateCompositeKey(command, nil, prevCompositeKey, args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 					if err == nil {
 						inferredCK, err := inferredKey.Hash()
@@ -531,7 +531,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				return err
 			}
 			// mz334: also compute the inferred key so we can push a pointer below.
-			if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers {
+			if config.EnvBool("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY") && opts.CacheCopyLayers && opts.CacheRunLayers {
 				inferredKey, err := populateCompositeKey(command, nil, prevCompositeKey, s.args, s.cf.Config.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 				if err == nil {
 					inferredCacheKey, err = inferredKey.Hash()
