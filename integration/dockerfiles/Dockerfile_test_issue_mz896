@@ -1,0 +1,14 @@
+# mz896: COPY --from a stage whose RUN layer is not cached (--cache-run-layers=false).
+# Crashes on v1.28.0. The RUN re-runs on the second build and its output changes, but the
+# inferred cross-stage cache key still resolves to the first build's cached copy, so the build
+# panics on the executor.compositekey.key-match assertion instead of taking a cache miss.
+# The uuid is washed out in an empty WORKDIR so both builds produce the same image.
+FROM busybox AS base
+RUN cat /proc/sys/kernel/random/uuid > /u
+
+FROM busybox AS mid
+COPY --from=base /u /u
+WORKDIR /empty
+
+FROM busybox AS final
+COPY --from=mid /empty /empty
