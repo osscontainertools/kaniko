@@ -1,0 +1,6 @@
+# mz879: RUN --mount=type=bind fails on the cache-consume build under --use-new-run.
+# Crashes on v1.28.0. The RunV2 caching command drops the build context, so the mount
+# source resolves to a bare relative path and the second build's cache-key lstat misses
+# with "could not add path: lstat context/foo: no such file or directory".
+FROM alpine
+RUN --mount=type=bind,source=context/foo,target=/mnt/foo cat /mnt/foo > /out
