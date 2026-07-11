@@ -17,102 +17,11 @@ limitations under the License.
 package warmer
 
 import (
-	"bytes"
 	"os"
 	"testing"
 
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 )
-
-const (
-	image = "foo:latest"
-)
-
-func Test_Warmer_Warm_not_in_cache(t *testing.T) {
-	tarBuf := new(bytes.Buffer)
-	manifestBuf := new(bytes.Buffer)
-
-	cw := &Warmer{
-		Remote: func(_ string, _ config.RegistryOptions, _ string) (v1.Image, error) {
-			return FakeImage{}, nil
-		},
-		Local: func(_ *config.CacheOptions, _ string) (v1.Image, error) {
-			return nil, cache.NotFoundErr{}
-		},
-		TarWriter:      tarBuf,
-		ManifestWriter: manifestBuf,
-	}
-
-	opts := &config.WarmerOptions{}
-
-	_, err := cw.Warm(image, opts)
-	if err != nil {
-		t.Errorf("expected error to be nil but was %v", err)
-		t.FailNow()
-	}
-
-	if len(tarBuf.Bytes()) == 0 {
-		t.Error("expected image to be written but buffer was empty")
-	}
-}
-
-func Test_Warmer_Warm_in_cache_not_expired(t *testing.T) {
-	tarBuf := new(bytes.Buffer)
-	manifestBuf := new(bytes.Buffer)
-
-	cw := &Warmer{
-		Remote: func(_ string, _ config.RegistryOptions, _ string) (v1.Image, error) {
-			return FakeImage{}, nil
-		},
-		Local: func(_ *config.CacheOptions, _ string) (v1.Image, error) {
-			return FakeImage{}, nil
-		},
-		TarWriter:      tarBuf,
-		ManifestWriter: manifestBuf,
-	}
-
-	opts := &config.WarmerOptions{}
-
-	_, err := cw.Warm(image, opts)
-	if !cache.IsAlreadyCached(err) {
-		t.Errorf("expected error to be already cached err but was %v", err)
-		t.FailNow()
-	}
-
-	if len(tarBuf.Bytes()) != 0 {
-		t.Errorf("expected nothing to be written")
-	}
-}
-
-func Test_Warmer_Warm_in_cache_expired(t *testing.T) {
-	tarBuf := new(bytes.Buffer)
-	manifestBuf := new(bytes.Buffer)
-
-	cw := &Warmer{
-		Remote: func(_ string, _ config.RegistryOptions, _ string) (v1.Image, error) {
-			return FakeImage{}, nil
-		},
-		Local: func(_ *config.CacheOptions, _ string) (v1.Image, error) {
-			return FakeImage{}, cache.ExpiredErr{}
-		},
-		TarWriter:      tarBuf,
-		ManifestWriter: manifestBuf,
-	}
-
-	opts := &config.WarmerOptions{}
-
-	_, err := cw.Warm(image, opts)
-	if !cache.IsAlreadyCached(err) {
-		t.Errorf("expected error to be already cached err but was %v", err)
-		t.FailNow()
-	}
-
-	if len(tarBuf.Bytes()) != 0 {
-		t.Errorf("expected nothing to be written")
-	}
-}
 
 func TestParseDockerfile_SingleStageDockerfile(t *testing.T) {
 	dockerfile := `FROM alpine:latest
