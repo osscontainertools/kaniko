@@ -88,8 +88,6 @@ var ignorelist = append([]IgnoreListEntry{}, defaultIgnoreList...)
 
 var volumes = []string{}
 
-var secureExtraction = config.EnvBoolDefault("FF_KANIKO_SECUREJOIN_EXTRACTION", true)
-
 type FileContext struct {
 	Root          string
 	ExcludedFiles []string
@@ -210,13 +208,11 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 
 		if strings.HasPrefix(base, archive.WhiteoutPrefix) {
 			dir := filepath.Dir(path)
-			if secureExtraction {
-				securePath, err := securejoin.SecureJoin(root, cleanedName)
-				if err != nil {
-					return nil, fmt.Errorf("resolving whiteout path for %q: %w", hdr.Name, err)
-				}
-				dir = filepath.Dir(securePath)
+			securePath, err := securejoin.SecureJoin(root, cleanedName)
+			if err != nil {
+				return nil, fmt.Errorf("resolving whiteout path for %q: %w", hdr.Name, err)
 			}
+			dir = filepath.Dir(securePath)
 
 			name := strings.TrimPrefix(base, archive.WhiteoutPrefix)
 			path := filepath.Join(dir, name)
@@ -236,7 +232,7 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 			}
 
 			// mz774: whiteout deletion is already applied, the marker is not needed in the filesystem
-			if !cfg.includeWhiteout || config.EnvBool("FF_KANIKO_SKIP_WRITE_WHITEOUTS") {
+			if !cfg.includeWhiteout || config.EnvBoolDefault("FF_KANIKO_SKIP_WRITE_WHITEOUTS", true) {
 				logrus.Trace("Not including whiteout files")
 				continue
 			}
@@ -302,7 +298,7 @@ func childDirInIgnoreList(path string) bool {
 }
 
 func removeAllSkipIgnored(path string) (skip bool, err error) {
-	if !config.EnvBoolDefault("FF_KANIKO_PRESERVE_MOUNTED_PATHS", true) || !childDirInIgnoreList(path) {
+	if !childDirInIgnoreList(path) {
 		return false, os.RemoveAll(path)
 	}
 	logrus.Debugf("Not removing %s, as it contains an ignored path", path)
@@ -347,7 +343,7 @@ func UnTar(r io.Reader, dest string) ([]string, error) {
 			return nil, err
 		}
 		cleanedName := filepath.Clean(hdr.Name)
-		if cleanedName == "." && config.EnvBool("FF_KANIKO_UNTAR_SKIP_ROOT") {
+		if cleanedName == "." && config.EnvBoolDefault("FF_KANIKO_UNTAR_SKIP_ROOT", true) {
 			continue
 		}
 		if err := ExtractFile(dest, hdr, cleanedName, tr); err != nil {
@@ -364,23 +360,19 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 	}
 
 	var path string
-	if secureExtraction {
-		// cg330: SecureJoin the parent only, then append the basename lexically. Joining
-		// the full name would resolve the final component when it is a symlink we
-		// mean to overwrite, writing through it and creating loops like
-		// bin/sh -> dash -> dash.
-		secureDir, err := securejoin.SecureJoin(dest, filepath.Dir(cleanedName))
-		if err != nil {
-			if !errors.Is(err, syscall.ELOOP) {
-				return fmt.Errorf("resolving path for %q: %w", hdr.Name, err)
-			}
-			logrus.Warnf("Skipping %q: parent path cannot be securely resolved (symlink loop)", hdr.Name)
-			return nil
+	// cg330: SecureJoin the parent only, then append the basename lexically. Joining
+	// the full name would resolve the final component when it is a symlink we
+	// mean to overwrite, writing through it and creating loops like
+	// bin/sh -> dash -> dash.
+	secureDir, err := securejoin.SecureJoin(dest, filepath.Dir(cleanedName))
+	if err != nil {
+		if !errors.Is(err, syscall.ELOOP) {
+			return fmt.Errorf("resolving path for %q: %w", hdr.Name, err)
 		}
-		path = filepath.Join(secureDir, filepath.Base(cleanedName))
-	} else {
-		path = filepath.Join(dest, cleanedName)
+		logrus.Warnf("Skipping %q: parent path cannot be securely resolved (symlink loop)", hdr.Name)
+		return nil
 	}
+	path = filepath.Join(secureDir, filepath.Base(cleanedName))
 	base := filepath.Base(path)
 	dir := filepath.Dir(path)
 	mode := hdr.FileInfo().Mode()
@@ -450,12 +442,10 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		}
 	case tar.TypeDir:
 		logrus.Tracef("Creating dir %s", path)
-		if secureExtraction {
-			fi, lerr := os.Lstat(path)
-			if lerr == nil && fi.Mode()&os.ModeSymlink != 0 {
-				if err := os.Remove(path); err != nil {
-					return fmt.Errorf("error removing symlink %s to make way for new directory: %w", path, err)
-				}
+		fi, lerr := os.Lstat(path)
+		if lerr == nil && fi.Mode()&os.ModeSymlink != 0 {
+			if err := os.Remove(path); err != nil {
+				return fmt.Errorf("error removing symlink %s to make way for new directory: %w", path, err)
 			}
 		}
 		if err := MkdirAllWithPermissions(path, mode, int64(uid), int64(gid)); err != nil {
@@ -497,15 +487,11 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 			return fmt.Errorf("hardlink target %q is not allowed: references parent directory", hdr.Linkname)
 		}
 		var link string
-		if secureExtraction {
-			resolved, err := securejoin.SecureJoin(dest, hdr.Linkname)
-			if err != nil {
-				return fmt.Errorf("invalid hardlink target %q: %w", hdr.Linkname, err)
-			}
-			link = resolved
-		} else {
-			link = filepath.Clean(filepath.Join(dest, hdr.Linkname))
+		resolved, err := securejoin.SecureJoin(dest, hdr.Linkname)
+		if err != nil {
+			return fmt.Errorf("invalid hardlink target %q: %w", hdr.Linkname, err)
 		}
+		link = resolved
 		if err := os.Link(link, path); err != nil {
 			return err
 		}
@@ -775,7 +761,6 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 	var copiedFiles []string
 	var updates []timestampUpdate
 	hardlinksSeen := make(map[uint64]string)
-	preserveHardlinks := config.EnvBoolDefault("FF_KANIKO_PRESERVE_HARDLINKS", true)
 	for _, file := range files {
 		fullPath := filepath.Join(src, file)
 		if context.ExcludesFile(fullPath) {
@@ -829,7 +814,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 			if _, err := CopySymlink(fullPath, destPath, context); err != nil {
 				return nil, err
 			}
-		} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok && preserveHardlinks {
+		} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok {
 			// #2594: inode already copied — create a hardlink instead of duplicating content.
 			logrus.Tracef("Creating hardlink %s -> %s", destPath, linkDst)
 			if err := os.Link(linkDst, destPath); err != nil {

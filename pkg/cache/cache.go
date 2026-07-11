@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -29,7 +28,6 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/creds"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -196,69 +194,7 @@ func LocalSource(opts *config.CacheOptions, cacheKey string) (v1.Image, error) {
 	}
 
 	logrus.Infof("Found %s in local cache", cacheKey)
-	if config.EnvBoolDefault("FF_KANIKO_OCI_WARMER", true) {
-		return ociCachedImageFromPath(path)
-	} else {
-		return cachedImageFromPath(path)
-	}
-}
-
-// cachedImage represents a v1.Tarball that is cached locally in a CAS.
-// Computing the digest for a v1.Tarball is very expensive. If the tarball
-// is named with the digest we can store this and return it directly rather
-// than recompute it.
-type cachedImage struct {
-	digest string
-	v1.Image
-	mfst *v1.Manifest
-}
-
-func (c *cachedImage) Digest() (v1.Hash, error) {
-	return v1.NewHash(c.digest)
-}
-
-func (c *cachedImage) Manifest() (*v1.Manifest, error) {
-	if config.EnvBool("FF_KANIKO_IGNORE_CACHED_MANIFEST") || c.mfst == nil {
-		return c.Image.Manifest()
-	}
-	return c.mfst, nil
-}
-
-func mfstFromPath(p string) (*v1.Manifest, error) {
-	f, err := util.FSys.Open(p)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	return v1.ParseManifest(f)
-}
-
-func cachedImageFromPath(p string) (v1.Image, error) {
-	imgTar, err := tarball.ImageFromPath(p, nil)
-	if err != nil {
-		return nil, fmt.Errorf("getting image from path: %w", err)
-	}
-
-	// Manifests may be present next to the tar, named with a ".json" suffix
-	mfstPath := p + ".json"
-
-	var mfst *v1.Manifest
-	if _, err := os.Stat(mfstPath); err != nil {
-		logrus.Debugf("Manifest does not exist at file: %s", mfstPath)
-	} else {
-		mfst, err = mfstFromPath(mfstPath)
-		if err != nil {
-			logrus.Debugf("Error parsing manifest from file: %s", mfstPath)
-		} else {
-			logrus.Infof("Found manifest at %s", mfstPath)
-		}
-	}
-
-	return &cachedImage{
-		digest: filepath.Base(p),
-		Image:  imgTar,
-		mfst:   mfst,
-	}, nil
+	return ociCachedImageFromPath(path)
 }
 
 func ociCachedImageFromPath(tarPath string) (v1.Image, error) {

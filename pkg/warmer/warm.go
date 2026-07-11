@@ -29,7 +29,6 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
-	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
@@ -59,21 +58,11 @@ func WarmCache(opts *config.WarmerOptions) error {
 	logrus.Debugf("%s\n", images)
 
 	errs := 0
-	if config.EnvBoolDefault("FF_KANIKO_OCI_WARMER", true) {
-		for _, img := range images {
-			err := ociWarmToFile(cacheDir, img, opts)
-			if err != nil {
-				logrus.Warnf("Error while trying to warm image: %v %v", img, err)
-				errs++
-			}
-		}
-	} else {
-		for _, img := range images {
-			err := warmToFile(cacheDir, img, opts)
-			if err != nil {
-				logrus.Warnf("Error while trying to warm image: %v %v", img, err)
-				errs++
-			}
+	for _, img := range images {
+		err := ociWarmToFile(cacheDir, img, opts)
+		if err != nil {
+			logrus.Warnf("Error while trying to warm image: %v %v", img, err)
+			errs++
 		}
 	}
 
@@ -81,78 +70,6 @@ func WarmCache(opts *config.WarmerOptions) error {
 		return errors.New("failed to warm any of the given images")
 	}
 
-	return nil
-}
-
-// Download image in temporary files then move files to final destination
-func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
-	f, err := os.CreateTemp(cacheDir, "warmingImage.*")
-	if err != nil {
-		return err
-	}
-	// defer called in reverse order
-	defer os.Remove(f.Name())
-	defer f.Close()
-
-	mtfsFile, err := os.CreateTemp(cacheDir, "warmingManifest.*")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(mtfsFile.Name())
-	defer mtfsFile.Close()
-
-	cw := &Warmer{
-		Remote:         remote.RetrieveRemoteImage,
-		Local:          cache.LocalSource,
-		TarWriter:      f,
-		ManifestWriter: mtfsFile,
-	}
-
-	cacheRef, image, digest, err := cw.Resolve(img, opts)
-	if err != nil {
-		if cache.IsAlreadyCached(err) {
-			logrus.Infof("Image already in cache: %v", img)
-			return nil
-		}
-		logrus.Warnf("Error while trying to warm image: %v %v", img, err)
-		return err
-	}
-
-	finalCachePath := path.Join(cacheDir, digest.String())
-	finalMfstPath := finalCachePath + ".json"
-
-	if config.EnvBoolDefault("FF_KANIKO_WARMER_CACHE_LOCK", true) {
-		lock, err := acquireCacheLock(cacheDir, digest.String())
-		if err != nil {
-			return fmt.Errorf("failed to acquire cache lock: %w", err)
-		}
-		defer lock.Release()
-
-		_, lookupErr := cw.Local(&opts.CacheOptions, digest.String())
-		if lookupErr == nil || cache.IsExpired(lookupErr) {
-			logrus.Infof("Image %v became available in cache while waiting for lock; keeping existing copy", img)
-			return nil
-		}
-		_ = os.RemoveAll(finalCachePath)
-		_ = os.Remove(finalMfstPath)
-	}
-
-	if err := cw.Write(cacheRef, image); err != nil {
-		logrus.Warnf("Error while trying to warm image: %v %v", img, err)
-		return err
-	}
-
-	err = os.Rename(f.Name(), finalCachePath)
-	if err != nil {
-		return err
-	}
-
-	err = os.Rename(mtfsFile.Name(), finalMfstPath)
-	if err != nil {
-		return fmt.Errorf("failed to rename manifest file: %w", err)
-	}
-
-	logrus.Debugf("Wrote %s to cache", img)
 	return nil
 }
 
@@ -182,23 +99,18 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 
 	finalCachePath := path.Join(cacheDir, digest.String())
 
-	if config.EnvBoolDefault("FF_KANIKO_WARMER_CACHE_LOCK", true) {
-		lock, err := acquireCacheLock(cacheDir, digest.String())
-		if err != nil {
-			return fmt.Errorf("failed to acquire cache lock: %w", err)
-		}
-		defer lock.Release()
-
-		_, lookupErr := cw.Local(&opts.CacheOptions, digest.String())
-		if lookupErr == nil || cache.IsExpired(lookupErr) {
-			logrus.Infof("Image %v became available in cache while waiting for lock; keeping existing copy", img)
-			return nil
-		}
-		_ = os.RemoveAll(finalCachePath)
-		// mz364: finalCachePath+".json" is the legacy tarball manifest sidecar.
-		// Drop this once the tarball cache format is removed (FF_KANIKO_OCI_WARMER deprecated)
-		_ = os.Remove(finalCachePath + ".json")
+	lock, err := acquireCacheLock(cacheDir, digest.String())
+	if err != nil {
+		return fmt.Errorf("failed to acquire cache lock: %w", err)
 	}
+	defer lock.Release()
+
+	_, lookupErr := cw.Local(&opts.CacheOptions, digest.String())
+	if lookupErr == nil || cache.IsExpired(lookupErr) {
+		logrus.Infof("Image %v became available in cache while waiting for lock; keeping existing copy", img)
+		return nil
+	}
+	_ = os.RemoveAll(finalCachePath)
 
 	if err := cw.Write(cacheRef, image); err != nil {
 		logrus.Warnf("Error while trying to warm image: %v %v", img, err)
@@ -223,101 +135,6 @@ type FetchRemoteImage func(image string, opts config.RegistryOptions, customPlat
 // github.com/GoogleContainerTools/kaniko/cache.LocalSource can be used as
 // this type.
 type FetchLocalSource func(*config.CacheOptions, string) (v1.Image, error)
-
-// Warmer is used to prepopulate the cache with a Docker image
-type Warmer struct {
-	Remote         FetchRemoteImage
-	Local          FetchLocalSource
-	TarWriter      io.Writer
-	ManifestWriter io.Writer
-}
-
-// Warm retrieves a Docker image and populates the supplied buffer with the image content and manifest
-// or returns an AlreadyCachedErr if the image is present in the cache.
-func (w *Warmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error) {
-	cacheRef, img, digest, err := w.Resolve(image, opts)
-	if err != nil {
-		return v1.Hash{}, err
-	}
-	return digest, w.Write(cacheRef, img)
-}
-
-// Resolve fetches the image manifest and resolves its digest, short-circuiting
-// with AlreadyCachedErr if the local cache already holds it.
-func (w *Warmer) Resolve(image string, opts *config.WarmerOptions) (name.Reference, v1.Image, v1.Hash, error) {
-	cacheRef, err := name.ParseReference(image, name.WeakValidation)
-	if err != nil {
-		return nil, nil, v1.Hash{}, fmt.Errorf("failed to verify image name: %s: %w", image, err)
-	}
-
-	// mz320: If we have a digest reference, we can try a cache lookup directly.
-	var oldKey string
-	var oldErr error
-	if !opts.Force {
-		if d, ok := cacheRef.(name.Digest); ok {
-			cacheKey := d.DigestStr()
-			_, err := w.Local(&opts.CacheOptions, cacheKey)
-			if err == nil || cache.IsExpired(err) {
-				return nil, nil, v1.Hash{}, cache.AlreadyCachedErr{}
-			} else {
-				// mz320: But in case it is a cache miss, not all hope is lost.
-				// It could have also been the digest for an image-index.
-				// The thin wrapper that only points to the image-manifests for different archs.
-				// Unfortunately we can't tell a-priori and we only store the image manifests as keys.
-				// Therefore we don't return and instead try a remote lookup again.
-				oldKey = cacheKey
-				oldErr = err
-			}
-		}
-	}
-
-	img, err := w.Remote(image, opts.RegistryOptions, opts.CustomPlatform)
-	if err != nil || img == nil {
-		return nil, nil, v1.Hash{}, fmt.Errorf("failed to retrieve image: %s: %w", image, err)
-	}
-
-	digest, err := img.Digest()
-	if err != nil {
-		return nil, nil, v1.Hash{}, fmt.Errorf("failed to retrieve digest: %s: %w", image, err)
-	}
-
-	if !opts.Force {
-		var err error
-		cacheKey := digest.String()
-		if oldKey != "" && cacheKey == oldKey {
-			// mz320: But if the cacheKey didn't change, we indeed were looking
-			// at an image manifest, we already confirmed it is not in cache,
-			// so we can short-circuit with the previous error here.
-			err = oldErr
-		} else {
-			_, err = w.Local(&opts.CacheOptions, cacheKey)
-		}
-		if err == nil || cache.IsExpired(err) {
-			return nil, nil, v1.Hash{}, cache.AlreadyCachedErr{}
-		}
-	}
-
-	return cacheRef, img, digest, nil
-}
-
-// Write streams the image as a Docker tarball to TarWriter and its raw
-// manifest to ManifestWriter.
-func (w *Warmer) Write(cacheRef name.Reference, img v1.Image) error {
-	if err := tarball.Write(cacheRef, img, w.TarWriter); err != nil {
-		return fmt.Errorf("failed to write %s to tar buffer: %w", cacheRef.String(), err)
-	}
-
-	mfst, err := img.RawManifest()
-	if err != nil {
-		return fmt.Errorf("failed to retrieve manifest for %s: %w", cacheRef.String(), err)
-	}
-
-	if _, err := w.ManifestWriter.Write(mfst); err != nil {
-		return fmt.Errorf("failed to save manifest to buffer for %s: %w", cacheRef.String(), err)
-	}
-
-	return nil
-}
 
 type OciWarmer struct {
 	Remote FetchRemoteImage
