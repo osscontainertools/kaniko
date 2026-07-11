@@ -224,7 +224,7 @@ var RootCmd = &cobra.Command{
 		if err := os.Chdir("/"); err != nil {
 			exit(fmt.Errorf("error changing to root dir: %w", err))
 		}
-		if opts.Cleanup && config.FF.CleanKanikoDir {
+		if opts.Cleanup {
 			defer func() {
 				if err := config.Cleanup(); err != nil {
 					logrus.Warnf("error cleaning kaniko dir: %v", err)
