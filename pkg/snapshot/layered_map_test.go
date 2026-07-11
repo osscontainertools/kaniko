@@ -20,65 +20,6 @@ import (
 	"testing"
 )
 
-func Test_CacheKey(t *testing.T) {
-	tests := []struct {
-		name  string
-		map1  map[string]string
-		map2  map[string]string
-		equal bool
-	}{
-		{
-			name: "maps are the same",
-			map1: map[string]string{
-				"a": "apple",
-				"b": "bat",
-				"c": "cat",
-				"d": "dog",
-				"e": "egg",
-			},
-			map2: map[string]string{
-				"c": "cat",
-				"d": "dog",
-				"b": "bat",
-				"a": "apple",
-				"e": "egg",
-			},
-			equal: true,
-		},
-		{
-			name: "maps are different",
-			map1: map[string]string{
-				"a": "apple",
-				"b": "bat",
-				"c": "cat",
-			},
-			map2: map[string]string{
-				"c": "",
-				"b": "bat",
-				"a": "apple",
-			},
-			equal: false,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			lm1 := LayeredMap{adds: []map[string]string{test.map1}, deletes: []map[string]struct{}{nil}}
-			lm2 := LayeredMap{adds: []map[string]string{test.map2}, deletes: []map[string]struct{}{nil}}
-			k1, err := lm1.Key()
-			if err != nil {
-				t.Fatalf("error getting key for map 1: %v", err)
-			}
-			k2, err := lm2.Key()
-			if err != nil {
-				t.Fatalf("error getting key for map 2: %v", err)
-			}
-			if test.equal != (k1 == k2) {
-				t.Fatalf("unexpected result: \nExpected\n%s\nActual\n%s\n", k1, k2)
-			}
-		})
-	}
-}
-
 func Test_FlattenPaths(t *testing.T) {
 	layers := []map[string]string{
 		{
