@@ -42,7 +42,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
-	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util/bucket"
 	"github.com/osscontainertools/kaniko/testutil"
 	"google.golang.org/api/option"
@@ -246,11 +245,6 @@ func TestRun(t *testing.T) {
 
 			containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 		})
-	}
-
-	err := logBenchmarks("benchmark")
-	if err != nil {
-		t.Logf("Failed to create benchmark file: %v", err)
 	}
 }
 
@@ -698,11 +692,6 @@ func TestLayers(t *testing.T) {
 			onBuildDiff(t, dockerImage, kanikoImage)
 		})
 	}
-
-	err := logBenchmarks("benchmark_layers")
-	if err != nil {
-		t.Logf("Failed to create benchmark file: %v", err)
-	}
 }
 
 // pushMaliciousPathTraversalImage creates and pushes a minimal OCI image whose
@@ -1024,10 +1013,6 @@ func TestCache(t *testing.T) {
 			t.Parallel()
 			verifyBuildWith(t, cache, dockerfile)
 		})
-	}
-
-	if err := logBenchmarks("benchmark_cache"); err != nil {
-		t.Logf("Failed to create benchmark file: %v", err)
 	}
 }
 
@@ -1512,18 +1497,6 @@ func getLastLayerFiles(image string) ([]string, error) {
 		files = append(files, hdr.Name)
 	}
 	return files, nil
-}
-
-func logBenchmarks(benchmark string) error {
-	if b, err := strconv.ParseBool(os.Getenv("BENCHMARK")); err == nil && b {
-		f, err := os.Create(benchmark)
-		if err != nil {
-			return err
-		}
-		f.WriteString(timing.Summary())
-		defer f.Close()
-	}
-	return nil
 }
 
 type imageDetails struct {

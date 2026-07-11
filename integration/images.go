@@ -33,7 +33,6 @@ import (
 
 	"cloud.google.com/go/storage"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/util/bucket"
 )
@@ -594,8 +593,6 @@ func (d *DockerFileBuilder) BuildKanikoImage(t *testing.T, config *integrationTe
 	additionalKanikoFlags = append(additionalKanikoFlags, "-c", buildContextPath)
 
 	kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
-	timer := timing.Start(dockerfile + "_kaniko")
-	defer timing.DefaultRun.Stop(timer)
 	_, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
 		cwd, config.gcsBucket, config.gcsClient, config.serviceAccount, false, "", "")
 	return err
@@ -618,12 +615,9 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 	}
 	buildArgs = append(buildArgs, buildArgFlag, "IMAGE_REPO="+config.imageRepo)
 
-	timer := timing.Start(dockerfile + "_docker")
 	if err := d.BuildDockerImage(t, imageRepo, dockerfilesPath, dockerfile, contextDir); err != nil {
 		return err
 	}
-
-	timing.DefaultRun.Stop(timer)
 
 	contextFlag := "-c"
 	contextPath := buildContextPath
@@ -641,12 +635,10 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 	}
 
 	kanikoImage := GetKanikoImage(imageRepo, dockerfile)
-	timer = timing.Start(dockerfile + "_kaniko")
 	if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
 		contextDir, gcsBucket, gcsClient, serviceAccount, true, "", ""); err != nil {
 		return err
 	}
-	timing.DefaultRun.Stop(timer)
 
 	return nil
 }
@@ -867,9 +859,7 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 	dockerArgs = append(dockerArgs, additionalDockerFlagsMap[dockerfile]...)
 	dockerCmd := exec.Command("docker", dockerArgs...)
 
-	timer := timing.Start(dockerfile + "_docker")
 	out, err := RunCommandWithoutTest(dockerCmd)
-	timing.DefaultRun.Stop(timer)
 	if err != nil {
 		return fmt.Errorf("failed to build image %s with docker command \"%s\": %w %s", dockerImage, dockerCmd.Args, err, string(out))
 	}
@@ -891,9 +881,7 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
-	timer = timing.Start(dockerfile + "_kaniko_relative_paths")
 	out, err = RunCommandWithoutTest(kanikoCmd)
-	timing.DefaultRun.Stop(timer)
 	logf(string(out))
 
 	if err != nil {

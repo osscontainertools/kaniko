@@ -232,16 +232,6 @@ type Warmer struct {
 	ManifestWriter io.Writer
 }
 
-// Warm retrieves a Docker image and populates the supplied buffer with the image content and manifest
-// or returns an AlreadyCachedErr if the image is present in the cache.
-func (w *Warmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error) {
-	cacheRef, img, digest, err := w.Resolve(image, opts)
-	if err != nil {
-		return v1.Hash{}, err
-	}
-	return digest, w.Write(cacheRef, img)
-}
-
 // Resolve fetches the image manifest and resolves its digest, short-circuiting
 // with AlreadyCachedErr if the local cache already holds it.
 func (w *Warmer) Resolve(image string, opts *config.WarmerOptions) (name.Reference, v1.Image, v1.Hash, error) {
@@ -323,16 +313,6 @@ type OciWarmer struct {
 	Remote FetchRemoteImage
 	Local  FetchLocalSource
 	TmpDir string
-}
-
-// Warm retrieves a Docker image and populates the supplied buffer with the image content and manifest
-// or returns an AlreadyCachedErr if the image is present in the cache.
-func (w *OciWarmer) Warm(image string, opts *config.WarmerOptions) (v1.Hash, error) {
-	cacheRef, img, digest, err := w.Resolve(image, opts)
-	if err != nil {
-		return v1.Hash{}, err
-	}
-	return digest, w.Write(cacheRef, img)
 }
 
 // Resolve fetches the image manifest and resolves its digest, short-circuiting

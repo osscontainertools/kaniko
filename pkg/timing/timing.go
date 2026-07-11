@@ -17,10 +17,8 @@ limitations under the License.
 package timing
 
 import (
-	"bytes"
 	"encoding/json"
 	"sync"
-	"text/template"
 	"time"
 )
 
@@ -70,26 +68,8 @@ type Timer struct {
 	startTime time.Time
 }
 
-// DefaultFormat is a default format string used by Summary.
-var DefaultFormat = template.Must(template.New("").Parse("{{range $c, $t := .}}{{$c}}: {{$t}}\n{{end}}"))
-
-// Summary outputs a summary of the DefaultTimedRun.
-func Summary() string {
-	return DefaultRun.Summary()
-}
-
 func JSON() (string, error) {
 	return DefaultRun.JSON()
-}
-
-// Summary outputs a summary of the specified TimedRun.
-func (tr *TimedRun) Summary() string {
-	b := bytes.Buffer{}
-
-	tr.cl.Lock()
-	defer tr.cl.Unlock()
-	DefaultFormat.Execute(&b, tr.categories)
-	return b.String()
 }
 
 func (tr *TimedRun) JSON() (string, error) {
