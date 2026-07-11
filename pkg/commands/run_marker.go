@@ -59,6 +59,10 @@ func (r *RunMarkerCommand) String() string {
 	return r.cmd.String()
 }
 
+func (r *RunMarkerCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
+	return runCmdFilesUsedFromContext(config, buildArgs, r.cmd, r.fileContext)
+}
+
 func (r *RunMarkerCommand) FilesToSnapshot() []string {
 	return r.Files
 }
@@ -74,9 +78,10 @@ func (r *RunMarkerCommand) IsArgsEnvsRequiredInCache() bool {
 // CacheCommand returns true since this command should be cached
 func (r *RunMarkerCommand) CacheCommand(img v1.Image) DockerCommand {
 	return &CachingRunCommand{
-		img:       img,
-		cmd:       r.cmd,
-		extractFn: util.ExtractFile,
+		img:         img,
+		cmd:         r.cmd,
+		extractFn:   util.ExtractFile,
+		fileContext: r.fileContext,
 	}
 }
 
