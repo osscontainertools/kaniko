@@ -32,7 +32,6 @@ type FeatureFlags struct {
 	CacheLookahead                 bool
 	CacheProbeAfterMiss            bool
 	ChownOnImplicitDirs            bool
-	CleanKanikoDir                 bool
 	CopyAsRoot                     bool
 	CopyChmodOnImplicitDirs        bool
 	CopySkipSpecialFiles           bool
@@ -102,7 +101,6 @@ func InitFeatureFlags() {
 		CacheLookahead:                 featureFlag("FF_KANIKO_CACHE_LOOKAHEAD", false),
 		CacheProbeAfterMiss:            featureFlag("FF_KANIKO_CACHE_PROBE_AFTER_MISS", false),
 		ChownOnImplicitDirs:            featureFlag("FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS", false),
-		CleanKanikoDir:                 featureFlag("FF_KANIKO_CLEAN_KANIKO_DIR", true),
 		CopyAsRoot:                     featureFlag("FF_KANIKO_COPY_AS_ROOT", false),
 		CopyChmodOnImplicitDirs:        featureFlag("FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS", false),
 		CopySkipSpecialFiles:           featureFlag("FF_KANIKO_COPY_SKIP_SPECIAL_FILES", false),
