@@ -156,6 +156,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_RUN_HONOR_GROUP`](#flag-ff_kaniko_run_honor_group)
       - [Flag `FF_KANIKO_EXPAND_HEREDOC`](#flag-ff_kaniko_expand_heredoc)
     - [Assertion Overrides](#assertion-overrides)
+    - [Telemetry](#telemetry)
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
@@ -1412,6 +1413,18 @@ KANIKO_IGNORE_ASSERTIONS=executor.build.metadata-only
 ```
 
 Multiple names can be passed as a comma-separated list.
+
+### Telemetry
+
+Kaniko can export an OpenTelemetry trace of each build so you can track build times, cache hits and misses, and which Dockerfile instructions keep busting the cache. It is off by default and a no-op unless you point it at a collector:
+
+```sh
+KANIKO_TELEMETRY_ENDPOINT=http://otel-collector:4318
+```
+
+Each build becomes a trace, with a span per build phase and Dockerfile command. Telemetry is best effort and never fails a build.
+
+Standard OpenTelemetry environment variables apply for the rest: `OTEL_EXPORTER_OTLP_HEADERS` for authenticating to the collector, and `OTEL_RESOURCE_ATTRIBUTES` for fleet labels such as `tenant`, `repo`, and `git.sha`.
 
 ### Debug Image
 

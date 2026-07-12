@@ -17,6 +17,8 @@ limitations under the License.
 package executor
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -28,6 +30,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -77,6 +81,7 @@ type stageBuilder struct {
 	cf              *v1.ConfigFile
 	baseImageDigest string
 	cmds            []commands.DockerCommand
+	lines           []int // source line per command, aligned with cmds
 	args            *dockerfile.BuildArgs
 }
 
@@ -85,6 +90,19 @@ type stageCacheInfo struct {
 	redirectHits []bool
 	cacheKeys    []string
 	cacheHits    []bool
+}
+
+func commandHash(stage int, cmd string) string {
+	sum := sha256.Sum256([]byte(strconv.Itoa(stage) + "|" + cmd))
+	return hex.EncodeToString(sum[:])
+}
+
+func commandLine(cmd instructions.Command) int {
+	loc := cmd.Location()
+	if len(loc) == 0 {
+		return 0
+	}
+	return loc[0].Start.Line
 }
 
 func makeSnapshotter(opts *config.KanikoOptions) (*snapshot.Snapshotter, error) {
@@ -154,6 +172,7 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 			return nil, err
 		}
 		s.cmds = append(s.cmds, command)
+		s.lines = append(s.lines, commandLine(cmd))
 	}
 	s.args.AddMetaArgs(stage.MetaArgs)
 	return s, nil
@@ -556,6 +575,29 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				return false
 			}
 		}()
+
+		if timing.Enabled() {
+			phase := "kaniko"
+			if strings.HasPrefix(command.String(), "RUN ") {
+				phase = "build"
+			}
+			attrs := []attribute.KeyValue{
+				attribute.String("kaniko.command", command.String()),
+				attribute.String("kaniko.command.hash", commandHash(s.index, command.String())),
+				attribute.String("kaniko.phase", phase),
+				attribute.Bool("kaniko.cache.hit", isCacheCommand),
+				attribute.Int("kaniko.instruction.index", index),
+				attribute.Int("kaniko.instruction.line", s.lines[index]),
+				attribute.String("kaniko.stage", strconv.Itoa(s.index)),
+			}
+			if opts.Cache {
+				if ck, herr := compositeKey.Hash(); herr == nil {
+					attrs = append(attrs, attribute.String("kaniko.cache.key", ck))
+				}
+			}
+			t.SetAttributes(attrs...)
+		}
+
 		if !initSnapshotTaken && !isCacheCommand && !command.ProvidesFilesToSnapshot() {
 			// Take initial snapshot if command does not expect to return
 			// a list of files.

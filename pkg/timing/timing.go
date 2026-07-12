@@ -17,9 +17,13 @@ limitations under the License.
 package timing
 
 import (
+	"context"
 	"encoding/json"
 	"sync"
 	"time"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // For testing
@@ -27,6 +31,20 @@ var currentTimeFunc = time.Now
 
 // DefaultRun is the default "singleton" TimedRun instance.
 var DefaultRun = NewTimedRun()
+
+var (
+	tracer    trace.Tracer
+	parentCtx context.Context
+)
+
+func SetTracer(ctx context.Context, t trace.Tracer) {
+	parentCtx = ctx
+	tracer = t
+}
+
+func Enabled() bool {
+	return tracer != nil
+}
 
 // TimedRun provides a running store of how long is spent in each category.
 type TimedRun struct {
@@ -38,11 +56,37 @@ type TimedRun struct {
 func (tr *TimedRun) Stop(t *Timer) {
 	stop := currentTimeFunc()
 	tr.cl.Lock()
-	defer tr.cl.Unlock()
 	if _, ok := tr.categories[t.category]; !ok {
 		tr.categories[t.category] = 0
 	}
 	tr.categories[t.category] += stop.Sub(t.startTime)
+	tr.cl.Unlock()
+	if t.span != nil {
+		t.span.End()
+	}
+}
+
+var noSpanCategories = map[string]bool{
+	"Hashing files":                   true,
+	"Walking filesystem with timeout": true,
+	"Walking filesystem with Stat":    true,
+	"Resolving Paths":                 true,
+	"Writing tar file":                true,
+}
+
+var networkCategories = map[string]bool{
+	"Retrieving Source Image": true,
+	"Fetching Extra Stages":   true,
+	"Pushing cached layer":    true,
+	"Pushing cache pointer":   true,
+	"Total Push Time":         true,
+}
+
+func phaseFor(category string) string {
+	if networkCategories[category] {
+		return "network"
+	}
+	return "kaniko"
 }
 
 // Start starts a new Timer and returns it.
@@ -50,6 +94,10 @@ func Start(category string) *Timer {
 	t := Timer{
 		category:  category,
 		startTime: currentTimeFunc(),
+	}
+	if tracer != nil && !noSpanCategories[category] {
+		_, t.span = tracer.Start(parentCtx, category)
+		t.span.SetAttributes(attribute.String("kaniko.phase", phaseFor(category)))
 	}
 	return &t
 }
@@ -66,6 +114,13 @@ func NewTimedRun() *TimedRun {
 type Timer struct {
 	category  string
 	startTime time.Time
+	span      trace.Span
+}
+
+func (t *Timer) SetAttributes(kv ...attribute.KeyValue) {
+	if t.span != nil {
+		t.span.SetAttributes(kv...)
+	}
 }
 
 func JSON() (string, error) {

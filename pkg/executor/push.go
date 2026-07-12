@@ -178,6 +178,7 @@ func writeDigestFile(path string, digestByteArray []byte) error {
 // is not empty with empty --destinations.
 func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 	t := timing.Start("Total Push Time")
+	defer timing.DefaultRun.Stop(t)
 	var digestByteArray []byte
 	var builder strings.Builder
 
@@ -319,7 +320,6 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 			return fmt.Errorf("failed to push to destination %s: %w", destRef, err)
 		}
 	}
-	timing.DefaultRun.Stop(t)
 	return writeImageOutputs(image, destRefs)
 }
 
@@ -357,6 +357,8 @@ func writeImageOutputs(image v1.Image, destRefs []name.Tag) error {
 // pushLayerToCache pushes layer (tagged with cacheKey) to opts.CacheRepo
 // if opts.CacheRepo doesn't exist, infer the cache from the given destination
 func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath string, createdBy string) error {
+	t := timing.Start("Pushing cached layer")
+	defer timing.DefaultRun.Stop(t)
 	var layerOpts []tarball.LayerOption
 	if opts.CompressedCaching {
 		layerOpts = append(layerOpts, tarball.WithCompressedCaching)
@@ -421,6 +423,8 @@ const cachePointerLabel = "kaniko.cache.pointer-target"
 // the content-addressed contentKey. On a subsequent build, resolving the pointer via
 // resolveCachePointer gives the contentKey so the cache chain can be continued correctly.
 func pushCachePointer(opts *config.KanikoOptions, inferredKey, contentKey string) error {
+	t := timing.Start("Pushing cache pointer")
+	defer timing.DefaultRun.Stop(t)
 	dest, err := cache.Destination(opts, inferredKey)
 	if err != nil {
 		return fmt.Errorf("getting cache destination for pointer: %w", err)
