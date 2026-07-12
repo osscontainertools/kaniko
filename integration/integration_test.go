@@ -298,28 +298,8 @@ func getBranchCommitAndURL() (branch, commit, url string) {
 	return
 }
 
-func DockerGitRepo(url string, commit string, branch string) string {
-	ref := ""
-	if commit != "" {
-		ref = "#" + commit
-	} else if branch != "" {
-		ref = "#" + branch
-	}
-	return fmt.Sprintf("https://%s.git%s", url, ref)
-}
-
-func KanikoGitRepo(url string, commit string, branch string) string {
-	ref := ""
-	if commit != "" {
-		ref = "#" + commit
-	} else if branch != "" {
-		ref = "#refs/heads/" + branch
-	}
-	return fmt.Sprintf("git://%s.git%s", url, ref)
-}
-
-func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch string, imageName string) {
-	t.Log("testGitBuildcontextHelper repo", url)
+func testGitBuildcontextHelper(t *testing.T, dockerRef, kanikoRef, imageName string, kanikoExtraFlags ...string) {
+	t.Log("testGitBuildcontextHelper docker", dockerRef, "kaniko", kanikoRef)
 	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_test_run_2", integrationPath, dockerfilesPath)
 
 	// Build with docker
@@ -330,7 +310,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 			"--push",
 			"-t", dockerImage,
 			"-f", dockerfile,
-			DockerGitRepo(url, commit, branch),
+			dockerRef,
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -345,7 +325,8 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
-		"-c", KanikoGitRepo(url, commit, branch))
+		"-c", kanikoRef)
+	dockerRunFlags = append(dockerRunFlags, kanikoExtraFlags...)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -364,7 +345,11 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 func TestGitBuildcontext(t *testing.T) {
 	t.Parallel()
 	branch, _, url := getBranchCommitAndURL()
-	testGitBuildcontextHelper(t, url, "", branch, "Dockerfile_test_git_branch")
+	testGitBuildcontextHelper(t,
+		fmt.Sprintf("https://%s.git#%s", url, branch),
+		fmt.Sprintf("git://%s.git#refs/heads/%s", url, branch),
+		"Dockerfile_test_git_branch",
+	)
 }
 
 // TestGitBuildcontextNoRef builds without any commit / branch reference
@@ -375,7 +360,11 @@ func TestGitBuildcontextNoRef(t *testing.T) {
 	t.Skip("Docker's behavior is to assume a 'master' branch, which the Kaniko repo doesn't have")
 	t.Parallel()
 	_, _, url := getBranchCommitAndURL()
-	testGitBuildcontextHelper(t, url, "", "", "Dockerfile_test_git_noref")
+	testGitBuildcontextHelper(t,
+		fmt.Sprintf("https://%s.git", url),
+		fmt.Sprintf("git://%s.git", url),
+		"Dockerfile_test_git_noref",
+	)
 }
 
 // TestGitBuildcontextExplicitCommit uses an explicit commit hash instead of named reference
@@ -385,7 +374,11 @@ func TestGitBuildcontextNoRef(t *testing.T) {
 func TestGitBuildcontextExplicitCommit(t *testing.T) {
 	t.Parallel()
 	_, commit, url := getBranchCommitAndURL()
-	testGitBuildcontextHelper(t, url, commit, "", "Dockerfile_test_git_commit")
+	testGitBuildcontextHelper(t,
+		fmt.Sprintf("https://%s.git#%s", url, commit),
+		fmt.Sprintf("git://%s.git#%s", url, commit),
+		"Dockerfile_test_git_commit",
+	)
 }
 
 func TestGitBuildcontextSubPath(t *testing.T) {
@@ -401,7 +394,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 			"--push",
 			"-t", dockerImage,
 			"-f", filepath.Join(integrationPath, dockerfilesPath, dockerfile),
-			DockerGitRepo(url, "", branch),
+			fmt.Sprintf("https://%s.git#%s", url, branch),
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -418,7 +411,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 		ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
-		"-c", KanikoGitRepo(url, "", branch),
+		"-c", fmt.Sprintf("git://%s.git#refs/heads/%s", url, branch),
 		"--context-sub-path", filepath.Join(integrationPath, dockerfilesPath),
 	)
 
@@ -430,6 +423,46 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 	}
 
 	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+}
+
+// TestGitBuildcontextPlainBranch exercises a bare branch name with no
+// refs/heads/ prefix (else branch in UnpackTarFromBuildContext around line 88).
+func TestGitBuildcontextPlainBranch(t *testing.T) {
+	t.Parallel()
+	branch, _, url := getBranchCommitAndURL()
+	testGitBuildcontextHelper(t,
+		fmt.Sprintf("https://%s.git#%s", url, branch),
+		fmt.Sprintf("git://%s.git#%s", url, branch),
+		"Dockerfile_test_git_plain_branch",
+	)
+}
+
+// TestGitBuildcontextTag exercises a refs/tags/<tag> ref, which goes through
+// the post-clone fetch flow (lines 84-87 and 108-124) instead of the direct
+// clone-by-ref path used for refs/heads/.
+func TestGitBuildcontextTag(t *testing.T) {
+	t.Parallel()
+	_, _, url := getBranchCommitAndURL()
+	tag := "refs/tags/v1.27.5"
+	testGitBuildcontextHelper(t,
+		fmt.Sprintf("https://%s.git#%s", url, tag),
+		fmt.Sprintf("git://%s.git#%s", url, tag),
+		"Dockerfile_test_git_tag",
+	)
+}
+
+// TestGitBuildcontextBranchFlag exercises the --git=branch=<name> flag, which
+// triggers getGitReferenceName (lines 94-100 and 152-179). Docker has no
+// equivalent flag, so the docker side puts the branch in the URL fragment.
+func TestGitBuildcontextBranchFlag(t *testing.T) {
+	t.Parallel()
+	branch, _, url := getBranchCommitAndURL()
+	testGitBuildcontextHelper(t,
+		fmt.Sprintf("https://%s.git#%s", url, branch),
+		fmt.Sprintf("git://%s.git", url),
+		"Dockerfile_test_git_branch_flag",
+		"--git=branch="+branch,
+	)
 }
 
 func TestBuildViaRegistryMirrors(t *testing.T) {
@@ -445,7 +478,7 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 			"--push",
 			"-t", dockerImage,
 			"-f", dockerfile,
-			DockerGitRepo(url, "", branch),
+			fmt.Sprintf("https://%s.git#%s", url, branch),
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -462,7 +495,7 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 		"-d", kanikoImage,
 		"--registry-mirror", "doesnotexist.example.com",
 		"--registry-mirror", "us-mirror.gcr.io",
-		"-c", KanikoGitRepo(url, "", branch))
+		"-c", fmt.Sprintf("git://%s.git#refs/heads/%s", url, branch))
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -487,7 +520,7 @@ func TestBuildViaRegistryMap(t *testing.T) {
 			"-t", dockerImage,
 			"-f", dockerfile,
 			"--push",
-			DockerGitRepo(url, "", branch),
+			fmt.Sprintf("https://%s.git#%s", url, branch),
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -504,7 +537,7 @@ func TestBuildViaRegistryMap(t *testing.T) {
 		"-d", kanikoImage,
 		"--registry-map", "index.docker.io=doesnotexist.example.com",
 		"--registry-map", "index.docker.io=us-mirror.gcr.io",
-		"-c", KanikoGitRepo(url, "", branch))
+		"-c", fmt.Sprintf("git://%s.git#refs/heads/%s", url, branch))
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -531,7 +564,7 @@ func TestBuildSkipFallback(t *testing.T) {
 		"-d", kanikoImage,
 		"--registry-mirror", "doesnotexist.example.com",
 		"--skip-default-registry-fallback",
-		"-c", KanikoGitRepo(url, "", branch))
+		"-c", fmt.Sprintf("git://%s.git#refs/heads/%s", url, branch))
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -555,7 +588,7 @@ func TestKanikoDir(t *testing.T) {
 			"-t", dockerImage,
 			"-f", dockerfile,
 			"--push",
-			DockerGitRepo(url, "", branch),
+			fmt.Sprintf("https://%s.git#%s", url, branch),
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -570,7 +603,7 @@ func TestKanikoDir(t *testing.T) {
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
-		"-c", KanikoGitRepo(url, "", branch))
+		"-c", fmt.Sprintf("git://%s.git#refs/heads/%s", url, branch))
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 	kanikoCmd.Env = append(kanikoCmd.Env, "KANIKO_DIR=/not-kaniko")
@@ -599,7 +632,7 @@ func TestBuildWithLabels(t *testing.T) {
 			"-t", dockerImage,
 			"-f", dockerfile,
 			"--label", testLabel,
-			DockerGitRepo(url, "", branch),
+			fmt.Sprintf("https://%s.git#%s", url, branch),
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -615,7 +648,7 @@ func TestBuildWithLabels(t *testing.T) {
 		"-f", dockerfile,
 		"-d", kanikoImage,
 		"--label", testLabel,
-		"-c", KanikoGitRepo(url, "", branch),
+		"-c", fmt.Sprintf("git://%s.git#refs/heads/%s", url, branch),
 	)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
@@ -640,7 +673,7 @@ func TestBuildWithHTTPError(t *testing.T) {
 			"build",
 			"-t", dockerImage,
 			"-f", dockerfile,
-			DockerGitRepo(url, "", branch),
+			fmt.Sprintf("https://%s.git#%s", url, branch),
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err == nil {
@@ -655,7 +688,7 @@ func TestBuildWithHTTPError(t *testing.T) {
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
-		"-c", KanikoGitRepo(url, "", branch),
+		"-c", fmt.Sprintf("git://%s.git#refs/heads/%s", url, branch),
 	)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
@@ -1087,6 +1120,7 @@ func TestWarmerTwice(t *testing.T) {
 			// mz364: run as host user so cache files can be removed
 			dockerRunFlags = append(dockerRunFlags, "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()))
 			dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+			dockerRunFlags = addCoverageFlags(dockerRunFlags)
 			for _, envVariable := range WarmerEnv {
 				dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 			}
@@ -1296,7 +1330,7 @@ func TestBuildWithAnnotations(t *testing.T) {
 		"-t", dockerImage,
 		"-f", dockerfile,
 		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
-		DockerGitRepo(url, "", branch),
+		fmt.Sprintf("https://%s.git#%s", url, branch),
 	)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -1312,7 +1346,7 @@ func TestBuildWithAnnotations(t *testing.T) {
 		"-f", dockerfile,
 		"-d", kanikoImage,
 		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
-		"-c", KanikoGitRepo(url, "", branch),
+		"-c", fmt.Sprintf("git://%s.git#refs/heads/%s", url, branch),
 	)
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 	out, err = RunCommandWithoutTest(kanikoCmd)
