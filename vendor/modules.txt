@@ -42,8 +42,8 @@ cloud.google.com/go/iam/apiv1/iampb
 cloud.google.com/go/monitoring/apiv3/v2
 cloud.google.com/go/monitoring/apiv3/v2/monitoringpb
 cloud.google.com/go/monitoring/internal
-# cloud.google.com/go/storage v1.63.0
-## explicit; go 1.25.8
+# cloud.google.com/go/storage v1.63.1
+## explicit; go 1.25.0
 cloud.google.com/go/storage
 cloud.google.com/go/storage/experimental
 cloud.google.com/go/storage/internal
@@ -616,7 +616,7 @@ github.com/google/uuid
 ## explicit; go 1.25.0
 github.com/googleapis/enterprise-certificate-proxy/client
 github.com/googleapis/enterprise-certificate-proxy/client/util
-# github.com/googleapis/gax-go/v2 v2.22.0
+# github.com/googleapis/gax-go/v2 v2.23.0
 ## explicit; go 1.25.0
 github.com/googleapis/gax-go/v2
 github.com/googleapis/gax-go/v2/apierror
@@ -991,7 +991,7 @@ google.golang.org/genproto/googleapis/type/calendarperiod
 google.golang.org/genproto/googleapis/type/date
 google.golang.org/genproto/googleapis/type/expr
 google.golang.org/genproto/googleapis/type/timeofday
-# google.golang.org/genproto/googleapis/api v0.0.0-20260615183401-62b3387ff324
+# google.golang.org/genproto/googleapis/api v0.0.0-20260630182238-925bb5da69e7
 ## explicit; go 1.25.0
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations
