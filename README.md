@@ -1011,8 +1011,9 @@ reproducible.
 #### Flag `--secret`
 
 Set this flag as `--secret id=MY_SECRET[,src=/file][,env=VAR][,type=file|env]` to configure build-secrets to be used during the build.
+
 > [!IMPORTANT]
-> secrets are **not stored securely** internally and you must consider them exposed.
+> The secret is **not stored securely** during the build and may be recoverable by other `RUN` steps even without explicitly mounting it. It should therefore not be considered confidential within the context of the build. The secret is never added to the image and never pushed.
 
 #### Flag `--single-snapshot`
 
