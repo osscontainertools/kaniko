@@ -28,21 +28,19 @@ import (
 func TestGetGitPullMethod(t *testing.T) {
 	tests := []struct {
 		testName string
-		setEnv   func() (expectedValue string)
+		setEnv   func() string
 	}{
 		{
 			testName: "noEnv",
 			setEnv: func() (expectedValue string) {
-				expectedValue = gitPullMethodHTTPS
-				return
+				return gitPullMethodHTTPS
 			},
 		},
 		{
 			testName: "emptyEnv",
 			setEnv: func() (expectedValue string) {
 				_ = os.Setenv(gitPullMethodEnvKey, "")
-				expectedValue = gitPullMethodHTTPS
-				return
+				return gitPullMethodHTTPS
 			},
 		},
 		{
@@ -50,27 +48,24 @@ func TestGetGitPullMethod(t *testing.T) {
 			setEnv: func() (expectedValue string) {
 				err := os.Setenv(gitPullMethodEnvKey, gitPullMethodHTTP)
 				if nil != err {
-					expectedValue = gitPullMethodHTTPS
+					return gitPullMethodHTTPS
 				} else {
-					expectedValue = gitPullMethodHTTP
+					return gitPullMethodHTTP
 				}
-				return
 			},
 		},
 		{
 			testName: "httpsEnv",
 			setEnv: func() (expectedValue string) {
 				_ = os.Setenv(gitPullMethodEnvKey, gitPullMethodHTTPS)
-				expectedValue = gitPullMethodHTTPS
-				return
+				return gitPullMethodHTTPS
 			},
 		},
 		{
 			testName: "unknownEnv",
 			setEnv: func() (expectedValue string) {
 				_ = os.Setenv(gitPullMethodEnvKey, "unknown")
-				expectedValue = gitPullMethodHTTPS
-				return
+				return gitPullMethodHTTPS
 			},
 		},
 	}
@@ -86,29 +81,26 @@ func TestGetGitPullMethod(t *testing.T) {
 func TestGetGitAuth(t *testing.T) {
 	tests := []struct {
 		testName string
-		setEnv   func() (expectedValue transport.AuthMethod)
+		setEnv   func() transport.AuthMethod
 	}{
 		{
 			testName: "noEnv",
 			setEnv: func() (expectedValue transport.AuthMethod) {
-				expectedValue = nil
-				return
+				return nil
 			},
 		},
 		{
 			testName: "emptyUsernameEnv",
 			setEnv: func() (expectedValue transport.AuthMethod) {
 				_ = os.Setenv(gitAuthUsernameEnvKey, "")
-				expectedValue = nil
-				return
+				return nil
 			},
 		},
 		{
 			testName: "emptyPasswordEnv",
 			setEnv: func() (expectedValue transport.AuthMethod) {
 				_ = os.Setenv(gitAuthPasswordEnvKey, "")
-				expectedValue = nil
-				return
+				return nil
 			},
 		},
 		{
@@ -116,8 +108,7 @@ func TestGetGitAuth(t *testing.T) {
 			setEnv: func() (expectedValue transport.AuthMethod) {
 				_ = os.Setenv(gitAuthUsernameEnvKey, "")
 				_ = os.Setenv(gitAuthPasswordEnvKey, "")
-				expectedValue = nil
-				return
+				return nil
 			},
 		},
 		{
@@ -125,8 +116,7 @@ func TestGetGitAuth(t *testing.T) {
 			setEnv: func() (expectedValue transport.AuthMethod) {
 				username := "foo"
 				_ = os.Setenv(gitAuthUsernameEnvKey, username)
-				expectedValue = &http.BasicAuth{Username: username}
-				return
+				return &http.BasicAuth{Username: username}
 			},
 		},
 		{
@@ -134,8 +124,7 @@ func TestGetGitAuth(t *testing.T) {
 			setEnv: func() (expectedValue transport.AuthMethod) {
 				pass := "super-secret-password-1234"
 				_ = os.Setenv(gitAuthPasswordEnvKey, pass)
-				expectedValue = &http.BasicAuth{Password: pass}
-				return
+				return &http.BasicAuth{Password: pass}
 			},
 		},
 		{
@@ -145,8 +134,7 @@ func TestGetGitAuth(t *testing.T) {
 				pass := "super-secret-password-1234"
 				_ = os.Setenv(gitAuthUsernameEnvKey, username)
 				_ = os.Setenv(gitAuthPasswordEnvKey, pass)
-				expectedValue = &http.BasicAuth{Username: username, Password: pass}
-				return
+				return &http.BasicAuth{Username: username, Password: pass}
 			},
 		},
 		{
@@ -154,8 +142,7 @@ func TestGetGitAuth(t *testing.T) {
 			setEnv: func() (expectedValue transport.AuthMethod) {
 				token := "some-other-token"
 				_ = os.Setenv(gitAuthTokenEnvKey, token)
-				expectedValue = &http.BasicAuth{Username: token}
-				return
+				return &http.BasicAuth{Username: token}
 			},
 		},
 		{
@@ -167,8 +154,7 @@ func TestGetGitAuth(t *testing.T) {
 				_ = os.Setenv(gitAuthUsernameEnvKey, username)
 				_ = os.Setenv(gitAuthPasswordEnvKey, pass)
 				_ = os.Setenv(gitAuthTokenEnvKey, token)
-				expectedValue = &http.BasicAuth{Username: token}
-				return
+				return &http.BasicAuth{Username: token}
 			},
 		},
 	}

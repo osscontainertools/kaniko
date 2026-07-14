@@ -35,7 +35,7 @@ type HTTPSTar struct {
 }
 
 // UnpackTarFromBuildContext downloads context file from https server
-func (h *HTTPSTar) UnpackTarFromBuildContext() (directory string, err error) {
+func (h *HTTPSTar) UnpackTarFromBuildContext() (directory string, retErr error) {
 	logrus.Info("Retrieving https tar file")
 
 	// Create directory and target file for downloading the context file
@@ -43,37 +43,40 @@ func (h *HTTPSTar) UnpackTarFromBuildContext() (directory string, err error) {
 	tarPath := filepath.Join(directory, constants.ContextTar)
 	file, err := util.CreateTargetTarfile(tarPath)
 	if err != nil {
-		return
+		return "", err
 	}
+	defer assignIfNil(&retErr, file.Close)
 
 	// Download tar file from remote https server
 	// and save it into the target tar file
 	resp, err := http.Get(h.context) //nolint:noctx
 	if err != nil {
-		return
+		return "", err
 	}
-	defer func() {
-		if closeErr := resp.Body.Close(); err == nil && closeErr != nil {
-			err = closeErr
-		}
-	}()
+	defer assignIfNil(&retErr, resp.Body.Close)
 
 	if resp.StatusCode != http.StatusOK {
-		return directory, fmt.Errorf("HTTPSTar bad status from server: %s", resp.Status)
+		return "", fmt.Errorf("HTTPSTar bad status from server: %s", resp.Status)
 	}
 
 	if _, err = io.Copy(file, resp.Body); err != nil {
-		return tarPath, err
+		return "", err
 	}
 
 	logrus.Info("Retrieved https tar file")
 
 	if err = util.UnpackCompressedTar(tarPath, directory); err != nil {
-		return
+		return "", err
 	}
 
 	logrus.Info("Extracted https tar file")
 
 	// Remove the tar so it doesn't interfere with subsequent commands
 	return directory, os.Remove(tarPath)
+}
+
+func assignIfNil(dst *error, fn func() error) {
+	if err := fn(); err != nil && *dst == nil {
+		*dst = err
+	}
 }
