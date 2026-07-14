@@ -1,0 +1,16 @@
+# mz851: building an OCI base with --reproducible and
+# FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS flipped the output to a docker
+# schema2 manifest while keeping the OCI base layer descriptors verbatim. The
+# resulting docker manifest carrying OCI layer media types is malformed and
+# breaks strict readers like dockle.
+#
+# Breaks on v1.28.0 behind FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS. The
+# cause is mutate.Canonical rebuilding the image on an empty (docker) base, so
+# --reproducible alone already rewrites to docker, and ReplaceBase then splices
+# the pristine OCI base layers back on top of that docker manifest.
+#
+# Pin an OCI base and add one RUN so kaniko produces a layer of its own. With
+# the fix the preserved base layers are relabeled so the output manifest,
+# config, and every layer are consistently dockerv2.
+FROM debian:12.10@sha256:6bc30d909583f38600edd6609e29eb3fb284ab8affce8d0389f332fc91c2dd91
+RUN echo 'hi' > /root/hi.txt

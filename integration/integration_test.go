@@ -979,7 +979,11 @@ func TestReproducible(t *testing.T) {
 			t.Fatalf("build %s -> %s: %v", dockerfile, ref, err)
 		}
 	}
-	const baseRef = "alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a"
+	baseRefs := map[string]string{
+		"Dockerfile_test_copy_reproducible": "alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
+		"Dockerfile_test_issue_mz731":       "alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
+		"Dockerfile_test_issue_mz851":       "debian@sha256:6bc30d909583f38600edd6609e29eb3fb284ab8affce8d0389f332fc91c2dd91",
+	}
 	for dockerfile := range imageBuilder.TestReproducibleDockerfiles {
 		if match, _ := filepath.Match(config.dockerfilesPattern, dockerfile); !match {
 			continue
@@ -994,7 +998,7 @@ func TestReproducible(t *testing.T) {
 			containerDiff(t, ref0, ref1)
 
 			// mz731: make sure the inherited base layers were not mutated.
-			base := layerDigests(t, baseRef)
+			base := layerDigests(t, baseRefs[dockerfile])
 			kaniko := layerDigests(t, ref0)
 			testutil.CheckDeepEqual(t, base, kaniko[:len(base)])
 		})

@@ -18,12 +18,15 @@ package image
 
 import (
 	"encoding/json"
+	"strings"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/partial"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/osscontainertools/kaniko/pkg/util"
+	"github.com/sirupsen/logrus"
 )
 
 // ReplaceBase returns img with its first len(base.Layers()) layers and first
@@ -77,7 +80,21 @@ func ReplaceBase(img, base v1.Image) (v1.Image, error) {
 		}
 		if !h.EmptyLayer {
 			if li < len(baseLayers) {
-				a.Layer = baseLayers[li]
+				mt, err := baseLayers[li].MediaType()
+				if err != nil {
+					return nil, err
+				}
+				switch mt {
+				case types.DockerLayer, types.DockerUncompressedLayer, types.DockerForeignLayer:
+					a.Layer = baseLayers[li]
+				case types.OCILayer:
+					a.Layer = &mediaTypeLayer{Layer: baseLayers[li], mediaType: types.DockerLayer}
+				case types.OCIUncompressedLayer:
+					a.Layer = &mediaTypeLayer{Layer: baseLayers[li], mediaType: types.DockerUncompressedLayer}
+				default:
+					logrus.Warnf("not preserving base layers: base image has %s layers, incompatible with a reproducible dockerv2 image", mt)
+					return img, nil
+				}
 			} else {
 				a.Layer = imgLayers[li]
 			}
@@ -98,6 +115,39 @@ func ReplaceBase(img, base v1.Image) (v1.Image, error) {
 	finalCfg.RootFS = stackedCfg.RootFS
 	finalCfg.History = stackedCfg.History
 	return mutate.ConfigFile(stacked, finalCfg)
+}
+
+type mediaTypeLayer struct {
+	v1.Layer
+	mediaType types.MediaType
+}
+
+func (l *mediaTypeLayer) MediaType() (types.MediaType, error) {
+	return l.mediaType, nil
+}
+
+func AssertConsistentMediaType(img v1.Image) error {
+	man, err := img.Manifest()
+	if err != nil {
+		return err
+	}
+	oci, docker := false, false
+	classify := func(mt types.MediaType) {
+		s := string(mt)
+		switch {
+		case strings.Contains(s, types.OCIVendorPrefix):
+			oci = true
+		case strings.Contains(s, types.DockerVendorPrefix):
+			docker = true
+		}
+	}
+	classify(man.MediaType)
+	classify(man.Config.MediaType)
+	for _, l := range man.Layers {
+		classify(l.MediaType)
+	}
+	util.Assert("image.consistent-media-type", !(oci && docker), "manifest mixes OCI and docker media types")
+	return nil
 }
 
 // WithoutAnnotations returns an image whose manifest has no annotations.

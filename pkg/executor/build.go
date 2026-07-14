@@ -1306,6 +1306,10 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			if len(opts.Annotations) > 0 {
 				sourceImage = mutate.Annotations(sourceImage, opts.Annotations).(v1.Image)
 			}
+			err = image_util.AssertConsistentMediaType(sourceImage)
+			if err != nil {
+				return nil, err
+			}
 			pushImage = sourceImage
 		}
 		if stage.Final {
