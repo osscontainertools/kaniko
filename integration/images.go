@@ -192,6 +192,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_target":                     {"--target=second"},
 	"Dockerfile_test_snapshotter_ignorelist":     {"--use-new-run=true", "-v=trace"},
 	"Dockerfile_test_issue_mz334":                {"--cache-copy-layers=true"},
+	"Dockerfile_test_issue_mz896":                {"--cache-copy-layers=true", "--cache-run-layers=false"},
 	"Dockerfile_test_issue_mz787":                {"--cache=true"},
 	"Dockerfile_test_issue_mz789":                {"--cache=true", "--target=final,nosquash"},
 	"Dockerfile_test_cache":                      {"--cache-copy-layers=true"},
@@ -513,6 +514,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz775":   {},
 		"Dockerfile_test_issue_mz782":   {},
 		"Dockerfile_test_issue_mz793":   {},
+		"Dockerfile_test_issue_mz896":   {},
 	}
 	d.TestOCICacheDockerfiles = map[string]struct{}{
 		"Dockerfile_test_cache_oci":         {},
