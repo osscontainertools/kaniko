@@ -1,4 +1,5 @@
-FROM alpine AS build
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}alpine AS build
 
 RUN apk add --no-scripts --initdb \
   --keys-dir /etc/apk/keys \

@@ -1,4 +1,5 @@
-FROM busybox
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
 
 # we can mount a cache directory to a target as specificed
 RUN --mount=type=cache,target=/tmp/bli/bla/ \

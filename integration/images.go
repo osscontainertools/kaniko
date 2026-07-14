@@ -133,14 +133,12 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz661": {"--secret=id=kaniko,src=context/foo"},
 	// provenance forces ociv1 on buildkit but for these images we emit dockerv2 in kaniko
 	"Dockerfile_test_cross_compile":                {"--platform=linux/" + crossCompileArch},
-	"Dockerfile_test_mv_add":                       {"--provenance=false"},
 	"Dockerfile_test_snapshotter_ignorelist":       {"--provenance=false"},
 	"Dockerfile_test_whitelist":                    {"--provenance=false"},
 	"Dockerfile_test_volume_4":                     {"--provenance=false"},
 	"Dockerfile_test_volume_3":                     {"--provenance=false"},
 	"Dockerfile_test_meta_arg":                     {"--provenance=false"},
 	"Dockerfile_test_replaced_symlinks":            {"--provenance=false"},
-	"Dockerfile_test_registry":                     {"--provenance=false"},
 	"Dockerfile_test_pre_defined_build_args":       {"--provenance=false"},
 	"Dockerfile_test_replaced_hardlinks":           {"--provenance=false"},
 	"Dockerfile_test_issue_647":                    {"--provenance=false"},
@@ -148,14 +146,11 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_1837":                   {"--provenance=false"},
 	"Dockerfile_test_issue_2049":                   {"--provenance=false"},
 	"Dockerfile_test_issue_1039":                   {"--provenance=false"},
-	"Dockerfile_test_dangling_symlink":             {"--provenance=false"},
 	"Dockerfile_test_copyadd_chmod":                {"--provenance=false"},
-	"Dockerfile_test_copy_same_file_many_times":    {"--provenance=false"},
 	"Dockerfile_test_copy_reproducible":            {"--provenance=false"},
 	"Dockerfile_test_copy_chown_intermediate_dirs": {"--provenance=false"},
 	"Dockerfile_test_copy":                         {"--provenance=false"},
 	"Dockerfile_test_copy_bucket":                  {"--provenance=false"},
-	"Dockerfile_test_complex_substitution":         {"--provenance=false"},
 	"Dockerfile_test_cache_copy_oci":               {"--provenance=false"},
 	"Dockerfile_test_add_url_with_arg":             {"--provenance=false"},
 	"Dockerfile_test_add_dest_symlink_dir":         {"--provenance=false"},
@@ -245,15 +240,14 @@ var diffArgsMap = map[string][]string{
 	// /root/.config 0x1c0 0x1ed
 	// I suspect the issue is that /root/.config pre-exists,
 	// it's where we store the docker credentials.
-	"TestWithContext/test_with_context_issue-1020": {"--extra-ignore-files=root/.config/"},
+	"TestWithContext/test_with_context_issue-1020": {"--extra-ignore-files=root/.config/", "--extra-ignore-layer-length-mismatch"},
 	// docker is wrong. we do copy the symlink correctly.
-	"TestRun/test_Dockerfile_test_copy_symlink": {"--extra-ignore-files=workdirAnother/relative_link"},
-	"TestRun/test_Dockerfile_test_multistage":   {"--extra-ignore-files=new"},
-	// Verify we don't store root directory
-	"TestRun/test_Dockerfile_test_root":          {"--extra-ignore-layer-length-mismatch=false"},
+	"TestRun/test_Dockerfile_test_copy_symlink":  {"--extra-ignore-files=workdirAnother/relative_link"},
+	"TestRun/test_Dockerfile_test_multistage":    {"--extra-ignore-files=new", "--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_cross_compile": {"--platform=linux/" + crossCompileArch},
-	// --ignore-path must suppress the kaniko-only file; layer-length-mismatch would mask the difference
-	"TestRun/test_Dockerfile_test_ignore_path": {"--extra-ignore-layer-length-mismatch=false"},
+	// kaniko adds parent directories of changed paths to the full-filesystem snapshot
+	"TestRun/test_Dockerfile_test_volume":   {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_volume_2": {"--extra-ignore-layer-length-mismatch"},
 	// FROM scratch we start with root, buildkit doesnt
 	"TestRun/test_Dockerfile_test_workdir_with_user": {"--extra-ignore-file-permissions"},
 	// We don't handle user nobody=-1 nogroup=-1 correctly
@@ -270,14 +264,40 @@ var diffArgsMap = map[string][]string{
 	// mz511: We delete the builtin file /etc/nsswitch.conf to verify that secrets are persisted
 	// But we discovered a new issue with this. For builtins, buildkit will emit "whiteout" files,
 	// to remember that it was removed, we don't. So we end up with a diff in the resulting image.
-	"TestRun/test_Dockerfile_test_issue_mz511": {"--extra-ignore-files=etc/.wh.nsswitch.conf"},
-	// mz595: surprisingly the missing files are **not** picked up if we ignore layer-length-mismatch,
-	// which we do by default in TestRun, we should move to disable that globally urgently.
-	"TestRun/test_Dockerfile_test_issue_mz595": {"--extra-ignore-layer-length-mismatch=false"},
+	"TestRun/test_Dockerfile_test_issue_mz511": {"--extra-ignore-files=etc/.wh.nsswitch.conf", "--extra-ignore-layer-length-mismatch"},
 	// mz793: with FF_KANIKO_VOLUME_SKIP_MKDIR off, VOLUME creates the directory fresh on
 	// each build, so its mtime differs between the two cached builds. That divergence is the
 	// known volume non-determinism the flag fixes, here we only assert the build no longer panics.
 	"TestCache/test_cache_Dockerfile_test_issue_mz793": {"--extra-ignore-files=data/"},
+	// Layer-length divergences from buildkit, enforced per-test instead of globally
+	"TestRun/test_Dockerfile_test_add":                       {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_arg_blank_with_quotes":     {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_arg_multi":                 {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_arg_multi_with_quotes":     {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_cache_install_oci":         {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_copy_same_file_many_times": {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_meta_arg":                  {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_scratch":                   {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_969":                 {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_1007":                {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_1039":                {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_1568":                {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_1837":                {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_2049":                {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_2066":                {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_3393":                {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_cg73":                {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_cg188":               {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz247":               {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz332":               {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz455":               {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz560":               {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz725":               {"--extra-ignore-layer-length-mismatch"},
+	"TestWithContext/test_with_context_issue-57":             {"--extra-ignore-layer-length-mismatch"},
+	"TestWithContext/test_with_context_issue-1568":           {"--extra-ignore-layer-length-mismatch"},
+	"TestK8s/test_k8s_with_context_issue-57":                 {"--extra-ignore-layer-length-mismatch"},
+	"TestK8s/test_k8s_with_context_issue-1020":               {"--extra-ignore-layer-length-mismatch"},
+	"TestK8s/test_k8s_with_context_issue-1568":               {"--extra-ignore-layer-length-mismatch"},
 }
 
 // output check to do when building with kaniko

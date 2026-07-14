@@ -1,3 +1,4 @@
+ARG IMAGE_REPO
 # mz455: In kaniko v1.26.4, cache mounts used rename() to swap cache directories in and out.
 # This fails if the directories have to be moved across filesystems.
 # Since kaniko's FROM, COPY, and other commands do not create new overlay filesystems,
@@ -11,7 +12,7 @@ FROM executor-image AS kaniko
 WORKDIR /var/lib/apt/list/blubb
 WORKDIR /
 
-FROM busybox:latest
+FROM ${IMAGE_REPO}busybox
 
 # In kaniko v1.26.4, this now fails because rename() cannot move directories across filesystems.
 RUN --mount=type=cache,target=/var/lib/apt/list \

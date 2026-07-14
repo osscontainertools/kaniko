@@ -1,4 +1,5 @@
-FROM busybox
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
 
 # Attack 2: symlink path traversal.
 # A malicious upstream image can escape the dependency dir via a symlink even

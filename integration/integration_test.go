@@ -154,6 +154,12 @@ func buildRequiredImages() error {
 		name:    "Building cache warmer image",
 		command: []string{"docker", "build", coverArg, "-t", WarmerImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-warmer", ".."},
 	}, {
+		name:    "Building busybox base image",
+		command: []string{"docker", "build", "--push", "-t", config.busyboxBaseImage, "-f", dockerfilesPath + "/Dockerfile_busybox_base", "."},
+	}, {
+		name:    "Building alpine base image",
+		command: []string{"docker", "build", "--push", "-t", config.alpineBaseImage, "-f", dockerfilesPath + "/Dockerfile_alpine_base", "."},
+	}, {
 		name:    "Building onbuild base image",
 		command: []string{"docker", "build", "--push", "-t", config.onbuildBaseImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_base", "."},
 	}, {
@@ -243,7 +249,7 @@ func TestRun(t *testing.T) {
 			dockerImage := GetDockerImage(config.imageRepo, dockerfile)
 			kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 
-			containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+			containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 		})
 	}
 }
@@ -349,7 +355,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 }
 
 // TestGitBuildcontext explicitly names the main branch
@@ -425,7 +431,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 }
 
 func TestBuildViaRegistryMirrors(t *testing.T) {
@@ -468,7 +474,7 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 }
 
 func TestBuildViaRegistryMap(t *testing.T) {
@@ -511,7 +517,7 @@ func TestBuildViaRegistryMap(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 }
 
 func TestBuildSkipFallback(t *testing.T) {
@@ -580,7 +586,7 @@ func TestKanikoDir(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 }
 
 func TestBuildWithLabels(t *testing.T) {
@@ -626,7 +632,7 @@ func TestBuildWithLabels(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 }
 
 func TestBuildWithHTTPError(t *testing.T) {
@@ -1196,7 +1202,7 @@ func TestRelativePaths(t *testing.T) {
 		dockerImage := GetDockerImage(config.imageRepo, "test_relative_"+dockerfile)
 		kanikoImage := GetKanikoImage(config.imageRepo, "test_relative_"+dockerfile)
 
-		containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
+		containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 	})
 }
 
@@ -1580,6 +1586,8 @@ func initIntegrationTestConfig() *integrationTestConfig {
 	}
 
 	c.dockerMajorVersion = getDockerMajorVersion()
+	c.busyboxBaseImage = c.imageRepo + "busybox:latest"
+	c.alpineBaseImage = c.imageRepo + "alpine:latest"
 	c.onbuildBaseImage = c.imageRepo + "onbuild-base:latest"
 	c.onbuildCopyImage = c.imageRepo + "onbuild-copy:latest"
 	c.hardlinkBaseImage = c.imageRepo + "hardlink-base:latest"

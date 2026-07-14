@@ -1,4 +1,5 @@
-FROM busybox
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
 RUN <<EOF
 touch /tmp/bli
 touch /tmp/bla
