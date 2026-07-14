@@ -340,7 +340,7 @@ COPY --from=second /bar /bat
 			defer func() {
 				dockerfile.GetRemoteOnBuild = original
 			}()
-			dockerfile.GetRemoteOnBuild = func(baseName string, metaArgs []instructions.ArgCommand, opts *config.KanikoOptions) ([]string, error) {
+			dockerfile.GetRemoteOnBuild = func(baseName string, _ []instructions.ArgCommand, _ *config.KanikoOptions) ([]string, error) {
 				switch baseName {
 				case "alpine":
 					// if image is "alpine" then add ONBUILD to its config
@@ -1411,7 +1411,7 @@ RUN foobar
 			opts:           &config.KanikoOptions{InitialFSUnpacked: true},
 			stage:          config.KanikoStage{Index: 0},
 			crossStageDeps: true,
-			mockGetFSFromImage: func(root string, img v1.Image, extract util.ExtractFunction) ([]string, error) {
+			mockGetFSFromImage: func(_ string, _ v1.Image, _ util.ExtractFunction) ([]string, error) {
 				return nil, errors.New("getFSFromImage shouldn't be called if fs is already unpacked")
 			},
 		},

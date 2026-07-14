@@ -28,11 +28,11 @@ type envCredentialsHelper struct{}
 
 var EnvCredentialsHelper = &envCredentialsHelper{}
 
-func (ech *envCredentialsHelper) Add(c *credentials.Credentials) error {
+func (ech *envCredentialsHelper) Add(_ *credentials.Credentials) error {
 	return errors.New("unsupported operation")
 }
 
-func (ech *envCredentialsHelper) Delete(serverURL string) error {
+func (ech *envCredentialsHelper) Delete(_ string) error {
 	return errors.New("unsupported operation")
 }
 

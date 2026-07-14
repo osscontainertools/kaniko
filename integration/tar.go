@@ -67,7 +67,7 @@ func tarballOfDirectory(pathToDir string, f io.Writer) error {
 	tarWriter := util.NewTar(f)
 	defer tarWriter.Close()
 
-	walkFn := func(path string, d fs.DirEntry, err error) error {
+	walkFn := func(path string, _ fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}

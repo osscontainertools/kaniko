@@ -93,7 +93,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 	// Get whiteout paths
 	var filesToWhiteout []string
 	if shdCheckDelete {
-		_, deletedFiles, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), func(s string) (bool, error) {
+		_, deletedFiles, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), func(_ string) (bool, error) {
 			return true, nil
 		})
 		if err != nil {

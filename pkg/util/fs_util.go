@@ -548,7 +548,7 @@ func IsInIgnoreList(path string) bool {
 	return IsInProvidedIgnoreList(path, ignorelist)
 }
 
-func CheckCleanedPathAgainstProvidedIgnoreList(path string, wl []IgnoreListEntry) bool {
+func CheckCleanedPathAgainstProvidedIgnoreList(path string, _ []IgnoreListEntry) bool {
 	for _, wl := range ignorelist {
 		if hasCleanedFilepathPrefix(path, wl.Path, wl.PrefixMatchOnly) {
 			return true
@@ -972,7 +972,7 @@ func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod mode.
 	return false, CopyCapabilities(src, dest)
 }
 
-func CopyFileInternal(src, dest string, context FileContext) error {
+func CopyFileInternal(src, dest string, _ FileContext) error {
 	fi, err := os.Stat(src)
 	if err != nil {
 		return err
@@ -1206,7 +1206,7 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 	}
 	opts := otiai10Cpy.Options{
 		PreserveTimes: true,
-		Skip: func(info os.FileInfo, src, dest string) (bool, error) {
+		Skip: func(_ os.FileInfo, src, _ string) (bool, error) {
 			return strings.HasSuffix(src, config.KanikoDir), nil
 		},
 		FS: FSys,
