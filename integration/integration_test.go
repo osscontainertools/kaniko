@@ -113,27 +113,33 @@ func launchTests(m *testing.M) (int, error) {
 }
 
 func TestMain(m *testing.M) {
-	var err error
+	os.Exit(runIntegrationTests(m))
+}
+
+func runIntegrationTests(m *testing.M) int {
 	if !meetsRequirements() {
 		fmt.Println("Missing required tools")
-		os.Exit(1)
+		return 1
 	}
 
 	config = initIntegrationTestConfig()
-	if err = generateTarFixtures(); err != nil {
+	if err := generateTarFixtures(); err != nil {
 		fmt.Println("Couldn't generate tar fixtures", err)
-		os.Exit(1)
+		return 1
 	}
+	defer removeTarFixtures()
+
+	var err error
 	if allDockerfiles, err = FindDockerFiles(dockerfilesPath, config.dockerfilesPattern); err != nil {
 		fmt.Println("Coudn't create map of dockerfiles", err)
-		os.Exit(1)
+		return 1
 	}
 
 	exitCode, err := launchTests(m)
 	if err != nil {
 		fmt.Println(err)
 	}
-	os.Exit(exitCode)
+	return exitCode
 }
 
 func buildRequiredImages() error {

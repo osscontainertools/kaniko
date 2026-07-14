@@ -95,11 +95,17 @@ func bzip2Bytes(in []byte) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
+var tarFixtureNames = []string{"file.tar", "file.tar.gz", "file.bz2", "sys.tar.gz"}
+
+func tarFixtureDir() string {
+	_, ex, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(ex), "context", "tars")
+}
+
 // generateTarFixtures writes the tar archives consumed by the ADD integration
 // tests into context/tars, so the repository holds no committed binary archives.
 func generateTarFixtures() error {
-	_, ex, _, _ := runtime.Caller(0)
-	dir := filepath.Join(filepath.Dir(ex), "context", "tars")
+	dir := tarFixtureDir()
 	err := os.MkdirAll(dir, 0o755)
 	if err != nil {
 		return err
@@ -164,4 +170,11 @@ func generateTarFixtures() error {
 		}
 	}
 	return nil
+}
+
+func removeTarFixtures() {
+	dir := tarFixtureDir()
+	for _, name := range tarFixtureNames {
+		_ = os.Remove(filepath.Join(dir, name))
+	}
 }
