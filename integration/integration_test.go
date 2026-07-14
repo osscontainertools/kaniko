@@ -123,14 +123,16 @@ func runIntegrationTests(m *testing.M) int {
 	}
 
 	config = initIntegrationTestConfig()
-	if err := generateTarFixtures(); err != nil {
+
+	defer removeTarFixtures()
+	err := generateTarFixtures()
+	if err != nil {
 		fmt.Println("Couldn't generate tar fixtures", err)
 		return 1
 	}
-	defer removeTarFixtures()
 
-	var err error
-	if allDockerfiles, err = FindDockerFiles(dockerfilesPath, config.dockerfilesPattern); err != nil {
+	allDockerfiles, err = FindDockerFiles(dockerfilesPath, config.dockerfilesPattern)
+	if err != nil {
 		fmt.Println("Coudn't create map of dockerfiles", err)
 		return 1
 	}
@@ -1612,7 +1614,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 }
 
 func meetsRequirements() bool {
-	requiredTools := []string{"diffoci"}
+	requiredTools := []string{"diffoci", "bzip2"}
 	hasRequirements := true
 	for _, tool := range requiredTools {
 		_, err := exec.LookPath(tool)
