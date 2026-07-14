@@ -45,6 +45,7 @@ func (h *HTTPSTar) UnpackTarFromBuildContext() (directory string, retErr error) 
 	if err != nil {
 		return "", err
 	}
+	defer assignIfNil(&retErr, file.Close)
 
 	// Download tar file from remote https server
 	// and save it into the target tar file
