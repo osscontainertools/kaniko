@@ -1,6 +1,6 @@
 FROM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d AS first
 UNPACK busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
-CACHE HIT: e6201ef5c7fab656a2bb0615888d02f181fc7677dbeaaace249484bbdbf79106
+CACHE HIT: 72e9e0e54e4522d381e54427f5ac6f24dd09910e1ff8d4bc7f60d02f54e2cdc3
 RUN touch /blubb
 SAVE STAGE /kaniko/stages/0
 SAVE FILES [/blubb] /kaniko/deps/0
@@ -8,14 +8,14 @@ CLEAN
 
 FROM first AS second
 UNPACK /kaniko/stages/0
-CACHE HIT: 09e840ef4fefde5c634154ead19bbff9cfa881073b77cb3c85a400fe215bd518
+CACHE HIT: 3829b10dc17cc7bafd22450e05b7f265b73e94d46b08817d0502848b21dd69aa
 RUN touch /bla
 SAVE STAGE /kaniko/stages/1
 CLEAN
 
 FROM second AS third
 UNPACK /kaniko/stages/1
-CACHE HIT: 26d0935bb7ffd5e1f69ecc89608706dfda254c8e9e217f8ccf171d6f3078e0d1
+CACHE HIT: 256455fba386c671b4808e621379712ca6dfecce4d4e9ed2d6edab8b5e415b75
 RUN touch /bli
 SAVE FILES [/bli] /kaniko/deps/2
 CLEAN
