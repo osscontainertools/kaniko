@@ -56,11 +56,6 @@ func (s *Snapshotter) Init() error {
 	return err
 }
 
-// Key returns a string based on the current state of the file system
-func (s *Snapshotter) Key() (string, error) {
-	return s.l.Key()
-}
-
 // TakeSnapshot takes a snapshot of the specified files, avoiding directories in the ignorelist, and creates
 // a tarball of the changed files. Returns the tarball path and the number of files snapshotted.
 func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string, int, error) {

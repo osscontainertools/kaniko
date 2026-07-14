@@ -17,8 +17,6 @@ limitations under the License.
 package snapshot
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"maps"
 
@@ -56,30 +54,6 @@ func (l *LayeredMap) Snapshot() {
 	l.adds = append(l.adds, map[string]string{})
 	l.deletes = append(l.deletes, map[string]struct{}{})
 	l.layerHashCache = map[string]string{} // Erase the hash cache for this new layer.
-}
-
-// Key returns a hash for added and delted files.
-func (l *LayeredMap) Key() (string, error) {
-	var adds map[string]string
-	var deletes map[string]struct{}
-
-	util.Assert("layeredmap.slices-sync", len(l.adds) == len(l.deletes), "LayeredMap adds/deletes slices are out of sync (adds=%d, deletes=%d)", len(l.adds), len(l.deletes))
-	if len(l.adds) != 0 {
-		adds = l.adds[len(l.adds)-1]
-		deletes = l.deletes[len(l.deletes)-1]
-	}
-
-	c := bytes.NewBuffer([]byte{})
-	enc := json.NewEncoder(c)
-	err := enc.Encode(adds)
-	if err != nil {
-		return "", err
-	}
-	err = enc.Encode(deletes)
-	if err != nil {
-		return "", err
-	}
-	return util.SHA256(c)
 }
 
 // getCurrentImage returns the current image by merging the latest

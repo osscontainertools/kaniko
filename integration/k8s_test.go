@@ -133,8 +133,4 @@ func TestK8s(t *testing.T) {
 			containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content", "--extra-ignore-layer-length-mismatch")
 		})
 	}
-
-	if err := logBenchmarks("benchmark"); err != nil {
-		t.Logf("Failed to create benchmark file: %v", err)
-	}
 }
