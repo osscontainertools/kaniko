@@ -532,7 +532,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 func addAuthFlags(flags []string) []string {
 	dockerConfig := os.Getenv("HOME") + "/.docker/config.json"
 	if util.FilepathExists(dockerConfig) {
-		flags = append(flags, "-v", dockerConfig+":/root/.docker/config.json", "-e", "DOCKER_CONFIG=/root/.docker")
+		flags = append(flags, "-v", dockerConfig+":/kaniko/.docker/config.json:ro", "-e", "DOCKER_CONFIG=/kaniko/.docker")
 	}
 	return flags
 }

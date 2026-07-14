@@ -169,7 +169,7 @@ find . -name "*.go" | grep -v vendor/ | xargs gofmt -l -s -w
 
 ### Integration tests
 
-Currently the integration tests that live in [`integration`](./integration) can be run against your own gcloud space or a local registry.
+Currently the integration tests that live in [`integration`](./integration) can be run against a real registry or a local registry.
 
 These tests will be kicked off by [reviewers](#reviews) for submitted PRs using GitHub Actions.
 
@@ -182,8 +182,7 @@ In either case, you will need the following tools:
 To run integration tests against a real registry, you will need:
 
 * An image repo which you have write access to
-* A docker account and a `~/.docker/config.json` with login credentials if you run
-  into rate limiting problems during tests.
+* A docker account and a `~/.docker/config.json` with login credentials whenever the target repository requires authentication, for example to avoid Docker Hub rate-limiting during tests.
 
 Override the target via the `IMAGE_REPO` environment variable:
 
@@ -208,7 +207,7 @@ make integration-test-misc
 
 #### Local integration tests
 
-To run integration tests locally against a local registry and gcs bucket, set the LOCAL environment variable
+To run integration tests locally against a local registry, set the LOCAL environment variable
 
 ```shell
 LOCAL=1 make integration-test
