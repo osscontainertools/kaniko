@@ -200,6 +200,8 @@ We thank Siemens for their generous support, and especially the team behind [ope
 ### Individuals
 **[Sped0n](https://github.com/Sped0n)**
 
+**[Chris Boot](https://github.com/bootc)**
+
 We are grateful for your support.
 
 ## Alternatives
