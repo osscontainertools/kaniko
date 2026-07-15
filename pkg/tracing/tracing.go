@@ -27,7 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
@@ -71,7 +70,6 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 		sdktrace.WithBatcher(exp),
 		sdktrace.WithResource(res),
 	)
-	otel.SetTracerProvider(provider)
 
 	tracer := provider.Tracer("github.com/osscontainertools/kaniko")
 	var sctx context.Context
