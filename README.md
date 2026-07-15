@@ -198,7 +198,12 @@ We thank L3montree for their generous support and commitment to open-source sust
 We thank Siemens for their generous support, and especially the team behind [opensource.siemens.com](https://opensource.siemens.com).
 
 ### Individuals
-**[Sped0n](https://github.com/Sped0n)**
+<table>
+<tr>
+<td align="center"><a href="https://github.com/Sped0n"><img src="https://github.com/Sped0n.png?size=80" width="80" alt="Sped0n"><br><sub><b>Sped0n</b></sub></a></td>
+<td align="center"><a href="https://github.com/bootc"><img src="https://github.com/bootc.png?size=80" width="80" alt="bootc"><br><sub><b>bootc</b></sub></a></td>
+</tr>
+</table>
 
 We are grateful for your support.
 
