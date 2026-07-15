@@ -772,6 +772,7 @@ func populateVolumeCache(logf logger) error {
 	for _, envVariable := range WarmerEnv {
 		cmd = append(cmd, "-e", envVariable)
 	}
+	cmd = addAuthFlags(cmd)
 	cmd = addCoverageFlags(cmd)
 	cmd = append(cmd,
 		WarmerImage,
