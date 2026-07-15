@@ -19,6 +19,7 @@ package timing
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 	"time"
 
@@ -37,12 +38,16 @@ var (
 	parentCtx context.Context
 )
 
+// SetTracer wires (or, with a nil tracer, unwires) span creation into every
+// subsequent Start; ctx carries the parent span. Called by pkg/tracing.
 func SetTracer(ctx context.Context, t trace.Tracer) {
 	parentCtx = ctx
 	tracer = t
 }
 
-func Enabled() bool {
+// TracingEnabled reports whether a tracer is installed, i.e. whether timers
+// currently mint spans. Timing itself is always on.
+func TracingEnabled() bool {
 	return tracer != nil
 }
 
@@ -96,7 +101,14 @@ func Start(category string) *Timer {
 		startTime: currentTimeFunc(),
 	}
 	if tracer != nil && !noSpanCategories[category] {
-		_, t.span = tracer.Start(parentCtx, category)
+		// Span names must stay low-cardinality (backends aggregate on them);
+		// the full command text lives in the kaniko.command attribute. The
+		// category keeps the full text — it is also the BENCHMARK_FILE key.
+		name := category
+		if strings.HasPrefix(category, "Command: ") {
+			name = "Command"
+		}
+		_, t.span = tracer.Start(parentCtx, name)
 		t.span.SetAttributes(attribute.String("kaniko.phase", phaseFor(category)))
 	}
 	return &t
@@ -117,6 +129,8 @@ type Timer struct {
 	span      trace.Span
 }
 
+// SetAttributes forwards attributes to the timer's span; no-op when tracing
+// is off (the span is nil).
 func (t *Timer) SetAttributes(kv ...attribute.KeyValue) {
 	if t.span != nil {
 		t.span.SetAttributes(kv...)
