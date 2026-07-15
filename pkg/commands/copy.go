@@ -157,7 +157,16 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 			return nil
 		}
 
-		srcFile := strings.NewReader(src.Data)
+		data := src.Data
+		if src.Expand && kConfig.EnvBool("FF_KANIKO_EXPAND_HEREDOC") {
+			expanded, err := util.ResolveEnvironmentReplacementRaw(src.Data, replacementEnvs)
+			if err != nil {
+				return fmt.Errorf("expanding heredoc content: %w", err)
+			}
+			data = expanded
+		}
+
+		srcFile := strings.NewReader(data)
 		err = util.CreateFile(destPath, srcFile, chmod.Apply(0o644), uint32(uid), uint32(gid))
 		if err != nil {
 			return fmt.Errorf("creating file: %w", err)
