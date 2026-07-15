@@ -201,7 +201,7 @@ func resolvedCacheKey(instruction string, contents []instructions.SourceContent,
 		return "", err
 	}
 	var key strings.Builder
-	key.WriteString(resolved)
+	fmt.Fprintf(&key, "%d:%s", len(resolved), resolved)
 	for _, src := range contents {
 		content := src.Data
 		if src.Expand && kConfig.EnvBool("FF_KANIKO_EXPAND_HEREDOC") {
@@ -210,8 +210,7 @@ func resolvedCacheKey(instruction string, contents []instructions.SourceContent,
 				return "", err
 			}
 		}
-		key.WriteString("\n")
-		key.WriteString(content)
+		fmt.Fprintf(&key, "%d:%s", len(content), content)
 	}
 	return key.String(), nil
 }
