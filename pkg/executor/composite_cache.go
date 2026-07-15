@@ -18,8 +18,10 @@ package executor
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"hash"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -137,6 +139,7 @@ func (s *CompositeCache) AddPath(p string, context util.FileContext) error {
 // HashDir returns a hash of the directory.
 func hashDir(p string, context util.FileContext) (bool, string, error) {
 	sha := sha256.New()
+	framed := config.FF.HashDirFraming
 	empty := true
 	if err := fs.WalkDir(util.FSys, p, func(path string, _ fs.DirEntry, err error) error {
 		if err != nil {
@@ -162,11 +165,7 @@ func hashDir(p string, context util.FileContext) (bool, string, error) {
 			return err
 		}
 
-		if _, err := sha.Write([]byte(strings.TrimPrefix(absPath, absRoot))); err != nil {
-			return err
-		}
-
-		if _, err := sha.Write([]byte(fileHash)); err != nil {
+		if err := writeDirHashEntry(sha, strings.TrimPrefix(absPath, absRoot), fileHash, framed); err != nil {
 			return err
 		}
 		empty = false
@@ -176,4 +175,29 @@ func hashDir(p string, context util.FileContext) (bool, string, error) {
 	}
 
 	return empty, hex.EncodeToString(sha.Sum(nil)), nil
+}
+
+func writeDirHashEntry(sha hash.Hash, path, fileHash string, framed bool) error {
+	if !framed {
+		if _, err := sha.Write([]byte(path)); err != nil {
+			return err
+		}
+		_, err := sha.Write([]byte(fileHash))
+		return err
+	}
+
+	if err := writeLengthPrefixedHashField(sha, path); err != nil {
+		return err
+	}
+	return writeLengthPrefixedHashField(sha, fileHash)
+}
+
+func writeLengthPrefixedHashField(sha hash.Hash, value string) error {
+	var length [8]byte
+	binary.BigEndian.PutUint64(length[:], uint64(len(value)))
+	if _, err := sha.Write(length[:]); err != nil {
+		return err
+	}
+	_, err := sha.Write([]byte(value))
+	return err
 }
