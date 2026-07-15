@@ -596,8 +596,8 @@ func exit(err error) {
 
 // exits with the given error and exit code
 func exitWithCode(err error, exitCode int) {
-	tracing.Shutdown(err)
 	fmt.Fprintln(os.Stderr, err)
+	tracing.Shutdown(err)
 	os.Exit(exitCode)
 }
 

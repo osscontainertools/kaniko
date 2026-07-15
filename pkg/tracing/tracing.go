@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -47,6 +48,7 @@ var (
 )
 
 const EndpointEnv = "KANIKO_TELEMETRY_ENDPOINT"
+const shutdownFlushTimeout = 5 * time.Second
 
 func Init(ctx context.Context, opts *config.KanikoOptions) {
 	endpoint := os.Getenv(EndpointEnv)
@@ -81,6 +83,7 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 
 	// hook, not import, so assert does not depend on tracing
 	assert.OnAssertionViolation = onAssertion
+	logrus.RegisterExitHandler(func() { Shutdown(fmt.Errorf("process exited via logrus.Fatal")) })
 }
 
 // onAssertion flushes before the panic from a violated assertion escapes.
@@ -138,7 +141,9 @@ func Shutdown(err error) {
 		rootSpan.End()
 		rootSpan = nil
 	}
-	if sderr := provider.Shutdown(context.Background()); sderr != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownFlushTimeout)
+	defer cancel()
+	if sderr := provider.Shutdown(ctx); sderr != nil {
 		logrus.Warnf("tracing: shutdown flush failed: %v", sderr)
 	}
 	provider = nil

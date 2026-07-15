@@ -512,11 +512,11 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			return err
 		}
 
-		if err := util.Retry(retryFunc, opts.ImageFSExtractRetry, 1000); err != nil {
+		err := util.Retry(retryFunc, opts.ImageFSExtractRetry, 1000)
+		timing.DefaultRun.Stop(t)
+		if err != nil {
 			return fmt.Errorf("failed to get filesystem from image: %w", err)
 		}
-
-		timing.DefaultRun.Stop(t)
 		assert.Assert("executor.getfs.volumes-reset", len(util.Volumes()) == 0, "stageBuilder.build: getFSFromImage must reset volumes for stage %d", s.index)
 	} else {
 		logrus.Info("Skipping unpacking as no commands require it.")
@@ -525,20 +525,27 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	initSnapshotTaken := false
 	if opts.SingleSnapshot {
 		t := timing.Start("Initial FS snapshot")
-		if err := snapshotter.Init(); err != nil {
+		err := snapshotter.Init()
+		timing.DefaultRun.Stop(t)
+		if err != nil {
 			return err
 		}
-		timing.DefaultRun.Stop(t)
 		initSnapshotTaken = true
 	}
 
 	cacheGroup := errgroup.Group{}
+	var cmdTimer *timing.Timer
+	defer func() {
+		if cmdTimer != nil {
+			timing.DefaultRun.Stop(cmdTimer)
+		}
+	}()
 	for index, command := range s.cmds {
 		if command == nil {
 			continue
 		}
 
-		t := timing.Start("Command: " + command.String())
+		cmdTimer = timing.Start("Command: " + command.String())
 
 		// If the command uses files from the context, add them.
 		files, err := command.FilesUsedFromContext(&s.cf.Config, s.args)
@@ -595,17 +602,18 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 					attrs = append(attrs, attribute.String("kaniko.cache.key", ck))
 				}
 			}
-			t.SetAttributes(attrs...)
+			cmdTimer.SetAttributes(attrs...)
 		}
 
 		if !initSnapshotTaken && !isCacheCommand && !command.ProvidesFilesToSnapshot() {
 			// Take initial snapshot if command does not expect to return
 			// a list of files.
 			t := timing.Start("Initial FS snapshot")
-			if err := snapshotter.Init(); err != nil {
+			err := snapshotter.Init()
+			timing.DefaultRun.Stop(t)
+			if err != nil {
 				return err
 			}
-			timing.DefaultRun.Stop(t)
 			initSnapshotTaken = true
 		}
 
@@ -613,7 +621,8 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			return fmt.Errorf("failed to execute command: %w", err)
 		}
 		files = command.FilesToSnapshot()
-		timing.DefaultRun.Stop(t)
+		timing.DefaultRun.Stop(cmdTimer)
+		cmdTimer = nil
 
 		isLastCommand := index == len(s.cmds)-1
 		if !shouldTakeSnapshot(command.MetadataOnly(), isLastCommand, opts) {
@@ -1094,6 +1103,7 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 // DoBuild executes building the Dockerfile
 func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	t := timing.Start("Total Build Time")
+	defer timing.DefaultRun.Stop(t)
 	stageFinalCacheKeys := make(map[int]string)
 
 	stages, metaArgs, err := dockerfile.ParseStages(opts)
@@ -1372,7 +1382,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			pushImage = sourceImage
 		}
 		if stage.Final {
-			timing.DefaultRun.Stop(t)
 			// Final stage must be last, so by definition after Push stage.
 			assert.Assert("executor.build.push-image-nonnull", pushImage != nil, "pushImage is nil")
 			return pushImage, nil
