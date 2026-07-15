@@ -1455,7 +1455,11 @@ Each build becomes a trace, with a span per build phase and Dockerfile command. 
 
 **What leaves the machine**: every trace carries the full Dockerfile source (`kaniko.dockerfile.content`), the verbatim text of every instruction, the values of any explicitly-set `FF_KANIKO_*` flags, and cache keys, all unredacted. Nothing beyond that is captured: the runtime value behind a `RUN --mount=type=secret` or the contents of a `--mount=type=cache` never reach a trace. In case your Dockerfile and `RUN` themselves contain credentials, treat the collector as part of your secret boundary.
 
-Spans are sent over OTLP/**HTTP(S)**, OTLP/**gRPC** is not supported. The endpoint URL must include a scheme, and only `KANIKO_TELEMETRY_ENDPOINT` enables tracing, the standard `OTEL_EXPORTER_OTLP_ENDPOINT` alone does not.
+To keep the Dockerfile source out of the trace, set `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true`. Unparseable values keep exporting it and log a warning, so a typo in the opt-out does not silently look like it worked.
+
+Spans are sent over OTLP/**HTTP(S)**, OTLP/**gRPC** is not supported. The endpoint URL must include a scheme, and only `KANIKO_TELEMETRY_ENDPOINT` enables tracing, the standard `OTEL_EXPORTER_OTLP_ENDPOINT` alone does not. Prefer an `https://` endpoint. The scheme selects TLS, and kaniko warns when spans go out over plaintext `http://`.
+
+Attribute values are capped at 64 KiB so a generated Dockerfile cannot inflate a batch past the collector's receive limit and get the whole batch rejected. `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` and `OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT` override the cap, including an explicit `-1` for unlimited.
 
 See [Telemetry attributes](docs/telemetry.md) for the full list of exported span attributes.
 

@@ -16,11 +16,11 @@ Each build is one trace: a root `build` span plus a span per build phase and Doc
 | --- | --- |
 | `kaniko.version` | kaniko version |
 | `kaniko.dockerfile` | Dockerfile path |
-| `kaniko.dockerfile.content` | full Dockerfile source (absent for URL Dockerfiles) |
+| `kaniko.dockerfile.content` | full Dockerfile source (absent for URL Dockerfiles, or when `KANIKO_TELEMETRY_OMIT_DOCKERFILE` is set) |
 | `kaniko.target` | build target(s), comma-joined |
 | `kaniko.build_id` | sha256 of Dockerfile content + target, for grouping runs of the same build (falls back to the path when the Dockerfile is unreadable) |
 | `kaniko.ff.*` | explicitly-set `FF_KANIKO_*` feature flags (flags left at their defaults are not reported) |
-| `service.name` | `kaniko` |
+| `service.name` | `kaniko`, unless `OTEL_SERVICE_NAME` is set |
 
 ## Command spans
 

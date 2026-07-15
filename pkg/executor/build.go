@@ -647,7 +647,9 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			}
 		}()
 
-		if timing.Enabled() {
+		if timing.TracingEnabled() {
+			// Type switch, not string sniffing: a cached RUN replays a layer
+			// without executing, so it stays phase=kaniko.
 			phase := "kaniko"
 			switch command.(type) {
 			case *commands.RunCommand, *commands.RunMarkerCommand:
@@ -662,6 +664,8 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				attribute.Int("kaniko.stage", s.index),
 			}
 			if opts.Cache {
+				// Present only when caching is on: absence is "caching off",
+				// false is "not replayed from cache", not a miss rate.
 				attrs = append(attrs, attribute.Bool("kaniko.cache.hit", isCacheCommand))
 				if ck, herr := compositeKey.Hash(); herr == nil {
 					attrs = append(attrs, attribute.String("kaniko.cache.key", ck))
