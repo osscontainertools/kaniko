@@ -436,11 +436,10 @@ func (r *RunCommand) CacheKey(replacementEnvs []string) (string, error) {
 // runCacheKey appends the raw heredoc bodies to the instruction text
 func runCacheKey(cmd *instructions.RunCommand) string {
 	var key strings.Builder
-	key.WriteString(cmd.String())
+	s := cmd.String()
+	fmt.Fprintf(&key, "%d:%s", len(s), s)
 	for _, f := range cmd.Files {
-		key.WriteString("\n")
-		key.WriteString(f.Data)
-		key.WriteString(f.Name)
+		fmt.Fprintf(&key, "%d:%s%d:%s", len(f.Data), f.Data, len(f.Name), f.Name)
 	}
 	return key.String()
 }
