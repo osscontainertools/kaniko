@@ -54,7 +54,6 @@ var (
 
 // EndpointEnv enables tracing when set to an OTLP-HTTP collector URL.
 const EndpointEnv = "KANIKO_TELEMETRY_ENDPOINT"
-const shutdownFlushTimeout = 5 * time.Second
 
 // OmitDockerfileEnv, when truthy, keeps the Dockerfile source out of the
 // trace for operators whose Dockerfiles carry material they don't want to
@@ -141,6 +140,7 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 
 	// hook, not import, so assert does not depend on tracing
 	assert.OnAssertionViolation = onAssertion
+	// logrus.Fatalf calls os.Exit without unwinding; flush what we have.
 	logrus.RegisterExitHandler(func() { Shutdown(fmt.Errorf("process exited via logrus.Fatal")) })
 }
 

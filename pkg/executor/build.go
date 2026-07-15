@@ -534,6 +534,11 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	}
 
 	cacheGroup := errgroup.Group{}
+	// cmdTimer outlives each iteration so the deferred stop catches error
+	// returns mid-command: an unended span is never exported, and the span
+	// of the failing command is the one most worth having in the trace.
+	// (Assertion panics still lose it: onAssertion flushes the provider
+	// before this defer runs.)
 	var cmdTimer *timing.Timer
 	defer func() {
 		if cmdTimer != nil {
@@ -1108,6 +1113,7 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 // DoBuild executes building the Dockerfile
 func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	t := timing.Start("Total Build Time")
+	// Deferred so failed builds and --dryrun also record (and export) it.
 	defer timing.DefaultRun.Stop(t)
 	stageFinalCacheKeys := make(map[int]string)
 
