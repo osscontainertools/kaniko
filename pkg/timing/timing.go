@@ -33,7 +33,10 @@ var currentTimeFunc = time.Now
 // DefaultRun is the default "singleton" TimedRun instance.
 var DefaultRun = NewTimedRun()
 
+// tracerMu guards the pair below: SetTracer can be called from the shutdown
+// path on any goroutine while cache-push goroutines are still calling Start.
 var (
+	tracerMu  sync.Mutex
 	tracer    trace.Tracer
 	parentCtx context.Context
 )
@@ -41,6 +44,8 @@ var (
 // SetTracer wires (or, with a nil tracer, unwires) span creation into every
 // subsequent Start; ctx carries the parent span. Called by pkg/tracing.
 func SetTracer(ctx context.Context, t trace.Tracer) {
+	tracerMu.Lock()
+	defer tracerMu.Unlock()
 	parentCtx = ctx
 	tracer = t
 }
@@ -48,6 +53,8 @@ func SetTracer(ctx context.Context, t trace.Tracer) {
 // TracingEnabled reports whether a tracer is installed, i.e. whether timers
 // currently mint spans. Timing itself is always on.
 func TracingEnabled() bool {
+	tracerMu.Lock()
+	defer tracerMu.Unlock()
 	return tracer != nil
 }
 
@@ -100,7 +107,10 @@ func Start(category string) *Timer {
 		category:  category,
 		startTime: currentTimeFunc(),
 	}
-	if tracer != nil && !noSpanCategories[category] {
+	tracerMu.Lock()
+	tr, ctx := tracer, parentCtx
+	tracerMu.Unlock()
+	if tr != nil && !noSpanCategories[category] {
 		// Span names must stay low-cardinality (backends aggregate on them);
 		// the full command text lives in the kaniko.command attribute. The
 		// category keeps the full text — it is also the BENCHMARK_FILE key.
@@ -108,7 +118,7 @@ func Start(category string) *Timer {
 		if strings.HasPrefix(category, "Command: ") {
 			name = "Command"
 		}
-		_, t.span = tracer.Start(parentCtx, name)
+		_, t.span = tr.Start(ctx, name)
 		t.span.SetAttributes(attribute.String("kaniko.phase", phaseFor(category)))
 	}
 	return &t
