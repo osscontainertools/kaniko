@@ -190,6 +190,8 @@ func buildAttrs(opts *config.KanikoOptions, dockerfile []byte) []attribute.KeyVa
 // a fleet (everything mounts /workspace/Dockerfile), hence the preference.
 func buildID(path, target string, content []byte) string {
 	src := path
+	// nil means unreadable; a readable-but-empty Dockerfile is still
+	// content-addressed (ReadFile returns a non-nil empty slice on success).
 	if content != nil {
 		src = string(content)
 	}
@@ -215,12 +217,13 @@ func Shutdown(err error) {
 		rootSpan.End()
 		rootSpan = nil
 	}
+	// Unwire span creation first so no goroutine mints spans into a
+	// draining or dead provider.
+	timing.SetTracer(context.Background(), nil)
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownFlushTimeout)
 	defer cancel()
 	if sderr := provider.Shutdown(ctx); sderr != nil {
 		logrus.Debugf("tracing: shutdown flush failed: %v", sderr)
 	}
 	provider = nil
-	// Post-shutdown timers must not mint spans into a dead provider.
-	timing.SetTracer(context.Background(), nil)
 }
