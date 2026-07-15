@@ -26,7 +26,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/osscontainertools/kaniko/pkg/assert"
-	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
 
@@ -147,7 +146,7 @@ func AssertConsistentMediaType(img v1.Image) error {
 	for _, l := range man.Layers {
 		classify(l.MediaType)
 	}
-	util.Assert("image.consistent-media-type", !(oci && docker), "manifest mixes OCI and docker media types")
+	assert.Assert("image.consistent-media-type", !(oci && docker), "manifest mixes OCI and docker media types")
 	return nil
 }
 

@@ -40,10 +40,12 @@ type FeatureFlags struct {
 	NoPropagateAnnotations         bool
 	OCIScratchBase                 bool
 	OCIWarmer                      bool
+	PrecompileDockerignore         bool
 	PreserveHardlinks              bool
 	PreserveMountedPaths           bool
 	ReproduciblePreserveBaseLayers bool
 	ResolveCacheKey                bool
+	RunHonorGroup                  bool
 	RunMountBind                   bool
 	RunViaTini                     bool
 	ScopedDockerignore             bool
@@ -101,10 +103,12 @@ func InitFeatureFlags() {
 		NoPropagateAnnotations:         featureFlag("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS", true),
 		OCIScratchBase:                 featureFlag("FF_KANIKO_OCI_SCRATCH_BASE", false),
 		OCIWarmer:                      featureFlag("FF_KANIKO_OCI_WARMER", true),
+		PrecompileDockerignore:         featureFlag("FF_KANIKO_PRECOMPILE_DOCKERIGNORE", false),
 		PreserveHardlinks:              featureFlag("FF_KANIKO_PRESERVE_HARDLINKS", true),
 		PreserveMountedPaths:           featureFlag("FF_KANIKO_PRESERVE_MOUNTED_PATHS", true),
 		ReproduciblePreserveBaseLayers: featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS", false),
 		ResolveCacheKey:                featureFlag("FF_KANIKO_RESOLVE_CACHE_KEY", false),
+		RunHonorGroup:                  featureFlag("FF_KANIKO_RUN_HONOR_GROUP", false),
 		RunMountBind:                   featureFlag("FF_KANIKO_RUN_MOUNT_BIND", true),
 		RunViaTini:                     featureFlag("FF_KANIKO_RUN_VIA_TINI", false),
 		ScopedDockerignore:             featureFlag("FF_KANIKO_SCOPED_DOCKERIGNORE", false),

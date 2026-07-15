@@ -358,7 +358,7 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 	}
 
 	credential := userStr
-	if kConfig.EnvBool("FF_KANIKO_RUN_HONOR_GROUP") {
+	if kConfig.FF.RunHonorGroup {
 		credential, err = util.ResolveEnvironmentReplacement(u, replacementEnvs, false)
 		if err != nil {
 			return fmt.Errorf("resolving user %s: %w", u, err)

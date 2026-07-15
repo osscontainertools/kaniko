@@ -999,7 +999,7 @@ func NewFileContextFromDockerfile(dockerfilePath, buildcontext string) (FileCont
 		return fileContext, err
 	}
 	fileContext.ExcludedFiles = excludedFiles
-	if config.EnvBool("FF_KANIKO_PRECOMPILE_DOCKERIGNORE") {
+	if config.FF.PrecompileDockerignore {
 		matcher, err := patternmatcher.New(excludedFiles)
 		if err != nil {
 			return fileContext, err
