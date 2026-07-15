@@ -142,6 +142,7 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 
 	// hook, not import, so assert does not depend on tracing
 	assert.OnAssertionViolation = onAssertion
+	// logrus.Fatalf calls os.Exit without unwinding; flush what we have.
 	logrus.RegisterExitHandler(func() { Shutdown(fmt.Errorf("process exited via logrus.Fatal")) })
 }
 
