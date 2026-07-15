@@ -532,7 +532,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 func addAuthFlags(flags []string) []string {
 	dockerConfig := os.Getenv("HOME") + "/.docker/config.json"
 	if util.FilepathExists(dockerConfig) {
-		flags = append(flags, "-v", dockerConfig+":/kaniko/.docker/config.json:ro", "-e", "DOCKER_CONFIG=/kaniko/.docker")
+		flags = append(flags, "-v", dockerConfig+":/root/.docker/config.json:ro", "-e", "DOCKER_CONFIG=/root/.docker")
 	}
 	return flags
 }
@@ -772,7 +772,6 @@ func populateVolumeCache(logf logger) error {
 	for _, envVariable := range WarmerEnv {
 		cmd = append(cmd, "-e", envVariable)
 	}
-	cmd = addAuthFlags(cmd)
 	cmd = addCoverageFlags(cmd)
 	cmd = append(cmd,
 		WarmerImage,
