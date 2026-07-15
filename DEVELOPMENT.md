@@ -169,7 +169,7 @@ find . -name "*.go" | grep -v vendor/ | xargs gofmt -l -s -w
 
 ### Integration tests
 
-Currently the integration tests that live in [`integration`](./integration) can be run against your own gcloud space or a local registry.
+Currently the integration tests that live in [`integration`](./integration) can be run against a real registry or a local registry.
 
 These tests will be kicked off by [reviewers](#reviews) for submitted PRs using GitHub Actions.
 
@@ -177,34 +177,17 @@ In either case, you will need the following tools:
 
 * [`diffoci`](https://github.com/mzihlmann/diffoci#installation)
 
-#### GCloud
+#### Registry
 
-To run integration tests with your GCloud Storage, you will also need the following tools:
+To run integration tests against a real registry, you will need:
 
-* [`gcloud`](https://cloud.google.com/sdk/install)
-* [`gsutil`](https://cloud.google.com/storage/docs/gsutil_install)
-* A bucket in [GCS](https://cloud.google.com/storage/) which you have write access to via
-  the user currently logged into `gcloud`
-* An image repo which you have write access to via the user currently logged into `gcloud`
-* A docker account and a `~/.docker/config.json` with login credentials if you run
-  into rate limiting problems during tests.
+* An image repo which you have write access to
+* A docker account and a `~/.docker/config.json` with login credentials whenever the target repository requires authentication, for example to avoid Docker Hub rate-limiting during tests.
 
-Once this step done, you must override the project using environment variables:
-
-* `GCS_BUCKET` - The name of your GCS bucket
-* `IMAGE_REPO` - The path to your Docker image repo on your registry host
-
-This can be done as follows:
+Override the target via the `IMAGE_REPO` environment variable:
 
 ```shell
-export GCS_BUCKET="gs://<your bucket>"
 export IMAGE_REPO="YOUR-REGISTRY/YOUR-REPO"
-```
-
-Login for both user and application credentials
-```shell
-gcloud auth login
-gcloud auth application-default login
 ```
 
 Then you can launch integration tests as follows:
@@ -224,7 +207,7 @@ make integration-test-misc
 
 #### Local integration tests
 
-To run integration tests locally against a local registry and gcs bucket, set the LOCAL environment variable
+To run integration tests locally against a local registry, set the LOCAL environment variable
 
 ```shell
 LOCAL=1 make integration-test
@@ -260,7 +243,7 @@ Additionally, the integration tests can output benchmarking information to a `be
 `integration` directory if the `BENCHMARK` environment variable is set to `true.`
 
 ```shell
-BENCHMARK=true go test -v --bucket $GCS_BUCKET --repo $IMAGE_REPO
+BENCHMARK=true go test -v --repo $IMAGE_REPO
 ```
 
 #### Profiling

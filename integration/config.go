@@ -16,14 +16,7 @@ limitations under the License.
 
 package integration
 
-import (
-	"strings"
-
-	"cloud.google.com/go/storage"
-)
-
 type integrationTestConfig struct {
-	gcsBucket               string
 	imageRepo               string
 	busyboxBaseImage        string
 	alpineBaseImage         string
@@ -33,14 +26,6 @@ type integrationTestConfig struct {
 	hijackBaseImage         string
 	malformedOCIImage       string
 	nvidiaOperatorBaseImage string
-	serviceAccount          string
 	dockerMajorVersion      int
-	gcsClient               *storage.Client
 	dockerfilesPattern      string
-}
-
-const gcrRepoPrefix string = "gcr.io/"
-
-func (config *integrationTestConfig) isGcrRepository() bool {
-	return strings.HasPrefix(config.imageRepo, gcrRepoPrefix)
 }

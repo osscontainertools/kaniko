@@ -103,7 +103,7 @@ func TestBuildWithStdin(t *testing.T) {
 	gzCmd := exec.Command("gzip", "-9")
 
 	dockerRunFlags := []string{"run", "--interactive", "--net=host", "-v", cwd + ":/workspace"}
-	dockerRunFlags = addServiceAccountFlags(dockerRunFlags, config.serviceAccount)
+	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags,
 		ExecutorImage,
 		"-f", dockerfile,
