@@ -545,7 +545,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			continue
 		}
 
-		cmdTimer = timing.Start("Command: " + command.String())
+		cmdTimer = timing.Start("Command")
 
 		// If the command uses files from the context, add them.
 		files, err := command.FilesUsedFromContext(&s.cf.Config, s.args)
@@ -585,19 +585,20 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 
 		if timing.Enabled() {
 			phase := "kaniko"
-			if strings.HasPrefix(command.String(), "RUN ") {
+			switch command.(type) {
+			case *commands.RunCommand, *commands.RunMarkerCommand:
 				phase = "build"
 			}
 			attrs := []attribute.KeyValue{
 				attribute.String("kaniko.command", command.String()),
 				attribute.String("kaniko.command.hash", commandHash(s.index, command.String())),
 				attribute.String("kaniko.phase", phase),
-				attribute.Bool("kaniko.cache.hit", isCacheCommand),
 				attribute.Int("kaniko.instruction.index", index),
 				attribute.Int("kaniko.instruction.line", s.lines[index]),
-				attribute.String("kaniko.stage", strconv.Itoa(s.index)),
+				attribute.Int("kaniko.stage", s.index),
 			}
 			if opts.Cache {
+				attrs = append(attrs, attribute.Bool("kaniko.cache.hit", isCacheCommand))
 				if ck, herr := compositeKey.Hash(); herr == nil {
 					attrs = append(attrs, attribute.String("kaniko.cache.key", ck))
 				}

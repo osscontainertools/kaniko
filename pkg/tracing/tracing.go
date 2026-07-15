@@ -59,9 +59,14 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 		logrus.Warnf("tracing disabled: failed to create OTLP exporter: %v", err)
 		return
 	}
+	// Read the Dockerfile once: reused for build_id and the content attribute.
+	content, cerr := os.ReadFile(opts.DockerfilePath)
+	if cerr != nil {
+		logrus.Debugf("tracing: Dockerfile not readable, kaniko.dockerfile.content omitted: %v", cerr)
+	}
 	res, err := resource.New(ctx,
 		resource.WithFromEnv(),
-		resource.WithAttributes(buildAttrs(opts)...),
+		resource.WithAttributes(buildAttrs(opts, content)...),
 	)
 	if err != nil {
 		logrus.Warnf("tracing: partial resource, continuing: %v", err)
@@ -74,7 +79,7 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 	tracer := provider.Tracer("github.com/osscontainertools/kaniko")
 	var sctx context.Context
 	sctx, rootSpan = tracer.Start(ctx, "build")
-	if content, rerr := os.ReadFile(opts.DockerfilePath); rerr == nil {
+	if cerr == nil {
 		rootSpan.SetAttributes(attribute.String("kaniko.dockerfile.content", string(content)))
 	}
 	timing.SetTracer(sctx, tracer)
@@ -98,14 +103,14 @@ func onAssertion(name, msg string) {
 
 // buildAttrs holds what kaniko knows; fleet identity comes from
 // OTEL_RESOURCE_ATTRIBUTES. build_id groups runs of the same Dockerfile+target.
-func buildAttrs(opts *config.KanikoOptions) []attribute.KeyValue {
+func buildAttrs(opts *config.KanikoOptions, dockerfile []byte) []attribute.KeyValue {
 	target := strings.Join(opts.Target, ",")
 	attrs := []attribute.KeyValue{
 		attribute.String("service.name", "kaniko"),
 		attribute.String("kaniko.version", version.Version()),
 		attribute.String("kaniko.dockerfile", opts.DockerfilePath),
 		attribute.String("kaniko.target", target),
-		attribute.String("kaniko.build_id", buildID(opts.DockerfilePath, target)),
+		attribute.String("kaniko.build_id", buildID(opts.DockerfilePath, target, dockerfile)),
 	}
 	for _, e := range os.Environ() {
 		if !strings.HasPrefix(e, "FF_KANIKO_") {
@@ -113,14 +118,21 @@ func buildAttrs(opts *config.KanikoOptions) []attribute.KeyValue {
 		}
 		k, v, ok := strings.Cut(e, "=")
 		if ok {
-			attrs = append(attrs, attribute.String("kaniko.ff."+k, v))
+			attrs = append(attrs, attribute.String("kaniko.ff."+strings.TrimPrefix(k, "FF_KANIKO_"), v))
 		}
 	}
 	return attrs
 }
 
-func buildID(dockerfile, target string) string {
-	sum := sha256.Sum256([]byte(dockerfile + "|" + target))
+// buildID groups runs building the same Dockerfile+target. Content-addressed
+// when the Dockerfile is readable; the path fallback is near-constant across
+// a fleet (everything mounts /workspace/Dockerfile), hence the preference.
+func buildID(path, target string, content []byte) string {
+	src := path
+	if content != nil {
+		src = string(content)
+	}
+	sum := sha256.Sum256([]byte(src + "|" + target))
 	return hex.EncodeToString(sum[:])[:16]
 }
 
