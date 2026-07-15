@@ -126,6 +126,7 @@ var WarmerEnv = []string{}
 
 // Arguments to build Dockerfiles with when building with docker
 var additionalDockerFlagsMap = map[string][]string{
+	"Dockerfile_test_issue_mz822": {"--provenance=false"},
 	"Dockerfile_test_target":      {"--target=second"},
 	"Dockerfile_test_issue_cg188": {"--secret=id=netrc,env=SECRET"},
 	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=context/foo"},
@@ -171,6 +172,7 @@ var executorImages = map[string]string{
 
 // Arguments to build Dockerfiles with when building with kaniko
 var additionalKanikoFlagsMap = map[string][]string{
+	"Dockerfile_test_issue_mz822":                {"--cache=true", "--cache-copy-layers=true"},
 	"Dockerfile_test_issue_519":                  {"--target=final_stage,nosquash1,nosquash2"},
 	"Dockerfile_test_multistage_args_issue_1911": {"--target=base-custom2,nosquash1,nosquash2,nosquash3"},
 	"Dockerfile_test_cmd":                        {"--target=final,nosquash"},

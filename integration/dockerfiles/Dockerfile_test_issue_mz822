@@ -1,0 +1,26 @@
+# mz822: the COPY heredoc cache key concatenated the resolved instruction and
+# the heredoc bodies without length framing, so two different body splits
+# serialize to the same key. Behind FF_KANIKO_RESOLVE_CACHE_KEY stage one and
+# stage two below produce that identical unframed key while writing different
+# content, so with caching on stage two reuses stage one's layer and /two ends
+# up with stage one's content, diverging from docker. Fixed by length-framing
+# each key component.
+FROM busybox AS one
+COPY <<A <<B /out
+a
+A
+
+b
+B
+
+FROM busybox AS two
+COPY <<A <<B /out
+a
+
+A
+b
+B
+
+FROM busybox
+COPY --from=one /out /one
+COPY --from=two /out /two
