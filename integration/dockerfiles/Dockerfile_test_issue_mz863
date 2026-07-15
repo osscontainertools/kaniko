@@ -1,8 +1,12 @@
-FROM busybox
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
 
 # mz863: COPY --chmod must apply the mode to parent directories that the copy
 # creates implicitly, matching buildkit. The single file copy path created every
 # implicit parent with a fixed 0755 while only the file itself got the chmod.
 COPY --chmod=0600 context/foo /dest/foo
 COPY --chmod=0705 context/foo /nested/a/b/foo
-RUN stat -c '%a %n' /dest /nested /nested/a /nested/a/b
+RUN test "$(stat -c '%a' /dest)" = "600" \
+ && test "$(stat -c '%a' /nested)" = "705" \
+ && test "$(stat -c '%a' /nested/a)" = "705" \
+ && test "$(stat -c '%a' /nested/a/b)" = "705"
