@@ -144,6 +144,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`](#flag-ff_kaniko_reproducible_preserve_base_layers)
       - [Flag `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE`](#flag-ff_kaniko_deprecate_inter_stage_restore)
       - [Flag `FF_KANIKO_SCOPED_DOCKERIGNORE`](#flag-ff_kaniko_scoped_dockerignore)
+      - [Flag `FF_KANIKO_PRECOMPILE_DOCKERIGNORE`](#flag-ff_kaniko_precompile_dockerignore)
       - [Flag `FF_KANIKO_SKIP_RELABEL_RECOMPRESS`](#flag-ff_kaniko_skip_relabel_recompress)
       - [Flag `FF_KANIKO_SECUREJOIN_EXTRACTION`](#flag-ff_kaniko_securejoin_extraction)
       - [Flag `FF_KANIKO_RESOLVE_CACHE_KEY`](#flag-ff_kaniko_resolve_cache_key)
@@ -1288,6 +1289,12 @@ Will be deprecated in `v1.29.0`.
 Scopes `.dockerignore` patterns to the build context. Without it, an absolute path outside the context (such as an intermediate `/kaniko/...` source of a multi-stage `COPY --from`) is matched against the patterns; with an allowlist `.dockerignore` (e.g. `*` then `!keep`) the catch-all wrongly excludes it, dropping it from the layer cache key and serving a stale image when only that file changed. Set this flag to `true` to never match paths outside the context.
 Defaults to `false`.
 Currently no plans to activate.
+
+#### Flag `FF_KANIKO_PRECOMPILE_DOCKERIGNORE`
+
+`.dockerignore` rebuilds the pattern matcher and recompiles every glob to a regexp on every file. Set this flag to `true` to pre-compile the matcher instead.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_RESOLVE_CACHE_KEY`
 

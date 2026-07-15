@@ -93,6 +93,7 @@ var secureExtraction = config.EnvBoolDefault("FF_KANIKO_SECUREJOIN_EXTRACTION", 
 type FileContext struct {
 	Root          string
 	ExcludedFiles []string
+	matcher       *patternmatcher.PatternMatcher
 }
 
 type ExtractFunction func(string, *tar.Header, string, io.Reader) error
@@ -1001,6 +1002,13 @@ func NewFileContextFromDockerfile(dockerfilePath, buildcontext string) (FileCont
 		return fileContext, err
 	}
 	fileContext.ExcludedFiles = excludedFiles
+	if config.EnvBool("FF_KANIKO_PRECOMPILE_DOCKERIGNORE") {
+		matcher, err := patternmatcher.New(excludedFiles)
+		if err != nil {
+			return fileContext, err
+		}
+		fileContext.matcher = matcher
+	}
 	return fileContext, nil
 }
 
@@ -1034,6 +1042,20 @@ func (c FileContext) ExcludesFile(path string) bool {
 		}
 	} else if filepath.IsAbs(path) && config.EnvBool("FF_KANIKO_SCOPED_DOCKERIGNORE") {
 		return false
+	}
+	if c.matcher != nil {
+		// patternmatcher.Matches cleans the path and skips "."
+		path = filepath.Clean(path)
+		if path == "." {
+			return false
+		}
+		//lint:ignore SA1019 deprecated Matches kept intentionally to preserve current matching behaviour
+		match, err := c.matcher.Matches(path)
+		if err != nil {
+			logrus.Errorf("Error matching, including %s in build: %v", path, err)
+			return false
+		}
+		return match
 	}
 	match, err := patternmatcher.Matches(path, c.ExcludedFiles)
 	if err != nil {
