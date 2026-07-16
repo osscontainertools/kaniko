@@ -188,7 +188,31 @@ func (c *CopyCommand) String() string {
 }
 
 func (c *CopyCommand) CacheKey(replacementEnvs []string) (string, error) {
-	return util.ResolveVariables(c.cmd.String(), replacementEnvs)
+	return resolvedCacheKey(c.cmd.String(), c.cmd.SourceContents, replacementEnvs)
+}
+
+// resolvedCacheKey resolves the instruction variables and folds in the resolved
+// heredoc contents, expanded the same way the executor materializes them.
+// cmd.String() omits the heredoc body, so without this a build arg referenced
+// only inside a body would not invalidate the layer.
+func resolvedCacheKey(instruction string, contents []instructions.SourceContent, replacementEnvs []string) (string, error) {
+	resolved, err := util.ResolveVariables(instruction, replacementEnvs)
+	if err != nil {
+		return "", err
+	}
+	var key strings.Builder
+	fmt.Fprintf(&key, "%d:%s", len(resolved), resolved)
+	for _, src := range contents {
+		content := src.Data
+		if src.Expand && kConfig.EnvBool("FF_KANIKO_EXPAND_HEREDOC") {
+			content, err = util.ResolveEnvironmentReplacementRaw(src.Data, replacementEnvs)
+			if err != nil {
+				return "", err
+			}
+		}
+		fmt.Fprintf(&key, "%d:%s", len(content), content)
+	}
+	return key.String(), nil
 }
 
 func (c *CopyCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
@@ -283,7 +307,7 @@ func (cr *CachingCopyCommand) String() string {
 }
 
 func (cr *CachingCopyCommand) CacheKey(replacementEnvs []string) (string, error) {
-	return util.ResolveVariables(cr.String(), replacementEnvs)
+	return resolvedCacheKey(cr.cmd.String(), cr.cmd.SourceContents, replacementEnvs)
 }
 
 func (cr *CachingCopyCommand) From() string {

@@ -129,7 +129,7 @@ func (a *AddCommand) String() string {
 }
 
 func (a *AddCommand) CacheKey(replacementEnvs []string) (string, error) {
-	return util.ResolveVariables(a.cmd.String(), replacementEnvs)
+	return resolvedCacheKey(a.cmd.String(), a.cmd.SourceContents, replacementEnvs)
 }
 
 func (a *AddCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
@@ -220,7 +220,7 @@ func (ca *CachingAddCommand) String() string {
 }
 
 func (ca *CachingAddCommand) CacheKey(replacementEnvs []string) (string, error) {
-	return util.ResolveVariables(ca.String(), replacementEnvs)
+	return resolvedCacheKey(ca.cmd.String(), ca.cmd.SourceContents, replacementEnvs)
 }
 
 func addCmdFilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd *instructions.AddCommand,
