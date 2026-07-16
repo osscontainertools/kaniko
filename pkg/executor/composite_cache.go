@@ -18,7 +18,6 @@ package executor
 
 import (
 	"crypto/sha256"
-	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"hash"
@@ -186,18 +185,6 @@ func writeDirHashEntry(sha hash.Hash, path, fileHash string, framed bool) error 
 		return err
 	}
 
-	if err := writeLengthPrefixedHashField(sha, path); err != nil {
-		return err
-	}
-	return writeLengthPrefixedHashField(sha, fileHash)
-}
-
-func writeLengthPrefixedHashField(sha hash.Hash, value string) error {
-	var length [8]byte
-	binary.BigEndian.PutUint64(length[:], uint64(len(value)))
-	if _, err := sha.Write(length[:]); err != nil {
-		return err
-	}
-	_, err := sha.Write([]byte(value))
+	_, err := fmt.Fprintf(sha, "%d:%s%d:%s", len(path), path, len(fileHash), fileHash)
 	return err
 }
