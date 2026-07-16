@@ -1363,8 +1363,9 @@ func Test_correctDockerignoreFileIsUsed(t *testing.T) {
 }
 
 func Test_ExcludesFile_AbsoluteOutsideBuildContext(t *testing.T) {
+	previous := config.FF.ScopedDockerignore
 	config.FF.ScopedDockerignore = true
-	t.Cleanup(func() { config.FF.ScopedDockerignore = false })
+	t.Cleanup(func() { config.FF.ScopedDockerignore = previous })
 	tempDir := t.TempDir()
 
 	// dockerignore, allowlist style
