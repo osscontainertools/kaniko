@@ -1,0 +1,17 @@
+# mz824: on v1.28.0 a RUN heredoc body is omitted from the cache key, so two RUN heredocs
+# that share the instruction line "RUN cat <<EOF > /out" but differ in the body can collide.
+# The bodies differ in length so the swapped layer shows as a file-size difference.
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS one
+RUN cat <<EOF > /out
+helloworld
+EOF
+
+FROM ${IMAGE_REPO}busybox AS two
+RUN cat <<EOF > /out
+blubb
+EOF
+
+FROM ${IMAGE_REPO}busybox
+COPY --from=one /out /one
+COPY --from=two /out /two
