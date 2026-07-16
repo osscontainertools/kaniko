@@ -139,6 +139,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`](#flag-ff_kaniko_infer_cross_stage_cache_key)
       - [Flag `FF_KANIKO_CACHE_LOOKAHEAD`](#flag-ff_kaniko_cache_lookahead)
       - [Flag `FF_KANIKO_ROLLING_CACHE_KEY`](#flag-ff_kaniko_rolling_cache_key)
+      - [Flag `FF_KANIKO_HASH_DIR_FRAMING`](#flag-ff_kaniko_hash_dir_framing)
       - [Flag `FF_KANIKO_CACHE_PROBE_AFTER_MISS`](#flag-ff_kaniko_cache_probe_after_miss)
       - [Flag `FF_KANIKO_WARMER_CACHE_LOCK`](#flag-ff_kaniko_warmer_cache_lock)
       - [Flag `FF_KANIKO_PRESERVE_MOUNTED_PATHS`](#flag-ff_kaniko_preserve_mounted_paths)
@@ -1256,6 +1257,13 @@ Defaults to `false`.
 By default the composite cache joins all inputs with `-` and hashes the result. Since `-` is a legal input too, different sequences can join to the same text and collide, silently picking up the wrong cache layer.
 This flag switches to a rolling hash, think git, where `state = SHA256(state || input)`. This makes boundaries unambiguous and prevents collisions. It also prevents the hash input from growing, so key computation gets marginally cheaper. Toggling it changes every cache key, forcing a rebuild from scratch.
 Set this flag to `true` to enable the rolling cache key.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_HASH_DIR_FRAMING`
+
+Directory cache keys concatenate each relative path and file hash without recording their boundaries. A filename can therefore absorb an adjacent hash and make distinct directory trees produce the same cache key, silently reusing the wrong cached layer.
+Set this flag to `true` to length-prefix every path and file hash before hashing the directory. Toggling it changes cache keys for `COPY` and `ADD` directory inputs, forcing those layers to rebuild once.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 

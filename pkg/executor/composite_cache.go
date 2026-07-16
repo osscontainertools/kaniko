@@ -162,11 +162,13 @@ func hashDir(p string, context util.FileContext) (bool, string, error) {
 			return err
 		}
 
-		if _, err := sha.Write([]byte(strings.TrimPrefix(absPath, absRoot))); err != nil {
-			return err
+		relPath := strings.TrimPrefix(absPath, absRoot)
+		if config.FF.HashDirFraming {
+			_, err = fmt.Fprintf(sha, "%d:%s%d:%s", len(relPath), relPath, len(fileHash), fileHash)
+		} else {
+			_, err = sha.Write([]byte(relPath + fileHash))
 		}
-
-		if _, err := sha.Write([]byte(fileHash)); err != nil {
+		if err != nil {
 			return err
 		}
 		empty = false

@@ -36,6 +36,7 @@ type FeatureFlags struct {
 	DeprecateInterStageRestore     bool
 	DisableHTTP2                   bool
 	ExpandHeredoc                  bool
+	HashDirFraming                 bool
 	IgnoreCachedManifest           bool
 	InferCrossStageCacheKey        bool
 	NoPropagateAnnotations         bool
@@ -101,6 +102,7 @@ func InitFeatureFlags() {
 		DeprecateInterStageRestore:     featureFlag("FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE", true),
 		DisableHTTP2:                   featureFlag("FF_KANIKO_DISABLE_HTTP2", false),
 		ExpandHeredoc:                  featureFlag("FF_KANIKO_EXPAND_HEREDOC", false),
+		HashDirFraming:                 featureFlag("FF_KANIKO_HASH_DIR_FRAMING", false),
 		IgnoreCachedManifest:           featureFlag("FF_KANIKO_IGNORE_CACHED_MANIFEST", false),
 		InferCrossStageCacheKey:        featureFlag("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", false),
 		NoPropagateAnnotations:         featureFlag("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS", true),
