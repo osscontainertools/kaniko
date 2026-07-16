@@ -109,7 +109,7 @@ func shrinkFinding(t *testing.T, target *finding, gen genResult) *finding {
 		changed = false
 		for i := 1; i < len(lines); i++ { // keep FROM at index 0
 			reduced := removeAt(lines, i)
-			if f := reproduces(genFromLines(reduced, gen.context, gen.kanikoFlags)); f != nil {
+			if f := reproduces(genFromLines(reduced, gen.context, gen.kanikoFlags, gen.envFlags, gen.cacheCompression, gen.cacheLocal)); f != nil {
 				lines = reduced
 				best = f
 				changed = true
@@ -140,6 +140,27 @@ func removeAt(lines []string, i int) []string {
 // context. Unreferenced context files do not affect the build, and keeping them
 // avoids mishandling directory or hardlink entries whose Dockerfile reference
 // (e.g. COPY d0) does not match the per-file context names (d0/f0, d0/f1).
-func genFromLines(lines []string, ctx []fileSpec, flags []string) genResult {
-	return genResult{dockerfile: strings.Join(lines, "\n") + "\n", context: ctx, kanikoFlags: flags}
+func genFromLines(lines []string, ctx []fileSpec, flags, envFlags []string, cacheCompression string, cacheLocal bool) genResult {
+	// Recover the docker-side build args from the flags so both tools see the same
+	// --build-arg values during shrinking; otherwise docker would drop them and diverge.
+	var buildArgs []string
+	var labels []string
+	var annotations []string
+	target := ""
+	for _, f := range flags {
+		if strings.HasPrefix(f, "--build-arg=") {
+			buildArgs = append(buildArgs, strings.TrimPrefix(f, "--build-arg="))
+		}
+		if strings.HasPrefix(f, "--label=") {
+			labels = append(labels, strings.TrimPrefix(f, "--label="))
+		}
+		if strings.HasPrefix(f, "--annotation=") {
+			annotations = append(annotations, strings.TrimPrefix(f, "--annotation="))
+		}
+		if strings.HasPrefix(f, "--target=") {
+			target = strings.TrimPrefix(f, "--target=")
+		}
+	}
+	usesSecret := strings.Contains(strings.Join(lines, "\n"), "type=secret")
+	return genResult{dockerfile: strings.Join(lines, "\n") + "\n", context: ctx, kanikoFlags: flags, buildArgs: buildArgs, envFlags: envFlags, cacheCompression: cacheCompression, cacheLocal: cacheLocal, target: target, labels: labels, annotations: annotations, usesSecret: usesSecret}
 }
