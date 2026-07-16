@@ -48,6 +48,7 @@ make out/warmer
 
 FLAGS=(
   "--timeout=50m"
+  "-parallel=${TEST_PARALLELISM:-8}"
 )
 
 if [[ -n ${DOCKERFILE_PATTERN} ]]; then
