@@ -135,7 +135,6 @@ var additionalDockerFlagsMap = map[string][]string{
 	// provenance forces ociv1 on buildkit but for these images we emit dockerv2 in kaniko
 	"Dockerfile_test_cross_compile":                {"--platform=linux/" + crossCompileArch},
 	"Dockerfile_test_issue_mz849":                  {"--provenance=false"},
-	"Dockerfile_test_mv_add":                       {"--provenance=false"},
 	"Dockerfile_test_snapshotter_ignorelist":       {"--provenance=false"},
 	"Dockerfile_test_whitelist":                    {"--provenance=false"},
 	"Dockerfile_test_volume_4":                     {"--provenance=false"},
