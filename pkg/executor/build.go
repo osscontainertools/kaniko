@@ -285,7 +285,7 @@ func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (
 	if !ok {
 		return nil, fmt.Errorf("failed resolving cache pointer")
 	}
-	return NewCompositeCache(rawKey), nil
+	return ResumeCompositeCache(rawKey), nil
 }
 
 func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, args *dockerfile.BuildArgs, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string, hasContext bool) (string, *stageCacheInfo, v1.Config, error) {
@@ -624,8 +624,8 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 					// subsequent optimize pass can find the content key and continue
 					// the cache chain without unpacking the source stage.
 					if inferredCacheKey != "" && inferredCacheKey != ck {
-						rawKey := compositeKey.Key()
-						h, err := NewCompositeCache(rawKey).Hash()
+						rawKey := compositeKey.State()
+						h, err := ResumeCompositeCache(rawKey).Hash()
 						if err != nil {
 							return err
 						}
@@ -1106,7 +1106,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			var compositeKey *CompositeCache
 			if stage.BaseImageStoredLocally {
 				if cacheKey, ok := stageFinalCacheKeys[stage.BaseImageIndex]; ok {
-					compositeKey = NewCompositeCache(cacheKey)
+					compositeKey = ResumeCompositeCache(cacheKey)
 				}
 			} else {
 				compositeKey = NewCompositeCache(sb.baseImageDigest)
@@ -1218,7 +1218,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		var compositeKey *CompositeCache
 		if stage.BaseImageStoredLocally {
 			if cacheKey, ok := stageFinalCacheKeys[stage.BaseImageIndex]; ok {
-				compositeKey = NewCompositeCache(cacheKey)
+				compositeKey = ResumeCompositeCache(cacheKey)
 			}
 		}
 		if compositeKey == nil {

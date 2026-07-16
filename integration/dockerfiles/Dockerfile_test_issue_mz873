@@ -1,0 +1,14 @@
+# mz873: the composite cache key joined its parts with '-', so distinct part
+# sequences can join to the same text and collide. Stage one's single RUN
+# spells out the joined key text of stage two's two RUNs behind a '#' shell
+# comment. Serves swapped layers for /one and /two on v1.28.0.
+FROM busybox AS one
+RUN echo a > /out #-|1-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin-RUN echo b >> /out
+
+FROM busybox AS two
+RUN echo a > /out #
+RUN echo b >> /out
+
+FROM busybox
+COPY --from=one /out /one
+COPY --from=two /out /two
