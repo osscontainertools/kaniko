@@ -134,7 +134,25 @@ var KanikoEnv = []string{
 	"KANIKO_TELEMETRY_ENDPOINT",
 	"OTEL_EXPORTER_OTLP_HEADERS",
 	"OTEL_RESOURCE_ATTRIBUTES",
+	// Secret value for the env-type build secret; present in every executor container so a
+	// case's RUN --mount=type=secret can resolve it. Unused unless the case declares it.
+	secretEnvVar + "=" + secretToken,
 }
+
+// Secret-mount plumbing (defined here, a non-test file, so KanikoEnv can reference it). The
+// value is a distinctive token so a leak is unambiguous when it turns up in a pushed image.
+// It rides in KanikoEnv (kaniko's env-type secret resolves inside the executor container)
+// and in runFuzzDocker's command env (docker's --secret env source). Both tools receive it
+// identically, so the parity oracle stays valid, and the secret oracle asserts the value
+// never reaches any layer or config.
+const (
+	secretID     = "fuzzsecret"
+	secretEnvVar = "FUZZ_SECRET_VAL"
+	secretToken  = "K4N1K0FUZZS3CR3TL34KM4RK3R"
+	// secretFlag is the --secret spec threaded into a case that uses a secret. The docker
+	// syntax (id=,env=) works for both: kaniko infers type=env from env= (options.go).
+	secretFlag = "--secret=id=" + secretID + ",env=" + secretEnvVar
+)
 
 var WarmerEnv = []string{}
 
