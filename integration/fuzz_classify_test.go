@@ -16,7 +16,14 @@ limitations under the License.
 
 package integration
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
+
+// crossStageCopyIdx matches a COPY --from a numeric stage index (COPY --from=0), the
+// other cross-stage form besides a named stage.
+var crossStageCopyIdx = regexp.MustCompile(`COPY --from=[0-9]`)
 
 // knownDivergence recognizes one class of docker-versus-kaniko diff that is
 // already understood. A diff row that matches a known class is counted, not
@@ -91,11 +98,77 @@ var knownBuildFailures = []knownDivergence{
 			return strings.Contains(out, "resolving dest symlink: failed to eval symlinks")
 		},
 	},
+	{
+		name: "runv2-mount-cache-lstat",
+		why:  "mz879: with --use-new-run a RUN --mount=type=bind source is added to the cache key as a relative path, so the cache-consume build fails to lstat it",
+		flag: "",
+		match: func(out string) bool {
+			return strings.Contains(out, "could not add path: lstat")
+		},
+	},
+	{
+		name: "chown-named-owner-no-passwd-db",
+		why:  "mz897: COPY/ADD --chown with a named user or group on a base with no /etc/passwd or /etc/group (scratch) fails; kaniko parses the name as a numeric id and errors while docker resolves it",
+		flag: "",
+		match: func(out string) bool {
+			return strings.Contains(out, "getting user group from chown")
+		},
+	},
+}
+
+// knownCrashes recognize a kaniko crash or assertion that is already filed and would
+// otherwise flood a campaign, matched against the crash line. A crash matching one of
+// these is counted, not reported, so novel crashes still surface. Remove an entry once
+// its issue is fixed so the fuzzer guards against regressions again.
+var knownCrashes = []knownDivergence{
+	{
+		name: "cache-lookahead-arg-scope",
+		why:  "mz872: with FF_KANIKO_CACHE_LOOKAHEAD the aggregate finalCacheKey over-includes a later-declared ARG in an earlier command, so the precompute and the build disagree and the executor.build.cache-lookahead assertion fires",
+		flag: "FF_KANIKO_CACHE_LOOKAHEAD",
+		match: func(crash string) bool {
+			return strings.Contains(crash, "executor.build.cache-lookahead")
+		},
+	},
+}
+
+// knownCrashName returns the class name if the crash line matches a known filed crash,
+// else "". Used to count-not-report crashes that are already understood.
+func knownCrashName(crash string) string {
+	for _, kc := range knownCrashes {
+		if kc.match(crash) {
+			return kc.name
+		}
+	}
+	return ""
+}
+
+// mz876CrossStage names the cross-stage snapshot-nondeterminism class. A cache or
+// reproducible-determinism diff on a Dockerfile with a cross-stage reference is mz876,
+// which is filed and load-dependent. It dominates campaigns (20+ of a run), so it is
+// counted, not reported, to keep genuinely novel findings visible.
+const mz876CrossStage = "mz876-snapshot-map-leak"
+
+// mz873SharedCollision names the shared-cache key-collision class. The shared-cache oracle
+// deterministically reproduces mz873 (the join-separator collision, filed as #873) on every
+// colliding-arg case, so it is counted, not reported, to keep novel findings visible.
+const mz873SharedCollision = "mz873-shared-cache-collision"
+
+// isCrossStage reports whether the Dockerfile references an earlier stage (FROM a stage
+// or COPY --from a stage), the shape that triggers the mz876 shared-snapshotter bug.
+func isCrossStage(dockerfile string) bool {
+	return strings.Contains(dockerfile, "FROM stage") ||
+		strings.Contains(dockerfile, "COPY --from=stage") ||
+		crossStageCopyIdx.MatchString(dockerfile)
 }
 
 // allKnownClasses is every known class, for reporting the campaign baseline.
 func allKnownClasses() []knownDivergence {
-	return append(append([]knownDivergence{}, dockerKnownDivergences...), knownBuildFailures...)
+	classes := append([]knownDivergence{}, dockerKnownDivergences...)
+	classes = append(classes, knownBuildFailures...)
+	classes = append(classes, knownCrashes...)
+	// Structural classes, counted by the oracle rather than matched on diff text.
+	classes = append(classes, knownDivergence{name: mz876CrossStage, why: "cross-stage snapshot nondeterminism (mz876), load-dependent", flag: ""})
+	return append(classes, knownDivergence{name: mz873SharedCollision, why: "shared-cache key-collision (mz873, #873), reproduced deterministically by the shared-cache oracle", flag: ""})
 }
 
 // diffTypes are the leading tokens diffoci uses for a diff row. A line starting
