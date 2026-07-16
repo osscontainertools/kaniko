@@ -5,7 +5,8 @@
 # content, so with caching on stage two reuses stage one's layer and /two ends
 # up with stage one's content, diverging from docker. Fixed by length-framing
 # each key component.
-FROM busybox AS one
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS one
 COPY <<A <<B /out
 a
 A
@@ -13,7 +14,7 @@ A
 b
 B
 
-FROM busybox AS two
+FROM ${IMAGE_REPO}busybox AS two
 COPY <<A <<B /out
 a
 
@@ -21,6 +22,6 @@ A
 b
 B
 
-FROM busybox
+FROM ${IMAGE_REPO}busybox
 COPY --from=one /out /one
 COPY --from=two /out /two

@@ -126,7 +126,6 @@ var WarmerEnv = []string{}
 
 // Arguments to build Dockerfiles with when building with docker
 var additionalDockerFlagsMap = map[string][]string{
-	"Dockerfile_test_issue_mz822": {"--provenance=false"},
 	"Dockerfile_test_target":      {"--target=second"},
 	"Dockerfile_test_issue_cg188": {"--secret=id=netrc,env=SECRET"},
 	"Dockerfile_test_issue_mz511": {"--secret=id=netrc,src=context/foo"},
