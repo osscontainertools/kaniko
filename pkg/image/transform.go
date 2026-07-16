@@ -210,12 +210,13 @@ func relabelLayers(img v1.Image, vendor string) (v1.Image, error) {
 		}
 		relabeled.Layers[i].MediaType = mt
 	}
-	return &layerRelabeledImage{Image: img, manifest: relabeled}, nil
+	return &layerRelabeledImage{Image: img, manifest: relabeled, vendor: vendor}, nil
 }
 
 type layerRelabeledImage struct {
 	v1.Image
 	manifest *v1.Manifest
+	vendor   string
 }
 
 func (i *layerRelabeledImage) Manifest() (*v1.Manifest, error) {
@@ -224,6 +225,48 @@ func (i *layerRelabeledImage) Manifest() (*v1.Manifest, error) {
 
 func (i *layerRelabeledImage) RawManifest() ([]byte, error) {
 	return json.Marshal(i.manifest)
+}
+
+func (i *layerRelabeledImage) relabel(l v1.Layer) (v1.Layer, error) {
+	mt, err := l.MediaType()
+	if err != nil {
+		return nil, err
+	}
+	relabeled, err := relabelLayerMediaType(mt, i.vendor)
+	if err != nil {
+		return nil, err
+	}
+	return &mediaTypeLayer{Layer: l, mediaType: relabeled}, nil
+}
+
+func (i *layerRelabeledImage) Layers() ([]v1.Layer, error) {
+	layers, err := i.Image.Layers()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]v1.Layer, len(layers))
+	for j, l := range layers {
+		if out[j], err = i.relabel(l); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+func (i *layerRelabeledImage) LayerByDigest(h v1.Hash) (v1.Layer, error) {
+	l, err := i.Image.LayerByDigest(h)
+	if err != nil {
+		return nil, err
+	}
+	return i.relabel(l)
+}
+
+func (i *layerRelabeledImage) LayerByDiffID(h v1.Hash) (v1.Layer, error) {
+	l, err := i.Image.LayerByDiffID(h)
+	if err != nil {
+		return nil, err
+	}
+	return i.relabel(l)
 }
 
 func mediaTypeVendor(mt types.MediaType) string {
