@@ -35,6 +35,7 @@ type FeatureFlags struct {
 	CopyChmodOnImplicitDirs        bool
 	DeprecateInterStageRestore     bool
 	DisableHTTP2                   bool
+	ExpandHeredoc                  bool
 	IgnoreCachedManifest           bool
 	InferCrossStageCacheKey        bool
 	NoPropagateAnnotations         bool
@@ -45,6 +46,7 @@ type FeatureFlags struct {
 	PreserveMountedPaths           bool
 	ReproduciblePreserveBaseLayers bool
 	ResolveCacheKey                bool
+	RollingCacheKey                bool
 	RunHonorGroup                  bool
 	RunMountBind                   bool
 	RunViaTini                     bool
@@ -98,6 +100,7 @@ func InitFeatureFlags() {
 		CopyChmodOnImplicitDirs:        featureFlag("FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS", false),
 		DeprecateInterStageRestore:     featureFlag("FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE", true),
 		DisableHTTP2:                   featureFlag("FF_KANIKO_DISABLE_HTTP2", false),
+		ExpandHeredoc:                  featureFlag("FF_KANIKO_EXPAND_HEREDOC", false),
 		IgnoreCachedManifest:           featureFlag("FF_KANIKO_IGNORE_CACHED_MANIFEST", false),
 		InferCrossStageCacheKey:        featureFlag("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", false),
 		NoPropagateAnnotations:         featureFlag("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS", true),
@@ -108,6 +111,7 @@ func InitFeatureFlags() {
 		PreserveMountedPaths:           featureFlag("FF_KANIKO_PRESERVE_MOUNTED_PATHS", true),
 		ReproduciblePreserveBaseLayers: featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS", false),
 		ResolveCacheKey:                featureFlag("FF_KANIKO_RESOLVE_CACHE_KEY", false),
+		RollingCacheKey:                featureFlag("FF_KANIKO_ROLLING_CACHE_KEY", false),
 		RunHonorGroup:                  featureFlag("FF_KANIKO_RUN_HONOR_GROUP", false),
 		RunMountBind:                   featureFlag("FF_KANIKO_RUN_MOUNT_BIND", true),
 		RunViaTini:                     featureFlag("FF_KANIKO_RUN_VIA_TINI", false),
@@ -121,6 +125,8 @@ func InitFeatureFlags() {
 	}
 
 	fields := reflect.TypeFor[FeatureFlags]().NumField()
+	unique := len(slices.Compact(slices.Sorted(slices.Values(knownFeatureFlags))))
+	assert.Assert("config.featureflags.unique", unique == len(knownFeatureFlags), "FeatureFlags registered %d flags but only %d are unique; each flag name must be registered once", len(knownFeatureFlags), unique)
 	assert.Assert("config.featureflags.complete", fields == len(knownFeatureFlags), "FeatureFlags has %d fields but %d are initialized; every field must be set via featureFlag", fields, len(knownFeatureFlags))
 }
 
