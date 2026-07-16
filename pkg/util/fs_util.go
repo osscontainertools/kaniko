@@ -682,9 +682,9 @@ func resetFileOwnershipIfNotMatching(path string, newUID, newGID uint32) error {
 }
 
 // CreateFile creates a file at path and copies over contents from the reader
-func CreateFile(path string, reader io.Reader, perm os.FileMode, uid uint32, gid uint32) error {
+func CreateFile(path string, reader io.Reader, perm os.FileMode, dirPerm os.FileMode, uid uint32, gid uint32) error {
 	// Create directory path if it doesn't exist
-	if err := createParentDirectory(path, int(uid), int(gid)); err != nil {
+	if err := createParentDirectory(path, int(uid), int(gid), dirPerm); err != nil {
 		return fmt.Errorf("creating parent dir: %w", err)
 	}
 
@@ -734,7 +734,7 @@ func DownloadFileToDest(rawurl, dest string, uid, gid int64, chmod fs.FileMode) 
 		return fmt.Errorf("invalid response status %d", resp.StatusCode)
 	}
 
-	if err := CreateFile(dest, resp.Body, chmod, uint32(uid), uint32(gid)); err != nil {
+	if err := CreateFile(dest, resp.Body, chmod, 0o755, uint32(uid), uint32(gid)); err != nil {
 		return err
 	}
 	mTime := time.Time{}
@@ -957,7 +957,7 @@ func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod mode.
 		perm = chmod.Apply(fi.Mode())
 	}
 
-	err = CreateFile(dest, srcFile, perm, uint32(uid), uint32(gid))
+	err = CreateFile(dest, srcFile, perm, chmod.Apply(0o755), uint32(uid), uint32(gid))
 	if err != nil {
 		return false, err
 	}
@@ -985,7 +985,7 @@ func CopyFileInternal(src, dest string, _ FileContext) error {
 	gid := fi.Sys().(*syscall.Stat_t).Gid
 	mode := fi.Mode()
 
-	err = CreateFile(dest, srcFile, mode, uid, gid)
+	err = CreateFile(dest, srcFile, mode, 0o755, uid, gid)
 	if err != nil {
 		return err
 	}
@@ -1327,7 +1327,11 @@ func CopyTimestamps(src string, dest string) error {
 	return nil
 }
 
-func createParentDirectory(path string, uid int, gid int) error {
+func createParentDirectory(path string, uid int, gid int, dirPerm ...os.FileMode) error {
+	perm := os.FileMode(0o755)
+	if len(dirPerm) > 0 && config.FF.CopyChmodOnImplicitDirs {
+		perm = dirPerm[0]
+	}
 	baseDir := filepath.Dir(path)
 	if info, err := os.Lstat(baseDir); os.IsNotExist(err) {
 		logrus.Tracef("BaseDir %s for file %s does not exist. Creating.", baseDir, path)
@@ -1343,7 +1347,7 @@ func createParentDirectory(path string, uid int, gid int) error {
 			dir := dirs[i]
 
 			if _, err := os.Lstat(dir); os.IsNotExist(err) {
-				err = os.Mkdir(dir, 0o755)
+				err = os.Mkdir(dir, perm)
 				if err != nil {
 					return err
 				}
