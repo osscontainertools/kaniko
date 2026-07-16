@@ -20,7 +20,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"hash"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -138,7 +137,6 @@ func (s *CompositeCache) AddPath(p string, context util.FileContext) error {
 // HashDir returns a hash of the directory.
 func hashDir(p string, context util.FileContext) (bool, string, error) {
 	sha := sha256.New()
-	framed := config.FF.HashDirFraming
 	empty := true
 	if err := fs.WalkDir(util.FSys, p, func(path string, _ fs.DirEntry, err error) error {
 		if err != nil {
@@ -164,7 +162,13 @@ func hashDir(p string, context util.FileContext) (bool, string, error) {
 			return err
 		}
 
-		if err := writeDirHashEntry(sha, strings.TrimPrefix(absPath, absRoot), fileHash, framed); err != nil {
+		relPath := strings.TrimPrefix(absPath, absRoot)
+		if config.FF.HashDirFraming {
+			_, err = fmt.Fprintf(sha, "%d:%s%d:%s", len(relPath), relPath, len(fileHash), fileHash)
+		} else {
+			_, err = sha.Write([]byte(relPath + fileHash))
+		}
+		if err != nil {
 			return err
 		}
 		empty = false
@@ -174,17 +178,4 @@ func hashDir(p string, context util.FileContext) (bool, string, error) {
 	}
 
 	return empty, hex.EncodeToString(sha.Sum(nil)), nil
-}
-
-func writeDirHashEntry(sha hash.Hash, path, fileHash string, framed bool) error {
-	if !framed {
-		if _, err := sha.Write([]byte(path)); err != nil {
-			return err
-		}
-		_, err := sha.Write([]byte(fileHash))
-		return err
-	}
-
-	_, err := fmt.Fprintf(sha, "%d:%s%d:%s", len(path), path, len(fileHash), fileHash)
-	return err
 }

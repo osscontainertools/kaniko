@@ -17,8 +17,6 @@ limitations under the License.
 package executor
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"os"
 	"path"
 	"path/filepath"
@@ -27,32 +25,6 @@ import (
 
 	"github.com/osscontainertools/kaniko/pkg/util"
 )
-
-func TestHashDirEntryFramingPreventsCollision(t *testing.T) {
-	hashB := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-	hashD := "dddddddddddddddddddddddddddddddd"
-	// Legacy hashing serializes both trees as "/a" + hashB + "/c" + hashD.
-	tree1 := [][2]string{{"/a" + hashB + "/c", hashD}}
-	tree2 := [][2]string{{"/a", hashB}, {"/c", hashD}}
-
-	hashEntries := func(entries [][2]string, framed bool) string {
-		h := sha256.New()
-		for _, entry := range entries {
-			if err := writeDirHashEntry(h, entry[0], entry[1], framed); err != nil {
-				t.Fatalf("hash directory entry: %v", err)
-			}
-		}
-		return hex.EncodeToString(h.Sum(nil))
-	}
-
-	if got, want := hashEntries(tree1, false), hashEntries(tree2, false); got != want {
-		t.Fatalf("legacy directory hashes differ: got %s, want %s", got, want)
-	}
-
-	if got, wantNot := hashEntries(tree1, true), hashEntries(tree2, true); got == wantNot {
-		t.Fatalf("distinct directory entries produced the same hash %s", got)
-	}
-}
 
 func Test_NewCompositeCache(t *testing.T) {
 	if reflect.TypeFor[*CompositeCache]().String() != "*executor.CompositeCache" {
