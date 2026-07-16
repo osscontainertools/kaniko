@@ -123,6 +123,7 @@ var RootCmd = &cobra.Command{
 			if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {
 				return err
 			}
+			config.LogFeatureFlags()
 
 			ValidateFlags(opts)
 
@@ -212,7 +213,7 @@ var RootCmd = &cobra.Command{
 		if err := os.Chdir("/"); err != nil {
 			exit(fmt.Errorf("error changing to root dir: %w", err))
 		}
-		if opts.Cleanup && config.EnvBoolDefault("FF_KANIKO_CLEAN_KANIKO_DIR", true) {
+		if opts.Cleanup && config.FF.CleanKanikoDir {
 			defer func() {
 				if err := config.Cleanup(); err != nil {
 					logrus.Warnf("error cleaning kaniko dir: %v", err)
@@ -395,7 +396,7 @@ func checkNoDeprecatedFlags() {
 		logrus.Warn("Flag --skip-unused-stages is deprecated. This is the new default behaviour. If you want to build multiple independent stages pass them as --target instead")
 	}
 
-	if !config.EnvBoolDefault("FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE", true) {
+	if !config.FF.DeprecateInterStageRestore {
 		if opts.PreserveContext && !opts.PreCleanup {
 			logrus.Warn("--preserve-context without --pre-cleanup restores the original context between stages; this is deprecated and will be removed. Use --mount=type=secret for secrets. Set FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE=1 to opt into the new behaviour now.")
 		}

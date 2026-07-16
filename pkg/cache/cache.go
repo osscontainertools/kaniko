@@ -196,7 +196,7 @@ func LocalSource(opts *config.CacheOptions, cacheKey string) (v1.Image, error) {
 	}
 
 	logrus.Infof("Found %s in local cache", cacheKey)
-	if config.EnvBoolDefault("FF_KANIKO_OCI_WARMER", true) {
+	if config.FF.OCIWarmer {
 		return ociCachedImageFromPath(path)
 	} else {
 		return cachedImageFromPath(path)
@@ -218,7 +218,7 @@ func (c *cachedImage) Digest() (v1.Hash, error) {
 }
 
 func (c *cachedImage) Manifest() (*v1.Manifest, error) {
-	if config.EnvBool("FF_KANIKO_IGNORE_CACHED_MANIFEST") || c.mfst == nil {
+	if config.FF.IgnoreCachedManifest || c.mfst == nil {
 		return c.Image.Manifest()
 	}
 	return c.mfst, nil

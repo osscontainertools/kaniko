@@ -39,7 +39,7 @@ func NewCompositeCache(initial ...string) *CompositeCache {
 }
 
 func ResumeCompositeCache(state string) *CompositeCache {
-	if !config.EnvBool("FF_KANIKO_ROLLING_CACHE_KEY") {
+	if !config.FF.RollingCacheKey {
 		return NewCompositeCache(state)
 	}
 	return &CompositeCache{state: state, keys: []string{state}}
@@ -58,7 +58,7 @@ func (s CompositeCache) Clone() CompositeCache {
 
 // AddKey adds the specified key to the sequence.
 func (s *CompositeCache) AddKey(k ...string) {
-	if config.EnvBool("FF_KANIKO_ROLLING_CACHE_KEY") {
+	if config.FF.RollingCacheKey {
 		for _, key := range k {
 			state := s.state
 			if state == "" {
@@ -78,7 +78,7 @@ func (s *CompositeCache) Key() string {
 
 // State returns the representation that ResumeCompositeCache resumes from.
 func (s *CompositeCache) State() string {
-	if !config.EnvBool("FF_KANIKO_ROLLING_CACHE_KEY") {
+	if !config.FF.RollingCacheKey {
 		return s.Key()
 	}
 	if s.state == "" {
@@ -89,7 +89,7 @@ func (s *CompositeCache) State() string {
 
 // Hash returns the composite key in a string SHA256 format.
 func (s *CompositeCache) Hash() (string, error) {
-	if !config.EnvBool("FF_KANIKO_ROLLING_CACHE_KEY") {
+	if !config.FF.RollingCacheKey {
 		return util.SHA256(strings.NewReader(s.Key()))
 	}
 	if s.state == "" {

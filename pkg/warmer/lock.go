@@ -21,7 +21,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/osscontainertools/kaniko/pkg/util"
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	"golang.org/x/sys/unix"
 )
 
@@ -64,7 +64,7 @@ func acquireCacheLock(cacheDir, key string) (*cacheLock, error) {
 // Release unlocks the flock and closes the underlying fd. It must be called
 // exactly once per successful acquireCacheLock.
 func (l *cacheLock) Release() {
-	util.Assert("warmer.cache-lock.single-release", !l.released, "Release() must not be called twice")
+	assert.Assert("warmer.cache-lock.single-release", !l.released, "Release() must not be called twice")
 	l.released = true
 	_ = unix.Flock(int(l.f.Fd()), unix.LOCK_UN)
 	_ = l.f.Close()

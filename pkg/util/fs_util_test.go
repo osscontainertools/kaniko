@@ -1363,7 +1363,8 @@ func Test_correctDockerignoreFileIsUsed(t *testing.T) {
 }
 
 func Test_ExcludesFile_AbsoluteOutsideBuildContext(t *testing.T) {
-	t.Setenv("FF_KANIKO_SCOPED_DOCKERIGNORE", "1")
+	config.FF.ScopedDockerignore = true
+	t.Cleanup(func() { config.FF.ScopedDockerignore = false })
 	tempDir := t.TempDir()
 
 	// dockerignore, allowlist style

@@ -30,6 +30,7 @@ import (
 
 	"github.com/moby/go-archive"
 	"github.com/moby/go-archive/compression"
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/sirupsen/logrus"
 )
@@ -81,7 +82,7 @@ func (t *Tar) AddFileToTar(p string) error {
 		return err
 	}
 
-	Assert("tar.root-path-excluded", p != config.RootDir, "snapshot must not include root path '/'")
+	assert.Assert("tar.root-path-excluded", p != config.RootDir, "snapshot must not include root path '/'")
 
 	// Docker uses no leading / in the tarball
 	hdr.Name = strings.TrimPrefix(p, config.RootDir)

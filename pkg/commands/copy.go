@@ -25,6 +25,7 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -58,7 +59,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		}
 	} else {
 		user := config.User
-		if kConfig.EnvBool("FF_KANIKO_COPY_AS_ROOT") {
+		if kConfig.FF.CopyAsRoot {
 			// According to spec: https://docs.docker.com/reference/dockerfile/#copy---chown---chmod
 			//   All files and directories copied from the build context
 			//   are created with a default UID and GID of 0.
@@ -158,7 +159,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		}
 
 		data := src.Data
-		if src.Expand && kConfig.EnvBool("FF_KANIKO_EXPAND_HEREDOC") {
+		if src.Expand && kConfig.FF.ExpandHeredoc {
 			expanded, err := util.ResolveEnvironmentReplacementRaw(src.Data, replacementEnvs)
 			if err != nil {
 				return fmt.Errorf("expanding heredoc content: %w", err)
@@ -204,7 +205,7 @@ func resolvedCacheKey(instruction string, contents []instructions.SourceContent,
 	fmt.Fprintf(&key, "%d:%s", len(resolved), resolved)
 	for _, src := range contents {
 		content := src.Data
-		if src.Expand && kConfig.EnvBool("FF_KANIKO_EXPAND_HEREDOC") {
+		if src.Expand && kConfig.FF.ExpandHeredoc {
 			content, err = util.ResolveEnvironmentReplacementRaw(src.Data, replacementEnvs)
 			if err != nil {
 				return "", err
@@ -376,7 +377,7 @@ func copyCmdFilesUsedFromContext(
 		files = append(files, fullPath)
 	}
 
-	util.Assert("copy.files-count", len(files) <= len(srcs), "copyCmdFilesUsedFromContext: result cannot exceed source count (srcs=%d, files=%d)", len(srcs), len(files))
+	assert.Assert("copy.files-count", len(files) <= len(srcs), "copyCmdFilesUsedFromContext: result cannot exceed source count (srcs=%d, files=%d)", len(srcs), len(files))
 	logrus.Debugf("Using files from context: %v", files)
 
 	return files, nil

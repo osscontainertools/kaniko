@@ -44,7 +44,7 @@ var (
 	retrieveOciImage             = ociImage
 	EmptyBaseImage      v1.Image = func() v1.Image {
 		image := empty.Image
-		if config.EnvBool("FF_KANIKO_OCI_SCRATCH_BASE") {
+		if config.FF.OCIScratchBase {
 			image = mutate.ConfigMediaType(
 				mutate.MediaType(image, types.OCIManifestSchema1),
 				types.OCIConfigJSON,
