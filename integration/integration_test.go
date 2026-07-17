@@ -1632,11 +1632,11 @@ func TestCustomPlatformVariant(t *testing.T) {
 
 func diffoci(t *testing.T, image1, image2, platform string, flags ...string) *exec.Cmd {
 	// workaround for container-diff OCI issue https://github.com/GoogleContainerTools/container-diff/issues/389
-	pullArgs := []string{"pull"}
-	if platform != "" {
-		pullArgs = append(pullArgs, "--platform="+platform)
-		flags = append(flags, "--platform="+platform)
+	if platform == "" {
+		platform = "linux/" + runtime.GOARCH
 	}
+	pullArgs := []string{"pull", "--platform=" + platform}
+	flags = append(flags, "--platform="+platform)
 	out := RunCommand(exec.Command("docker", append(pullArgs, image1)...), t)
 	t.Logf("docker pull cmd output for image1 = %s", string(out))
 	image1 = daemonPrefix + image1
