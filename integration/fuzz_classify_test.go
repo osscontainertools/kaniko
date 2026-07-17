@@ -58,25 +58,6 @@ var dockerKnownDivergences = []knownDivergence{
 		},
 	},
 	{
-		name: "chmod-implicit-parent-dir",
-		why:  "COPY --chmod is not applied to implicitly created parent dirs; kaniko leaves them at 0755 (0x1ed) while docker uses the chmod value (mz863)",
-		flag: "FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS",
-		match: func(row string) bool {
-			// A directory-mode row (File <path>/ Mode ...) where the kaniko side is
-			// the default 0755. The 0x1ed tell keeps this from swallowing other mode diffs.
-			return strings.HasPrefix(row, "File") && strings.Contains(row, "Mode ") && strings.Contains(row, "0x1ed")
-		},
-	},
-	{
-		name: "workdir-implicit-dir-ownership",
-		why:  "WORKDIR leaves implicitly created parent dirs owned by root while docker owns them by the active USER; kaniko chowns only the leaf (mz864)",
-		flag: "",
-		match: func(row string) bool {
-			// A directory-ownership row where the kaniko side is root (Uid 0).
-			return strings.HasPrefix(row, "File") && strings.Contains(row, "Uid ") && strings.HasSuffix(strings.TrimSpace(row), "Uid 0")
-		},
-	},
-	{
 		name: "noop-run-unchanged-dir-layer",
 		why:  "when a RUN makes no net filesystem change, docker emits an empty layer but kaniko includes the unchanged parent directory, so layer contents and count diverge (mz595)",
 		flag: "",
@@ -96,14 +77,6 @@ var knownBuildFailures = []knownDivergence{
 		flag: "",
 		match: func(out string) bool {
 			return strings.Contains(out, "resolving dest symlink: failed to eval symlinks")
-		},
-	},
-	{
-		name: "runv2-mount-cache-lstat",
-		why:  "mz879: with --use-new-run a RUN --mount=type=bind source is added to the cache key as a relative path, so the cache-consume build fails to lstat it",
-		flag: "",
-		match: func(out string) bool {
-			return strings.Contains(out, "could not add path: lstat")
 		},
 	},
 	{
@@ -148,11 +121,6 @@ func knownCrashName(crash string) string {
 // counted, not reported, to keep genuinely novel findings visible.
 const mz876CrossStage = "mz876-snapshot-map-leak"
 
-// mz873SharedCollision names the shared-cache key-collision class. The shared-cache oracle
-// deterministically reproduces mz873 (the join-separator collision, filed as #873) on every
-// colliding-arg case, so it is counted, not reported, to keep novel findings visible.
-const mz873SharedCollision = "mz873-shared-cache-collision"
-
 // isCrossStage reports whether the Dockerfile references an earlier stage (FROM a stage
 // or COPY --from a stage), the shape that triggers the mz876 shared-snapshotter bug.
 func isCrossStage(dockerfile string) bool {
@@ -167,8 +135,7 @@ func allKnownClasses() []knownDivergence {
 	classes = append(classes, knownBuildFailures...)
 	classes = append(classes, knownCrashes...)
 	// Structural classes, counted by the oracle rather than matched on diff text.
-	classes = append(classes, knownDivergence{name: mz876CrossStage, why: "cross-stage snapshot nondeterminism (mz876), load-dependent", flag: ""})
-	return append(classes, knownDivergence{name: mz873SharedCollision, why: "shared-cache key-collision (mz873, #873), reproduced deterministically by the shared-cache oracle", flag: ""})
+	return append(classes, knownDivergence{name: mz876CrossStage, why: "cross-stage snapshot nondeterminism (mz876), load-dependent", flag: ""})
 }
 
 // diffTypes are the leading tokens diffoci uses for a diff row. A line starting
