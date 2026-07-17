@@ -54,20 +54,7 @@ jobs:
         with:
           version: 29.5.2
 
-      - run: make install-diffoci k3s-setup
-      - name: restart dockerd after setup (no version change)
-        run: |
-          set -eux
-          docker info | grep -i 'containerd version'
-          RUN=$(ls -d /home/runner/setup-docker-action/run-*)
-          D=/opt/hostedtoolcache/docker-archive-stable/29.5.2/x64
-          sudo kill "$(cat "$RUN/docker.pid")" || true
-          sleep 3
-          sudo pkill -f "$D/containerd" || true
-          sleep 1
-          sudo "$D/dockerd" --host="unix://$RUN/docker.sock" --config-file="$RUN/daemon.json" --exec-root="$RUN/execroot" --data-root="$RUN/data" --pidfile="$RUN/docker.pid" >/tmp/dockerd.log 2>&1 &
-          for i in $(seq 1 20); do docker info >/dev/null 2>&1 && break; sleep 2; done
-          docker info | grep -i 'containerd version'
+      - run: make install-diffoci
       - run: make integration-test-run
 
       - name: Convert and upload coverage
