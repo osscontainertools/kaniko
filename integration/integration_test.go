@@ -129,10 +129,10 @@ func buildRequiredImages() error {
 		command []string
 	}{{
 		name:    "Building kaniko image",
-		command: []string{"docker", "build", coverArg, "-t", ExecutorImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-executor", ".."},
+		command: []string{"docker", "build", "--provenance=false", coverArg, "-t", ExecutorImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-executor", ".."},
 	}, {
 		name:    "Building cache warmer image",
-		command: []string{"docker", "build", coverArg, "-t", WarmerImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-warmer", ".."},
+		command: []string{"docker", "build", "--provenance=false", coverArg, "-t", WarmerImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-warmer", ".."},
 	}, {
 		name:    "Building busybox base image",
 		command: []string{"docker", "build", "--push", "--provenance=false", "-t", config.busyboxBaseImage, "-f", dockerfilesPath + "/Dockerfile_busybox_base", "."},
@@ -150,10 +150,10 @@ func buildRequiredImages() error {
 		command: []string{"docker", "build", "--push", "--provenance=false", "-t", config.hardlinkBaseImage, "-f", dockerfilesPath + "/Dockerfile_hardlink_base", "."},
 	}, {
 		name:    "Building kaniko image with moved kaniko dir",
-		command: []string{"docker", "build", coverArg, "-t", ExecutorImageMoved, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz444", "--target", "kaniko", "."},
+		command: []string{"docker", "build", "--provenance=false", coverArg, "-t", ExecutorImageMoved, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz444", "--target", "kaniko", "."},
 	}, {
 		name:    "Building kaniko image with leftover stuff in the filesystem",
-		command: []string{"docker", "build", coverArg, "-t", ExecutorImageTainted, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz455", "--target", "kaniko", "."},
+		command: []string{"docker", "build", "--provenance=false", coverArg, "-t", ExecutorImageTainted, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz455", "--target", "kaniko", "."},
 	}, {
 		name:    "Building hijack base image",
 		command: []string{"docker", "build", "--push", "--provenance=false", "-t", config.hijackBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz560", "--target", "base", "."},
@@ -165,7 +165,7 @@ func buildRequiredImages() error {
 		command: []string{"docker", "build", "--push", "--provenance=false", "-t", config.nvidiaOperatorBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz753", "--target", "base", "."},
 	}, {
 		name:    "Building kaniko image based on alpine",
-		command: []string{"docker", "build", coverArg, "-t", AlpineImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-alpine", ".."},
+		command: []string{"docker", "build", "--provenance=false", coverArg, "-t", AlpineImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-alpine", ".."},
 	}}
 
 	for _, setupCmd := range setupCommands {
@@ -308,6 +308,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--provenance=false",
 			"--push",
 			"-t", dockerImage,
 			"-f", dockerfile,
@@ -380,6 +381,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--provenance=false",
 			"--push",
 			"-t", dockerImage,
 			"-f", filepath.Join(integrationPath, dockerfilesPath, dockerfile),
@@ -425,6 +427,7 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--provenance=false",
 			"--push",
 			"-t", dockerImage,
 			"-f", dockerfile,
@@ -468,6 +471,7 @@ func TestBuildViaRegistryMap(t *testing.T) {
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--provenance=false",
 			"-t", dockerImage,
 			"-f", dockerfile,
 			"--push",
@@ -538,6 +542,7 @@ func TestKanikoDir(t *testing.T) {
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--provenance=false",
 			"-t", dockerImage,
 			"-f", dockerfile,
 			"--push",
@@ -582,6 +587,7 @@ func TestBuildWithLabels(t *testing.T) {
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--provenance=false",
 			"--push",
 			"-t", dockerImage,
 			"-f", dockerfile,
@@ -626,6 +632,7 @@ func TestBuildWithHTTPError(t *testing.T) {
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--provenance=false",
 			"-t", dockerImage,
 			"-f", dockerfile,
 			DockerGitRepo(url, "", branch),
@@ -1206,6 +1213,7 @@ func TestExitCodePropagation(t *testing.T) {
 		dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_exit_code_propagation")
 		dockerFlags := []string{
 			"build",
+			"--provenance=false",
 			"-t", dockerImage,
 			"-f", dockerfile,
 		}
@@ -1276,6 +1284,7 @@ func TestBuildWithAnnotations(t *testing.T) {
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_annotation")
 	dockerCmd := exec.Command("docker",
 		"build",
+		"--provenance=false",
 		"--push",
 		"-t", dockerImage,
 		"-f", dockerfile,

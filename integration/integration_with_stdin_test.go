@@ -84,6 +84,7 @@ func TestBuildWithStdin(t *testing.T) {
 	dockerCmd := exec.Command("docker",
 		[]string{
 			"build",
+			"--provenance=false",
 			"--push",
 			"-t", dockerImage,
 			"-f", dockerfile,
