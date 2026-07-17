@@ -18,6 +18,7 @@ package integration
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -36,9 +37,43 @@ type knownDivergence struct {
 	match func(row string) bool
 }
 
+// implicitDirChmodDivergence recognizes the mz922 implicit-parent-dir chmod class on a
+// diffoci row. diffoci prints the docker mode first and the kaniko mode second. It matches
+// a directory row (path ends with "/") that is a pure mode diff where the kaniko mode is
+// either the docker mode with the launcher umask cleared (the COPY masking, 0777 to 0755)
+// or the plain default 0755 (the ADD-from-URL path never applying the mode).
+func implicitDirChmodDivergence(row string) bool {
+	fields := strings.Fields(row)
+	if len(fields) < 2 || fields[0] != "File" || !strings.HasSuffix(fields[1], "/") {
+		return false
+	}
+	var modes []int64
+	for _, f := range fields {
+		if strings.HasPrefix(f, "0x") {
+			v, err := strconv.ParseInt(f[2:], 16, 32)
+			if err == nil {
+				modes = append(modes, v&0o7777)
+			}
+		}
+	}
+	if len(modes) != 2 {
+		return false
+	}
+	docker, kaniko := modes[0], modes[1]
+	return docker != kaniko && (kaniko == docker&^0o22 || kaniko == 0o755)
+}
+
 // dockerKnownDivergences are the classes observed on the docker oracle. The cache
 // oracle passes no allowlist, so any cache diff is treated as novel.
 var dockerKnownDivergences = []knownDivergence{
+	{
+		name: "chmod-implicit-parent-dir",
+		why:  "mz922: COPY/ADD --chmod is not applied verbatim to implicitly created parent dirs. The COPY path masks the explicit mode with the launcher umask (kaniko == docker &^ 022, so 0777 becomes 0755), and the ADD-from-URL path never applies it (kaniko stays 0755). Pre-existing, only partially closed by the mz863 fix",
+		flag: "FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS",
+		match: func(row string) bool {
+			return implicitDirChmodDivergence(row)
+		},
+	},
 	{
 		name: "history-metadata-instructions",
 		why:  "kaniko omits history rows for metadata-only instructions (ENV, LABEL, ...) that docker records with empty_layer=true, and formats created_by differently (\"RUN mkdir\" vs buildkit's \"RUN /bin/sh -c mkdir # buildkit\"), so the history arrays differ in length and content",
