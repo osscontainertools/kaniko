@@ -1,0 +1,16 @@
+# mz921: COPY a relative symlink onto an existing copy of itself used to
+# resolve the destination symlink and write through to its target, turning the
+# sibling regular file into a self-referential symlink. The next snapshot then
+# looped on that self-link.
+# Regression since v1.28.0: the build aborts with
+# "failed to take snapshot: EvalSymlinks: too many links". Earlier releases
+# tolerated the corruption and finished. The RUN below fails on both, so it
+# guards the corruption itself, not only the abort.
+FROM alpine AS ctx
+RUN mkdir -p /c && printf hello > /c/ctx0 && ln -s ctx0 /c/linkS
+
+FROM alpine
+COPY --from=ctx /c/ctx0 /dest/ctx0
+COPY --from=ctx /c/linkS /dest/linkS
+COPY --from=ctx /c/linkS /dest/linkS
+RUN test ! -L /dest/ctx0 && test "$(cat /dest/ctx0)" = hello

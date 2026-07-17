@@ -321,8 +321,15 @@ func resolveIfSymlink(destPath string) (string, error) {
 	}
 
 	var nonexistentPaths []string
-
 	newPath := destPath
+
+	// Do not resolve a destination symlink itself: COPY must replace it rather
+	// than write through it to its target.
+	if fi, err := os.Lstat(destPath); err == nil && util.IsSymlink(fi) {
+		nonexistentPaths = append(nonexistentPaths, filepath.Base(destPath))
+		newPath = filepath.Dir(destPath)
+	}
+
 	for newPath != "/" {
 		_, err := os.Lstat(newPath)
 		if err != nil {
