@@ -1674,6 +1674,18 @@ func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
 	}
 	flags = append(flags, "--ignore-image-name", "--ignore-image-timestamps")
 	flags = append(flags, diffArgsMap[t.Name()]...)
-	diff := RunCommand(diffoci(t, image1, image2, platform, flags...), t)
+	diff, err := RunCommandWithoutTest(diffoci(t, image1, image2, platform, flags...))
+	if err != nil {
+		t.Logf("diffoci failed: %v\n%s", err, diff)
+		for _, img := range []string{image1, image2} {
+			raw, _ := RunCommandWithoutTest(exec.Command("docker", "buildx", "imagetools", "inspect", "--raw", img))
+			t.Logf("DIAG registry-raw %s: %s", img, raw)
+			plat, _ := RunCommandWithoutTest(exec.Command("docker", "buildx", "imagetools", "inspect", img, "--format", "{{.Image.OS}}/{{.Image.Architecture}}"))
+			t.Logf("DIAG registry-platform %s: %s", img, plat)
+			dae, _ := RunCommandWithoutTest(exec.Command("docker", "image", "inspect", "--format", "{{.Os}}/{{.Architecture}}", img))
+			t.Logf("DIAG daemon-platform %s: %s", img, dae)
+		}
+		t.Fatal(err)
+	}
 	t.Logf("diff = %s", string(diff))
 }
