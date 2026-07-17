@@ -21,15 +21,13 @@ jobs:
       IMAGE_REPO: 'localhost:5000'
       REGISTRY: 'localhost:5000'
       COVERAGE_DIR: '${{ github.workspace }}/out/covdata'
+      TEST_PARALLELISM: '1'
+      TEST_SHUFFLE_SEED: '${{ matrix.seed }}'
 
     strategy:
       fail-fast: false
       matrix:
-        make-target:
-          - integration-test-layers
-          - integration-test-misc
-          - integration-test-run
-          - k8s-executor-build-push integration-test-k8s
+        seed: [1, 2, 3, 4, 5, 6, 7, 8]
 
     steps:
       - name: Maximize build space
@@ -56,7 +54,7 @@ jobs:
           version: 29.6.1
 
       - run: make install-diffoci k3s-setup
-      - run: make ${{ matrix.make-target }}
+      - run: make integration-test-run
 
       - name: Convert and upload coverage
         run: |

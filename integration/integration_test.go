@@ -25,6 +25,7 @@ import (
 	"io"
 	"log"
 	"math"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -103,6 +104,17 @@ func runIntegrationTests(m *testing.M) int {
 	if err != nil {
 		fmt.Println("Coudn't create map of dockerfiles", err)
 		return 1
+	}
+	if seed := os.Getenv("TEST_SHUFFLE_SEED"); seed != "" {
+		n, perr := strconv.ParseInt(seed, 10, 64)
+		if perr != nil {
+			fmt.Println("invalid TEST_SHUFFLE_SEED", perr)
+			return 1
+		}
+		rand.New(rand.NewSource(n)).Shuffle(len(allDockerfiles), func(i, j int) {
+			allDockerfiles[i], allDockerfiles[j] = allDockerfiles[j], allDockerfiles[i]
+		})
+		log.Printf("TEST_SHUFFLE_SEED=%d order: %s", n, strings.Join(allDockerfiles, ","))
 	}
 
 	exitCode, err := launchTests(m)
