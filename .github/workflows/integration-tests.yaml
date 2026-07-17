@@ -12,7 +12,7 @@ permissions: {}
 
 jobs:
   tests:
-    name: bisect-${{ matrix.group }}
+    name: seed-${{ matrix.seed }}
     runs-on: ubuntu-24.04
 
     permissions:
@@ -23,24 +23,12 @@ jobs:
       REGISTRY: 'localhost:5000'
       COVERAGE_DIR: '${{ github.workspace }}/out/covdata'
       TEST_PARALLELISM: '1'
-      TEST_DOCKERFILE_LIST: '${{ matrix.list }}'
+      TEST_SHUFFLE_SEED: '${{ matrix.seed }}'
 
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - group: "g1-ctrl"
-            list: "Dockerfile_test_add_chown_intermediate_dirs,Dockerfile_test_issue_3393,Dockerfile_test_issue_mz320,Dockerfile_test_issue_mz896,Dockerfile_test_dockerignore,Dockerfile_test_complex_substitution"
-          - group: "no-add_chown_intermediate_dirs"
-            list: "Dockerfile_test_issue_3393,Dockerfile_test_issue_mz320,Dockerfile_test_issue_mz896,Dockerfile_test_dockerignore,Dockerfile_test_complex_substitution"
-          - group: "no-issue_3393"
-            list: "Dockerfile_test_add_chown_intermediate_dirs,Dockerfile_test_issue_mz320,Dockerfile_test_issue_mz896,Dockerfile_test_dockerignore,Dockerfile_test_complex_substitution"
-          - group: "no-issue_mz320"
-            list: "Dockerfile_test_add_chown_intermediate_dirs,Dockerfile_test_issue_3393,Dockerfile_test_issue_mz896,Dockerfile_test_dockerignore,Dockerfile_test_complex_substitution"
-          - group: "no-issue_mz896"
-            list: "Dockerfile_test_add_chown_intermediate_dirs,Dockerfile_test_issue_3393,Dockerfile_test_issue_mz320,Dockerfile_test_dockerignore,Dockerfile_test_complex_substitution"
-          - group: "no-dockerignore"
-            list: "Dockerfile_test_add_chown_intermediate_dirs,Dockerfile_test_issue_3393,Dockerfile_test_issue_mz320,Dockerfile_test_issue_mz896,Dockerfile_test_complex_substitution"
+        seed: [1, 2, 3, 7]
 
     steps:
       - name: Maximize build space
@@ -67,6 +55,22 @@ jobs:
           version: 29.5.2
 
       - run: make install-diffoci k3s-setup
+      - name: bump containerd only (keep docker 29.5.2)
+        run: |
+          set -eux
+          curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-29.6.1.tgz -o /tmp/d661.tgz
+          tar xzf /tmp/d661.tgz -C /tmp
+          /tmp/docker/containerd --version
+          D=/opt/hostedtoolcache/docker-archive-stable/29.5.2/x64
+          RUN=$(ls -d /home/runner/setup-docker-action/run-*)
+          sudo kill "$(cat "$RUN/docker.pid")" || true
+          sleep 3
+          sudo pkill -f "$D/containerd" || true
+          sleep 1
+          sudo cp /tmp/docker/containerd /tmp/docker/containerd-shim-runc-v2 /tmp/docker/ctr "$D/"
+          sudo "$D/dockerd" --host="unix://$RUN/docker.sock" --config-file="$RUN/daemon.json" --exec-root="$RUN/execroot" --data-root="$RUN/data" --pidfile="$RUN/docker.pid" >/tmp/dockerd.log 2>&1 &
+          for i in $(seq 1 20); do docker info >/dev/null 2>&1 && break; sleep 2; done
+          docker info | grep -i 'containerd version'
       - run: make integration-test-run
 
       - name: Convert and upload coverage
