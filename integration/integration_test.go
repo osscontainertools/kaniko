@@ -105,7 +105,10 @@ func runIntegrationTests(m *testing.M) int {
 		fmt.Println("Coudn't create map of dockerfiles", err)
 		return 1
 	}
-	if seed := os.Getenv("TEST_SHUFFLE_SEED"); seed != "" {
+	if list := os.Getenv("TEST_DOCKERFILE_LIST"); list != "" {
+		allDockerfiles = strings.Split(list, ",")
+		log.Printf("TEST_DOCKERFILE_LIST override: %d dockerfiles: %s", len(allDockerfiles), list)
+	} else if seed := os.Getenv("TEST_SHUFFLE_SEED"); seed != "" {
 		n, perr := strconv.ParseInt(seed, 10, 64)
 		if perr != nil {
 			fmt.Println("invalid TEST_SHUFFLE_SEED", perr)

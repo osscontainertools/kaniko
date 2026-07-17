@@ -12,6 +12,7 @@ permissions: {}
 
 jobs:
   tests:
+    name: bisect-${{ matrix.group }}
     runs-on: ubuntu-24.04
 
     permissions:
@@ -22,12 +23,30 @@ jobs:
       REGISTRY: 'localhost:5000'
       COVERAGE_DIR: '${{ github.workspace }}/out/covdata'
       TEST_PARALLELISM: '1'
-      TEST_SHUFFLE_SEED: '${{ matrix.seed }}'
+      TEST_DOCKERFILE_LIST: '${{ matrix.list }}'
 
     strategy:
       fail-fast: false
       matrix:
-        seed: [1, 2, 3, 4, 5, 6, 7, 8]
+        include:
+          - group: "all"
+            list: "Dockerfile_test_issue_mz332,Dockerfile_test_add_chown_intermediate_dirs,Dockerfile_test_multistage_args_issue_1911,Dockerfile_test_add_url_with_arg,Dockerfile_test_issue_mz282,Dockerfile_test_copy,Dockerfile_test_issue_cg188,Dockerfile_test_issue_mz622,Dockerfile_test_copy_symlink,Dockerfile_test_issue_3393,Dockerfile_test_volume_4,Dockerfile_test_cache_copy,Dockerfile_test_whitelist,Dockerfile_test_user_nonexisting,Dockerfile_test_issue_mz863,Dockerfile_test_issue_mz731,Dockerfile_test_copy_reproducible,Dockerfile_test_issue_mz320,Dockerfile_test_extraction,Dockerfile_test_issue_mz798,Dockerfile_test_run_new,Dockerfile_test_arg_from_single_quotes,Dockerfile_test_issue_mz247,Dockerfile_test_issue_mz276,Dockerfile_test_cache_copy_oci,Dockerfile_test_issue_mz896,Dockerfile_test_issue_mz595,Dockerfile_test_parent_dir_perms,Dockerfile_test_issue_mz334,Dockerfile_test_root,Dockerfile_test_issue_3429,Dockerfile_test_maintainer,Dockerfile_test_daemons,Dockerfile_test_dockerignore,Dockerfile_test_issue_1039,Dockerfile_test_expose,Dockerfile_test_copy_same_file_many_times,Dockerfile_test_issue_mz155,Dockerfile_test_complex_substitution"
+          - group: "g0"
+            list: "Dockerfile_test_issue_mz332,Dockerfile_test_copy_symlink,Dockerfile_test_copy_reproducible,Dockerfile_test_cache_copy_oci,Dockerfile_test_daemons,Dockerfile_test_complex_substitution"
+          - group: "g1"
+            list: "Dockerfile_test_add_chown_intermediate_dirs,Dockerfile_test_issue_3393,Dockerfile_test_issue_mz320,Dockerfile_test_issue_mz896,Dockerfile_test_dockerignore,Dockerfile_test_complex_substitution"
+          - group: "g2"
+            list: "Dockerfile_test_multistage_args_issue_1911,Dockerfile_test_volume_4,Dockerfile_test_extraction,Dockerfile_test_issue_mz595,Dockerfile_test_issue_1039,Dockerfile_test_complex_substitution"
+          - group: "g3"
+            list: "Dockerfile_test_add_url_with_arg,Dockerfile_test_cache_copy,Dockerfile_test_issue_mz798,Dockerfile_test_parent_dir_perms,Dockerfile_test_expose,Dockerfile_test_complex_substitution"
+          - group: "g4"
+            list: "Dockerfile_test_issue_mz282,Dockerfile_test_whitelist,Dockerfile_test_run_new,Dockerfile_test_issue_mz334,Dockerfile_test_copy_same_file_many_times,Dockerfile_test_complex_substitution"
+          - group: "g5"
+            list: "Dockerfile_test_copy,Dockerfile_test_user_nonexisting,Dockerfile_test_arg_from_single_quotes,Dockerfile_test_root,Dockerfile_test_issue_mz155,Dockerfile_test_complex_substitution"
+          - group: "g6"
+            list: "Dockerfile_test_issue_cg188,Dockerfile_test_issue_mz863,Dockerfile_test_issue_mz247,Dockerfile_test_issue_3429,Dockerfile_test_complex_substitution"
+          - group: "g7"
+            list: "Dockerfile_test_issue_mz622,Dockerfile_test_issue_mz731,Dockerfile_test_issue_mz276,Dockerfile_test_maintainer,Dockerfile_test_complex_substitution"
 
     steps:
       - name: Maximize build space
