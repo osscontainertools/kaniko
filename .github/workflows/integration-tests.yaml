@@ -23,6 +23,7 @@ jobs:
       REGISTRY: 'localhost:5000'
       COVERAGE_DIR: '${{ github.workspace }}/out/covdata'
       TEST_PARALLELISM: '1'
+      LOCAL: '1'
       TEST_SHUFFLE_SEED: '${{ matrix.seed }}'
 
     strategy:
