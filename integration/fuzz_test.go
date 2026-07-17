@@ -972,7 +972,6 @@ func warmFuzzCache(cacheDir string, bases []string, covDir string) (string, erro
 	if covDir != "" {
 		flags = append(flags, "-v", covDir+":/covdata", "-e", "GOCOVERDIR=/covdata")
 	}
-	flags = addServiceAccountFlags(flags, config.serviceAccount)
 	flags = append(flags, WarmerImage, "--cache-dir=/cache", "--force")
 	for _, b := range bases {
 		flags = append(flags, "-i", b)
@@ -1309,7 +1308,6 @@ func runFuzzKanikoCache(contextDir, image string, extra []string, covDir, cacheD
 	if covDir != "" {
 		flags = append(flags, "-v", covDir+":/covdata", "-e", "GOCOVERDIR=/covdata")
 	}
-	flags = addServiceAccountFlags(flags, config.serviceAccount)
 	flags = append(flags, ExecutorImage,
 		"-f", path.Join(buildContextPath, "Dockerfile"),
 		"-d", image,
@@ -1335,7 +1333,6 @@ func runFuzzKanikoEnv(contextDir, image string, extra []string, covDir string, e
 	if covDir != "" {
 		flags = append(flags, "-v", covDir+":/covdata", "-e", "GOCOVERDIR=/covdata")
 	}
-	flags = addServiceAccountFlags(flags, config.serviceAccount)
 	flags = append(flags, ExecutorImage,
 		"-f", path.Join(buildContextPath, "Dockerfile"),
 		"-d", image,
@@ -1380,7 +1377,6 @@ func runFuzzKanikoTar(contextDir, image string, extra []string, covDir string, e
 	if covDir != "" {
 		flags = append(flags, "-v", covDir+":/covdata", "-e", "GOCOVERDIR=/covdata")
 	}
-	flags = addServiceAccountFlags(flags, config.serviceAccount)
 	flags = append(flags, ExecutorImage,
 		"-f", "Dockerfile",
 		"-d", image,
@@ -1433,7 +1429,6 @@ func runFuzzKanikoTarPath(contextDir, image, hostDir string, extra []string, cov
 	if covDir != "" {
 		flags = append(flags, "-v", covDir+":/covdata", "-e", "GOCOVERDIR=/covdata")
 	}
-	flags = addServiceAccountFlags(flags, config.serviceAccount)
 	flags = append(flags, ExecutorImage,
 		"-f", path.Join(buildContextPath, "Dockerfile"), "-c", buildContextPath, "-d", image,
 		"--no-push", "--oci-layout-path=/tarout/layout",
@@ -1453,7 +1448,6 @@ func runFuzzKanikoPush(hostDir, image string, envOverride []string) (string, err
 	for _, e := range envOverride {
 		flags = append(flags, "-e", e)
 	}
-	flags = addServiceAccountFlags(flags, config.serviceAccount)
 	flags = append(flags, ExecutorImage, "push", "/tarout/layout", "--destination", image)
 	out, err := RunCommandWithoutTest(exec.Command("docker", flags...))
 	return string(out), err
@@ -1502,7 +1496,6 @@ func runFuzzKanikoDfURL(contextDir, image, dfURL string, extra []string, covDir 
 	if covDir != "" {
 		flags = append(flags, "-v", covDir+":/covdata", "-e", "GOCOVERDIR=/covdata")
 	}
-	flags = addServiceAccountFlags(flags, config.serviceAccount)
 	flags = append(flags, ExecutorImage, "-f", dfURL, "-c", buildContextPath, "-d", image)
 	flags = append(flags, extra...)
 	out, err := RunCommandWithoutTest(exec.Command("docker", flags...))
@@ -1763,7 +1756,6 @@ func runFuzzKanikoHTTPS(image, tarName string, extra []string, covDir string, en
 	if covDir != "" {
 		flags = append(flags, "-v", covDir+":/covdata", "-e", "GOCOVERDIR=/covdata")
 	}
-	flags = addServiceAccountFlags(flags, config.serviceAccount)
 	flags = append(flags, ExecutorImage,
 		"-f", "Dockerfile",
 		"-d", image,
