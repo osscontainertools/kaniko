@@ -135,6 +135,8 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz661":                  {"--secret=id=kaniko,src=context/foo"},
 	"Dockerfile_test_cross_compile":                {"--platform=linux/" + crossCompileArch},
 	"Dockerfile_test_issue_mz849":                  dockerV2Flags,
+	"Dockerfile_test_stopsignal":                   dockerV2Flags,
+	"Dockerfile_test_healthcheck":                  dockerV2Flags,
 	"Dockerfile_test_snapshotter_ignorelist":       dockerV2Flags,
 	"Dockerfile_test_whitelist":                    dockerV2Flags,
 	"Dockerfile_test_volume_4":                     dockerV2Flags,
