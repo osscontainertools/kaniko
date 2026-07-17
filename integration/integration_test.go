@@ -1651,6 +1651,14 @@ func diffoci(t *testing.T, image1, image2, platform string, flags ...string) *ex
 	if platform != "" {
 		pullArgs = append(pullArgs, "--platform="+platform)
 		flags = append(flags, "--platform="+platform)
+	} else {
+		// diffoci defaults --platform to the host platform, which makes it run
+		// docker save --platform. On a single-platform bare manifest containerd
+		// intermittently reports the platform as unmatched and the save fails with
+		// "does not provide the specified platform". --all-platforms makes diffoci
+		// run a plain docker save instead. Our images are single-platform, so this
+		// compares the same image either way.
+		flags = append(flags, "--all-platforms")
 	}
 	out := RunCommand(exec.Command("docker", append(pullArgs, image1)...), t)
 	t.Logf("docker pull cmd output for image1 = %s", string(out))
