@@ -51,6 +51,24 @@ jobs:
         with:
           persist-credentials: false
 
+      # ubuntu-24.04 ships containerd v2.2.6, which regressed docker save --platform
+      # so it intermittently fails on valid single-platform images and flakes the
+      # integration suite (diffoci image load). dockerd runs against this system
+      # containerd, so pin it to v2.2.5 before docker starts. See docker/cli#6457.
+      - name: pin system containerd to v2.2.5
+        run: |
+          set -eux
+          curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-29.6.1.tgz -o /tmp/docker.tgz
+          tar xzf /tmp/docker.tgz -C /tmp
+          /tmp/docker/containerd --version
+          BIN=$(command -v containerd)
+          sudo systemctl stop containerd
+          sudo install -m0755 /tmp/docker/containerd "$BIN"
+          sudo install -m0755 /tmp/docker/containerd-shim-runc-v2 "$(dirname "$BIN")/containerd-shim-runc-v2"
+          sudo systemctl start containerd
+          sleep 3
+          containerd --version
+
       - uses: docker/setup-docker-action@6d7cfa65f60a9dda7b46e5513fa982536f3c9877 # v5.3.0
         with:
           version: 29.5.2
