@@ -50,16 +50,19 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: pin containerd to v2.2.5 (host v2.2.6 has the save --platform bug)
+      - name: work around containerd v2.2.6 docker save --platform bug (pin v2.2.5)
         run: |
           set -eux
-          C=$(command -v containerd || echo /usr/bin/containerd); echo "host: $C"; "$C" --version || true
           curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-29.6.1.tgz -o /tmp/d.tgz
           tar xzf /tmp/d.tgz -C /tmp
           /tmp/docker/containerd --version
-          sudo install -m0755 /tmp/docker/containerd "$C"
-          sudo install -m0755 /tmp/docker/containerd-shim-runc-v2 "$(dirname "$C")/"
-          "$C" --version
+          BIN=$(command -v containerd)
+          sudo systemctl stop containerd
+          sudo install -m0755 /tmp/docker/containerd "$BIN"
+          sudo install -m0755 /tmp/docker/containerd-shim-runc-v2 "$(dirname "$BIN")/containerd-shim-runc-v2"
+          sudo systemctl start containerd
+          sleep 3
+          containerd --version
       - uses: docker/setup-docker-action@6d7cfa65f60a9dda7b46e5513fa982536f3c9877 # v5.3.0
         with:
           version: 29.5.2
