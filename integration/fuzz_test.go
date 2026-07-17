@@ -562,8 +562,8 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		}
 
 		if ce0 != nil || ce1 != nil {
-			// A cache-build failure matching a known, filed failure (mz879) is counted,
-			// not reported, so it does not flood the campaign.
+			// A cache-build failure matching a known, filed failure is counted, not
+			// reported, so it does not flood the campaign.
 			for _, kf := range knownBuildFailures {
 				if kf.match(c0) || kf.match(c1) {
 					f := &finding{seed: seed, sev: sevClean, known: map[string]int{kf.name: 1}}
@@ -1638,15 +1638,16 @@ func sharedCacheOracle(seed int64, label, dir, dockerfile string, argNames, flag
 	}
 	// 4. Set B's image must not depend on whether a colliding set A pre-populated the cache.
 	ignores := []string{"--ignore-image-name", "--ignore-image-timestamps", "--ignore-file-timestamps"}
-	_, same, _ := runFuzzDiffoci(imgBClean, imgBShared, ignores)
+	diff, same, _ := runFuzzDiffoci(imgBClean, imgBShared, ignores)
 	if !same {
-		// The colliding-arg sets are constructed to hash-collide, so a diff here is mz873
-		// (#873) reproduced deterministically. Count it, do not report, so novel findings
-		// stay visible; a cross-stage case is instead the mz876 map-leak class.
+		// A cross-stage case is the mz876 map-leak class (still filed, load-dependent), so
+		// count it. Otherwise the colliding-arg sets now hash apart under the recursive
+		// composite key (mz873 fixed on main), so set A's pre-population must not change set
+		// B's output; a diff here is a genuine regression worth reporting.
 		if isCrossStage(dockerfile) {
 			return &finding{seed: seed, sev: sevClean, known: map[string]int{mz876CrossStage: 1}}
 		}
-		return &finding{seed: seed, sev: sevClean, known: map[string]int{mz873SharedCollision: 1}}
+		return fail(sevCacheDiff, "shared-cache: set B output depends on colliding set A (mz873 regression)", diff)
 	}
 	return nil
 }
