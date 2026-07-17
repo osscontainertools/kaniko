@@ -250,7 +250,9 @@ var diffArgsMap = map[string][]string{
 	// it's where we store the docker credentials.
 	"TestWithContext/test_with_context_issue-1020": {"--extra-ignore-files=root/.config/", "--extra-ignore-layer-length-mismatch"},
 	// docker is wrong. we do copy the symlink correctly.
-	"TestRun/test_Dockerfile_test_copy_symlink":  {"--extra-ignore-files=workdirAnother/relative_link"},
+	"TestRun/test_Dockerfile_test_copy_symlink": {"--extra-ignore-files=workdirAnother/relative_link"},
+	// docker dereferences the symlink source, we preserve it, so dest/linkS diverges.
+	"TestRun/test_Dockerfile_test_issue_mz921":   {"--extra-ignore-files=dest/linkS", "--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_multistage":    {"--extra-ignore-files=new", "--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_cross_compile": {"--platform=linux/" + crossCompileArch},
 	// kaniko adds parent directories of changed paths to the full-filesystem snapshot
