@@ -106,8 +106,12 @@ func MakeTransport(opts config.RegistryOptions, registryName string) (http.Round
 	}
 
 	if config.FF.DisableHTTP2 {
-		tr.(*http.Transport).ForceAttemptHTTP2 = false
-		tr.(*http.Transport).TLSClientConfig.NextProtos = []string{"http/1.1"}
+		t := tr.(*http.Transport)
+		t.ForceAttemptHTTP2 = false
+		if t.TLSClientConfig == nil {
+			t.TLSClientConfig = &tls.Config{}
+		}
+		t.TLSClientConfig.NextProtos = []string{"http/1.1"}
 	}
 
 	return tr, nil

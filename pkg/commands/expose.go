@@ -54,7 +54,9 @@ func (r *ExposeCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.
 			p = p + "/tcp"
 		}
 		parts := strings.Split(p, "/")
-		assert.Assert("expose.parts-count", len(parts) >= 2, "port string must contain '/' after normalization")
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid exposed port: %s", p)
+		}
 		protocol := parts[1]
 		if !validProtocol(protocol) {
 			return fmt.Errorf("invalid protocol: %s", protocol)
