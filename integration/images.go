@@ -126,7 +126,7 @@ var KanikoEnv = []string{
 }
 
 var WarmerEnv = []string{}
-var dockerV2Flags = []string{"--provenance=false", "--output=type=image,oci-mediatypes=false"}
+var dockerV2Flags = []string{"--output=type=image,oci-mediatypes=false"}
 
 // Arguments to build Dockerfiles with when building with docker
 var additionalDockerFlagsMap = map[string][]string{
@@ -572,6 +572,7 @@ func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfile
 	dockerArgs := []string{
 		"build",
 		"--no-cache",
+		"--provenance=false",
 		"-t", dockerImage,
 	}
 
@@ -875,6 +876,7 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 	dockerArgs := []string{
 		"build",
 		"--push",
+		"--provenance=false",
 		"-t", dockerImage,
 		"-f", dockerfile,
 		"./context",
