@@ -102,6 +102,10 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 	if !stage.Push {
 		_opts.Labels = []string{}
 	}
+	sourceImage, err := applyImageFormat(sourceImage, opts.ImageFormat)
+	if err != nil {
+		return nil, err
+	}
 	imageConfig, err := initializeConfig(sourceImage, &_opts)
 	if err != nil {
 		return nil, err
@@ -716,6 +720,8 @@ func saveSnapshotToLayer(tarPath string, imageMediaType types.MediaType, opts *c
 		} else {
 			layerOpts = append(layerOpts, tarball.WithMediaType(types.OCILayer))
 		}
+	} else if opts.Compression == config.ZStd {
+		logrus.Warn("ignoring --compression=zstd, the Docker schema2 output format has no zstd layer media type, use --image-format=oci for zstd layers")
 	}
 
 	layer, err := tarball.LayerFromFile(tarPath, layerOpts...)
@@ -744,6 +750,17 @@ func extractMediaTypeVendor(mt types.MediaType) string {
 		return types.OCIVendorPrefix
 	}
 	return types.DockerVendorPrefix
+}
+
+func applyImageFormat(image v1.Image, format config.ImageFormat) (v1.Image, error) {
+	switch format {
+	case config.ImageFormatOCI:
+		return image_util.WithMediaType(image, types.OCIManifestSchema1)
+	case config.ImageFormatDocker:
+		return image_util.WithMediaType(image, types.DockerManifestSchema2)
+	default:
+		return image, nil
+	}
 }
 
 // https://github.com/opencontainers/image-spec/blob/main/media-types.md#compatibility-matrix

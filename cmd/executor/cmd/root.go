@@ -151,6 +151,15 @@ var RootCmd = &cobra.Command{
 			if !opts.NoPush && len(opts.Destinations) == 0 {
 				return errors.New("you must provide --destination, or use --no-push")
 			}
+			if opts.ImageFormat == config.ImageFormatDocker && opts.Compression == config.ZStd {
+				return errors.New("--compression=zstd cannot be used with --image-format=docker, the Docker schema2 format has no zstd layer media type, use --image-format=oci")
+			}
+			if opts.TarPath != "" && opts.ImageFormat == config.ImageFormatOCI {
+				return errors.New("--tar-path writes a Docker schema2 tarball and cannot be used with --image-format=oci, use --oci-layout-path to write an OCI image")
+			}
+			if opts.TarPath != "" && opts.Compression == config.ZStd {
+				return errors.New("--compression=zstd cannot be used with --tar-path, the Docker schema2 tarball has no zstd layer media type, use --oci-layout-path for zstd layers")
+			}
 			if err := cacheFlagsValid(); err != nil {
 				return fmt.Errorf("cache flags invalid: %w", err)
 			}
@@ -277,6 +286,7 @@ func AddKanikoOptionsFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().StringVarP(&opts.ImageNameTagDigestFile, "image-name-tag-with-digest-file", "", "", "Specify a file to save the image name w/ image tag w/ digest of the built image to.")
 	cmd.Flags().StringVarP(&opts.OCILayoutPath, "oci-layout-path", "", "", "Path to save the OCI image layout of the built image.")
 	cmd.Flags().VarP(&opts.Compression, "compression", "", "Compression algorithm (gzip, zstd)")
+	cmd.Flags().VarP(&opts.ImageFormat, "image-format", "", "Output image media type (docker, oci). Defaults to inheriting the format of the base image.")
 	cmd.Flags().IntVarP(&opts.CompressionLevel, "compression-level", "", -1, "Compression level")
 	cmd.Flags().BoolVarP(&opts.Cache, "cache", "", false, "Use cache when building image")
 	cmd.Flags().BoolVarP(&opts.CompressedCaching, "compressed-caching", "", true, "Compress the cached layers. Decreases build time, but increases memory usage.")
