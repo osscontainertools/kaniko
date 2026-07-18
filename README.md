@@ -123,6 +123,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--image-fs-extract-retry`](#flag---image-fs-extract-retry)
       - [Flag `--image-download-retry`](#flag---image-download-retry)
     - [Feature Flags](#feature-flags)
+      - [Profiles](#profiles)
       - [Flag `FF_KANIKO_COPY_AS_ROOT`](#flag-ff_kaniko_copy_as_root)
       - [Flag `FF_KANIKO_IGNORE_CACHED_MANIFEST`](#flag-ff_kaniko_ignore_cached_manifest)
       - [Flag `FF_KANIKO_RUN_MOUNT_BIND`](#flag-ff_kaniko_run_mount_bind)
@@ -1139,6 +1140,39 @@ remote image. Consecutive retries occur with exponential backoff and an initial
 delay of 1 second. Defaults to `0`.
 
 ### Feature Flags
+
+#### Profiles
+
+##### Preview
+
+These flags include fixes and improvements that are scheduled to become default. Opting into the Preview profile gives you early access to upcoming performance improvements, bugfixes and features. While these flags are tested and ready to use, implementation details may still change.
+
+```sh
+FF_KANIKO_EXPAND_HEREDOC=true
+FF_KANIKO_HASH_DIR_FRAMING=true
+FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=true
+FF_KANIKO_PRECOMPILE_DOCKERIGNORE=true
+FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=true
+FF_KANIKO_RESOLVE_CACHE_KEY=true
+FF_KANIKO_ROLLING_CACHE_KEY=true
+FF_KANIKO_RUN_HONOR_GROUP=true
+FF_KANIKO_RUN_VIA_TINI=true
+FF_KANIKO_SKIP_RELABEL_RECOMPRESS=true
+FF_KANIKO_SKIP_WRITE_WHITEOUTS=true
+FF_KANIKO_UNTAR_SKIP_ROOT=true
+```
+
+##### BuildKit compatibility
+
+In a few places, Kaniko keeps its historical, non-compliant behavior instead of following the Dockerfile specification. Switching to the compliant implementation by default would require users with large codebases to update their Dockerfiles, making migration to our fork tedious. These flags enable the spec-compliant behavior, matching BuildKit one-to-one. This profile is used in our integration tests.
+
+```sh
+FF_KANIKO_COPY_AS_ROOT=true
+FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=true
+FF_KANIKO_EXPAND_HEREDOC=true
+FF_KANIKO_RUN_HONOR_GROUP=true
+FF_KANIKO_UNTAR_SKIP_ROOT=true
+```
 
 #### Flag `FF_KANIKO_COPY_AS_ROOT`
 
