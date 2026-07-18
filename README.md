@@ -1145,7 +1145,7 @@ delay of 1 second. Defaults to `0`.
 
 ##### Preview
 
-These flags include fixes and improvements that are scheduled to become default. Opting into the Preview profile gives you early access to upcoming performance improvements, bugfixes and features. While these flags are tested and ready to use, implementation details may still change.
+Opting into the Preview profile gives you early access to upcoming performance improvements, bugfixes and features. While these flags are tested and ready to use, implementation details may still change.
 
 ```sh
 FF_KANIKO_EXPAND_HEREDOC=true
