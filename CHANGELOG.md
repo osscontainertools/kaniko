@@ -1,3 +1,77 @@
+# v1.28.1 Release 2026-07-18
+
+## Community Update
+@JSap0914 made their first contribution in https://github.com/osscontainertools/kaniko/pull/912
+@Dodothereal made their first contribution in https://github.com/osscontainertools/kaniko/pull/926
+
+Also many thanks to @bootc, @pstoeckle, @7schroet, and @henryfoster for reporting issues fixed in this release.
+
+We thank our sponsor **[Siemens](https://opensource.siemens.com)** for sponsoring kaniko with a generous grant, and especially the team behind [Open Source @ Siemens](https://opensource.siemens.com) for consistently championing open source.
+
+We are also grateful to **[@bootc](https://github.com/bootc)** for joining as an individual sponsor.
+
+## What's Changed
+### Security
+* go stdlib v1.26.4: CVE-2026-39822 CVE-2026-42505
+* golang.org/x/text v0.38.0: CVE-2026-56852
+* generate integration tar fixtures on the fly so the repo stores no opaque binary archives that could hide unreviewed content: https://github.com/osscontainertools/kaniko/pull/844
+
+### Bugfixes
+* inconsistent feature flag defaults crash a build, fixed by consolidating flags into a central registry: https://github.com/osscontainertools/kaniko/pull/853 https://github.com/osscontainertools/kaniko/pull/854 https://github.com/osscontainertools/kaniko/pull/918
+* cross-stage `COPY --from` trips the cache-key assertion when the source stage has uncached run layers under `--cache-run-layers=false`: https://github.com/osscontainertools/kaniko/pull/899
+* `--reproducible` with preserved base layers produces a manifest that mixes Docker and OCI media types, which strict readers reject: https://github.com/osscontainertools/kaniko/pull/858
+* `RUN --mount=type=bind` under `--use-new-run` fails the cached rebuild with `lstat: no such file or directory`: https://github.com/osscontainertools/kaniko/pull/900
+* repeatedly copying a relative symlink to the same destination corrupts the target and later fails with `too many links`: by @Dodothereal in https://github.com/osscontainertools/kaniko/pull/926
+
+### Standardization
+* `FF_KANIKO_RUN_HONOR_GROUP=false` honor an explicit group from `USER user:group` in `RUN`: https://github.com/osscontainertools/kaniko/pull/840
+* `FF_KANIKO_EXPAND_HEREDOC=false` expand build args and env in unquoted `COPY` and `ADD` heredoc bodies: https://github.com/osscontainertools/kaniko/pull/821
+* `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=false` apply `COPY --chmod` to implicitly created parent directories too: https://github.com/osscontainertools/kaniko/pull/866
+
+### Caching
+* `FF_KANIKO_ROLLING_CACHE_KEY=false` fold composite cache-key parts into a rolling hash so distinct key sequences can no longer collide: https://github.com/osscontainertools/kaniko/pull/875
+* `COPY`, `ADD`, and `RUN` heredoc bodies were not keyed, so changing only a heredoc body reused a stale cached layer: https://github.com/osscontainertools/kaniko/pull/823 https://github.com/osscontainertools/kaniko/pull/825
+* `FF_KANIKO_HASH_DIR_FRAMING=false` length-prefix directory paths and file hashes in the cache key so distinct directory trees can no longer collide: by @JSap0914 in https://github.com/osscontainertools/kaniko/pull/912
+
+### Performance
+* `FF_KANIKO_PRECOMPILE_DOCKERIGNORE=false` compile `.dockerignore` patterns once per build instead of once per file: https://github.com/osscontainertools/kaniko/pull/887
+
+### Usability
+* `--image-format=docker|oci` sets the output image format explicitly instead of letting it silently follow the base image: https://github.com/osscontainertools/kaniko/pull/850
+
+### Maintenance
+* build(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.32.25 to 1.32.30: https://github.com/osscontainertools/kaniko/pull/857 https://github.com/osscontainertools/kaniko/pull/862 https://github.com/osscontainertools/kaniko/pull/886 https://github.com/osscontainertools/kaniko/pull/895 https://github.com/osscontainertools/kaniko/pull/907
+* build(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager from 0.2.11 to 0.3.3: https://github.com/osscontainertools/kaniko/pull/857 https://github.com/osscontainertools/kaniko/pull/862 https://github.com/osscontainertools/kaniko/pull/886 https://github.com/osscontainertools/kaniko/pull/895 https://github.com/osscontainertools/kaniko/pull/907 https://github.com/osscontainertools/kaniko/pull/924
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.104.0 to 1.105.2: https://github.com/osscontainertools/kaniko/pull/857 https://github.com/osscontainertools/kaniko/pull/862 https://github.com/osscontainertools/kaniko/pull/886 https://github.com/osscontainertools/kaniko/pull/907 https://github.com/osscontainertools/kaniko/pull/924
+* build(deps): bump golang in /deploy: https://github.com/osscontainertools/kaniko/pull/856 https://github.com/osscontainertools/kaniko/pull/893 https://github.com/osscontainertools/kaniko/pull/905 https://github.com/osscontainertools/kaniko/pull/910 https://github.com/osscontainertools/kaniko/pull/914
+* build(deps): bump docker/setup-qemu-action from 4.1.0 to 4.2.0: https://github.com/osscontainertools/kaniko/pull/860
+* build(deps): bump docker/build-push-action from 7.2.0 to 7.3.0: https://github.com/osscontainertools/kaniko/pull/860
+* build(deps): bump docker/setup-docker-action from 5.2.0 to 5.3.0: https://github.com/osscontainertools/kaniko/pull/860
+* build(deps): bump google.golang.org/api from 0.286.0 to 0.289.0: https://github.com/osscontainertools/kaniko/pull/859 https://github.com/osscontainertools/kaniko/pull/889 https://github.com/osscontainertools/kaniko/pull/898 https://github.com/osscontainertools/kaniko/pull/925
+* build(deps): bump github.com/aws/aws-sdk-go-v2 from 1.42.0 to 1.42.1: https://github.com/osscontainertools/kaniko/pull/862
+* build(deps): bump docker/setup-buildx-action from 4.1.0 to 4.2.0: https://github.com/osscontainertools/kaniko/pull/861
+* build(deps): bump docker/login-action from 4.2.0 to 4.4.0: https://github.com/osscontainertools/kaniko/pull/861 https://github.com/osscontainertools/kaniko/pull/865
+* build(deps): bump step-security/harden-runner from 2.19.4 to 2.20.0: https://github.com/osscontainertools/kaniko/pull/885
+* build(deps): bump golang.org/x/sys from 0.46.0 to 0.47.0: https://github.com/osscontainertools/kaniko/pull/891
+* build(deps): bump golang.org/x/sync from 0.21.0 to 0.22.0: https://github.com/osscontainertools/kaniko/pull/890
+* build(deps): bump cloud.google.com/go/storage from 1.63.0 to 1.63.1: https://github.com/osscontainertools/kaniko/pull/903
+* build(deps): bump debian in /deploy: https://github.com/osscontainertools/kaniko/pull/906
+* build(deps): bump github.com/moby/buildkit from 0.31.1 to 0.31.2: https://github.com/osscontainertools/kaniko/pull/915
+* build(deps): bump actions/setup-go from 6.5.0 to 7.0.0: https://github.com/osscontainertools/kaniko/pull/916
+* build(deps): bump github.com/docker/cli from 29.6.1 to 29.6.2: https://github.com/osscontainertools/kaniko/pull/924
+
+### Fork Related
+* doc changes: https://github.com/osscontainertools/kaniko/pull/855 https://github.com/osscontainertools/kaniko/pull/877 https://github.com/osscontainertools/kaniko/pull/909 https://github.com/osscontainertools/kaniko/pull/908 https://github.com/osscontainertools/kaniko/pull/929
+* use KanikoEnv in all integration executor invocations: https://github.com/osscontainertools/kaniko/pull/808
+* stop ignoring layer-length mismatch in integration tests: https://github.com/osscontainertools/kaniko/pull/847
+* unpin `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS` in the golden suite and rotate cache keys: https://github.com/osscontainertools/kaniko/pull/874
+* limit integration test parallelism to 8: https://github.com/osscontainertools/kaniko/pull/919
+
+### Refactorings
+* remove dead code: https://github.com/osscontainertools/kaniko/pull/901 https://github.com/osscontainertools/kaniko/pull/709
+* linter: https://github.com/osscontainertools/kaniko/pull/833 https://github.com/osscontainertools/kaniko/pull/832 https://github.com/osscontainertools/kaniko/pull/831
+
+
 # v1.28.0 Release 2026-06-28
 ## Update Notice
 In this Release we activated these feature-flags:
