@@ -96,8 +96,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_arg_secret":  {"SSH_PRIVATE_KEY=ThEPriv4t3Key"},
 	"Dockerfile_test_issue_519":   {"DOCKER_BUILDKIT=0"},
 	"Dockerfile_test_issue_cg188": {"SECRET=blubb"},
-	"Dockerfile_test_issue_mz774": {"FF_KANIKO_SKIP_WRITE_WHITEOUTS=1"},
-	"Dockerfile_test_issue_mz775": {"FF_KANIKO_CACHE_LOOKAHEAD=0", "FF_KANIKO_SKIP_RELABEL_RECOMPRESS=1"},
+	"Dockerfile_test_issue_mz775": {"FF_KANIKO_CACHE_LOOKAHEAD=0"},
 	"Dockerfile_test_issue_mz793": {"FF_KANIKO_VOLUME_SKIP_MKDIR=0"},
 	"Dockerfile_test_issue_mz473": {"KANIKO_DIR=/kaniko2"},
 	"Dockerfile_test_issue_mz661": {"KANIKO_DIR=/kaniko2"},
@@ -121,6 +120,8 @@ var KanikoEnv = []string{
 	"FF_KANIKO_RUN_HONOR_GROUP=1",
 	"FF_KANIKO_PRECOMPILE_DOCKERIGNORE=1",
 	"FF_KANIKO_EXPAND_HEREDOC=1",
+	"FF_KANIKO_SKIP_WRITE_WHITEOUTS=1",
+	"FF_KANIKO_SKIP_RELABEL_RECOMPRESS=1",
 	"KANIKO_PRINT_PLAN=1",
 }
 
