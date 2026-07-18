@@ -1,12 +1,13 @@
 ## What's changed since Google's v1.24.0
 ### Security
-* go stdlib v1.24.3: CVE-2025-0913 CVE-2025-4673 CVE-2025-4674 CVE-2025-22874 CVE-2025-47906 CVE-2025-47907 CVE-2025-47912 CVE-2025-58183 CVE-2025-58185 CVE-2025-58186 CVE-2025-58187 CVE-2025-58188 CVE-2025-58189 CVE-2025-61723 CVE-2025-61724 CVE-2025-61725 CVE-2025-61729 CVE-2025-61727 CVE-2025-61726 CVE-2025-61728 CVE-2025-61730 CVE-2025-68121 CVE-2026-27137 CVE-2026-25679 CVE-2026-27142 CVE-2026-27138 CVE-2026-27139 CVE-2026-32280 CVE-2026-33810 CVE-2026-32281 CVE-2026-32283 CVE-2026-32282 CVE-2026-32289 CVE-2026-32288 CVE-2026-33811 CVE-2026-33814 CVE-2026-39820 CVE-2026-39836 CVE-2026-42499 CVE-2026-39823 CVE-2026-39825 CVE-2026-39826 CVE-2026-42504 CVE-2026-27145 CVE-2026-42507
+* go stdlib v1.24.3: CVE-2025-0913 CVE-2025-4673 CVE-2025-4674 CVE-2025-22874 CVE-2025-47906 CVE-2025-47907 CVE-2025-47912 CVE-2025-58183 CVE-2025-58185 CVE-2025-58186 CVE-2025-58187 CVE-2025-58188 CVE-2025-58189 CVE-2025-61723 CVE-2025-61724 CVE-2025-61725 CVE-2025-61729 CVE-2025-61727 CVE-2025-61726 CVE-2025-61728 CVE-2025-61730 CVE-2025-68121 CVE-2026-27137 CVE-2026-25679 CVE-2026-27142 CVE-2026-27138 CVE-2026-27139 CVE-2026-32280 CVE-2026-33810 CVE-2026-32281 CVE-2026-32283 CVE-2026-32282 CVE-2026-32289 CVE-2026-32288 CVE-2026-33811 CVE-2026-33814 CVE-2026-39820 CVE-2026-39836 CVE-2026-42499 CVE-2026-39823 CVE-2026-39825 CVE-2026-39826 CVE-2026-42504 CVE-2026-27145 CVE-2026-42507 CVE-2026-39822 CVE-2026-42505
 * containerd v1.7.27: GHSA-m6hq-p25p-ffr2 GHSA-pwhc-rpq9-4c8w
 * containerd-v2 v2.1.1: GHSA-m6hq-p25p-ffr2 GHSA-pwhc-rpq9-4c8w
 * selinux v1.12.0: GHSA-cgrx-mc8f-2prm
 * remove binary artifacts: by @tlk in https://github.com/mzihlmann/kaniko/pull/54
 * golang.org/x/crypto 0.44.0: CVE-2025-47914 CVE-2025-58181 CVE-2026-39827 CVE-2026-39828 CVE-2026-39829 CVE-2026-39830 CVE-2026-39831 CVE-2026-39832 CVE-2026-39833 CVE-2026-39834 CVE-2026-39835 CVE-2026-42508 CVE-2026-46595 CVE-2026-46597 CVE-2026-46598
 * golang.org/x/net 0.40.0: CVE-2026-25680 CVE-2026-25681 CVE-2026-27136 CVE-2026-39821 CVE-2026-42502 CVE-2026-42506
+* golang.org/x/text 0.25.0: CVE-2026-56852
 * github.com/docker/cli v29.4.1: CVE-2025-15558
 * github.com/go-git/go-billy/v5 v5.8.0: CVE-2026-44973 CVE-2026-44740
 * github.com/go-git/go-git/v5 5.16.0: CVE-2026-25934 CVE-2026-34165 CVE-2026-33762 CVE-2026-41506 CVE-2026-45022 CVE-2026-45571 CVE-2026-45570 GHSA-w5pp-99ch-qj29
@@ -18,6 +19,7 @@
 * github.com/moby/buildkit 0.22.0: CVE-2026-33747 CVE-2026-33748
 * github.com/go-jose/go-jose/v4 v4.1.3: CVE-2026-34986
 * 🔗 `FF_KANIKO_SECUREJOIN_EXTRACTION=true` symlink-based path traversal during tar extraction prevented with SecureJoin: by @8none1 in https://github.com/osscontainertools/kaniko/pull/828
+* generate integration tar fixtures on the fly instead of storing opaque binaries: https://github.com/osscontainertools/kaniko/pull/844
 
 ### Bugfixes
 * cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3
@@ -56,7 +58,7 @@
 * `FF_KANIKO_RUN_VIA_TINI=false` reap zombie processes: https://github.com/osscontainertools/kaniko/pull/211 https://github.com/osscontainertools/kaniko/pull/450
 * Skip chown/chmod for paths in ignore list: by @mesaglio in https://github.com/osscontainertools/kaniko/pull/435
 * resolve remote `ONBUILD` instructions: https://github.com/osscontainertools/kaniko/pull/354
-* `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=false` add buildkit compatibility mode: https://github.com/osscontainertools/kaniko/pull/510
+* `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=false` add buildkit compatibility mode: https://github.com/osscontainertools/kaniko/pull/510 https://github.com/osscontainertools/kaniko/pull/866
 * activate dockerfile linter: https://github.com/osscontainertools/kaniko/pull/590
 * `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS=true` stop propagating base image annotations: https://github.com/osscontainertools/kaniko/pull/566 https://github.com/osscontainertools/kaniko/pull/605
 * `FF_KANIKO_VOLUME_SKIP_MKDIR=true` skip implicit mkdir in `VOLUME`: https://github.com/osscontainertools/kaniko/pull/638
@@ -67,6 +69,8 @@
 * `FF_KANIKO_SCOPED_DOCKERIGNORE=false` scope `.dockerignore` patterns to the build context: by @vidbregar in https://github.com/osscontainertools/kaniko/pull/763
 * `FF_KANIKO_SKIP_WRITE_WHITEOUTS=false` cross-stage `COPY --from` on a cache hit copies whiteout markers as real files and silently deletes targets in later builds: https://github.com/osscontainertools/kaniko/pull/796
 * `FF_KANIKO_UNTAR_SKIP_ROOT=false` `ADD` with a tar archive overwrites the destination directory mode and ownership from the archive root entry, unlike Docker: https://github.com/osscontainertools/kaniko/pull/842
+* `FF_KANIKO_RUN_HONOR_GROUP=false` honor an explicit group from `USER user:group` in `RUN`, matching Docker: https://github.com/osscontainertools/kaniko/pull/840
+* `FF_KANIKO_EXPAND_HEREDOC=false` expand build args and env in unquoted `COPY` and `ADD` heredoc bodies, matching Docker: https://github.com/osscontainertools/kaniko/pull/821
 
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
@@ -79,8 +83,10 @@
 * `FF_KANIKO_CACHE_PROBE_AFTER_MISS=false` keep probing the cache after a layer miss: by @iahsanGill in https://github.com/osscontainertools/kaniko/pull/703
 * `FF_KANIKO_WARMER_CACHE_LOCK=true` coordinate concurrent warmers on a shared cache volume: by @iahsanGill in https://github.com/osscontainertools/kaniko/pull/705 https://github.com/osscontainertools/kaniko/pull/706
 * `FF_KANIKO_SKIP_RELABEL_RECOMPRESS=false` skip re-gzip when relabeling a cached layer to a different media type: https://github.com/osscontainertools/kaniko/pull/778
-* `FF_KANIKO_RESOLVE_CACHE_KEY=false` `COPY`, `ADD`, and `WORKDIR` layer cache keys now reflect build args and env referenced in the instruction: https://github.com/osscontainertools/kaniko/pull/792 https://github.com/osscontainertools/kaniko/pull/801 https://github.com/osscontainertools/kaniko/pull/837
+* `FF_KANIKO_RESOLVE_CACHE_KEY=false` `COPY`, `ADD`, and `WORKDIR` layer cache keys now reflect build args and env referenced in the instruction, including `COPY`, `ADD`, and `RUN` heredoc bodies: https://github.com/osscontainertools/kaniko/pull/792 https://github.com/osscontainertools/kaniko/pull/801 https://github.com/osscontainertools/kaniko/pull/837 https://github.com/osscontainertools/kaniko/pull/823 https://github.com/osscontainertools/kaniko/pull/825
 * `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=false` infer the cross-stage `COPY --from` cache key instead of hashing the copied files, so it hits without unpacking the source stage: https://github.com/osscontainertools/kaniko/pull/618 https://github.com/osscontainertools/kaniko/pull/741 https://github.com/osscontainertools/kaniko/pull/767
+* `FF_KANIKO_ROLLING_CACHE_KEY=false` fold composite cache-key parts into a rolling hash so distinct key sequences can no longer collide and serve the wrong layer: https://github.com/osscontainertools/kaniko/pull/875
+* `FF_KANIKO_HASH_DIR_FRAMING=false` length-prefix directory paths and file hashes in the cache key so distinct directory trees can no longer collide: by @JSap0914 in https://github.com/osscontainertools/kaniko/pull/912
 
 ### Performance
 * squash stages together, speeding up build: https://github.com/mzihlmann/kaniko/pull/141 https://github.com/osscontainertools/kaniko/pull/283
@@ -89,6 +95,7 @@
 * port digest optimization to warmer: https://github.com/osscontainertools/kaniko/pull/325
 * `FF_KANIKO_DISABLE_HTTP2=false` stop forcing http/2.0: https://github.com/osscontainertools/kaniko/pull/340
 * `FF_KANIKO_OCI_WARMER=true` ocilayout warmer: https://github.com/osscontainertools/kaniko/pull/307
+* `FF_KANIKO_PRECOMPILE_DOCKERIGNORE=false` compile `.dockerignore` patterns once per build instead of once per file: https://github.com/osscontainertools/kaniko/pull/887
 
 ### Usability
 * if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
@@ -117,6 +124,7 @@
 * `FF_KANIKO_PRESERVE_MOUNTED_PATHS=true` keep read-only bind mounts (e.g. NVIDIA GPU driver artifacts) in place during extraction: https://github.com/osscontainertools/kaniko/pull/754
 * `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE=true` deprecate the `--preserve-context` inter-stage restore: https://github.com/osscontainertools/kaniko/pull/710
 * `COPY` and `ADD` `--chmod` now accepts symbolic notation (e.g. `go=u`, `u=rwX,go=rX`) in addition to octal: https://github.com/osscontainertools/kaniko/pull/800
+* `--image-format=docker|oci` pins the output manifest media type instead of inheriting it from the base image: https://github.com/osscontainertools/kaniko/pull/850
 
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
