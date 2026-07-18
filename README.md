@@ -1164,7 +1164,7 @@ FF_KANIKO_UNTAR_SKIP_ROOT=true
 
 ##### BuildKit compatibility
 
-In a few places, Kaniko keeps its historical, non-compliant behavior instead of following the Dockerfile specification. Switching to the compliant implementation by default would require users with large codebases to update their Dockerfiles, making migration to our fork tedious. These flags enable the spec-compliant behavior, matching BuildKit one-to-one. This profile is used in our integration tests.
+In a few places, Kaniko keeps its historical, non-compliant behavior instead of following the Dockerfile specification. Switching to the compliant implementation by default would require users with large codebases to update their Dockerfiles, making migration to our fork tedious. These flags enable the spec-compliant behavior, matching BuildKit one-to-one. Our integration tests run this profile on top of Preview.
 
 ```sh
 FF_KANIKO_COPY_AS_ROOT=true
