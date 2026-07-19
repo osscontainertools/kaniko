@@ -506,13 +506,20 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 
 	if shouldUnpack {
 		t := timing.Start("FS Unpacking")
+		dl := &downloadTimer{}
+		unpackStart := time.Now()
 
 		retryFunc := func() error {
-			_, err := getFSFromImage(config.RootDir, s.image, util.ExtractFile)
+			_, err := getFSFromImage(config.RootDir, timedImage{Image: s.image, dl: dl}, util.ExtractFile)
 			return err
 		}
 
 		err := util.Retry(retryFunc, opts.ImageFSExtractRetry, 1000)
+		download := dl.elapsed()
+		t.SetAttributes(
+			attribute.Int64("kaniko.unpack.download_ms", download.Milliseconds()),
+			attribute.Int64("kaniko.unpack.extract_ms", (time.Since(unpackStart)-download).Milliseconds()),
+		)
 		timing.DefaultRun.Stop(t)
 		if err != nil {
 			return fmt.Errorf("failed to get filesystem from image: %w", err)
