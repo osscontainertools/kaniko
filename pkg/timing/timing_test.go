@@ -17,8 +17,11 @@ limitations under the License.
 package timing
 
 import (
+	"context"
 	"testing"
 	"time"
+
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func patchTime(timeFunc func() time.Time) func() {
@@ -86,4 +89,22 @@ func TestTimedRun_StartStop(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Regression for the SetTracer/Start data race: cache-push goroutines call
+// Start while the shutdown path unwires the tracer. Run under -race.
+func TestSetTracerConcurrentWithStart(t *testing.T) {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for range 1000 {
+			DefaultRun.Stop(Start("race-probe"))
+		}
+	}()
+	tr := noop.NewTracerProvider().Tracer("test")
+	for range 1000 {
+		SetTracer(context.Background(), tr)
+		SetTracer(context.Background(), nil)
+	}
+	<-done
 }

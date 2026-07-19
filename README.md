@@ -1422,7 +1422,13 @@ Kaniko can export an OpenTelemetry trace of each build so you can track build ti
 KANIKO_TELEMETRY_ENDPOINT=http://otel-collector:4318
 ```
 
-Each build becomes a trace, with a span per build phase and Dockerfile command. Telemetry is best effort and never fails a build.
+Each build becomes a trace, with a span per build phase and Dockerfile command (hot per-file phases — hashing, filesystem walks, tar writing — intentionally emit no spans). Telemetry is best effort and never fails a build: failed builds are still traced (the root span carries the error), spans are exported in batches (up to 5s apart) and the exit-time flush is capped at 5s, so a killed pod can lose the most recent spans.
+
+**What leaves the machine**: the trace carries the full Dockerfile source (`kaniko.dockerfile.content` — suppress it with `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true`, a standard Go boolean; any unparseable value falls back to exporting, with a warning), the verbatim text of every instruction — including `RUN` lines and the ids/env names (never the values) of `RUN --mount=type=secret` — plus explicitly-set `FF_KANIKO_*` values and cache keys. Treat the collector as part of your secret boundary and prefer an `https://` endpoint: the URL scheme selects TLS, and kaniko warns when spans go out over plaintext `http://`. Attribute values are capped at 64 KiB (override with `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` or `OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT`; an explicit `-1` means unlimited).
+
+Only OTLP over **HTTP** is supported (collector port 4318 — gRPC on `4317` will not work), the endpoint URL must include a scheme, and only `KANIKO_TELEMETRY_ENDPOINT` enables tracing: the standard `OTEL_EXPORTER_OTLP_ENDPOINT` alone does not.
+
+Exported attributes — build span: `kaniko.version`, `kaniko.dockerfile` (path), `kaniko.dockerfile.content` (absent for URL Dockerfiles or when omitted), `kaniko.target`, `kaniko.build_id` (sha256 of Dockerfile content + target; path-based when unreadable), `kaniko.ff.*` (explicitly-set feature flags only — flags left at their defaults are not reported), and `service.name` (defaults to `kaniko`; `OTEL_SERVICE_NAME` wins). Command spans: `kaniko.command` (full text), `kaniko.command.hash`, `kaniko.phase` (`kaniko`|`build`|`network`), `kaniko.instruction.index`/`.line`, `kaniko.stage`, and with `--cache` enabled `kaniko.cache.hit` (true = replayed from cache; the attribute is absent when caching is off) and `kaniko.cache.key`.
 
 Standard OpenTelemetry environment variables apply for the rest: `OTEL_EXPORTER_OTLP_HEADERS` for authenticating to the collector, and `OTEL_RESOURCE_ATTRIBUTES` for fleet labels such as `tenant`, `repo`, and `git.sha`.
 
