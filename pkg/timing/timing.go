@@ -89,14 +89,31 @@ func phaseFor(category string) string {
 	return "kaniko"
 }
 
-// Start starts a new Timer and returns it.
+// Start starts a new Timer whose span (if tracing is on) hangs off the root
+// build span.
 func Start(category string) *Timer {
+	return start(parentCtx, category)
+}
+
+// StartChild starts a Timer whose span nests under t's span, so a sub-step of a
+// timed operation shows as a child instead of an overlapping sibling. Safe when
+// t is nil or tracing is off.
+func (t *Timer) StartChild(category string) *Timer {
+	parent := parentCtx
+	if t != nil && t.ctx != nil {
+		parent = t.ctx
+	}
+	return start(parent, category)
+}
+
+func start(ctx context.Context, category string) *Timer {
 	t := Timer{
 		category:  category,
 		startTime: currentTimeFunc(),
+		ctx:       ctx,
 	}
 	if tracer != nil && !noSpanCategories[category] {
-		_, t.span = tracer.Start(parentCtx, category)
+		t.ctx, t.span = tracer.Start(ctx, category)
 		t.span.SetAttributes(attribute.String("kaniko.phase", phaseFor(category)))
 	}
 	return &t
@@ -115,6 +132,7 @@ type Timer struct {
 	category  string
 	startTime time.Time
 	span      trace.Span
+	ctx       context.Context
 }
 
 func (t *Timer) SetAttributes(kv ...attribute.KeyValue) {
