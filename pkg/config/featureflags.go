@@ -55,6 +55,7 @@ type FeatureFlags struct {
 	SecurejoinExtraction           bool
 	SkipRelabelRecompress          bool
 	SkipWriteWhiteouts             bool
+	StageElimination               bool
 	UntarSkipRoot                  bool
 	VolumeSkipMkdir                bool
 	WarmerCacheLock                bool
@@ -121,6 +122,7 @@ func InitFeatureFlags() {
 		SecurejoinExtraction:           featureFlag("FF_KANIKO_SECUREJOIN_EXTRACTION", true),
 		SkipRelabelRecompress:          featureFlag("FF_KANIKO_SKIP_RELABEL_RECOMPRESS", false),
 		SkipWriteWhiteouts:             featureFlag("FF_KANIKO_SKIP_WRITE_WHITEOUTS", false),
+		StageElimination:               featureFlag("FF_KANIKO_STAGE_ELIMINATION", false),
 		UntarSkipRoot:                  featureFlag("FF_KANIKO_UNTAR_SKIP_ROOT", false),
 		VolumeSkipMkdir:                featureFlag("FF_KANIKO_VOLUME_SKIP_MKDIR", true),
 		WarmerCacheLock:                featureFlag("FF_KANIKO_WARMER_CACHE_LOCK", true),
