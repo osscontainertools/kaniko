@@ -54,6 +54,7 @@ type FeatureFlags struct {
 	RunViaTini                     bool
 	ScopedDockerignore             bool
 	SecurejoinExtraction           bool
+	SharedBaseCache                bool
 	SkipCachedStages               bool
 	SkipRelabelRecompress          bool
 	SkipWriteWhiteouts             bool
@@ -122,6 +123,7 @@ func InitFeatureFlags() {
 		RunViaTini:                     featureFlag("FF_KANIKO_RUN_VIA_TINI", false),
 		ScopedDockerignore:             featureFlag("FF_KANIKO_SCOPED_DOCKERIGNORE", false),
 		SecurejoinExtraction:           featureFlag("FF_KANIKO_SECUREJOIN_EXTRACTION", true),
+		SharedBaseCache:                featureFlag("FF_KANIKO_SHARED_BASE_CACHE", false),
 		SkipCachedStages:               featureFlag("FF_KANIKO_SKIP_CACHED_STAGES", false),
 		SkipRelabelRecompress:          featureFlag("FF_KANIKO_SKIP_RELABEL_RECOMPRESS", false),
 		SkipWriteWhiteouts:             featureFlag("FF_KANIKO_SKIP_WRITE_WHITEOUTS", false),

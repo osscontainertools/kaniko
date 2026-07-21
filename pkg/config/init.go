@@ -56,6 +56,10 @@ var BuildContextDir = KanikoDir + "/buildcontext/"
 // as tarballs in case they are needed later on
 var KanikoIntermediateStagesDir = KanikoDir + "/stages/"
 
+// KanikoBaseStagesDir holds base images downloaded once,
+// reused across stages and keyed by image digest.
+var KanikoBaseStagesDir = KanikoDir + "/bases/"
+
 // KanikoInsterStageDir is where we will store inter-stage dependencies
 // Contents are stored as-is.
 var KanikoInterStageDepsDir = func() string {
@@ -128,6 +132,10 @@ func Cleanup() error {
 		return err
 	}
 	err = safeRemove(KanikoIntermediateStagesDir)
+	if err != nil {
+		return err
+	}
+	err = safeRemove(KanikoBaseStagesDir)
 	if err != nil {
 		return err
 	}
