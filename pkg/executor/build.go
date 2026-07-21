@@ -1208,7 +1208,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 	var pushImage v1.Image
 	for _, stage := range kanikoStages {
-		baseImage, err := image_util.RetrieveSourceImage(stage, opts)
+		baseImage, err := retrieveBaseImage(stage, opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get baseImage: %w", err)
 		}
@@ -1541,16 +1541,72 @@ func saveStage(path string, image v1.Image) error {
 	}
 	tarPath := filepath.Join(config.KanikoIntermediateStagesDir, path)
 	logrus.Infof("Storing source image from stage %s at path %s", path, tarPath)
-	if err := os.MkdirAll(filepath.Dir(tarPath), 0o750); err != nil {
+	return writeImageLayout(tarPath, image, destRef.Name())
+}
+
+func writeImageLayout(dir string, image v1.Image, ref string) error {
+	if err := os.MkdirAll(filepath.Dir(dir), 0o750); err != nil {
 		return err
 	}
-	p, err := layout.Write(tarPath, empty.Index)
+	p, err := layout.Write(dir, empty.Index)
 	if err != nil {
 		return err
 	}
 	return p.AppendImage(image, layout.WithAnnotations(map[string]string{
-		"org.opencontainers.image.ref.name": destRef.Name(),
+		"org.opencontainers.image.ref.name": ref,
 	}))
+}
+
+func retrieveBaseImage(stage config.KanikoStage, opts *config.KanikoOptions) (v1.Image, error) {
+	if config.FF.SharedBaseCache && !stage.BaseImageStoredLocally {
+		ref, _ := name.ParseReference(stage.BaseName, name.WeakValidation)
+		d, ok := ref.(name.Digest)
+		if ok {
+			stored, err := loadFromOCILayout(filepath.Join(config.KanikoBaseStagesDir, d.DigestStr()))
+			if err == nil {
+				logrus.Infof("shared-base: reusing digest-pinned base %s from local store", stage.BaseName)
+				return stored, nil
+			}
+		}
+	}
+
+	img, err := image_util.RetrieveSourceImage(stage, opts)
+	if err != nil {
+		return nil, err
+	}
+	if !config.FF.SharedBaseCache || stage.BaseImageStoredLocally {
+		return img, nil
+	}
+	layers, err := img.Layers()
+	if err != nil || len(layers) == 0 {
+		return img, nil
+	}
+	digest, err := img.Digest()
+	if err != nil {
+		return img, nil
+	}
+	path := filepath.Join(config.KanikoBaseStagesDir, digest.String())
+
+	stored, err := loadFromOCILayout(path)
+	if err == nil {
+		logrus.Infof("shared-base: reusing base %s from local store", digest)
+		return stored, nil
+	}
+
+	t := timing.Start("Downloading base image")
+	err = writeImageLayout(path, img, digest.String())
+	timing.DefaultRun.Stop(t)
+	if err != nil {
+		logrus.Warnf("shared-base: failed to store %s, using registry image: %v", digest, err)
+		return img, nil
+	}
+	stored, err = loadFromOCILayout(path)
+	if err != nil {
+		logrus.Warnf("shared-base: failed to reload stored %s, using registry image: %v", digest, err)
+		return img, nil
+	}
+	logrus.Infof("shared-base: stored base %s", digest)
+	return stored, nil
 }
 
 func getHasher(snapshotMode string) (func(string) (string, error), error) {
