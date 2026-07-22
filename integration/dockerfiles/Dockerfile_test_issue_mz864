@@ -1,0 +1,10 @@
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}alpine
+
+# mz864: WORKDIR chowns only the leaf directory it creates.
+# Diverges from buildkit on kaniko v1.28.0: the implicit parent /work stays
+# root owned while buildkit assigns the active USER to every dir it creates.
+USER 1000
+WORKDIR /work/dir4
+RUN test "$(stat -c '%u:%g' /work)" = "$(id -u):$(id -g)" \
+ && test "$(stat -c '%u:%g' /work/dir4)" = "$(id -u):$(id -g)"

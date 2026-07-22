@@ -56,7 +56,20 @@ jobs:
           version: 29.5.2
 
       - run: make install-diffoci k3s-setup
-      - run: make ${{ matrix.make-target }}
+      - name: disk usage before
+        run: df -h / && docker system df || true
+      - name: run tests with disk monitor
+        run: |
+          ( while true; do echo "[disk] $(date +%T) $(df -h / | tail -1)"; sleep 10; done ) &
+          mon=$!
+          set +e
+          make ${{ matrix.make-target }}
+          st=$?
+          kill "$mon" 2>/dev/null || true
+          exit $st
+      - name: disk usage after
+        if: always()
+        run: df -h / && du -sh /var/lib/docker 2>/dev/null; docker system df || true
 
       - name: Convert and upload coverage
         run: |
