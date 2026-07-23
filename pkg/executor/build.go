@@ -1564,6 +1564,9 @@ func writeImageLayout(dir string, image v1.Image, ref string) error {
 }
 
 func retrieveBaseImage(stage config.KanikoStage, opts *config.KanikoOptions) (v1.Image, error) {
+	if stage.BaseImageStoredLocally {
+		assert.Assert("executor.build.local-base-none", stage.BaseImageAction == config.BaseImageNone, "stage %d: a local-stage base must have action None, got %d", stage.Index, stage.BaseImageAction)
+	}
 	if stage.BaseImageAction == config.BaseImageLoad {
 		// A previous stage stored this base under its resolved digest; read it back
 		// with no registry access. It must be present, an earlier stage stored it.
