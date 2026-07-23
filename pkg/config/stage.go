@@ -20,12 +20,25 @@ import (
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 )
 
+// BaseImageAction is how a stage obtains its base image relative to the shared
+// base store (FF_KANIKO_SHARED_BASE_CACHE).
+type BaseImageAction int
+
+const (
+	BaseImageNone   BaseImageAction = iota // base from a previous local stage
+	BaseImageStream                        // download and unpack, do not store
+	BaseImageStore                         // store the base then load it (first user)
+	BaseImageLoad                          // load the base a prior stage stored
+)
+
 // KanikoStage wraps a stage of the Dockerfile and provides extra information
 type KanikoStage struct {
 	Name                   string
 	BaseName               string
 	Commands               []instructions.Command
 	BaseImageIndex         int
+	BaseImageDigest        string
+	BaseImageAction        BaseImageAction
 	Push                   bool
 	Final                  bool
 	BaseImageStoredLocally bool
