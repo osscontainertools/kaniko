@@ -155,6 +155,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_UNTAR_SKIP_ROOT`](#flag-ff_kaniko_untar_skip_root)
       - [Flag `FF_KANIKO_RUN_HONOR_GROUP`](#flag-ff_kaniko_run_honor_group)
       - [Flag `FF_KANIKO_EXPAND_HEREDOC`](#flag-ff_kaniko_expand_heredoc)
+      - [Flag `FF_KANIKO_SHARED_BASE_CACHE`](#flag-ff_kaniko_shared_base_cache)
     - [Assertion Overrides](#assertion-overrides)
     - [Debug Image](#debug-image)
   - [Security](#security)
@@ -1392,6 +1393,12 @@ Becomes default in `v1.29.0`.
 
 Docker applies Dockerfile word-expansion to a `COPY` or `ADD` heredoc body when the delimiter is unquoted, so `${VAR}` expands and `\${VAR}` keeps the literal text. A quoted delimiter (`<<'EOF'`) leaves the body verbatim. kaniko writes the body verbatim in every case, so the expanded files diverge from Docker.
 Set this flag to `true` to expand build args and env in unquoted `COPY` and `ADD` heredoc bodies.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_SHARED_BASE_CACHE`
+
+When several stages build on the same remote base image, kaniko downloads that base once per stage. Set this flag to `true` to download a shared base once, store it under `/kaniko/bases`, and have the other stages read it from there instead of downloading it again. A base is also stored when a stage is kept for a later stage to build on, or when the built image is pushed, because both re-read the base layers. A base used by a single stage that is not pushed still streams, so nothing is stored that would not be read again.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
