@@ -421,8 +421,6 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			}
 			if (s.SaveStage && !s.Final) || (s.Push && writesOutput) {
 				s.BaseImageAction = config.BaseImageStore
-			} else {
-				s.BaseImageAction = config.BaseImageStream
 			}
 			for j := i + 1; j < len(onlyUsedStages); j++ {
 				o := &onlyUsedStages[j]
