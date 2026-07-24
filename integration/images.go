@@ -124,6 +124,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_EXPAND_HEREDOC=1",
 	"FF_KANIKO_SKIP_WRITE_WHITEOUTS=1",
 	"FF_KANIKO_SKIP_RELABEL_RECOMPRESS=1",
+	"FF_KANIKO_SHARED_BASE_CACHE=1",
 	"KANIKO_PRINT_PLAN=1",
 	"KANIKO_TELEMETRY_ENDPOINT",
 	"OTEL_EXPORTER_OTLP_HEADERS",
@@ -396,6 +397,8 @@ var expectedWarnings = map[string]string{
 	"Dockerfile_test_issue_mz560": "Skipping copy targeting kaniko directory",
 	// mz793: the test disables FF_KANIKO_VOLUME_SKIP_MKDIR, which the flag registry warns about.
 	"Dockerfile_test_issue_mz793": "feature flags explicitly disabled, please create an issue for your use-case: FF_KANIKO_VOLUME_SKIP_MKDIR",
+	// mz936: the read-only store makes both stages degrade to a registry fetch, each warning.
+	"Dockerfile_test_issue_mz936": "shared-base:",
 }
 
 func checkNoWarnings(dockerfile string, out []byte) error {
@@ -932,6 +935,11 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 var extraDockerRunFlags = map[string]func(contextDir string) []string{
 	"Dockerfile_test_issue_mz753": func(ctx string) []string {
 		return []string{"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/opt/driver/lib.so:ro"}
+	},
+	// Mount any existing directory read-only over the shared-base store so storing
+	// the base fails and both stages must degrade to a registry fetch, not panic.
+	"Dockerfile_test_issue_mz936": func(ctx string) []string {
+		return []string{"-v", filepath.Join(ctx, "testdata") + ":/kaniko/bases:ro"}
 	},
 }
 
