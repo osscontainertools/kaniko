@@ -20,22 +20,16 @@ import (
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 )
 
-type BaseImageAction int
-
-const (
-	BaseImageNone  BaseImageAction = iota // stream: download and unpack in one go
-	BaseImageStore                        // store the base then load it (first user)
-	BaseImageLoad                         // load the base a prior stage stored
-)
-
 // KanikoStage wraps a stage of the Dockerfile and provides extra information
 type KanikoStage struct {
-	Name                   string
-	BaseName               string
-	Commands               []instructions.Command
-	BaseImageIndex         int
-	BaseImageDigest        string
-	BaseImageAction        BaseImageAction
+	Name            string
+	BaseName        string
+	Commands        []instructions.Command
+	BaseImageIndex  int
+	BaseImageDigest string
+	// BaseImageShared marks a base that is read more than once (by several stages
+	// or re-read on push/save), so it is stored once under its digest and reused.
+	BaseImageShared        bool
 	Push                   bool
 	Final                  bool
 	BaseImageStoredLocally bool

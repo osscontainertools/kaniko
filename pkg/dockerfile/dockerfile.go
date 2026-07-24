@@ -383,7 +383,6 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			BaseImageIndex:         baseImageIndex,
 			BaseImageDigest:        baseImageDigest,
 			BaseImageStoredLocally: baseImageStoredLocally,
-			BaseImageAction:        config.BaseImageNone,
 			SaveStage:              stagesDependencies[i] > 0,
 			Push:                   i == pushStage,
 			Final:                  i == finalStage,
@@ -416,20 +415,22 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		writesOutput := (!opts.NoPush && len(opts.Destinations) > 0) || opts.TarPath != "" || opts.OCILayoutPath != ""
 		for i := range onlyUsedStages {
 			s := &onlyUsedStages[i]
-			if s.BaseImageStoredLocally || s.BaseImageAction != config.BaseImageNone {
+			if s.BaseImageStoredLocally || s.BaseImageDigest == "" || s.BaseImageShared {
 				continue
 			}
+			// A base re-read on push/save is stored so the re-read hits the local copy.
 			if (s.SaveStage && !s.Final) || (s.Push && writesOutput) {
-				s.BaseImageAction = config.BaseImageStore
+				s.BaseImageShared = true
 			}
+			// A base pulled by several stages is stored once and reused by the rest.
 			for j := i + 1; j < len(onlyUsedStages); j++ {
 				o := &onlyUsedStages[j]
-				if o.BaseImageStoredLocally {
+				if o.BaseImageStoredLocally || o.BaseImageDigest == "" {
 					continue
 				}
 				if o.BaseImageDigest == s.BaseImageDigest {
-					s.BaseImageAction = config.BaseImageStore
-					o.BaseImageAction = config.BaseImageLoad
+					s.BaseImageShared = true
+					o.BaseImageShared = true
 				}
 			}
 		}
