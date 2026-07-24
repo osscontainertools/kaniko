@@ -1,5 +1,5 @@
 FROM alpine:3.12 AS base
-STORE alpine:3.12
+REUSE alpine:3.12
 UNPACK alpine:3.12
 RUN touch /blubb
 SAVE STAGE /kaniko/stages/0
@@ -7,13 +7,14 @@ SAVE FILES [/blubb] /kaniko/deps/0
 CLEAN
 
 FROM alpine:3.11 AS shared1
-STORE alpine:3.11
+REUSE alpine:3.11
 UNPACK alpine:3.11
 RUN touch /blubb
 SAVE FILES [/blubb] /kaniko/deps/1
 CLEAN
 
 FROM alpine:3.11 AS shared2
+REUSE alpine:3.11
 UNPACK alpine:3.11
 RUN touch /blubb
 SAVE FILES [/blubb] /kaniko/deps/2

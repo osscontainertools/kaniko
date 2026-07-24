@@ -988,10 +988,8 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 		switch {
 		case s.BaseImageStoredLocally:
 			printf("UNPACK %s%d\n", config.KanikoIntermediateStagesDir, s.BaseImageIndex)
-		case s.BaseImageAction == config.BaseImageStore:
-			printf("STORE %s\n", s.BaseName)
-			printf("UNPACK %s\n", s.BaseName)
-		case s.BaseImageAction == config.BaseImageLoad:
+		case s.BaseImageShared:
+			printf("REUSE %s\n", s.BaseName)
 			printf("UNPACK %s\n", s.BaseName)
 		default:
 			printf("STREAM %s\n", s.BaseName)
@@ -1564,15 +1562,17 @@ func writeImageLayout(dir string, image v1.Image, ref string) error {
 }
 
 func retrieveBaseImage(stage config.KanikoStage, opts *config.KanikoOptions) (v1.Image, error) {
-	if stage.BaseImageStoredLocally {
-		assert.Assert("executor.build.local-base-none", stage.BaseImageAction == config.BaseImageNone, "stage %d: a local-stage base must have action None, got %d", stage.Index, stage.BaseImageAction)
+	if !stage.BaseImageShared {
+		return image_util.RetrieveSourceImage(stage, opts)
 	}
-	if stage.BaseImageAction == config.BaseImageLoad {
-		// A previous stage stored this base under its resolved digest; read it back
-		// with no registry access. It must be present, an earlier stage stored it.
-		path := filepath.Join(config.KanikoBaseStagesDir, stage.BaseImageDigest)
-		stored, err := loadFromOCILayout(path)
-		assert.Assert("executor.build.base-load-hit", err == nil, "stage %d base %s expected in store at %s: %v", stage.Index, stage.BaseName, path, err)
+	// A shared base is read more than once (by several stages, or re-read on
+	// push/save), so it is stored once under its digest and reused. Whichever
+	// stage reaches it first writes the store, the rest read it back with no
+	// registry access. The digest was resolved from this ref at plan time
+	// (getRemoteOnBuild), so it keys both the lookup and the write.
+	path := filepath.Join(config.KanikoBaseStagesDir, stage.BaseImageDigest)
+	stored, err := loadFromOCILayout(path)
+	if err == nil {
 		logrus.Infof("shared-base: loading base %s from local store", stage.BaseImageDigest)
 		return stored, nil
 	}
@@ -1581,31 +1581,19 @@ func retrieveBaseImage(stage config.KanikoStage, opts *config.KanikoOptions) (v1
 	if err != nil {
 		return nil, err
 	}
-	if stage.BaseImageAction != config.BaseImageStore {
-		return img, nil
-	}
-	digest, err := img.Digest()
-	if err != nil {
-		return img, nil
-	}
-	// The base ref is resolved once per run (remote.manifestCache), so the digest
-	// here must match the one MakeKanikoStages planned the store on.
-	assert.Assert("executor.build.base-digest-stable", stage.BaseImageDigest == digest.String(), "stage %d base %s resolved to %s at build but %s at plan", stage.Index, stage.BaseName, digest, stage.BaseImageDigest)
-	path := filepath.Join(config.KanikoBaseStagesDir, digest.String())
-
 	t := timing.Start("Downloading base image")
-	err = writeImageLayout(path, img, digest.String())
+	err = writeImageLayout(path, img, stage.BaseImageDigest)
 	timing.DefaultRun.Stop(t)
 	if err != nil {
-		logrus.Warnf("shared-base: failed to store %s, using registry image: %v", digest, err)
+		logrus.Warnf("shared-base: failed to store %s, using registry image: %v", stage.BaseImageDigest, err)
 		return img, nil
 	}
-	stored, err := loadFromOCILayout(path)
+	stored, err = loadFromOCILayout(path)
 	if err != nil {
-		logrus.Warnf("shared-base: failed to reload stored %s, using registry image: %v", digest, err)
+		logrus.Warnf("shared-base: failed to reload stored %s, using registry image: %v", stage.BaseImageDigest, err)
 		return img, nil
 	}
-	logrus.Infof("shared-base: stored base %s", digest)
+	logrus.Infof("shared-base: stored base %s", stage.BaseImageDigest)
 	return stored, nil
 }
 
