@@ -140,7 +140,7 @@ jobs:
         run: echo "now=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
 
       - if: steps.context.outputs.should_push == 'true'
-        uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c # v4
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -205,7 +205,7 @@ jobs:
 
       # If a tag push, distribute to other registries too
       - if: steps.context.outputs.is_release == 'true'
-        uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c # v4
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
