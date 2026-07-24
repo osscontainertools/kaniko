@@ -1,0 +1,40 @@
+FROM alpine:3.12 AS base
+REUSE alpine:3.12
+UNPACK alpine:3.12
+RUN touch /blubb
+SAVE STAGE /kaniko/stages/0
+SAVE FILES [/blubb] /kaniko/deps/0
+CLEAN
+
+FROM alpine:3.11 AS shared1
+REUSE alpine:3.11
+UNPACK alpine:3.11
+RUN touch /blubb
+SAVE FILES [/blubb] /kaniko/deps/1
+CLEAN
+
+FROM alpine:3.11 AS shared2
+REUSE alpine:3.11
+UNPACK alpine:3.11
+RUN touch /blubb
+SAVE FILES [/blubb] /kaniko/deps/2
+CLEAN
+
+FROM base AS derived
+UNPACK /kaniko/stages/0
+SAVE FILES [/blubb] /kaniko/deps/3
+CLEAN
+
+FROM alpine:3.10 AS unused
+STREAM alpine:3.10
+RUN touch /blubb
+SAVE FILES [/blubb] /kaniko/deps/4
+CLEAN
+
+FROM debian:12.10 AS final
+STREAM debian:12.10
+COPY --from=base /blubb /0
+COPY --from=shared1 /blubb /1
+COPY --from=shared2 /blubb /2
+COPY --from=unused /blubb /3
+COPY --from=derived /blubb /4

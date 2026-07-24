@@ -1,5 +1,5 @@
 FROM alpine
-UNPACK alpine
+STREAM alpine
 RUN rm -rf /blubb
 RUN touch /blubb
 RUN ls -lah /blubb
