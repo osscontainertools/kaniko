@@ -1,0 +1,6 @@
+# mz849: --image-format=docker relabels an OCI base image's layers to docker schema2.
+# busybox:latest is an OCI base, its layers are application/vnd.oci.image.layer.v1.tar+gzip.
+# With --image-format=docker kaniko must rewrite those base layers to
+# application/vnd.docker.image.rootfs.diff.tar.gzip in the pushed image.
+FROM busybox
+COPY context/foo /foo
