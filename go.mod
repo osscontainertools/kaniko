@@ -19,7 +19,7 @@ require (
 	github.com/docker/cli v29.6.2+incompatible
 	github.com/docker/docker-credential-helpers v0.9.8
 	github.com/ePirat/docker-credential-gitlabci v1.0.0
-	github.com/go-git/go-billy/v5 v5.9.0
+	github.com/go-git/go-billy/v5 v5.9.1
 	github.com/go-git/go-git/v5 v5.19.1
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.7.0
@@ -27,7 +27,7 @@ require (
 	github.com/google/slowjam v1.1.2
 	github.com/minio/highwayhash v1.0.4
 	github.com/moby/buildkit v0.31.2
-	github.com/moby/go-archive v0.2.0
+	github.com/moby/go-archive v0.2.1
 	github.com/moby/moby/api v1.55.0
 	github.com/moby/patternmatcher v0.6.1
 	github.com/moby/sys/signal v0.7.1
@@ -112,14 +112,14 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
-	github.com/klauspost/compress v1.18.6 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/sys/sequential v0.7.0 // indirect
-	github.com/moby/sys/user v0.4.0 // indirect
+	github.com/moby/sys/user v0.4.1 // indirect
 	github.com/moby/sys/userns v0.1.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
