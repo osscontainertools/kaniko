@@ -135,10 +135,6 @@ func Cleanup() error {
 	if err != nil {
 		return err
 	}
-	err = safeRemove(KanikoBaseStagesDir)
-	if err != nil {
-		return err
-	}
 	err = safeRemove(BuildContextDir)
 	if err != nil {
 		return err
