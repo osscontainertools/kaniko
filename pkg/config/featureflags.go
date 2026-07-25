@@ -33,6 +33,7 @@ type FeatureFlags struct {
 	CleanKanikoDir                 bool
 	CopyAsRoot                     bool
 	CopyChmodOnImplicitDirs        bool
+	CopySkipSpecialFiles           bool
 	DeprecateInterStageRestore     bool
 	DisableHTTP2                   bool
 	ExpandHeredoc                  bool
@@ -99,6 +100,7 @@ func InitFeatureFlags() {
 		CleanKanikoDir:                 featureFlag("FF_KANIKO_CLEAN_KANIKO_DIR", true),
 		CopyAsRoot:                     featureFlag("FF_KANIKO_COPY_AS_ROOT", false),
 		CopyChmodOnImplicitDirs:        featureFlag("FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS", false),
+		CopySkipSpecialFiles:           featureFlag("FF_KANIKO_COPY_SKIP_SPECIAL_FILES", false),
 		DeprecateInterStageRestore:     featureFlag("FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE", true),
 		DisableHTTP2:                   featureFlag("FF_KANIKO_DISABLE_HTTP2", false),
 		ExpandHeredoc:                  featureFlag("FF_KANIKO_EXPAND_HEREDOC", false),

@@ -136,6 +136,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_OCI_SCRATCH_BASE`](#flag-ff_kaniko_oci_scratch_base)
       - [Flag `FF_KANIKO_VOLUME_SKIP_MKDIR`](#flag-ff_kaniko_volume_skip_mkdir)
       - [Flag `FF_KANIKO_PRESERVE_HARDLINKS`](#flag-ff_kaniko_preserve_hardlinks)
+      - [Flag `FF_KANIKO_COPY_SKIP_SPECIAL_FILES`](#flag-ff_kaniko_copy_skip_special_files)
       - [Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`](#flag-ff_kaniko_skip_write_whiteouts)
       - [Flag `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE`](#flag-ff_kaniko_buildkit_arg_env_precedence)
       - [Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`](#flag-ff_kaniko_infer_cross_stage_cache_key)
@@ -1254,6 +1255,12 @@ Will be deprecated in `v1.29.0`.
 When copying a directory via `COPY --from=<stage>`, kaniko copies each file independently, breaking hardlink relationships. Files that shared a single inode in the source stage become independent copies in the output image, which can significantly inflate image size for images that rely heavily on hardlinks (e.g. `git` installations where many binaries are hardlinked together).
 Set this flag to `true` to preserve hardlinks during `COPY --from`. Defaults to `true`.
 Will be deprecated in `v1.29.0`.
+
+#### Flag `FF_KANIKO_COPY_SKIP_SPECIAL_FILES`
+
+`COPY` reads each source file to copy it, which is wrong for anything that is not a regular file. A socket fails the build with `ENXIO`, and a block or character device is read as if it were a file, baking its contents into the image in place of the device node.
+Set this flag to `true` to skip both with a warning instead. Fifos are always recreated with `mkfifo` regardless of this flag, since opening one hung the build outright. Defaults to `false`.
+Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`
 
