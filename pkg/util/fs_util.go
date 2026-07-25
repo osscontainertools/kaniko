@@ -770,11 +770,18 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 	if err != nil {
 		return nil, fmt.Errorf("copying dir: %w", err)
 	}
+	return copyDirInner(files, src, dest, context, uid, gid, chmod, useDefaultChmod, false)
+}
+
+func copyDirInner(files []string, src, dest string, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool) ([]string, error) {
 	var copiedFiles []string
 	var updates []timestampUpdate
 	hardlinksSeen := make(map[uint64]string)
 	for _, file := range files {
 		fullPath := filepath.Join(src, file)
+		if skipIgnoreList && HasFilepathPrefix(fullPath, config.KanikoDir, false) {
+			continue
+		}
 		if context.ExcludesFile(fullPath) {
 			logrus.Debugf("%s found in .dockerignore, ignoring", src)
 			continue
@@ -784,12 +791,12 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 			return nil, fmt.Errorf("copying dir: %w", err)
 		}
 		destPath := filepath.Join(dest, file)
-		if CheckIgnoreList(destPath) {
+		if !skipIgnoreList && CheckIgnoreList(destPath) {
 			logrus.Debugf("Skipping copy for ignored path: %s", destPath)
 			continue
 		}
 		isHardlink := false
-		if file == "." {
+		if file == "." && fi.IsDir() {
 			logrus.Tracef("Creating directory %s", destPath)
 
 			perm := os.FileMode(0o755)
@@ -823,7 +830,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 			}
 		} else if IsSymlink(fi) {
 			// If file is a symlink, we want to create the same relative symlink
-			if _, err := CopySymlink(fullPath, destPath, context); err != nil {
+			if _, err := CopySymlink(fullPath, destPath, context, skipIgnoreList); err != nil {
 				return nil, err
 			}
 		} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok && config.FF.PreserveHardlinks {
@@ -843,7 +850,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 			continue
 		} else {
 			// ... Else, we want to copy over a file
-			if _, err := CopyFile(fullPath, destPath, context, uid, gid, chmod, useDefaultChmod); err != nil {
+			if _, err := CopyFile(fullPath, destPath, context, uid, gid, chmod, useDefaultChmod, skipIgnoreList); err != nil {
 				return nil, err
 			}
 		}
@@ -853,7 +860,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 		copiedFiles = append(copiedFiles, destPath)
 	}
 	for _, u := range updates {
-		err = CopyTimestamps(u.src, u.dest)
+		err := CopyTimestamps(u.src, u.dest)
 		if err != nil {
 			return nil, err
 		}
@@ -900,6 +907,17 @@ func checkCopyHardlink(fi os.FileInfo, dest string, seen map[uint64]string) (str
 	return "", false
 }
 
+// CopyTree copies the file, symlink or directory at src to dest. Everything is
+// copied in one pass, so hardlinks within the tree are preserved.
+func CopyTree(src, dest string, context FileContext) error {
+	files, err := RelativeFiles("", src)
+	if err != nil {
+		return err
+	}
+	_, err = copyDirInner(files, src, dest, context, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true, false)
+	return err
+}
+
 func MoveDir(src, dest string) error {
 	err := os.Rename(src, dest)
 	if err == nil {
@@ -908,13 +926,17 @@ func MoveDir(src, dest string) error {
 
 	if errors.Is(err, syscall.EXDEV) {
 		// Cross-device move: copy + delete
-		opts := otiai10Cpy.Options{
-			PreserveTimes:     true,
-			PreserveOwner:     true,
-			PermissionControl: otiai10Cpy.PerservePermission,
-			FS:                FSys,
+		if config.FF.NativeCopy {
+			err = CopyTree(src, dest, FileContext{})
+		} else {
+			opts := otiai10Cpy.Options{
+				PreserveTimes:     true,
+				PreserveOwner:     true,
+				PermissionControl: otiai10Cpy.PerservePermission,
+				FS:                FSys,
+			}
+			err = otiai10Cpy.Copy(src, dest, opts)
 		}
-		err = otiai10Cpy.Copy(src, dest, opts)
 		if err != nil {
 			return err
 		}
@@ -931,12 +953,12 @@ func MoveDir(src, dest string) error {
 }
 
 // CopySymlink copies the symlink at src to dest.
-func CopySymlink(src, dest string, context FileContext) (bool, error) {
+func CopySymlink(src, dest string, context FileContext, skipIgnoreList bool) (bool, error) {
 	if context.ExcludesFile(src) {
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
 	}
-	if HasFilepathPrefix(dest, config.KanikoDir, false) {
+	if !skipIgnoreList && HasFilepathPrefix(dest, config.KanikoDir, false) {
 		logrus.Warnf("Skipping copy targeting kaniko directory: %s", dest)
 		logrus.Info("Writes to the kaniko directory are blocked to prevent overwriting the executor.")
 		logrus.Info("To copy files there, relocate kaniko with KANIKO_DIR: https://github.com/osscontainertools/kaniko#bootstrapping-kaniko")
@@ -958,12 +980,12 @@ func CopySymlink(src, dest string, context FileContext) (bool, error) {
 }
 
 // CopyFile copies the file at src to dest
-func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool) (bool, error) {
+func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool) (bool, error) {
 	if context.ExcludesFile(src) {
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
 	}
-	if HasFilepathPrefix(dest, config.KanikoDir, false) {
+	if !skipIgnoreList && HasFilepathPrefix(dest, config.KanikoDir, false) {
 		logrus.Warnf("Skipping copy targeting kaniko directory: %s", dest)
 		logrus.Info("Writes to the kaniko directory are blocked to prevent overwriting the executor.")
 		logrus.Info("To copy files there, relocate kaniko with KANIKO_DIR: https://github.com/osscontainertools/kaniko#bootstrapping-kaniko")
@@ -1279,6 +1301,23 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 	}
 
 	return CopyCapabilities(src, destFile)
+}
+
+// CopyPaths persists paths from srcRoot to dstRoot for cross-stage COPY --from.
+// One pass over all paths, so hardlinks spanning them are linked, not duplicated.
+func CopyPaths(srcRoot, dstRoot string, paths []string) error {
+	var files []string
+	for _, p := range paths {
+		relative, err := RelativeFiles("", filepath.Join(srcRoot, p))
+		if err != nil {
+			return fmt.Errorf("copying %s: %w", p, err)
+		}
+		for _, f := range relative {
+			files = append(files, filepath.Join(p, f))
+		}
+	}
+	_, err := copyDirInner(files, srcRoot, dstRoot, FileContext{}, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true, true)
+	return err
 }
 
 // CopyOwnership copies the file or directory ownership recursively at src to dest

@@ -137,6 +137,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_VOLUME_SKIP_MKDIR`](#flag-ff_kaniko_volume_skip_mkdir)
       - [Flag `FF_KANIKO_PRESERVE_HARDLINKS`](#flag-ff_kaniko_preserve_hardlinks)
       - [Flag `FF_KANIKO_COPY_SKIP_SPECIAL_FILES`](#flag-ff_kaniko_copy_skip_special_files)
+      - [Flag `FF_KANIKO_NATIVE_COPY`](#flag-ff_kaniko_native_copy)
       - [Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`](#flag-ff_kaniko_skip_write_whiteouts)
       - [Flag `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE`](#flag-ff_kaniko_buildkit_arg_env_precedence)
       - [Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`](#flag-ff_kaniko_infer_cross_stage_cache_key)
@@ -1260,6 +1261,12 @@ Will be deprecated in `v1.29.0`.
 
 `COPY` reads each source file to copy it, which is wrong for anything that is not a regular file. A socket fails the build with `ENXIO`, and a block or character device is read as if it were a file, baking its contents into the image in place of the device node.
 Set this flag to `true` to skip both with a warning instead. Fifos are always recreated with `mkfifo` regardless of this flag, since opening one hung the build outright. Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_NATIVE_COPY`
+
+Three copy paths use the `github.com/otiai10/copy` library instead of kaniko's own copy: persisting a stage's files so `COPY --from=<stage>` can read them, the cross-device fallback when a bind mount target is moved aside, and the `RUN --mount=type=bind` source copy. The library copies every file on its own and knows nothing about hardlinks or file capabilities, so all three expand hardlinks into independent copies. Capabilities fare a little better: the cross-stage save reapplies them, but only to the path named in the `COPY`, so a file carrying capabilities inside a copied directory still loses them, and the two mount paths do not reapply them at all. For the cross-stage save all of this happens before the dependent stage ever sees the files, which is why `FF_KANIKO_PRESERVE_HARDLINKS` alone cannot keep the hardlinks.
+Set this flag to `true` to use kaniko's own copy for all three, walking each tree once and linking repeated inodes instead of duplicating them. Defaults to `false`.
 Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`
