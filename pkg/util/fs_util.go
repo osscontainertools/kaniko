@@ -835,6 +835,14 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 				return nil, err
 			}
 			isHardlink = true
+		} else if fi.Mode()&os.ModeNamedPipe != 0 {
+			// Opening a fifo blocks until it has a writer, so recreate it instead.
+			if err := CreateFifo(destPath, fi, uid, gid, chmod, useDefaultChmod); err != nil {
+				return nil, err
+			}
+		} else if !fi.Mode().IsRegular() && config.FF.CopySkipSpecialFiles {
+			logrus.Warnf("Ignoring special file %s, not copying to %s", fullPath, destPath)
+			continue
 		} else {
 			// ... Else, we want to copy over a file
 			if _, err := CopyFile(fullPath, destPath, context, uid, gid, chmod, useDefaultChmod); err != nil {
@@ -853,6 +861,33 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 		}
 	}
 	return copiedFiles, nil
+}
+
+// CreateFifo recreates the fifo at src as dest. Opening a fifo blocks until it
+// has a writer, so it can never be copied by reading it.
+func CreateFifo(dest string, fi os.FileInfo, uid, gid int64, chmod mode.Set, useDefaultChmod bool) error {
+	uid, gid = DetermineTargetFileOwnership(fi, uid, gid)
+	if err := createParentDirectory(dest, int(uid), int(gid), chmod.Apply(0o755)); err != nil {
+		return err
+	}
+	if FilepathExists(dest) {
+		if err := os.RemoveAll(dest); err != nil {
+			return err
+		}
+	}
+	perm := fi.Mode()
+	if !useDefaultChmod {
+		perm = chmod.Apply(perm)
+	}
+	logrus.Tracef("Creating fifo %s", dest)
+	if err := unix.Mkfifo(dest, uint32(perm.Perm())); err != nil {
+		return fmt.Errorf("creating fifo %s: %w", dest, err)
+	}
+	// mkfifo applies the umask, chmod to get the mode we were actually asked for
+	if err := os.Chmod(dest, perm.Perm()); err != nil {
+		return err
+	}
+	return os.Lchown(dest, int(uid), int(gid))
 }
 
 func checkCopyHardlink(fi os.FileInfo, dest string, seen map[uint64]string) (string, bool) {
