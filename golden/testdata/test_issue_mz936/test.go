@@ -6,7 +6,9 @@ import "github.com/osscontainertools/kaniko/golden/types"
 // FF_KANIKO_SHARED_BASE_CACHE. A base pulled by several stages is downloaded once
 // (first stage stores it, the rest load it), a base persisted for a downstream
 // stage is stored, and on a push the final stage's base is stored because the
-// push re-reads its layers to upload them.
+// push re-reads its layers to upload them. A COPY --from=<image> counts as a
+// read too, so an image read both as a base and by a COPY --from is stored
+// once, while an image only a COPY --from reads streams into the deps dir.
 var Tests = types.GoldenTests{
 	Name:       "test_issue_mz936",
 	Dockerfile: "Dockerfile",

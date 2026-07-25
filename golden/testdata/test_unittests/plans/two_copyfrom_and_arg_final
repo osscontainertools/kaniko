@@ -1,3 +1,4 @@
+STREAM debian:10.13 /kaniko/deps/debian:10.13
 FROM debian:12.10 AS base
   STREAM debian:12.10
 COPY . .
