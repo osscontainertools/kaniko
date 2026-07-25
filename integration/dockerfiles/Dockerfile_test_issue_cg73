@@ -6,6 +6,12 @@ RUN apt-get update \
 
 RUN touch /blubb
 RUN setcap "cap_net_raw+ep" /blubb
+# 1743: a file carrying capabilities inside a directory copied wholesale. The
+# save path applied the capabilities to the directory itself, never to the
+# files below it, so they were lost before the dependent stage saw them.
+RUN mkdir /dir \
+    && touch /dir/nested \
+    && setcap "cap_net_raw+ep" /dir/nested
 
 FROM debian
 
@@ -16,3 +22,5 @@ RUN apt-get update \
 
 COPY --from=base /blubb /
 RUN getcap /blubb
+COPY --from=base /dir /dir
+RUN getcap /dir/nested
