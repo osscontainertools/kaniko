@@ -137,6 +137,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_OCI_SCRATCH_BASE`](#flag-ff_kaniko_oci_scratch_base)
       - [Flag `FF_KANIKO_VOLUME_SKIP_MKDIR`](#flag-ff_kaniko_volume_skip_mkdir)
       - [Flag `FF_KANIKO_PRESERVE_HARDLINKS`](#flag-ff_kaniko_preserve_hardlinks)
+      - [Flag `FF_KANIKO_RELATIVE_LINK_TARGETS`](#flag-ff_kaniko_relative_link_targets)
       - [Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`](#flag-ff_kaniko_skip_write_whiteouts)
       - [Flag `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE`](#flag-ff_kaniko_buildkit_arg_env_precedence)
       - [Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`](#flag-ff_kaniko_infer_cross_stage_cache_key)
@@ -1262,6 +1263,13 @@ Will be deprecated in `v1.29.0`.
 When copying a directory via `COPY --from=<stage>`, kaniko copies each file independently, breaking hardlink relationships. Files that shared a single inode in the source stage become independent copies in the output image, which can significantly inflate image size for images that rely heavily on hardlinks (e.g. `git` installations where many binaries are hardlinked together).
 Set this flag to `true` to preserve hardlinks during `COPY --from`. Defaults to `true`.
 Will be deprecated in `v1.29.0`.
+
+#### Flag `FF_KANIKO_RELATIVE_LINK_TARGETS`
+
+When a snapshot layer contains a hardlink, kaniko writes the link target as an absolute path while writing the entry name itself relative to the tar root. Docker writes both relative. The two forms extract to the same file, so this only matters if you compare kaniko's layers against docker's, or against layers built by another tool.
+Set this flag to `true` to write hardlink targets relative to the tar root.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`
 
