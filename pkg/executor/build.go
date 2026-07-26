@@ -1106,7 +1106,7 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 		case s.BaseImageStoredLocally:
 			printf("UNPACK %s%d\n", config.KanikoIntermediateStagesDir, s.BaseImageIndex)
 		case s.BaseImageShared:
-			printf("REUSE %s\n", s.BaseName)
+			printf("FETCH %s\n", s.BaseName)
 			printf("UNPACK %s\n", s.BaseName)
 		default:
 			printf("STREAM %s\n", s.BaseName)
