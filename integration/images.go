@@ -281,6 +281,9 @@ var diffArgsMap = map[string][]string{
 	// We don't handle user nobody=-1 nogroup=-1 correctly
 	// if group is not set, buildkit defaults to 0
 	"TestRun/test_Dockerfile_test_user_nonexisting": {"--extra-ignore-file-permissions"},
+	// mz922: buildkit gives the implicitly created destination directory the mode that was
+	// requested, we subtract the umask from it, so /dir777 ends up 0755 instead of 0777.
+	"TestRun/test_Dockerfile_test_copyadd_chmod": {"--extra-ignore-files=dir777/"},
 	// #mz155: `COPY --from` does not copy the timestamps from the source but touches new files with new timestamps.
 	// To test this we have to deactivate `--ignore-file-timestamps`. This is achieved here by deactivating `--semantic` comparison,
 	// which we pass by default, and then activating all the necessary ignores except file-timestamps.
