@@ -17,14 +17,26 @@ var Tests = types.GoldenTests{
 	Dockerfile: "Dockerfile",
 	Tests: []types.GoldenTest{
 		{
-			Args:       []string{"--no-push", "--cache", "--cache-copy-layers"},
+			Args: []string{"--no-push", "--cache", "--cache-copy-layers"},
+			Env: map[string]string{
+				"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "0",
+				"FF_KANIKO_RESOLVE_CACHE_KEY":           "0",
+				"FF_KANIKO_ROLLING_CACHE_KEY":           "0",
+				"FF_KANIKO_SHARED_BASE_CACHE":           "0",
+				"FF_KANIKO_SKIP_CACHED_STAGES":          "0",
+			},
 			CachedKeys: []string{},
 			Plan:       "plan",
 		},
 		{
 			Args: []string{"--no-push", "--cache", "--cache-copy-layers"},
 			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD": "1",
+				"FF_KANIKO_CACHE_LOOKAHEAD":             "1",
+				"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "0",
+				"FF_KANIKO_RESOLVE_CACHE_KEY":           "0",
+				"FF_KANIKO_ROLLING_CACHE_KEY":           "0",
+				"FF_KANIKO_SHARED_BASE_CACHE":           "0",
+				"FF_KANIKO_SKIP_CACHED_STAGES":          "0",
 			},
 			CachedKeys: []string{
 				"72e9e0e54e4522d381e54427f5ac6f24dd09910e1ff8d4bc7f60d02f54e2cdc3",
@@ -36,9 +48,10 @@ var Tests = types.GoldenTests{
 		{
 			Args: []string{"--no-push", "--cache", "--cache-copy-layers"},
 			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD":             "1",
-				"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "1",
-				"FF_KANIKO_ROLLING_CACHE_KEY":           "1",
+				"FF_KANIKO_CACHE_LOOKAHEAD":    "1",
+				"FF_KANIKO_RESOLVE_CACHE_KEY":  "0",
+				"FF_KANIKO_SHARED_BASE_CACHE":  "0",
+				"FF_KANIKO_SKIP_CACHED_STAGES": "0",
 			},
 			CachedKeys: chainKeys,
 			Plan:       "inferred",
@@ -46,10 +59,9 @@ var Tests = types.GoldenTests{
 		{
 			Args: []string{"--no-push", "--cache", "--cache-copy-layers"},
 			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD":             "1",
-				"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "1",
-				"FF_KANIKO_ROLLING_CACHE_KEY":           "1",
-				"FF_KANIKO_SKIP_CACHED_STAGES":          "1",
+				"FF_KANIKO_CACHE_LOOKAHEAD":   "1",
+				"FF_KANIKO_RESOLVE_CACHE_KEY": "0",
+				"FF_KANIKO_SHARED_BASE_CACHE": "0",
 			},
 			CachedKeys: chainKeys,
 			Plan:       "eliminated",
