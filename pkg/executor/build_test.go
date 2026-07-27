@@ -607,7 +607,7 @@ func Test_stageBuilder_optimize(t *testing.T) {
 				cacheCommand: MockCachedDockerCommand{},
 			}
 			sb.cmds = []commands.DockerCommand{command}
-			_, _, _, err = sb.optimize(&ck, cf.Config, sb.args, tc.opts, util.FileContext{}, lc, map[int]string{}, nil, true)
+			_, _, _, err = sb.optimize(&ck, cf.Config, sb.args, tc.opts, util.FileContext{}, lc, nil, nil, true)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -1025,7 +1025,7 @@ func Test_stageBuilder_build(t *testing.T) {
 
 			tarContent := generateTar(t, dir, filename)
 
-			ch := NewCompositeCache("", fmt.Sprintf("COPY %s foo.txt", filename))
+			ch := NewCompositeCache("", resolvedKey(fmt.Sprintf("COPY %s foo.txt", filename)))
 			ch.AddPath(filepath, util.FileContext{})
 
 			hash, err := ch.Hash()
@@ -1091,7 +1091,7 @@ func Test_stageBuilder_build(t *testing.T) {
 			tarContent := []byte{}
 			destDir := t.TempDir()
 			filePath := filepath.Join(dir, filename)
-			ch := NewCompositeCache("", fmt.Sprintf("COPY %s foo.txt", filename))
+			ch := NewCompositeCache("", resolvedKey(fmt.Sprintf("COPY %s foo.txt", filename)))
 			ch.AddPath(filePath, util.FileContext{})
 
 			hash, err := ch.Hash()
@@ -1149,22 +1149,22 @@ COPY %s foo.txt
 			destDir := t.TempDir()
 			filePath := filepath.Join(dir, filename)
 
-			ch := NewCompositeCache("", "RUN foobar")
+			ch := NewCompositeCache("", resolvedKey("RUN foobar"))
 
 			hash1, err := ch.Hash()
 			if err != nil {
 				t.Errorf("couldn't create hash %v", err)
 			}
 
-			ch.AddKey(fmt.Sprintf("COPY %s bar.txt", filename))
+			ch.AddKey(resolvedKey(fmt.Sprintf("COPY %s bar.txt", filename)))
 			ch.AddPath(filePath, util.FileContext{})
 
 			hash2, err := ch.Hash()
 			if err != nil {
 				t.Errorf("couldn't create hash %v", err)
 			}
-			ch = NewCompositeCache("", fmt.Sprintf("COPY %s foo.txt", filename))
-			ch.AddKey(fmt.Sprintf("COPY %s bar.txt", filename))
+			ch = NewCompositeCache("", resolvedKey(fmt.Sprintf("COPY %s foo.txt", filename)))
+			ch.AddKey(resolvedKey(fmt.Sprintf("COPY %s bar.txt", filename)))
 			ch.AddPath(filePath, util.FileContext{})
 
 			image := fakeImage{
@@ -1223,7 +1223,7 @@ COPY %s bar.txt
 
 			filePath := filepath.Join(dir, filename)
 
-			ch := NewCompositeCache("", fmt.Sprintf("COPY %s bar.txt", filename))
+			ch := NewCompositeCache("", resolvedKey(fmt.Sprintf("COPY %s bar.txt", filename)))
 			ch.AddPath(filePath, util.FileContext{})
 
 			// copy hash
@@ -1232,7 +1232,7 @@ COPY %s bar.txt
 				t.Errorf("couldn't create hash %v", err)
 			}
 
-			ch.AddKey("RUN foobar")
+			ch.AddKey(resolvedKey("RUN foobar"))
 
 			// run hash
 			runHash, err := ch.Hash()
@@ -1543,6 +1543,11 @@ func getCommands(fileContext util.FileContext, cmds []instructions.Command, cach
 	return outCommands
 }
 
+// resolvedKey frames an instruction the way FF_KANIKO_RESOLVE_CACHE_KEY keys it.
+func resolvedKey(instruction string) string {
+	return fmt.Sprintf("%d:%s", len(instruction), instruction)
+}
+
 func tempDirAndFile(t *testing.T) (string, []string) {
 	filenames := []string{"bar.txt"}
 
@@ -1606,20 +1611,17 @@ func Test_stageBuild_populateCompositeKeyForCopyCommand(t *testing.T) {
 	// See https://github.com/GoogleContainerTools/kaniko/issues/589
 
 	for _, tc := range []struct {
-		description      string
-		command          string
-		expectedCacheKey string
+		description string
+		command     string
 	}{
 		{
 			description: "multi-stage copy command",
 			// dont use digest from previoust stage for COPY
-			command:          "COPY --from=0 foo.txt bar.txt",
-			expectedCacheKey: "COPY --from=0 foo.txt bar.txt",
+			command: "COPY --from=0 foo.txt bar.txt",
 		},
 		{
-			description:      "copy command",
-			command:          "COPY foo.txt bar.txt",
-			expectedCacheKey: "COPY foo.txt bar.txt",
+			description: "copy command",
+			command:     "COPY foo.txt bar.txt",
 		},
 	} {
 		t.Run(tc.description, func(t *testing.T) {
@@ -1657,10 +1659,10 @@ func Test_stageBuild_populateCompositeKeyForCopyCommand(t *testing.T) {
 					}
 
 					actualCacheKey := ck.Key()
-					if tc.expectedCacheKey != actualCacheKey {
+					if resolvedKey(tc.command) != actualCacheKey {
 						t.Errorf(
 							"Expected cache key to be %s, was %s",
-							tc.expectedCacheKey,
+							resolvedKey(tc.command),
 							actualCacheKey,
 						)
 					}
