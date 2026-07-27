@@ -1139,20 +1139,7 @@ delay of 1 second. Defaults to `0`.
 Opting into the Preview profile gives you early access to upcoming performance improvements, bugfixes and features. While these flags are tested and ready to use, implementation details may still change.
 
 ```sh
-FF_KANIKO_EXPAND_HEREDOC=true
-FF_KANIKO_HASH_DIR_FRAMING=true
-FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=true
-FF_KANIKO_PRECOMPILE_DOCKERIGNORE=true
-FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=true
-FF_KANIKO_RESOLVE_CACHE_KEY=true
-FF_KANIKO_ROLLING_CACHE_KEY=true
-FF_KANIKO_RUN_HONOR_GROUP=true
 FF_KANIKO_RUN_VIA_TINI=true
-FF_KANIKO_SHARED_BASE_CACHE=true
-FF_KANIKO_SKIP_CACHED_STAGES=true
-FF_KANIKO_SKIP_RELABEL_RECOMPRESS=true
-FF_KANIKO_SKIP_WRITE_WHITEOUTS=true
-FF_KANIKO_UNTAR_SKIP_ROOT=true
 ```
 
 ##### BuildKit compatibility
@@ -1163,9 +1150,6 @@ In a few places, Kaniko keeps its historical, non-compliant behaviour instead of
 FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS=true
 FF_KANIKO_COPY_AS_ROOT=true
 FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=true
-FF_KANIKO_EXPAND_HEREDOC=true
-FF_KANIKO_RUN_HONOR_GROUP=true
-FF_KANIKO_UNTAR_SKIP_ROOT=true
 ```
 
 #### Flag `FF_KANIKO_COPY_AS_ROOT`
@@ -1236,15 +1220,15 @@ Defaults to `false`.
 By default the composite cache joins all inputs with `-` and hashes the result. Since `-` is a legal input too, different sequences can join to the same text and collide, silently picking up the wrong cache layer.
 This flag switches to a rolling hash, think git, where `state = SHA256(state || input)`. This makes boundaries unambiguous and prevents collisions. It also prevents the hash input from growing, so key computation gets marginally cheaper. Toggling it changes every cache key, forcing a rebuild from scratch.
 Set this flag to `true` to enable the rolling cache key.
-Defaults to `false`.
-Becomes default in `v1.29.0`.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_HASH_DIR_FRAMING`
 
 Directory cache keys concatenate each relative path and file hash without recording their boundaries. A filename can therefore absorb an adjacent hash and make distinct directory trees produce the same cache key, silently reusing the wrong cached layer.
 Set this flag to `true` to length-prefix every path and file hash before hashing the directory. Toggling it changes cache keys for `COPY` and `ADD` directory inputs, forcing those layers to rebuild once.
-Defaults to `false`.
-Becomes default in `v1.29.0`.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_CACHE_PROBE_AFTER_MISS`
 
@@ -1271,8 +1255,8 @@ Currently no plans to activate.
 #### Flag `FF_KANIKO_PRECOMPILE_DOCKERIGNORE`
 
 `.dockerignore` rebuilds the pattern matcher and recompiles every glob to a regexp on every file. Set this flag to `true` to pre-compile the matcher instead.
-Defaults to `false`.
-Becomes default in `v1.29.0`.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_RESOLVE_CACHE_KEY`
 
@@ -1299,15 +1283,15 @@ Will be deprecated in `v1.30.0`.
 
 When a stage sets `USER user:group`, `RUN` applies only the user and the gid falls back to the user's primary group, so an explicit group is silently dropped.
 Set this flag to `true` to pass the full `user:group` to the command so `RUN` runs with the requested group, matching docker.
-Defaults to `false`.
-Becomes default in `v1.29.0`.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_EXPAND_HEREDOC`
 
 Docker applies Dockerfile word-expansion to a `COPY` or `ADD` heredoc body when the delimiter is unquoted, so `${VAR}` expands and `\${VAR}` keeps the literal text. A quoted delimiter (`<<'EOF'`) leaves the body verbatim. kaniko writes the body verbatim in every case, so the expanded files diverge from Docker.
 Set this flag to `true` to expand build args and env in unquoted `COPY` and `ADD` heredoc bodies.
-Defaults to `false`.
-Becomes default in `v1.29.0`.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_SKIP_CACHED_STAGES`
 
