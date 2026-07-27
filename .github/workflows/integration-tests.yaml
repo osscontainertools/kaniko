@@ -21,6 +21,9 @@ jobs:
       IMAGE_REPO: 'localhost:5000'
       REGISTRY: 'localhost:5000'
       COVERAGE_DIR: '${{ github.workspace }}/out/covdata'
+      KANIKO_TELEMETRY_ENDPOINT: '${{ vars.KANIKO_TELEMETRY_ENDPOINT }}'
+      OTEL_EXPORTER_OTLP_HEADERS: 'authorization=Bearer ${{ secrets.KANIKO_OTLP_TOKEN }}'
+      OTEL_RESOURCE_ATTRIBUTES: 'tenant=ci,ci.pipeline=integration,git.sha=${{ github.sha }},git.ref=${{ github.ref_name }}'
 
     strategy:
       fail-fast: false
