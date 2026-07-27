@@ -9,14 +9,23 @@ var Tests = []types.GoldenTests{
 		Tests: []types.GoldenTest{
 			{
 				Args: []string{"--no-push", "--target=base-dev"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "wo_copyfrom_dev",
 			},
 			{
 				Args: []string{"--no-push", "--target=base-prod"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "wo_copyfrom_prod",
 			},
 			{
 				Args: []string{"--no-push"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "wo_copyfrom_final",
 			},
 		},
@@ -27,14 +36,23 @@ var Tests = []types.GoldenTests{
 		Tests: []types.GoldenTest{
 			{
 				Args: []string{"--no-push", "--target=base-dev"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "wo_copyfrom_dev",
 			},
 			{
 				Args: []string{"--no-push", "--target=base-prod"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "wo_copyfrom_prod",
 			},
 			{
 				Args: []string{"--no-push"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "copyfrom_final",
 			},
 		},
@@ -45,14 +63,23 @@ var Tests = []types.GoldenTests{
 		Tests: []types.GoldenTest{
 			{
 				Args: []string{"--no-push", "--target=base-dev"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "wo_copyfrom_dev",
 			},
 			{
 				Args: []string{"--no-push", "--target=base-prod"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "wo_copyfrom_prod",
 			},
 			{
 				Args: []string{"--no-push"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "two_copyfrom_final",
 			},
 		},
@@ -63,10 +90,16 @@ var Tests = []types.GoldenTests{
 		Tests: []types.GoldenTest{
 			{
 				Args: []string{"--no-push", "--target=base"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "two_copyfrom_and_arg_base",
 			},
 			{
 				Args: []string{"--no-push"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "two_copyfrom_and_arg_final",
 			},
 		},
@@ -77,18 +110,30 @@ var Tests = []types.GoldenTests{
 		Tests: []types.GoldenTest{
 			{
 				Args: []string{"--no-push", "--target=final"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "final_wo_deps_final",
 			},
 			{
 				Args: []string{"--no-push", "--target=buzz"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "final_wo_deps_buzz",
 			},
 			{
 				Args: []string{"--no-push", "--target=fizz"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "final_wo_deps_fizz",
 			},
 			{
 				Args: []string{"--no-push"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "final_wo_deps_final",
 			},
 		},
@@ -101,6 +146,9 @@ var Tests = []types.GoldenTests{
 			// There is no need to run the command twice.
 			{
 				Args: []string{"--no-push"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "multiple_copy",
 			},
 		},
@@ -112,6 +160,9 @@ var Tests = []types.GoldenTests{
 			// TODO: alias stages get fully unrolled instead of inlined.
 			{
 				Args: []string{"--no-push"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "alias",
 			},
 		},
@@ -122,10 +173,16 @@ var Tests = []types.GoldenTests{
 		Tests: []types.GoldenTest{
 			{
 				Args: []string{"--no-push"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "global_arg",
 			},
 			{
 				Args: []string{"--no-push", "--target=stage1"},
+				Env: map[string]string{
+					"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				},
 				Plan: "global_arg_stage1",
 			},
 		},
