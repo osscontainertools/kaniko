@@ -17,6 +17,7 @@ limitations under the License.
 package assert
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -24,6 +25,7 @@ import (
 )
 
 var disabledAssertions map[string]struct{}
+var OnAssertionViolation func(name, msg string)
 
 func init() {
 	val := os.Getenv("KANIKO_IGNORE_ASSERTIONS")
@@ -48,6 +50,7 @@ func Assert(name string, cond bool, format string, args ...any) {
 			logrus.Warnf("Assertion disabled ["+name+"]: "+format, args...)
 			return
 		}
+		notifyViolation(name, fmt.Sprintf(format, args...))
 		logrus.Panicf("Assertion violated ["+name+"]: "+format, args...)
 	}
 }
@@ -55,5 +58,12 @@ func Assert(name string, cond bool, format string, args ...any) {
 // Unreachable panics with an "Unreachable Code:" prefix.
 // Use it to mark code paths that must never execute.
 func Unreachable(format string, args ...any) {
+	notifyViolation("unreachable", fmt.Sprintf(format, args...))
 	logrus.Panicf("Unreachable Code: "+format, args...)
+}
+
+func notifyViolation(name, msg string) {
+	if OnAssertionViolation != nil {
+		OnAssertionViolation(name, msg)
+	}
 }

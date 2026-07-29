@@ -17,6 +17,7 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -36,6 +37,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/executor"
 	"github.com/osscontainertools/kaniko/pkg/logging"
 	"github.com/osscontainertools/kaniko/pkg/timing"
+	"github.com/osscontainertools/kaniko/pkg/tracing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/util/proc"
 	"github.com/sirupsen/logrus"
@@ -229,6 +231,7 @@ var RootCmd = &cobra.Command{
 				}
 			}()
 		}
+		tracing.Init(context.Background(), opts)
 		image, err := executor.DoBuild(opts)
 		if err != nil {
 			exit(fmt.Errorf("error building image: %w", err))
@@ -236,6 +239,7 @@ var RootCmd = &cobra.Command{
 		if err := executor.DoPush(image, opts); err != nil {
 			exit(fmt.Errorf("error pushing image: %w", err))
 		}
+		tracing.Shutdown(nil)
 
 		benchmarkFile := os.Getenv("BENCHMARK_FILE")
 		// false is a keyword for integration tests to turn off benchmarking
@@ -593,6 +597,7 @@ func exit(err error) {
 // exits with the given error and exit code
 func exitWithCode(err error, exitCode int) {
 	fmt.Fprintln(os.Stderr, err)
+	tracing.Shutdown(err)
 	os.Exit(exitCode)
 }
 
