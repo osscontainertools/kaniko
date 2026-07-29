@@ -136,6 +136,7 @@ var additionalDockerFlagsMap = map[string][]string{
 	// provenance forces ociv1 on buildkit but for these images we emit dockerv2 in kaniko
 	"Dockerfile_test_cross_compile":                {"--platform=linux/" + crossCompileArch},
 	"Dockerfile_test_issue_mz849":                  {"--provenance=false"},
+	"Dockerfile_test_issue_mz849_dockerv2":         {"--provenance=false"},
 	"Dockerfile_test_snapshotter_ignorelist":       {"--provenance=false"},
 	"Dockerfile_test_whitelist":                    {"--provenance=false"},
 	"Dockerfile_test_volume_4":                     {"--provenance=false"},
@@ -179,6 +180,8 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz824":                {"--cache=true"},
 	"Dockerfile_test_issue_519":                  {"--target=final_stage,nosquash1,nosquash2"},
 	"Dockerfile_test_issue_mz849":                {"--image-format=docker"},
+	"Dockerfile_test_issue_mz849_dockerv2":       {"--image-format=docker"},
+	"Dockerfile_test_issue_mz849_ociv1":          {"--image-format=oci"},
 	"Dockerfile_test_multistage_args_issue_1911": {"--target=base-custom2,nosquash1,nosquash2,nosquash3"},
 	"Dockerfile_test_cmd":                        {"--target=final,nosquash"},
 	"Dockerfile_test_issue_mz247":                {"--target=final,nosquash"},
