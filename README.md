@@ -155,6 +155,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_UNTAR_SKIP_ROOT`](#flag-ff_kaniko_untar_skip_root)
       - [Flag `FF_KANIKO_RUN_HONOR_GROUP`](#flag-ff_kaniko_run_honor_group)
       - [Flag `FF_KANIKO_EXPAND_HEREDOC`](#flag-ff_kaniko_expand_heredoc)
+      - [Flag `FF_KANIKO_SKIP_CACHED_STAGES`](#flag-ff_kaniko_skip_cached_stages)
     - [Assertion Overrides](#assertion-overrides)
     - [Telemetry](#telemetry)
     - [Debug Image](#debug-image)
@@ -1393,6 +1394,13 @@ Becomes default in `v1.29.0`.
 
 Docker applies Dockerfile word-expansion to a `COPY` or `ADD` heredoc body when the delimiter is unquoted, so `${VAR}` expands and `\${VAR}` keeps the literal text. A quoted delimiter (`<<'EOF'`) leaves the body verbatim. kaniko writes the body verbatim in every case, so the expanded files diverge from Docker.
 Set this flag to `true` to expand build args and env in unquoted `COPY` and `ADD` heredoc bodies.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_SKIP_CACHED_STAGES`
+
+When a multi-stage build uses `COPY --from=<stage>`, the downstream cache key depends on the copied files. So the entire source stage has to be built and unpacked, only to then realize that we had a cache hit and can throw away the upstream stage. We recently introduced `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`, `FF_KANIKO_CACHE_LOOKAHEAD` and `FF_KANIKO_ROLLING_CACHE_KEY`, with that we can know a-priori whether we will have a cache hit or not. `FF_KANIKO_SKIP_CACHED_STAGES` is the logical conclusion then, it simply runs another elision pass over the now updated list of stages and drops all stages that are no longer required to be built. Where a key cannot be inferred the stage is built as before. A fully cached build collapses into a single stage with nothing to unpack.
+Set this flag to `true` to run the second elision pass.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
