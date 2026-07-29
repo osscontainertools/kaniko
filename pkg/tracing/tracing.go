@@ -56,7 +56,7 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 	}
 	exp, err := otlptracehttp.New(ctx, otlptracehttp.WithEndpointURL(endpoint))
 	if err != nil {
-		logrus.Warnf("tracing disabled: failed to create OTLP exporter: %v", err)
+		logrus.Debugf("tracing disabled: failed to create OTLP exporter: %v", err)
 		return
 	}
 	// Read the Dockerfile once: reused for build_id and the content attribute.
@@ -69,7 +69,7 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 		resource.WithAttributes(buildAttrs(opts, content)...),
 	)
 	if err != nil {
-		logrus.Warnf("tracing: partial resource, continuing: %v", err)
+		logrus.Debugf("tracing: partial resource, continuing: %v", err)
 	}
 	provider = sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exp),
@@ -154,7 +154,7 @@ func Shutdown(err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownFlushTimeout)
 	defer cancel()
 	if sderr := provider.Shutdown(ctx); sderr != nil {
-		logrus.Warnf("tracing: shutdown flush failed: %v", sderr)
+		logrus.Debugf("tracing: shutdown flush failed: %v", sderr)
 	}
 	provider = nil
 }
