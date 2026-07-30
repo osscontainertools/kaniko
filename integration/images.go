@@ -288,6 +288,9 @@ var diffArgsMap = map[string][]string{
 	// But we discovered a new issue with this. For builtins, buildkit will emit "whiteout" files,
 	// to remember that it was removed, we don't. So we end up with a diff in the resulting image.
 	"TestRun/test_Dockerfile_test_issue_mz511": {"--extra-ignore-files=etc/.wh.nsswitch.conf", "--extra-ignore-layer-length-mismatch"},
+	// 1599: docker copies the fifo into /kaniko, we refuse to write there at all,
+	// so the docker image keeps a /kaniko/tini our image never has.
+	"TestRun/test_Dockerfile_test_issue_1599_2": {"--extra-ignore-files=kaniko/", "--extra-ignore-layer-length-mismatch"},
 	// mz793: with FF_KANIKO_VOLUME_SKIP_MKDIR off, VOLUME creates the directory fresh on
 	// each build, so its mtime differs between the two cached builds. That divergence is the
 	// known volume non-determinism the flag fixes, here we only assert the build no longer panics.
@@ -402,6 +405,8 @@ var expectedWarnings = map[string]string{
 	"Dockerfile_test_issue_mz793": "feature flags explicitly disabled, please create an issue for your use-case: FF_KANIKO_VOLUME_SKIP_MKDIR",
 	// mz936: the read-only store makes both stages degrade to a registry fetch, each warning.
 	"Dockerfile_test_issue_mz936": "shared-base:",
+	// 1599: a fifo COPY into /kaniko must warn and be skipped like any other file.
+	"Dockerfile_test_issue_1599_2": "Skipping copy targeting kaniko directory",
 }
 
 func checkNoWarnings(dockerfile string, out []byte) error {
