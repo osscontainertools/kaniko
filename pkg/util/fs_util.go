@@ -1607,6 +1607,16 @@ func (NoAtimeFS) Stat(name string) (fs.FileInfo, error) {
 	return os.Stat(name)
 }
 
+// fs.Lstat silently degrades to fs.Stat unless the filesystem implements
+// ReadLinkFS, so implement it rather than let it dereference the link.
+func (NoAtimeFS) Lstat(name string) (fs.FileInfo, error) {
+	return os.Lstat(name)
+}
+
+func (NoAtimeFS) ReadLink(name string) (string, error) {
+	return os.Readlink(name)
+}
+
 type OSFS struct{}
 
 func (OSFS) Open(name string) (fs.File, error) {
@@ -1615,4 +1625,12 @@ func (OSFS) Open(name string) (fs.File, error) {
 
 func (OSFS) Stat(name string) (fs.FileInfo, error) {
 	return os.Stat(name)
+}
+
+func (OSFS) Lstat(name string) (fs.FileInfo, error) {
+	return os.Lstat(name)
+}
+
+func (OSFS) ReadLink(name string) (string, error) {
+	return os.Readlink(name)
 }
