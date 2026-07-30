@@ -1743,12 +1743,27 @@ func writeImageLayout(dir string, image v1.Image, ref string) error {
 	}))
 }
 
+func loadSharedBase(digest string) (v1.Image, error) {
+	path := filepath.Join(config.KanikoBaseStagesDir, digest)
+	img, err := loadFromOCILayout(path)
+	if err != nil {
+		return nil, err
+	}
+	d, err := img.Digest()
+	if err != nil {
+		return nil, err
+	}
+	if d.String() != digest {
+		return nil, fmt.Errorf("store entry holds %s", d)
+	}
+	return img, nil
+}
+
 func retrieveBaseImage(stage config.KanikoStage, opts *config.KanikoOptions) (v1.Image, error) {
 	if !stage.BaseImageShared {
 		return image_util.RetrieveSourceImage(stage, opts)
 	}
-	path := filepath.Join(config.KanikoBaseStagesDir, stage.BaseImageDigest)
-	stored, err := loadFromOCILayout(path)
+	stored, err := loadSharedBase(stage.BaseImageDigest)
 	if err == nil {
 		logrus.Infof("shared-base: loading base %s from local store", stage.BaseImageDigest)
 		return stored, nil
@@ -1759,13 +1774,14 @@ func retrieveBaseImage(stage config.KanikoStage, opts *config.KanikoOptions) (v1
 		return nil, err
 	}
 	t := timing.Start("Downloading base image")
+	path := filepath.Join(config.KanikoBaseStagesDir, stage.BaseImageDigest)
 	err = writeImageLayout(path, img, stage.BaseImageDigest)
 	timing.DefaultRun.Stop(t)
 	if err != nil {
 		logrus.Warnf("shared-base: failed to store %s, using registry image: %v", stage.BaseImageDigest, err)
 		return img, nil
 	}
-	stored, err = loadFromOCILayout(path)
+	stored, err = loadSharedBase(stage.BaseImageDigest)
 	if err != nil {
 		logrus.Warnf("shared-base: failed to reload stored %s, using registry image: %v", stage.BaseImageDigest, err)
 		return img, nil
