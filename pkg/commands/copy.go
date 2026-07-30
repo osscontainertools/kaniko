@@ -129,8 +129,12 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 			c.snapshotFiles = append(c.snapshotFiles, destPath)
 		} else if fi.Mode()&os.ModeNamedPipe != 0 {
 			// Opening a fifo blocks until it has a writer, so recreate it instead.
-			if err := util.CreateFifo(destPath, fi, uid, gid, chmod, useDefaultChmod); err != nil {
+			exclude, err := util.CreateFifo(fullPath, destPath, fi, c.fileContext, uid, gid, chmod, useDefaultChmod)
+			if err != nil {
 				return fmt.Errorf("copying fifo: %w", err)
+			}
+			if exclude {
+				continue
 			}
 			c.snapshotFiles = append(c.snapshotFiles, destPath)
 		} else if !fi.Mode().IsRegular() && kConfig.FF.CopySkipSpecialFiles {

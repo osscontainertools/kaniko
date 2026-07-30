@@ -1,0 +1,13 @@
+# 1599: a fifo COPY must respect the kaniko directory guard like any other COPY.
+# CreateFifo removes the destination before calling mkfifo, and the fifo branch
+# skipped the check that refuses copies into /kaniko. A fifo copied over
+# /kaniko/tini replaces the init every RUN execs through, so the build dies on
+# the next RUN instead of skipping the copy with a warning.
+# Breaks on the fifo COPY path added in PR #948.
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS builder
+RUN mkfifo /pipe
+
+FROM ${IMAGE_REPO}busybox
+COPY --from=builder /pipe /kaniko/tini
+RUN echo alive

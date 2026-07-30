@@ -837,7 +837,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 			isHardlink = true
 		} else if fi.Mode()&os.ModeNamedPipe != 0 {
 			// Opening a fifo blocks until it has a writer, so recreate it instead.
-			if err := CreateFifo(destPath, fi, uid, gid, chmod, useDefaultChmod); err != nil {
+			if _, err := CreateFifo(fullPath, destPath, fi, context, uid, gid, chmod, useDefaultChmod); err != nil {
 				return nil, err
 			}
 		} else if !fi.Mode().IsRegular() && config.FF.CopySkipSpecialFiles {
@@ -865,14 +865,28 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 
 // CreateFifo recreates the fifo at src as dest. Opening a fifo blocks until it
 // has a writer, so it can never be copied by reading it.
-func CreateFifo(dest string, fi os.FileInfo, uid, gid int64, chmod mode.Set, useDefaultChmod bool) error {
+func CreateFifo(src, dest string, fi os.FileInfo, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool) (bool, error) {
+	if context.ExcludesFile(src) {
+		logrus.Debugf("%s found in .dockerignore, ignoring", src)
+		return true, nil
+	}
+	if HasFilepathPrefix(dest, config.KanikoDir, false) {
+		logrus.Warnf("Skipping copy targeting kaniko directory: %s", dest)
+		logrus.Info("Writes to the kaniko directory are blocked to prevent overwriting the executor.")
+		logrus.Info("To copy files there, relocate kaniko with KANIKO_DIR: https://github.com/osscontainertools/kaniko#bootstrapping-kaniko")
+		return true, nil
+	}
+	if src == dest {
+		// Recreating the fifo in place would drop it and take its readers with it.
+		return false, nil
+	}
 	uid, gid = DetermineTargetFileOwnership(fi, uid, gid)
 	if err := createParentDirectory(dest, int(uid), int(gid), chmod.Apply(0o755)); err != nil {
-		return err
+		return false, err
 	}
 	if FilepathExists(dest) {
 		if err := os.RemoveAll(dest); err != nil {
-			return err
+			return false, err
 		}
 	}
 	perm := fi.Mode()
@@ -881,13 +895,13 @@ func CreateFifo(dest string, fi os.FileInfo, uid, gid int64, chmod mode.Set, use
 	}
 	logrus.Tracef("Creating fifo %s", dest)
 	if err := unix.Mkfifo(dest, uint32(perm.Perm())); err != nil {
-		return fmt.Errorf("creating fifo %s: %w", dest, err)
+		return false, fmt.Errorf("creating fifo %s: %w", dest, err)
 	}
 	// mkfifo applies the umask, chmod to get the mode we were actually asked for
 	if err := os.Chmod(dest, perm.Perm()); err != nil {
-		return err
+		return false, err
 	}
-	return os.Lchown(dest, int(uid), int(gid))
+	return false, os.Lchown(dest, int(uid), int(gid))
 }
 
 func checkCopyHardlink(fi os.FileInfo, dest string, seen map[uint64]string) (string, bool) {
@@ -1589,8 +1603,16 @@ func (NoAtimeFS) Open(name string) (fs.File, error) {
 	return os.OpenFile(name, os.O_RDONLY|unix.O_NOATIME, 0)
 }
 
+func (NoAtimeFS) Stat(name string) (fs.FileInfo, error) {
+	return os.Stat(name)
+}
+
 type OSFS struct{}
 
 func (OSFS) Open(name string) (fs.File, error) {
 	return os.Open(name)
+}
+
+func (OSFS) Stat(name string) (fs.FileInfo, error) {
+	return os.Stat(name)
 }
