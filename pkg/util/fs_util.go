@@ -37,6 +37,7 @@ import (
 	"github.com/moby/go-archive"
 	"github.com/moby/patternmatcher"
 	"github.com/moby/patternmatcher/ignorefile"
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	otiai10Cpy "github.com/otiai10/copy"
@@ -825,9 +826,12 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 			}
 		} else if IsSymlink(fi) {
 			// If file is a symlink, we want to create the same relative symlink
-			if _, err := CopySymlink(fullPath, destPath, context); err != nil {
+			exclude, err := CopySymlink(fullPath, destPath, context)
+			if err != nil {
 				return nil, err
 			}
+			// This loop already skipped matches
+			assert.Assert("util.copydir.symlink-not-excluded", !exclude, "CopySymlink refused to copy %s to %s", fullPath, destPath)
 		} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok && config.FF.PreserveHardlinks {
 			// #2594: inode already copied — create a hardlink instead of duplicating content.
 			logrus.Tracef("Creating hardlink %s -> %s", destPath, linkDst)
@@ -837,17 +841,23 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 			isHardlink = true
 		} else if fi.Mode()&os.ModeNamedPipe != 0 {
 			// Opening a fifo blocks until it has a writer, so recreate it instead.
-			if _, err := CreateFifo(fullPath, destPath, fi, context, uid, gid, chmod, useDefaultChmod); err != nil {
+			exclude, err := CreateFifo(fullPath, destPath, fi, context, uid, gid, chmod, useDefaultChmod)
+			if err != nil {
 				return nil, err
 			}
+			// This loop already skipped matches
+			assert.Assert("util.copydir.fifo-not-excluded", !exclude, "CreateFifo refused to copy %s to %s", fullPath, destPath)
 		} else if !fi.Mode().IsRegular() && config.FF.CopySkipSpecialFiles {
 			logrus.Warnf("Ignoring special file %s, not copying to %s", fullPath, destPath)
 			continue
 		} else {
 			// ... Else, we want to copy over a file
-			if _, err := CopyFile(fullPath, destPath, context, uid, gid, chmod, useDefaultChmod); err != nil {
+			exclude, err := CopyFile(fullPath, destPath, context, uid, gid, chmod, useDefaultChmod)
+			if err != nil {
 				return nil, err
 			}
+			// This loop already skipped matches
+			assert.Assert("util.copydir.file-not-excluded", !exclude, "CopyFile refused to copy %s to %s", fullPath, destPath)
 		}
 		if !IsSymlink(fi) && !isHardlink {
 			updates = append(updates, timestampUpdate{src: fullPath, dest: destPath})
