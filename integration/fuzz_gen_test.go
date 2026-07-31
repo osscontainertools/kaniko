@@ -638,6 +638,9 @@ func generate(s *source, bases []string) genResult {
 		"FF_KANIKO_ROLLING_CACHE_KEY",        // recursive-hash composite cache key (mz873)
 		"FF_KANIKO_CLEAN_KANIKO_DIR",         // wipe /kaniko after build, image unaffected
 		"FF_KANIKO_SKIP_RELABEL_RECOMPRESS",  // relabel a converted layer without recompress; digest-asserted equal
+		"FF_KANIKO_DISABLE_HTTP2",            // registry transport over HTTP/1.1, image unaffected
+		"FF_KANIKO_SHARED_BASE_CACHE",        // dedup base-image downloads across stages (mz936), image unaffected
+		"FF_KANIKO_SKIP_CACHED_STAGES",       // squash fully cached stages after lookahead (mz334), final image unaffected
 	} {
 		if s.chance(2) {
 			envFlags = append(envFlags, ff+"=1")
