@@ -1,7 +1,19 @@
+# mz332: the final stage's base image carries `ONBUILD COPY --from=base`, so the
+# final stage depends on stage `base` without ever naming it here. The dependency
+# only becomes visible once the remote base image config is resolved, which is why
+# stage elimination must not drop `base`.
 ARG IMAGE_REPO
+
+# Stage `onbuild` is pushed by test setup (`docker build --target=onbuild`) as
+# `onbuild-copy:latest`, the base image of the final stage below. It only records
+# the trigger, it never runs it, so /blubb is not part of it.
+FROM ${IMAGE_REPO}busybox AS onbuild
+ONBUILD COPY --from=base /blubb /blubb
+
 FROM ${IMAGE_REPO}busybox AS base
 RUN touch /blubb
 
+# Unnamed and unreferenced. Kaniko must never try to resolve it.
 FROM doesnt:exist
 
 FROM ${IMAGE_REPO}onbuild-copy:latest
