@@ -122,14 +122,6 @@ var knownBuildFailures = []knownDivergence{
 			return strings.Contains(out, "getting user group from chown")
 		},
 	},
-	{
-		name: "symlink-recopy-self-link",
-		why:  "mz921: re-copying a relative symlink over an existing copy of itself corrupts the sibling target into a self-referential link, so the snapshot's EvalSymlinks loops and the build aborts while docker builds. The abort is a regression from the nakedret change in resolve.go. The corruption itself predates it",
-		flag: "",
-		match: func(out string) bool {
-			return strings.Contains(out, "EvalSymlinks: too many links")
-		},
-	},
 }
 
 // knownCrashes recognize a kaniko crash or assertion that is already filed and would
