@@ -1413,6 +1413,7 @@ Becomes default in `v1.29.0`.
 #### Flag `FF_KANIKO_SHARED_BASE_CACHE`
 
 When several stages build on the same remote base image, kaniko downloads that base once per stage. Set this flag to `true` to download a shared base once, store it under `/kaniko/bases`, and have the other stages read it from there instead of downloading it again. A base is also stored when a stage is kept for a later stage to build on, or when the built image is pushed, because both re-read the base layers. A base used by a single stage that is not pushed still streams, so nothing is stored that would not be read again.
+Stored bases stay in `/kaniko/bases` after the build, `--cleanup` does not remove them. A long-lived executor that runs many builds therefore accumulates every base it ever downloaded.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
