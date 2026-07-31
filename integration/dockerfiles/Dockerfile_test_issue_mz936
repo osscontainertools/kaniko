@@ -1,0 +1,14 @@
+# mz936: a shared base on a read-only /kaniko/bases must degrade, not panic.
+# With FF_KANIKO_SHARED_BASE_CACHE=1 the first stage is planned to store the
+# shared base and the second to load it. When the store is unwritable the store
+# step falls back to streaming, but the load step asserted the entry was present
+# and panicked the whole build.
+# Panics on 01adcbabc with FF_KANIKO_SHARED_BASE_CACHE=1 when /kaniko/bases is
+# read-only. The harness mounts /kaniko/bases read-only for this file.
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS first
+RUN echo first > /first.txt
+
+FROM ${IMAGE_REPO}busybox
+COPY --from=first /first.txt /first.txt
+RUN echo second > /second.txt

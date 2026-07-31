@@ -340,13 +340,13 @@ COPY --from=second /bar /bat
 			defer func() {
 				dockerfile.GetRemoteOnBuild = original
 			}()
-			dockerfile.GetRemoteOnBuild = func(baseName string, _ []instructions.ArgCommand, _ *config.KanikoOptions) ([]string, error) {
+			dockerfile.GetRemoteOnBuild = func(baseName string, _ []instructions.ArgCommand, _ *config.KanikoOptions) ([]string, string, error) {
 				switch baseName {
 				case "alpine":
 					// if image is "alpine" then add ONBUILD to its config
-					return []string{"COPY --from=builder /app /app"}, nil
+					return []string{"COPY --from=builder /app /app"}, "", nil
 				default:
-					return []string{}, nil
+					return []string{}, "", nil
 				}
 			}
 

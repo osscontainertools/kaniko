@@ -345,12 +345,13 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		baseImageStoredLocally := baseImageIndex != -1
 
 		var onBuild []string
+		var baseImageDigest string
 		if stage.BaseName == constants.NoBaseImage {
 			// pass
 		} else if baseImageStoredLocally {
 			onBuild = getOnBuild(stages[baseImageIndex].Commands)
 		} else {
-			onBuild, err = GetRemoteOnBuild(stage.BaseName, metaArgs, opts)
+			onBuild, baseImageDigest, err = GetRemoteOnBuild(stage.BaseName, metaArgs, opts)
 			if err != nil {
 				return nil, err
 			}
@@ -380,6 +381,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			BaseName:               stage.BaseName,
 			Commands:               stage.Commands,
 			BaseImageIndex:         baseImageIndex,
+			BaseImageDigest:        baseImageDigest,
 			BaseImageStoredLocally: baseImageStoredLocally,
 			SaveStage:              stagesDependencies[i] > 0,
 			Push:                   i == pushStage,
@@ -407,6 +409,34 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		if buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
 			s.SaveStage = stagesDependencies[i] > 0
 			onlyUsedStages = append(onlyUsedStages, s)
+		}
+	}
+	// legacy warmer overrides images override digest method to not return the digest
+	// as they get stored in a tarball and digest is lost in the process.
+	// But this also means that our defensive store and load here can't play nicely with them.
+	legacyCache := !config.FF.OCIWarmer && opts.Cache && opts.CacheDir != ""
+	if config.FF.SharedBaseCache && !legacyCache {
+		writesOutput := (!opts.NoPush && len(opts.Destinations) > 0) || opts.TarPath != "" || opts.OCILayoutPath != ""
+		for i := range onlyUsedStages {
+			s := &onlyUsedStages[i]
+			if s.BaseImageStoredLocally || s.BaseImageDigest == "" || s.BaseImageShared {
+				continue
+			}
+			// A base re-read on push/save is stored so the re-read hits the local copy.
+			if (s.SaveStage && !s.Final) || (s.Push && writesOutput) {
+				s.BaseImageShared = true
+			}
+			// A base pulled by several stages is stored once and reused by the rest.
+			for j := i + 1; j < len(onlyUsedStages); j++ {
+				o := &onlyUsedStages[j]
+				if o.BaseImageStoredLocally || o.BaseImageDigest == "" {
+					continue
+				}
+				if o.BaseImageDigest == s.BaseImageDigest {
+					s.BaseImageShared = true
+					o.BaseImageShared = true
+				}
+			}
 		}
 	}
 	return onlyUsedStages, nil
@@ -448,16 +478,20 @@ func getOnBuild(cmds []instructions.Command) []string {
 	return out
 }
 
-func getRemoteOnBuild(baseName string, metaArgs []instructions.ArgCommand, opts *config.KanikoOptions) ([]string, error) {
+func getRemoteOnBuild(baseName string, metaArgs []instructions.ArgCommand, opts *config.KanikoOptions) ([]string, string, error) {
 	image, err := image_util.RetrieveSourceImageInternal(baseName, false, -1, metaArgs, opts)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	cfg, err := image.ConfigFile()
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return cfg.Config.OnBuild, nil
+	digest, err := image.Digest()
+	if err != nil {
+		return nil, "", err
+	}
+	return cfg.Config.OnBuild, digest.String(), nil
 }
 
 func filterOnBuild(cmds []instructions.Command) []instructions.Command {
@@ -478,6 +512,7 @@ func Squash(a, b config.KanikoStage) config.KanikoStage {
 	return config.KanikoStage{
 		Name:                   b.Name,
 		BaseName:               a.BaseName,
+		BaseImageDigest:        a.BaseImageDigest,
 		Commands:               append(acmds, b.Commands...),
 		BaseImageIndex:         a.BaseImageIndex,
 		Push:                   b.Push,
