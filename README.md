@@ -186,9 +186,7 @@ For any community discussion [participate in open
 issues](https://github.com/osscontainertools/kaniko/issues) or [file a new
 issue](https://github.com/osscontainertools/kaniko/issues/new/choose).
 
-Some community members can be found on [#kaniko on Kubernetes
-Slack](https://kubernetes.slack.com/messages/CQDCHGX7Y/) but there is no active
-monitoring, regular availability, or access to older discussions.
+Join our official chat on Matrix at [#kaniko:matrix.org](https://app.element.io/#/room/#kaniko:matrix.org). It has dedicated rooms for [#support@kaniko:matrix.org](https://app.element.io/#/room/#support@kaniko:matrix.org) and [#announcements@kaniko:matrix.org](https://app.element.io/#/room/#announcements@kaniko:matrix.org). We will also continue to monitor discussions in the [#kaniko on Kubernetes Slack](https://kubernetes.slack.com/messages/CQDCHGX7Y/).
 
 ## Sponsorships
 We are grateful to the organizations and individuals who support our project.
