@@ -98,6 +98,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_cg188": {"SECRET=blubb"},
 	"Dockerfile_test_issue_mz775": {"FF_KANIKO_CACHE_LOOKAHEAD=0"},
 	"Dockerfile_test_issue_mz334": {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
+	"Dockerfile_test_issue_mz960": {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
 	"Dockerfile_test_issue_mz793": {"FF_KANIKO_VOLUME_SKIP_MKDIR=0"},
 	"Dockerfile_test_issue_mz473": {"KANIKO_DIR=/kaniko2"},
 	"Dockerfile_test_issue_mz661": {"KANIKO_DIR=/kaniko2"},
@@ -207,6 +208,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_target":                     {"--target=second"},
 	"Dockerfile_test_snapshotter_ignorelist":     {"--use-new-run=true", "-v=trace"},
 	"Dockerfile_test_issue_mz334":                {"--cache-copy-layers=true"},
+	"Dockerfile_test_issue_mz960":                {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz879":                {"--cache-copy-layers=true", "--use-new-run"},
 	"Dockerfile_test_issue_mz896":                {"--cache-copy-layers=true", "--cache-run-layers=false"},
 	"Dockerfile_test_issue_mz787":                {"--cache=true"},
@@ -538,6 +540,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz793":   {},
 		"Dockerfile_test_issue_mz879":   {},
 		"Dockerfile_test_issue_mz896":   {},
+		"Dockerfile_test_issue_mz960":   {},
 	}
 	d.TestOCICacheDockerfiles = map[string]struct{}{
 		"Dockerfile_test_cache_oci":         {},
