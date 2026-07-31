@@ -1266,10 +1266,10 @@ Will be deprecated in `v1.29.0`.
 
 #### Flag `FF_KANIKO_RELATIVE_LINK_TARGETS`
 
-When a snapshot layer contains a hardlink, kaniko writes the link target as an absolute path while writing the entry name itself relative to the tar root. Docker writes both relative. The two forms extract to the same file, so this only matters if you compare kaniko's layers against docker's, or against layers built by another tool.
+When a snapshot layer contains a hardlink, kaniko writes the link target as an absolute path while writing the entry name itself relative to the tar root. Docker writes both relative. Older clients accept either form and extract them to the same file, but docker `29.7.0` rejects the absolute one with `invalid hardlink target "/usr/bin/unzip"`, so affected images can no longer be loaded or pulled.
 Set this flag to `true` to write hardlink targets relative to the tar root.
-Defaults to `false`.
-Becomes default in `v1.29.0`.
+Defaults to `true`.
+Will be deprecated in `v1.29.0`.
 
 #### Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`
 

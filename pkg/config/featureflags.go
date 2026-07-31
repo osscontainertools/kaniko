@@ -45,8 +45,8 @@ type FeatureFlags struct {
 	OCIWarmer                      bool
 	PrecompileDockerignore         bool
 	PreserveHardlinks              bool
-	RelativeLinkTargets            bool
 	PreserveMountedPaths           bool
+	RelativeLinkTargets            bool
 	ReproduciblePreserveBaseLayers bool
 	ResolveCacheKey                bool
 	RollingCacheKey                bool
@@ -115,7 +115,7 @@ func InitFeatureFlags() {
 		OCIWarmer:                      featureFlag("FF_KANIKO_OCI_WARMER", true),
 		PrecompileDockerignore:         featureFlag("FF_KANIKO_PRECOMPILE_DOCKERIGNORE", false),
 		PreserveHardlinks:              featureFlag("FF_KANIKO_PRESERVE_HARDLINKS", true),
-		RelativeLinkTargets:            featureFlag("FF_KANIKO_RELATIVE_LINK_TARGETS", false),
+		RelativeLinkTargets:            featureFlag("FF_KANIKO_RELATIVE_LINK_TARGETS", true),
 		PreserveMountedPaths:           featureFlag("FF_KANIKO_PRESERVE_MOUNTED_PATHS", true),
 		ReproduciblePreserveBaseLayers: featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS", false),
 		ResolveCacheKey:                featureFlag("FF_KANIKO_RESOLVE_CACHE_KEY", false),
