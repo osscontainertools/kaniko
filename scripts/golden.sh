@@ -22,6 +22,7 @@ GREEN='\033[0;32m'
 RESET='\033[0m'
 
 FLAGS=(
+  "-race"
   "-cover"
   "-coverprofile=out/coverage.out"
   "-timeout=120s"
