@@ -1,2 +1,0 @@
-FROM busybox:latest
-ONBUILD COPY --from=base /blubb /blubb
