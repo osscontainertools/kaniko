@@ -56,7 +56,7 @@ FROM --platform=$BUILDPLATFORM debian:trixie-slim@sha256:020c0d20b9880058cbe785a
 RUN apt update && apt install -y ca-certificates
 
 # use musl busybox since it's staticly compiled on all platforms
-FROM busybox:musl@sha256:8635836765b0c4c43970660219739baa58b0883c2e429e4b8918f7dd1519455c AS busybox
+FROM busybox:musl@sha256:246a00b08ecde11a4769a2587ab2c683e525b9f94b02dd9f73a6869108066bb9 AS busybox
 RUN mkdir -p /kaniko && chmod 777 /kaniko
 
 FROM scratch AS kaniko-base-slim
