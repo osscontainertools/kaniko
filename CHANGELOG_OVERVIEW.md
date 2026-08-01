@@ -13,7 +13,7 @@
 * github.com/go-git/go-git/v5 5.16.0: CVE-2026-25934 CVE-2026-34165 CVE-2026-33762 CVE-2026-41506 CVE-2026-45022 CVE-2026-45571 CVE-2026-45570 GHSA-w5pp-99ch-qj29
 * go.opentelemetry.io/otel/sdk 1.39.0: CVE-2026-24051 CVE-2026-39883
 * github.com/cloudflare/circl 1.6.1: CVE-2026-1229
-* google.golang.org/grpc v1.79.1: CVE-2026-33186
+* google.golang.org/grpc v1.79.1: CVE-2026-33186 GHSA-hrxh-6v49-42gf
 * prevent hijacking via `ONBUILD COPY`: https://github.com/osscontainertools/kaniko/pull/587
 * prevent hijacking via `COPY --from=<image>`: https://github.com/osscontainertools/kaniko/pull/586
 * github.com/moby/buildkit 0.22.0: CVE-2026-33747 CVE-2026-33748
@@ -39,6 +39,7 @@
 * ARG values leak across sibling stages in multi-stage builds: https://github.com/osscontainertools/kaniko/pull/623
 * malformed Dockerfile input now errors instead of crashing: https://github.com/osscontainertools/kaniko/pull/733
 * malformed base-image config now errors instead of crashing: https://github.com/osscontainertools/kaniko/pull/742
+* `FF_KANIKO_RELATIVE_LINK_TARGETS=true` absolute hardlink targets make `docker load` fail with `invalid hardlink target`: https://github.com/osscontainertools/kaniko/pull/947
 
 ### Standardization
 * sticky bit gets lost on COPY: https://github.com/mzihlmann/kaniko/pull/45
@@ -71,6 +72,7 @@
 * `FF_KANIKO_UNTAR_SKIP_ROOT=false` `ADD` with a tar archive overwrites the destination directory mode and ownership from the archive root entry, unlike Docker: https://github.com/osscontainertools/kaniko/pull/842
 * `FF_KANIKO_RUN_HONOR_GROUP=false` honor an explicit group from `USER user:group` in `RUN`, matching Docker: https://github.com/osscontainertools/kaniko/pull/840
 * `FF_KANIKO_EXPAND_HEREDOC=false` expand build args and env in unquoted `COPY` and `ADD` heredoc bodies, matching Docker: https://github.com/osscontainertools/kaniko/pull/821
+* `FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS=false` chown the parent directories `WORKDIR` creates implicitly to the active user, matching buildkit: https://github.com/osscontainertools/kaniko/pull/867
 
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
@@ -96,6 +98,8 @@
 * `FF_KANIKO_DISABLE_HTTP2=false` stop forcing http/2.0: https://github.com/osscontainertools/kaniko/pull/340
 * `FF_KANIKO_OCI_WARMER=true` ocilayout warmer: https://github.com/osscontainertools/kaniko/pull/307
 * `FF_KANIKO_PRECOMPILE_DOCKERIGNORE=false` compile `.dockerignore` patterns once per build instead of once per file: https://github.com/osscontainertools/kaniko/pull/887
+* `FF_KANIKO_SKIP_CACHED_STAGES=false` drop stages whose consumers all hit the cache: https://github.com/osscontainertools/kaniko/pull/871 https://github.com/osscontainertools/kaniko/pull/964
+* `FF_KANIKO_SHARED_BASE_CACHE=false` download a shared base image once instead of once per stage: https://github.com/osscontainertools/kaniko/pull/937
 
 ### Usability
 * if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
@@ -125,6 +129,7 @@
 * `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE=true` deprecate the `--preserve-context` inter-stage restore: https://github.com/osscontainertools/kaniko/pull/710
 * `COPY` and `ADD` `--chmod` now accepts symbolic notation (e.g. `go=u`, `u=rwX,go=rX`) in addition to octal: https://github.com/osscontainertools/kaniko/pull/800
 * `--image-format=docker|oci` pins the output manifest media type instead of inheriting it from the base image: https://github.com/osscontainertools/kaniko/pull/850
+* opt-in OpenTelemetry tracing via `KANIKO_TELEMETRY_ENDPOINT`, one trace per build: by @babs in https://github.com/osscontainertools/kaniko/pull/902 https://github.com/osscontainertools/kaniko/pull/951
 
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
