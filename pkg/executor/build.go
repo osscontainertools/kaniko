@@ -582,12 +582,8 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	}
 
 	cacheGroup := errgroup.Group{}
-	// cmdTimer outlives each iteration so the deferred stop catches error
-	// returns mid-command: an unended span is never exported, and the span
-	// of the failing command is the one most worth having in the trace.
-	// (Assertion panics still lose it: onAssertion flushes the provider
-	// before this defer runs.)
 	var cmdTimer *timing.Timer
+	// stop on the way out too: an unended span is never exported
 	defer func() {
 		if cmdTimer != nil {
 			timing.DefaultRun.Stop(cmdTimer)
@@ -653,8 +649,6 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		}()
 
 		if timing.TracingEnabled() {
-			// Type switch, not string sniffing: a cached RUN replays a layer
-			// without executing, so it stays phase=kaniko.
 			phase := "kaniko"
 			switch command.(type) {
 			case *commands.RunCommand, *commands.RunMarkerCommand:
@@ -669,8 +663,6 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				attribute.Int("kaniko.stage", s.index),
 			}
 			if opts.Cache {
-				// Present only when caching is on: absence is "caching off",
-				// false is "not replayed from cache", not a miss rate.
 				attrs = append(attrs, attribute.Bool("kaniko.cache.hit", isCacheCommand))
 				if ck, herr := compositeKey.Hash(); herr == nil {
 					attrs = append(attrs, attribute.String("kaniko.cache.key", ck))
@@ -1182,7 +1174,6 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 // DoBuild executes building the Dockerfile
 func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	t := timing.Start("Total Build Time")
-	// Deferred so failed builds and --dryrun also record (and export) it.
 	defer timing.DefaultRun.Stop(t)
 	stageFinalCacheKeys := make(map[int]string)
 

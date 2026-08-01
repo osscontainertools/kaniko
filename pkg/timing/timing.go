@@ -41,7 +41,7 @@ var (
 )
 
 // SetTracer wires (or, with a nil tracer, unwires) span creation into every
-// subsequent Start; ctx carries the parent span. Called by pkg/tracing.
+// subsequent Start. ctx carries the parent span.
 func SetTracer(ctx context.Context, t trace.Tracer) {
 	tracerMu.Lock()
 	defer tracerMu.Unlock()
@@ -131,8 +131,6 @@ type Timer struct {
 	span      trace.Span
 }
 
-// SetAttributes forwards attributes to the timer's span; no-op when tracing
-// is off (the span is nil).
 func (t *Timer) SetAttributes(kv ...attribute.KeyValue) {
 	if t.span != nil {
 		t.span.SetAttributes(kv...)

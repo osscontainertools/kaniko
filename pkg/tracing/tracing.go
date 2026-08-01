@@ -55,24 +55,20 @@ var (
 // EndpointEnv enables tracing when set to an OTLP-HTTP collector URL.
 const EndpointEnv = "KANIKO_TELEMETRY_ENDPOINT"
 
-// OmitDockerfileEnv, when truthy, keeps the Dockerfile source out of the
-// trace for operators whose Dockerfiles carry material they don't want to
-// leave the machine.
+// OmitDockerfileEnv, when truthy, keeps the Dockerfile source out of the trace.
 const OmitDockerfileEnv = "KANIKO_TELEMETRY_OMIT_DOCKERFILE"
 
 // shutdownFlushTimeout bounds the exit-time flush: a dead collector must not
 // hold a finished build hostage for the exporter's full retry budget.
 const shutdownFlushTimeout = 5 * time.Second
 
-// attributeValueLengthLimit caps every span attribute value. Dockerfiles and
-// command text are user-controlled; without a cap a hostile or generated
-// Dockerfile can inflate the OTLP payload past collector receive limits,
-// which rejects the whole batch. 64 KiB keeps real-world Dockerfiles intact.
-// OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT still wins if the operator sets it.
+// attributeValueLengthLimit caps every span attribute value. Dockerfile and
+// command text are user-controlled, and one oversized value gets the whole
+// OTLP batch rejected, not just that attribute.
 const attributeValueLengthLimit = 64 * 1024
 
 // spanLimits returns the SDK defaults with our attribute-value cap applied,
-// unless the operator set one of the standard OTEL length-limit env vars —
+// unless the operator set one of the standard OTEL length-limit env vars,
 // including an explicit -1 for unlimited, which must not be clobbered.
 func spanLimits() sdktrace.SpanLimits {
 	limits := sdktrace.NewSpanLimits()
@@ -85,8 +81,8 @@ func spanLimits() sdktrace.SpanLimits {
 }
 
 // Init enables tracing when EndpointEnv is set: it creates the root "build"
-// span and hands the tracer to pkg/timing. Best effort — any failure logs a
-// warning and leaves tracing off; it never fails the build.
+// span and hands the tracer to pkg/timing. Best effort, any failure logs a
+// warning and leaves tracing off. It never fails the build.
 func Init(ctx context.Context, opts *config.KanikoOptions) {
 	endpoint := os.Getenv(EndpointEnv)
 	if endpoint == "" {
@@ -127,7 +123,6 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 	tracer := provider.Tracer("github.com/osscontainertools/kaniko")
 	var sctx context.Context
 	sctx, rootSpan = tracer.Start(ctx, "build")
-	// A typo in this privacy opt-out must not silently fail open.
 	raw, set := os.LookupEnv(OmitDockerfileEnv)
 	if set {
 		_, perr := strconv.ParseBool(raw)
@@ -142,7 +137,7 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 
 	// hook, not import, so assert does not depend on tracing
 	assert.OnAssertionViolation = onAssertion
-	// logrus.Fatalf calls os.Exit without unwinding; flush what we have.
+	// logrus.Fatalf calls os.Exit without unwinding, flush what we have.
 	logrus.RegisterExitHandler(func() { Shutdown(fmt.Errorf("process exited via logrus.Fatal")) })
 }
 
@@ -160,11 +155,8 @@ func onAssertion(name, msg string) {
 	Shutdown(fmt.Errorf("assertion violated [%s]: %s", name, msg))
 }
 
-// buildAttrs holds what kaniko knows; fleet identity comes from
-// OTEL_RESOURCE_ATTRIBUTES. build_id groups runs of the same Dockerfile+target.
-// The FF sweep reports explicitly-set flags only: there is no central flag
-// registry to consult for defaulted values, so absence means "unset", not
-// "off" (documented in docs/telemetry.md).
+// buildAttrs holds what kaniko knows, fleet identity comes from
+// OTEL_RESOURCE_ATTRIBUTES.
 func buildAttrs(opts *config.KanikoOptions, dockerfile []byte) []attribute.KeyValue {
 	target := strings.Join(opts.Target, ",")
 	attrs := []attribute.KeyValue{
@@ -191,8 +183,6 @@ func buildAttrs(opts *config.KanikoOptions, dockerfile []byte) []attribute.KeyVa
 // a fleet (everything mounts /workspace/Dockerfile), hence the preference.
 func buildID(path, target string, content []byte) string {
 	src := path
-	// nil means unreadable; a readable-but-empty Dockerfile is still
-	// content-addressed (ReadFile returns a non-nil empty slice on success).
 	if content != nil {
 		src = string(content)
 	}
@@ -200,9 +190,8 @@ func buildID(path, target string, content []byte) string {
 	return hex.EncodeToString(sum[:])[:16]
 }
 
-// Shutdown ends the root span with the outcome and flushes (bounded by
-// shutdownFlushTimeout). Idempotent and safe from any goroutine. A killed
-// process leaves the root span unended, which the backend marks crashed.
+// Shutdown ends the root span with the outcome and flushes. Idempotent. A
+// killed process leaves the root span unended, which the backend marks crashed.
 func Shutdown(err error) {
 	mu.Lock()
 	defer mu.Unlock()
