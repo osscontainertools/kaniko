@@ -1,3 +1,52 @@
+# v1.28.2 Release 2026-08-01
+
+## Community Update
+:loudspeaker: Join our community over on [#kaniko:matrix.org](https://app.element.io/#/room/#kaniko:matrix.org)
+It's an open space for Q&A, announcements and technical discussions.
+See you there :wave:
+
+Many thanks to @ArneTR for reporting an issue fixed in this release.
+
+## What's Changed
+### Security
+* google.golang.org/grpc v1.82.0: GHSA-hrxh-6v49-42gf
+
+### Bugfixes
+* `FF_KANIKO_RELATIVE_LINK_TARGETS=true` absolute hardlink targets make `docker load` fail with `invalid hardlink target`: https://github.com/osscontainertools/kaniko/pull/947
+
+### Standardization
+* `FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS=false` chown the parent directories `WORKDIR` creates implicitly to the active user: https://github.com/osscontainertools/kaniko/pull/867
+
+### Performance
+* `FF_KANIKO_SKIP_CACHED_STAGES=false` drop stages whose consumers all hit the cache: https://github.com/osscontainertools/kaniko/pull/871 https://github.com/osscontainertools/kaniko/pull/964
+* `FF_KANIKO_SHARED_BASE_CACHE=false` download a shared base image once instead of once per stage: https://github.com/osscontainertools/kaniko/pull/937
+
+### Usability
+* opt-in OpenTelemetry tracing via `KANIKO_TELEMETRY_ENDPOINT`, one trace per build: by @babs in https://github.com/osscontainertools/kaniko/pull/902 https://github.com/osscontainertools/kaniko/pull/951
+
+### Maintenance
+* build(deps): bump actions/checkout from 7.0.0 to 7.0.1: https://github.com/osscontainertools/kaniko/pull/934
+* build(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager from 0.3.3 to 0.3.7: https://github.com/osscontainertools/kaniko/pull/933 https://github.com/osscontainertools/kaniko/pull/939 https://github.com/osscontainertools/kaniko/pull/953 https://github.com/osscontainertools/kaniko/pull/955
+* build(deps): bump golang in /deploy: https://github.com/osscontainertools/kaniko/pull/932
+* build(deps): bump cloud.google.com/go/storage from 1.63.1 to 1.64.0: https://github.com/osscontainertools/kaniko/pull/935
+* build(deps): bump docker/login-action from 4.4.0 to 4.6.0: https://github.com/osscontainertools/kaniko/pull/941 https://github.com/osscontainertools/kaniko/pull/944 https://github.com/osscontainertools/kaniko/pull/950 https://github.com/osscontainertools/kaniko/pull/952
+* build(deps): bump docker/setup-docker-action from 5.3.0 to 5.4.0: https://github.com/osscontainertools/kaniko/pull/941
+* build(deps): bump google.golang.org/grpc from 1.82.0 to 1.82.1: https://github.com/osscontainertools/kaniko/pull/942
+* build(deps): bump github.com/aws/aws-sdk-go-v2 from 1.42.1 to 1.43.2: https://github.com/osscontainertools/kaniko/pull/939 https://github.com/osscontainertools/kaniko/pull/953 https://github.com/osscontainertools/kaniko/pull/955
+* build(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.32.30 to 1.32.33: https://github.com/osscontainertools/kaniko/pull/939 https://github.com/osscontainertools/kaniko/pull/953 https://github.com/osscontainertools/kaniko/pull/955
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.105.2 to 1.106.2: https://github.com/osscontainertools/kaniko/pull/939 https://github.com/osscontainertools/kaniko/pull/953 https://github.com/osscontainertools/kaniko/pull/955
+* build(deps): bump google.golang.org/api from 0.289.0 to 0.291.0: https://github.com/osscontainertools/kaniko/pull/946 https://github.com/osscontainertools/kaniko/pull/954
+* build(deps): bump github.com/go-git/go-billy/v5 from 5.9.0 to 5.9.1: https://github.com/osscontainertools/kaniko/pull/945
+* build(deps): bump github.com/moby/go-archive from 0.2.0 to 0.2.1: https://github.com/osscontainertools/kaniko/pull/945
+* build(deps): bump github.com/go-git/go-git/v5 from 5.19.1 to 5.19.2: https://github.com/osscontainertools/kaniko/pull/953
+* build(deps): bump github.com/moby/buildkit from 0.31.2 to 0.32.0: https://github.com/osscontainertools/kaniko/pull/956
+* build(deps): bump busybox in /deploy: https://github.com/osscontainertools/kaniko/pull/965
+
+### Fork Related
+* integration test improvements: https://github.com/osscontainertools/kaniko/pull/943 https://github.com/osscontainertools/kaniko/pull/963
+* doc changes: https://github.com/osscontainertools/kaniko/pull/957 https://github.com/osscontainertools/kaniko/pull/962
+
+
 # v1.28.1 Release 2026-07-18
 
 ## Community Update
