@@ -1309,10 +1309,20 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				}
 			}
 		}
+	squash:
 		for i, s := range kanikoStages {
 			if buildTargets[s.Index] || stagesDependencies[s.Index] > 0 || copyDependencies[s.Index] > 0 {
 				if s.BaseImageStoredLocally && stagesDependencies[s.BaseImageIndex] == 1 && copyDependencies[s.BaseImageIndex] == 0 {
 					sb := kanikoStages[position[s.BaseImageIndex]]
+					for _, c := range sb.Commands {
+						_, isOnbuild := c.(*instructions.OnbuildCommand)
+						if isOnbuild {
+							// mz960: squashing drops the base stage's ONBUILD declarations, so the
+							// merged chain hashes fewer commands than the lookahead did and every
+							// key after the ONBUILD diverges
+							continue squash
+						}
+					}
 					// squash stages[i] into stages[i].BaseName
 					logrus.Infof("Squashing stages: %s into %s", s.Name, sb.Name)
 					// We squash the base stage into the current stage because,

@@ -1,0 +1,14 @@
+# mz960: the cache-consume build aborts on a COPY --from that reaches a stage
+# eliminated by FF_KANIKO_SKIP_CACHED_STAGES. Fails on main@93be5ff96 with
+# CACHE_LOOKAHEAD + SKIP_CACHED_STAGES + INFER_CROSS_STAGE_CACHE_KEY on.
+# Squashing drops the base stage's ONBUILD declaration from the command list,
+# so the squashed chain hashes fewer commands than the lookahead did. Every key
+# after the ONBUILD diverges, the inferred cross-stage key misses, and the build
+# falls back to hashing the source files under /kaniko/deps/0 which the
+# eliminated stage never wrote.
+FROM busybox AS stage0
+ONBUILD RUN echo ob0 > /onbuild0
+RUN echo stage0 > /artifact
+
+FROM stage0 AS stage1
+COPY --from=0 /artifact /from-0
