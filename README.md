@@ -1167,7 +1167,7 @@ FF_KANIKO_UNTAR_SKIP_ROOT=true
 
 ##### BuildKit compatibility
 
-In a few places, Kaniko keeps its historical, non-compliant behavior instead of following the Dockerfile specification. Switching to the compliant implementation by default would require users with large codebases to update their Dockerfiles, making migration to our fork tedious. These flags enable the spec-compliant behavior, matching BuildKit one-to-one. Our integration tests run this profile on top of Preview.
+In a few places, Kaniko keeps its historical, non-compliant behaviour instead of following the Dockerfile specification. Switching to the compliant implementation by default would require users with large codebases to update their Dockerfiles, making migration to our fork tedious. These flags enable the spec-compliant behaviour, matching BuildKit one-to-one. Our integration tests run this profile on top of Preview.
 
 ```sh
 FF_KANIKO_COPY_AS_ROOT=true
@@ -1421,6 +1421,7 @@ Becomes default in `v1.29.0`.
 #### Flag `FF_KANIKO_SHARED_BASE_CACHE`
 
 When several stages build on the same remote base image, kaniko downloads that base once per stage. Set this flag to `true` to download a shared base once, store it under `/kaniko/bases`, and have the other stages read it from there instead of downloading it again. A base is also stored when a stage is kept for a later stage to build on, or when the built image is pushed, because both re-read the base layers. A base used by a single stage that is not pushed still streams, so nothing is stored that would not be read again.
+Stored bases stay in `/kaniko/bases` after the build, `--cleanup` does not remove them. A long-lived executor that runs many builds therefore accumulates every base it ever downloaded.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
