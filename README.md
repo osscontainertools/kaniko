@@ -170,6 +170,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`](#flag-ff_kaniko_path_scoped_registry_auth)
       - [Flag `FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES`](#flag-ff_kaniko_deprecate_layerless_cache_entries)
       - [Flag `FF_KANIKO_ADD_CHECKSUM`](#flag-ff_kaniko_add_checksum)
+      - [Flag `FF_KANIKO_POOL_REGISTRY_CONNECTIONS`](#flag-ff_kaniko_pool_registry_connections)
     - [Assertion Overrides](#assertion-overrides)
     - [Telemetry](#telemetry)
     - [Debug Image](#debug-image)
@@ -1192,6 +1193,7 @@ FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=true
 FF_KANIKO_NATIVE_COPY=true
 FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=true
 FF_KANIKO_PLATFORM_CACHE_KEY=true
+FF_KANIKO_POOL_REGISTRY_CONNECTIONS=true
 FF_KANIKO_PRECOMPILE_DOCKERIGNORE=true
 FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=true
 FF_KANIKO_RESOLVE_CACHE_KEY=true
@@ -1542,6 +1544,13 @@ Becomes default in `v1.29.0`.
 
 `ADD --checksum=sha256:<hex> <url> <dest>` states that the download has to hash to the given digest. With this flag off kaniko parses the flag and never checks it, so a substituted download is added to the image and the build succeeds.
 Set this flag to `true` to verify the download and fail the build on a mismatch.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_POOL_REGISTRY_CONNECTIONS`
+
+With this flag off a build opens a new connection for every registry operation and repeats the token exchange each time.
+Set this flag to `true` to share one connection pool per registry.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 

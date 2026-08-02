@@ -51,6 +51,7 @@ type FeatureFlags struct {
 	OCIWarmer                      bool
 	PathScopedRegistryAuth         bool
 	PlatformCacheKey               bool
+	PoolRegistryConnections        bool
 	PrecompileDockerignore         bool
 	PreserveHardlinks              bool
 	PreserveMountedPaths           bool
@@ -131,6 +132,7 @@ func InitFeatureFlags() {
 		OCIWarmer:                      featureFlag("FF_KANIKO_OCI_WARMER", true),
 		PathScopedRegistryAuth:         featureFlag("FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH", false),
 		PlatformCacheKey:               featureFlag("FF_KANIKO_PLATFORM_CACHE_KEY", false),
+		PoolRegistryConnections:        featureFlag("FF_KANIKO_POOL_REGISTRY_CONNECTIONS", false),
 		PrecompileDockerignore:         featureFlag("FF_KANIKO_PRECOMPILE_DOCKERIGNORE", false),
 		PreserveHardlinks:              featureFlag("FF_KANIKO_PRESERVE_HARDLINKS", true),
 		RelativeLinkTargets:            featureFlag("FF_KANIKO_RELATIVE_LINK_TARGETS", true),

@@ -19,10 +19,12 @@ package util
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
@@ -88,15 +90,51 @@ func init() {
 	assert.Assert("util.transport.close-idle-dropped", !forwards, "go-containerregistry forwards CloseIdleConnections, so the connstats wrapper has to forward it as well")
 }
 
+var (
+	transportMu   sync.Mutex
+	transportPool = map[string]http.RoundTripper{}
+)
+
 // MakeTransport returns a transport for registryName, wired up to count the
-// sockets and requests it makes.
+// sockets and requests it makes. With FF_KANIKO_POOL_REGISTRY_CONNECTIONS
+// operations against the same registry share one transport, and therefore one
+// connection pool.
 func MakeTransport(opts config.RegistryOptions, registryName string) (http.RoundTripper, error) {
+	pooled := config.FF.PoolRegistryConnections
+
+	var key string
+	if pooled {
+		// the whole options blob is the key, so a caller asking for skip-tls-verify
+		// never gets the transport built without it. RegistryOptions is strings,
+		// bools and maps of them, so marshalling cannot fail
+		encoded, _ := json.Marshal(opts)
+		key = registryName + "|" + string(encoded)
+
+		transportMu.Lock()
+		defer transportMu.Unlock()
+		rt, ok := transportPool[key]
+		if ok {
+			return rt, nil
+		}
+	}
+
 	tr, err := makeTransport(opts, registryName)
 	if err != nil {
 		return nil, err
 	}
+	rt := instrument(tr)
+	if pooled {
+		// go-containerregistry picks 50 for this workload in its own DefaultTransport,
+		// a clone of http.DefaultTransport inherits Go's default of 2
+		tr.MaxIdleConnsPerHost = 50
+		transportPool[key] = rt
+	}
+	return rt, nil
+}
+
+func instrument(tr *http.Transport) http.RoundTripper {
 	tr.DialContext = connstats.WrapDial(tr.DialContext)
-	return connstats.Trace(tr), nil
+	return connstats.Trace(tr)
 }
 
 func makeTransport(opts config.RegistryOptions, registryName string) (*http.Transport, error) {

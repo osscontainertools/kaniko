@@ -18,6 +18,7 @@ package remote
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -64,8 +65,14 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 			remappedRef := setNewRepository(ref, remappedRepository)
 
 			logrus.Infof("Retrieving image %s from mapped registry %s", remappedRef, regToMapTo)
+			// outside retryFunc, otherwise every retry starts from an empty connection pool
+			tr, remoteOpts := remoteOptions(regToMapTo, opts, customPlatform)
 			retryFunc := func() (v1.Image, error) {
-				return remoteImageFunc(remappedRef, remoteOptions(regToMapTo, opts, customPlatform)...)
+				image, err := remoteImageFunc(remappedRef, remoteOpts...)
+				if err != nil && (!config.FF.PoolRegistryConnections || util.DropPooledOnAuth(tr, err)) {
+					tr, remoteOpts = remoteOptions(regToMapTo, opts, customPlatform)
+				}
+				return image, err
 			}
 
 			var remoteImage v1.Image
@@ -101,8 +108,13 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 
 	logrus.Infof("Retrieving image %s from registry %s", ref, registryName)
 
+	tr, remoteOpts := remoteOptions(registryName, opts, customPlatform)
 	retryFunc := func() (v1.Image, error) {
-		return remoteImageFunc(ref, remoteOptions(registryName, opts, customPlatform)...)
+		image, err := remoteImageFunc(ref, remoteOpts...)
+		if err != nil && (!config.FF.PoolRegistryConnections || util.DropPooledOnAuth(tr, err)) {
+			tr, remoteOpts = remoteOptions(registryName, opts, customPlatform)
+		}
+		return image, err
 	}
 
 	var remoteImage v1.Image
@@ -151,7 +163,7 @@ func setNewRegistry(ref name.Reference, newReg name.Registry) name.Reference {
 	}
 }
 
-func remoteOptions(registryName string, opts config.RegistryOptions, customPlatform string) []remote.Option {
+func remoteOptions(registryName string, opts config.RegistryOptions, customPlatform string) (http.RoundTripper, []remote.Option) {
 	tr, err := util.MakeTransport(opts, registryName)
 	// The MakeTransport function will only return errors if there was a problem
 	// with registry certificates (Verification or mTLS)
@@ -165,7 +177,16 @@ func remoteOptions(registryName string, opts config.RegistryOptions, customPlatf
 		logrus.Fatalf("Invalid platform %q: %v", customPlatform, err)
 	}
 
-	return []remote.Option{remote.WithTransport(tr), remote.WithAuthFromKeychain(creds.GetKeychain(&opts)), remote.WithPlatform(*platform)}
+	remoteOpts := []remote.Option{remote.WithTransport(tr), remote.WithAuthFromKeychain(creds.GetKeychain(&opts)), remote.WithPlatform(*platform)}
+
+	if config.FF.PoolRegistryConnections {
+		reuse, err := util.ReusePuller(tr, remoteOpts...)
+		if err != nil {
+			logrus.Fatalf("Unable to setup puller for registry %q: %v", registryName, err)
+		}
+		remoteOpts = append(remoteOpts, reuse...)
+	}
+	return tr, remoteOpts
 }
 
 // Parse the registry mapping

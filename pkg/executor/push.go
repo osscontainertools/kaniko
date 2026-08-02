@@ -280,10 +280,7 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 			destRef.Registry = newReg
 		}
 
-		pushAuth, err := creds.GetKeychain(&opts.RegistryOptions).Resolve(destRef.Context())
-		if err != nil {
-			return fmt.Errorf("resolving pushAuth: %w", err)
-		}
+		keychain := creds.GetKeychain(&opts.RegistryOptions)
 
 		localRt, err := util.MakeTransport(opts.RegistryOptions, registryName)
 		if err != nil {
@@ -291,6 +288,30 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		}
 		tr := newRetry(localRt)
 		rt := &withUserAgent{t: tr}
+
+		writeOptions := func() ([]remote.Option, error) {
+			pushAuth, err := keychain.Resolve(destRef.Context())
+			if err != nil {
+				return nil, fmt.Errorf("resolving pushAuth: %w", err)
+			}
+			out := []remote.Option{remote.WithAuth(pushAuth), remote.WithTransport(rt)}
+			if !config.FF.PoolRegistryConnections {
+				return out, nil
+			}
+
+			// the pooled pusher takes the keychain, not pushAuth: remote.Push writes
+			// every repository with the options the pusher was built from
+			reuse, err := util.ReusePusher(localRt, remote.WithAuthFromKeychain(keychain), remote.WithTransport(rt))
+			if err != nil {
+				return nil, fmt.Errorf("making pusher for registry %q: %w", registryName, err)
+			}
+			return append(out, reuse...), nil
+		}
+
+		writeOpts, err := writeOptions()
+		if err != nil {
+			return err
+		}
 
 		logrus.Infof("Pushing image to %s", destRef.String())
 		pushImage := image
@@ -304,10 +325,16 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 				return err
 			}
 			digest := destRef.Context().Digest(dig.String())
-			err = remote.Write(destRef, pushImage, remote.WithAuth(pushAuth), remote.WithTransport(rt))
+			err = remote.Write(destRef, pushImage, writeOpts...)
 			if err != nil && config.FF.CrossRepoMount {
 				logrus.Debugf("Cross-repository mount failed; retrying plain blob upload: %v", err)
-				err = remote.Write(destRef, image, remote.WithAuth(pushAuth), remote.WithTransport(rt))
+				err = remote.Write(destRef, image, writeOpts...)
+			}
+			if err != nil && (!config.FF.PoolRegistryConnections || util.DropPooledOnAuth(localRt, err)) {
+				rebuilt, rerr := writeOptions()
+				if rerr == nil {
+					writeOpts = rebuilt
+				}
 			}
 			if err != nil {
 				if !opts.PushIgnoreImmutableTagErrors {
