@@ -225,28 +225,7 @@ This will only run dockerfiles that match the pattern `Dockerfile_test_add*`
 
 
 
-### Benchmarking
-
-The goal is for Kaniko to be at least as fast at building Dockerfiles as Docker is, and to that end, we've built
-in benchmarking to check the speed of not only each full run, but also how long each step of each run takes. To turn
-on benchmarking, just set the `BENCHMARK_FILE` environment variable, and kaniko will output all the benchmark info
-of each run to that file location.
-
-```shell
-docker run -v $(pwd):/workspace -v ~/.config:/root/.config \
--e BENCHMARK_FILE=/workspace/benchmark_file \
-ghcr.io/osscontainertools/kaniko:latest \
---dockerfile=<path to Dockerfile> --context=/workspace \
---destination=<YOUR-REGISTRY>/<YOUR-REPO>/new-image
-```
-Additionally, the integration tests can output benchmarking information to a `benchmarks` directory under the
-`integration` directory if the `BENCHMARK` environment variable is set to `true.`
-
-```shell
-BENCHMARK=true go test -v --repo $IMAGE_REPO
-```
-
-#### Profiling
+### Profiling
 
 If your builds are taking long, you can analyze kaniko
 function calls using [Slow Jam](https://github.com/google/slowjam). To start

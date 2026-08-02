@@ -19,77 +19,9 @@ package timing
 import (
 	"context"
 	"testing"
-	"time"
 
 	"go.opentelemetry.io/otel/trace/noop"
 )
-
-func patchTime(timeFunc func() time.Time) func() {
-	old := currentTimeFunc
-	currentTimeFunc = timeFunc
-	return func() {
-		currentTimeFunc = old
-	}
-}
-
-func mockTimeFunc(t time.Time) func() time.Time {
-	return func() time.Time {
-		return t
-	}
-}
-
-func TestTimedRun_StartStop(t *testing.T) {
-	type args struct {
-		categories map[string]time.Duration
-		category   string
-		waitTime   time.Duration
-	}
-	tests := []struct {
-		name string
-		args args
-		want time.Duration
-	}{
-		{
-			name: "new category",
-			args: args{
-				categories: map[string]time.Duration{},
-				category:   "foo",
-				waitTime:   3 * time.Second,
-			},
-			want: 3 * time.Second,
-		},
-		{
-			name: "existing category",
-			args: args{
-				categories: map[string]time.Duration{
-					"foo": 4 * time.Second,
-				},
-				category: "foo",
-				waitTime: 2 * time.Second,
-			},
-			want: 6 * time.Second,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tr := &TimedRun{
-				categories: tt.args.categories,
-			}
-
-			timer := Timer{
-				category:  tt.args.category,
-				startTime: time.Time{},
-			}
-
-			defer patchTime(mockTimeFunc(timer.startTime.Add(tt.args.waitTime)))()
-			tr.Stop(&timer)
-			if got := tr.categories[tt.args.category]; got != tt.want {
-				t.Errorf("Expected %d, got %d", tt.want, got)
-			}
-		})
-	}
-}
 
 // Regression for the SetTracer/Start data race: cache-push goroutines call
 // Start while the shutdown path unwires the tracer. Run under -race.
@@ -98,7 +30,7 @@ func TestSetTracerConcurrentWithStart(t *testing.T) {
 	go func() {
 		defer close(done)
 		for range 1000 {
-			DefaultRun.Stop(Start("race-probe"))
+			Start("race-probe").End()
 		}
 	}()
 	tr := noop.NewTracerProvider().Tracer("test")
