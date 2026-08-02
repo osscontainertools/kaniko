@@ -44,32 +44,23 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// mu guards provider and rootSpan: Shutdown is reachable both from the exit
-// paths and from the assertion hook, which can fire on any goroutine.
 var (
 	mu       sync.Mutex
 	provider *sdktrace.TracerProvider
 	rootSpan trace.Span
 )
 
-// EndpointEnv enables tracing when set to an OTLP-HTTP collector URL.
+// enables tracing when set to an OTLP-HTTP collector URL.
 const EndpointEnv = "KANIKO_TELEMETRY_ENDPOINT"
 
-// OmitDockerfileEnv, when truthy, keeps the Dockerfile source out of the trace.
+// whether to keep the Dockerfile source out of the trace.
 const OmitDockerfileEnv = "KANIKO_TELEMETRY_OMIT_DOCKERFILE"
 
-// shutdownFlushTimeout bounds the exit-time flush: a dead collector must not
-// hold a finished build hostage for the exporter's full retry budget.
 const shutdownFlushTimeout = 5 * time.Second
 
-// attributeValueLengthLimit caps every span attribute value. Dockerfile and
-// command text are user-controlled, and one oversized value gets the whole
-// OTLP batch rejected, not just that attribute.
+// one oversized value gets the whole OTLP batch rejected, not just that attribute.
 const attributeValueLengthLimit = 64 * 1024
 
-// spanLimits returns the SDK defaults with our attribute-value cap applied,
-// unless the operator set one of the standard OTEL length-limit env vars,
-// including an explicit -1 for unlimited, which must not be clobbered.
 func spanLimits() sdktrace.SpanLimits {
 	limits := sdktrace.NewSpanLimits()
 	_, spanSet := os.LookupEnv("OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT")
@@ -80,9 +71,6 @@ func spanLimits() sdktrace.SpanLimits {
 	return limits
 }
 
-// Init enables tracing when EndpointEnv is set: it creates the root "build"
-// span and hands the tracer to pkg/timing. Best effort, any failure logs a
-// warning and leaves tracing off. It never fails the build.
 func Init(ctx context.Context, opts *config.KanikoOptions) {
 	endpoint := os.Getenv(EndpointEnv)
 	if endpoint == "" {
@@ -96,14 +84,11 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 		logrus.Debugf("tracing disabled: failed to create OTLP exporter: %v", err)
 		return
 	}
-	// Read the Dockerfile once: reused for the content attribute and for the
-	// content-addressed build_id. May legitimately fail (URL dockerfile).
+	// Read the Dockerfile once: reused for build_id and the content attribute.
 	content, cerr := os.ReadFile(opts.DockerfilePath)
 	if cerr != nil {
 		logrus.Debugf("tracing: Dockerfile not readable, kaniko.dockerfile.content omitted: %v", cerr)
 	}
-	// WithFromEnv is applied last so operator-set OTEL_SERVICE_NAME /
-	// OTEL_RESOURCE_ATTRIBUTES win over our defaults.
 	res, err := resource.New(ctx,
 		resource.WithAttributes(buildAttrs(opts, content)...),
 		resource.WithFromEnv(),
@@ -137,7 +122,6 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 
 	// hook, not import, so assert does not depend on tracing
 	assert.OnAssertionViolation = onAssertion
-	// logrus.Fatalf calls os.Exit without unwinding, flush what we have.
 	logrus.RegisterExitHandler(func() { Shutdown(fmt.Errorf("process exited via logrus.Fatal")) })
 }
 
@@ -155,8 +139,8 @@ func onAssertion(name, msg string) {
 	Shutdown(fmt.Errorf("assertion violated [%s]: %s", name, msg))
 }
 
-// buildAttrs holds what kaniko knows, fleet identity comes from
-// OTEL_RESOURCE_ATTRIBUTES.
+// buildAttrs holds what kaniko knows; fleet identity comes from
+// OTEL_RESOURCE_ATTRIBUTES. build_id groups runs of the same Dockerfile+target.
 func buildAttrs(opts *config.KanikoOptions, dockerfile []byte) []attribute.KeyValue {
 	target := strings.Join(opts.Target, ",")
 	attrs := []attribute.KeyValue{
@@ -207,8 +191,6 @@ func Shutdown(err error) {
 		rootSpan.End()
 		rootSpan = nil
 	}
-	// Unwire span creation first so no goroutine mints spans into a
-	// draining or dead provider.
 	timing.SetTracer(context.Background(), nil)
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownFlushTimeout)
 	defer cancel()
