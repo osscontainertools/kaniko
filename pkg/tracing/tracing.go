@@ -96,14 +96,15 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 	if err != nil {
 		logrus.Debugf("tracing: partial resource, continuing: %v", err)
 	}
+
+	// Deliberately NOT otel.SetTracerProvider: kaniko takes its tracer from
+	// the provider directly, and the global would silently switch on client
+	// spans in the vendored GCS/GCR transports, polluting the trace.
 	provider = sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exp),
 		sdktrace.WithResource(res),
 		sdktrace.WithRawSpanLimits(spanLimits()),
 	)
-	// Deliberately NOT otel.SetTracerProvider: kaniko takes its tracer from
-	// the provider directly, and the global would silently switch on client
-	// spans in the vendored GCS/GCR transports, polluting the trace.
 
 	tracer := provider.Tracer("github.com/osscontainertools/kaniko")
 	var sctx context.Context

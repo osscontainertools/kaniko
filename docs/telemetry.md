@@ -10,17 +10,21 @@ Spans are sent over OTLP/HTTP (`http://` or `https://`, collector port 4318 by d
 
 Each build is one trace: a root `build` span plus a span per build phase and Dockerfile command. Command spans are named `Command` (low cardinality, so backends can aggregate on the name). The full instruction text is in the `kaniko.command` attribute. The build phases keep their descriptive names.
 
+Set `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true` to keep the Dockerfile source out of the trace.
+
+Attribute values are capped at 64 KiB. `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` and `OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT` override the cap, including an explicit `-1` for unlimited.
+
 ## Build span
 
 | Attribute | Value |
 | --- | --- |
 | `kaniko.version` | kaniko version |
 | `kaniko.dockerfile` | Dockerfile path |
-| `kaniko.dockerfile.content` | full Dockerfile source (absent for URL Dockerfiles, or when `KANIKO_TELEMETRY_OMIT_DOCKERFILE` is set) |
+| `kaniko.dockerfile.content` | full Dockerfile source |
 | `kaniko.target` | build target(s), comma-joined |
 | `kaniko.build_id` | sha256 of Dockerfile content + target, for grouping runs of the same build (falls back to the path when the Dockerfile is unreadable) |
 | `kaniko.ff.*` | explicitly-set `FF_KANIKO_*` feature flags (flags left at their defaults are not reported) |
-| `service.name` | `kaniko`, unless `OTEL_SERVICE_NAME` is set |
+| `service.name` | `kaniko` |
 
 ## Command spans
 
