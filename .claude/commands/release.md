@@ -102,9 +102,16 @@ Usage: `/release <version>`
 
 14. **Consistency check** — compare entry style, capitalisation, and backtick usage against the two previous release entries. Fix deviations.
 
+14b. **Feature flag profiles** — reconcile the two profile lists under `### Feature Flags` → `#### Profiles` in `README.md`:
+    ```bash
+    awk '/^#### Flag `FF_KANIKO_/{f=$0} /Becomes default in/{print f" -> "$0}' README.md
+    grep -n "FF_KANIKO_" integration/images.go
+    ```
+    Preview lists every default-off flag documented as becoming default in the next minor. BuildKit compatibility lists the flags that align behaviour with the spec, the profile the integration suite runs on top of Preview. Add the flags this release introduced, drop the ones that became default in it. Keep both lists sorted alphabetically.
+
 15. **Commit**:
     ```
-    git add Makefile CHANGELOG.md CHANGELOG_OVERVIEW.md
+    git add Makefile CHANGELOG.md CHANGELOG_OVERVIEW.md README.md
     git commit -m "release"
     ```
     ```
