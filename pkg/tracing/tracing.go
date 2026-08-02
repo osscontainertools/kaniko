@@ -39,6 +39,7 @@ import (
 
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/connstats"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/version"
 	"github.com/sirupsen/logrus"
@@ -145,6 +146,21 @@ func onAssertion(name, msg string) {
 	Shutdown(fmt.Errorf("assertion violated [%s]: %s", name, msg))
 }
 
+func registryAttrs(s connstats.Stats) []attribute.KeyValue {
+	return []attribute.KeyValue{
+		attribute.Int64("kaniko.registry.sockets.opened", s.SocketsOpened),
+		attribute.Int64("kaniko.registry.sockets.closed", s.SocketsClosed),
+		attribute.Int64("kaniko.registry.sockets.open_at_exit", s.SocketsOpen),
+		attribute.Int64("kaniko.registry.sockets.peak", s.PeakSockets),
+		attribute.Int64("kaniko.registry.requests", s.Requests),
+		attribute.Int64("kaniko.registry.requests.reused", s.Reused),
+		attribute.Int64("kaniko.registry.tls.handshakes", s.TLSHandshakes),
+		attribute.Int64("kaniko.registry.tls.ms", s.TLSTime.Milliseconds()),
+		attribute.Int64("kaniko.registry.dial.ms", s.DialTime.Milliseconds()),
+		attribute.Int64("kaniko.registry.idle.ms", s.IdleTime.Milliseconds()),
+	}
+}
+
 // buildAttrs holds what kaniko knows; fleet identity comes from
 // OTEL_RESOURCE_ATTRIBUTES. build_id groups runs of the same Dockerfile+target.
 func buildAttrs(opts *config.KanikoOptions, dockerfile []byte) []attribute.KeyValue {
@@ -189,6 +205,7 @@ func Shutdown(err error) {
 		return
 	}
 	if rootSpan != nil {
+		rootSpan.SetAttributes(registryAttrs(connstats.Snapshot())...)
 		if err != nil {
 			rootSpan.SetStatus(codes.Error, err.Error())
 		} else {
