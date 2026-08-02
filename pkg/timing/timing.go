@@ -33,16 +33,21 @@ var currentTimeFunc = time.Now
 var DefaultRun = NewTimedRun()
 
 var (
+	tracerMu  sync.Mutex
 	tracer    trace.Tracer
 	parentCtx context.Context
 )
 
 func SetTracer(ctx context.Context, t trace.Tracer) {
+	tracerMu.Lock()
+	defer tracerMu.Unlock()
 	parentCtx = ctx
 	tracer = t
 }
 
-func Enabled() bool {
+func TracingEnabled() bool {
+	tracerMu.Lock()
+	defer tracerMu.Unlock()
 	return tracer != nil
 }
 
@@ -95,8 +100,11 @@ func Start(category string) *Timer {
 		category:  category,
 		startTime: currentTimeFunc(),
 	}
-	if tracer != nil && !noSpanCategories[category] {
-		_, t.span = tracer.Start(parentCtx, category)
+	tracerMu.Lock()
+	tr, ctx := tracer, parentCtx
+	tracerMu.Unlock()
+	if tr != nil && !noSpanCategories[category] {
+		_, t.span = tr.Start(ctx, category)
 		t.span.SetAttributes(attribute.String("kaniko.phase", phaseFor(category)))
 	}
 	return &t

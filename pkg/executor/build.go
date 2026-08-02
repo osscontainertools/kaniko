@@ -583,6 +583,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 
 	cacheGroup := errgroup.Group{}
 	var cmdTimer *timing.Timer
+	// stop on the way out too: an unended span is never exported
 	defer func() {
 		if cmdTimer != nil {
 			timing.DefaultRun.Stop(cmdTimer)
@@ -647,7 +648,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			}
 		}()
 
-		if timing.Enabled() {
+		if timing.TracingEnabled() {
 			phase := "kaniko"
 			switch command.(type) {
 			case *commands.RunCommand, *commands.RunMarkerCommand:

@@ -24,7 +24,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -32,6 +34,7 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/osscontainertools/kaniko/pkg/assert"
@@ -42,17 +45,40 @@ import (
 )
 
 var (
+	mu       sync.Mutex
 	provider *sdktrace.TracerProvider
 	rootSpan trace.Span
 )
 
+// enables tracing when set to an OTLP-HTTP collector URL.
 const EndpointEnv = "KANIKO_TELEMETRY_ENDPOINT"
+
+// whether to keep the Dockerfile source out of the trace.
+const OmitDockerfileEnv = "KANIKO_TELEMETRY_OMIT_DOCKERFILE"
+
 const shutdownFlushTimeout = 5 * time.Second
+
+// one oversized value gets the whole OTLP batch rejected, not just that attribute.
+const attributeValueLengthLimit = 64 * 1024
+
+// pass these raw, WithSpanLimits would clamp an explicit -1 (unlimited) to the default.
+func spanLimits() sdktrace.SpanLimits {
+	limits := sdktrace.NewSpanLimits()
+	_, spanSet := os.LookupEnv("OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT")
+	_, generalSet := os.LookupEnv("OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT")
+	if !spanSet && !generalSet {
+		limits.AttributeValueLengthLimit = attributeValueLengthLimit
+	}
+	return limits
+}
 
 func Init(ctx context.Context, opts *config.KanikoOptions) {
 	endpoint := os.Getenv(EndpointEnv)
 	if endpoint == "" {
 		return
+	}
+	if strings.HasPrefix(endpoint, "http://") {
+		logrus.Warnf("%s uses plaintext http: spans (including Dockerfile content) are sent unencrypted", EndpointEnv)
 	}
 	exp, err := otlptracehttp.New(ctx, otlptracehttp.WithEndpointURL(endpoint))
 	if err != nil {
@@ -65,23 +91,39 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 		logrus.Debugf("tracing: Dockerfile not readable, kaniko.dockerfile.content omitted: %v", cerr)
 	}
 	res, err := resource.New(ctx,
-		resource.WithFromEnv(),
 		resource.WithAttributes(buildAttrs(opts, content)...),
+		resource.WithFromEnv(),
 	)
 	if err != nil {
 		logrus.Debugf("tracing: partial resource, continuing: %v", err)
 	}
-	provider = sdktrace.NewTracerProvider(
+
+	// Deliberately NOT otel.SetTracerProvider: kaniko takes its tracer from
+	// the provider directly, and the global would silently switch on client
+	// spans in the vendored GCS/GCR transports, polluting the trace.
+	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exp),
 		sdktrace.WithResource(res),
+		sdktrace.WithRawSpanLimits(spanLimits()),
 	)
 
-	tracer := provider.Tracer("github.com/osscontainertools/kaniko")
-	var sctx context.Context
-	sctx, rootSpan = tracer.Start(ctx, "build")
-	if cerr == nil {
-		rootSpan.SetAttributes(attribute.String("kaniko.dockerfile.content", string(content)))
+	tracer := tp.Tracer("github.com/osscontainertools/kaniko")
+	sctx, span := tracer.Start(ctx, "build")
+	raw, set := os.LookupEnv(OmitDockerfileEnv)
+	if set {
+		_, perr := strconv.ParseBool(raw)
+		if perr != nil {
+			logrus.Warnf("%s=%q is not a valid boolean; Dockerfile content WILL be exported", OmitDockerfileEnv, raw)
+		}
 	}
+	if cerr == nil && !config.EnvBool(OmitDockerfileEnv) {
+		span.SetAttributes(attribute.String("kaniko.dockerfile.content", string(content)))
+	}
+
+	mu.Lock()
+	provider, rootSpan = tp, span
+	mu.Unlock()
+
 	timing.SetTracer(sctx, tracer)
 
 	// hook, not import, so assert does not depend on tracing
@@ -91,6 +133,7 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 
 // onAssertion flushes before the panic from a violated assertion escapes.
 func onAssertion(name, msg string) {
+	mu.Lock()
 	if rootSpan != nil {
 		rootSpan.SetAttributes(attribute.Bool("kaniko.assertion_violated", true))
 		rootSpan.AddEvent("assertion violated", trace.WithAttributes(
@@ -98,6 +141,7 @@ func onAssertion(name, msg string) {
 			attribute.String("kaniko.assertion.message", msg),
 		))
 	}
+	mu.Unlock()
 	Shutdown(fmt.Errorf("assertion violated [%s]: %s", name, msg))
 }
 
@@ -106,7 +150,7 @@ func onAssertion(name, msg string) {
 func buildAttrs(opts *config.KanikoOptions, dockerfile []byte) []attribute.KeyValue {
 	target := strings.Join(opts.Target, ",")
 	attrs := []attribute.KeyValue{
-		attribute.String("service.name", "kaniko"),
+		semconv.ServiceName("kaniko"),
 		attribute.String("kaniko.version", version.Version()),
 		attribute.String("kaniko.dockerfile", opts.DockerfilePath),
 		attribute.String("kaniko.target", target),
@@ -139,6 +183,8 @@ func buildID(path, target string, content []byte) string {
 // Shutdown ends the root span with the outcome and flushes. Idempotent. A
 // killed process leaves the root span unended, which the backend marks crashed.
 func Shutdown(err error) {
+	mu.Lock()
+	defer mu.Unlock()
 	if provider == nil {
 		return
 	}
@@ -151,6 +197,7 @@ func Shutdown(err error) {
 		rootSpan.End()
 		rootSpan = nil
 	}
+	timing.SetTracer(context.Background(), nil)
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownFlushTimeout)
 	defer cancel()
 	if sderr := provider.Shutdown(ctx); sderr != nil {
