@@ -225,19 +225,7 @@ This will only run dockerfiles that match the pattern `Dockerfile_test_add*`
 
 
 
-### Benchmarking
-
-Kaniko times each build step and exports the timings as OpenTelemetry spans. Point
-`KANIKO_TELEMETRY_ENDPOINT` at an OTLP/HTTP collector and every run reports how long
-it spent in each phase. See [Telemetry](README.md#telemetry) for the full set of
-variables and [Telemetry attributes](docs/telemetry.md) for the exported span attributes.
-
-The integration harness forwards `KANIKO_TELEMETRY_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`
-and `OTEL_RESOURCE_ATTRIBUTES` into every executor container, so setting them before a test
-run collects traces for the whole suite. Spans carry a `kaniko.dockerfile` attribute, which
-is how you compare one test across runs.
-
-#### Profiling
+### Profiling
 
 If your builds are taking long, you can analyze kaniko
 function calls using [Slow Jam](https://github.com/google/slowjam). To start

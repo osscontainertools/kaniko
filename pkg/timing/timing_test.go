@@ -30,7 +30,7 @@ func TestSetTracerConcurrentWithStart(t *testing.T) {
 	go func() {
 		defer close(done)
 		for range 1000 {
-			Start("race-probe").Stop()
+			Start("race-probe").End()
 		}
 	}()
 	tr := noop.NewTracerProvider().Tracer("test")

@@ -32,6 +32,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -561,7 +562,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		}
 
 		err := util.Retry(retryFunc, opts.ImageFSExtractRetry, 1000)
-		t.Stop()
+		t.End()
 		if err != nil {
 			return fmt.Errorf("failed to get filesystem from image: %w", err)
 		}
@@ -574,7 +575,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	if opts.SingleSnapshot {
 		t := timing.Start("Initial FS snapshot")
 		err := snapshotter.Init()
-		t.Stop()
+		t.End()
 		if err != nil {
 			return err
 		}
@@ -582,11 +583,11 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	}
 
 	cacheGroup := errgroup.Group{}
-	var cmdTimer *timing.Timer
+	var cmdTimer trace.Span
 	// stop on the way out too: an unended span is never exported
 	defer func() {
 		if cmdTimer != nil {
-			cmdTimer.Stop()
+			cmdTimer.End()
 		}
 	}()
 	for index, command := range s.cmds {
@@ -676,7 +677,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			// a list of files.
 			t := timing.Start("Initial FS snapshot")
 			err := snapshotter.Init()
-			t.Stop()
+			t.End()
 			if err != nil {
 				return err
 			}
@@ -687,7 +688,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			return fmt.Errorf("failed to execute command: %w", err)
 		}
 		files = command.FilesToSnapshot()
-		cmdTimer.Stop()
+		cmdTimer.End()
 		cmdTimer = nil
 
 		isLastCommand := index == len(s.cmds)-1
@@ -787,7 +788,7 @@ func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, sn
 		}
 		snapshot, snapshotted, err = snapshotter.TakeSnapshot(files, shdDelete)
 	}
-	t.Stop()
+	t.End()
 	return snapshot, snapshotted, err
 }
 
@@ -1174,7 +1175,7 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 // DoBuild executes building the Dockerfile
 func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	t := timing.Start("Total Build Time")
-	defer t.Stop()
+	defer t.End()
 	stageFinalCacheKeys := make(map[int]string)
 
 	stages, metaArgs, err := dockerfile.ParseStages(opts)
@@ -1659,7 +1660,7 @@ func deduplicatePaths(paths []string) []string {
 
 func resolveExtraStageDigests(stages []config.KanikoStage, opts *config.KanikoOptions) (map[string]string, map[string]v1.Image, error) {
 	t := timing.Start("Resolving Extra Stage Digests")
-	defer t.Stop()
+	defer t.End()
 
 	externalImageDigests := make(map[string]string)
 	images := make(map[string]v1.Image)
@@ -1704,7 +1705,7 @@ func resolveExtraStageDigests(stages []config.KanikoStage, opts *config.KanikoOp
 
 func downloadExtraStages(images map[string]v1.Image) error {
 	t := timing.Start("Fetching Extra Stages")
-	defer t.Stop()
+	defer t.End()
 
 	for name, sourceImage := range images {
 		if err := saveStage(name, sourceImage); err != nil {
@@ -1719,7 +1720,7 @@ func downloadExtraStages(images map[string]v1.Image) error {
 
 func extractImageToDependencyDir(name string, image v1.Image) error {
 	t := timing.Start("Extracting Image to Dependency Dir")
-	defer t.Stop()
+	defer t.End()
 	dependencyDir := filepath.Join(config.KanikoInterStageDepsDir, name)
 	if err := os.MkdirAll(dependencyDir, 0o755); err != nil {
 		return err
@@ -1731,7 +1732,7 @@ func extractImageToDependencyDir(name string, image v1.Image) error {
 
 func saveStage(path string, image v1.Image) error {
 	t := timing.Start("Saving stage")
-	defer t.Stop()
+	defer t.End()
 	destRef, err := name.NewTag("temp/tag", name.WeakValidation)
 	if err != nil {
 		return err
@@ -1787,7 +1788,7 @@ func retrieveBaseImage(stage config.KanikoStage, opts *config.KanikoOptions) (v1
 	t := timing.Start("Downloading base image")
 	path := filepath.Join(config.KanikoBaseStagesDir, stage.BaseImageDigest)
 	err = writeImageLayout(path, img, stage.BaseImageDigest)
-	t.Stop()
+	t.End()
 	if err != nil {
 		logrus.Warnf("shared-base: failed to store %s, using registry image: %v", stage.BaseImageDigest, err)
 		return img, nil

@@ -22,6 +22,7 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 var (
@@ -66,33 +67,15 @@ func phaseFor(category string) string {
 	return "kaniko"
 }
 
-// Start starts a new Timer and returns it.
-func Start(category string) *Timer {
-	var t Timer
+// Start begins a span for category, or a noop span when the category is not traced.
+func Start(category string) trace.Span {
 	tracerMu.Lock()
 	tr, ctx := tracer, parentCtx
 	tracerMu.Unlock()
-	if tr != nil && !noSpanCategories[category] {
-		_, t.span = tr.Start(ctx, category)
-		t.span.SetAttributes(attribute.String("kaniko.phase", phaseFor(category)))
+	if tr == nil || noSpanCategories[category] {
+		return noop.Span{}
 	}
-	return &t
-}
-
-// Timer represents a running timer.
-type Timer struct {
-	span trace.Span
-}
-
-// Stop ends the timer's span. It is a no-op when tracing is disabled.
-func (t *Timer) Stop() {
-	if t.span != nil {
-		t.span.End()
-	}
-}
-
-func (t *Timer) SetAttributes(kv ...attribute.KeyValue) {
-	if t.span != nil {
-		t.span.SetAttributes(kv...)
-	}
+	_, span := tr.Start(ctx, category)
+	span.SetAttributes(attribute.String("kaniko.phase", phaseFor(category)))
+	return span
 }

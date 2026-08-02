@@ -149,7 +149,7 @@ func (l *LayeredMap) Add(s string) error {
 // Returns true if the file is changed.
 func (l *LayeredMap) CheckFileChange(s string) (bool, error) {
 	t := timing.Start("Hashing files")
-	defer t.Stop()
+	defer t.End()
 
 	newV, err := l.hasher(s)
 	if err != nil {
