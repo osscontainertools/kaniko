@@ -25,8 +25,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -133,6 +135,31 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 		checked[destRef.Context().String()] = true
 	}
 	return nil
+}
+
+var (
+	pusherMu sync.Mutex
+	pushers  = map[string]*remote.Pusher{}
+)
+
+// registryPusher hands out one pusher per registry so pushes share the fetcher
+// and its token. Returns nil when FF_KANIKO_POOL_REGISTRY_CONNECTIONS is off.
+func registryPusher(registryName string, auth authn.Authenticator, rt http.RoundTripper) (*remote.Pusher, error) {
+	if !config.FF.PoolRegistryConnections {
+		return nil, nil
+	}
+
+	pusherMu.Lock()
+	defer pusherMu.Unlock()
+	if pusher, ok := pushers[registryName]; ok {
+		return pusher, nil
+	}
+	pusher, err := remote.NewPusher(remote.WithAuth(auth), remote.WithTransport(rt))
+	if err != nil {
+		return nil, err
+	}
+	pushers[registryName] = pusher
+	return pusher, nil
 }
 
 func getDigest(image v1.Image) ([]byte, error) {
@@ -289,6 +316,18 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		tr := newRetry(localRt)
 		rt := &withUserAgent{t: tr}
 
+		writeOpts := []remote.Option{remote.WithAuth(pushAuth), remote.WithTransport(rt)}
+
+		// every cache layer push comes back through here, so without a shared
+		// pusher each layer pays for its own ping and token
+		pusher, err := registryPusher(registryName, pushAuth, rt)
+		if err != nil {
+			return fmt.Errorf("making pusher for registry %q: %w", registryName, err)
+		}
+		if pusher != nil {
+			writeOpts = append(writeOpts, remote.Reuse(pusher))
+		}
+
 		logrus.Infof("Pushing image to %s", destRef.String())
 
 		retryFunc := func() error {
@@ -297,7 +336,7 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 				return err
 			}
 			digest := destRef.Context().Digest(dig.String())
-			if err := remote.Write(destRef, image, remote.WithAuth(pushAuth), remote.WithTransport(rt)); err != nil {
+			if err := remote.Write(destRef, image, writeOpts...); err != nil {
 				if !opts.PushIgnoreImmutableTagErrors {
 					return err
 				}

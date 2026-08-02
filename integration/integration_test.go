@@ -27,7 +27,9 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -1160,6 +1162,78 @@ func TestCacheInvalidatesOnAllowlistedFileChange(t *testing.T) {
 	}
 
 	containerDiff(t, original, changed, "--semantic", "--extra-ignore-files=app/test.txt")
+}
+
+var connSummaryRe = regexp.MustCompile(`registry connections: sockets opened=(\d+) .*reused=(\d+)`)
+
+func parseConnSummary(t *testing.T, out []byte) (opened, reused int) {
+	t.Helper()
+	m := connSummaryRe.FindSubmatch(out)
+	if m == nil {
+		t.Fatalf("no registry connection summary in output:\n%s", out)
+	}
+	opened, err := strconv.Atoi(string(m[1]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	reused, err = strconv.Atoi(string(m[2]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return opened, reused
+}
+
+// mz961: kaniko built a fresh transport for every registry operation, so nothing
+// shared a connection pool. The counts are host and registry dependent, so this
+// compares the two modes against each other instead of asserting absolute numbers.
+func TestRegistryConnectionsArePooled(t *testing.T) {
+	t.Parallel()
+
+	build := func(t *testing.T, pooled bool, cacheRepo string, version int) (opened, reused int) {
+		t.Helper()
+		_, ex, _, _ := runtime.Caller(0)
+		cwd := filepath.Dir(ex)
+
+		dockerRunFlags := []string{"run", "--net=host", "-v", cwd + ":/workspace"}
+		dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
+		// after the suite flags, so it wins whatever KanikoEnv sets
+		dockerRunFlags = append(dockerRunFlags, "-e", fmt.Sprintf("FF_KANIKO_POOL_REGISTRY_CONNECTIONS=%t", pooled))
+		dockerRunFlags = addAuthFlags(dockerRunFlags)
+		dockerRunFlags = addCoverageFlags(dockerRunFlags)
+		dockerRunFlags = append(dockerRunFlags, ExecutorImage,
+			"-f", path.Join(buildContextPath, "testdata/test_issue_mz961/Dockerfile"),
+			"-c", path.Join(buildContextPath, "testdata/test_issue_mz961"),
+			"-d", GetVersionedKanikoImage(config.imageRepo, "issue_mz961", version),
+			"--cache=true",
+			"--cache-repo", cacheRepo,
+			// the connection summary this test reads is a debug line
+			"-v", "debug")
+
+		out, err := RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
+		t.Logf("pooled=%t version=%d:\n%s", pooled, version, out)
+		if err != nil {
+			t.Fatalf("building with pooled=%t failed: %v", pooled, err)
+		}
+		return parseConnSummary(t, out)
+	}
+
+	// separate cache repos, so both modes see the same cold then warm sequence
+	stamp := strconv.FormatInt(time.Now().UnixNano(), 10)
+	repo := func(mode string) string {
+		return filepath.Join(config.imageRepo, "cache", "mz961", mode, stamp)
+	}
+
+	build(t, false, repo("unpooled"), 0)
+	unpooled, _ := build(t, false, repo("unpooled"), 1)
+	build(t, true, repo("pooled"), 2)
+	opened, reused := build(t, true, repo("pooled"), 3)
+
+	if opened*3 > unpooled*2 {
+		t.Errorf("mz961: pooling opened %d sockets against %d unpooled, expected at least a third fewer", opened, unpooled)
+	}
+	if reused <= opened {
+		t.Errorf("mz961: %d requests reused a connection over %d sockets, expected reuse to dominate", reused, opened)
+	}
 }
 
 func TestRelativePaths(t *testing.T) {
