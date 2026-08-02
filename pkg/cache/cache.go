@@ -73,7 +73,20 @@ func (rc *RegistryCache) RetrieveLayer(ck string) (v1.Image, error) {
 		return nil, fmt.Errorf("making transport for registry %q: %w", registryName, err)
 	}
 
-	img, err := remote.Image(cacheRef, remote.WithTransport(tr), remote.WithAuthFromKeychain(creds.GetKeychain(&rc.Opts.RegistryOptions)))
+	keychain := creds.GetKeychain(&rc.Opts.RegistryOptions)
+	remoteOpts := []remote.Option{remote.WithTransport(tr), remote.WithAuthFromKeychain(keychain)}
+
+	// one puller per registry, otherwise every cache key looked up pays for its
+	// own ping and its own token
+	puller, err := util.RegistryPuller(rc.Opts.RegistryOptions, registryName, keychain, nil)
+	if err != nil {
+		return nil, fmt.Errorf("making puller for registry %q: %w", registryName, err)
+	}
+	if puller != nil {
+		remoteOpts = append(remoteOpts, remote.Reuse(puller))
+	}
+
+	img, err := remote.Image(cacheRef, remoteOpts...)
 	if err != nil {
 		return nil, err
 	}
