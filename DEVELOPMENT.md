@@ -227,24 +227,15 @@ This will only run dockerfiles that match the pattern `Dockerfile_test_add*`
 
 ### Benchmarking
 
-The goal is for Kaniko to be at least as fast at building Dockerfiles as Docker is, and to that end, we've built
-in benchmarking to check the speed of not only each full run, but also how long each step of each run takes. To turn
-on benchmarking, just set the `BENCHMARK_FILE` environment variable, and kaniko will output all the benchmark info
-of each run to that file location.
+Kaniko times each build step and exports the timings as OpenTelemetry spans. Point
+`KANIKO_TELEMETRY_ENDPOINT` at an OTLP/HTTP collector and every run reports how long
+it spent in each phase. See [Telemetry](README.md#telemetry) for the full set of
+variables and [Telemetry attributes](docs/telemetry.md) for the exported span attributes.
 
-```shell
-docker run -v $(pwd):/workspace -v ~/.config:/root/.config \
--e BENCHMARK_FILE=/workspace/benchmark_file \
-ghcr.io/osscontainertools/kaniko:latest \
---dockerfile=<path to Dockerfile> --context=/workspace \
---destination=<YOUR-REGISTRY>/<YOUR-REPO>/new-image
-```
-Additionally, the integration tests can output benchmarking information to a `benchmarks` directory under the
-`integration` directory if the `BENCHMARK` environment variable is set to `true.`
-
-```shell
-BENCHMARK=true go test -v --repo $IMAGE_REPO
-```
+The integration harness forwards `KANIKO_TELEMETRY_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`
+and `OTEL_RESOURCE_ATTRIBUTES` into every executor container, so setting them before a test
+run collects traces for the whole suite. Spans carry a `kaniko.dockerfile` attribute, which
+is how you compare one test across runs.
 
 #### Profiling
 

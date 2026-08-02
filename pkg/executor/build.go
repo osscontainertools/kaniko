@@ -561,7 +561,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		}
 
 		err := util.Retry(retryFunc, opts.ImageFSExtractRetry, 1000)
-		timing.DefaultRun.Stop(t)
+		t.Stop()
 		if err != nil {
 			return fmt.Errorf("failed to get filesystem from image: %w", err)
 		}
@@ -574,7 +574,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	if opts.SingleSnapshot {
 		t := timing.Start("Initial FS snapshot")
 		err := snapshotter.Init()
-		timing.DefaultRun.Stop(t)
+		t.Stop()
 		if err != nil {
 			return err
 		}
@@ -586,7 +586,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	// stop on the way out too: an unended span is never exported
 	defer func() {
 		if cmdTimer != nil {
-			timing.DefaultRun.Stop(cmdTimer)
+			cmdTimer.Stop()
 		}
 	}()
 	for index, command := range s.cmds {
@@ -676,7 +676,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			// a list of files.
 			t := timing.Start("Initial FS snapshot")
 			err := snapshotter.Init()
-			timing.DefaultRun.Stop(t)
+			t.Stop()
 			if err != nil {
 				return err
 			}
@@ -687,7 +687,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			return fmt.Errorf("failed to execute command: %w", err)
 		}
 		files = command.FilesToSnapshot()
-		timing.DefaultRun.Stop(cmdTimer)
+		cmdTimer.Stop()
 		cmdTimer = nil
 
 		isLastCommand := index == len(s.cmds)-1
@@ -787,7 +787,7 @@ func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, sn
 		}
 		snapshot, snapshotted, err = snapshotter.TakeSnapshot(files, shdDelete)
 	}
-	timing.DefaultRun.Stop(t)
+	t.Stop()
 	return snapshot, snapshotted, err
 }
 
@@ -1174,7 +1174,7 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 // DoBuild executes building the Dockerfile
 func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	t := timing.Start("Total Build Time")
-	defer timing.DefaultRun.Stop(t)
+	defer t.Stop()
 	stageFinalCacheKeys := make(map[int]string)
 
 	stages, metaArgs, err := dockerfile.ParseStages(opts)
@@ -1659,7 +1659,7 @@ func deduplicatePaths(paths []string) []string {
 
 func resolveExtraStageDigests(stages []config.KanikoStage, opts *config.KanikoOptions) (map[string]string, map[string]v1.Image, error) {
 	t := timing.Start("Resolving Extra Stage Digests")
-	defer timing.DefaultRun.Stop(t)
+	defer t.Stop()
 
 	externalImageDigests := make(map[string]string)
 	images := make(map[string]v1.Image)
@@ -1704,7 +1704,7 @@ func resolveExtraStageDigests(stages []config.KanikoStage, opts *config.KanikoOp
 
 func downloadExtraStages(images map[string]v1.Image) error {
 	t := timing.Start("Fetching Extra Stages")
-	defer timing.DefaultRun.Stop(t)
+	defer t.Stop()
 
 	for name, sourceImage := range images {
 		if err := saveStage(name, sourceImage); err != nil {
@@ -1719,7 +1719,7 @@ func downloadExtraStages(images map[string]v1.Image) error {
 
 func extractImageToDependencyDir(name string, image v1.Image) error {
 	t := timing.Start("Extracting Image to Dependency Dir")
-	defer timing.DefaultRun.Stop(t)
+	defer t.Stop()
 	dependencyDir := filepath.Join(config.KanikoInterStageDepsDir, name)
 	if err := os.MkdirAll(dependencyDir, 0o755); err != nil {
 		return err
@@ -1731,7 +1731,7 @@ func extractImageToDependencyDir(name string, image v1.Image) error {
 
 func saveStage(path string, image v1.Image) error {
 	t := timing.Start("Saving stage")
-	defer timing.DefaultRun.Stop(t)
+	defer t.Stop()
 	destRef, err := name.NewTag("temp/tag", name.WeakValidation)
 	if err != nil {
 		return err
@@ -1787,7 +1787,7 @@ func retrieveBaseImage(stage config.KanikoStage, opts *config.KanikoOptions) (v1
 	t := timing.Start("Downloading base image")
 	path := filepath.Join(config.KanikoBaseStagesDir, stage.BaseImageDigest)
 	err = writeImageLayout(path, img, stage.BaseImageDigest)
-	timing.DefaultRun.Stop(t)
+	t.Stop()
 	if err != nil {
 		logrus.Warnf("shared-base: failed to store %s, using registry image: %v", stage.BaseImageDigest, err)
 		return img, nil

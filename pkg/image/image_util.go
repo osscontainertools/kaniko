@@ -61,7 +61,7 @@ func RetrieveSourceImage(stage config.KanikoStage, opts *config.KanikoOptions) (
 
 func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, baseImageIndex int, metaArgs []instructions.ArgCommand, opts *config.KanikoOptions) (v1.Image, error) {
 	t := timing.Start("Retrieving Source Image")
-	defer timing.DefaultRun.Stop(t)
+	defer t.Stop()
 	var buildArgs []string
 
 	for _, marg := range metaArgs {

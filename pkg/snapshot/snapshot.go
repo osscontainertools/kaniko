@@ -226,7 +226,7 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 	}
 
 	filesToWhiteout := removeObsoleteWhiteouts(deletedPaths)
-	timing.DefaultRun.Stop(timer)
+	timer.Stop()
 
 	sort.Strings(filesToAdd)
 	sort.Strings(filesToWhiteout)
@@ -252,7 +252,7 @@ func removeObsoleteWhiteouts(deletedFiles map[string]struct{}) (filesToWhiteout 
 
 func writeToTar(t util.Tar, files, whiteouts []string) error {
 	timer := timing.Start("Writing tar file")
-	defer timing.DefaultRun.Stop(timer)
+	defer timer.Stop()
 
 	// Now create the tar.
 	addedPaths := make(map[string]bool)

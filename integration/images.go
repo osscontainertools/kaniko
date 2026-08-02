@@ -638,9 +638,8 @@ func (d *DockerFileBuilder) BuildKanikoImage(t *testing.T, config *integrationTe
 	additionalKanikoFlags = append(additionalKanikoFlags, "-c", buildContextPath)
 
 	kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
-	_, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
+	return buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
 		cwd, "", "")
-	return err
 }
 
 func (d *DockerFileBuilder) BuildImageWithContext(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile, contextDir string) error {
@@ -671,7 +670,7 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 	}
 
 	kanikoImage := GetKanikoImage(imageRepo, dockerfile)
-	if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
+	if err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
 		contextDir, "", ""); err != nil {
 		return err
 	}
@@ -687,20 +686,11 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 
 	cacheFlag := "--cache=true"
 
-	benchmarkEnv := "BENCHMARK_FILE=false"
-	if b, err := strconv.ParseBool(os.Getenv("BENCHMARK")); err == nil && b {
-		err := os.Mkdir("benchmarks", 0o755)
-		if err != nil {
-			return err
-		}
-		benchmarkEnv = "BENCHMARK_FILE=/workspace/benchmarks/" + dockerfile
-	}
 	kanikoImage := GetVersionedKanikoImage(imageRepo, dockerfile, version)
 
 	dockerRunFlags := []string{
 		"run", "--net=host",
 		"-v", cwd + ":/workspace",
-		"-e", benchmarkEnv,
 	}
 	for _, envVariable := range KanikoEnv {
 		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
@@ -956,17 +946,7 @@ func buildKanikoImage(
 	contextDir string,
 	tlsCACert string,
 	dockerConfig string,
-) (string, error) {
-	benchmarkEnv := "BENCHMARK_FILE=false"
-	benchmarkDir, err := os.MkdirTemp("", "")
-	if err != nil {
-		return "", err
-	}
-
-	if b, err := strconv.ParseBool(os.Getenv("BENCHMARK")); err == nil && b {
-		benchmarkEnv = "BENCHMARK_FILE=/benchmarks/" + dockerfile
-	}
-
+) error {
 	// build kaniko image
 	additionalFlags := append(buildArgs, kanikoArgs...)
 	additionalFlags = append(additionalFlags,
@@ -978,9 +958,7 @@ func buildKanikoImage(
 
 	dockerRunFlags := []string{
 		"run", "--net=host",
-		"-e", benchmarkEnv,
 		"-v", contextDir + ":/workspace:ro",
-		"-v", benchmarkDir + ":" + "/benchmarks",
 	}
 
 	for _, envVariable := range KanikoEnv {
@@ -1030,15 +1008,15 @@ func buildKanikoImage(
 	logf(string(out))
 
 	if err != nil {
-		return "", fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
+		return fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
 	}
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
 		if err := outputCheck(dockerfile, out); err != nil {
-			return "", fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
+			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
 	if err := checkNoWarnings(dockerfile, out); err != nil {
-		return "", err
+		return err
 	}
-	return benchmarkDir, nil
+	return nil
 }

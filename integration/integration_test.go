@@ -913,7 +913,7 @@ func TestSnapshotModes(t *testing.T) {
 		t.Helper()
 		tag := GetKanikoImage(config.imageRepo, dockerfile+"-snapshot-"+mode)
 		kanikoArgs := []string{"-c", buildContextPath, "--snapshot-mode=" + mode}
-		if _, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, kanikoArgs, tag, cwd, "", ""); err != nil {
+		if err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, kanikoArgs, tag, cwd, "", ""); err != nil {
 			t.Fatalf("kaniko build with --snapshot-mode=%s: %v", mode, err)
 		}
 		return tag
@@ -954,7 +954,7 @@ func TestReproducible(t *testing.T) {
 		buildArgs = append(buildArgs, "--build-arg", "IMAGE_REPO="+config.imageRepo)
 		flags := []string{"-c", buildContextPath, "--reproducible"}
 		flags = append(flags, additionalKanikoFlagsMap[dockerfile]...)
-		_, err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, flags, ref,
+		err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, flags, ref,
 			cwd, "", "")
 		if err != nil {
 			t.Fatalf("build %s -> %s: %v", dockerfile, ref, err)
@@ -1585,7 +1585,7 @@ func TestAlpineTLS(t *testing.T) {
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
 	dest := "127.0.0.2:5001/kaniko/mz595-tls:latest"
-	_, err = buildKanikoImage(
+	err = buildKanikoImage(
 		t.Logf,
 		dockerfilesPath,
 		"Dockerfile_test_issue_mz595",
@@ -1607,7 +1607,7 @@ func TestCustomPlatformVariant(t *testing.T) {
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
 	kanikoImage := GetKanikoImage(config.imageRepo, "issue_mz745")
-	_, err := buildKanikoImage(
+	err := buildKanikoImage(
 		t.Logf,
 		dockerfilesPath,
 		"Dockerfile_test_cross_compile",

@@ -36,7 +36,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/executor"
 	"github.com/osscontainertools/kaniko/pkg/logging"
-	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/tracing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/util/proc"
@@ -240,28 +239,6 @@ var RootCmd = &cobra.Command{
 			exit(fmt.Errorf("error pushing image: %w", err))
 		}
 		tracing.Shutdown(nil)
-
-		benchmarkFile := os.Getenv("BENCHMARK_FILE")
-		// false is a keyword for integration tests to turn off benchmarking
-		if benchmarkFile != "" && benchmarkFile != "false" {
-			s, err := timing.JSON()
-			if err != nil {
-				logrus.Warnf("Unable to write benchmark file: %s", err)
-				return
-			}
-			f, err := os.Create(benchmarkFile)
-			if err != nil {
-				logrus.Warnf("Unable to create benchmarking file %s: %s", benchmarkFile, err)
-				return
-			}
-			defer f.Close()
-			_, err = f.WriteString(s)
-			if err != nil {
-				logrus.Warnf("Unable to write to benchmarking file %s: %s", benchmarkFile, err)
-				return
-			}
-			logrus.Infof("Benchmark file written at %s", benchmarkFile)
-		}
 	},
 }
 

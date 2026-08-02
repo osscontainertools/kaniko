@@ -1448,10 +1448,10 @@ func WalkFS(
 	// Listen on our channel AND a timeout channel - which ever happens first.
 	select {
 	case res := <-ch:
-		timing.DefaultRun.Stop(timer)
+		timer.Stop()
 		return res.filesAdded, res.existingPaths, res.err
 	case <-time.After(timeOut):
-		timing.DefaultRun.Stop(timer)
+		timer.Stop()
 		logrus.Fatalf("Timed out snapshotting FS in %s", timeOutStr)
 		return nil, nil, fmt.Errorf("Timed out snapshotting FS in %s", timeOutStr)
 	}
@@ -1530,7 +1530,7 @@ func GetFSInfoMap(dir string, existing map[string]os.FileInfo) (map[string]os.Fi
 	if err != nil {
 		return nil, nil, err
 	}
-	timing.DefaultRun.Stop(timer)
+	timer.Stop()
 	return fileMap, foundPaths, nil
 }
 

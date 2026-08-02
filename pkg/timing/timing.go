@@ -18,19 +18,11 @@ package timing
 
 import (
 	"context"
-	"encoding/json"
 	"sync"
-	"time"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
-
-// For testing
-var currentTimeFunc = time.Now
-
-// DefaultRun is the default "singleton" TimedRun instance.
-var DefaultRun = NewTimedRun()
 
 var (
 	tracerMu  sync.Mutex
@@ -49,26 +41,6 @@ func TracingEnabled() bool {
 	tracerMu.Lock()
 	defer tracerMu.Unlock()
 	return tracer != nil
-}
-
-// TimedRun provides a running store of how long is spent in each category.
-type TimedRun struct {
-	cl         sync.Mutex
-	categories map[string]time.Duration // protected by cl
-}
-
-// Stop stops the specified timer and increments the time spent in that category.
-func (tr *TimedRun) Stop(t *Timer) {
-	stop := currentTimeFunc()
-	tr.cl.Lock()
-	if _, ok := tr.categories[t.category]; !ok {
-		tr.categories[t.category] = 0
-	}
-	tr.categories[t.category] += stop.Sub(t.startTime)
-	tr.cl.Unlock()
-	if t.span != nil {
-		t.span.End()
-	}
 }
 
 var noSpanCategories = map[string]bool{
@@ -96,10 +68,7 @@ func phaseFor(category string) string {
 
 // Start starts a new Timer and returns it.
 func Start(category string) *Timer {
-	t := Timer{
-		category:  category,
-		startTime: currentTimeFunc(),
-	}
+	var t Timer
 	tracerMu.Lock()
 	tr, ctx := tracer, parentCtx
 	tracerMu.Unlock()
@@ -110,35 +79,20 @@ func Start(category string) *Timer {
 	return &t
 }
 
-// NewTimedRun returns an initialized TimedRun instance.
-func NewTimedRun() *TimedRun {
-	tr := TimedRun{
-		categories: map[string]time.Duration{},
-	}
-	return &tr
-}
-
 // Timer represents a running timer.
 type Timer struct {
-	category  string
-	startTime time.Time
-	span      trace.Span
+	span trace.Span
+}
+
+// Stop ends the timer's span. It is a no-op when tracing is disabled.
+func (t *Timer) Stop() {
+	if t.span != nil {
+		t.span.End()
+	}
 }
 
 func (t *Timer) SetAttributes(kv ...attribute.KeyValue) {
 	if t.span != nil {
 		t.span.SetAttributes(kv...)
 	}
-}
-
-func JSON() (string, error) {
-	return DefaultRun.JSON()
-}
-
-func (tr *TimedRun) JSON() (string, error) {
-	b, err := json.Marshal(tr.categories)
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
 }
