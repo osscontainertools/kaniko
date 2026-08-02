@@ -61,6 +61,7 @@ const shutdownFlushTimeout = 5 * time.Second
 // one oversized value gets the whole OTLP batch rejected, not just that attribute.
 const attributeValueLengthLimit = 64 * 1024
 
+// pass these raw, WithSpanLimits would clamp an explicit -1 (unlimited) to the default.
 func spanLimits() sdktrace.SpanLimits {
 	limits := sdktrace.NewSpanLimits()
 	_, spanSet := os.LookupEnv("OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT")
@@ -100,15 +101,14 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 	// Deliberately NOT otel.SetTracerProvider: kaniko takes its tracer from
 	// the provider directly, and the global would silently switch on client
 	// spans in the vendored GCS/GCR transports, polluting the trace.
-	provider = sdktrace.NewTracerProvider(
+	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exp),
 		sdktrace.WithResource(res),
 		sdktrace.WithRawSpanLimits(spanLimits()),
 	)
 
-	tracer := provider.Tracer("github.com/osscontainertools/kaniko")
-	var sctx context.Context
-	sctx, rootSpan = tracer.Start(ctx, "build")
+	tracer := tp.Tracer("github.com/osscontainertools/kaniko")
+	sctx, span := tracer.Start(ctx, "build")
 	raw, set := os.LookupEnv(OmitDockerfileEnv)
 	if set {
 		_, perr := strconv.ParseBool(raw)
@@ -117,8 +117,13 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 		}
 	}
 	if cerr == nil && !config.EnvBool(OmitDockerfileEnv) {
-		rootSpan.SetAttributes(attribute.String("kaniko.dockerfile.content", string(content)))
+		span.SetAttributes(attribute.String("kaniko.dockerfile.content", string(content)))
 	}
+
+	mu.Lock()
+	provider, rootSpan = tp, span
+	mu.Unlock()
+
 	timing.SetTracer(sctx, tracer)
 
 	// hook, not import, so assert does not depend on tracing
