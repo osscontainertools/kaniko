@@ -43,4 +43,15 @@ Usage: `/hub-sync`
    [$VERSION-bootstrap](.../$VERSION-bootstrap/images/<digest-bootstrap>)
    ```
 
+   Only the current minor keeps digest links. Older minors collapse to one line each, no blank lines between, and the outgoing minor collapses when a new section opens:
+   ```
+   * $VERSION ([DD.MM.YYYY](.../releases/tag/$VERSION))
+   ```
+
 5. **Write result to `hub-sync.md`.**
+
+6. **Check size**, must be under 25000 bytes (Docker Hub limit):
+   ```bash
+   wc -c hub-sync.md
+   ```
+   Full entry ~1050 bytes, collapsed ~90. Over the limit: collapse the oldest minor that still has digest links.
