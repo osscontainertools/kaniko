@@ -60,7 +60,6 @@ func (r *RunCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 }
 
 func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand, fileContext util.FileContext, secrets kConfig.SecretOptions) (reterr error) {
-	ff_bind := kConfig.FF.RunMountBind
 	for _, f := range cmdRun.FlagsUsed {
 		if f != "mount" {
 			logrus.Warnf("#969 kaniko does not support '--%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", f)
@@ -216,7 +215,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					}
 				}
 			// https://docs.docker.com/reference/dockerfile/#run---mounttypebind
-			case m.Type == instructions.MountTypeBind && ff_bind:
+			case m.Type == instructions.MountTypeBind:
 				if m.From != "" && m.From != "context" {
 					logrus.Warnf("Kaniko does not support cross-stage bind mounts (from=%s) - skipping", m.From)
 					continue
@@ -556,8 +555,7 @@ func runCmdFilesUsedFromContext(
 	config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd *instructions.RunCommand,
 	fileContext util.FileContext,
 ) ([]string, error) {
-	ff_bind := kConfig.FF.RunMountBind
-	if !ff_bind || len(cmd.FlagsUsed) == 0 {
+	if len(cmd.FlagsUsed) == 0 {
 		return []string{}, nil
 	}
 

@@ -13,17 +13,20 @@ var Tests = types.GoldenTests{
 	Tests: []types.GoldenTest{
 		{
 			Args: []string{"--no-push"},
-			Env:  map[string]string{"FF_KANIKO_SHARED_BASE_CACHE": "1"},
+			Env:  map[string]string{},
 			Plan: "shared",
 		},
 		{
 			Args: []string{"-d", "example.com/img:latest"},
-			Env:  map[string]string{"FF_KANIKO_SHARED_BASE_CACHE": "1"},
+			Env:  map[string]string{},
 			Plan: "push",
 		},
 		{
 			// Flag off: every base streams, the behavior before this change.
 			Args: []string{"--no-push"},
+			Env: map[string]string{
+				"FF_KANIKO_SHARED_BASE_CACHE": "0",
+			},
 			Plan: "streamed",
 		},
 	},
