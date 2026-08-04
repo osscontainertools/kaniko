@@ -736,7 +736,7 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
 	out, err := RunCommandWithoutTest(kanikoCmd)
-	logf(string(out))
+	logf("%s", out)
 
 	if err != nil {
 		return fmt.Errorf("failed to build cached image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
@@ -786,7 +786,7 @@ func (d *DockerFileBuilder) buildCachedImageInContext(logf logger, config *integ
 		"--cache-dir", cacheDir)
 
 	out, err := RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
-	logf(string(out))
+	logf("%s", out)
 	return err
 }
 
@@ -811,7 +811,7 @@ func populateVolumeCache(logf logger) error {
 
 	warmerCmd := exec.Command("docker", cmd...)
 	out, err := RunCommandWithoutTest(warmerCmd)
-	logf(string(out))
+	logf("%s", out)
 	if err != nil {
 		return fmt.Errorf("failed to warm kaniko cache: %w", err)
 	}
@@ -852,7 +852,7 @@ func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTes
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
 	out, err := RunCommandWithoutTest(kanikoCmd)
-	logf(string(out))
+	logf("%s", out)
 
 	if err != nil {
 		return fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
@@ -916,7 +916,7 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
 	out, err = RunCommandWithoutTest(kanikoCmd)
-	logf(string(out))
+	logf("%s", out)
 
 	if err != nil {
 		return fmt.Errorf(
@@ -1014,7 +1014,7 @@ func buildKanikoImage(
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
 	out, err := RunCommandWithoutTest(kanikoCmd)
-	logf(string(out))
+	logf("%s", out)
 
 	if err != nil {
 		return fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
