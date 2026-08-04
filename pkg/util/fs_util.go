@@ -777,7 +777,7 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 func copyDirInner(files []string, src, dest string, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool) ([]string, error) {
 	var copiedFiles []string
 	var updates []timestampUpdate
-	hardlinksSeen := make(map[uint64]string)
+	hardlinksSeen := make(map[hardlinkKey]string)
 	for _, file := range files {
 		fullPath := filepath.Join(src, file)
 		if skipIgnoreList && HasFilepathPrefix(fullPath, config.KanikoDir, false) {
@@ -919,15 +919,20 @@ func CreateFifo(src, dest string, fi os.FileInfo, context FileContext, uid, gid 
 	return false, os.Lchown(dest, int(uid), int(gid))
 }
 
-func checkCopyHardlink(fi os.FileInfo, dest string, seen map[uint64]string) (string, bool) {
+type hardlinkKey struct {
+	dev, ino uint64
+}
+
+func checkCopyHardlink(fi os.FileInfo, dest string, seen map[hardlinkKey]string) (string, bool) {
 	stat := getSyscallStatT(fi)
 	if stat == nil || stat.Nlink <= 1 {
 		return "", false
 	}
-	if existing, ok := seen[stat.Ino]; ok {
+	key := hardlinkKey{dev: stat.Dev, ino: stat.Ino}
+	if existing, ok := seen[key]; ok {
 		return existing, true
 	}
-	seen[stat.Ino] = dest
+	seen[key] = dest
 	return "", false
 }
 
