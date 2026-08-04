@@ -1,0 +1,18 @@
+ARG IMAGE_REPO
+# mz978: COPY of a tree spanning two filesystems hardlinks unrelated files together.
+# Copies the wrong content since main@0788bdcac with FF_KANIKO_NATIVE_COPY=1.
+FROM ${IMAGE_REPO}busybox AS base
+
+# /data/a and /data/b are separate tmpfs mounts for kaniko build and only kaniko build.
+RUN mkdir -p /data/a /data/b \
+    # kaniko tmpfs root comes up 1777 where docker mkdir gives 0755.
+    && chmod 755 /data/a /data/b \
+    # Every tmpfs numbers its own inodes from scratch, so both 1 files land on inode 2.
+    && echo 'bli' > /data/a/1 && ln /data/a/1 /data/a/2 \
+    && echo 'blubb' > /data/b/1 && ln /data/b/1 /data/b/2
+
+FROM ${IMAGE_REPO}busybox
+# checkCopyHardlink keys its seen-map by inode number alone, but an inode number is
+# only unique within one filesystem. /data/b/1 matches /data/a/1 on inode number and
+# gets linked to it instead of copied, so /out/b/1 holds bli rather than blubb.
+COPY --from=base /data /out
