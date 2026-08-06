@@ -26,7 +26,7 @@ require (
 	github.com/google/go-containerregistry v0.21.8
 	github.com/google/slowjam v1.1.2
 	github.com/minio/highwayhash v1.0.4
-	github.com/moby/buildkit v0.32.0
+	github.com/moby/buildkit v0.32.1
 	github.com/moby/go-archive v0.3.2
 	github.com/moby/moby/api v1.55.0
 	github.com/moby/patternmatcher v0.6.1
