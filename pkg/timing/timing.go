@@ -69,11 +69,23 @@ func phaseFor(category string) string {
 
 // Start begins a span for category, or a noop span when the category is not traced.
 func Start(category string) trace.Span {
+	return start(nil, category)
+}
+
+// StartChild begins a span for category nested under parent.
+func StartChild(parent trace.Span, category string) trace.Span {
+	return start(parent, category)
+}
+
+func start(parent trace.Span, category string) trace.Span {
 	tracerMu.Lock()
 	tr, ctx := tracer, parentCtx
 	tracerMu.Unlock()
 	if tr == nil || noSpanCategories[category] {
 		return noop.Span{}
+	}
+	if parent != nil && parent.SpanContext().IsValid() {
+		ctx = trace.ContextWithSpan(ctx, parent)
 	}
 	_, span := tr.Start(ctx, category)
 	span.SetAttributes(attribute.String("kaniko.phase", phaseFor(category)))
