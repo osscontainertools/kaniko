@@ -67,15 +67,12 @@ func phaseFor(category string) string {
 	return "kaniko"
 }
 
-// Start begins a span for category off the root build span, or a noop span when
-// the category is not traced.
+// Start begins a span for category, or a noop span when the category is not traced.
 func Start(category string) trace.Span {
 	return start(nil, category)
 }
 
-// StartChild begins a span for category nested under parent, so a sub-step of a
-// traced operation shows as a child instead of an overlapping sibling. Safe when
-// parent is nil or tracing is off.
+// StartChild begins a span for category nested under parent.
 func StartChild(parent trace.Span, category string) trace.Span {
 	return start(parent, category)
 }
