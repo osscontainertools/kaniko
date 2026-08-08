@@ -23,8 +23,12 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/connstats"
 	"github.com/sirupsen/logrus"
 )
 
@@ -77,18 +81,36 @@ func init() {
 	systemKeyPairLoader = &X509KeyPairLoader{}
 }
 
+// connstats.Trace drops CloseIdleConnections, which nothing notices while
+// go-containerregistry's own wrapper drops it too.
+func init() {
+	_, forwards := any(transport.NewRetry(nil)).(interface{ CloseIdleConnections() })
+	assert.Assert("util.transport.close-idle-dropped", !forwards, "go-containerregistry forwards CloseIdleConnections, so the connstats wrapper has to forward it as well")
+}
+
+// MakeTransport returns a transport for registryName, wired up to count the
+// sockets and requests it makes.
 func MakeTransport(opts config.RegistryOptions, registryName string) (http.RoundTripper, error) {
+	tr, err := makeTransport(opts, registryName)
+	if err != nil {
+		return nil, err
+	}
+	tr.DialContext = connstats.WrapDial(tr.DialContext)
+	return connstats.Trace(tr), nil
+}
+
+func makeTransport(opts config.RegistryOptions, registryName string) (*http.Transport, error) {
 	// Create a transport to set our user-agent.
-	var tr http.RoundTripper = http.DefaultTransport.(*http.Transport).Clone()
+	tr := http.DefaultTransport.(*http.Transport).Clone()
 	if opts.SkipTLSVerify || opts.SkipTLSVerifyRegistries.Contains(registryName) {
-		tr.(*http.Transport).TLSClientConfig = &tls.Config{
+		tr.TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: true,
 		}
 	} else if certificatePath := opts.RegistriesCertificates[registryName]; certificatePath != "" {
 		if err := systemCertLoader.append(certificatePath); err != nil {
 			return nil, fmt.Errorf("failed to load certificate %s for %s: %w", certificatePath, registryName, err)
 		}
-		tr.(*http.Transport).TLSClientConfig = &tls.Config{
+		tr.TLSClientConfig = &tls.Config{
 			RootCAs: systemCertLoader.value(),
 		}
 	}
@@ -102,17 +124,28 @@ func MakeTransport(opts config.RegistryOptions, registryName string) (http.Round
 		if err != nil {
 			return nil, fmt.Errorf("failed to load client certificate/key '%s' for %s: %w", clientCertificatePath, registryName, err)
 		}
-		tr.(*http.Transport).TLSClientConfig.Certificates = []tls.Certificate{cert}
+		if tr.TLSClientConfig == nil {
+			tr.TLSClientConfig = &tls.Config{}
+		}
+		tr.TLSClientConfig.Certificates = []tls.Certificate{cert}
 	}
 
 	if config.FF.DisableHTTP2 {
-		t := tr.(*http.Transport)
-		t.ForceAttemptHTTP2 = false
-		if t.TLSClientConfig == nil {
-			t.TLSClientConfig = &tls.Config{}
+		tr.ForceAttemptHTTP2 = false
+		if tr.TLSClientConfig == nil {
+			tr.TLSClientConfig = &tls.Config{}
 		}
-		t.TLSClientConfig.NextProtos = []string{"http/1.1"}
+		tr.TLSClientConfig.NextProtos = []string{"http/1.1"}
 	}
 
 	return tr, nil
+}
+
+// LogRegistryConnections reports how the build used its registry sockets.
+func LogRegistryConnections() {
+	stats := connstats.Snapshot()
+	logrus.Debugf("registry connections: sockets opened=%d closed=%d open=%d peak=%d, requests=%d reused=%d, tls handshakes=%d in %v, dialing %v, idle before reuse %v",
+		stats.SocketsOpened, stats.SocketsClosed, stats.SocketsOpen, stats.PeakSockets,
+		stats.Requests, stats.Reused, stats.TLSHandshakes, stats.TLSTime.Round(time.Millisecond),
+		stats.DialTime.Round(time.Millisecond), stats.IdleTime.Round(time.Millisecond))
 }

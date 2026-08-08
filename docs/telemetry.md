@@ -25,6 +25,16 @@ Attribute values are capped at 64 KiB. `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` 
 | `kaniko.build_id` | sha256 of Dockerfile content + target, for grouping runs of the same build (falls back to the path when the Dockerfile is unreadable) |
 | `kaniko.ff.*` | explicitly-set `FF_KANIKO_*` feature flags (flags left at their defaults are not reported) |
 | `service.name` | `kaniko`, unless `OTEL_SERVICE_NAME` is set |
+| `kaniko.registry.sockets.opened` | TCP connections the build made to registries |
+| `kaniko.registry.sockets.closed` | how many of those were closed before the build ended |
+| `kaniko.registry.sockets.open_at_exit` | connections still open when the build ended |
+| `kaniko.registry.sockets.peak` | highest number open at the same time |
+| `kaniko.registry.requests` | HTTP requests to registries |
+| `kaniko.registry.requests.reused` | how many of those reused a connection |
+| `kaniko.registry.tls.handshakes` | TLS handshakes |
+| `kaniko.registry.tls.ms` | time those handshakes took |
+| `kaniko.registry.dial.ms` | time spent opening connections |
+| `kaniko.registry.idle.ms` | total time connections sat idle before being reused |
 
 ## Command spans
 
@@ -38,3 +48,4 @@ Attribute values are capped at 64 KiB. `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` 
 | `kaniko.stage` | stage index (integer) |
 | `kaniko.cache.hit` | `true` when the command was replayed from cache (only with `--cache`, absent when caching is off) |
 | `kaniko.cache.key` | cache key for the command (only with `--cache`) |
+
