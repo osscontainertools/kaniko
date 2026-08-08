@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -1085,7 +1086,7 @@ var (
 	Out io.Writer = os.Stdout
 )
 
-func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string) (retErr error) {
+func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string, externalImageDigests map[string]string, sharedRemote map[string]bool) (retErr error) {
 	printf := func(format string, args ...any) {
 		if retErr == nil {
 			_, retErr = fmt.Fprintf(Out, format, args...)
@@ -1098,6 +1099,14 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 	if opts.PreCleanup {
 		printf("CLEAN\n")
 	}
+	for _, ref := range slices.Sorted(maps.Keys(externalImageDigests)) {
+		if sharedRemote[externalImageDigests[ref]] {
+			printf("FETCH %s\n", ref)
+			printf("UNPACK %s %s%s\n", ref, config.KanikoInterStageDepsDir, ref)
+		} else {
+			printf("STREAM %s %s%s\n", ref, config.KanikoInterStageDepsDir, ref)
+		}
+	}
 	for _, s := range stages {
 		if s.Name != "" {
 			printf("FROM %s AS %s\n", s.BaseName, s.Name)
@@ -1107,7 +1116,7 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 		switch {
 		case s.BaseImageStoredLocally:
 			printf("UNPACK %s%d\n", config.KanikoIntermediateStagesDir, s.BaseImageIndex)
-		case s.BaseImageShared:
+		case sharedRemote[s.BaseImageDigest]:
 			printf("FETCH %s\n", s.BaseName)
 			printf("UNPACK %s\n", s.BaseName)
 		default:
@@ -1205,6 +1214,14 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	externalImageDigests, extraStageImages, err := resolveExtraStageDigests(kanikoStages, opts)
 	if err != nil {
 		return nil, err
+	}
+	// legacy warmer overrides images override digest method to not return the digest
+	// as they get stored in a tarball and digest is lost in the process.
+	// But this also means that our defensive store and load here can't play nicely with them.
+	legacyCache := !config.FF.OCIWarmer && opts.Cache && opts.CacheDir != ""
+	var sharedRemote map[string]bool
+	if config.FF.SharedBaseCache && !legacyCache {
+		sharedRemote = sharedRemoteImages(kanikoStages, externalImageDigests, opts)
 	}
 
 	lastStage := kanikoStages[len(kanikoStages)-1]
@@ -1347,7 +1364,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 
 	if opts.Dryrun || config.EnvBool("KANIKO_PRINT_PLAN") {
-		err := RenderStages(kanikoStages, cacheInfo, opts, fileContext, crossStageDependencies)
+		err := RenderStages(kanikoStages, cacheInfo, opts, fileContext, crossStageDependencies, externalImageDigests, sharedRemote)
 		if err != nil {
 			return nil, err
 		}
@@ -1356,7 +1373,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 	}
 
-	if err := downloadExtraStages(extraStageImages); err != nil {
+	if err := downloadExtraStages(extraStageImages, externalImageDigests, sharedRemote); err != nil {
 		return nil, err
 	}
 
@@ -1407,7 +1424,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 	var pushImage v1.Image
 	for _, stage := range kanikoStages {
-		baseImage, err := retrieveBaseImage(stage, opts)
+		baseImage, err := retrieveBaseImage(stage, opts, sharedRemote[stage.BaseImageDigest])
 		if err != nil {
 			return nil, fmt.Errorf("failed to get baseImage: %w", err)
 		}
@@ -1703,13 +1720,25 @@ func resolveExtraStageDigests(stages []config.KanikoStage, opts *config.KanikoOp
 	return externalImageDigests, images, nil
 }
 
-func downloadExtraStages(images map[string]v1.Image) error {
+func downloadExtraStages(images map[string]v1.Image, externalImageDigests map[string]string, sharedRemote map[string]bool) error {
 	t := timing.Start("Fetching Extra Stages")
 	defer t.End()
 
 	for name, sourceImage := range images {
-		if err := saveStage(name, sourceImage); err != nil {
-			return err
+		digest := externalImageDigests[name]
+		if !config.FF.SharedBaseCache {
+			err := saveStage(name, sourceImage)
+			if err != nil {
+				return err
+			}
+		} else if sharedRemote[digest] {
+			stored, err := loadFromOCILayout(filepath.Join(config.KanikoBaseStagesDir, digest))
+			if err == nil {
+				logrus.Infof("shared-base: loading %s from local store", digest)
+				sourceImage = stored
+			} else {
+				sourceImage = storeImage(digest, sourceImage)
+			}
 		}
 		if err := extractImageToDependencyDir(name, sourceImage); err != nil {
 			return err
@@ -1771,35 +1800,68 @@ func loadSharedBase(digest string) (v1.Image, error) {
 	return img, nil
 }
 
-func retrieveBaseImage(stage config.KanikoStage, opts *config.KanikoOptions) (v1.Image, error) {
-	if !stage.BaseImageShared {
-		return image_util.RetrieveSourceImage(stage, opts)
+// sharedRemoteImages returns the digests of remote images that are read more than once,
+// by several stages, by a COPY --from, or by a re-read on push or save.
+func sharedRemoteImages(stages []config.KanikoStage, externalImageDigests map[string]string, opts *config.KanikoOptions) map[string]bool {
+	shared := map[string]bool{}
+	writesOutput := (!opts.NoPush && len(opts.Destinations) > 0) || opts.TarPath != "" || opts.OCILayoutPath != ""
+	reads := map[string]int{}
+	for _, s := range stages {
+		if s.BaseImageDigest == "" {
+			continue
+		}
+		reads[s.BaseImageDigest]++
+		if (s.SaveStage && !s.Final) || (s.Push && writesOutput) {
+			reads[s.BaseImageDigest]++
+		}
 	}
-	stored, err := loadSharedBase(stage.BaseImageDigest)
-	if err == nil {
-		logrus.Infof("shared-base: loading base %s from local store", stage.BaseImageDigest)
-		return stored, nil
+	for _, digest := range externalImageDigests {
+		reads[digest]++
 	}
+	for digest, n := range reads {
+		if n > 1 {
+			shared[digest] = true
+		}
+	}
+	return shared
+}
 
+func retrieveBaseImage(stage config.KanikoStage, opts *config.KanikoOptions, shared bool) (v1.Image, error) {
+	if shared {
+		stored, err := loadSharedBase(stage.BaseImageDigest)
+		if err == nil {
+			logrus.Infof("shared-base: loading %s from local store", stage.BaseImageDigest)
+			return stored, nil
+		}
+	}
 	img, err := image_util.RetrieveSourceImage(stage, opts)
 	if err != nil {
 		return nil, err
 	}
+	if !shared {
+		return img, nil
+	}
+	return storeImage(stage.BaseImageDigest, img), nil
+}
+
+// storeImage adds an image to the shared store and returns the stored copy. A store that
+// cannot be written or read back is not fatal, the caller keeps the registry image.
+func storeImage(digest string, img v1.Image) v1.Image {
+	path := filepath.Join(config.KanikoBaseStagesDir, digest)
 	t := timing.Start("Downloading base image")
-	path := filepath.Join(config.KanikoBaseStagesDir, stage.BaseImageDigest)
-	err = writeImageLayout(path, img, stage.BaseImageDigest)
+	err := writeImageLayout(path, img, digest)
 	t.End()
 	if err != nil {
-		logrus.Warnf("shared-base: failed to store %s, using registry image: %v", stage.BaseImageDigest, err)
-		return img, nil
+		logrus.Warnf("shared-base: failed to store %s, using registry image: %v", digest, err)
+		return img
 	}
-	stored, err = loadSharedBase(stage.BaseImageDigest)
+	stored, err := loadSharedBase(digest)
 	if err != nil {
-		logrus.Warnf("shared-base: failed to reload stored %s, using registry image: %v", stage.BaseImageDigest, err)
-		return img, nil
+		logrus.Warnf("shared-base: failed to reload stored %s, using registry image: %v", digest, err)
+		return img
 	}
-	logrus.Infof("shared-base: stored base %s", stage.BaseImageDigest)
-	return stored, nil
+	logrus.Infof("shared-base: stored %s", digest)
+	return stored
 }
 
 func getHasher(snapshotMode string) (func(string) (string, error), error) {

@@ -411,34 +411,6 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			onlyUsedStages = append(onlyUsedStages, s)
 		}
 	}
-	// legacy warmer overrides images override digest method to not return the digest
-	// as they get stored in a tarball and digest is lost in the process.
-	// But this also means that our defensive store and load here can't play nicely with them.
-	legacyCache := !config.FF.OCIWarmer && opts.Cache && opts.CacheDir != ""
-	if config.FF.SharedBaseCache && !legacyCache {
-		writesOutput := (!opts.NoPush && len(opts.Destinations) > 0) || opts.TarPath != "" || opts.OCILayoutPath != ""
-		for i := range onlyUsedStages {
-			s := &onlyUsedStages[i]
-			if s.BaseImageStoredLocally || s.BaseImageDigest == "" || s.BaseImageShared {
-				continue
-			}
-			// A base re-read on push/save is stored so the re-read hits the local copy.
-			if (s.SaveStage && !s.Final) || (s.Push && writesOutput) {
-				s.BaseImageShared = true
-			}
-			// A base pulled by several stages is stored once and reused by the rest.
-			for j := i + 1; j < len(onlyUsedStages); j++ {
-				o := &onlyUsedStages[j]
-				if o.BaseImageStoredLocally || o.BaseImageDigest == "" {
-					continue
-				}
-				if o.BaseImageDigest == s.BaseImageDigest {
-					s.BaseImageShared = true
-					o.BaseImageShared = true
-				}
-			}
-		}
-	}
 	return onlyUsedStages, nil
 }
 
