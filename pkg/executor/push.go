@@ -293,7 +293,7 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		logrus.Infof("Pushing image to %s", destRef.String())
 		pushImage := image
 		if config.FF.CrossRepoMount {
-			pushImage = mounts.Mountable(image, destRef.RegistryStr())
+			pushImage = mounts.MountableImage(image, destRef.RegistryStr())
 		}
 
 		retryFunc := func() error {

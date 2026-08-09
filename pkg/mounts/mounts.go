@@ -27,7 +27,7 @@ limitations under the License.
 package mounts
 
 import (
-	"slices"
+	"maps"
 	"sync"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -50,7 +50,8 @@ func RecordImage(img v1.Image, repo name.Repository) {
 	for _, l := range layers {
 		digest, err := l.Digest()
 		if err == nil {
-			_, known := find(sources[digest], func(r name.Repository) bool { return r.String() == repo.String() })
+			// One repository per registry is all a push can ever use.
+			_, known := Mountable(sources[digest], repo.RegistryStr())
 			if !known {
 				sources[digest] = append(sources[digest], repo)
 			}
@@ -58,15 +59,32 @@ func RecordImage(img v1.Image, repo name.Repository) {
 	}
 }
 
-func find(repos []name.Repository, match func(name.Repository) bool) (name.Repository, bool) {
-	i := slices.IndexFunc(repos, match)
-	if i < 0 {
-		return name.Repository{}, false
-	}
-	return repos[i], true
+// PlannedDigest names a layer that does not exist yet by the cache key that decides where it
+// will end up. Cache keys are sha256 hex like a digest, and never collide with one in practice.
+func PlannedDigest(cacheKey string) v1.Hash {
+	return v1.Hash{Algorithm: "sha256", Hex: cacheKey}
 }
 
-func Mountable(img v1.Image, registry string) v1.Image {
+// Snapshot copies the map, not the slices in it. Those are shared and read-only: extend an
+// entry by replacing it, never by appending into the one that is there.
+func Snapshot() map[v1.Hash][]name.Repository {
+	mu.Lock()
+	defer mu.Unlock()
+	return maps.Clone(sources)
+}
+
+// Mountable returns one of the repositories known to hold a layer that sits on registry.
+// Cross-registry origins are not honoured in practice, so a source elsewhere is no source.
+func Mountable(repos []name.Repository, registry string) (name.Repository, bool) {
+	for _, repo := range repos {
+		if repo.RegistryStr() == registry {
+			return repo, true
+		}
+	}
+	return name.Repository{}, false
+}
+
+func MountableImage(img v1.Image, registry string) v1.Image {
 	return &mountableImage{Image: img, registry: registry}
 }
 
@@ -74,16 +92,6 @@ type mountableImage struct {
 	v1.Image
 
 	registry string
-}
-
-// Cross-registry origins are not honoured in practice, so a source off the registry being
-// pushed to is no source at all.
-func mountable(l v1.Layer, digest v1.Hash, candidates []name.Repository, registry string) v1.Layer {
-	repo, ok := find(candidates, func(r name.Repository) bool { return r.RegistryStr() == registry })
-	if !ok {
-		return l
-	}
-	return &remote.MountableLayer{Layer: l, Reference: repo.Digest(digest.String())}
 }
 
 // Layers is the only accessor remote.Write reads to decide what it sends, so LayerByDigest
@@ -97,12 +105,15 @@ func (m *mountableImage) Layers() ([]v1.Layer, error) {
 	mu.Lock()
 	defer mu.Unlock()
 	for _, l := range layers {
+		layer := l
 		digest, err := l.Digest()
 		if err == nil {
-			tagged = append(tagged, mountable(l, digest, sources[digest], m.registry))
-		} else {
-			tagged = append(tagged, l)
+			repo, ok := Mountable(sources[digest], m.registry)
+			if ok {
+				layer = &remote.MountableLayer{Layer: l, Reference: repo.Digest(digest.String())}
+			}
 		}
+		tagged = append(tagged, layer)
 	}
 	return tagged, nil
 }

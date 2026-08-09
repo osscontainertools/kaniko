@@ -51,6 +51,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	image_util "github.com/osscontainertools/kaniko/pkg/image"
 	"github.com/osscontainertools/kaniko/pkg/image/remote"
+	"github.com/osscontainertools/kaniko/pkg/mounts"
 	"github.com/osscontainertools/kaniko/pkg/snapshot"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -1085,7 +1086,12 @@ var (
 	Out io.Writer = os.Stdout
 )
 
-func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string) (retErr error) {
+type pushedLayer struct {
+	name string
+	key  v1.Hash
+}
+
+func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string, layerCache *memoizedLayerCache) (retErr error) {
 	printf := func(format string, args ...any) {
 		if retErr == nil {
 			_, retErr = fmt.Fprintf(Out, format, args...)
@@ -1098,14 +1104,15 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 	if opts.PreCleanup {
 		printf("CLEAN\n")
 	}
-	stageLayers := map[int][]string{}
+	sources := mounts.Snapshot()
+	stageLayers := map[int][]pushedLayer{}
 	for _, s := range stages {
 		if s.Name != "" {
 			printf("FROM %s AS %s\n", s.BaseName, s.Name)
 		} else {
 			printf("FROM %s\n", s.BaseName)
 		}
-		var layers []string
+		var layers []pushedLayer
 		if s.BaseImageStoredLocally {
 			printf("  UNPACK %s%d\n", config.KanikoIntermediateStagesDir, s.BaseImageIndex)
 			layers = slices.Clone(stageLayers[s.BaseImageIndex])
@@ -1126,7 +1133,7 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 					return err
 				}
 				for _, l := range manifest.Layers {
-					layers = append(layers, l.Digest.String())
+					layers = append(layers, pushedLayer{name: l.Digest.String(), key: l.Digest})
 				}
 			}
 		}
@@ -1139,9 +1146,8 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 				continue
 			}
 			printf("%s\n", command)
-			if !command.MetadataOnly() {
-				layers = append(layers, command.String())
-			}
+			snapshots := shouldTakeSnapshot(command.MetadataOnly(), jdx == len(s.Commands)-1, opts)
+			var key v1.Hash
 			if opts.Cache && opts.CacheCopyLayers && config.FF.InferCrossStageCacheKey && config.FF.CacheLookahead {
 				if copyCmd, ok := c.(*instructions.CopyCommand); ok && copyCmd.From != "" {
 					ci := cacheInfo[s.Index]
@@ -1157,25 +1163,64 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 			if opts.Cache && config.FF.CacheLookahead {
 				ci := cacheInfo[s.Index]
 				if ck := ci.cacheKeys[jdx]; ck != "" {
+					cacheRef, err := cache.Destination(opts, ck)
+					if err != nil {
+						cacheRef = ""
+					}
 					if ci.cacheHits[jdx] {
 						printf("  CACHE HIT: %s\n", ck)
+						cached, err := layerCache.RetrieveLayer(ck)
+						if err == nil {
+							cachedLayers, err := cached.Layers()
+							if err == nil && len(cachedLayers) == 1 && snapshots {
+								key, _ = cachedLayers[0].Digest()
+							}
+						}
 					} else {
 						printf("  CACHE MISS: %s\n", ck)
-						if !opts.NoPushCache && command.ShouldCacheOutput() {
-							cacheRef, err := cache.Destination(opts, ck)
-							if err == nil {
-								printf("  UPLOAD %s\n", cacheRef)
+						if snapshots && !opts.NoPushCache && command.ShouldCacheOutput() && cacheRef != "" {
+							printf("  UPLOAD %s\n", cacheRef)
+							key = mounts.PlannedDigest(ck)
+							tag, err := name.NewTag(cacheRef, name.WeakValidation)
+							if err != nil {
+								return err
 							}
+							sources[key] = []name.Repository{tag.Context()}
 						}
 					}
 				}
+			}
+			if snapshots {
+				layers = append(layers, pushedLayer{name: command.String(), key: key})
 			}
 		}
 		stageLayers[s.Index] = layers
 		if s.Push && !opts.NoPush {
 			printf("PUSH %v\n", opts.Destinations)
+			var registries []string
+			for _, destination := range opts.Destinations {
+				dest, err := name.NewTag(destination, name.WeakValidation)
+				if err != nil {
+					return err
+				}
+				registries = append(registries, dest.RegistryStr())
+			}
 			for _, l := range layers {
-				printf("  UPLOAD %s\n", l)
+				var source name.Repository
+				serves := config.FF.CrossRepoMount && len(registries) > 0
+				for _, registry := range registries {
+					repo, ok := mounts.Mountable(sources[l.key], registry)
+					if ok {
+						source = repo
+					} else {
+						serves = false
+					}
+				}
+				if serves {
+					printf("  MOUNT %s FROM %s\n", l.name, source)
+				} else {
+					printf("  UPLOAD %s\n", l.name)
+				}
 			}
 		}
 		if s.Final {
@@ -1377,7 +1422,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 
 	if opts.Dryrun || config.EnvBool("KANIKO_PRINT_PLAN") {
-		err := RenderStages(kanikoStages, cacheInfo, opts, fileContext, crossStageDependencies)
+		err := RenderStages(kanikoStages, cacheInfo, opts, fileContext, crossStageDependencies, layerCache)
 		if err != nil {
 			return nil, err
 		}

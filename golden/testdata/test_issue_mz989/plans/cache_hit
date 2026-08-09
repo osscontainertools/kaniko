@@ -6,5 +6,5 @@ RUN touch /bla
   CACHE HIT: c4d1d053ed51898d12bc0fe84e96f70fc77ad862f9e38b677cf97c1cddd78784
 PUSH [example.com/img:latest]
   UPLOAD sha256:1b7ca6aea1ddfe716f3694edb811ab35114db9e93f3ce38d7dab6b4d9270cb0c
-  UPLOAD RUN touch /blubb
-  UPLOAD RUN touch /bla
+  MOUNT RUN touch /blubb FROM example.com/cache
+  MOUNT RUN touch /bla FROM example.com/cache

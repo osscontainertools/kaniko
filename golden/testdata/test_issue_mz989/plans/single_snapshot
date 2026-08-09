@@ -2,11 +2,9 @@ FROM alpine@sha256:c75ac27b49326926b803b9ed43bf088bc220d22556de1bc5f72d742c91398
   STREAM alpine@sha256:c75ac27b49326926b803b9ed43bf088bc220d22556de1bc5f72d742c91398f69
 RUN touch /blubb
   CACHE MISS: 9960b0560d3e4212d47329ac9e3379b8891474e43756b7650ae3bc18092b62f7
-  UPLOAD example.com/cache:9960b0560d3e4212d47329ac9e3379b8891474e43756b7650ae3bc18092b62f7
 RUN touch /bla
   CACHE MISS: c4d1d053ed51898d12bc0fe84e96f70fc77ad862f9e38b677cf97c1cddd78784
   UPLOAD example.com/cache:c4d1d053ed51898d12bc0fe84e96f70fc77ad862f9e38b677cf97c1cddd78784
 PUSH [example.com/img:latest]
   UPLOAD sha256:1b7ca6aea1ddfe716f3694edb811ab35114db9e93f3ce38d7dab6b4d9270cb0c
-  MOUNT RUN touch /blubb FROM example.com/cache
   MOUNT RUN touch /bla FROM example.com/cache
