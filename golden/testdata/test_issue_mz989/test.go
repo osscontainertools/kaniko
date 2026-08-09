@@ -17,6 +17,12 @@ var Tests = types.GoldenTests{
 			Plan: "plain",
 		},
 		{
+			// The mount decision is made at push time, so the plan does not move.
+			Args: []string{"-d", "example.com/img:latest"},
+			Env:  map[string]string{"FF_KANIKO_CROSS_REPO_MOUNT": "1"},
+			Plan: "plain",
+		},
+		{
 			// The store hands the push a local copy, and the base uploads instead.
 			Args: []string{"-d", "example.com/img:latest"},
 			Env:  map[string]string{"FF_KANIKO_SHARED_BASE_CACHE": "1"},
