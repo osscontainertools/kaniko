@@ -1,4 +1,4 @@
-FROM debian:12.10 AS first-stage
+FROM debian@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56 AS first-stage
 
 FROM first-stage AS second-stage
 
@@ -14,5 +14,5 @@ COPY --from=third-stage test test
 
 # When we optimize stages out this should not
 # impact squashing logic at all
-FROM debian:12.10 as noise
+FROM debian@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56 as noise
 FROM fourth-stage AS fifth-stage

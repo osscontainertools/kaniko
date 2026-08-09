@@ -1098,44 +1098,39 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 	if opts.PreCleanup {
 		printf("CLEAN\n")
 	}
+	stageLayers := map[int][]string{}
 	for _, s := range stages {
 		if s.Name != "" {
 			printf("FROM %s AS %s\n", s.BaseName, s.Name)
 		} else {
 			printf("FROM %s\n", s.BaseName)
 		}
-		switch {
-		case s.BaseImageStoredLocally:
-			printf("UNPACK %s%d\n", config.KanikoIntermediateStagesDir, s.BaseImageIndex)
-		case s.BaseImageShared:
-			printf("FETCH %s\n", s.BaseName)
-			printf("UNPACK %s\n", s.BaseName)
-		default:
-			printf("STREAM %s\n", s.BaseName)
+		var layers []string
+		if s.BaseImageStoredLocally {
+			printf("  UNPACK %s%d\n", config.KanikoIntermediateStagesDir, s.BaseImageIndex)
+			layers = slices.Clone(stageLayers[s.BaseImageIndex])
+		} else {
+			if s.BaseImageShared {
+				printf("  FETCH %s\n", s.BaseName)
+				printf("  UNPACK %s\n", s.BaseName)
+			} else {
+				printf("  STREAM %s\n", s.BaseName)
+			}
+			if s.BaseImageDigest != "" {
+				base, err := image_util.RetrieveSourceImage(s, opts)
+				if err != nil {
+					return err
+				}
+				manifest, err := base.Manifest()
+				if err != nil {
+					return err
+				}
+				for _, l := range manifest.Layers {
+					layers = append(layers, l.Digest.String())
+				}
+			}
 		}
 		for jdx, c := range s.Commands {
-			if opts.Cache && opts.CacheCopyLayers && config.FF.InferCrossStageCacheKey && config.FF.CacheLookahead {
-				if copyCmd, ok := c.(*instructions.CopyCommand); ok && copyCmd.From != "" {
-					ci := cacheInfo[s.Index]
-					if ck := ci.redirectKeys[jdx]; ck != "" {
-						if ci.redirectHits[jdx] {
-							printf("CACHE REDIRECT HIT: %s\n", ck)
-						} else {
-							printf("CACHE REDIRECT MISS: %s\n", ck)
-						}
-					}
-				}
-			}
-			if opts.Cache && config.FF.CacheLookahead {
-				ci := cacheInfo[s.Index]
-				if ck := ci.cacheKeys[jdx]; ck != "" {
-					if ci.cacheHits[jdx] {
-						printf("CACHE HIT: %s\n", ck)
-					} else {
-						printf("CACHE MISS: %s\n", ck)
-					}
-				}
-			}
 			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
 			if err != nil {
 				return err
@@ -1144,9 +1139,44 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 				continue
 			}
 			printf("%s\n", command)
+			if !command.MetadataOnly() {
+				layers = append(layers, command.String())
+			}
+			if opts.Cache && opts.CacheCopyLayers && config.FF.InferCrossStageCacheKey && config.FF.CacheLookahead {
+				if copyCmd, ok := c.(*instructions.CopyCommand); ok && copyCmd.From != "" {
+					ci := cacheInfo[s.Index]
+					if ck := ci.redirectKeys[jdx]; ck != "" {
+						if ci.redirectHits[jdx] {
+							printf("  CACHE REDIRECT HIT: %s\n", ck)
+						} else {
+							printf("  CACHE REDIRECT MISS: %s\n", ck)
+						}
+					}
+				}
+			}
+			if opts.Cache && config.FF.CacheLookahead {
+				ci := cacheInfo[s.Index]
+				if ck := ci.cacheKeys[jdx]; ck != "" {
+					if ci.cacheHits[jdx] {
+						printf("  CACHE HIT: %s\n", ck)
+					} else {
+						printf("  CACHE MISS: %s\n", ck)
+						if !opts.NoPushCache && command.ShouldCacheOutput() {
+							cacheRef, err := cache.Destination(opts, ck)
+							if err == nil {
+								printf("  UPLOAD %s\n", cacheRef)
+							}
+						}
+					}
+				}
+			}
 		}
+		stageLayers[s.Index] = layers
 		if s.Push && !opts.NoPush {
 			printf("PUSH %v\n", opts.Destinations)
+			for _, l := range layers {
+				printf("  UPLOAD %s\n", l)
+			}
 		}
 		if s.Final {
 			if opts.Cleanup {

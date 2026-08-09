@@ -1,22 +1,25 @@
-FROM debian:12.10 AS base
-STREAM debian:12.10
+FROM debian@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56 AS base
+  STREAM debian@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56
 RUN install
 SAVE STAGE /kaniko/stages/0
 CLEAN
 
 FROM base AS build
-UNPACK /kaniko/stages/0
+  UNPACK /kaniko/stages/0
 RUN compile
 SAVE FILES [output] /kaniko/deps/1
 CLEAN
 
 FROM base AS final
-UNPACK /kaniko/stages/0
+  UNPACK /kaniko/stages/0
 COPY --from=build output output
 PUSH [registry]
+  UPLOAD sha256:cf05a52c02353f0b2b6f9be0549ac916c3fb1dc8d4bacd405eac7f28562ec9f2
+  UPLOAD RUN install
+  UPLOAD COPY --from=build output output
 SAVE STAGE /kaniko/stages/2
 CLEAN
 
 FROM final AS test
-UNPACK /kaniko/stages/2
+  UNPACK /kaniko/stages/2
 RUN test

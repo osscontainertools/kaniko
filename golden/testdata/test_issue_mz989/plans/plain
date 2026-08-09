@@ -1,0 +1,8 @@
+FROM alpine@sha256:c75ac27b49326926b803b9ed43bf088bc220d22556de1bc5f72d742c91398f69
+  STREAM alpine@sha256:c75ac27b49326926b803b9ed43bf088bc220d22556de1bc5f72d742c91398f69
+RUN touch /blubb
+RUN touch /bla
+PUSH [example.com/img:latest]
+  UPLOAD sha256:1b7ca6aea1ddfe716f3694edb811ab35114db9e93f3ce38d7dab6b4d9270cb0c
+  UPLOAD RUN touch /blubb
+  UPLOAD RUN touch /bla

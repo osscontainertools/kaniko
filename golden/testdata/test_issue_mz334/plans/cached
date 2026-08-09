@@ -1,27 +1,27 @@
 FROM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d AS first
-STREAM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
-CACHE HIT: 72e9e0e54e4522d381e54427f5ac6f24dd09910e1ff8d4bc7f60d02f54e2cdc3
+  STREAM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
 RUN touch /blubb
+  CACHE HIT: 72e9e0e54e4522d381e54427f5ac6f24dd09910e1ff8d4bc7f60d02f54e2cdc3
 SAVE STAGE /kaniko/stages/0
 SAVE FILES [/blubb] /kaniko/deps/0
 CLEAN
 
 FROM first AS second
-UNPACK /kaniko/stages/0
-CACHE HIT: 3829b10dc17cc7bafd22450e05b7f265b73e94d46b08817d0502848b21dd69aa
+  UNPACK /kaniko/stages/0
 RUN touch /bla
+  CACHE HIT: 3829b10dc17cc7bafd22450e05b7f265b73e94d46b08817d0502848b21dd69aa
 SAVE STAGE /kaniko/stages/1
 CLEAN
 
 FROM second AS third
-UNPACK /kaniko/stages/1
-CACHE HIT: 256455fba386c671b4808e621379712ca6dfecce4d4e9ed2d6edab8b5e415b75
+  UNPACK /kaniko/stages/1
 RUN touch /bli
+  CACHE HIT: 256455fba386c671b4808e621379712ca6dfecce4d4e9ed2d6edab8b5e415b75
 SAVE FILES [/bli] /kaniko/deps/2
 CLEAN
 
 FROM second AS final
-UNPACK /kaniko/stages/1
+  UNPACK /kaniko/stages/1
 COPY --from=first /blubb /blubb
 COPY --from=third /bli /bli
 RUN ls -lah /blubb
