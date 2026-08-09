@@ -10,8 +10,8 @@ require (
 	github.com/GoogleCloudPlatform/docker-credential-gcr/v2 v2.2.0
 	github.com/aws/aws-sdk-go-v2 v1.43.3
 	github.com/aws/aws-sdk-go-v2/config v1.32.34
-	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.3.8
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.106.3
+	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.3.9
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.106.4
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.12.0
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20230304212654-82a0ddb27589
 	github.com/containerd/platforms v1.0.0-rc.4
@@ -26,7 +26,7 @@ require (
 	github.com/google/go-containerregistry v0.21.8
 	github.com/google/slowjam v1.1.2
 	github.com/minio/highwayhash v1.0.4
-	github.com/moby/buildkit v0.32.1
+	github.com/moby/buildkit v0.32.2
 	github.com/moby/go-archive v0.3.2
 	github.com/moby/moby/api v1.55.0
 	github.com/moby/patternmatcher v0.6.1
