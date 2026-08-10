@@ -1,0 +1,9 @@
+# mz992: --dryrun prints the plan and then panics if a real --destination is set.
+# Panics on v1.28.2.
+# DoBuild returns a nil image for a dryrun, DoPush skips the push for --no-push
+# only and dereferences it. The destination push, the digest files, the tarball
+# and the OCI layout all crash.
+# The golden suite misses this, it calls DoBuild directly and never reaches DoPush.
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
+RUN echo mz992

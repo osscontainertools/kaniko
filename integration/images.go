@@ -144,7 +144,6 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_target":                       {"--target=second"},
 	"Dockerfile_test_issue_cg188":                  {"--secret=id=netrc,env=SECRET"},
 	"Dockerfile_test_issue_mz511":                  {"--secret=id=netrc,src=context/foo"},
-	"Dockerfile_test_issue_mz661":                  {"--secret=id=kaniko,src=context/foo"},
 	"Dockerfile_test_cross_compile":                {"--platform=linux/" + crossCompileArch},
 	"Dockerfile_test_issue_mz849":                  dockerV2Flags,
 	"Dockerfile_test_issue_mz849_dockerv2":         dockerV2Flags,
@@ -241,6 +240,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz529":   {"--cleanup", "--target=final,nosquash"},
 	"Dockerfile_test_issue_mz595":   {"--cleanup"},
 	"Dockerfile_test_issue_mz661":   {"--secret=id=kaniko,src=/kaniko/executor"},
+	"Dockerfile_test_issue_mz992":   {"--dryrun", "--tar-path=/kaniko/dryrun.tar", "--oci-layout-path=/kaniko/dryrun-layout"},
 }
 
 var expectErr = map[string]int{
@@ -321,8 +321,6 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_issue_cg188":               {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_issue_mz247":               {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_issue_mz332":               {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_mz455":               {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_mz560":               {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_issue_mz725":               {"--extra-ignore-layer-length-mismatch"},
 	"TestWithContext/test_with_context_issue-57":             {"--extra-ignore-layer-length-mismatch"},
 	"TestWithContext/test_with_context_issue-1568":           {"--extra-ignore-layer-length-mismatch"},
@@ -512,6 +510,7 @@ type DockerFileBuilder struct {
 	TestOCICacheDockerfiles     map[string]struct{}
 	TestWarmerDockerfiles       map[string]struct{}
 	TestReproducibleDockerfiles map[string]struct{}
+	TestKanikoOnlyDockerfiles   map[string]struct{}
 }
 
 type logger func(string, ...any)
@@ -564,6 +563,17 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_copy_reproducible": {},
 		"Dockerfile_test_issue_mz731":       {},
 		"Dockerfile_test_issue_mz851":       {},
+	}
+	d.TestKanikoOnlyDockerfiles = map[string]struct{}{
+		"Dockerfile_test_issue_cg326_2": {},
+		"Dockerfile_test_issue_cg326_3": {},
+		"Dockerfile_test_issue_mz444":   {},
+		"Dockerfile_test_issue_mz455":   {},
+		"Dockerfile_test_issue_mz473":   {},
+		"Dockerfile_test_issue_mz560":   {},
+		"Dockerfile_test_issue_mz661":   {},
+		"Dockerfile_test_issue_mz753":   {},
+		"Dockerfile_test_issue_mz992":   {},
 	}
 	return &d
 }

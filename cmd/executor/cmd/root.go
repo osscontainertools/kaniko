@@ -235,8 +235,11 @@ var RootCmd = &cobra.Command{
 		if err != nil {
 			exit(fmt.Errorf("error building image: %w", err))
 		}
-		if err := executor.DoPush(image, opts); err != nil {
-			exit(fmt.Errorf("error pushing image: %w", err))
+		// mz992: a dryrun renders the plan and returns no image, there is nothing to push.
+		if !opts.Dryrun {
+			if err := executor.DoPush(image, opts); err != nil {
+				exit(fmt.Errorf("error pushing image: %w", err))
+			}
 		}
 		tracing.Shutdown(nil)
 	},
