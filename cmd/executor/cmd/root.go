@@ -204,7 +204,8 @@ var RootCmd = &cobra.Command{
 			}
 			logrus.Warn("Kaniko is being run outside of a container. This can have dangerous effects on your system")
 		}
-		if !opts.NoPush || opts.CacheRepo != "" {
+		// mz992: a dryrun only renders the plan, it never pushes a layer or a cache entry.
+		if !opts.Dryrun && (!opts.NoPush || opts.CacheRepo != "") {
 			if err := executor.CheckPushPermissions(opts); err != nil {
 				logrus.Warnf("make sure you entered the correct tag name, that you are authenticated correctly, and try again.")
 				// mz280: remind users that DOCKER_AUTH_CONFIG gets prioritized by docker-cli
