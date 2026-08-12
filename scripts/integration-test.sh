@@ -58,7 +58,7 @@ function start_local_path_scoped_auth_proxy {
   if ! docker start kaniko-path-scoped-auth-proxy 2>/dev/null; then
     docker rm -f kaniko-path-scoped-auth-proxy 2>/dev/null || :
     docker run -d --name kaniko-path-scoped-auth-proxy \
-      -p 5002:5002 \
+      -p 127.0.0.1:5002:5002 \
       --add-host=host.docker.internal:host-gateway \
       -v "${dir}/nginx.conf:/etc/nginx/conf.d/default.conf:ro" \
       -v "${dir}/htpasswd-org-a:/etc/nginx/htpasswd-org-a:ro" \
