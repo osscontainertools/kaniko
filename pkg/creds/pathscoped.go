@@ -61,7 +61,10 @@ func (pathScopedKeychain) Resolve(target authn.Resource) (authn.Authenticator, e
 
 	envAuths, err := dockerAuthConfigEnv()
 	if err != nil {
-		return nil, err
+		// Match ConfigFile.GetAuthConfig: malformed DOCKER_AUTH_CONFIG
+		// falls back to the configured file or credential helper.
+		// That call emits the Docker CLI warning when the bare registry host is checked below.
+		envAuths = nil
 	}
 
 	keys := authKeyLookupOrder(target)
