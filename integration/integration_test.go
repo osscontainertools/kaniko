@@ -1856,6 +1856,9 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 		if err == nil {
 			t.Fatalf("expected push to fail with the feature flag disabled (no host-level credential is configured), got success:\n%s", out)
 		}
+		if !bytes.Contains(out, []byte("401 Unauthorized")) {
+			t.Fatalf("expected authentication failure, got: %v\n%s", err, out)
+		}
 	})
 
 	t.Run("flag enabled selects the matching namespace credential", func(t *testing.T) {
@@ -1874,6 +1877,9 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 		)
 		if err == nil {
 			t.Fatalf("expected pull to fail with the feature flag disabled (no host-level credential is configured), got success:\n%s", out)
+		}
+		if !bytes.Contains(out, []byte("401 Unauthorized")) {
+			t.Fatalf("expected authentication failure, got: %v\n%s", err, out)
 		}
 	})
 
