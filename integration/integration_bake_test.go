@@ -50,7 +50,7 @@ func TestBake(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			bakefile, err := bake.Parse(filepath.Join(ctxDir, "bake.hcl"))
+			bakefile, err := bake.Parse(filepath.Join(ctxDir, "kaniko-bake.hcl"))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -65,7 +65,7 @@ func TestBake(t *testing.T) {
 			kanikoFlags = addAuthFlags(kanikoFlags)
 			kanikoFlags = addCoverageFlags(kanikoFlags)
 			kanikoFlags = addKanikoEnvFlags(kanikoFlags)
-			kanikoFlags = append(kanikoFlags, ExecutorImage, "bake", "/ctx/bake.hcl", "-c", "/ctx")
+			kanikoFlags = append(kanikoFlags, ExecutorImage, "bake", "/ctx/kaniko-bake.hcl", "-c", "/ctx")
 			dockerFlags := []string{"buildx", "bake", "-f", "docker-bake.hcl"}
 			var dockerTargets []string
 			for _, target := range targets {

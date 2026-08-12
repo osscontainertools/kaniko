@@ -103,8 +103,9 @@ The bakefile is HCL and looks like this:
       destination = ["registry.example.com/app:latest"]
     }
 
-This is not a docker-bake.hcl. Variables, functions, groups and inherits are
-not supported.`,
+It is the analogue of a docker-bake.hcl, expressed in kaniko's commands rather
+than buildx's. A docker-bake.hcl will not parse. Variables, functions, groups
+and inherits are not supported.`,
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(_ *cobra.Command, args []string) error {
 		if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {

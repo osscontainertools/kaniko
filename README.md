@@ -62,6 +62,7 @@ expect - see [Known Issues](#known-issues).
     - [Subcommands](#subcommands)
       - [Subcommand `login`](#subcommand-login)
       - [Subcommand `push`](#subcommand-push)
+      - [Subcommand `bake`](#subcommand-bake)
     - [Additional Flags](#additional-flags)
       - [Flag `--build-arg`](#flag---build-arg)
       - [Flag `--cache`](#flag---cache)
@@ -693,6 +694,22 @@ Flags:
 `executor push <path> --destination <ref>` reads a pre-built image and pushes it to one or more registries, skipping the build entirely. The path may point at a docker-save format tarball produced by [`--tar-path`](#flag---tar-path) or at an OCI image layout directory produced by [`--oci-layout-path`](#flag---oci-layout-path). All registry, auth, retry, and digest-file flags are the same as on the build command. See the canonical workflow under [`--tar-path`](#flag---tar-path).
 
 The artifact must contain exactly one image. Multi-image tarballs and indexes are not supported.
+
+#### Subcommand `bake`
+
+`executor bake <bakefile> [target]` builds several images from one multi-stage Dockerfile in a single invocation. A small HCL bakefile says which stage each image is built from and where it is pushed, while the context, dockerfile, build args, cache and registry settings stay on the usual flags and are shared by every target.
+
+```hcl
+target "app" {
+  destination = ["registry.example.com/app:latest"]
+}
+
+target "tools" {
+  destination = ["registry.example.com/tools:latest"]
+}
+```
+
+It is the analogue of a `docker-bake.hcl`, expressed in kaniko's commands rather than buildx's, which also means a `docker-bake.hcl` will not parse. For the format, choosing targets, and overriding destinations with `--set`, see **[docs/bakefile.md](docs/bakefile.md)**.
 
 ### Additional Flags
 
