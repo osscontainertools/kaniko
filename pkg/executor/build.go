@@ -1229,7 +1229,7 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 			}
 			for _, l := range layers {
 				var source name.Repository
-				serves := config.FF.CrossRepoMount && len(registries) > 0
+				serves := config.FF.CrossRepoMount && !config.FF.PathScopedRegistryAuth && len(registries) > 0
 				for _, registry := range registries {
 					repo, ok := mounts.Mountable(sources[l.key], registry)
 					if ok {
