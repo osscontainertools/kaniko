@@ -238,6 +238,7 @@ var RootCmd = &cobra.Command{
 		if err := executor.DoPush(image, opts); err != nil {
 			exit(fmt.Errorf("error pushing image: %w", err))
 		}
+		util.LogRegistryConnections()
 		tracing.Shutdown(nil)
 	},
 }
@@ -574,6 +575,7 @@ func exit(err error) {
 // exits with the given error and exit code
 func exitWithCode(err error, exitCode int) {
 	fmt.Fprintln(os.Stderr, err)
+	util.LogRegistryConnections()
 	tracing.Shutdown(err)
 	os.Exit(exitCode)
 }

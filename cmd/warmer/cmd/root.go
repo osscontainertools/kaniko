@@ -106,6 +106,7 @@ var RootCmd = &cobra.Command{
 		if err := warmer.WarmCache(opts); err != nil {
 			exit(fmt.Errorf("failed warming cache: %w", err))
 		}
+		util.LogRegistryConnections()
 	},
 }
 
@@ -170,5 +171,6 @@ func isURL(path string) bool {
 
 func exit(err error) {
 	fmt.Println(err)
+	util.LogRegistryConnections()
 	os.Exit(1)
 }

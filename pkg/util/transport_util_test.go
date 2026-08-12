@@ -20,7 +20,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"net/http"
 	"testing"
 
 	"github.com/osscontainertools/kaniko/pkg/config"
@@ -162,10 +161,10 @@ func Test_makeTransport(t *testing.T) {
 		systemCertLoader = certPool
 		systemKeyPairLoader = &mockedKeyPairLoader{}
 		t.Run(tt.name, func(_ *testing.T) {
-			tr, err := MakeTransport(tt.opts, registryName)
+			tr, err := makeTransport(tt.opts, registryName)
 			var tlsConfig *tls.Config
 			if err == nil {
-				tlsConfig = tr.(*http.Transport).TLSClientConfig
+				tlsConfig = tr.TLSClientConfig
 			}
 			tt.check(tlsConfig, certPool, err)
 		})
