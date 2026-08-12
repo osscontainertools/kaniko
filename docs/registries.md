@@ -51,10 +51,12 @@ per organization on the same host:
 }
 ```
 
-Two things stay unchanged when the flag is enabled:
+Two things are deliberately limited when the flag is enabled:
 
-* Credential helpers keep resolving against the bare registry host only.
-  A helper is never called with a repository path.
+* Intermediate and exact repository-path matching
+  is limited to inline `auths` entries.
+  Credential helpers are intentionally resolved only at registry-host scope
+  and are never called with a repository path.
 * There is no fallback across the network:
   kaniko selects one credential locally before making a request,
   it never retries a request with a different credential

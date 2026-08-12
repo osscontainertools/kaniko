@@ -1451,8 +1451,8 @@ for an intermediate repository path, most specific first:
 then `registry.example.com/org-a/project`,
 then `registry.example.com/org-a`, then `registry.example.com`.
 
-Applies to `auths` entries (in `config.json` and `DOCKER_AUTH_CONFIG`) only;
-credential helpers keep resolving against the bare registry host.
+Applies to inline `auths` entries (in `config.json` and `DOCKER_AUTH_CONFIG`);
+credential helpers are intentionally resolved only at registry-host scope.
 See [Credential Provider Priorities][] for the exact lookup order.
 Defaults to `false`.
 
