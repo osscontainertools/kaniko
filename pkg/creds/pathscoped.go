@@ -189,7 +189,7 @@ func fileExists(path string) bool {
 // no other fields, with "auth" required and holding a base64("username:password") string.
 // Returns (nil, nil) if the environment variable is unset.
 func dockerAuthConfigEnv() (map[string]types.AuthConfig, error) {
-	v := os.Getenv("DOCKER_AUTH_CONFIG")
+	v := os.Getenv(configfile.DockerEnvConfigKey)
 	if v == "" {
 		return nil, nil
 	}
@@ -218,10 +218,10 @@ func dockerAuthConfigEnv() (map[string]types.AuthConfig, error) {
 			return nil, fmt.Errorf("decoding DOCKER_AUTH_CONFIG auth for %s: %w", addr, err)
 		}
 		username, password, ok := strings.Cut(string(decoded), ":")
-		if !ok {
+		if !ok || username == "" {
 			return nil, fmt.Errorf("DOCKER_AUTH_CONFIG environment variable contains an invalid auth for %s: must be base64(username:password)", addr)
 		}
-		authConfigs[addr] = types.AuthConfig{Username: username, Password: password, ServerAddress: addr}
+		authConfigs[addr] = types.AuthConfig{Username: username, Password: strings.Trim(password, "\x00"), ServerAddress: addr}
 	}
 
 	return authConfigs, nil
