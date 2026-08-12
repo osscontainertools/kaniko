@@ -81,11 +81,23 @@ func ConfigureFromBakefile(opts *config.KanikoOptions, path string, selection, s
 
 var bakeCmd = &cobra.Command{
 	Use:   "bake <bakefile> [target]",
-	Short: "Build a target defined in a JSON bakefile",
-	Long: `Build a target defined in a JSON bakefile. The bakefile may define several
-targets; name the one to build (it may be omitted when there is only one). The
+	Short: "Build a target defined in a bakefile",
+	Long: `Build a target defined in a bakefile. The bakefile may define several
+targets, name the one to build (it may be omitted when there is only one). The
 target's stage and push destination come from the bakefile. Context, dockerfile,
-build args and other settings come from the usual flags.`,
+build args and other settings come from the usual flags.
+
+The bakefile is HCL and looks like this:
+
+    version = "1"
+
+    target "app" {
+      target      = "app"
+      destination = ["registry.example.com/app:latest"]
+    }
+
+This is not a docker-bake.hcl. Variables, functions, groups and inherits are
+not supported.`,
 	Args: cobra.RangeArgs(1, 2),
 	RunE: func(_ *cobra.Command, args []string) error {
 		if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {

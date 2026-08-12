@@ -17,22 +17,26 @@ limitations under the License.
 package bake
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
+
+	"github.com/hashicorp/hcl"
+	"github.com/hashicorp/hcl/hcl/ast"
+	"github.com/hashicorp/hcl/hcl/token"
 )
 
 type Target struct {
-	Target      string   `json:"target"`
-	Destination []string `json:"destination"`
+	Target      string   `hcl:"target"`
+	Destination []string `hcl:"destination"`
 }
 
 type Bakefile struct {
-	Version string            `json:"version"`
-	Targets map[string]Target `json:"targets"`
+	Version string            `hcl:"version"`
+	Targets map[string]Target `hcl:"target"`
 }
 
 type ResolvedTarget struct {
@@ -46,13 +50,28 @@ func Parse(path string) (*Bakefile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading bakefile: %w", err)
 	}
-	return parse(data)
+	b, err := parse(data)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	return b, nil
 }
 
 func parse(data []byte) (*Bakefile, error) {
-	b := &Bakefile{}
-	if err := json.Unmarshal(data, b); err != nil {
+	f, err := hcl.ParseBytes(data)
+	if err != nil {
 		return nil, fmt.Errorf("parsing bakefile: %w", err)
+	}
+	list, ok := f.Node.(*ast.ObjectList)
+	if !ok {
+		return nil, errors.New("bakefile must be a list of assignments and target blocks")
+	}
+	if err := validate(list); err != nil {
+		return nil, err
+	}
+	b := &Bakefile{}
+	if err := hcl.DecodeObject(b, f.Node); err != nil {
+		return nil, fmt.Errorf("decoding bakefile: %w", err)
 	}
 	if b.Version != "1" {
 		return nil, fmt.Errorf("unsupported bakefile version %q, expected %q", b.Version, "1")
@@ -61,6 +80,112 @@ func parse(data []byte) (*Bakefile, error) {
 		return nil, errors.New("bakefile defines no targets")
 	}
 	return b, nil
+}
+
+var (
+	topKeys    = []string{"version", "target"}
+	targetKeys = []string{"target", "destination"}
+)
+
+// Keys a docker-bake.hcl would use. The bakefile keeps kaniko's own vocabulary, so
+// point at the kaniko spelling rather than accepting both.
+var bakeHints = map[string]string{
+	"tags":       "use destination",
+	"context":    "use the --context flag",
+	"dockerfile": "use the --dockerfile flag",
+	"args":       "use the --build-arg flag",
+	"platforms":  "use the --custom-platform flag",
+	"inherits":   "which is not supported",
+}
+
+func validate(list *ast.ObjectList) error {
+	seen := map[string]token.Pos{}
+	for _, item := range list.Items {
+		if len(item.Keys) == 0 {
+			return fmt.Errorf("%s: unnamed block", item.Pos())
+		}
+		name := keyName(item.Keys[0])
+		if !slices.Contains(topKeys, name) {
+			return fmt.Errorf("%s: unsupported key %q, expected one of %s", item.Pos(), name, strings.Join(topKeys, ", "))
+		}
+		if name != "target" {
+			err := checkPortable(name, item)
+			if err != nil {
+				return err
+			}
+			continue
+		}
+		if len(item.Keys) != 2 {
+			return fmt.Errorf("%s: target takes exactly one name, as in `target \"app\" { ... }`", item.Pos())
+		}
+		label := keyName(item.Keys[1])
+		prev, dup := seen[label]
+		if dup {
+			return fmt.Errorf("%s: duplicate target %q, first defined at %s", item.Pos(), label, prev)
+		}
+		seen[label] = item.Pos()
+		body, ok := item.Val.(*ast.ObjectType)
+		if !ok {
+			return fmt.Errorf("%s: target %q must be a block", item.Pos(), label)
+		}
+		err := validateTarget(label, body.List)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateTarget(label string, list *ast.ObjectList) error {
+	for _, item := range list.Items {
+		if len(item.Keys) == 0 {
+			return fmt.Errorf("%s: unnamed key in target %q", item.Pos(), label)
+		}
+		key := keyName(item.Keys[0])
+		if !slices.Contains(targetKeys, key) {
+			hint, known := bakeHints[key]
+			if known {
+				return fmt.Errorf("%s: %q in target %q is a docker-bake.hcl key, %s", item.Pos(), key, label, hint)
+			}
+			return fmt.Errorf("%s: unsupported key %q in target %q, expected one of %s", item.Pos(), key, label, strings.Join(targetKeys, ", "))
+		}
+		if len(item.Keys) > 1 {
+			return fmt.Errorf("%s: key %q in target %q takes no name", item.Pos(), key, label)
+		}
+		err := checkPortable(key, item)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkPortable rejects the two constructs hcl1 accepts but reads differently from
+// hcl2, so bakefiles written today keep their meaning if the parser is ever upgraded.
+// hcl1 takes both `args { ... }` and `args = { ... }` for a map, hcl2 takes only the
+// second, and hcl1 leaves "${VAR}" as a literal where hcl2 interpolates it.
+func checkPortable(key string, item *ast.ObjectItem) error {
+	_, isBlock := item.Val.(*ast.ObjectType)
+	if isBlock && !item.Assign.IsValid() {
+		return fmt.Errorf("%s: %q must use `=`, as in `%s = { ... }`", item.Pos(), key, key)
+	}
+	var bad error
+	ast.Walk(item.Val, func(n ast.Node) (ast.Node, bool) {
+		lit, ok := n.(*ast.LiteralType)
+		if !ok || lit.Token.Type != token.STRING {
+			return n, true
+		}
+		if strings.Contains(lit.Token.Text, "${") {
+			bad = fmt.Errorf("%s: variables are not supported, found %s", lit.Pos(), lit.Token.Text)
+			return n, false
+		}
+		return n, true
+	})
+	return bad
+}
+
+func keyName(k *ast.ObjectKey) string {
+	return strings.Trim(k.Token.Text, `"`)
 }
 
 func (b *Bakefile) Resolve(selected []string) ([]ResolvedTarget, error) {
