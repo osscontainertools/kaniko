@@ -11,6 +11,59 @@ registry.
 By default kaniko will configure all built-in credential providers for you. These are `[default, env, google, ecr, acr, gitlab]`.
 You can (de)-activate credential helpers via the [`--credential-helpers`](#flag---credential-helpers) flag. The `default` credential helper will always be active and itself handles two sources: `DOCKER_AUTH_CONFIG` environment variable and `/kaniko/.docker/config.json` file, where priority is always given to `DOCKER_AUTH_CONFIG` and therefore can shadow credentials configured in the config file. If you want to disable `DOCKER_AUTH_CONFIG` you have to unset the environment variable explicitly `unset DOCKER_AUTH_CONFIG` prior to calling kaniko.
 
+### Path-scoped credentials
+
+The `default` credential helper normally matches an `auths` entry
+against the exact repository or, failing that, the bare registry host.
+It cannot match an intermediate namespace path,
+even if one registry host contains several independent organizations
+or projects that should each use their own least-privilege credential
+(for example, separate Quay robot accounts per organization).
+
+Set `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=true` to also match `auths` entries
+configured for an intermediate repository path.
+For an image such as `registry.example.com/org-a/project/image:tag`,
+the lookup order becomes:
+
+```text
+registry.example.com/org-a/project/image
+registry.example.com/org-a/project
+registry.example.com/org-a
+registry.example.com
+```
+
+The first configured entry wins; entries are matched by whole path segment,
+so a credential configured for `registry.example.com/org`
+is never selected for `registry.example.com/org-admin`.
+Example configuration granting a distinct credential
+per organization on the same host:
+
+```json
+{
+  "auths": {
+    "quay.io/org-a": {
+      "auth": "<org-a robot account, base64 user:token>"
+    },
+    "quay.io/org-b": {
+      "auth": "<org-b robot account, base64 user:token>"
+    }
+  }
+}
+```
+
+Two things stay unchanged when the flag is enabled:
+
+* Credential helpers keep resolving against the bare registry host only.
+  A helper is never called with a repository path.
+* There is no fallback across the network:
+  kaniko selects one credential locally before making a request,
+  it never retries a request with a different credential
+  after a failed authentication.
+
+This is opt-in and defaults to `false`;
+with the flag unset (or `false`) lookup behaves exactly as described above,
+exact reference or bare registry host only.
+
 ## Pushing to Docker Hub
 
 Get your docker registry user and password encoded in base64

@@ -19,6 +19,7 @@ package integration
 import (
 	"archive/tar"
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"flag"
 	"fmt"
@@ -1789,6 +1790,97 @@ func TestCrossRepoMountFallback(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestPathScopedRegistryAuth proves FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH
+// actually selects a credential per repository namespace, not just per registry host.
+// A single registry with one global Basic-Auth user cannot prove that,
+// so this pushes through a reverse proxy
+// (kaniko-path-scoped-auth-proxy, see scripts/setup-path-scoped-auth-proxy.sh)
+// that requires a different credential for /v2/kaniko/patha/... than for /v2/kaniko/pathb/....
+func TestPathScopedRegistryAuth(t *testing.T) {
+	proxyAddr := os.Getenv("PATH_SCOPED_AUTH_PROXY_ADDR")
+	if proxyAddr == "" {
+		t.Fatal("PATH_SCOPED_AUTH_PROXY_ADDR not set")
+	}
+
+	dockerConfigDir, err := os.MkdirTemp("", "kaniko-docker-path-scoped-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dockerConfigDir)
+
+	// Deliberately no host-level entry for proxyAddr: only the two namespace-scoped ones,
+	// so the legacy (flag-disabled) lookup has nothing to fall back to and must fail
+	authConfig := fmt.Sprintf(`{"auths":{%q:{"auth":%q},%q:{"auth":%q},%q:{"auth":%q}}}`,
+		proxyAddr+"/kaniko/patha", base64.StdEncoding.EncodeToString([]byte("org-a-user:org-a-pass")),
+		proxyAddr+"/kaniko/pathb", base64.StdEncoding.EncodeToString([]byte("org-b-user:org-b-pass")),
+		proxyAddr+"/kaniko/patha/project", base64.StdEncoding.EncodeToString([]byte("project-user:project-pass")),
+	)
+	configPath := filepath.Join(dockerConfigDir, "config.json")
+	if err := os.WriteFile(configPath, []byte(authConfig), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, ex, _, _ := runtime.Caller(0)
+	cwd := filepath.Dir(ex)
+	destA := proxyAddr + "/kaniko/patha/pathscoped:latest"
+	destB := proxyAddr + "/kaniko/pathb/pathscoped:latest"
+	destProject := proxyAddr + "/kaniko/patha/project/pathscoped:latest"
+
+	run := func(pathScopedAuth, dockerfile string, args ...string) ([]byte, error) {
+		dockerRunFlags := []string{"run", "--net=host",
+			"-v", cwd + ":/workspace:ro",
+			"-v", configPath + ":/kaniko/.docker/config.json:ro",
+			"-e", "FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=" + pathScopedAuth,
+		}
+		dockerRunFlags = addCoverageFlags(dockerRunFlags)
+		dockerRunFlags = append(dockerRunFlags, ExecutorImage,
+			"-f", dockerfile,
+			"-c", buildContextPath,
+			"--insecure-registry", proxyAddr,
+		)
+		dockerRunFlags = append(dockerRunFlags, args...)
+		return RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
+	}
+	pushDockerfile := filepath.Join(buildContextPath, dockerfilesPath, "Dockerfile_path_scoped_auth_push")
+
+	t.Run("flag disabled falls back to host-only lookup and fails", func(t *testing.T) {
+		out, err := run("0", pushDockerfile, "--destination", destA, "--destination", destB, "--destination", destProject, "--no-push-cache")
+		if err == nil {
+			t.Fatalf("expected push to fail with the feature flag disabled (no host-level credential is configured), got success:\n%s", out)
+		}
+	})
+
+	t.Run("flag enabled selects the matching namespace credential", func(t *testing.T) {
+		out, err := run("1", pushDockerfile, "--destination", destA, "--destination", destB, "--destination", destProject, "--no-push-cache")
+		if err != nil {
+			t.Fatalf("push failed with the feature flag enabled: %v\n%s", err, out)
+		}
+	})
+
+	pullDockerfile := filepath.Join(buildContextPath, dockerfilesPath, "Dockerfile_path_scoped_auth_pull")
+	t.Run("flag disabled cannot pull with a namespace credential", func(t *testing.T) {
+		out, err := run("0", pullDockerfile,
+			"--build-arg", "BASE_IMAGE="+destProject,
+			"--insecure-pull",
+			"--no-push", "--no-push-cache",
+		)
+		if err == nil {
+			t.Fatalf("expected pull to fail with the feature flag disabled (no host-level credential is configured), got success:\n%s", out)
+		}
+	})
+
+	t.Run("flag enabled selects the namespace credential for pull", func(t *testing.T) {
+		out, err := run("1", pullDockerfile,
+			"--build-arg", "BASE_IMAGE="+destProject,
+			"--insecure-pull",
+			"--no-push", "--no-push-cache",
+		)
+		if err != nil {
+			t.Fatalf("pull failed with the feature flag enabled: %v\n%s", err, out)
+		}
+	})
 }
 
 // mz745: in kaniko v1.27.0 --custom-platform folds an architecture variant like linux/arm/v7
