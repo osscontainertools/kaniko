@@ -275,11 +275,16 @@ func TestBake(t *testing.T) {
 							cmd.ValidateFlags(&opts)
 
 							rest := exec.Flags().Args()
-							if err := cmd.ConfigureFromBakefile(&opts, rest[0], rest[1:], set); err != nil {
+							targets, err := cmd.ConfigureFromBakefile(&opts, rest[0], rest[1:], set)
+							if err != nil {
 								t.Fatal(err)
 							}
 
-							output := renderPlan(t, &opts, test.CachedKeys)
+							var output string
+							for _, target := range targets {
+								cmd.ApplyTarget(&opts, target)
+								output += renderPlan(t, &opts, test.CachedKeys)
+							}
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), output)
 						})
 					}
