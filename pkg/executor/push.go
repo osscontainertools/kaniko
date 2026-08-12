@@ -202,6 +202,8 @@ func checkPushPermissionScoped(ref name.Reference, kc authn.Keychain, t http.Rou
 	if resp.StatusCode == http.StatusAccepted {
 		loc, err := scopedUploadLocation(resp)
 		if err != nil {
+			// A real upload cannot continue without a usable Location.
+			// Preserve remote.CheckPushPermission's strict 202 response handling.
 			return err
 		}
 		if loc != "" {
@@ -242,7 +244,10 @@ func scopedUploadLocation(resp *http.Response) (string, error) {
 // cancelScopedUpload best-effort cancels an initiated upload;
 // it only exists to prove push permission, so a failed cancel is not an error worth surfacing.
 func cancelScopedUpload(client *http.Client, loc string) {
-	req, err := http.NewRequest(http.MethodDelete, loc, nil) //nolint:noctx
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, loc, nil)
 	if err != nil {
 		return
 	}
@@ -251,8 +256,7 @@ func cancelScopedUpload(client *http.Client, loc string) {
 	if err != nil {
 		return
 	}
-
-	resp.Body.Close()
+	defer resp.Body.Close()
 }
 
 func getDigest(image v1.Image) ([]byte, error) {
