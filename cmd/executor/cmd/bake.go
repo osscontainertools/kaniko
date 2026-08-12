@@ -18,7 +18,6 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/config"
@@ -39,44 +38,54 @@ func AddBakeFlags(cmd *cobra.Command, opts *config.KanikoOptions, set *[]string)
 	cmd.Flags().StringArrayVar(set, "set", nil, "Override a bakefile target field: <target>.<field>=<value>. Set it repeatedly for multiple overrides.")
 }
 
-func ConfigureFromBakefile(opts *config.KanikoOptions, path string, selection, set []string) error {
+func ConfigureFromBakefile(opts *config.KanikoOptions, path string, selection, set []string) ([]bake.ResolvedTarget, error) {
 	bakefile, err := bake.Parse(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	targets, err := bakefile.Resolve(selection)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	overrides := make([]bake.Override, 0, len(set))
 	for _, s := range set {
 		o, err := bake.ParseOverride(s)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		overrides = append(overrides, o)
 	}
 	if err := bake.ApplyOverrides(targets, overrides); err != nil {
-		return err
+		return nil, err
 	}
-	if len(targets) != 1 {
-		ids := make([]string, len(targets))
-		for i, t := range targets {
-			ids[i] = t.ID
-		}
-		return fmt.Errorf("bakefile defines multiple targets, name one to build: %s", strings.Join(ids, ", "))
-	}
-	target := targets[0]
-	if !opts.NoPush && len(target.Destination) == 0 {
-		return fmt.Errorf("target %q has no destination, set one in the bakefile or use --no-push", target.ID)
-	}
-	opts.Target = []string{target.Stage}
-	for _, d := range target.Destination {
-		if err := opts.Destinations.Set(d); err != nil {
-			return err
+	for _, t := range targets {
+		if !opts.NoPush && len(t.Destination) == 0 {
+			return nil, fmt.Errorf("target %q has no destination, set one in the bakefile or use --no-push", t.ID)
 		}
 	}
-	return nil
+	if len(targets) > 1 {
+		for _, f := range []struct{ name, value string }{
+			{"--digest-file", opts.DigestFile},
+			{"--image-name-with-digest-file", opts.ImageNameDigestFile},
+			{"--image-name-tag-with-digest-file", opts.ImageNameTagDigestFile},
+			{"--tar-path", opts.TarPath},
+			{"--oci-layout-path", opts.OCILayoutPath},
+		} {
+			if f.value != "" {
+				return nil, fmt.Errorf("%s writes a single file and cannot be used when building several targets, name one target to build", f.name)
+			}
+		}
+	}
+	return targets, nil
+}
+
+// ApplyTarget points opts at a single target. A target with no stage keeps whatever
+// --target was given.
+func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) {
+	if target.Stage != "" {
+		opts.Target = []string{target.Stage}
+	}
+	opts.Destinations = target.Destination
 }
 
 var bakeCmd = &cobra.Command{
@@ -88,8 +97,6 @@ target's stage and push destination come from the bakefile. Context, dockerfile,
 build args and other settings come from the usual flags.
 
 The bakefile is HCL and looks like this:
-
-    version = "1"
 
     target "app" {
       target      = "app"
@@ -103,9 +110,10 @@ not supported.`,
 		if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {
 			return err
 		}
-		if err := ConfigureFromBakefile(opts, args[0], args[1:], bakeSet); err != nil {
+		targets, err := ConfigureFromBakefile(opts, args[0], args[1:], bakeSet)
+		if err != nil {
 			return err
 		}
-		return runBuild(opts)
+		return runBuildTargets(opts, targets)
 	},
 }

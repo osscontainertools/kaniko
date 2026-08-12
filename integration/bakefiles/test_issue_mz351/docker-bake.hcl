@@ -3,3 +3,9 @@ target "app" {
   dockerfile = "Dockerfile"
   target     = "app"
 }
+
+target "tools" {
+  context    = "."
+  dockerfile = "Dockerfile"
+  target     = "tools"
+}

@@ -1,5 +1,3 @@
-version = "1"
-
 # the image customers get
 target "app" {
   target      = "app"

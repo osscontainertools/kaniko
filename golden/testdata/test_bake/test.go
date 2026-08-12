@@ -18,5 +18,9 @@ var Tests = types.GoldenTests{
 			Args: []string{"app", "--set", "app.destination=registry.example.com/app:override"},
 			Plan: "app_override",
 		},
+		{
+			Args: []string{},
+			Plan: "all",
+		},
 	},
 }
