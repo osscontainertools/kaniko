@@ -62,9 +62,9 @@ Two things are deliberately limited when the flag is enabled:
   it never retries a request with a different credential
   after a failed authentication.
 
-This is opt-in and defaults to `false`;
-with the flag unset (or `false`) lookup behaves exactly as described above,
-exact reference or bare registry host only.
+This is opt-in and defaults to `false`. With the flag unset (or `false`),
+the default keychain keeps its existing behavior:
+only the exact repository and bare registry host are checked.
 
 ## Pushing to Docker Hub
 
