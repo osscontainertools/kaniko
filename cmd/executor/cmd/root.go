@@ -31,6 +31,7 @@ import (
 	"github.com/containerd/platforms"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/buildcontext"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
@@ -209,6 +210,10 @@ var RootCmd = &cobra.Command{
 }
 
 func runBuild(opts *config.KanikoOptions) error {
+	return runBuildTargets(opts, []bake.ResolvedTarget{{Destination: opts.Destinations}})
+}
+
+func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) error {
 	if err := setupBuild(); err != nil {
 		return err
 	}
@@ -219,17 +224,23 @@ func runBuild(opts *config.KanikoOptions) error {
 		logrus.Warn("Kaniko is being run outside of a container. This can have dangerous effects on your system")
 	}
 	// mz992: a dryrun only renders the plan, it never pushes a layer or a cache entry.
-	if !opts.Dryrun && (!opts.NoPush || opts.CacheRepo != "") {
-		if err := executor.CheckPushPermissions(opts); err != nil {
-			logrus.Warnf("make sure you entered the correct tag name, that you are authenticated correctly, and try again.")
-			// mz280: remind users that DOCKER_AUTH_CONFIG gets prioritized by docker-cli
-			// https://github.com/docker/cli/pull/6171
-			_, ok := os.LookupEnv("DOCKER_AUTH_CONFIG")
-			if ok {
-				logrus.Warnf("note that your DOCKER_AUTH_CONFIG env variable can shadow credentials from configfile")
-				logrus.Warnf("see https://github.com/osscontainertools/kaniko/issues/280#issuecomment-3498449955")
+	if !opts.Dryrun {
+		for _, target := range targets {
+			topts := *opts
+			ApplyTarget(&topts, target)
+			if !topts.NoPush || topts.CacheRepo != "" {
+				if err := executor.CheckPushPermissions(&topts); err != nil {
+					logrus.Warnf("make sure you entered the correct tag name, that you are authenticated correctly, and try again.")
+					// mz280: remind users that DOCKER_AUTH_CONFIG gets prioritized by docker-cli
+					// https://github.com/docker/cli/pull/6171
+					_, ok := os.LookupEnv("DOCKER_AUTH_CONFIG")
+					if ok {
+						logrus.Warnf("note that your DOCKER_AUTH_CONFIG env variable can shadow credentials from configfile")
+						logrus.Warnf("see https://github.com/osscontainertools/kaniko/issues/280#issuecomment-3498449955")
+					}
+					return fmt.Errorf("error checking push permissions: %w", err)
+				}
 			}
-			return fmt.Errorf("error checking push permissions: %w", err)
 		}
 	}
 	if err := resolveRelativePaths(); err != nil {
@@ -246,19 +257,37 @@ func runBuild(opts *config.KanikoOptions) error {
 		}()
 	}
 	tracing.Init(context.Background(), opts)
-	_, endBuild := timing.Scope("Total Build Time")
-	image, err := executor.DoBuild(opts)
-	endBuild()
-	if err != nil {
-		return fmt.Errorf("error building image: %w", err)
-	}
-	// mz992: a dryrun renders the plan and returns no image, there is nothing to push.
-	if !opts.Dryrun {
-		pushTimer := timing.Start("Total Push Time")
-		err := executor.DoPush(image, opts)
-		pushTimer.End()
+	for i, target := range targets {
+		if i > 0 {
+			// Saved stages are keyed by stage index, so without this the next target
+			// can read the previous target's stage instead of building its own.
+			if err := util.DeleteFilesystem(); err != nil {
+				return fmt.Errorf("deleting filesystem before target %q: %w", target.ID, err)
+			}
+			if err := config.CleanupBuild(); err != nil {
+				return fmt.Errorf("cleaning kaniko dir before target %q: %w", target.ID, err)
+			}
+		}
+		// Copy, so nothing a build writes back into its options reaches the next target.
+		topts := *opts
+		ApplyTarget(&topts, target)
+		if target.ID != "" {
+			logrus.Infof("Building target %q [stage: %q]", target.ID, target.Stage)
+		}
+		_, endBuild := timing.Scope("Total Build Time")
+		image, err := executor.DoBuild(&topts)
+		endBuild()
 		if err != nil {
-			return fmt.Errorf("error pushing image: %w", err)
+			return fmt.Errorf("error building image: %w", err)
+		}
+		// mz992: a dryrun renders the plan and returns no image, there is nothing to push.
+		if !opts.Dryrun {
+			pushTimer := timing.Start("Total Push Time")
+			err := executor.DoPush(image, &topts)
+			pushTimer.End()
+			if err != nil {
+				return fmt.Errorf("error pushing image: %w", err)
+			}
 		}
 	}
 	util.LogRegistryConnections()

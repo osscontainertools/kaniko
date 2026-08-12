@@ -58,35 +58,49 @@ func TestBake(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(targets) != 1 {
-				t.Fatalf("want a single target, got %d", len(targets))
-			}
-			target := targets[0]
 
-			kanikoImage := GetKanikoImage(config.imageRepo, name)
-			dockerImage := GetDockerImage(config.imageRepo, name)
-
+			kanikoImages := map[string]string{}
+			dockerImages := map[string]string{}
 			kanikoFlags := []string{"run", "--rm", "--net=host", "-v", ctxDir + ":/ctx"}
-			kanikoFlags = addServiceAccountFlags(kanikoFlags, config.serviceAccount)
+			kanikoFlags = addAuthFlags(kanikoFlags)
 			kanikoFlags = addCoverageFlags(kanikoFlags)
-			kanikoFlags = append(kanikoFlags, ExecutorImage,
-				"bake", "/ctx/bake.hcl", "-c", "/ctx",
-				"--set", target.ID+".destination="+kanikoImage)
+			kanikoFlags = addKanikoEnvFlags(kanikoFlags)
+			kanikoFlags = append(kanikoFlags, ExecutorImage, "bake", "/ctx/bake.hcl", "-c", "/ctx")
+			dockerFlags := []string{"buildx", "bake", "-f", "docker-bake.hcl"}
+			var dockerTargets []string
+			for _, target := range targets {
+				imageName := name + "-" + target.ID
+				kanikoImages[target.ID] = GetKanikoImage(config.imageRepo, imageName)
+				dockerImages[target.ID] = GetDockerImage(config.imageRepo, imageName)
+				kanikoFlags = append(kanikoFlags, "--set", target.ID+".destination="+kanikoImages[target.ID])
+				dockerFlags = append(dockerFlags, "--set", target.ID+".tags="+dockerImages[target.ID])
+				// kaniko emits dockerv2 here, so the oracle has to as well. This is the
+				// bake spelling of dockerV2Flags, and it pushes, so --push is not needed.
+				dockerFlags = append(dockerFlags,
+					"--set", target.ID+".attest=type=provenance,disabled=true",
+					"--set", target.ID+".output=type=registry,oci-mediatypes=false")
+				dockerTargets = append(dockerTargets, target.ID)
+			}
+			// buildx bake builds the "default" group when no target is named, and the
+			// fixtures define no such group.
+			dockerFlags = append(dockerFlags, dockerTargets...)
+
 			kanikoCmd := exec.Command("docker", kanikoFlags...)
 			if out, err := RunCommandWithoutTest(kanikoCmd); err != nil {
 				t.Fatalf("%v: %v\n%s", kanikoCmd.Args, err, string(out))
 			}
 
-			dockerCmd := exec.Command("docker", "buildx", "bake",
-				"-f", "docker-bake.hcl",
-				"--set", target.ID+".tags="+dockerImage,
-				"--push")
+			dockerCmd := exec.Command("docker", dockerFlags...)
 			dockerCmd.Dir = ctxDir
 			if out, err := RunCommandWithoutTest(dockerCmd); err != nil {
 				t.Fatalf("%v: %v\n%s", dockerCmd.Args, err, string(out))
 			}
 
-			containerDiff(t, dockerImage, kanikoImage, "--ignore-history")
+			for _, target := range targets {
+				t.Run(target.ID, func(t *testing.T) {
+					containerDiff(t, dockerImages[target.ID], kanikoImages[target.ID], "--semantic", "--extra-ignore-file-content")
+				})
+			}
 		})
 	}
 }

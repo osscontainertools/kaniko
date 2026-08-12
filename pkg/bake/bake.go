@@ -35,7 +35,6 @@ type Target struct {
 }
 
 type Bakefile struct {
-	Version string            `hcl:"version"`
 	Targets map[string]Target `hcl:"target"`
 }
 
@@ -73,9 +72,6 @@ func parse(data []byte) (*Bakefile, error) {
 	if err := hcl.DecodeObject(b, f.Node); err != nil {
 		return nil, fmt.Errorf("decoding bakefile: %w", err)
 	}
-	if b.Version != "1" {
-		return nil, fmt.Errorf("unsupported bakefile version %q, expected %q", b.Version, "1")
-	}
 	if len(b.Targets) == 0 {
 		return nil, errors.New("bakefile defines no targets")
 	}
@@ -83,7 +79,7 @@ func parse(data []byte) (*Bakefile, error) {
 }
 
 var (
-	topKeys    = []string{"version", "target"}
+	topKeys    = []string{"target"}
 	targetKeys = []string{"target", "destination"}
 )
 
