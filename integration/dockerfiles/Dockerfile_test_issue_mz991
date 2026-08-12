@@ -1,0 +1,15 @@
+ARG IMAGE_REPO
+# mz991: --single-snapshot with a trailing MAINTAINER discards the whole stage.
+# Broken since v1.27.6. base loses /marker from the image it saves for final,
+# final loses /marker2 from the pushed image, and nosquash holds no runnable
+# command at all.
+FROM ${IMAGE_REPO}busybox AS base
+RUN echo marker > /marker
+MAINTAINER someone
+
+FROM base AS nosquash
+MAINTAINER someone
+
+FROM base AS final
+RUN echo marker2 > /marker2
+MAINTAINER someone

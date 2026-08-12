@@ -582,6 +582,16 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		initSnapshotTaken = true
 	}
 
+	// mz991: s.cmds keeps a nil for every MAINTAINER so its positions stay aligned
+	// with stage.Commands, so the last entry is not always the last command to run.
+	lastRunnableIdx := -1
+	for i, cmd := range slices.Backward(s.cmds) {
+		if cmd != nil {
+			lastRunnableIdx = i
+			break
+		}
+	}
+
 	cacheGroup := errgroup.Group{}
 	var cmdTimer trace.Span
 	// stop on the way out too: an unended span is never exported
@@ -691,7 +701,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		cmdTimer.End()
 		cmdTimer = nil
 
-		isLastCommand := index == len(s.cmds)-1
+		isLastCommand := index == lastRunnableIdx
 		if !shouldTakeSnapshot(command.MetadataOnly(), isLastCommand, opts) {
 			logrus.Debugf("Build: skipping snapshot for [%v]", command.String())
 			continue

@@ -207,6 +207,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz775":                {"--compressed-caching=false", "--target=final,nosquash"},
 	"Dockerfile_test_add":                        {"--single-snapshot"},
 	"Dockerfile_test_issue_mz621":                {"--single-snapshot"},
+	"Dockerfile_test_issue_mz991":                {"--single-snapshot", "--target=final,nosquash"},
 	"Dockerfile_test_run_new":                    {"--use-new-run=true"},
 	"Dockerfile_test_run_redo":                   {"--snapshot-mode=redo"},
 	"Dockerfile_test_scratch":                    {"--single-snapshot"},
@@ -410,6 +411,9 @@ var expectedWarnings = map[string]string{
 	"Dockerfile_test_issue_mz793": "feature flags explicitly disabled, please create an issue for your use-case: FF_KANIKO_VOLUME_SKIP_MKDIR",
 	// mz936: the read-only store makes both stages degrade to a registry fetch, each warning.
 	"Dockerfile_test_issue_mz936": "shared-base:",
+	// mz991: the repro needs a MAINTAINER, which warns twice, once from the buildkit
+	// linter and once from kaniko skipping the command. Both lines say "is deprecated".
+	"Dockerfile_test_issue_mz991": "is deprecated",
 }
 
 func checkNoWarnings(dockerfile string, out []byte) error {
