@@ -1801,7 +1801,7 @@ func TestCrossRepoMountFallback(t *testing.T) {
 func TestPathScopedRegistryAuth(t *testing.T) {
 	proxyAddr := os.Getenv("PATH_SCOPED_AUTH_PROXY_ADDR")
 	if proxyAddr == "" {
-		t.Fatal("PATH_SCOPED_AUTH_PROXY_ADDR not set")
+		t.Skip("path-scoped auth proxy is only available in local integration mode")
 	}
 
 	dockerConfigDir, err := os.MkdirTemp("", "kaniko-docker-path-scoped-")
