@@ -1812,10 +1812,11 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 
 	// Deliberately no host-level entry for proxyAddr: only the two namespace-scoped ones,
 	// so the legacy (flag-disabled) lookup has nothing to fall back to and must fail
-	authConfig := fmt.Sprintf(`{"auths":{%q:{"auth":%q},%q:{"auth":%q},%q:{"auth":%q}}}`,
+	authConfig := fmt.Sprintf(`{"auths":{%q:{"auth":%q},%q:{"auth":%q},%q:{"auth":%q},%q:{}}}`,
 		proxyAddr+"/kaniko/patha", base64.StdEncoding.EncodeToString([]byte("org-a-user:org-a-pass")),
 		proxyAddr+"/kaniko/pathb", base64.StdEncoding.EncodeToString([]byte("org-b-user:org-b-pass")),
 		proxyAddr+"/kaniko/patha/project", base64.StdEncoding.EncodeToString([]byte("project-user:project-pass")),
+		proxyAddr+"/kaniko/patha/empty",
 	)
 	configPath := filepath.Join(dockerConfigDir, "config.json")
 	if err := os.WriteFile(configPath, []byte(authConfig), 0o644); err != nil {
@@ -1827,6 +1828,7 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 	destA := proxyAddr + "/kaniko/patha/pathscoped:latest"
 	destB := proxyAddr + "/kaniko/pathb/pathscoped:latest"
 	destProject := proxyAddr + "/kaniko/patha/project/pathscoped:latest"
+	destEmptyChild := proxyAddr + "/kaniko/patha/empty/pathscoped:latest"
 
 	run := func(pathScopedAuth, dockerfile string, args ...string) ([]byte, error) {
 		dockerRunFlags := []string{"run", "--net=host",
@@ -1846,14 +1848,14 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 	pushDockerfile := filepath.Join(buildContextPath, dockerfilesPath, "Dockerfile_path_scoped_auth_push")
 
 	t.Run("flag disabled falls back to host-only lookup and fails", func(t *testing.T) {
-		out, err := run("0", pushDockerfile, "--destination", destA, "--destination", destB, "--destination", destProject, "--no-push-cache")
+		out, err := run("0", pushDockerfile, "--destination", destA, "--destination", destB, "--destination", destProject, "--destination", destEmptyChild, "--no-push-cache")
 		if err == nil {
 			t.Fatalf("expected push to fail with the feature flag disabled (no host-level credential is configured), got success:\n%s", out)
 		}
 	})
 
 	t.Run("flag enabled selects the matching namespace credential", func(t *testing.T) {
-		out, err := run("1", pushDockerfile, "--destination", destA, "--destination", destB, "--destination", destProject, "--no-push-cache")
+		out, err := run("1", pushDockerfile, "--destination", destA, "--destination", destB, "--destination", destProject, "--destination", destEmptyChild, "--no-push-cache")
 		if err != nil {
 			t.Fatalf("push failed with the feature flag enabled: %v\n%s", err, out)
 		}

@@ -88,6 +88,9 @@ func (pathScopedKeychain) Resolve(target authn.Resource) (authn.Authenticator, e
 			cfg = a
 		}
 
+		// ConfigFile.LoadFromReader sets ServerAddress even for an empty auths entry.
+		// It is metadata, not a credential, so exclude it from the empty-config check for every lookup candidate.
+		cfg.ServerAddress = ""
 		if cfg != (types.AuthConfig{}) {
 			return authn.FromConfig(authn.AuthConfig{
 				Username:      cfg.Username,
