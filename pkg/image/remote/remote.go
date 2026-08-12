@@ -63,8 +63,10 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 			remappedRef := setNewRepository(ref, remappedRepository)
 
 			logrus.Infof("Retrieving image %s from mapped registry %s", remappedRef, regToMapTo)
+			// outside retryFunc, otherwise every retry starts from an empty connection pool
+			remoteOpts := remoteOptions(regToMapTo, opts, customPlatform)
 			retryFunc := func() (v1.Image, error) {
-				return remoteImageFunc(remappedRef, remoteOptions(regToMapTo, opts, customPlatform)...)
+				return remoteImageFunc(remappedRef, remoteOpts...)
 			}
 
 			var remoteImage v1.Image
@@ -94,8 +96,9 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 
 	logrus.Infof("Retrieving image %s from registry %s", ref, registryName)
 
+	remoteOpts := remoteOptions(registryName, opts, customPlatform)
 	retryFunc := func() (v1.Image, error) {
-		return remoteImageFunc(ref, remoteOptions(registryName, opts, customPlatform)...)
+		return remoteImageFunc(ref, remoteOpts...)
 	}
 
 	var remoteImage v1.Image
@@ -155,7 +158,17 @@ func remoteOptions(registryName string, opts config.RegistryOptions, customPlatf
 		logrus.Fatalf("Invalid platform %q: %v", customPlatform, err)
 	}
 
-	return []remote.Option{remote.WithTransport(tr), remote.WithAuthFromKeychain(creds.GetKeychain(&opts)), remote.WithPlatform(*platform)}
+	keychain := creds.GetKeychain(&opts)
+	remoteOpts := []remote.Option{remote.WithTransport(tr), remote.WithAuthFromKeychain(keychain), remote.WithPlatform(*platform)}
+
+	puller, err := util.RegistryPuller(opts, registryName, keychain, platform)
+	if err != nil {
+		logrus.Fatalf("Unable to setup puller for registry %q: %v", registryName, err)
+	}
+	if puller != nil {
+		remoteOpts = append(remoteOpts, remote.Reuse(puller))
+	}
+	return remoteOpts
 }
 
 // Parse the registry mapping

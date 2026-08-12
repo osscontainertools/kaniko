@@ -43,6 +43,7 @@ type FeatureFlags struct {
 	NoPropagateAnnotations         bool
 	OCIScratchBase                 bool
 	OCIWarmer                      bool
+	PoolRegistryConnections        bool
 	PrecompileDockerignore         bool
 	PreserveHardlinks              bool
 	PreserveMountedPaths           bool
@@ -113,6 +114,7 @@ func InitFeatureFlags() {
 		NoPropagateAnnotations:         featureFlag("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS", true),
 		OCIScratchBase:                 featureFlag("FF_KANIKO_OCI_SCRATCH_BASE", false),
 		OCIWarmer:                      featureFlag("FF_KANIKO_OCI_WARMER", true),
+		PoolRegistryConnections:        featureFlag("FF_KANIKO_POOL_REGISTRY_CONNECTIONS", false),
 		PrecompileDockerignore:         featureFlag("FF_KANIKO_PRECOMPILE_DOCKERIGNORE", false),
 		PreserveHardlinks:              featureFlag("FF_KANIKO_PRESERVE_HARDLINKS", true),
 		RelativeLinkTargets:            featureFlag("FF_KANIKO_RELATIVE_LINK_TARGETS", true),
