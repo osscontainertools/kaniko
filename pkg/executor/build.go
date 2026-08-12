@@ -51,6 +51,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	image_util "github.com/osscontainertools/kaniko/pkg/image"
 	"github.com/osscontainertools/kaniko/pkg/image/remote"
+	"github.com/osscontainertools/kaniko/pkg/mounts"
 	"github.com/osscontainertools/kaniko/pkg/snapshot"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -1098,7 +1099,12 @@ var (
 	Out io.Writer = os.Stdout
 )
 
-func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string) (retErr error) {
+type pushedLayer struct {
+	name string
+	key  v1.Hash
+}
+
+func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string, layerCache *memoizedLayerCache) (retErr error) {
 	printf := func(format string, args ...any) {
 		if retErr == nil {
 			_, retErr = fmt.Fprintf(Out, format, args...)
@@ -1111,44 +1117,40 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 	if opts.PreCleanup {
 		printf("CLEAN\n")
 	}
+	sources := mounts.Snapshot()
+	stageLayers := map[int][]pushedLayer{}
 	for _, s := range stages {
 		if s.Name != "" {
 			printf("FROM %s AS %s\n", s.BaseName, s.Name)
 		} else {
 			printf("FROM %s\n", s.BaseName)
 		}
-		switch {
-		case s.BaseImageStoredLocally:
-			printf("UNPACK %s%d\n", config.KanikoIntermediateStagesDir, s.BaseImageIndex)
-		case s.BaseImageShared:
-			printf("FETCH %s\n", s.BaseName)
-			printf("UNPACK %s\n", s.BaseName)
-		default:
-			printf("STREAM %s\n", s.BaseName)
+		var layers []pushedLayer
+		if s.BaseImageStoredLocally {
+			printf("  UNPACK %s%d\n", config.KanikoIntermediateStagesDir, s.BaseImageIndex)
+			layers = slices.Clone(stageLayers[s.BaseImageIndex])
+		} else {
+			if s.BaseImageShared {
+				printf("  FETCH %s\n", s.BaseName)
+				printf("  UNPACK %s\n", s.BaseName)
+			} else {
+				printf("  STREAM %s\n", s.BaseName)
+			}
+			if s.BaseImageDigest != "" {
+				base, err := image_util.RetrieveSourceImage(s, opts)
+				if err != nil {
+					return err
+				}
+				manifest, err := base.Manifest()
+				if err != nil {
+					return err
+				}
+				for _, l := range manifest.Layers {
+					layers = append(layers, pushedLayer{name: l.Digest.String(), key: l.Digest})
+				}
+			}
 		}
 		for jdx, c := range s.Commands {
-			if opts.Cache && opts.CacheCopyLayers && config.FF.InferCrossStageCacheKey && config.FF.CacheLookahead {
-				if copyCmd, ok := c.(*instructions.CopyCommand); ok && copyCmd.From != "" {
-					ci := cacheInfo[s.Index]
-					if ck := ci.redirectKeys[jdx]; ck != "" {
-						if ci.redirectHits[jdx] {
-							printf("CACHE REDIRECT HIT: %s\n", ck)
-						} else {
-							printf("CACHE REDIRECT MISS: %s\n", ck)
-						}
-					}
-				}
-			}
-			if opts.Cache && config.FF.CacheLookahead {
-				ci := cacheInfo[s.Index]
-				if ck := ci.cacheKeys[jdx]; ck != "" {
-					if ci.cacheHits[jdx] {
-						printf("CACHE HIT: %s\n", ck)
-					} else {
-						printf("CACHE MISS: %s\n", ck)
-					}
-				}
-			}
 			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
 			if err != nil {
 				return err
@@ -1157,9 +1159,82 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 				continue
 			}
 			printf("%s\n", command)
+			snapshots := shouldTakeSnapshot(command.MetadataOnly(), jdx == len(s.Commands)-1, opts)
+			var key v1.Hash
+			if opts.Cache && opts.CacheCopyLayers && config.FF.InferCrossStageCacheKey && config.FF.CacheLookahead {
+				if copyCmd, ok := c.(*instructions.CopyCommand); ok && copyCmd.From != "" {
+					ci := cacheInfo[s.Index]
+					if ck := ci.redirectKeys[jdx]; ck != "" {
+						if ci.redirectHits[jdx] {
+							printf("  CACHE REDIRECT HIT: %s\n", ck)
+						} else {
+							printf("  CACHE REDIRECT MISS: %s\n", ck)
+						}
+					}
+				}
+			}
+			if opts.Cache && config.FF.CacheLookahead {
+				ci := cacheInfo[s.Index]
+				if ck := ci.cacheKeys[jdx]; ck != "" {
+					cacheRef, err := cache.Destination(opts, ck)
+					if err != nil {
+						cacheRef = ""
+					}
+					if ci.cacheHits[jdx] {
+						printf("  CACHE HIT: %s\n", ck)
+						cached, err := layerCache.RetrieveLayer(ck)
+						if err == nil {
+							cachedLayers, err := cached.Layers()
+							if err == nil && len(cachedLayers) == 1 && snapshots {
+								key, _ = cachedLayers[0].Digest()
+							}
+						}
+					} else {
+						printf("  CACHE MISS: %s\n", ck)
+						if snapshots && !opts.NoPushCache && command.ShouldCacheOutput() && cacheRef != "" {
+							printf("  UPLOAD %s\n", cacheRef)
+							key = mounts.PlannedDigest(ck)
+							tag, err := name.NewTag(cacheRef, name.WeakValidation)
+							if err != nil {
+								return err
+							}
+							sources[key] = []name.Repository{tag.Context()}
+						}
+					}
+				}
+			}
+			if snapshots {
+				layers = append(layers, pushedLayer{name: command.String(), key: key})
+			}
 		}
+		stageLayers[s.Index] = layers
 		if s.Push && !opts.NoPush {
 			printf("PUSH %v\n", opts.Destinations)
+			var registries []string
+			for _, destination := range opts.Destinations {
+				dest, err := name.NewTag(destination, name.WeakValidation)
+				if err != nil {
+					return err
+				}
+				registries = append(registries, dest.RegistryStr())
+			}
+			for _, l := range layers {
+				var source name.Repository
+				serves := config.FF.CrossRepoMount && len(registries) > 0
+				for _, registry := range registries {
+					repo, ok := mounts.Mountable(sources[l.key], registry)
+					if ok {
+						source = repo
+					} else {
+						serves = false
+					}
+				}
+				if serves {
+					printf("  MOUNT %s FROM %s\n", l.name, source)
+				} else {
+					printf("  UPLOAD %s\n", l.name)
+				}
+			}
 		}
 		if s.Final {
 			if opts.Cleanup {
@@ -1360,7 +1435,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 
 	if opts.Dryrun || config.EnvBool("KANIKO_PRINT_PLAN") {
-		err := RenderStages(kanikoStages, cacheInfo, opts, fileContext, crossStageDependencies)
+		err := RenderStages(kanikoStages, cacheInfo, opts, fileContext, crossStageDependencies, layerCache)
 		if err != nil {
 			return nil, err
 		}

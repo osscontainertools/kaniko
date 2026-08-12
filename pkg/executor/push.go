@@ -40,6 +40,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/creds"
+	"github.com/osscontainertools/kaniko/pkg/mounts"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/version"
@@ -290,6 +291,10 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		rt := &withUserAgent{t: tr}
 
 		logrus.Infof("Pushing image to %s", destRef.String())
+		pushImage := image
+		if config.FF.CrossRepoMount {
+			pushImage = mounts.MountableImage(image, destRef.RegistryStr())
+		}
 
 		retryFunc := func() error {
 			dig, err := image.Digest()
@@ -297,7 +302,7 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 				return err
 			}
 			digest := destRef.Context().Digest(dig.String())
-			if err := remote.Write(destRef, image, remote.WithAuth(pushAuth), remote.WithTransport(rt)); err != nil {
+			if err := remote.Write(destRef, pushImage, remote.WithAuth(pushAuth), remote.WithTransport(rt)); err != nil {
 				if !opts.PushIgnoreImmutableTagErrors {
 					return err
 				}
@@ -313,6 +318,10 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 				return err
 			}
 			logrus.Infof("Pushed %s", digest)
+			// pushLayerToCache funnels through here, so cache entries land here too.
+			if config.FF.CrossRepoMount {
+				mounts.RecordImage(image, destRef.Context())
+			}
 			return nil
 		}
 

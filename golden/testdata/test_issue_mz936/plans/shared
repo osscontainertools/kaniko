@@ -1,38 +1,38 @@
-FROM alpine:3.12 AS base
-FETCH alpine:3.12
-UNPACK alpine:3.12
+FROM alpine@sha256:c75ac27b49326926b803b9ed43bf088bc220d22556de1bc5f72d742c91398f69 AS base
+  FETCH alpine@sha256:c75ac27b49326926b803b9ed43bf088bc220d22556de1bc5f72d742c91398f69
+  UNPACK alpine@sha256:c75ac27b49326926b803b9ed43bf088bc220d22556de1bc5f72d742c91398f69
 RUN touch /blubb
 SAVE STAGE /kaniko/stages/0
 SAVE FILES [/blubb] /kaniko/deps/0
 CLEAN
 
-FROM alpine:3.11 AS shared1
-FETCH alpine:3.11
-UNPACK alpine:3.11
+FROM alpine@sha256:bcae378eacedab83da66079d9366c8f5df542d7ed9ab23bf487e3e1a8481375d AS shared1
+  FETCH alpine@sha256:bcae378eacedab83da66079d9366c8f5df542d7ed9ab23bf487e3e1a8481375d
+  UNPACK alpine@sha256:bcae378eacedab83da66079d9366c8f5df542d7ed9ab23bf487e3e1a8481375d
 RUN touch /blubb
 SAVE FILES [/blubb] /kaniko/deps/1
 CLEAN
 
-FROM alpine:3.11 AS shared2
-FETCH alpine:3.11
-UNPACK alpine:3.11
+FROM alpine@sha256:bcae378eacedab83da66079d9366c8f5df542d7ed9ab23bf487e3e1a8481375d AS shared2
+  FETCH alpine@sha256:bcae378eacedab83da66079d9366c8f5df542d7ed9ab23bf487e3e1a8481375d
+  UNPACK alpine@sha256:bcae378eacedab83da66079d9366c8f5df542d7ed9ab23bf487e3e1a8481375d
 RUN touch /blubb
 SAVE FILES [/blubb] /kaniko/deps/2
 CLEAN
 
 FROM base AS derived
-UNPACK /kaniko/stages/0
+  UNPACK /kaniko/stages/0
 SAVE FILES [/blubb] /kaniko/deps/3
 CLEAN
 
-FROM alpine:3.10 AS unused
-STREAM alpine:3.10
+FROM alpine@sha256:451eee8bedcb2f029756dc3e9d73bab0e7943c1ac55cff3a4861c52a0fdd3e98 AS unused
+  STREAM alpine@sha256:451eee8bedcb2f029756dc3e9d73bab0e7943c1ac55cff3a4861c52a0fdd3e98
 RUN touch /blubb
 SAVE FILES [/blubb] /kaniko/deps/4
 CLEAN
 
-FROM debian:12.10 AS final
-STREAM debian:12.10
+FROM debian@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56 AS final
+  STREAM debian@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56
 COPY --from=base /blubb /0
 COPY --from=shared1 /blubb /1
 COPY --from=shared2 /blubb /2

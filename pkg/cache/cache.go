@@ -32,6 +32,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/creds"
+	"github.com/osscontainertools/kaniko/pkg/mounts"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
@@ -80,6 +81,9 @@ func (rc *RegistryCache) RetrieveLayer(ck string) (v1.Image, error) {
 
 	if err = verifyImage(img, rc.Opts.CacheTTL, cache); err != nil {
 		return nil, err
+	}
+	if config.FF.CrossRepoMount {
+		mounts.RecordImage(img, cacheRef.Context())
 	}
 	return img, nil
 }

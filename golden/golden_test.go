@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"flag"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -28,9 +29,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	ggcrtypes "github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
 	testissuemz195 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz195"
 	testissuemz333 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz333"
@@ -43,11 +46,13 @@ import (
 	testissuemz813 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz813"
 	testissuemz822 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz822"
 	testissuemz936 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz936"
+	testissuemz989 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz989"
 	testunittests "github.com/osscontainertools/kaniko/golden/testdata/test_unittests"
 	"github.com/osscontainertools/kaniko/golden/types"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/executor"
+	"github.com/osscontainertools/kaniko/pkg/mounts"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -56,7 +61,31 @@ import (
 const cachePointerLabel = "kaniko.cache.pointer-target"
 
 type fakeLayerCache struct {
+	opts       *config.KanikoOptions
 	cachedKeys []string
+}
+
+// fakeLayer stands in for a cache entry's layer. Its content is the key that found it, so its
+// digest is derived rather than fixed by hand and stays stable across runs.
+type fakeLayer struct {
+	key string
+}
+
+func (l *fakeLayer) Digest() (v1.Hash, error) { return l.hash() }
+func (l *fakeLayer) DiffID() (v1.Hash, error) { return l.hash() }
+func (l *fakeLayer) Size() (int64, error)     { return int64(len(l.key)), nil }
+
+func (l *fakeLayer) MediaType() (ggcrtypes.MediaType, error) { return ggcrtypes.DockerLayer, nil }
+func (l *fakeLayer) Compressed() (io.ReadCloser, error)      { return l.reader(), nil }
+
+func (l *fakeLayer) Uncompressed() (io.ReadCloser, error) { return l.reader(), nil }
+
+func (l *fakeLayer) hash() (v1.Hash, error) {
+	return mounts.PlannedDigest(l.key), nil
+}
+
+func (l *fakeLayer) reader() io.ReadCloser {
+	return io.NopCloser(strings.NewReader(l.key))
 }
 
 func (f *fakeLayerCache) RetrieveLayer(key string) (v1.Image, error) {
@@ -65,7 +94,25 @@ func (f *fakeLayerCache) RetrieveLayer(key string) (v1.Image, error) {
 	}
 	cf := &v1.ConfigFile{}
 	cf.Config.Labels = map[string]string{cachePointerLabel: key}
-	return mutate.ConfigFile(empty.Image, cf)
+	img, err := mutate.ConfigFile(empty.Image, cf)
+	if err != nil {
+		return nil, err
+	}
+	img, err = mutate.AppendLayers(img, &fakeLayer{key: key})
+	if err != nil {
+		return nil, err
+	}
+	// The real registry cache records where it read from, and the plan reads that back.
+	if config.FF.CrossRepoMount {
+		dest, err := cache.Destination(f.opts, key)
+		if err == nil {
+			tag, err := name.NewTag(dest, name.WeakValidation)
+			if err == nil {
+				mounts.RecordImage(img, tag.Context())
+			}
+		}
+	}
+	return img, nil
 }
 
 func renderCommand(env map[string]string, args []string) string {
@@ -100,6 +147,7 @@ var allTests = map[string][]types.GoldenTests{
 	"test_issue_mz813": {testissuemz813.Tests},
 	"test_issue_mz822": {testissuemz822.Tests},
 	"test_issue_mz936": {testissuemz936.Tests},
+	"test_issue_mz989": {testissuemz989.Tests},
 	"test_unittests":   testunittests.Tests,
 }
 var update bool
@@ -132,8 +180,8 @@ func TestRun(t *testing.T) {
 
 							opts := config.KanikoOptions{}
 							origNewLayerCache := executor.NewLayerCache
-							executor.NewLayerCache = func(_ *config.KanikoOptions) cache.LayerCache {
-								return &fakeLayerCache{cachedKeys: test.CachedKeys}
+							executor.NewLayerCache = func(opts *config.KanikoOptions) cache.LayerCache {
+								return &fakeLayerCache{opts: opts, cachedKeys: test.CachedKeys}
 							}
 							t.Cleanup(func() { executor.NewLayerCache = origNewLayerCache })
 							exec := &cobra.Command{

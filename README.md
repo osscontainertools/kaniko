@@ -159,6 +159,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_EXPAND_HEREDOC`](#flag-ff_kaniko_expand_heredoc)
       - [Flag `FF_KANIKO_SKIP_CACHED_STAGES`](#flag-ff_kaniko_skip_cached_stages)
       - [Flag `FF_KANIKO_SHARED_BASE_CACHE`](#flag-ff_kaniko_shared_base_cache)
+      - [Flag `FF_KANIKO_CROSS_REPO_MOUNT`](#flag-ff_kaniko_cross_repo_mount)
     - [Assertion Overrides](#assertion-overrides)
     - [Telemetry](#telemetry)
     - [Debug Image](#debug-image)
@@ -1425,6 +1426,12 @@ Becomes default in `v1.29.0`.
 
 When several stages build on the same remote base image, kaniko downloads that base once per stage. Set this flag to `true` to download a shared base once, store it under `/kaniko/bases`, and have the other stages read it from there instead of downloading it again. A base is also stored when a stage is kept for a later stage to build on, or when the built image is pushed, because both re-read the base layers. A base used by a single stage that is not pushed still streams, so nothing is stored that would not be read again.
 Stored bases stay in `/kaniko/bases` after the build, `--cleanup` does not remove them. A long-lived executor that runs many builds therefore accumulates every base it ever downloaded.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_CROSS_REPO_MOUNT`
+
+A registry can copy a blob between its own repositories for free, but only if it is told which repository already holds it. Kaniko loses that as soon as it copies a layer locally. Worse, with `--cache` every built layer goes up twice, once to the cache repo and once inside the image. Set this flag to `true` to remember which layers can be mounted remotely and which ones genuinely need to be pushed.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
