@@ -23,6 +23,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -73,6 +74,18 @@ func spanLimits() sdktrace.SpanLimits {
 	return limits
 }
 
+// otlptracehttp >= 1.45 no longer appends the OTLP signal path itself.
+func tracesEndpoint(endpoint string) string {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return endpoint
+	}
+	if u.Path != "" && u.Path != "/" {
+		return endpoint
+	}
+	return u.JoinPath("/v1/traces").String()
+}
+
 func Init(ctx context.Context, opts *config.KanikoOptions) {
 	endpoint := os.Getenv(EndpointEnv)
 	if endpoint == "" {
@@ -81,7 +94,7 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 	if strings.HasPrefix(endpoint, "http://") {
 		logrus.Warnf("%s uses plaintext http: spans (including Dockerfile content) are sent unencrypted", EndpointEnv)
 	}
-	exp, err := otlptracehttp.New(ctx, otlptracehttp.WithEndpointURL(endpoint))
+	exp, err := otlptracehttp.New(ctx, otlptracehttp.WithEndpointURL(tracesEndpoint(endpoint)))
 	if err != nil {
 		logrus.Debugf("tracing disabled: failed to create OTLP exporter: %v", err)
 		return
