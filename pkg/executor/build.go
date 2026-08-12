@@ -1820,7 +1820,7 @@ func downloadExtraStages(images map[string]v1.Image, externalImageDigests map[st
 				return err
 			}
 		} else if sharedRemote[digest] {
-			stored, err := loadFromOCILayout(filepath.Join(config.KanikoBaseStagesDir, digest))
+			stored, err := loadSharedBase(digest)
 			if err == nil {
 				logrus.Infof("shared-base: loading %s from local store", digest)
 				sourceImage = stored
