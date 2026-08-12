@@ -264,7 +264,7 @@ func TestBake(t *testing.T) {
 							exec := &cobra.Command{Use: "bake"}
 							cmd.AddBakeFlags(exec, &opts, &set)
 							args := []string{
-								filepath.Join(testDir, "bake.json"),
+								filepath.Join(testDir, "bake.hcl"),
 								"--dryrun",
 								"--dockerfile=" + filepath.Join(testDir, testSuite.Dockerfile),
 							}

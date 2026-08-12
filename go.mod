@@ -22,6 +22,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-containerregistry v0.21.9
 	github.com/google/slowjam v1.1.2
+	github.com/hashicorp/hcl v1.0.0
 	github.com/minio/highwayhash v1.0.4
 	github.com/moby/buildkit v0.32.2
 	github.com/moby/go-archive v0.3.3
