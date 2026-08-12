@@ -685,7 +685,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		if !initSnapshotTaken && !isCacheCommand && !command.ProvidesFilesToSnapshot() {
 			// Take initial snapshot if command does not expect to return
 			// a list of files.
-			t := timing.Start("Initial FS snapshot")
+			t := timing.StartChild(cmdTimer, "Initial FS snapshot")
 			err := snapshotter.Init()
 			t.End()
 			if err != nil {
@@ -694,7 +694,10 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			initSnapshotTaken = true
 		}
 
-		if err := command.ExecuteCommand(&s.cf.Config, s.args); err != nil {
+		execTimer := timing.StartChild(cmdTimer, "Execute")
+		err := command.ExecuteCommand(&s.cf.Config, s.args)
+		execTimer.End()
+		if err != nil {
 			return fmt.Errorf("failed to execute command: %w", err)
 		}
 		files = command.FilesToSnapshot()
