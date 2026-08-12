@@ -99,7 +99,6 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_mz775": {"FF_KANIKO_CACHE_LOOKAHEAD=0"},
 	"Dockerfile_test_issue_mz334": {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
 	"Dockerfile_test_issue_mz960": {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
-	"Dockerfile_test_issue_mz793": {"FF_KANIKO_VOLUME_SKIP_MKDIR=0"},
 	"Dockerfile_test_issue_mz473": {"KANIKO_DIR=/kaniko2"},
 	"Dockerfile_test_issue_mz661": {"KANIKO_DIR=/kaniko2"},
 	"Dockerfile_test_stopsignal":  {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
@@ -297,10 +296,6 @@ var diffArgsMap = map[string][]string{
 	// But we discovered a new issue with this. For builtins, buildkit will emit "whiteout" files,
 	// to remember that it was removed, we don't. So we end up with a diff in the resulting image.
 	"TestRun/test_Dockerfile_test_issue_mz511": {"--extra-ignore-files=etc/.wh.nsswitch.conf", "--extra-ignore-layer-length-mismatch"},
-	// mz793: with FF_KANIKO_VOLUME_SKIP_MKDIR off, VOLUME creates the directory fresh on
-	// each build, so its mtime differs between the two cached builds. That divergence is the
-	// known volume non-determinism the flag fixes, here we only assert the build no longer panics.
-	"TestCache/test_cache_Dockerfile_test_issue_mz793": {"--extra-ignore-files=data/"},
 	// Layer-length divergences from buildkit, enforced per-test instead of globally
 	"TestRun/test_Dockerfile_test_add":                       {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_arg_blank_with_quotes":     {"--extra-ignore-layer-length-mismatch"},
@@ -407,8 +402,6 @@ var warmerOutputChecks = map[string]func(string, []byte) error{
 var expectedWarnings = map[string]string{
 	// mz640: COPY to /kaniko (ignored path) must warn rather than silently skip.
 	"Dockerfile_test_issue_mz560": "Skipping copy targeting kaniko directory",
-	// mz793: the test disables FF_KANIKO_VOLUME_SKIP_MKDIR, which the flag registry warns about.
-	"Dockerfile_test_issue_mz793": "feature flags explicitly disabled, please create an issue for your use-case: FF_KANIKO_VOLUME_SKIP_MKDIR",
 	// mz936: the read-only store makes both stages degrade to a registry fetch, each warning.
 	"Dockerfile_test_issue_mz936": "shared-base:",
 	// mz991: the repro needs a MAINTAINER, which warns twice, once from the buildkit
@@ -550,7 +543,6 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz775":   {},
 		"Dockerfile_test_issue_mz782":   {},
 		"Dockerfile_test_issue_mz873":   {},
-		"Dockerfile_test_issue_mz793":   {},
 		"Dockerfile_test_issue_mz879":   {},
 		"Dockerfile_test_issue_mz896":   {},
 		"Dockerfile_test_issue_mz960":   {},

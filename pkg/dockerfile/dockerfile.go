@@ -411,11 +411,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			onlyUsedStages = append(onlyUsedStages, s)
 		}
 	}
-	// legacy warmer overrides images override digest method to not return the digest
-	// as they get stored in a tarball and digest is lost in the process.
-	// But this also means that our defensive store and load here can't play nicely with them.
-	legacyCache := !config.FF.OCIWarmer && opts.Cache && opts.CacheDir != ""
-	if config.FF.SharedBaseCache && !legacyCache {
+	if config.FF.SharedBaseCache {
 		writesOutput := (!opts.NoPush && len(opts.Destinations) > 0) || opts.TarPath != "" || opts.OCILayoutPath != ""
 		for i := range onlyUsedStages {
 			s := &onlyUsedStages[i]

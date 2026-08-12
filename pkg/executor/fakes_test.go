@@ -181,7 +181,13 @@ type fakeLayer struct {
 }
 
 func (f fakeLayer) Digest() (v1.Hash, error) {
-	return v1.Hash{}, nil
+	rc, err := f.Compressed()
+	if err != nil {
+		return v1.Hash{}, err
+	}
+	defer rc.Close()
+	h, _, err := v1.SHA256(rc)
+	return h, err
 }
 
 func (f fakeLayer) DiffID() (v1.Hash, error) {
