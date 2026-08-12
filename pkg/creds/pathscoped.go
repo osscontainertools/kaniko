@@ -56,7 +56,10 @@ func (pathScopedKeychain) Resolve(target authn.Resource) (authn.Authenticator, e
 		return nil, err
 	}
 	if cf == nil {
-		return authn.Anonymous, nil
+		// Docker CLI can resolve DOCKER_AUTH_CONFIG without an auth file.
+		// Use an empty ConfigFile so its host-level credential-store lookup retains
+		// that behavior while scoped candidates use envAuths below.
+		cf = configfile.New("")
 	}
 
 	envAuths, err := dockerAuthConfigEnv()
