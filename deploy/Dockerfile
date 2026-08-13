@@ -39,10 +39,12 @@ RUN mkdir -p /kaniko/.docker
 # Then submit a PR with the changes to `go.mod`, `go.sum`, and `vendor`.
 
 # Get credential helpers
+# The acr helper binary is named docker-credential-acr upstream, keep the old name so
+# existing credHelpers entries for "acr-env" keep resolving.
 COPY go.mod go.sum ./
 RUN go build -o out/ github.com/GoogleCloudPlatform/docker-credential-gcr/v2 \
     && go build -o out/ github.com/awslabs/amazon-ecr-credential-helper/ecr-login/cli/docker-credential-ecr-login \
-    && go build -o out/ github.com/chrismellard/docker-credential-acr-env \
+    && go build -o out/docker-credential-acr-env github.com/osscontainertools/docker-credential-acr \
     && rm -rf /root/.cache /go/pkg
 
 COPY . .
