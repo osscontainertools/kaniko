@@ -177,7 +177,7 @@ built into the kaniko executor image.
    2. Or you can create a Kubernetes secret for your `~/.aws/credentials` file
       so that credentials can be accessed within the cluster. To create the
       secret, run:
-      `shell kubectl create secret generic aws-secret --from-file=<path to .aws/credentials>`
+      `shell kubectl create secret generic aws-secret --from-file=<path to .aws/credentials> `
 
 The Kubernetes Pod spec should look similar to this, with the args parameters
 filled in. Note that `aws-secret` volume mount and volume are only needed when
@@ -238,7 +238,7 @@ You can mount in the new config as a configMap:
 kubectl create configmap docker-config --from-file=<path to config.json>
 ```
 
-1. Configure credentials
+2. Configure credentials
 
 You can create a Kubernetes secret with environment variables required for
 Service Principal authentication and expose them to the builder container.
@@ -256,11 +256,10 @@ the MSI endpoint will authenticate the MSI context the service is running under.
 
 `AZURE_ENVIRONMENT=<environment>` can be used to connect to clouds other than the standard public cloud.
 Choose among:
-
-* `AZUREPUBLICCLOUD` (default)
-* `AZURECHINACLOUD`
-* `AZUREGERMANCLOUD`
-* `AZUREUSGOVERNMENT`
+  * `AZUREPUBLICCLOUD` (default)
+  * `AZURECHINACLOUD`
+  * `AZUREGERMANCLOUD`
+  * `AZUREUSGOVERNMENT`
 
 The Kubernetes Pod spec should look similar to this, with the args parameters
 filled in. Note that `azure-secret` secret is only needed when using Azure
