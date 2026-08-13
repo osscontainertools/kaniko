@@ -5,9 +5,4 @@ FROM ${IMAGE_REPO}busybox
 # When running kaniko with KANIKO_DIR=/kaniko2 in order to relocate the binary,
 # The binary would simply get deleted instead.
 # Verify here that relocation indeed works.
-RUN if ls -l /proc/1/exe | grep -q '/kaniko/executor'; then \
-        [ ! -d /kaniko ]; \
-        [ -f /kaniko2/executor ]; \
-    else \
-        echo "PID1 is not Kaniko, skipping check"; \
-    fi
+RUN [ ! -d /kaniko ] && [ -f /kaniko2/executor ]

@@ -223,6 +223,9 @@ func TestRun(t *testing.T) {
 			if _, ok := imageBuilder.TestReproducibleDockerfiles[dockerfile]; ok {
 				t.SkipNow()
 			}
+			if _, ok := imageBuilder.TestKanikoOnlyDockerfiles[dockerfile]; ok {
+				t.SkipNow()
+			}
 
 			buildImage(t, dockerfile, imageBuilder)
 
@@ -230,6 +233,25 @@ func TestRun(t *testing.T) {
 			kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 
 			containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
+		})
+	}
+}
+
+// TestKanikoOnly asserts kaniko survives the build.
+func TestKanikoOnly(t *testing.T) {
+	t.Parallel()
+	for dockerfile := range imageBuilder.TestKanikoOnlyDockerfiles {
+		if match, _ := filepath.Match(config.dockerfilesPattern, dockerfile); !match {
+			continue
+		}
+		t.Run("test_"+dockerfile, func(t *testing.T) {
+			dockerfile := dockerfile
+			t.Parallel()
+
+			err := imageBuilder.BuildKanikoImage(t, config, dockerfilesPath, dockerfile)
+			if err != nil {
+				t.Fatal(err)
+			}
 		})
 	}
 }
@@ -674,6 +696,9 @@ func TestLayers(t *testing.T) {
 				t.SkipNow()
 			}
 			if _, ok := expectErr[dockerfile]; ok {
+				t.SkipNow()
+			}
+			if _, ok := imageBuilder.TestKanikoOnlyDockerfiles[dockerfileTest]; ok {
 				t.SkipNow()
 			}
 

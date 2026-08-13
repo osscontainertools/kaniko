@@ -36,6 +36,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
@@ -178,8 +179,11 @@ func writeDigestFile(path string, digestByteArray []byte) error {
 // A dummy destination would be set when --no-push is set to true and --tar-path
 // is not empty with empty --destinations.
 func DoPush(image v1.Image, opts *config.KanikoOptions) error {
+	assert.Assert("executor.push.image-nonnull", image != nil, "DoPush called with nil image")
+
 	t := timing.Start("Total Push Time")
 	defer t.End()
+
 	var digestByteArray []byte
 	var builder strings.Builder
 
