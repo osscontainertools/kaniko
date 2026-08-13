@@ -1,3 +1,47 @@
+# v1.28.3 Release 2026-08-13
+
+## What's Changed
+### Security
+* prevent Azure token disclosure to lookalike `azurecr.io` hostnames: https://github.com/osscontainertools/kaniko/pull/1004
+
+### Bugfixes
+* `--single-snapshot` on a stage ending in `MAINTAINER` pushes an image without its layers: https://github.com/osscontainertools/kaniko/pull/1000
+* `--dryrun` panics when a destination is set: https://github.com/osscontainertools/kaniko/pull/999
+
+### Performance
+* `FF_KANIKO_CROSS_REPO_MOUNT=false` mount layers the destination registry already holds: https://github.com/osscontainertools/kaniko/pull/990
+* `FF_KANIKO_SHARED_BASE_CACHE=false` read `COPY --from=<image>` through the shared base store: https://github.com/osscontainertools/kaniko/pull/949
+
+### Telemetry
+* `KANIKO_TELEMETRY_OMIT_DOCKERFILE=false` keep the Dockerfile source out of the trace: by @babs in https://github.com/osscontainertools/kaniko/pull/913
+* report registry socket and request counts on the build span: https://github.com/osscontainertools/kaniko/pull/971
+* nest trace spans under the command they belong to: https://github.com/osscontainertools/kaniko/pull/931
+
+### Maintenance
+* build(deps): bump github.com/moby/go-archive from 0.2.1 to 0.3.3: https://github.com/osscontainertools/kaniko/pull/976 https://github.com/osscontainertools/kaniko/pull/977 https://github.com/osscontainertools/kaniko/pull/995
+* build(deps): bump github.com/docker/cli from 29.6.2+incompatible to 29.7.2+incompatible: https://github.com/osscontainertools/kaniko/pull/975 https://github.com/osscontainertools/kaniko/pull/977 https://github.com/osscontainertools/kaniko/pull/995
+* build(deps): bump busybox in /deploy: https://github.com/osscontainertools/kaniko/pull/974
+* build(deps): bump github.com/aws/aws-sdk-go-v2 from 1.43.2 to 1.43.5: https://github.com/osscontainertools/kaniko/pull/977 https://github.com/osscontainertools/kaniko/pull/995 https://github.com/osscontainertools/kaniko/pull/1003
+* build(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.32.33 to 1.32.36: https://github.com/osscontainertools/kaniko/pull/977 https://github.com/osscontainertools/kaniko/pull/995 https://github.com/osscontainertools/kaniko/pull/1003
+* build(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager from 0.3.7 to 0.3.12: https://github.com/osscontainertools/kaniko/pull/977 https://github.com/osscontainertools/kaniko/pull/984 https://github.com/osscontainertools/kaniko/pull/995 https://github.com/osscontainertools/kaniko/pull/1003
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.106.2 to 1.107.1: https://github.com/osscontainertools/kaniko/pull/977 https://github.com/osscontainertools/kaniko/pull/984 https://github.com/osscontainertools/kaniko/pull/995 https://github.com/osscontainertools/kaniko/pull/1003
+* build(deps): bump github.com/google/go-containerregistry from 0.21.7 to 0.21.9: https://github.com/osscontainertools/kaniko/pull/977 https://github.com/osscontainertools/kaniko/pull/995
+* build(deps): bump debian in /deploy: https://github.com/osscontainertools/kaniko/pull/982
+* build(deps): bump github.com/moby/buildkit from 0.32.0 to 0.32.2: https://github.com/osscontainertools/kaniko/pull/981 https://github.com/osscontainertools/kaniko/pull/984
+* build(deps): bump step-security/harden-runner from 2.20.0 to 2.20.1: https://github.com/osscontainertools/kaniko/pull/983
+* build(deps): bump github.com/GoogleCloudPlatform/docker-credential-gcr/v2 from 2.1.32 to 2.2.1: https://github.com/osscontainertools/kaniko/pull/986 https://github.com/osscontainertools/kaniko/pull/995
+* build(deps): bump go.opentelemetry.io/otel from 1.44.0 to 1.45.0: https://github.com/osscontainertools/kaniko/pull/988
+* build(deps): bump go.opentelemetry.io/otel/sdk from 1.44.0 to 1.45.0: https://github.com/osscontainertools/kaniko/pull/985
+* build(deps): bump golang in /deploy: https://github.com/osscontainertools/kaniko/pull/994
+* build(deps): bump google.golang.org/api from 0.291.0 to 0.292.0: https://github.com/osscontainertools/kaniko/pull/997
+* build(deps): bump go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp from 1.44.0 to 1.45.0: https://github.com/osscontainertools/kaniko/pull/996 https://github.com/osscontainertools/kaniko/pull/1001
+
+### Fork Related
+* doc changes: https://github.com/osscontainertools/kaniko/pull/967 https://github.com/osscontainertools/kaniko/pull/968
+* remove the `BENCHMARK_FILE` output in favor of otel traces: https://github.com/osscontainertools/kaniko/pull/969
+* integration test improvements: https://github.com/osscontainertools/kaniko/pull/917 https://github.com/osscontainertools/kaniko/pull/980
+
+
 # v1.28.2 Release 2026-08-01
 
 ## Community Update
@@ -21,7 +65,7 @@ Many thanks to @ArneTR for reporting an issue fixed in this release.
 * `FF_KANIKO_SKIP_CACHED_STAGES=false` drop stages whose consumers all hit the cache: https://github.com/osscontainertools/kaniko/pull/871 https://github.com/osscontainertools/kaniko/pull/964
 * `FF_KANIKO_SHARED_BASE_CACHE=false` download a shared base image once instead of once per stage: https://github.com/osscontainertools/kaniko/pull/937
 
-### Usability
+### Telemetry
 * opt-in OpenTelemetry tracing via `KANIKO_TELEMETRY_ENDPOINT`, one trace per build: by @babs in https://github.com/osscontainertools/kaniko/pull/902 https://github.com/osscontainertools/kaniko/pull/951
 
 ### Maintenance
