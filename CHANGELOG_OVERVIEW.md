@@ -20,6 +20,7 @@
 * github.com/go-jose/go-jose/v4 v4.1.3: CVE-2026-34986
 * 🔗 `FF_KANIKO_SECUREJOIN_EXTRACTION=true` symlink-based path traversal during tar extraction prevented with SecureJoin: by @8none1 in https://github.com/osscontainertools/kaniko/pull/828
 * generate integration tar fixtures on the fly instead of storing opaque binaries: https://github.com/osscontainertools/kaniko/pull/844
+* prevent Azure token disclosure to lookalike `azurecr.io` hostnames: https://github.com/osscontainertools/kaniko/pull/1004
 
 ### Bugfixes
 * cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3
@@ -99,7 +100,8 @@
 * `FF_KANIKO_OCI_WARMER=true` ocilayout warmer: https://github.com/osscontainertools/kaniko/pull/307
 * `FF_KANIKO_PRECOMPILE_DOCKERIGNORE=false` compile `.dockerignore` patterns once per build instead of once per file: https://github.com/osscontainertools/kaniko/pull/887
 * `FF_KANIKO_SKIP_CACHED_STAGES=false` drop stages whose consumers all hit the cache: https://github.com/osscontainertools/kaniko/pull/871 https://github.com/osscontainertools/kaniko/pull/964
-* `FF_KANIKO_SHARED_BASE_CACHE=false` download a shared base image once instead of once per stage: https://github.com/osscontainertools/kaniko/pull/937
+* `FF_KANIKO_SHARED_BASE_CACHE=false` download a shared base image once instead of once per stage or `COPY --from`: https://github.com/osscontainertools/kaniko/pull/937 https://github.com/osscontainertools/kaniko/pull/949
+* `FF_KANIKO_CROSS_REPO_MOUNT=false` mount layers the destination registry already holds: https://github.com/osscontainertools/kaniko/pull/990
 
 ### Usability
 * if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
@@ -129,7 +131,11 @@
 * `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE=true` deprecate the `--preserve-context` inter-stage restore: https://github.com/osscontainertools/kaniko/pull/710
 * `COPY` and `ADD` `--chmod` now accepts symbolic notation (e.g. `go=u`, `u=rwX,go=rX`) in addition to octal: https://github.com/osscontainertools/kaniko/pull/800
 * `--image-format=docker|oci` pins the output manifest media type instead of inheriting it from the base image: https://github.com/osscontainertools/kaniko/pull/850
-* opt-in OpenTelemetry tracing via `KANIKO_TELEMETRY_ENDPOINT`, one trace per build: by @babs in https://github.com/osscontainertools/kaniko/pull/902 https://github.com/osscontainertools/kaniko/pull/951
+
+### Telemetry
+* opt-in OpenTelemetry tracing via `KANIKO_TELEMETRY_ENDPOINT`, one trace per build: by @babs in https://github.com/osscontainertools/kaniko/pull/902 https://github.com/osscontainertools/kaniko/pull/951 https://github.com/osscontainertools/kaniko/pull/913 https://github.com/osscontainertools/kaniko/pull/931
+* `KANIKO_TELEMETRY_OMIT_DOCKERFILE=false` keep the Dockerfile source out of the trace: by @babs in https://github.com/osscontainertools/kaniko/pull/913
+* report registry socket and request counts on the build span: https://github.com/osscontainertools/kaniko/pull/971
 
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55

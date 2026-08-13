@@ -39,6 +39,7 @@ Usage: `/release <version>`
    ### Caching         cache correctness or cache-hit-rate improvements
    ### Performance     speed/resource
    ### Usability       FF flags or options adding new user-facing capabilities
+   ### Telemetry       anything a user observes through tracing: span structure, attributes, `KANIKO_TELEMETRY_*` env vars
    ### Maintenance     build(deps): bumps
    ### Fork Related    test infra, CI, internal tooling; preparatory work with no user benefit until follow-up lands; if there is an associated FF flag, prefix the entry with it even if this PR does not introduce the flag
    ### Refactorings    zero runtime behavior change — if the change can panic, log differently, or alter any output in any code path, it is not a Refactoring; move it to Fork Related instead
@@ -66,7 +67,7 @@ Usage: `/release <version>`
 
 9. **Sort PRs into categories** — order within each category by `mergedAt` ascending (dep entries: by earliest constituent PR). Drop empty categories. Group a bugfix-only-to-unblock-feature PR under the feature. Group an immediate-consequence fix with its causing PR. Deprecation notices → **Usability**.
 
-10. **Rewrite titles** — user-facing descriptions based on PR bodies: what the user observes or gains, not internals. No em dashes or semicolons. Feature flags: only mention if the PR introduces the flag (check by whether it's added to the README). New flag format: `` `FF_KANIKO_FLAG_NAME=false` what it does ``. If a bug is only observable under an existing flag, omit the flag. Fork Related prep work: prefix with `` `FF_KANIKO_FLAG_NAME=false` `` even if the PR doesn't introduce the flag. Always include `=value` default; look up in README or code. Never use "part N" labels.
+10. **Rewrite titles** — user-facing descriptions based on PR bodies: what the user observes or gains, not internals. A title, not documentation: one statement, no second clause explaining or exemplifying it. Two facts joined by "and" means either split them into two entries or drop the less interesting one. Bugs state the symptom in present tense (`--dryrun panics when a destination is set`). No em dashes or semicolons. Feature flags: only mention if the PR introduces the flag (check by whether it's added to the README). New flag format: `` `FF_KANIKO_FLAG_NAME=false` what it does ``. If a bug is only observable under an existing flag, omit the flag. Fork Related prep work: prefix with `` `FF_KANIKO_FLAG_NAME=false` `` even if the PR doesn't introduce the flag. Always include the `=value` default on any env var, `FF_KANIKO_*` or not; look up in README or code. Never use "part N" labels.
 
 11. **Security CVEs** — scan previous release image:
     ```bash
