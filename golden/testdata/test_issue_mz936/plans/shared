@@ -1,3 +1,6 @@
+FETCH alpine:3.13
+UNPACK alpine:3.13 /kaniko/deps/alpine:3.13
+STREAM debian:10.13 /kaniko/deps/debian:10.13
 FROM alpine@sha256:c75ac27b49326926b803b9ed43bf088bc220d22556de1bc5f72d742c91398f69 AS base
   FETCH alpine@sha256:c75ac27b49326926b803b9ed43bf088bc220d22556de1bc5f72d742c91398f69
   UNPACK alpine@sha256:c75ac27b49326926b803b9ed43bf088bc220d22556de1bc5f72d742c91398f69
@@ -31,6 +34,13 @@ RUN touch /blubb
 SAVE FILES [/blubb] /kaniko/deps/4
 CLEAN
 
+FROM alpine:3.13 AS extshared
+  FETCH alpine:3.13
+  UNPACK alpine:3.13
+RUN touch /blubb
+SAVE FILES [/blubb] /kaniko/deps/5
+CLEAN
+
 FROM debian@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56 AS final
   STREAM debian@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56
 COPY --from=base /blubb /0
@@ -38,3 +48,6 @@ COPY --from=shared1 /blubb /1
 COPY --from=shared2 /blubb /2
 COPY --from=unused /blubb /3
 COPY --from=derived /blubb /4
+COPY --from=extshared /blubb /5
+COPY --from=alpine:3.13 /etc/os-release /6
+COPY --from=debian:10.13 /etc/os-release /7
