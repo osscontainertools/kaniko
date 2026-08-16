@@ -17,11 +17,6 @@ limitations under the License.
 package creds
 
 import (
-	"encoding/base64"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -62,13 +57,12 @@ func (pathScopedKeychain) Resolve(target authn.Resource) (authn.Authenticator, e
 		cf = configfile.New("")
 	}
 
-	envAuths, err := dockerAuthConfigEnv()
-	if err != nil {
-		// Match ConfigFile.GetAuthConfig: malformed DOCKER_AUTH_CONFIG
-		// falls back to the configured file or credential helper.
-		// That call emits the Docker CLI warning when the bare registry host is checked below.
-		envAuths = nil
-	}
+	// Credential helpers are registry-scoped
+	// Repository-path candidates resolve against a copy with the helpers stripped,
+	// so they only ever see inline auths entries and DOCKER_AUTH_CONFIG
+	scoped := *cf
+	scoped.CredentialsStore = ""
+	scoped.CredentialHelpers = nil
 
 	keys := authKeyLookupOrder(target)
 	for i, key := range keys {
@@ -76,24 +70,15 @@ func (pathScopedKeychain) Resolve(target authn.Resource) (authn.Authenticator, e
 			key = authn.DefaultAuthKey
 		}
 
-		var cfg types.AuthConfig
+		lookup := &scoped
 		if i == 0 || i == len(keys)-1 {
-			// Credential helpers are registry-scoped
 			// Only the bare registry host goes through Docker's full credsStore/credHelpers-aware lookup
-			cfg, err = cf.GetAuthConfig(key)
-			if err != nil {
-				return nil, err
-			}
-			// cf.GetAuthConfig sets ServerAddress;
-			// clear it for a proper is-empty test, same as DefaultKeychain does
-			cfg.ServerAddress = ""
-		} else if a, ok := envAuths[key]; ok {
-			// Repository-path candidates use only inline auths entries
-			cfg = a
-		} else if a, ok := cf.AuthConfigs[key]; ok {
-			cfg = a
+			lookup = cf
 		}
-
+		cfg, err := lookup.GetAuthConfig(key)
+		if err != nil {
+			return nil, err
+		}
 		// ConfigFile.LoadFromReader sets ServerAddress even for an empty auths entry.
 		// It is metadata, not a credential, so exclude it from the empty-config check for every lookup candidate.
 		cfg.ServerAddress = ""
@@ -188,47 +173,4 @@ func loadDockerConfig() (*configfile.ConfigFile, error) {
 func fileExists(path string) bool {
 	fi, err := os.Stat(path)
 	return err == nil && !fi.IsDir()
-}
-
-// dockerAuthConfigEnv parses DOCKER_AUTH_CONFIG the same way docker/cli's ConfigFile does internally:
-// a single JSON object shaped like {"auths": {key: {"auth": "..."}}},
-// no other fields, with "auth" required and holding a base64("username:password") string.
-// Returns (nil, nil) if the environment variable is unset.
-func dockerAuthConfigEnv() (map[string]types.AuthConfig, error) {
-	v := os.Getenv(configfile.DockerEnvConfigKey)
-	if v == "" {
-		return nil, nil
-	}
-
-	var envConfig struct {
-		AuthConfigs map[string]struct {
-			Auth string `json:"auth"`
-		} `json:"auths"`
-	}
-	decoder := json.NewDecoder(strings.NewReader(v))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&envConfig); err != nil && !errors.Is(err, io.EOF) {
-		return nil, fmt.Errorf("parsing DOCKER_AUTH_CONFIG: %w", err)
-	}
-	if decoder.More() {
-		return nil, errors.New("DOCKER_AUTH_CONFIG does not support more than one JSON object")
-	}
-
-	authConfigs := make(map[string]types.AuthConfig, len(envConfig.AuthConfigs))
-	for addr, envAuth := range envConfig.AuthConfigs {
-		if envAuth.Auth == "" {
-			return nil, fmt.Errorf("DOCKER_AUTH_CONFIG environment variable is missing key `auth` for %s", addr)
-		}
-		decoded, err := base64.StdEncoding.DecodeString(envAuth.Auth)
-		if err != nil {
-			return nil, fmt.Errorf("decoding DOCKER_AUTH_CONFIG auth for %s: %w", addr, err)
-		}
-		username, password, ok := strings.Cut(string(decoded), ":")
-		if !ok || username == "" {
-			return nil, fmt.Errorf("DOCKER_AUTH_CONFIG environment variable contains an invalid auth for %s: must be base64(username:password)", addr)
-		}
-		authConfigs[addr] = types.AuthConfig{Username: username, Password: strings.Trim(password, "\x00"), ServerAddress: addr}
-	}
-
-	return authConfigs, nil
 }
