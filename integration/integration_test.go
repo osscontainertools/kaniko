@@ -20,6 +20,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -1792,113 +1793,115 @@ func TestCrossRepoMountFallback(t *testing.T) {
 	}
 }
 
-// TestPathScopedRegistryAuth proves FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH
-// actually selects a credential per repository namespace, not just per registry host.
-// A single registry with one global Basic-Auth user cannot prove that,
-// so this pushes through a reverse proxy
-// (kaniko-path-scoped-auth-proxy, see scripts/setup-path-scoped-auth-proxy.sh)
-// that requires a different credential for /v2/kaniko/patha/... than for /v2/kaniko/pathb/....
+// TestPathScopedRegistryAuth proves FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH selects a
+// credential per repository namespace, not just per registry host. The registry has a
+// single global user, so every case pairs a broken host-level entry with a working
+// namespace-level one and only a lookup that walks the repository path authenticates.
 func TestPathScopedRegistryAuth(t *testing.T) {
-	proxyAddr := os.Getenv("PATH_SCOPED_AUTH_PROXY_ADDR")
-	if proxyAddr == "" {
-		t.Skip("path-scoped auth proxy is only available in local integration mode")
+	caCert := os.Getenv("TLS_REGISTRY_CERT")
+	if caCert == "" {
+		t.Fatal("TLS_REGISTRY_CERT not set")
 	}
 
-	dockerConfigDir, err := os.MkdirTemp("", "kaniko-docker-path-scoped-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(dockerConfigDir)
-
-	// Deliberately no host-level entry for proxyAddr: only the two namespace-scoped ones,
-	// so the legacy (flag-disabled) lookup has nothing to fall back to and must fail
-	authConfig := fmt.Sprintf(`{"auths":{%q:{"auth":%q},%q:{"auth":%q},%q:{"auth":%q},%q:{}}}`,
-		proxyAddr+"/kaniko/patha", base64.StdEncoding.EncodeToString([]byte("org-a-user:org-a-pass")),
-		proxyAddr+"/kaniko/pathb", base64.StdEncoding.EncodeToString([]byte("org-b-user:org-b-pass")),
-		proxyAddr+"/kaniko/patha/project", base64.StdEncoding.EncodeToString([]byte("project-user:project-pass")),
-		proxyAddr+"/kaniko/patha/empty",
+	const (
+		registry = "127.0.0.2:5001"
+		working  = "kanikotest:kanikotest"
+		broken   = "kanikotest:wrongpassword"
 	)
-	configPath := filepath.Join(dockerConfigDir, "config.json")
-	if err := os.WriteFile(configPath, []byte(authConfig), 0o644); err != nil {
-		t.Fatal(err)
-	}
 
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
-	destA := proxyAddr + "/kaniko/patha/pathscoped:latest"
-	destB := proxyAddr + "/kaniko/pathb/pathscoped:latest"
-	destProject := proxyAddr + "/kaniko/patha/project/pathscoped:latest"
-	destEmptyChild := proxyAddr + "/kaniko/patha/empty/pathscoped:latest"
+	pushDockerfile := filepath.Join(buildContextPath, dockerfilesPath, "Dockerfile_path_scoped_auth_push")
+	pullDockerfile := filepath.Join(buildContextPath, dockerfilesPath, "Dockerfile_path_scoped_auth_pull")
 
-	run := func(pathScopedAuth, dockerfile, dockerAuthConfig string, args ...string) ([]byte, error) {
-		dockerRunFlags := []string{"run", "--net=host",
+	authConfig := func(entries map[string]string) string {
+		auths := map[string]map[string]string{}
+		for key, cred := range entries {
+			auths[key] = map[string]string{"auth": base64.StdEncoding.EncodeToString([]byte(cred))}
+		}
+		out, err := json.Marshal(map[string]any{"auths": auths})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(out)
+	}
+
+	configFile := func(entries map[string]string) []string {
+		path := filepath.Join(t.TempDir(), "config.json")
+		if err := os.WriteFile(path, []byte(authConfig(entries)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return []string{"-v", path + ":/kaniko/.docker/config.json:ro"}
+	}
+
+	configEnv := func(entries map[string]string) []string {
+		return []string{"-e", "DOCKER_AUTH_CONFIG=" + authConfig(entries)}
+	}
+
+	run := func(credFlags []string, dockerfile string, args ...string) ([]byte, error) {
+		dockerRunFlags := []string{"run", "--rm", "--net=host",
 			"-v", cwd + ":/workspace:ro",
-			"-e", "FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=" + pathScopedAuth,
+			"-v", caCert + ":/kaniko/ssl/certs/test-registry-ca.crt:ro",
+			"-e", "FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=1",
 		}
-		if dockerAuthConfig == "" {
-			dockerRunFlags = append(dockerRunFlags, "-v", configPath+":/kaniko/.docker/config.json:ro")
-		} else {
-			dockerRunFlags = append(dockerRunFlags, "-e", "DOCKER_AUTH_CONFIG="+dockerAuthConfig)
-		}
+		dockerRunFlags = append(dockerRunFlags, credFlags...)
 		dockerRunFlags = addCoverageFlags(dockerRunFlags)
 		dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 			"-f", dockerfile,
 			"-c", buildContextPath,
-			"--insecure-registry", proxyAddr,
 		)
 		dockerRunFlags = append(dockerRunFlags, args...)
 		return RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
 	}
-	pushDockerfile := filepath.Join(buildContextPath, dockerfilesPath, "Dockerfile_path_scoped_auth_push")
 
-	t.Run("flag disabled falls back to host-only lookup and fails", func(t *testing.T) {
-		out, err := run("0", pushDockerfile, "", "--destination", destA, "--destination", destB, "--destination", destProject, "--destination", destEmptyChild, "--no-push-cache")
-		if err == nil {
-			t.Fatalf("expected push to fail with the feature flag disabled (no host-level credential is configured), got success:\n%s", out)
+	namespaceAuth := map[string]string{
+		registry:             broken,
+		registry + "/kaniko": working,
+	}
+	dest := registry + "/kaniko/mz1002:latest"
+
+	t.Run("namespace credential is selected for push", func(t *testing.T) {
+		out, err := run(configFile(namespaceAuth), pushDockerfile, "--destination", dest, "--no-push-cache")
+		if err != nil {
+			t.Fatalf("push failed: %v\n%s", err, out)
 		}
-		if !bytes.Contains(out, []byte("401 Unauthorized")) {
+	})
+
+	t.Run("most specific namespace wins", func(t *testing.T) {
+		auths := map[string]string{
+			registry:                      broken,
+			registry + "/kaniko":          broken,
+			registry + "/kaniko/specific": working,
+		}
+		out, err := run(configFile(auths), pushDockerfile, "--destination", registry+"/kaniko/specific/mz1002:latest", "--no-push-cache")
+		if err != nil {
+			t.Fatalf("push failed for the most specific namespace: %v\n%s", err, out)
+		}
+	})
+
+	t.Run("namespace matches whole path segments only", func(t *testing.T) {
+		auths := map[string]string{
+			registry:          broken,
+			registry + "/kan": working,
+		}
+		out, err := run(configFile(auths), pushDockerfile, "--destination", registry+"/kaniko/mz1002-segment:latest", "--no-push-cache")
+		if err == nil {
+			t.Fatalf("expected %q not to match the %q namespace, got success:\n%s", "kaniko", "kan", out)
+		}
+		if !bytes.Contains(out, []byte("UNAUTHORIZED")) {
 			t.Fatalf("expected authentication failure, got: %v\n%s", err, out)
 		}
 	})
 
-	t.Run("flag enabled selects the matching namespace credential", func(t *testing.T) {
-		out, err := run("1", pushDockerfile, "", "--destination", destA, "--destination", destB, "--destination", destProject, "--destination", destEmptyChild, "--no-push-cache")
+	t.Run("namespace credential is selected for pull", func(t *testing.T) {
+		out, err := run(configFile(namespaceAuth), pullDockerfile, "--build-arg", "BASE_IMAGE="+dest, "--no-push", "--no-push-cache")
 		if err != nil {
-			t.Fatalf("push failed with the feature flag enabled: %v\n%s", err, out)
-		}
-	})
-
-	pullDockerfile := filepath.Join(buildContextPath, dockerfilesPath, "Dockerfile_path_scoped_auth_pull")
-	t.Run("flag disabled cannot pull with a namespace credential", func(t *testing.T) {
-		out, err := run("0", pullDockerfile, "",
-			"--build-arg", "BASE_IMAGE="+destProject,
-			"--insecure-pull",
-			"--no-push", "--no-push-cache",
-		)
-		if err == nil {
-			t.Fatalf("expected pull to fail with the feature flag disabled (no host-level credential is configured), got success:\n%s", out)
-		}
-		if !bytes.Contains(out, []byte("401 Unauthorized")) {
-			t.Fatalf("expected authentication failure, got: %v\n%s", err, out)
-		}
-	})
-
-	t.Run("flag enabled selects the namespace credential for pull", func(t *testing.T) {
-		out, err := run("1", pullDockerfile, "",
-			"--build-arg", "BASE_IMAGE="+destProject,
-			"--insecure-pull",
-			"--no-push", "--no-push-cache",
-		)
-		if err != nil {
-			t.Fatalf("pull failed with the feature flag enabled: %v\n%s", err, out)
+			t.Fatalf("pull failed: %v\n%s", err, out)
 		}
 	})
 
 	t.Run("env-only config selects the namespace credential", func(t *testing.T) {
-		envAuthConfig := fmt.Sprintf(`{"auths":{%q:{"auth":%q}}}`,
-			proxyAddr+"/kaniko/pathb", base64.StdEncoding.EncodeToString([]byte("org-b-user:org-b-pass")),
-		)
-		out, err := run("1", pushDockerfile, envAuthConfig, "--destination", destB, "--no-push-cache")
+		out, err := run(configEnv(namespaceAuth), pushDockerfile, "--destination", registry+"/kaniko/mz1002-env:latest", "--no-push-cache")
 		if err != nil {
 			t.Fatalf("push with DOCKER_AUTH_CONFIG failed: %v\n%s", err, out)
 		}
