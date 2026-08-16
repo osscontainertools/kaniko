@@ -1826,12 +1826,16 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 		return string(out)
 	}
 
-	configFile := func(entries map[string]string) []string {
+	writeConfig := func(config string) []string {
 		path := filepath.Join(t.TempDir(), "config.json")
-		if err := os.WriteFile(path, []byte(authConfig(entries)), 0o644); err != nil {
+		if err := os.WriteFile(path, []byte(config), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		return []string{"-v", path + ":/kaniko/.docker/config.json:ro"}
+	}
+
+	configFile := func(entries map[string]string) []string {
+		return writeConfig(authConfig(entries))
 	}
 
 	configEnv := func(entries map[string]string) []string {
@@ -1890,6 +1894,26 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 		}
 		if !bytes.Contains(out, []byte("UNAUTHORIZED")) {
 			t.Fatalf("expected authentication failure, got: %v\n%s", err, out)
+		}
+	})
+
+	t.Run("credential helper for the exact repository is consulted", func(t *testing.T) {
+		// The helper does not exist, so reaching it is what fails the pull.
+		// A working host credential proves the failure is not the fallback.
+		config, err := json.Marshal(map[string]any{
+			"auths":       map[string]map[string]string{registry: {"auth": base64.StdEncoding.EncodeToString([]byte(working))}},
+			"credHelpers": map[string]string{strings.TrimSuffix(dest, ":latest"): "mz1002-missing"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		out, err := run(writeConfig(string(config)), pullDockerfile, "--build-arg", "IMAGE_NAME="+dest, "--no-push", "--no-push-cache")
+		if err == nil {
+			t.Fatalf("expected the credential helper for the exact repository to be consulted, got success:\n%s", out)
+		}
+		if !bytes.Contains(out, []byte("docker-credential-mz1002-missing")) {
+			t.Fatalf("expected the missing credential helper to be reported, got: %v\n%s", err, out)
 		}
 	})
 

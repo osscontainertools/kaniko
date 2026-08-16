@@ -77,7 +77,7 @@ func (pathScopedKeychain) Resolve(target authn.Resource) (authn.Authenticator, e
 		}
 
 		var cfg types.AuthConfig
-		if i == len(keys)-1 {
+		if i == 0 || i == len(keys)-1 {
 			// Credential helpers are registry-scoped
 			// Only the bare registry host goes through Docker's full credsStore/credHelpers-aware lookup
 			cfg, err = cf.GetAuthConfig(key)
