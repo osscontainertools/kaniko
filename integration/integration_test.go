@@ -1811,8 +1811,8 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
-	pushDockerfile := filepath.Join(buildContextPath, dockerfilesPath, "Dockerfile_path_scoped_auth_push")
-	pullDockerfile := filepath.Join(buildContextPath, dockerfilesPath, "Dockerfile_path_scoped_auth_pull")
+	pushDockerfile := filepath.Join(buildContextPath, "testdata", "Dockerfile.trivial")
+	pullDockerfile := filepath.Join(buildContextPath, dockerfilesPath, "Dockerfile_test_arg_from_quotes")
 
 	authConfig := func(entries map[string]string) string {
 		auths := map[string]map[string]string{}
@@ -1894,7 +1894,7 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 	})
 
 	t.Run("namespace credential is selected for pull", func(t *testing.T) {
-		out, err := run(configFile(namespaceAuth), pullDockerfile, "--build-arg", "BASE_IMAGE="+dest, "--no-push", "--no-push-cache")
+		out, err := run(configFile(namespaceAuth), pullDockerfile, "--build-arg", "IMAGE_NAME="+dest, "--no-push", "--no-push-cache")
 		if err != nil {
 			t.Fatalf("pull failed: %v\n%s", err, out)
 		}
