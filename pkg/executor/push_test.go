@@ -119,7 +119,7 @@ func TestCanAuthorizeCrossRepoMountsBearer(t *testing.T) {
 		{name: "combined scopes denied", allow: false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			var sourceScope string
+			var requestedScopes []string
 			var server *httptest.Server
 			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
@@ -128,12 +128,8 @@ func TestCanAuthorizeCrossRepoMountsBearer(t *testing.T) {
 					w.WriteHeader(http.StatusUnauthorized)
 
 				case "/token":
-					for _, scope := range r.URL.Query()["scope"] {
-						if strings.HasSuffix(scope, ":pull") {
-							sourceScope = scope
-						}
-					}
-					if !tc.allow && sourceScope != "" {
+					requestedScopes = append([]string(nil), r.URL.Query()["scope"]...)
+					if !tc.allow && len(requestedScopes) > 1 {
 						http.Error(w, "combined scopes denied", http.StatusForbidden)
 						return
 					}
@@ -167,8 +163,9 @@ func TestCanAuthorizeCrossRepoMountsBearer(t *testing.T) {
 			if allowed != tc.allow {
 				t.Fatalf("allowed = %t, want %t", allowed, tc.allow)
 			}
-			if sourceScope != source.Scope(transport.PullScope) {
-				t.Fatalf("source scope = %q, want %q", sourceScope, source.Scope(transport.PullScope))
+			wantScopes := []string{dest.Scope(transport.PushScope), source.Scope(transport.PullScope)}
+			if !reflect.DeepEqual(requestedScopes, wantScopes) {
+				t.Fatalf("requested scopes = %v, want exactly %v", requestedScopes, wantScopes)
 			}
 		})
 	}
