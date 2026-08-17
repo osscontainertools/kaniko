@@ -18,12 +18,17 @@ package executor
 
 import (
 	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -43,6 +48,186 @@ func mustTag(t *testing.T, s string) name.Tag {
 		t.Fatalf("NewTag: %v", err)
 	}
 	return tag
+}
+
+func writeDockerAuthConfig(t *testing.T, entries map[string]authn.AuthConfig) {
+	t.Helper()
+	configDir := t.TempDir()
+	auths := make(map[string]map[string]string, len(entries))
+	for target, auth := range entries {
+		auths[target] = map[string]string{
+			"auth": base64.StdEncoding.EncodeToString([]byte(auth.Username + ":" + auth.Password)),
+		}
+	}
+	config := struct {
+		Auths map[string]map[string]string `json:"auths"`
+	}{Auths: auths}
+	data, err := json.Marshal(config)
+	if err != nil {
+		t.Fatalf("marshal Docker config: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "config.json"), data, 0o600); err != nil {
+		t.Fatalf("write Docker config: %v", err)
+	}
+
+	t.Setenv("DOCKER_CONFIG", configDir)
+	t.Setenv("DOCKER_AUTH_CONFIG", "")
+	t.Setenv("HOME", t.TempDir())
+}
+
+func TestResolvePushAuthUsesRepository(t *testing.T) {
+	const host = "registry.example.com"
+	tests := []struct {
+		name        string
+		destination string
+		entries     map[string]authn.AuthConfig
+		wantUser    string
+	}{
+		{
+			name:        "repository credential wins over host credential",
+			destination: host + "/org-a/image:latest",
+			entries: map[string]authn.AuthConfig{
+				host:                  {Username: "host-user", Password: "host-pass"},
+				host + "/org-a/image": {Username: "repo-user", Password: "repo-pass"},
+			},
+			wantUser: "repo-user",
+		},
+		{
+			name:        "repository credential remains authoritative",
+			destination: host + "/org-a/image:latest",
+			entries: map[string]authn.AuthConfig{
+				host:                  {Username: "valid-host", Password: "valid-host"},
+				host + "/org-a/image": {Username: "wrong-repo", Password: "wrong-repo"},
+			},
+			wantUser: "wrong-repo",
+		},
+		{
+			name:        "sibling repository credential",
+			destination: host + "/org-b/image:latest",
+			entries: map[string]authn.AuthConfig{
+				host + "/org-a/image": {Username: "user-a", Password: "pass-a"},
+				host + "/org-b/image": {Username: "user-b", Password: "pass-b"},
+			},
+			wantUser: "user-b",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			writeDockerAuthConfig(t, tc.entries)
+			ref := mustTag(t, tc.destination)
+			auth, err := resolvePushAuth(context.Background(), &config.RegistryOptions{}, ref)
+			if err != nil {
+				t.Fatalf("resolvePushAuth: %v", err)
+			}
+			got, err := auth.Authorization()
+			if err != nil {
+				t.Fatalf("Authorization: %v", err)
+			}
+			if got.Username != tc.wantUser {
+				t.Fatalf("username = %q, want %q", got.Username, tc.wantUser)
+			}
+		})
+	}
+}
+
+func TestCheckPushPermissionsUsesRepositoryAuth(t *testing.T) {
+	const destination = "registry.example.com/org-a/image:latest"
+	writeDockerAuthConfig(t, map[string]authn.AuthConfig{
+		"registry.example.com":             {Username: "host-user", Password: "host-pass"},
+		"registry.example.com/org-a/image": {Username: "repo-user", Password: "repo-pass"},
+	})
+
+	old := checkRemotePushPermission
+	t.Cleanup(func() { checkRemotePushPermission = old })
+	checkRemotePushPermission = func(ref name.Reference, kc authn.Keychain, _ http.RoundTripper) error {
+		// This deliberately mirrors the vendored remote.CheckPushPermission bug:
+		// the adapter must make a registry-scoped lookup return the repository auth
+		// selected by Kaniko before calling into the upstream function.
+		got, err := kc.Resolve(ref.Context().Registry)
+		if err != nil {
+			return err
+		}
+		cfg, err := got.Authorization()
+		if err != nil {
+			return err
+		}
+		if cfg.Username != "repo-user" || cfg.Password != "repo-pass" {
+			return fmt.Errorf("selected %s:%s instead of repository credential", cfg.Username, cfg.Password)
+		}
+		return nil
+	}
+
+	if err := CheckPushPermissions(&config.KanikoOptions{Destinations: []string{destination}}); err != nil {
+		t.Fatalf("CheckPushPermissions: %v", err)
+	}
+}
+
+func TestDoPushUsesRepositoryAuth(t *testing.T) {
+	const username, password = "repo-user", "repo-pass"
+	var mu sync.Mutex
+	var sawCorrectAuth, sawWrongAuth bool
+
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUser, gotPassword, hasAuth := r.BasicAuth()
+		mu.Lock()
+		if hasAuth && gotUser == username && gotPassword == password {
+			sawCorrectAuth = true
+		} else if hasAuth {
+			sawWrongAuth = true
+		}
+		mu.Unlock()
+		if !hasAuth || gotUser != username || gotPassword != password {
+			w.Header().Set("WWW-Authenticate", `Basic realm="test-registry"`)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		switch {
+		case r.URL.Path == "/v2/":
+			w.WriteHeader(http.StatusOK)
+		case r.Method == http.MethodHead:
+			w.WriteHeader(http.StatusNotFound)
+		case r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/blobs/uploads"):
+			w.Header().Set("Location", server.URL+r.URL.Path+"upload-id")
+			w.WriteHeader(http.StatusAccepted)
+		case r.Method == http.MethodPatch:
+			w.Header().Set("Location", server.URL+r.URL.Path)
+			w.WriteHeader(http.StatusCreated)
+		case r.Method == http.MethodPut:
+			w.WriteHeader(http.StatusCreated)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	host := strings.TrimPrefix(server.URL, "http://")
+	writeDockerAuthConfig(t, map[string]authn.AuthConfig{
+		host:                  {Username: "host-user", Password: "host-pass"},
+		host + "/org-a/image": {Username: username, Password: password},
+	})
+
+	image, err := random.Image(1024, 1)
+	if err != nil {
+		t.Fatalf("random.Image: %v", err)
+	}
+	opts := &config.KanikoOptions{
+		Destinations: []string{host + "/org-a/image:latest"},
+		RegistryOptions: config.RegistryOptions{
+			Insecure: true,
+		},
+	}
+	if err := DoPush(image, opts); err != nil {
+		t.Fatalf("DoPush: %v", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if !sawCorrectAuth || sawWrongAuth {
+		t.Fatalf("observed correct auth=%t wrong auth=%t", sawCorrectAuth, sawWrongAuth)
+	}
 }
 
 func TestWriteImageOutputs(t *testing.T) {

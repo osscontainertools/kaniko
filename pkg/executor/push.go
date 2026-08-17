@@ -18,6 +18,7 @@ package executor
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -87,6 +89,26 @@ var (
 	checkRemotePushPermission = remote.CheckPushPermission
 )
 
+// resolvedKeychain presents one already-selected authenticator to callers
+// whose keychain lookup still targets the registry instead of the repository.
+// It deliberately ignores the requested resource and performs no fallback.
+type resolvedKeychain struct {
+	auth authn.Authenticator
+}
+
+// Resolve returns the authenticator selected for the destination repository;
+// the resource is ignored so upstream registry-scoped lookup cannot broaden it.
+func (k resolvedKeychain) Resolve(authn.Resource) (authn.Authenticator, error) {
+	return k.auth, nil
+}
+
+// resolvePushAuth selects the destination authenticator using the full repository resource.
+// Keeping this lookup shared makes permission checks
+// and the actual push use identical credential-selection semantics.
+func resolvePushAuth(ctx context.Context, opts *config.RegistryOptions, ref name.Reference) (authn.Authenticator, error) {
+	return authn.Resolve(ctx, creds.GetKeychain(opts), ref.Context())
+}
+
 // CheckPushPermissions checks that the configured credentials can be used to
 // push to every specified destination.
 func CheckPushPermissions(opts *config.KanikoOptions) error {
@@ -129,7 +151,11 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 			return fmt.Errorf("making transport for registry %q: %w", registryName, err)
 		}
 		tr := newRetry(rt)
-		if err := checkRemotePushPermission(destRef, creds.GetKeychain(&opts.RegistryOptions), tr); err != nil {
+		pushAuth, err := resolvePushAuth(context.Background(), &opts.RegistryOptions, destRef)
+		if err != nil {
+			return fmt.Errorf("resolving push authorization for %q: %w", destRef.Context(), err)
+		}
+		if err := checkRemotePushPermission(destRef, resolvedKeychain{auth: pushAuth}, tr); err != nil {
 			return fmt.Errorf("checking push permission for %q: %w", destRef, err)
 		}
 		checked[destRef.Context().String()] = true
@@ -282,9 +308,9 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 			destRef.Registry = newReg
 		}
 
-		pushAuth, err := creds.GetKeychain(&opts.RegistryOptions).Resolve(destRef.Context().Registry)
+		pushAuth, err := resolvePushAuth(context.Background(), &opts.RegistryOptions, destRef)
 		if err != nil {
-			return fmt.Errorf("resolving pushAuth: %w", err)
+			return fmt.Errorf("resolving push authorization for %q: %w", destRef.Context(), err)
 		}
 
 		localRt, err := util.MakeTransport(opts.RegistryOptions, registryName)
