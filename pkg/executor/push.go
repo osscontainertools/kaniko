@@ -334,6 +334,10 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 			write := func(pushImage v1.Image) error {
 				return remote.Write(destRef, pushImage, remote.WithAuth(pushAuth), remote.WithTransport(rt))
 			}
+
+			// Keep plain fallback before immutable-tag classification.
+			// remote.Write does not identify whether an error came from mount/upload or manifest write,
+			// so classification must apply only to the final plain-push error.
 			if err := writeWithCrossRepoMountFallback(write, image, mountImage, &mountEnabled); err != nil {
 				if !opts.PushIgnoreImmutableTagErrors {
 					return err
