@@ -17,9 +17,59 @@ limitations under the License.
 package util
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/zeebo/blake3"
 )
+
+func TestCacheHasherBlake3(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(path, []byte("kaniko"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	hashWith := func(blake3Enabled bool) string {
+		previous := config.FF.CacheHashBlake3
+		config.FF.CacheHashBlake3 = blake3Enabled
+		defer func() { config.FF.CacheHashBlake3 = previous }()
+		hash, err := CacheHasher()(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return hash
+	}
+
+	legacy := hashWith(false)
+	if want := hex.EncodedLen(md5.Size); len(legacy) != want {
+		t.Errorf("expected md5 key of %d characters, got %d: %s", want, len(legacy), legacy)
+	}
+
+	current := hashWith(true)
+	if want := hex.EncodedLen(blake3.New().Size()); len(current) != want {
+		t.Errorf("expected blake3 key of %d characters, got %d: %s", want, len(current), current)
+	}
+
+	if legacy == current {
+		t.Error("expected the flag to change the cache key, got the same key for both algorithms")
+	}
+
+	if again := hashWith(true); again != current {
+		t.Errorf("expected a stable key, got %s then %s", current, again)
+	}
+
+	if err := os.WriteFile(path, []byte("kaniko!"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if changed := hashWith(true); changed == current {
+		t.Error("expected a different key after the file contents changed")
+	}
+}
 
 func makeRetryFunc(numFailures int) retryFunc {
 	i := -1

@@ -29,6 +29,7 @@ import (
 type FeatureFlags struct {
 	AddChecksum                    bool
 	BuildkitArgEnvPrecedence       bool
+	CacheHashBlake3                bool
 	CacheLookahead                 bool
 	CacheProbeAfterMiss            bool
 	ChownOnImplicitDirs            bool
@@ -106,6 +107,7 @@ func InitFeatureFlags() {
 	FF = FeatureFlags{
 		AddChecksum:                    featureFlag("FF_KANIKO_ADD_CHECKSUM", false),
 		BuildkitArgEnvPrecedence:       featureFlag("FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE", true),
+		CacheHashBlake3:                featureFlag("FF_KANIKO_CACHE_HASH_BLAKE3", false),
 		CacheLookahead:                 featureFlag("FF_KANIKO_CACHE_LOOKAHEAD", false),
 		CacheProbeAfterMiss:            featureFlag("FF_KANIKO_CACHE_PROBE_AFTER_MISS", false),
 		ChownOnImplicitDirs:            featureFlag("FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS", false),
