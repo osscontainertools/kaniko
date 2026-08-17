@@ -253,13 +253,14 @@ func TestDoPushFallsBackAfterCrossRepoMountFailure(t *testing.T) {
 			w.WriteHeader(http.StatusAccepted)
 
 		case r.Method == http.MethodPatch && r.URL.Query().Get("mount-attempt") != "":
-			// The registry accepted upload initiation but rejects the actual mount-path write,
-			// forcing DoPush's plain-image fallback.
+			// A 202 mount response has transferred the request into an upload session;
+			// fail that mount-capable write so DoPush must use plain upload.
 			w.WriteHeader(http.StatusBadRequest)
 
 		case r.Method == http.MethodPatch:
 			w.Header().Set("Location", server.URL+r.URL.Path)
-			w.WriteHeader(http.StatusCreated)
+			w.Header().Set("Range", "0-1023")
+			w.WriteHeader(http.StatusAccepted)
 
 		case r.Method == http.MethodHead:
 			w.WriteHeader(http.StatusNotFound)
@@ -294,8 +295,8 @@ func TestDoPushFallsBackAfterCrossRepoMountFailure(t *testing.T) {
 	if err := DoPush(image, opts); err != nil {
 		t.Fatalf("DoPush: %v", err)
 	}
-	if mountAttempts.Load() == 0 {
-		t.Fatal("expected a mount-capable upload attempt")
+	if got := mountAttempts.Load(); got != 1 {
+		t.Fatalf("mount attempts = %d, want 1", got)
 	}
 	if plainUploadAttempts.Load() == 0 {
 		t.Fatal("expected a plain upload after mount failure")
