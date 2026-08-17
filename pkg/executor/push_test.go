@@ -18,18 +18,24 @@ package executor
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/random"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/validate"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -43,6 +49,185 @@ func mustTag(t *testing.T, s string) name.Tag {
 		t.Fatalf("NewTag: %v", err)
 	}
 	return tag
+}
+
+func mustRepo(t *testing.T, s string) name.Repository {
+	repo, err := name.NewRepository(s, name.StrictValidation)
+	if err != nil {
+		t.Fatalf("NewRepository: %v", err)
+	}
+	return repo
+}
+
+type imageWithLayers struct {
+	v1.Image
+	layers []v1.Layer
+	err    error
+}
+
+func (i *imageWithLayers) Layers() ([]v1.Layer, error) { return i.layers, i.err }
+
+func TestCrossRepoMountScopes(t *testing.T) {
+	base, err := random.Image(1024, 1)
+	if err != nil {
+		t.Fatalf("random.Image: %v", err)
+	}
+	layers, err := base.Layers()
+	if err != nil {
+		t.Fatalf("Layers: %v", err)
+	}
+	digest, err := layers[0].Digest()
+	if err != nil {
+		t.Fatalf("Digest: %v", err)
+	}
+
+	dest := mustRepo(t, "registry.example/destination")
+	sourceA := mustRepo(t, "registry.example/source-a")
+	sourceB := mustRepo(t, "registry.example/source-b")
+	otherRegistry := mustRepo(t, "other.example/source")
+
+	img := &imageWithLayers{layers: []v1.Layer{
+		&remote.MountableLayer{Layer: layers[0], Reference: sourceA.Digest(digest.String())},
+		&remote.MountableLayer{Layer: layers[0], Reference: sourceA.Digest(digest.String())},
+		&remote.MountableLayer{Layer: layers[0], Reference: sourceB.Digest(digest.String())},
+		&remote.MountableLayer{Layer: layers[0], Reference: otherRegistry.Digest(digest.String())},
+		&remote.MountableLayer{Layer: layers[0], Reference: dest.Digest(digest.String())},
+	}}
+
+	got, hasCandidates, err := crossRepoMountScopes(img, dest)
+	if err != nil {
+		t.Fatalf("crossRepoMountScopes: %v", err)
+	}
+	if !hasCandidates {
+		t.Fatal("expected mount candidates")
+	}
+
+	want := []string{dest.Scope(transport.PushScope), sourceA.Scope(transport.PullScope), sourceB.Scope(transport.PullScope)}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("scopes = %v, want %v", got, want)
+	}
+}
+
+func TestCanAuthorizeCrossRepoMountsBearer(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		allow bool
+	}{
+		{name: "combined scopes allowed", allow: true},
+		{name: "combined scopes denied", allow: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var sourceScope string
+			var server *httptest.Server
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/v2/":
+					w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm=%q,service="test-registry"`, server.URL+"/token"))
+					w.WriteHeader(http.StatusUnauthorized)
+
+				case "/token":
+					for _, scope := range r.URL.Query()["scope"] {
+						if strings.HasSuffix(scope, ":pull") {
+							sourceScope = scope
+						}
+					}
+					if !tc.allow && sourceScope != "" {
+						http.Error(w, "combined scopes denied", http.StatusForbidden)
+						return
+					}
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(`{"token":"test-token"}`))
+
+				default:
+					http.Error(w, "unexpected request", http.StatusNotFound)
+				}
+			}))
+			defer server.Close()
+
+			host := strings.TrimPrefix(server.URL, "http://")
+			dest, err := name.NewRepository(host+"/team/app", name.WeakValidation)
+			if err != nil {
+				t.Fatalf("NewRepository: %v", err)
+			}
+			source, err := name.NewRepository(host+"/team/base", name.WeakValidation)
+			if err != nil {
+				t.Fatalf("NewRepository: %v", err)
+			}
+			img := &imageWithLayers{layers: []v1.Layer{
+				&remote.MountableLayer{Layer: &fakeLayer{}, Reference: source.Digest("sha256:0000000000000000000000000000000000000000000000000000000000000000")},
+			}}
+			auth := authn.FromConfig(authn.AuthConfig{Username: "user", Password: "password"})
+
+			allowed, err := canAuthorizeCrossRepoMounts(context.Background(), img, dest, auth, http.DefaultTransport)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if allowed != tc.allow {
+				t.Fatalf("allowed = %t, want %t", allowed, tc.allow)
+			}
+			if sourceScope != source.Scope(transport.PullScope) {
+				t.Fatalf("source scope = %q, want %q", sourceScope, source.Scope(transport.PullScope))
+			}
+		})
+	}
+}
+
+func TestWriteWithCrossRepoMountFallback(t *testing.T) {
+	plain := &imageWithLayers{}
+	mountable := &imageWithLayers{}
+
+	t.Run("mount succeeds", func(t *testing.T) {
+		enabled := true
+		var calls []v1.Image
+		err := writeWithCrossRepoMountFallback(func(img v1.Image) error {
+			calls = append(calls, img)
+			return nil
+		}, plain, mountable, &enabled)
+
+		if err != nil || len(calls) != 1 || calls[0] != mountable || !enabled {
+			t.Fatalf("err=%v calls=%d enabled=%v", err, len(calls), enabled)
+		}
+	})
+
+	t.Run("mount fails and plain succeeds", func(t *testing.T) {
+		enabled := true
+		var calls []v1.Image
+		err := writeWithCrossRepoMountFallback(func(img v1.Image) error {
+			calls = append(calls, img)
+			if img == mountable {
+				return fmt.Errorf("mount failed")
+			}
+			return nil
+		}, plain, mountable, &enabled)
+
+		if err != nil || len(calls) != 2 || calls[0] != mountable || calls[1] != plain || enabled {
+			t.Fatalf("err=%v calls=%d enabled=%v", err, len(calls), enabled)
+		}
+	})
+
+	t.Run("later retry stays plain", func(t *testing.T) {
+		enabled := true
+		var calls []v1.Image
+		failures := 0
+		write := func(img v1.Image) error {
+			calls = append(calls, img)
+			if failures < 2 {
+				failures++
+				return fmt.Errorf("push failed")
+			}
+			return nil
+		}
+
+		if err := writeWithCrossRepoMountFallback(write, plain, mountable, &enabled); err == nil {
+			t.Fatal("expected first invocation to fail")
+		}
+		if err := writeWithCrossRepoMountFallback(write, plain, mountable, &enabled); err != nil {
+			t.Fatalf("second invocation: %v", err)
+		}
+		if len(calls) != 3 || calls[0] != mountable || calls[1] != plain || calls[2] != plain {
+			t.Fatalf("call sequence does not prove mount was disabled: %v", calls)
+		}
+	})
 }
 
 func TestWriteImageOutputs(t *testing.T) {

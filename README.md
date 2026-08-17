@@ -1433,6 +1433,8 @@ Becomes default in `v1.29.0`.
 #### Flag `FF_KANIKO_CROSS_REPO_MOUNT`
 
 A registry can copy a blob between its own repositories for free, but only if it is told which repository already holds it. Kaniko loses that as soon as it copies a layer locally. Worse, with `--cache` every built layer goes up twice, once to the cache repo and once inside the image. Set this flag to `true` to remember which layers can be mounted remotely and which ones genuinely need to be pushed.
+If a cross-repository mount cannot be authorized or completed,
+kaniko falls back to the normal blob upload path using destination credential.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
