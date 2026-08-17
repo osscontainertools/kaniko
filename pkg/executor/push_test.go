@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -38,6 +39,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/validate"
 	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/mounts"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/testutil"
 	"github.com/spf13/afero"
@@ -228,6 +230,79 @@ func TestWriteWithCrossRepoMountFallback(t *testing.T) {
 			t.Fatalf("call sequence does not prove mount was disabled: %v", calls)
 		}
 	})
+}
+
+func TestDoPushFallsBackAfterCrossRepoMountFailure(t *testing.T) {
+	var mountAttempts, plainUploadAttempts atomic.Int32
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/v2/" && r.Header.Get("Authorization") == "":
+			w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm=%q,service="test-registry"`, server.URL+"/token"))
+			w.WriteHeader(http.StatusUnauthorized)
+
+		case r.URL.Path == "/token":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"token":"test-token"}`))
+
+		case r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/blobs/uploads"):
+			if r.URL.Query().Get("mount") != "" {
+				mountAttempts.Add(1)
+				w.Header().Set("Location", server.URL+r.URL.Path+"upload-id?mount-attempt=1")
+			} else {
+				plainUploadAttempts.Add(1)
+				w.Header().Set("Location", server.URL+r.URL.Path+"upload-id?plain-upload=1")
+			}
+			w.WriteHeader(http.StatusAccepted)
+
+		case r.Method == http.MethodPatch && r.URL.Query().Get("mount-attempt") != "":
+			// The registry accepted upload initiation but rejects the actual mount-path write,
+			// forcing DoPush's plain-image fallback.
+			w.WriteHeader(http.StatusBadRequest)
+
+		case r.Method == http.MethodPatch:
+			w.Header().Set("Location", server.URL+r.URL.Path)
+			w.WriteHeader(http.StatusCreated)
+
+		case r.Method == http.MethodHead:
+			w.WriteHeader(http.StatusNotFound)
+
+		case r.Method == http.MethodPut:
+			w.WriteHeader(http.StatusCreated)
+
+		default:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+
+	oldFlags := config.FF
+	t.Cleanup(func() { config.FF = oldFlags })
+	config.FF.CrossRepoMount = true
+
+	image, err := random.Image(1024, 1)
+	if err != nil {
+		t.Fatalf("random.Image: %v", err)
+	}
+	host := strings.TrimPrefix(server.URL, "http://")
+	sourceRepo := mustRepo(t, host+"/source")
+	mounts.RecordImage(image, sourceRepo)
+
+	opts := &config.KanikoOptions{
+		Destinations: []string{host + "/destination/image:latest"},
+		RegistryOptions: config.RegistryOptions{
+			Insecure: true,
+		},
+	}
+	if err := DoPush(image, opts); err != nil {
+		t.Fatalf("DoPush: %v", err)
+	}
+	if mountAttempts.Load() == 0 {
+		t.Fatal("expected a mount-capable upload attempt")
+	}
+	if plainUploadAttempts.Load() == 0 {
+		t.Fatal("expected a plain upload after mount failure")
+	}
 }
 
 func TestWriteImageOutputs(t *testing.T) {
