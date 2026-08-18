@@ -18,18 +18,47 @@ set -euo pipefail
 TLS_REG_DIR="/tmp/kaniko-tls-registry"
 mkdir -p "${TLS_REG_DIR}"
 
-if [[ ! -f "${TLS_REG_DIR}/tls.crt" ]]; then
+# ggcr refuses a token realm on a loopback IP literal, so the auth server is reached
+# under the name localhost and the cert has to cover it.
+if [[ ! -f "${TLS_REG_DIR}/tls.crt" ]] || ! openssl x509 -in "${TLS_REG_DIR}/tls.crt" -noout -text | grep -q "DNS:localhost"; then
   openssl req -x509 -newkey rsa:2048 \
     -keyout "${TLS_REG_DIR}/tls.key" \
     -out "${TLS_REG_DIR}/tls.crt" \
     -days 3650 -nodes \
     -subj "/CN=127.0.0.2" \
-    -addext "subjectAltName=IP:127.0.0.2" \
+    -addext "subjectAltName=IP:127.0.0.2,DNS:localhost" \
     2>/dev/null
 fi
 
-if [[ ! -f "${TLS_REG_DIR}/htpasswd" ]]; then
-  # kanikotest:kanikotest
-  docker run --rm --entrypoint htpasswd httpd:2 -Bbn kanikotest kanikotest \
-    > "${TLS_REG_DIR}/htpasswd"
+function bcrypt {
+  docker run --rm --entrypoint htpasswd httpd:2 -Bbn "$1" "$1" | cut -d: -f2-
+}
+
+if [[ ! -f "${TLS_REG_DIR}/auth_config.yml" ]]; then
+  cat > "${TLS_REG_DIR}/auth_config.yml" <<EOF
+server:
+  addr: ":5002"
+  certificate: /certs/tls.crt
+  key: /certs/tls.key
+
+token:
+  issuer: kaniko-test-auth
+  expiration: 900
+
+users:
+  kanikotest:
+    password: "$(bcrypt kanikotest)"
+  usera:
+    password: "$(bcrypt usera)"
+  userb:
+    password: "$(bcrypt userb)"
+
+acl:
+  - match: {account: kanikotest}
+    actions: ["*"]
+  - match: {account: usera, name: "/^usera\\\\/.*/"}
+    actions: ["*"]
+  - match: {account: userb, name: "/^userb\\\\/.*/"}
+    actions: ["*"]
+EOF
 fi

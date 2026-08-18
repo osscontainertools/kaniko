@@ -23,18 +23,22 @@ spec:
     tlsSecretName: local-tls-registry-cert
     extraEnvVars:
       - name: REGISTRY_AUTH
-        value: htpasswd
-      - name: REGISTRY_AUTH_HTPASSWD_REALM
-        value: "Registry Realm"
-      - name: REGISTRY_AUTH_HTPASSWD_PATH
-        value: /auth/htpasswd
+        value: token
+      - name: REGISTRY_AUTH_TOKEN_REALM
+        value: https://localhost:5002/auth
+      - name: REGISTRY_AUTH_TOKEN_SERVICE
+        value: kaniko-test-registry
+      - name: REGISTRY_AUTH_TOKEN_ISSUER
+        value: kaniko-test-auth
+      - name: REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE
+        value: /auth/tls.crt
     extraVolumes:
       - name: auth
         secret:
-          secretName: local-tls-registry-auth
+          secretName: local-tls-registry-cert
           items:
-            - key: htpasswd
-              path: htpasswd
+            - key: tls.crt
+              path: tls.crt
     extraVolumeMounts:
       - name: auth
         mountPath: /auth
