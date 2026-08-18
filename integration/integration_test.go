@@ -34,6 +34,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/cli/cli/config/configfile"
+	"github.com/docker/cli/cli/config/types"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -1622,6 +1624,70 @@ func TestAlpineTLS(t *testing.T) {
 	)
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+// mz1008: only the usera credential may push to usera/* on the test registry, so a push
+// credential resolved at registry scope picks an entry the registry refuses.
+func TestPushRepositoryScopedAuth(t *testing.T) {
+	caCert := os.Getenv("TLS_REGISTRY_CERT")
+	if caCert == "" {
+		t.Fatal("TLS_REGISTRY_CERT not set")
+	}
+
+	tests := []struct {
+		name        string
+		auths       map[string]types.AuthConfig
+		destination string
+	}{{
+		name: "repository credential wins over the host credential",
+		auths: map[string]types.AuthConfig{
+			"127.0.0.2:5001":              {Username: "nouser", Password: "nopassword"},
+			"127.0.0.2:5001/usera/mz1008": {Username: "usera", Password: "usera"},
+		},
+		destination: "127.0.0.2:5001/usera/mz1008:latest",
+	}, {
+		name: "sibling repository credential is never consulted",
+		auths: map[string]types.AuthConfig{
+			"127.0.0.2:5001/usera/mz1008": {Username: "usera", Password: "usera"},
+			"127.0.0.2:5001/userb/mz1008": {Username: "nouser", Password: "nopassword"},
+		},
+		destination: "127.0.0.2:5001/usera/mz1008:latest",
+	}}
+
+	_, ex, _, _ := runtime.Caller(0)
+	cwd := filepath.Dir(ex)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dockerConfigDir, err := os.MkdirTemp("", "kaniko-docker-")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.RemoveAll(dockerConfigDir)
+
+			auths := configfile.ConfigFile{
+				Filename:    filepath.Join(dockerConfigDir, "config.json"),
+				AuthConfigs: tc.auths,
+			}
+			err = auths.Save()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = buildKanikoImage(
+				t.Logf,
+				dockerfilesPath,
+				"Dockerfile_test_label",
+				nil,
+				[]string{"-c", buildContextPath},
+				tc.destination,
+				cwd,
+				caCert, filepath.Join(dockerConfigDir, "config.json"),
+			)
+			if err != nil {
+				t.Error(err)
+			}
+		})
 	}
 }
 
