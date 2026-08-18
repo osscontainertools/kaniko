@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -87,6 +88,17 @@ var (
 	checkRemotePushPermission = remote.CheckPushPermission
 )
 
+// remote.CheckPushPermission resolves at registry scope, which never matches a repository
+// entry. Answering every lookup with the repository credential works around that until the
+// vendored ggcr carries google/go-containerregistry#2411, then this goes away.
+type resolvedKeychain struct {
+	auth authn.Authenticator
+}
+
+func (k resolvedKeychain) Resolve(authn.Resource) (authn.Authenticator, error) {
+	return k.auth, nil
+}
+
 // CheckPushPermissions checks that the configured credentials can be used to
 // push to every specified destination.
 func CheckPushPermissions(opts *config.KanikoOptions) error {
@@ -129,7 +141,11 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 			return fmt.Errorf("making transport for registry %q: %w", registryName, err)
 		}
 		tr := newRetry(rt)
-		if err := checkRemotePushPermission(destRef, creds.GetKeychain(&opts.RegistryOptions), tr); err != nil {
+		pushAuth, err := creds.GetKeychain(&opts.RegistryOptions).Resolve(destRef.Context())
+		if err != nil {
+			return fmt.Errorf("resolving pushAuth: %w", err)
+		}
+		if err := checkRemotePushPermission(destRef, resolvedKeychain{auth: pushAuth}, tr); err != nil {
 			return fmt.Errorf("checking push permission for %q: %w", destRef, err)
 		}
 		checked[destRef.Context().String()] = true
@@ -282,7 +298,7 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 			destRef.Registry = newReg
 		}
 
-		pushAuth, err := creds.GetKeychain(&opts.RegistryOptions).Resolve(destRef.Context().Registry)
+		pushAuth, err := creds.GetKeychain(&opts.RegistryOptions).Resolve(destRef.Context())
 		if err != nil {
 			return fmt.Errorf("resolving pushAuth: %w", err)
 		}
