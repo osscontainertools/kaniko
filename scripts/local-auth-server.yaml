@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: local-auth-server
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: local-auth-server
+  template:
+    metadata:
+      labels:
+        app: local-auth-server
+    spec:
+      containers:
+        - name: auth-server
+          image: cesanta/docker_auth:1
+          args: ["/config/auth_config.yml"]
+          ports:
+            - containerPort: 5002
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: certs
+              mountPath: /certs
+              readOnly: true
+      volumes:
+        - name: config
+          secret:
+            secretName: local-auth-server-config
+        - name: certs
+          secret:
+            secretName: local-tls-registry-cert
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: local-auth-server
+  namespace: kube-system
+spec:
+  type: LoadBalancer
+  selector:
+    app: local-auth-server
+  ports:
+    - port: 5002
+      targetPort: 5002
