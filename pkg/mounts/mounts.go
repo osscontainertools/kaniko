@@ -21,9 +21,9 @@ limitations under the License.
 // from, which every local copy kaniko makes throws away. Keyed by digest rather than held on
 // the layer, so a copy that keeps the bytes keeps the entry and one that rewrites them misses.
 //
-// Only repositories this process read from or wrote to belong here.
-// A mount candidate is best-effort: if its authorization or the mount attempt fails,
-// the executor retries the push with a plain blob upload.
+// Only repositories this process read from or wrote to belong here. remote.Write fails a push
+// outright when the token request for a mount source is refused, so an unproven entry is not
+// a missed optimisation but a broken build.
 package mounts
 
 import (
@@ -84,22 +84,14 @@ func Mountable(repos []name.Repository, registry string) (name.Repository, bool)
 	return name.Repository{}, false
 }
 
-// MountableImage returns an image whose layers carry stable mount candidates recorded for registry.
-// The source snapshot is taken at construction time,
-// so preflight and the subsequent remote.Write observe the same mount plan.
 func MountableImage(img v1.Image, registry string) v1.Image {
-	return &mountableImage{
-		Image:    img,
-		registry: registry,
-		sources:  Snapshot(),
-	}
+	return &mountableImage{Image: img, registry: registry}
 }
 
 type mountableImage struct {
 	v1.Image
 
 	registry string
-	sources  map[v1.Hash][]name.Repository
 }
 
 // Layers is the only accessor remote.Write reads to decide what it sends, so LayerByDigest
@@ -110,13 +102,13 @@ func (m *mountableImage) Layers() ([]v1.Layer, error) {
 		return nil, err
 	}
 	tagged := make([]v1.Layer, 0, len(layers))
+	mu.Lock()
+	defer mu.Unlock()
 	for _, l := range layers {
 		layer := l
 		digest, err := l.Digest()
 		if err == nil {
-			// Use the frozen plan rather than the global registry of sources.
-			// A later cache read or push must not change this push's candidates.
-			repo, ok := Mountable(m.sources[digest], m.registry)
+			repo, ok := Mountable(sources[digest], m.registry)
 			if ok {
 				layer = &remote.MountableLayer{Layer: l, Reference: repo.Digest(digest.String())}
 			}

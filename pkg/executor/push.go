@@ -18,7 +18,6 @@ package executor
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -312,17 +311,9 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		rt := &withUserAgent{t: tr}
 
 		logrus.Infof("Pushing image to %s", destRef.String())
-		mountImage := image
-		mountEnabled := false
+		pushImage := image
 		if config.FF.CrossRepoMount {
-			mountImage = mounts.MountableImage(image, destRef.RegistryStr())
-			mountEnabled, err = canAuthorizeCrossRepoMounts(context.Background(), mountImage, destRef.Context(), pushAuth, rt)
-			if err != nil {
-				return fmt.Errorf("checking cross-repository mount authorization for %q: %w", destRef, err)
-			}
-			if !mountEnabled {
-				logrus.Debugf("Cross-repository mount authorization unavailable for %s; falling back to blob upload", destRef)
-			}
+			pushImage = mounts.MountableImage(image, destRef.RegistryStr())
 		}
 
 		retryFunc := func() error {
@@ -331,14 +322,12 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 				return err
 			}
 			digest := destRef.Context().Digest(dig.String())
-			write := func(pushImage v1.Image) error {
-				return remote.Write(destRef, pushImage, remote.WithAuth(pushAuth), remote.WithTransport(rt))
+			err = remote.Write(destRef, pushImage, remote.WithAuth(pushAuth), remote.WithTransport(rt))
+			if err != nil && config.FF.CrossRepoMount {
+				logrus.Debugf("Cross-repository mount failed; retrying plain blob upload: %v", err)
+				err = remote.Write(destRef, image, remote.WithAuth(pushAuth), remote.WithTransport(rt))
 			}
-
-			// Keep plain fallback before immutable-tag classification.
-			// remote.Write does not identify whether an error came from mount/upload or manifest write,
-			// so classification must apply only to the final plain-push error.
-			if err := writeWithCrossRepoMountFallback(write, image, mountImage, &mountEnabled); err != nil {
+			if err != nil {
 				if !opts.PushIgnoreImmutableTagErrors {
 					return err
 				}
@@ -366,90 +355,6 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		}
 	}
 	return writeImageOutputs(image, destRefs)
-}
-
-// writeWithCrossRepoMountFallback tries the mount-capable image first while mountEnabled is true.
-// If that attempt fails, it immediately retries with the plain image
-// and permanently disables mount attempts for later outer retries.
-func writeWithCrossRepoMountFallback(write func(v1.Image) error, plain, mountable v1.Image, mountEnabled *bool) error {
-	if !*mountEnabled {
-		return write(plain)
-	}
-
-	if err := write(mountable); err != nil {
-		logrus.Debugf("Cross-repository mount failed; retrying plain blob upload: %v", err)
-		// A mount is only an optimization.
-		// Keep it disabled for subsequent outer retries,
-		// so the same known-broken mount plan is not attempted again.
-		*mountEnabled = false
-		return write(plain)
-	}
-
-	return nil
-}
-
-// canAuthorizeCrossRepoMounts checks whether auth can obtain the destination push scope
-// and all source pull scopes required by the current mount plan.
-// A failed remote authorization check only disables the optional optimization;
-// layer inspection and context cancellation remain actionable errors.
-func canAuthorizeCrossRepoMounts(ctx context.Context, img v1.Image, dest name.Repository, auth authn.Authenticator, base http.RoundTripper) (bool, error) {
-	scopes, hasMountCandidates, err := crossRepoMountScopes(img, dest)
-	if err != nil {
-		return false, err
-	}
-	if !hasMountCandidates {
-		return false, nil
-	}
-
-	// This is a best-effort preflight:
-	// successful token acquisition does not guarantee that the registry will accept the subsequent mount request.
-	if _, err := transport.NewWithContext(ctx, dest.Registry, auth, base, scopes); err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return false, err
-		}
-		return false, nil
-	}
-
-	return true, nil
-}
-
-// crossRepoMountScopes returns the combined authorization scopes for actual same-registry mount candidates in img.
-// The destination push scope is kept first because some registries use the first requested scope to determine access.
-// Source scopes retain layer encounter order and are deduplicated.
-func crossRepoMountScopes(img v1.Image, dest name.Repository) ([]string, bool, error) {
-	layers, err := img.Layers()
-	if err != nil {
-		return nil, false, err
-	}
-
-	destinationScope := dest.Scope(transport.PushScope)
-	scopes := []string{destinationScope}
-	seen := map[string]struct{}{destinationScope: {}}
-	hasMountCandidates := false
-	for _, layer := range layers {
-		mountable, ok := layer.(*remote.MountableLayer)
-		if !ok || mountable.Reference == nil {
-			continue
-		}
-
-		source := mountable.Reference.Context()
-		// A same-repository or cross-registry reference
-		// is not a cross-repository mount candidate and must not add a source pull scope.
-		if source.String() == dest.String() || source.Registry.String() != dest.Registry.String() {
-			continue
-		}
-
-		hasMountCandidates = true
-		scope := source.Scope(transport.PullScope)
-		if _, ok := seen[scope]; ok {
-			continue
-		}
-
-		seen[scope] = struct{}{}
-		scopes = append(scopes, scope)
-	}
-
-	return scopes, hasMountCandidates, nil
 }
 
 func writeImageOutputs(image v1.Image, destRefs []name.Tag) error {
