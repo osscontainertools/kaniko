@@ -1,0 +1,3 @@
+ARG BASE
+FROM ${BASE}
+LABEL mz1007=fallback

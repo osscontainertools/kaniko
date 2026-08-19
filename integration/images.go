@@ -102,8 +102,10 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_mz793": {"FF_KANIKO_VOLUME_SKIP_MKDIR=0"},
 	"Dockerfile_test_issue_mz473": {"KANIKO_DIR=/kaniko2"},
 	"Dockerfile_test_issue_mz661": {"KANIKO_DIR=/kaniko2"},
-	"Dockerfile_test_stopsignal":  {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
-	"Dockerfile_test_healthcheck": {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
+	// mz970: layout layers carry no reference, so a stored base cannot be mounted
+	"Dockerfile_test_issue_mz1007": {"FF_KANIKO_SHARED_BASE_CACHE=0"},
+	"Dockerfile_test_stopsignal":   {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
+	"Dockerfile_test_healthcheck":  {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
 }
 
 var KanikoEnv = []string{
@@ -514,6 +516,7 @@ type DockerFileBuilder struct {
 	TestCacheDockerfiles        map[string]struct{}
 	TestOCICacheDockerfiles     map[string]struct{}
 	TestWarmerDockerfiles       map[string]struct{}
+	TestMountDockerfiles        map[string]struct{}
 	TestReproducibleDockerfiles map[string]struct{}
 	TestKanikoOnlyDockerfiles   map[string]struct{}
 }
@@ -563,6 +566,9 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 	}
 	d.TestWarmerDockerfiles = map[string]struct{}{
 		"Dockerfile_test_issue_mz320": {},
+	}
+	d.TestMountDockerfiles = map[string]struct{}{
+		"Dockerfile_test_issue_mz1007": {},
 	}
 	d.TestReproducibleDockerfiles = map[string]struct{}{
 		"Dockerfile_test_copy_reproducible": {},
