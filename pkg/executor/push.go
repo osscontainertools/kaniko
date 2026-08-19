@@ -322,7 +322,12 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 				return err
 			}
 			digest := destRef.Context().Digest(dig.String())
-			if err := remote.Write(destRef, pushImage, remote.WithAuth(pushAuth), remote.WithTransport(rt)); err != nil {
+			err = remote.Write(destRef, pushImage, remote.WithAuth(pushAuth), remote.WithTransport(rt))
+			if err != nil && config.FF.CrossRepoMount {
+				logrus.Debugf("Cross-repository mount failed; retrying plain blob upload: %v", err)
+				err = remote.Write(destRef, image, remote.WithAuth(pushAuth), remote.WithTransport(rt))
+			}
+			if err != nil {
 				if !opts.PushIgnoreImmutableTagErrors {
 					return err
 				}

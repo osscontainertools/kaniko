@@ -219,6 +219,9 @@ func TestRun(t *testing.T) {
 			if _, ok := imageBuilder.TestWarmerDockerfiles[dockerfile]; ok {
 				t.SkipNow()
 			}
+			if _, ok := imageBuilder.TestMountDockerfiles[dockerfile]; ok {
+				t.SkipNow()
+			}
 			if _, ok := expectErr[dockerfile]; ok {
 				t.SkipNow()
 			}
@@ -695,6 +698,9 @@ func TestLayers(t *testing.T) {
 
 			t.Parallel()
 			if _, ok := imageBuilder.DockerfilesToIgnore[dockerfileTest]; ok {
+				t.SkipNow()
+			}
+			if _, ok := imageBuilder.TestMountDockerfiles[dockerfileTest]; ok {
 				t.SkipNow()
 			}
 			if _, ok := expectErr[dockerfile]; ok {
@@ -1627,6 +1633,19 @@ func TestAlpineTLS(t *testing.T) {
 	}
 }
 
+func writeDockerConfig(t *testing.T, auths map[string]types.AuthConfig) string {
+	t.Helper()
+	config := configfile.ConfigFile{
+		Filename:    filepath.Join(t.TempDir(), "config.json"),
+		AuthConfigs: auths,
+	}
+	err := config.Save()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return config.Filename
+}
+
 // mz1008: only the usera credential may push to usera/* on the test registry, so a push
 // credential resolved at registry scope picks an entry the registry refuses.
 func TestPushRepositoryScopedAuth(t *testing.T) {
@@ -1659,22 +1678,7 @@ func TestPushRepositoryScopedAuth(t *testing.T) {
 	cwd := filepath.Dir(ex)
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			dockerConfigDir, err := os.MkdirTemp("", "kaniko-docker-")
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer os.RemoveAll(dockerConfigDir)
-
-			auths := configfile.ConfigFile{
-				Filename:    filepath.Join(dockerConfigDir, "config.json"),
-				AuthConfigs: tc.auths,
-			}
-			err = auths.Save()
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			err = buildKanikoImage(
+			err := buildKanikoImage(
 				t.Logf,
 				dockerfilesPath,
 				"Dockerfile_test_label",
@@ -1682,10 +1686,106 @@ func TestPushRepositoryScopedAuth(t *testing.T) {
 				[]string{"-c", buildContextPath},
 				tc.destination,
 				cwd,
-				caCert, filepath.Join(dockerConfigDir, "config.json"),
+				caCert, writeDockerConfig(t, tc.auths),
 			)
 			if err != nil {
 				t.Error(err)
+			}
+		})
+	}
+}
+
+func registryLog(t *testing.T) string {
+	t.Helper()
+	out, err := exec.Command("docker", "logs", "kaniko-tls-registry").CombinedOutput()
+	if err == nil {
+		return string(out)
+	}
+	out, err = exec.Command("kubectl", "logs", "-n", "kube-system",
+		"-l", "app=docker-registry,release=local-tls-registry", "--tail=-1").CombinedOutput()
+	if err != nil {
+		t.Fatalf("reading registry log: %v\n%s", err, out)
+	}
+	return string(out)
+}
+
+// mz1007: the base lives in userb/*, so a push credential that may read it mounts the base
+// layers into the destination, and one that may not has to upload them instead.
+func TestCrossRepoMountFallback(t *testing.T) {
+	caCert := os.Getenv("TLS_REGISTRY_CERT")
+	if caCert == "" {
+		t.Fatal("TLS_REGISTRY_CERT not set")
+	}
+
+	_, ex, _, _ := runtime.Caller(0)
+	cwd := filepath.Dir(ex)
+	base := "127.0.0.2:5001/userb/test_issue_mz1007:base"
+
+	seed := writeDockerConfig(t, map[string]types.AuthConfig{
+		"127.0.0.2:5001/userb/test_issue_mz1007": {Username: "userb", Password: "userb"},
+	})
+	err := buildKanikoImage(
+		t.Logf,
+		dockerfilesPath,
+		"Dockerfile_test_label",
+		nil,
+		[]string{"-c", buildContextPath},
+		base,
+		cwd,
+		caCert, seed,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name       string
+		auths      map[string]types.AuthConfig
+		repo       string
+		mountReply string
+	}{{
+		name: "mounts the base layers when the push credential may read the source",
+		auths: map[string]types.AuthConfig{
+			"127.0.0.2:5001": {Username: "kanikotest", Password: "kanikotest"},
+		},
+		repo:       "mounted",
+		mountReply: "201",
+	}, {
+		name: "uploads the base layers when the mount is refused",
+		auths: map[string]types.AuthConfig{
+			"127.0.0.2:5001":                         {Username: "usera", Password: "usera"},
+			"127.0.0.2:5001/userb/test_issue_mz1007": {Username: "userb", Password: "userb"},
+		},
+		repo:       "fallback",
+		mountReply: "401",
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			destination := fmt.Sprintf("127.0.0.2:5001/usera/test_issue_mz1007-%s-%d", tc.repo, time.Now().UnixNano())
+			err = buildKanikoImage(
+				t.Logf,
+				dockerfilesPath,
+				"Dockerfile_test_issue_mz1007",
+				[]string{"--build-arg", "BASE=" + base},
+				[]string{"-c", buildContextPath},
+				destination+":latest",
+				cwd,
+				caCert, writeDockerConfig(t, tc.auths),
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			repo := strings.TrimPrefix(destination, "127.0.0.2:5001/")
+			mounted := false
+			for line := range strings.SplitSeq(registryLog(t), "\n") {
+				if strings.Contains(line, "/v2/"+repo+"/blobs/uploads/?") && strings.Contains(line, "mount=") {
+					mounted = strings.Contains(line, `HTTP/2.0" `+tc.mountReply)
+				}
+			}
+			if !mounted {
+				t.Errorf("no mount attempt answered %s for %s", tc.mountReply, repo)
 			}
 		})
 	}
