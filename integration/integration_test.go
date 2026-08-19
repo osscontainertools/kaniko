@@ -1807,6 +1807,8 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 		registry = "127.0.0.2:5001"
 		working  = "kanikotest:kanikotest"
 		broken   = "kanikotest:wrongpassword"
+		// authenticates, but the ACL grants it usera/* only
+		unauthorized = "usera:usera"
 	)
 
 	_, ex, _, _ := runtime.Caller(0)
@@ -1885,7 +1887,7 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 
 	t.Run("namespace matches whole path segments only", func(t *testing.T) {
 		auths := map[string]string{
-			registry:          broken,
+			registry:          unauthorized,
 			registry + "/kan": working,
 		}
 		out, err := run(configFile(auths), pushDockerfile, "--destination", registry+"/kaniko/mz1002-segment:latest", "--no-push-cache")
