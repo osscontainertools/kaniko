@@ -1794,21 +1794,21 @@ func TestCrossRepoMountFallback(t *testing.T) {
 }
 
 // TestPathScopedRegistryAuth proves FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH selects a
-// credential per repository namespace, not just per registry host. The registry has a
-// single global user, so every case pairs a broken host-level entry with a working
-// namespace-level one and only a lookup that walks the repository path authenticates.
+// credential per repository namespace, not just per registry host. Every case pairs a
+// host-level entry the registry refuses for the destination with a namespace-level one it
+// accepts, so only a lookup that walks the repository path can push.
 func TestPathScopedRegistryAuth(t *testing.T) {
 	caCert := os.Getenv("TLS_REGISTRY_CERT")
 	if caCert == "" {
 		t.Fatal("TLS_REGISTRY_CERT not set")
 	}
 
+	// usera and userb each hold only their own namespace, see setup-tls-registry-creds.sh
 	const (
 		registry = "127.0.0.2:5001"
-		working  = "kanikotest:kanikotest"
-		broken   = "kanikotest:wrongpassword"
-		// authenticates, but the ACL grants it usera/* only
-		unauthorized = "usera:usera"
+		anyRepo  = "kanikotest:kanikotest"
+		owner    = "usera:usera"
+		stranger = "userb:userb"
 	)
 
 	_, ex, _, _ := runtime.Caller(0)
@@ -1861,10 +1861,10 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 	}
 
 	namespaceAuth := map[string]string{
-		registry:             broken,
-		registry + "/kaniko": working,
+		registry:            stranger,
+		registry + "/usera": owner,
 	}
-	dest := registry + "/kaniko/mz1002:latest"
+	dest := registry + "/usera/mz1002:latest"
 
 	t.Run("namespace credential is selected for push", func(t *testing.T) {
 		out, err := run(configFile(namespaceAuth), pushDockerfile, "--destination", dest, "--no-push-cache")
@@ -1875,11 +1875,11 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 
 	t.Run("most specific namespace wins", func(t *testing.T) {
 		auths := map[string]string{
-			registry:                      broken,
-			registry + "/kaniko":          broken,
-			registry + "/kaniko/specific": working,
+			registry:                     stranger,
+			registry + "/usera":          stranger,
+			registry + "/usera/specific": owner,
 		}
-		out, err := run(configFile(auths), pushDockerfile, "--destination", registry+"/kaniko/specific/mz1002:latest", "--no-push-cache")
+		out, err := run(configFile(auths), pushDockerfile, "--destination", registry+"/usera/specific/mz1002:latest", "--no-push-cache")
 		if err != nil {
 			t.Fatalf("push failed for the most specific namespace: %v\n%s", err, out)
 		}
@@ -1887,12 +1887,12 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 
 	t.Run("namespace matches whole path segments only", func(t *testing.T) {
 		auths := map[string]string{
-			registry:          unauthorized,
-			registry + "/kan": working,
+			registry:          stranger,
+			registry + "/use": owner,
 		}
-		out, err := run(configFile(auths), pushDockerfile, "--destination", registry+"/kaniko/mz1002-segment:latest", "--no-push-cache")
+		out, err := run(configFile(auths), pushDockerfile, "--destination", registry+"/usera/mz1002-segment:latest", "--no-push-cache")
 		if err == nil {
-			t.Fatalf("expected %q not to match the %q namespace, got success:\n%s", "kaniko", "kan", out)
+			t.Fatalf("expected %q not to match the %q namespace, got success:\n%s", "usera", "use", out)
 		}
 		if !bytes.Contains(out, []byte("UNAUTHORIZED")) {
 			t.Fatalf("expected authentication failure, got: %v\n%s", err, out)
@@ -1903,7 +1903,7 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 		// The helper does not exist, so reaching it is what fails the pull.
 		// A working host credential proves the failure is not the fallback.
 		config, err := json.Marshal(map[string]any{
-			"auths":       map[string]map[string]string{registry: {"auth": base64.StdEncoding.EncodeToString([]byte(working))}},
+			"auths":       map[string]map[string]string{registry: {"auth": base64.StdEncoding.EncodeToString([]byte(anyRepo))}},
 			"credHelpers": map[string]string{strings.TrimSuffix(dest, ":latest"): "mz1002-missing"},
 		})
 		if err != nil {
@@ -1927,7 +1927,7 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 	})
 
 	t.Run("env-only config selects the namespace credential", func(t *testing.T) {
-		out, err := run(configEnv(namespaceAuth), pushDockerfile, "--destination", registry+"/kaniko/mz1002-env:latest", "--no-push-cache")
+		out, err := run(configEnv(namespaceAuth), pushDockerfile, "--destination", registry+"/usera/mz1002-env:latest", "--no-push-cache")
 		if err != nil {
 			t.Fatalf("push with DOCKER_AUTH_CONFIG failed: %v\n%s", err, out)
 		}
