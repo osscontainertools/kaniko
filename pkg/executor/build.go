@@ -17,6 +17,7 @@ limitations under the License.
 package executor
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -55,6 +56,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/mounts"
 	"github.com/osscontainertools/kaniko/pkg/snapshot"
 	"github.com/osscontainertools/kaniko/pkg/timing"
+	"github.com/osscontainertools/kaniko/pkg/tracing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -1105,10 +1107,10 @@ type pushedLayer struct {
 	key  v1.Hash
 }
 
-func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string, layerCache *memoizedLayerCache, externalImageDigests map[string]string, sharedRemote map[string]bool) (retErr error) {
+func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string, layerCache *memoizedLayerCache, externalImageDigests map[string]string, sharedRemote map[string]bool) (retErr error) {
 	printf := func(format string, args ...any) {
 		if retErr == nil {
-			_, retErr = fmt.Fprintf(Out, format, args...)
+			_, retErr = fmt.Fprintf(w, format, args...)
 		}
 	}
 
@@ -1451,10 +1453,22 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		kanikoStages = onlyUsedStages
 	}
 
+	tracePlan := os.Getenv(tracing.EndpointEnv) != "" && !config.EnvBool(tracing.OmitDockerfileEnv)
+	var plan bytes.Buffer
+	var sinks []io.Writer
 	if opts.Dryrun || config.EnvBool("KANIKO_PRINT_PLAN") {
-		err := RenderStages(kanikoStages, cacheInfo, opts, fileContext, crossStageDependencies, layerCache, externalImageDigests, sharedRemote)
+		sinks = append(sinks, Out)
+	}
+	if tracePlan {
+		sinks = append(sinks, &plan)
+	}
+	if len(sinks) > 0 {
+		err := RenderStages(io.MultiWriter(sinks...), kanikoStages, cacheInfo, opts, fileContext, crossStageDependencies, layerCache, externalImageDigests, sharedRemote)
 		if err != nil {
 			return nil, err
+		}
+		if tracePlan {
+			tracing.SetPlan(plan.String())
 		}
 		if opts.Dryrun {
 			return nil, nil
