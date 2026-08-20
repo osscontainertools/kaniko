@@ -48,6 +48,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/version"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type withUserAgent struct {
@@ -194,11 +195,11 @@ func writeDigestFile(path string, digestByteArray []byte) error {
 // DoPush is responsible for pushing image to the destinations specified in opts.
 // A dummy destination would be set when --no-push is set to true and --tar-path
 // is not empty with empty --destinations.
+// The push phase roll-up belongs to the caller pushing the built image. Cache
+// layers and pointers come through here too, and they already have their own
+// spans, so timing them as a whole push phase reported one per cache entry.
 func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 	assert.Assert("executor.push.image-nonnull", image != nil, "DoPush called with nil image")
-
-	t := timing.Start("Total Push Time")
-	defer t.End()
 
 	var digestByteArray []byte
 	var builder strings.Builder
@@ -390,8 +391,8 @@ func writeImageOutputs(image v1.Image, destRefs []name.Tag) error {
 
 // pushLayerToCache pushes layer (tagged with cacheKey) to opts.CacheRepo
 // if opts.CacheRepo doesn't exist, infer the cache from the given destination
-func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath string, createdBy string) error {
-	t := timing.Start("Pushing cached layer")
+func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath string, createdBy string, parent trace.Span) error {
+	t := timing.StartChild(parent, "Pushing cached layer")
 	defer t.End()
 	var layerOpts []tarball.LayerOption
 	if opts.CompressedCaching {
@@ -456,8 +457,8 @@ const cachePointerLabel = "kaniko.cache.pointer-target"
 // pushCachePointer pushes a lightweight pointer entry under inferredKey that records
 // the content-addressed contentKey. On a subsequent build, resolving the pointer via
 // resolveCachePointer gives the contentKey so the cache chain can be continued correctly.
-func pushCachePointer(opts *config.KanikoOptions, inferredKey, contentKey string) error {
-	t := timing.Start("Pushing cache pointer")
+func pushCachePointer(opts *config.KanikoOptions, inferredKey, contentKey string, parent trace.Span) error {
+	t := timing.StartChild(parent, "Pushing cache pointer")
 	defer t.End()
 	dest, err := cache.Destination(opts, inferredKey)
 	if err != nil {

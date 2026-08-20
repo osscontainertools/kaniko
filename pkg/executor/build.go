@@ -86,6 +86,10 @@ type stageBuilder struct {
 	cmds            []commands.DockerCommand
 	lines           []int // source line per command, aligned with cmds
 	args            *dockerfile.BuildArgs
+	// span is the stage's own span. Work that belongs to the stage rather than to
+	// one of its commands names it as parent, and so does anything handed to a
+	// goroutine, which cannot rely on the scope stack.
+	span trace.Span
 }
 
 type stageCacheInfo struct {
@@ -595,19 +599,31 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	}
 
 	cacheGroup := errgroup.Group{}
+	// One span per command, covering everything that command causes: its cache
+	// key, its execution and its snapshot. Closing it at the top of the next
+	// iteration and on the way out keeps every exit path covered, and an unended
+	// span is never exported.
 	var cmdTimer trace.Span
-	// stop on the way out too: an unended span is never exported
-	defer func() {
+	var cmdScope func()
+	endCmd := func() {
+		if cmdScope != nil {
+			cmdScope()
+			cmdScope = nil
+		}
 		if cmdTimer != nil {
 			cmdTimer.End()
+			cmdTimer = nil
 		}
-	}()
+	}
+	defer endCmd()
 	for index, command := range s.cmds {
+		endCmd()
 		if command == nil {
 			continue
 		}
 
 		cmdTimer = timing.Start("Command")
+		cmdScope = timing.Scope(cmdTimer)
 
 		// mz334: cross-stage copies key off the inferred pointer first, their
 		// source stage may be eliminated and its files never materialize. The
@@ -687,7 +703,9 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		if !initSnapshotTaken && !isCacheCommand && !command.ProvidesFilesToSnapshot() {
 			// Take initial snapshot if command does not expect to return
 			// a list of files.
-			t := timing.StartChild(cmdTimer, "Initial FS snapshot")
+			// Stage setup, taken once for whichever command first needs it, so it
+			// belongs to the stage rather than to that arbitrary command.
+			t := timing.StartChild(s.span, "Initial FS snapshot")
 			err := snapshotter.Init()
 			t.End()
 			if err != nil {
@@ -696,15 +714,13 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			initSnapshotTaken = true
 		}
 
-		execTimer := timing.StartChild(cmdTimer, "Execute")
+		execTimer := timing.Start("Execute")
 		err := command.ExecuteCommand(&s.cf.Config, s.args)
 		execTimer.End()
 		if err != nil {
 			return fmt.Errorf("failed to execute command: %w", err)
 		}
 		files = command.FilesToSnapshot()
-		cmdTimer.End()
-		cmdTimer = nil
 
 		isLastCommand := index == lastRunnableIdx
 		if !shouldTakeSnapshot(command.MetadataOnly(), isLastCommand, opts) {
@@ -756,7 +772,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				// Push layer to cache (in parallel) now along with new config file
 				if command.ShouldCacheOutput() && !opts.NoPushCache {
 					cacheGroup.Go(func() error {
-						return pushCache(opts, ck, tarPath, command.String())
+						return pushCache(opts, ck, tarPath, command.String(), s.span)
 					})
 					// mz334: also push a pointer under the inferred key so that a
 					// subsequent optimize pass can find the content key and continue
@@ -769,7 +785,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 						}
 						assert.Assert("executor.build.key-hash", h == ck, "rawCompositeKey hash %v does not match ck %v", h, ck)
 						cacheGroup.Go(func() error {
-							return pushPointer(opts, inferredCacheKey, rawKey)
+							return pushPointer(opts, inferredCacheKey, rawKey, s.span)
 						})
 					}
 				}
@@ -781,6 +797,10 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		}
 	}
 
+	// The stage waits for the uploads its commands kicked off, so close the last
+	// command first: the wait is the stage's, not that command's. It needs no span
+	// of its own, the layer pushes already cover the window it blocks on.
+	endCmd()
 	if err := cacheGroup.Wait(); err != nil {
 		logrus.Warnf("Error uploading layer to cache: %s", err)
 	}
@@ -1491,6 +1511,25 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 	}
 
+	// One span per stage, so fetching its base, unpacking it and every command it
+	// runs hang off the stage they belong to. Same close-on-next-iteration shape
+	// as the command spans, which covers the error returns below. Deferred before
+	// the cleanup below so LIFO order closes the final stage only after the
+	// filesystem cleanup has run inside its span.
+	var stageSpan trace.Span
+	var stageScope func()
+	endStage := func() {
+		if stageScope != nil {
+			stageScope()
+			stageScope = nil
+		}
+		if stageSpan != nil {
+			stageSpan.End()
+			stageSpan = nil
+		}
+	}
+	defer endStage()
+
 	if opts.Cleanup {
 		defer assignIfNil(&retErr, func() error {
 			if err = util.DeleteFilesystem(); err != nil {
@@ -1512,6 +1551,14 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 	var pushImage v1.Image
 	for _, stage := range kanikoStages {
+		endStage()
+		stageSpan = timing.Start("Stage")
+		stageSpan.SetAttributes(
+			attribute.Int("kaniko.stage", stage.Index),
+			attribute.String("kaniko.stage.name", stage.Name),
+		)
+		stageScope = timing.Scope(stageSpan)
+
 		baseImage, err := retrieveBaseImage(stage, opts, sharedRemote[stage.BaseImageDigest])
 		if err != nil {
 			return nil, fmt.Errorf("failed to get baseImage: %w", err)
@@ -1532,6 +1579,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if err != nil {
 			return nil, err
 		}
+		sb.span = stageSpan
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
 			stage.BaseName, stage.Index, stage.BaseImageIndex)
 

@@ -49,3 +49,7 @@ Attribute values are capped at 64 KiB. `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` 
 | `kaniko.cache.hit` | `true` when the command was replayed from cache (only with `--cache`, absent when caching is off) |
 | `kaniko.cache.key` | cache key for the command (only with `--cache`) |
 
+## Phases
+
+`kaniko.phase` is `network`, `build` or `kaniko`, and follows the span name. `FS Unpacking` reports `kaniko` even though extraction pulls the layers off the registry when nothing has them locally, so its transfer time is not visible as networking yet.
+

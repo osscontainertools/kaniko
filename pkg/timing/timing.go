@@ -29,7 +29,29 @@ var (
 	tracerMu  sync.Mutex
 	tracer    trace.Tracer
 	parentCtx context.Context
+	// scopes is the stack of spans an operation belongs to, innermost last. A
+	// stage pushes its span, each command pushes its own, so a span started
+	// anywhere in the call tree below them lands under the right one without
+	// every function in between having to carry a parent.
+	scopes []trace.Span
 )
+
+// Scope makes span the parent of spans started until the returned function runs.
+// Only the sequential build path may use it, work handed to a goroutine has to
+// name its parent with StartChild instead.
+func Scope(span trace.Span) func() {
+	tracerMu.Lock()
+	scopes = append(scopes, span)
+	depth := len(scopes)
+	tracerMu.Unlock()
+	return func() {
+		tracerMu.Lock()
+		defer tracerMu.Unlock()
+		if len(scopes) >= depth {
+			scopes = scopes[:depth-1]
+		}
+	}
+}
 
 func SetTracer(ctx context.Context, t trace.Tracer) {
 	tracerMu.Lock()
@@ -55,6 +77,7 @@ var noSpanCategories = map[string]bool{
 var networkCategories = map[string]bool{
 	"Retrieving Source Image": true,
 	"Fetching Extra Stages":   true,
+	"Downloading base image":  true,
 	"Pushing cached layer":    true,
 	"Pushing cache pointer":   true,
 	"Total Push Time":         true,
@@ -80,6 +103,9 @@ func StartChild(parent trace.Span, category string) trace.Span {
 func start(parent trace.Span, category string) trace.Span {
 	tracerMu.Lock()
 	tr, ctx := tracer, parentCtx
+	if parent == nil && len(scopes) > 0 {
+		parent = scopes[len(scopes)-1]
+	}
 	tracerMu.Unlock()
 	if tr == nil || noSpanCategories[category] {
 		return noop.Span{}

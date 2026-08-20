@@ -36,6 +36,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/executor"
 	"github.com/osscontainertools/kaniko/pkg/logging"
+	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/tracing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/util/proc"
@@ -238,7 +239,10 @@ var RootCmd = &cobra.Command{
 		}
 		// mz992: a dryrun renders the plan and returns no image, there is nothing to push.
 		if !opts.Dryrun {
-			if err := executor.DoPush(image, opts); err != nil {
+			t := timing.Start("Total Push Time")
+			err := executor.DoPush(image, opts)
+			t.End()
+			if err != nil {
 				exit(fmt.Errorf("error pushing image: %w", err))
 			}
 		}
