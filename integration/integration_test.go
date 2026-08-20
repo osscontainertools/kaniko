@@ -1780,8 +1780,8 @@ func TestCrossRepoMountFallback(t *testing.T) {
 			repo := strings.TrimPrefix(destination, "127.0.0.2:5001/")
 			mounted := false
 			for line := range strings.SplitSeq(registryLog(t), "\n") {
-				if strings.Contains(line, "/v2/"+repo+"/blobs/uploads/?") && strings.Contains(line, "mount=") {
-					mounted = strings.Contains(line, `HTTP/2.0" `+tc.mountReply)
+				if strings.Contains(line, "/v2/"+repo+"/blobs/uploads/?") && strings.Contains(line, "mount=") && strings.Contains(line, `HTTP/2.0" `+tc.mountReply) {
+					mounted = true
 				}
 			}
 			if !mounted {
