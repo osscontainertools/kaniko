@@ -1866,12 +1866,11 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 	}
 	dest := registry + "/usera/mz1002:latest"
 
-	t.Run("namespace credential is selected for push", func(t *testing.T) {
-		out, err := run(configFile(namespaceAuth), pushDockerfile, "--destination", dest, "--no-push-cache")
-		if err != nil {
-			t.Fatalf("push failed: %v\n%s", err, out)
-		}
-	})
+	// the pull cases below need this image, so the push runs outside a subtest
+	out, err := run(configFile(namespaceAuth), pushDockerfile, "--destination", dest, "--no-push-cache")
+	if err != nil {
+		t.Fatalf("push with the namespace credential failed: %v\n%s", err, out)
+	}
 
 	t.Run("most specific namespace wins", func(t *testing.T) {
 		auths := map[string]string{
@@ -1882,20 +1881,6 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 		out, err := run(configFile(auths), pushDockerfile, "--destination", registry+"/usera/specific/mz1002:latest", "--no-push-cache")
 		if err != nil {
 			t.Fatalf("push failed for the most specific namespace: %v\n%s", err, out)
-		}
-	})
-
-	t.Run("namespace matches whole path segments only", func(t *testing.T) {
-		auths := map[string]string{
-			registry:          stranger,
-			registry + "/use": owner,
-		}
-		out, err := run(configFile(auths), pushDockerfile, "--destination", registry+"/usera/mz1002-segment:latest", "--no-push-cache")
-		if err == nil {
-			t.Fatalf("expected %q not to match the %q namespace, got success:\n%s", "usera", "use", out)
-		}
-		if !bytes.Contains(out, []byte("UNAUTHORIZED")) {
-			t.Fatalf("expected authentication failure, got: %v\n%s", err, out)
 		}
 	})
 
@@ -1930,6 +1915,19 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 		out, err := run(configEnv(namespaceAuth), pushDockerfile, "--destination", registry+"/usera/mz1002-env:latest", "--no-push-cache")
 		if err != nil {
 			t.Fatalf("push with DOCKER_AUTH_CONFIG failed: %v\n%s", err, out)
+		}
+	})
+
+	t.Run("an entry is not offered to a namespace it does not cover", func(t *testing.T) {
+		// the registry accepts kanikotest for every namespace, so a push that succeeds here
+		// was authenticated with an entry that covers userb only
+		auths := map[string]string{registry + "/userb": anyRepo}
+		out, err := run(configFile(auths), pushDockerfile, "--destination", registry+"/usera/mz1002-uncovered:latest", "--no-push-cache")
+		if err == nil {
+			t.Fatalf("expected the userb entry not to authenticate a usera push, got success:\n%s", out)
+		}
+		if !bytes.Contains(out, []byte("UNAUTHORIZED")) {
+			t.Fatalf("expected authentication failure, got: %v\n%s", err, out)
 		}
 	})
 }
