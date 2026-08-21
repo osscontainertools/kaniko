@@ -1926,8 +1926,8 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 		if err == nil {
 			t.Fatalf("expected the userb entry not to authenticate a usera push, got success:\n%s", out)
 		}
-		if !bytes.Contains(out, []byte("UNAUTHORIZED")) {
-			t.Fatalf("expected authentication failure, got: %v\n%s", err, out)
+		if !bytes.Contains(out, []byte("401 Unauthorized")) {
+			t.Fatalf("expected an anonymous token request, got: %v\n%s", err, out)
 		}
 	})
 }
