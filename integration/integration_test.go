@@ -19,6 +19,8 @@ package integration
 import (
 	"archive/tar"
 	"bytes"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -1789,6 +1791,145 @@ func TestCrossRepoMountFallback(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestPathScopedRegistryAuth proves FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH selects a
+// credential per repository namespace, not just per registry host. Every case pairs a
+// host-level entry the registry refuses for the destination with a namespace-level one it
+// accepts, so only a lookup that walks the repository path can push.
+func TestPathScopedRegistryAuth(t *testing.T) {
+	caCert := os.Getenv("TLS_REGISTRY_CERT")
+	if caCert == "" {
+		t.Fatal("TLS_REGISTRY_CERT not set")
+	}
+
+	// usera and userb each hold only their own namespace, see setup-tls-registry-creds.sh
+	const (
+		registry = "127.0.0.2:5001"
+		anyRepo  = "kanikotest:kanikotest"
+		owner    = "usera:usera"
+		stranger = "userb:userb"
+	)
+
+	_, ex, _, _ := runtime.Caller(0)
+	cwd := filepath.Dir(ex)
+	pushDockerfile := filepath.Join(buildContextPath, "testdata", "Dockerfile.trivial")
+	pullDockerfile := filepath.Join(buildContextPath, dockerfilesPath, "Dockerfile_test_arg_from_quotes")
+
+	authConfig := func(entries map[string]string) string {
+		auths := map[string]map[string]string{}
+		for key, cred := range entries {
+			auths[key] = map[string]string{"auth": base64.StdEncoding.EncodeToString([]byte(cred))}
+		}
+		out, err := json.Marshal(map[string]any{"auths": auths})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(out)
+	}
+
+	writeConfig := func(config string) []string {
+		path := filepath.Join(t.TempDir(), "config.json")
+		if err := os.WriteFile(path, []byte(config), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return []string{"-v", path + ":/kaniko/.docker/config.json:ro"}
+	}
+
+	configFile := func(entries map[string]string) []string {
+		return writeConfig(authConfig(entries))
+	}
+
+	configEnv := func(entries map[string]string) []string {
+		return []string{"-e", "DOCKER_AUTH_CONFIG=" + authConfig(entries)}
+	}
+
+	run := func(credFlags []string, dockerfile string, args ...string) ([]byte, error) {
+		dockerRunFlags := []string{"run", "--rm", "--net=host",
+			"-v", cwd + ":/workspace:ro",
+			"-v", caCert + ":/kaniko/ssl/certs/test-registry-ca.crt:ro",
+			"-e", "FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=1",
+		}
+		dockerRunFlags = append(dockerRunFlags, credFlags...)
+		dockerRunFlags = addCoverageFlags(dockerRunFlags)
+		dockerRunFlags = append(dockerRunFlags, ExecutorImage,
+			"-f", dockerfile,
+			"-c", buildContextPath,
+		)
+		dockerRunFlags = append(dockerRunFlags, args...)
+		return RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
+	}
+
+	namespaceAuth := map[string]string{
+		registry:            stranger,
+		registry + "/usera": owner,
+	}
+	dest := registry + "/usera/mz1002:latest"
+
+	// the pull cases below need this image, so the push runs outside a subtest
+	out, err := run(configFile(namespaceAuth), pushDockerfile, "--destination", dest, "--no-push-cache")
+	if err != nil {
+		t.Fatalf("push with the namespace credential failed: %v\n%s", err, out)
+	}
+
+	t.Run("most specific namespace wins", func(t *testing.T) {
+		auths := map[string]string{
+			registry:                     stranger,
+			registry + "/usera":          stranger,
+			registry + "/usera/specific": owner,
+		}
+		out, err := run(configFile(auths), pushDockerfile, "--destination", registry+"/usera/specific/mz1002:latest", "--no-push-cache")
+		if err != nil {
+			t.Fatalf("push failed for the most specific namespace: %v\n%s", err, out)
+		}
+	})
+
+	t.Run("credential helper for the exact repository is consulted", func(t *testing.T) {
+		// The helper does not exist, so reaching it is what fails the pull.
+		// A working host credential proves the failure is not the fallback.
+		config, err := json.Marshal(map[string]any{
+			"auths":       map[string]map[string]string{registry: {"auth": base64.StdEncoding.EncodeToString([]byte(anyRepo))}},
+			"credHelpers": map[string]string{strings.TrimSuffix(dest, ":latest"): "mz1002-missing"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		out, err := run(writeConfig(string(config)), pullDockerfile, "--build-arg", "IMAGE_NAME="+dest, "--no-push", "--no-push-cache")
+		if err == nil {
+			t.Fatalf("expected the credential helper for the exact repository to be consulted, got success:\n%s", out)
+		}
+		if !bytes.Contains(out, []byte("docker-credential-mz1002-missing")) {
+			t.Fatalf("expected the missing credential helper to be reported, got: %v\n%s", err, out)
+		}
+	})
+
+	t.Run("namespace credential is selected for pull", func(t *testing.T) {
+		out, err := run(configFile(namespaceAuth), pullDockerfile, "--build-arg", "IMAGE_NAME="+dest, "--no-push", "--no-push-cache")
+		if err != nil {
+			t.Fatalf("pull failed: %v\n%s", err, out)
+		}
+	})
+
+	t.Run("env-only config selects the namespace credential", func(t *testing.T) {
+		out, err := run(configEnv(namespaceAuth), pushDockerfile, "--destination", registry+"/usera/mz1002-env:latest", "--no-push-cache")
+		if err != nil {
+			t.Fatalf("push with DOCKER_AUTH_CONFIG failed: %v\n%s", err, out)
+		}
+	})
+
+	t.Run("an entry is not offered to a namespace it does not cover", func(t *testing.T) {
+		// the registry accepts kanikotest for every namespace, so a push that succeeds here
+		// was authenticated with an entry that covers userb only
+		auths := map[string]string{registry + "/userb": anyRepo}
+		out, err := run(configFile(auths), pushDockerfile, "--destination", registry+"/usera/mz1002-uncovered:latest", "--no-push-cache")
+		if err == nil {
+			t.Fatalf("expected the userb entry not to authenticate a usera push, got success:\n%s", out)
+		}
+		if !bytes.Contains(out, []byte("401 Unauthorized")) {
+			t.Fatalf("expected an anonymous token request, got: %v\n%s", err, out)
+		}
+	})
 }
 
 // mz745: in kaniko v1.27.0 --custom-platform folds an architecture variant like linux/arm/v7

@@ -160,6 +160,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_SKIP_CACHED_STAGES`](#flag-ff_kaniko_skip_cached_stages)
       - [Flag `FF_KANIKO_SHARED_BASE_CACHE`](#flag-ff_kaniko_shared_base_cache)
       - [Flag `FF_KANIKO_CROSS_REPO_MOUNT`](#flag-ff_kaniko_cross_repo_mount)
+      - [Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`](#flag-ff_kaniko_path_scoped_registry_auth)
     - [Assertion Overrides](#assertion-overrides)
     - [Telemetry](#telemetry)
     - [Debug Image](#debug-image)
@@ -1437,6 +1438,25 @@ If a cross-repository mount cannot be authorized or completed,
 kaniko falls back to the normal blob upload path using destination credential.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`
+
+An `auths` entry is historically matched by either the registry host or by the exact repository path. kaniko and most other tools have no concept of namespaces for docker auth. This means in registries that allow for namespaced auth, ie. quay robot accounts, users will end up configuring credentials for each repository path regardless.
+
+```text
+registry:   registry.example.com
+namespace:  registry.example.com/org-a
+repository: registry.example.com/org-a/project-1
+repository: registry.example.com/org-a/project-2
+repository: registry.example.com/org-a/project-3
+```
+
+We introduced a new PathScopedKeychain resolver that implements namespace aware authentication, so users would only need to configure a single credential for the entire `registry.example.com/org-a`. This affects explicit `auths` entries only, `DOCKER_AUTH_CONFIG`. `credsStore` and `credHelpers` keep the scopes they have without the flag. See **[docs/registries.md](docs/registries.md)** for further details and the full lookup order. Set this flag to `true` to switch to the new namespace aware PathScopedKeychain resolver and match namespace entries.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+> [!IMPORTANT]
+> The new resolver also stops offering an entry to repositories it does not cover. An entry for `registry.example.com/org-a` is currently sent for every repository on that host, ie. `registry.example.com/org-b` too. This is legacy behaviour intended to support URL-style entries that docker login used to write, but it was scoped too broadly and included entries without a scheme. We will continue to support URL-style entries, what breaks is implicit auth to sibling namespaces. A build that relies on that behaviour goes anonymous and fails with a `401` once this becomes the default.
 
 ### Assertion Overrides
 

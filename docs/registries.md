@@ -11,6 +11,41 @@ registry.
 By default kaniko will configure all built-in credential providers for you. These are `[default, env, google, ecr, acr, gitlab]`.
 You can (de)-activate credential helpers via the [`--credential-helpers`](#flag---credential-helpers) flag. The `default` credential helper will always be active and itself handles two sources: `DOCKER_AUTH_CONFIG` environment variable and `/kaniko/.docker/config.json` file, where priority is always given to `DOCKER_AUTH_CONFIG` and therefore can shadow credentials configured in the config file. If you want to disable `DOCKER_AUTH_CONFIG` you have to unset the environment variable explicitly `unset DOCKER_AUTH_CONFIG` prior to calling kaniko.
 
+### Path-scoped credentials
+
+The `default` credential helper matches an `auths` entry against the exact repository or, failing that, the bare registry host. Namespace aware resolution also matches the repository paths in between, so one credential can cover a whole organization on a shared registry host, such as a Quay robot account per organization.
+
+For an image such as `registry.example.com/org-a/project/image:tag` the lookup order is:
+
+```text
+registry.example.com/org-a/project/image
+registry.example.com/org-a/project
+registry.example.com/org-a
+registry.example.com
+```
+
+The first configured entry wins. Example configuration granting a distinct credential per organization on the same host:
+
+```json
+{
+  "auths": {
+    "quay.io/org-a": {
+      "auth": "<org-a robot account, base64 user:token>"
+    },
+    "quay.io/org-b": {
+      "auth": "<org-b robot account, base64 user:token>"
+    }
+  }
+}
+```
+
+Two things are deliberately limited:
+
+* Namespaces are matched in `auths` entries from `config.json` and `DOCKER_AUTH_CONFIG`. `credsStore` and `credHelpers` are consulted for the exact repository and for the registry host, not for the namespaces in between. `DOCKER_AUTH_CONFIG` on its own is enough, no `config.json` has to exist.
+* There is no fallback across the network. kaniko selects one credential locally before making a request, it never retries a request with a different credential after a failed authentication.
+
+Podman, Buildah and Skopeo resolve their auth file the same way, see [containers-auth.json](https://github.com/containers/image/blob/main/docs/containers-auth.json.5.md).
+
 ## Pushing to Docker Hub
 
 Get your docker registry user and password encoded in base64
