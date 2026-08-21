@@ -1455,6 +1455,9 @@ We introduced a new PathScopedKeychain resolver that implements namespace aware 
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
+> [!IMPORTANT]
+> The new resolver also stops offering an entry to repositories it does not cover. An entry for `registry.example.com/org-a` is currently sent for every repository on that host, ie. `registry.example.com/org-b` too. This is legacy behaviour intended to support URL-style entries that docker login used to write, but it was scoped too broadly and included entries without a scheme. We will continue to support URL-style entries, what breaks is implicit auth to sibling namespaces. A build that relies on that behaviour goes anonymous and fails with a `401` once this becomes the default.
+
 ### Assertion Overrides
 
 Kaniko checks internal invariants at runtime. If one is violated the build stops with a message like:
