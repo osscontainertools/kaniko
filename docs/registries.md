@@ -13,17 +13,9 @@ You can (de)-activate credential helpers via the [`--credential-helpers`](#flag-
 
 ### Path-scoped credentials
 
-The `default` credential helper normally matches an `auths` entry
-against the exact repository or, failing that, the bare registry host.
-It cannot match an intermediate namespace path,
-even if one registry host contains several independent organizations
-or projects that should each use their own least-privilege credential
-(for example, separate Quay robot accounts per organization).
+The `default` credential helper matches an `auths` entry against the exact repository or, failing that, the bare registry host. Namespace aware resolution also matches the repository paths in between, so one credential can cover a whole organization on a shared registry host, such as a Quay robot account per organization.
 
-Set `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=true` to also match `auths` entries
-configured for an intermediate repository path.
-For an image such as `registry.example.com/org-a/project/image:tag`,
-the lookup order becomes:
+For an image such as `registry.example.com/org-a/project/image:tag` the lookup order is:
 
 ```text
 registry.example.com/org-a/project/image
@@ -32,11 +24,7 @@ registry.example.com/org-a
 registry.example.com
 ```
 
-The first configured entry wins; entries are matched by whole path segment,
-so a credential configured for `registry.example.com/org`
-is never selected for `registry.example.com/org-admin`.
-Example configuration granting a distinct credential
-per organization on the same host:
+The first configured entry wins. Example configuration granting a distinct credential per organization on the same host:
 
 ```json
 {
@@ -51,27 +39,12 @@ per organization on the same host:
 }
 ```
 
-Two things are deliberately limited when the flag is enabled:
+Two things are deliberately limited:
 
-* Intermediate and exact repository-path matching
-  is limited to inline `auths` entries.
-  Credential helpers are intentionally resolved only at registry-host scope
-  and are never called with a repository path.
-* There is no fallback across the network:
-  kaniko selects one credential locally before making a request,
-  it never retries a request with a different credential
-  after a failed authentication.
-* Cross-repository blob mounting is disabled
-  while path-scoped authentication is enabled.
-  A mount may require source and destination repository scopes
-  to be authorized by the same credential,
-  which cannot be assumed when different repository paths may resolve
-  to different credentials.
-  Layers fall back to the normal upload path instead.
+* Namespaces are matched in `auths` entries from `config.json` and `DOCKER_AUTH_CONFIG`. `credsStore` and `credHelpers` are consulted for the exact repository and for the registry host, not for the namespaces in between. `DOCKER_AUTH_CONFIG` on its own is enough, no `config.json` has to exist.
+* There is no fallback across the network. kaniko selects one credential locally before making a request, it never retries a request with a different credential after a failed authentication.
 
-This is opt-in and defaults to `false`. With the flag unset (or `false`),
-the default keychain keeps its existing behavior:
-only the exact repository and bare registry host are checked.
+Podman, Buildah and Skopeo resolve their auth file the same way, see [containers-auth.json](https://github.com/containers/image/blob/main/docs/containers-auth.json.5.md).
 
 ## Pushing to Docker Hub
 

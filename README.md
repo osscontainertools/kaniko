@@ -1441,21 +1441,19 @@ Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`
 
-Kaniko normally selects a credential for an exact repository
-or the whole registry host, but cannot select one configured
-for an intermediate namespace such as `registry.example.com/org-a`.
-Set this flag to `true` to also match credentials configured
-for an intermediate repository path, most specific first:
-`registry.example.com/org-a/project/image`,
-then `registry.example.com/org-a/project`,
-then `registry.example.com/org-a`, then `registry.example.com`.
+An `auths` entry is historically matched by either the registry host or by the exact repository path. kaniko and most other tools have no concept of namespaces for docker auth. This means in registries that allow for namespaced auth, ie. quay robot accounts, users will end up configuring credentials for each repository path regardless.
 
-Applies to inline `auths` entries (in `config.json` and `DOCKER_AUTH_CONFIG`);
-credential helpers are intentionally resolved only at registry-host scope.
-See [Credential Provider Priorities][] for the exact lookup order.
+```text
+registry:   registry.example.com
+namespace:  registry.example.com/org-a
+repository: registry.example.com/org-a/project-1
+repository: registry.example.com/org-a/project-2
+repository: registry.example.com/org-a/project-3
+```
+
+We introduced a new PathScopedKeychain resolver that implements namespace aware authentication, so users would only need to configure a single credential for the entire `registry.example.com/org-a`. This affects explicit `auths` entries only, `DOCKER_AUTH_CONFIG`. `credsStore` and `credHelpers` keep the scopes they have without the flag. See **[docs/registries.md](docs/registries.md)** for further details and the full lookup order. Set this flag to `true` to switch to the new namespace aware PathScopedKeychain resolver and match namespace entries.
 Defaults to `false`.
-
-[Credential Provider Priorities]: docs/registries.md#credential-provider-priorities
+Becomes default in `v1.29.0`.
 
 ### Assertion Overrides
 
