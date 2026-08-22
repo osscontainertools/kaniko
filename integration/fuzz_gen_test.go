@@ -248,6 +248,13 @@ func generate(s *source, bases []string) genResult {
 	// debian (root, bin, daemon), so a named owner resolves from the base's /etc/passwd and
 	// /etc/group. Kept separate from uids, which also feed numeric-only mount uid= fields.
 	ug := []string{"0", "1000", "65534", "root", "bin", "daemon"}
+	// USER draws from a root-weighted pool rather than from ug. Nearly every instruction the
+	// generator emits writes to an absolute path at the filesystem root, which a non-root user
+	// cannot create, so a stage that drops privileges early fails in both tools: the case is
+	// sterile, testing nothing while still costing a build on each side. Weighting keeps the
+	// non-root path in the search space without letting it dominate the campaign. ug itself is
+	// unchanged so --chown keeps drawing named and numeric owners uniformly.
+	userPool := []string{"0", "root", "0", "root", "0", "root", "1000", "65534", "bin", "daemon"}
 	modes := []string{"0644", "0600", "0755", "0700", "0777"}
 	stopsignals := []string{"SIGTERM", "SIGKILL", "9", "SIGQUIT"}
 
@@ -440,7 +447,7 @@ func generate(s *source, bases []string) genResult {
 				// Delete a builtin file, exercising whiteout handling on base content.
 				fmt.Fprintf(&b, "RUN rm -f /etc/os-release\n")
 			case 13:
-				fmt.Fprintf(&b, "USER %s\n", srcPick(s, ug))
+				fmt.Fprintf(&b, "USER %s\n", srcPick(s, userPool))
 			case 14:
 				if s.chance(2) {
 					fmt.Fprintf(&b, "ENTRYPOINT [\"/bin/echo\", \"hi%d\"]\n", i)
