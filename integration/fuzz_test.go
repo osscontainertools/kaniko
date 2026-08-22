@@ -1244,6 +1244,15 @@ func hasFlag(flags []string, f string) bool {
 // base, so kaniko's output type is set by FF_KANIKO_OCI_SCRATCH_BASE, which the case
 // carries in its env flags; match that instead of probing a nonexistent base ref.
 func dockerWantsOCI(gen genResult) bool {
+	// An explicit --image-format overrides whatever the base carries: kaniko relabels the
+	// manifest, config and layers to that vendor, so docker has to emit the same vendor or
+	// the oracle reports a format difference the flag asked for.
+	if hasFlag(gen.kanikoFlags, "--image-format=oci") {
+		return true
+	}
+	if hasFlag(gen.kanikoFlags, "--image-format=docker") {
+		return false
+	}
 	ref := finalBaseRef(gen.dockerfile, gen.target, gen.buildArgs)
 	if ref == "scratch" {
 		return scratchEnvOCI(gen.envFlags)
@@ -1678,6 +1687,11 @@ func runFuzzKanikoPush(hostDir, image string, envOverride []string) (string, err
 // not change the image. Exercises the --no-push/--tar-path write path (build.go layout.Write,
 // push.go setDummyDestinations).
 func twoStepPushOracle(seed int64, label, dir, dirImage, dockerfile string, flags, envFlags []string, covDir string, fail func(severity, string, string) *finding, crashOr func(string) *finding) *finding {
+	// --tar-path writes a docker schema2 tarball, which the executor refuses to combine with
+	// --image-format=oci. Skip rather than report the executor rejecting its own conflict.
+	if hasFlag(flags, "--image-format=oci") {
+		return nil
+	}
 	hostDir, err := os.MkdirTemp("", "kaniko-fuzz-tarpath-")
 	if err != nil {
 		return nil

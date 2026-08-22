@@ -727,7 +727,6 @@ func generate(s *source, bases []string) genResult {
 	if s.chance(5) {
 		flags = append(flags, "--skip-unused-stages")
 	}
-
 	// Compression is tested only around caching. On an OCI base it changes the layer
 	// media type (tar+zstd vs docker's tar+gzip), which diffoci flags as a descriptor
 	// diff, so it must not touch the docker-compared fresh build. Applied to both sides
@@ -738,6 +737,23 @@ func generate(s *source, bases []string) genResult {
 		cacheCompression = "zstd"
 	case 2:
 		cacheCompression = "gzip"
+	}
+
+	// --image-format forces the output manifest, config and layer media types to one vendor
+	// instead of inheriting the base's. It is the only thing that reaches pkg/image's relabel
+	// machinery (WithMediaType, relabelLayers, layerRelabeledImage), all of which is dead on
+	// the inherit path. Deliberately not output-neutral: dockerWantsOCI reads the flag back
+	// and has docker emit the same vendor, so the parity oracle compares like for like and
+	// checks the relabelling against buildkit rather than only executing it.
+	//
+	// docker schema2 has no zstd layer media type and the executor refuses that combination,
+	// so a zstd case can only be forced to oci.
+	if s.chance(3) {
+		formats := []string{"oci", "docker"}
+		if cacheCompression == "zstd" {
+			formats = []string{"oci"}
+		}
+		flags = append(flags, "--image-format="+srcPick(s, formats))
 	}
 
 	// Feature-flag search space: output-neutral FF_KANIKO_* toggles drawn from the byte
