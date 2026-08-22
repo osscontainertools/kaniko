@@ -1430,14 +1430,7 @@ func runFuzzDocker(contextDir, image string, oci bool, buildArgs, labels, annota
 	if oci {
 		ociFlag = "true"
 	}
-	// buildkit's cache is left on. Its keys are content-based, so a hit means the inputs were
-	// identical, and the parity comparison ignores file timestamps anyway (a cached layer
-	// carries the earlier build's mtimes, and docker and kaniko never agree on those regardless
-	// since they build seconds apart). Coverage-guided generation is what makes this pay:
-	// mutateInput copies a corpus parent and flips a few bytes, and the generator reads the
-	// byte stream in order, so a child shares its parent's Dockerfile up to the earliest flip.
-	// The cheapest and most common mutation, a single late flip, preserves the longest prefix.
-	cmd := append([]string{"build", "--provenance=false"}, argFlags...)
+	cmd := append([]string{"build", "--no-cache", "--provenance=false"}, argFlags...)
 	cmd = append(cmd, "--output", "type=image,name="+image+",oci-mediatypes="+ociFlag+",push=true", contextDir)
 	c := exec.Command("docker", cmd...)
 	if usesSecret {
