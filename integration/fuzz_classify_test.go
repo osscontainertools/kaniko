@@ -63,9 +63,43 @@ func implicitDirChmodDivergence(row string) bool {
 	return docker != kaniko && (kaniko == docker&^0o22 || kaniko == 0o755)
 }
 
+// Generated instructions whose divergence is already filed write to a distinctive path
+// prefix, so a diff row can be attributed to the instruction that produced it rather than
+// matched by shape. That keeps the suppression narrow: an unrelated bug touching some other
+// path still reports, even in a case that also used one of these instructions.
+var (
+	quotedHeredocPath = regexp.MustCompile(`\bhq[0-9]+/`)
+	copyParentsPath   = regexp.MustCompile(`\bparents[0-9]+/`)
+	copyExcludePath   = regexp.MustCompile(`\bexcl[0-9]+/`)
+)
+
 // dockerKnownDivergences are the classes observed on the docker oracle. The cache
 // oracle passes no allowlist, so any cache diff is treated as novel.
 var dockerKnownDivergences = []knownDivergence{
+	{
+		name: "heredoc-quoted-delimiter-skipped",
+		why:  "mz1025: RUN with a quoted heredoc delimiter (<<'EOF') is silently skipped, so everything the script should have written is missing from the kaniko image. run.go decides a heredoc body is a script by comparing the command line to the bare delimiter, which the quoted form never matches. Remove this entry when mz1025 is fixed",
+		flag: "",
+		match: func(row string) bool {
+			return quotedHeredocPath.MatchString(row)
+		},
+	},
+	{
+		name: "copy-parents-not-implemented",
+		why:  "COPY --parents is accepted by the vendored parser and never read by kaniko (Parents has no references in the tree), so docker preserves the source's parent directories under the destination and kaniko flattens them. Tracked upstream as GoogleContainerTools/kaniko#3165",
+		flag: "",
+		match: func(row string) bool {
+			return copyParentsPath.MatchString(row)
+		},
+	},
+	{
+		name: "copy-exclude-not-implemented",
+		why:  "COPY --exclude is accepted by the vendored parser and never read by kaniko (ExcludePatterns has no references in the tree), so docker drops the excluded entry and kaniko copies it anyway",
+		flag: "",
+		match: func(row string) bool {
+			return copyExcludePath.MatchString(row)
+		},
+	},
 	{
 		name: "chmod-implicit-parent-dir",
 		why:  "mz922: COPY/ADD --chmod is not applied verbatim to implicitly created parent dirs. The COPY path masks the explicit mode with the launcher umask (kaniko == docker &^ 022, so 0777 becomes 0755), and the ADD-from-URL path never applies it (kaniko stays 0755). Pre-existing, only partially closed by the mz863 fix",
