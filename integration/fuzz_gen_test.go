@@ -42,14 +42,21 @@ var chaosFlags = []string{
 	"FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE", "FF_KANIKO_CACHE_LOOKAHEAD",
 	"FF_KANIKO_CACHE_PROBE_AFTER_MISS", "FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS",
 	"FF_KANIKO_CLEAN_KANIKO_DIR", "FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS",
-	"FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE", "FF_KANIKO_IGNORE_CACHED_MANIFEST",
+	"FF_KANIKO_CROSS_REPO_MOUNT", "FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE",
+	"FF_KANIKO_DISABLE_HTTP2", "FF_KANIKO_EXPAND_HEREDOC",
+	"FF_KANIKO_HASH_DIR_FRAMING", "FF_KANIKO_IGNORE_CACHED_MANIFEST",
 	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", "FF_KANIKO_NO_PROPAGATE_ANNOTATIONS",
-	"FF_KANIKO_OCI_SCRATCH_BASE", "FF_KANIKO_OCI_WARMER", "FF_KANIKO_PRESERVE_HARDLINKS",
-	"FF_KANIKO_PRESERVE_MOUNTED_PATHS", "FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS",
-	"FF_KANIKO_RESOLVE_CACHE_KEY", "FF_KANIKO_RUN_MOUNT_BIND", "FF_KANIKO_SCOPED_DOCKERIGNORE",
-	"FF_KANIKO_SECUREJOIN_EXTRACTION", "FF_KANIKO_SKIP_RELABEL_RECOMPRESS",
-	"FF_KANIKO_SKIP_WRITE_WHITEOUTS", "FF_KANIKO_UNTAR_SKIP_ROOT",
-	"FF_KANIKO_VOLUME_SKIP_MKDIR", "FF_KANIKO_WARMER_CACHE_LOCK",
+	"FF_KANIKO_OCI_SCRATCH_BASE", "FF_KANIKO_OCI_WARMER",
+	"FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH", "FF_KANIKO_PRECOMPILE_DOCKERIGNORE",
+	"FF_KANIKO_PRESERVE_HARDLINKS", "FF_KANIKO_PRESERVE_MOUNTED_PATHS",
+	"FF_KANIKO_RELATIVE_LINK_TARGETS", "FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS",
+	"FF_KANIKO_RESOLVE_CACHE_KEY", "FF_KANIKO_ROLLING_CACHE_KEY",
+	"FF_KANIKO_RUN_HONOR_GROUP", "FF_KANIKO_RUN_MOUNT_BIND",
+	"FF_KANIKO_SCOPED_DOCKERIGNORE", "FF_KANIKO_SECUREJOIN_EXTRACTION",
+	"FF_KANIKO_SHARED_BASE_CACHE", "FF_KANIKO_SKIP_CACHED_STAGES",
+	"FF_KANIKO_SKIP_RELABEL_RECOMPRESS", "FF_KANIKO_SKIP_WRITE_WHITEOUTS",
+	"FF_KANIKO_UNTAR_SKIP_ROOT", "FF_KANIKO_VOLUME_SKIP_MKDIR",
+	"FF_KANIKO_WARMER_CACHE_LOCK",
 }
 
 // fixedFuzzEpoch is a constant mtime used for generated context files and touch
@@ -631,18 +638,28 @@ func generate(s *source, bases []string) genResult {
 	// divergence is a real bug. Only flags verified output-neutral versus docker go here,
 	// so the docker-parity oracle stays valid. These are cache-focused, where the recent
 	// bugs clustered (mz872/mz873/mz876). Add more as they are verified.
+	// Each flag is drawn to on, off, or left at whatever KanikoEnv set, from a single
+	// byte. Drawing both directions matters: envFlags are appended after KanikoEnv on the
+	// executor's env, so an explicit =0 is the only way a case reaches the off path of a
+	// flag the suite pins on.
 	var envFlags []string
 	for _, ff := range []string{
-		"FF_KANIKO_CACHE_PROBE_AFTER_MISS",   // after a miss, keep probing later layers
-		"FF_KANIKO_IGNORE_CACHED_MANIFEST",   // do not short-circuit on a cached manifest
-		"FF_KANIKO_ROLLING_CACHE_KEY",        // recursive-hash composite cache key (mz873)
-		"FF_KANIKO_CLEAN_KANIKO_DIR",         // wipe /kaniko after build, image unaffected
-		"FF_KANIKO_SKIP_RELABEL_RECOMPRESS",  // relabel a converted layer without recompress; digest-asserted equal
-		"FF_KANIKO_DISABLE_HTTP2",            // registry transport over HTTP/1.1, image unaffected
-		"FF_KANIKO_SHARED_BASE_CACHE",        // dedup base-image downloads across stages (mz936), image unaffected
-		"FF_KANIKO_SKIP_CACHED_STAGES",       // squash fully cached stages after lookahead (mz334), final image unaffected
+		"FF_KANIKO_CACHE_PROBE_AFTER_MISS",    // after a miss, keep probing later layers
+		"FF_KANIKO_IGNORE_CACHED_MANIFEST",    // do not short-circuit on a cached manifest
+		"FF_KANIKO_ROLLING_CACHE_KEY",         // recursive-hash composite cache key (mz873)
+		"FF_KANIKO_CLEAN_KANIKO_DIR",          // wipe /kaniko after build, image unaffected
+		"FF_KANIKO_SKIP_RELABEL_RECOMPRESS",   // relabel a converted layer without recompress; digest-asserted equal
+		"FF_KANIKO_DISABLE_HTTP2",             // registry transport over HTTP/1.1, image unaffected
+		"FF_KANIKO_SHARED_BASE_CACHE",         // dedup base-image downloads across stages (mz936), image unaffected
+		"FF_KANIKO_SKIP_CACHED_STAGES",        // squash fully cached stages after lookahead (mz334), final image unaffected
+		"FF_KANIKO_CROSS_REPO_MOUNT",          // mount a blob the registry already holds instead of uploading it (mz989)
+		"FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH", // scope the registry token to the repository path, transport-only
+		"FF_KANIKO_WARMER_CACHE_LOCK",         // lock the warmer cache dir, concurrency-only
 	} {
-		if s.chance(2) {
+		switch s.intn(4) {
+		case 0:
+			envFlags = append(envFlags, ff+"=0")
+		case 1:
 			envFlags = append(envFlags, ff+"=1")
 		}
 	}
