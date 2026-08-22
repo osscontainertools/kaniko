@@ -1,0 +1,5 @@
+FROM busybox:1.31
+
+# 3373: first nibble of the digest flipped. docker rejects this, kaniko up to
+# v1.28.3 accepted the download and built the image.
+ADD --checksum=sha256:b680e90a30faae7b193edf63b088a11edf856f731d93c25f1fd7c1a21cf82d06 https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz /release.tar.gz
