@@ -777,6 +777,15 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		}
 	}
 
+	// context-sub-path oracle: the same context nested one level down and reached with
+	// --context-sub-path must give the same image. Gated behind FUZZ_SUBPATHCONTEXT.
+	if os.Getenv("FUZZ_SUBPATHCONTEXT") == "1" {
+		if f := subPathContextOracle(seed, label, dir, kanikoImage, gen.dockerfile, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
+			mergeKnown(f, dockerCls.known)
+			return f
+		}
+	}
+
 	// stdin-context oracle: the context piped in as a gzipped tar must give the same image as
 	// the dir context. Gated behind FUZZ_STDINCONTEXT; adds a build and a tar per case.
 	if os.Getenv("FUZZ_STDINCONTEXT") == "1" {
@@ -1509,6 +1518,67 @@ func stdinContextOracle(seed int64, label, dir, dirImage, dockerfile string, fla
 	diff, same, _ := runFuzzDiffoci(dirImage, img, ignores)
 	if !same {
 		return classifyContextDiff(seed, dockerfile, dirImage, img, ignores, diff, "dir-context and stdin-context builds differ", fail)
+	}
+	return nil
+}
+
+// runFuzzKanikoSubPath builds with the context nested one directory down and reached via
+// --context-sub-path, which kaniko resolves by joining it onto the context path
+// (cmd/executor/cmd/root.go). The Dockerfile lives inside the sub directory too, so every
+// relative source in it has to resolve against the joined root rather than the mount point.
+func runFuzzKanikoSubPath(contextDir, image, sub string, extra []string, covDir string, envOverride []string) (string, error) {
+	flags := []string{"run", "--rm", "--net=host", "-v", contextDir + ":/workspace:ro"}
+	for _, e := range KanikoEnv {
+		flags = append(flags, "-e", e)
+	}
+	for _, e := range envOverride {
+		flags = append(flags, "-e", e)
+	}
+	if covDir != "" {
+		flags = append(flags, "-v", covDir+":/covdata", "-e", "GOCOVERDIR=/covdata")
+	}
+	flags = append(flags, ExecutorImage,
+		"-f", path.Join(buildContextPath, sub, "Dockerfile"),
+		"-d", image,
+		"-c", buildContextPath,
+		"--context-sub-path="+sub,
+	)
+	flags = append(flags, extra...)
+	out, err := RunCommandWithoutTest(exec.Command("docker", flags...))
+	return string(out), err
+}
+
+// subPathContextOracle nests the whole context one directory deeper and builds it through
+// --context-sub-path, requiring the same image as the flat build. Every relative COPY source
+// in the case then has to resolve against the joined root, so a subpath that is applied to
+// the context but not to a source lookup (or applied twice) shows up as a missing or
+// misplaced file rather than staying silent.
+func subPathContextOracle(seed int64, label, dir, dirImage, dockerfile string, flags, envFlags []string, covDir string, fail func(severity, string, string) *finding, crashOr func(string) *finding) *finding {
+	nested, err := os.MkdirTemp("", "kaniko-fuzz-subpath-")
+	if err != nil {
+		return nil
+	}
+	defer os.RemoveAll(nested)
+	const sub = "ctxroot"
+	if err := os.MkdirAll(filepath.Join(nested, sub), 0o755); err != nil {
+		return nil
+	}
+	if err := copyFuzzContext(dir, filepath.Join(nested, sub), dockerfile); err != nil {
+		return nil
+	}
+	img := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-subpath")
+	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", img))
+	out, err := runFuzzKanikoSubPath(nested, img, sub, flags, covDir, envFlags)
+	if f := crashOr(out); f != nil {
+		return f
+	}
+	if err != nil {
+		return fail(sevInvarianceDiff, "context-sub-path build failed while the flat-context build succeeded", out)
+	}
+	ignores := []string{"--ignore-image-name", "--ignore-image-timestamps", "--ignore-file-timestamps"}
+	diff, same, _ := runFuzzDiffoci(dirImage, img, ignores)
+	if !same {
+		return classifyContextDiff(seed, dockerfile, dirImage, img, ignores, diff, "flat-context and context-sub-path builds differ", fail)
 	}
 	return nil
 }
