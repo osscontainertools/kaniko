@@ -657,6 +657,15 @@ func generate(s *source, bases []string) genResult {
 	if s.chance(4) {
 		flags = append(flags, "--cleanup")
 	}
+	// Retry counts are output-neutral: nothing here fails transiently, so a higher bound
+	// just leaves the retry loop unentered, but the flag parse and plumbing get covered.
+	if s.chance(4) {
+		flags = append(flags, "--push-retry="+srcPick(s, []string{"1", "2"}))
+	}
+	if s.chance(4) {
+		flags = append(flags, "--image-download-retry="+srcPick(s, []string{"1", "2"}))
+	}
+
 	// Compression is tested only around caching. On an OCI base it changes the layer
 	// media type (tar+zstd vs docker's tar+gzip), which diffoci flags as a descriptor
 	// diff, so it must not touch the docker-compared fresh build. Applied to both sides
@@ -692,6 +701,7 @@ func generate(s *source, bases []string) genResult {
 		"FF_KANIKO_CROSS_REPO_MOUNT",          // mount a blob the registry already holds instead of uploading it (mz989)
 		"FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH", // scope the registry token to the repository path, transport-only
 		"FF_KANIKO_WARMER_CACHE_LOCK",         // lock the warmer cache dir, concurrency-only
+		"FF_KANIKO_OCI_WARMER",                // warmer cache format, OCI layout or legacy tarball
 	} {
 		switch s.intn(4) {
 		case 0:
