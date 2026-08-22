@@ -201,9 +201,17 @@ func TestFuzz(t *testing.T) {
 	// hang the executor). Each step is skipped if the target already exists. crane copy
 	// preserves the source media type, so alpine stays docker v2 and debian stays OCI.
 	ociBase := strings.ToLower(config.imageRepo + ociFuzzBaseTag)
+	// A mirrored tag is reused only while it still holds the pinned digest, so repinning a
+	// base takes effect instead of silently reusing the previous copy. crane copy preserves
+	// the source digest, so the two are comparable; the skopeo-minted OCI base re-formats
+	// by design and falls back to an existence check.
 	mirror := func(name, src, dst string, copyArgs ...string) {
-		if _, err := RunCommandWithoutTest(exec.Command("crane", "manifest", dst)); err == nil {
-			return
+		have, err := RunCommandWithoutTest(exec.Command("crane", "digest", dst))
+		if err == nil {
+			_, want, pinned := strings.Cut(src, "@")
+			if copyArgs[0] != "crane" || !pinned || strings.TrimSpace(string(have)) == want {
+				return
+			}
 		}
 		if out, err := RunCommandWithoutTest(exec.Command(copyArgs[0], copyArgs[1:]...)); err != nil {
 			t.Fatalf("failed to mirror %s base %s -> %s: %v\n%s", name, src, dst, err, out)
@@ -1116,7 +1124,7 @@ func writeTarFixture(path string, gz bool) error {
 const (
 	ociFuzzBaseTag = "fuzz-oci-base:latest"     // OCI media type, minted from alpine
 	baseAlpineTag  = "fuzz-base-alpine:latest"  // docker v2, single layer
-	baseDebianTag  = "fuzz-base-debian:latest"  // OCI index, multi layer
+	baseDebianTag  = "fuzz-base-debian:latest"  // OCI index, glibc, passwd db
 	onbuildBaseTag = "fuzz-onbuild-base:latest" // alpine + baked-in ONBUILD triggers
 	annotBaseTag   = "fuzz-annot-base:latest"   // OCI base carrying manifest annotations
 )
