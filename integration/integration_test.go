@@ -170,7 +170,7 @@ func buildRequiredImages() error {
 	}, {
 		name: "Building single manifest base image",
 		command: append(append([]string{"docker", "build", "--push"}, dockerV2Flags...),
-			"-t", config.singleManifestBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_2567",
+			"-t", config.singleManifestBaseImage, "-f", dockerfilesPath+"/Dockerfile_test_issue_2567",
 			"--target", "base", "--build-arg", "IMAGE_REPO="+config.imageRepo, "."),
 	}, {
 		name:    "Building kaniko image based on alpine",

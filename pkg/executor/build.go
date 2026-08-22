@@ -1297,6 +1297,18 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 	assert.Assert("executor.build.stages-nonempty", len(kanikoStages) > 0, "no stages to build")
 
+	var platform string
+	if config.FF.PlatformCacheKey {
+		platform = runtime.GOOS + "/" + runtime.GOARCH
+		if opts.CustomPlatform != "" {
+			parsed, err := v1.ParsePlatform(opts.CustomPlatform)
+			if err != nil {
+				return nil, fmt.Errorf("invalid platform %q: %w", opts.CustomPlatform, err)
+			}
+			platform = parsed.String()
+		}
+	}
+
 	// Some stages may refer to other random images, not previous stages
 	externalImageDigests, extraStageImages, err := resolveExtraStageDigests(kanikoStages, opts)
 	if err != nil {
@@ -1355,6 +1367,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				if cacheKey, ok := stageFinalCacheKeys[stage.BaseImageIndex]; ok {
 					compositeKey = ResumeCompositeCache(cacheKey)
 				}
+			} else if config.FF.PlatformCacheKey {
+				compositeKey = NewCompositeCache(sb.baseImageDigest, platform)
 			} else {
 				compositeKey = NewCompositeCache(sb.baseImageDigest)
 			}
@@ -1568,7 +1582,11 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			}
 		}
 		if compositeKey == nil {
-			compositeKey = NewCompositeCache(sb.baseImageDigest)
+			if config.FF.PlatformCacheKey {
+				compositeKey = NewCompositeCache(sb.baseImageDigest, platform)
+			} else {
+				compositeKey = NewCompositeCache(sb.baseImageDigest)
+			}
 		}
 
 		// Apply optimizations to the instructions.
