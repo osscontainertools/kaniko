@@ -1,3 +1,4 @@
 # A .dockerignore file to make sure dockerignore support works
 ignore/**
 !ignore/foo
+cache
