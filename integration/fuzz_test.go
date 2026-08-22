@@ -752,6 +752,15 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		}
 	}
 
+	// dryrun oracle: --dryrun renders the plan and must not push (mz992). Gated behind
+	// FUZZ_DRYRUN; adds one build per case, and no registry write to clean up.
+	if os.Getenv("FUZZ_DRYRUN") == "1" {
+		if f := dryrunOracle(label, dir, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
+			mergeKnown(f, dockerCls.known)
+			return f
+		}
+	}
+
 	// shared-cache oracle: two different-arg builds sharing one --cache-repo must not leak
 	// layers between each other, even when their composite keys collide (mz873), and the
 	// cache-lookahead precompute must not mis-resolve a colliding cross-stage pointer
@@ -1105,11 +1114,11 @@ func writeTarFixture(path string, gz bool) error {
 // kaniko or docker build never pulls from Docker Hub during the campaign. That avoids
 // the rate-limited pulls that otherwise hang the executor under concurrent workers.
 const (
-	ociFuzzBaseTag   = "fuzz-oci-base:latest"   // OCI media type, minted from alpine
-	baseAlpineTag    = "fuzz-base-alpine:latest" // docker v2, single layer
-	baseDebianTag    = "fuzz-base-debian:latest" // OCI index, multi layer
-	onbuildBaseTag   = "fuzz-onbuild-base:latest" // alpine + baked-in ONBUILD triggers
-	annotBaseTag     = "fuzz-annot-base:latest"  // OCI base carrying manifest annotations
+	ociFuzzBaseTag = "fuzz-oci-base:latest"     // OCI media type, minted from alpine
+	baseAlpineTag  = "fuzz-base-alpine:latest"  // docker v2, single layer
+	baseDebianTag  = "fuzz-base-debian:latest"  // OCI index, multi layer
+	onbuildBaseTag = "fuzz-onbuild-base:latest" // alpine + baked-in ONBUILD triggers
+	annotBaseTag   = "fuzz-annot-base:latest"   // OCI base carrying manifest annotations
 )
 
 func fuzzBaseRefs() []string {
@@ -1563,6 +1572,26 @@ func digestFileOracle(seed int64, label, dir string, flags, envFlags []string, c
 	if strings.TrimSpace(string(got)) != strings.TrimSpace(string(want)) {
 		return fail(sevInvarianceDiff, "--digest-file content differs from the pushed image digest",
 			fmt.Sprintf("digest-file:  %s\ncrane digest: %s", strings.TrimSpace(string(got)), strings.TrimSpace(string(want))))
+	}
+	return nil
+}
+
+// dryrunOracle builds the case with --dryrun and asserts nothing reached the registry
+// (mz992). A dryrun renders the plan; it must not push. The destination tag is unique to
+// this oracle, so any digest the registry can serve for it came from the dryrun build.
+// Also catches the reverse: a dryrun that fails on a case the real build accepts.
+func dryrunOracle(label, dir string, flags, envFlags []string, covDir string, fail func(severity, string, string) *finding, crashOr func(string) *finding) *finding {
+	img := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-dry")
+	out, err := runFuzzKanikoEnv(dir, img, append([]string{"--dryrun"}, flags...), covDir, envFlags)
+	if f := crashOr(out); f != nil {
+		return f
+	}
+	if err != nil {
+		return fail(sevInvarianceDiff, "--dryrun failed on a case the real build accepted", out)
+	}
+	_, derr := RunCommandWithoutTest(exec.Command("crane", "digest", img))
+	if derr == nil {
+		return fail(sevInvarianceDiff, "--dryrun pushed the destination tag to the registry", out)
 	}
 	return nil
 }
