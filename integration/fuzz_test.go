@@ -221,6 +221,12 @@ func TestFuzz(t *testing.T) {
 		"crane", "copy", alpineFuzzBase, strings.ToLower(config.imageRepo+baseAlpineTag))
 	mirror("debian", debianFuzzBase, strings.ToLower(config.imageRepo+baseDebianTag),
 		"crane", "copy", debianFuzzBase, strings.ToLower(config.imageRepo+baseDebianTag))
+	// Second copies under the library/ paths a bare docker.io ref normalizes to, for the
+	// registry-mirror oracle.
+	mirror("library alpine", alpineFuzzBase, strings.ToLower(config.imageRepo+libraryAlpineTag),
+		"crane", "copy", alpineFuzzBase, strings.ToLower(config.imageRepo+libraryAlpineTag))
+	mirror("library debian", debianFuzzBase, strings.ToLower(config.imageRepo+libraryDebianTag),
+		"crane", "copy", debianFuzzBase, strings.ToLower(config.imageRepo+libraryDebianTag))
 	// The OCI base is minted from alpine with skopeo; --src-no-creds forces an anonymous
 	// pull, avoiding a stale credential in the environment.
 	mirror("oci", alpineFuzzBase, ociBase,
@@ -760,6 +766,16 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		}
 	}
 
+	// registry-mirror oracle: the same case built from docker.io refs with the mirror
+	// redirecting to the campaign registry must give the same image. Gated behind
+	// FUZZ_REGISTRYMIRROR; only fires on cases whose bases are all alpine or debian.
+	if os.Getenv("FUZZ_REGISTRYMIRROR") == "1" {
+		if f := registryMirrorOracle(seed, label, dir, kanikoImage, gen.dockerfile, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
+			mergeKnown(f, dockerCls.known)
+			return f
+		}
+	}
+
 	// dryrun oracle: --dryrun renders the plan and must not push (mz992). Gated behind
 	// FUZZ_DRYRUN; adds one build per case, and no registry write to clean up.
 	if os.Getenv("FUZZ_DRYRUN") == "1" {
@@ -878,7 +894,7 @@ func warmerOracle(label, dir, dockerfile string, flags, envFlags []string, covDi
 	}
 	defer os.RemoveAll(coldCache)
 
-	if out, werr := warmFuzzCache(warmCache, bases, covDir); werr != nil {
+	if out, werr := warmFuzzCache(warmCache, bases, covDir, envFlags); werr != nil {
 		// docker and the fresh build already succeeded, so a warmer that cannot cache
 		// the base it was given is itself the finding.
 		return fail(sevWarmerDiff, "warmer failed to populate cache", out)
@@ -984,8 +1000,15 @@ func basesInDockerfile(dockerfile string) []string {
 // warmFuzzCache runs the kaniko warmer to populate cacheDir with the given base
 // images. covDir, if set, collects the warmer binary's coverage. --force overwrites
 // any stale entry so a reused cache dir cannot mask a warmer bug.
-func warmFuzzCache(cacheDir string, bases []string, covDir string) (string, error) {
+//
+// The case's envFlags go to the warmer as well as to the executor. FF_KANIKO_OCI_WARMER
+// picks the on-disk cache format in the warmer and the read path in the executor, so the
+// two have to be given the same value or the warm build just misses a cache it cannot read.
+func warmFuzzCache(cacheDir string, bases []string, covDir string, envFlags []string) (string, error) {
 	flags := []string{"run", "--rm", "--net=host", "-v", cacheDir + ":/cache"}
+	for _, e := range envFlags {
+		flags = append(flags, "-e", e)
+	}
 	if covDir != "" {
 		flags = append(flags, "-v", covDir+":/covdata", "-e", "GOCOVERDIR=/covdata")
 	}
@@ -1127,6 +1150,15 @@ const (
 	baseDebianTag  = "fuzz-base-debian:latest"  // OCI index, glibc, passwd db
 	onbuildBaseTag = "fuzz-onbuild-base:latest" // alpine + baked-in ONBUILD triggers
 	annotBaseTag   = "fuzz-annot-base:latest"   // OCI base carrying manifest annotations
+
+	// Docker-Hub-normalized copies of the two upstream bases, mirrored a second time under
+	// the repository path a bare docker.io ref resolves to ("alpine" -> library/alpine).
+	// They let the registry-mirror oracle build a case from a real docker.io reference and
+	// have --registry-mirror redirect it here, which is how a mirror is actually used. crane
+	// copy preserves the digest, so the redirected pull yields the identical image and the
+	// oracle stays an invariance check rather than a comparison of two different bases.
+	libraryAlpineTag = "library/alpine:fuzz"
+	libraryDebianTag = "library/debian:fuzz"
 )
 
 func fuzzBaseRefs() []string {
@@ -1358,6 +1390,17 @@ func runFuzzKanikoEnv(contextDir, image string, extra []string, covDir string, e
 	flags = append(flags, extra...)
 	out, err := RunCommandWithoutTest(exec.Command("docker", flags...))
 	return string(out), err
+}
+
+// copyFuzzContext duplicates a generated build context into dst and replaces the Dockerfile
+// with the given content. cp -a is used rather than a file walk because the generator puts
+// setuid bits, symlinks and hardlinks in the context on purpose, and a naive copy flattens
+// exactly the attributes the oracles are comparing.
+func copyFuzzContext(src, dst, dockerfile string) error {
+	if out, err := RunCommandWithoutTest(exec.Command("cp", "-a", src+"/.", dst)); err != nil {
+		return fmt.Errorf("copy context: %w: %s", err, out)
+	}
+	return os.WriteFile(filepath.Join(dst, "Dockerfile"), []byte(dockerfile), 0o644)
 }
 
 // prepareTarContext writes a gzipped tar of the context dir's contents (Dockerfile and
@@ -1600,6 +1643,65 @@ func dryrunOracle(label, dir string, flags, envFlags []string, covDir string, fa
 	_, derr := RunCommandWithoutTest(exec.Command("crane", "digest", img))
 	if derr == nil {
 		return fail(sevInvarianceDiff, "--dryrun pushed the destination tag to the registry", out)
+	}
+	return nil
+}
+
+// registryMirrorOracle rebuilds the case from real docker.io references with
+// --registry-mirror pointing at the campaign registry, and requires the image to match the
+// one built from local refs. This runs the mirror the way a user does: kaniko resolves
+// "alpine:fuzz" to index.docker.io, the mirror redirects it to the local copy mirrored under
+// library/, and because that copy carries the upstream digest the redirected pull returns the
+// identical base. So the whole remap path (parseRegistryMapping, remapRepository,
+// setNewRepository) runs against a genuine cross-registry redirect while the output stays
+// fixed. Nothing reaches Docker Hub: the mirror satisfies every pull, and
+// --skip-default-registry-fallback makes that a hard guarantee rather than a hope, since a
+// failed redirect then errors instead of silently falling back to the real docker.io.
+//
+// Only applies to cases whose bases are all alpine or debian; the locally minted oci,
+// onbuild and annotation bases have no docker.io equivalent to redirect from.
+func registryMirrorOracle(seed int64, label, dir, dirImage, dockerfile string, flags, envFlags []string, covDir string, fail func(severity, string, string) *finding, crashOr func(string) *finding) *finding {
+	repo := strings.ToLower(config.imageRepo)
+	host := strings.TrimSuffix(repo, "/")
+	local := map[string]string{
+		repo + strings.ToLower(baseAlpineTag): "alpine:fuzz",
+		repo + strings.ToLower(baseDebianTag): "debian:fuzz",
+	}
+	// Any base outside the rewritable set leaves the case untranslatable.
+	for _, b := range basesInDockerfile(dockerfile) {
+		if _, ok := local[strings.ToLower(b)]; !ok {
+			return nil
+		}
+	}
+	rewritten := dockerfile
+	for from, to := range local {
+		rewritten = strings.ReplaceAll(rewritten, from, to)
+	}
+	if rewritten == dockerfile {
+		return nil // no base was rewritten, nothing for the mirror to redirect
+	}
+	mirrorDir, err := os.MkdirTemp("", "kaniko-fuzz-mirror-")
+	if err != nil {
+		return nil
+	}
+	defer os.RemoveAll(mirrorDir)
+	if err := copyFuzzContext(dir, mirrorDir, rewritten); err != nil {
+		return nil
+	}
+	img := strings.ToLower(repo + kanikoPrefix + label + "-mirror")
+	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", img))
+	args := append([]string{"--registry-mirror=" + host, "--skip-default-registry-fallback"}, flags...)
+	out, err := runFuzzKanikoEnv(mirrorDir, img, args, covDir, envFlags)
+	if f := crashOr(out); f != nil {
+		return f
+	}
+	if err != nil {
+		return fail(sevInvarianceDiff, "build through --registry-mirror failed while the local-ref build succeeded", out)
+	}
+	ignores := []string{"--ignore-image-name", "--ignore-image-timestamps", "--ignore-file-timestamps"}
+	diff, same, _ := runFuzzDiffoci(dirImage, img, ignores)
+	if !same {
+		return classifyContextDiff(seed, dockerfile, dirImage, img, ignores, diff, "local-ref and registry-mirror builds differ", fail)
 	}
 	return nil
 }
