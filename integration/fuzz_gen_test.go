@@ -714,6 +714,19 @@ func generate(s *source, bases []string) genResult {
 	if s.chance(4) {
 		flags = append(flags, "--image-download-retry="+srcPick(s, []string{"1", "2"}))
 	}
+	// Cache-side only: whether cache layers are pushed cannot change the built image.
+	if s.chance(4) {
+		flags = append(flags, "--no-push-cache")
+	}
+	// A tiny TTL expires every cache entry, so the cache oracle takes the stale-entry
+	// branch and rebuilds instead of reusing, while the resulting image stays the same.
+	if s.chance(4) {
+		flags = append(flags, "--cache-ttl="+srcPick(s, []string{"1ns", "1s", "720h"}))
+	}
+	// Deprecated and now the default behaviour, so passing it must be a no-op.
+	if s.chance(5) {
+		flags = append(flags, "--skip-unused-stages")
+	}
 
 	// Compression is tested only around caching. On an OCI base it changes the layer
 	// media type (tar+zstd vs docker's tar+gzip), which diffoci flags as a descriptor
