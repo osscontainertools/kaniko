@@ -373,11 +373,11 @@ func generate(s *source, bases []string) genResult {
 
 		ninstr := 2 + s.intn(6)
 		for i := 0; i < ninstr; i++ {
-			c := s.intn(34)
+			c := s.intn(35)
 			// An empty base has no shell, so RUN-based instructions cannot execute at build
 			// time; remap them to a context COPY, which scratch supports. Metadata and other
 			// file instructions are already scratch-safe (ADD url downloads into the empty fs).
-			if scratch && (c == 10 || c == 11 || c == 12 || c == 20 || c == 28 || c == 29 || c == 30 || c == 32 || c == 33) {
+			if scratch && (c == 10 || c == 11 || c == 12 || c == 20 || c == 28 || c == 29 || c == 30 || c == 32 || c == 33 || c == 34) {
 				c = 0
 			}
 			switch c {
@@ -581,6 +581,41 @@ func generate(s *source, bases []string) genResult {
 					fmt.Fprintf(&b, "RUN --mount=type=secret,id=%s,env=SEC%d printf '%%s' \"$SEC%d\" | wc -c > /seclen%d\n", secretID, i, i, i)
 				} else {
 					fmt.Fprintf(&b, "RUN --mount=type=secret,id=%s,target=/sec%d wc -c < /sec%d > /seclen%d\n", secretID, i, i, i)
+				}
+			case 34:
+				// Relink shapes: a path whose type changes between two layers, which is what
+				// a package install does when dpkg turns /var/run into a symlink to /run.
+				// Each form emits two RUN lines so the transition crosses a layer boundary,
+				// where the snapshotter has to agree with docker on whiteout-versus-symlink
+				// for one path. A single-layer version of the same edit is far weaker.
+				switch s.intn(6) {
+				case 0:
+					// Directory replaced by a symlink, the /var/run -> /run shape.
+					fmt.Fprintf(&b, "RUN mkdir -p /rl%d/target /rl%d/p && echo a > /rl%d/p/f\n", i, i, i)
+					fmt.Fprintf(&b, "RUN rm -rf /rl%d/p && ln -s target /rl%d/p\n", i, i)
+				case 1:
+					// Symlink replaced by a real directory, the reverse transition.
+					fmt.Fprintf(&b, "RUN mkdir -p /rl%d/target && ln -s target /rl%d/p\n", i, i)
+					fmt.Fprintf(&b, "RUN rm /rl%d/p && mkdir /rl%d/p && echo b > /rl%d/p/f\n", i, i, i)
+				case 2:
+					// Write through a symlinked directory: the new file lands in the target,
+					// so the layer must record /rl/target/f and not /rl/p/f.
+					fmt.Fprintf(&b, "RUN mkdir -p /rl%d/target && ln -s target /rl%d/p\n", i, i)
+					fmt.Fprintf(&b, "RUN echo c > /rl%d/p/f\n", i)
+				case 3:
+					// Symlink that dangles in its own layer and only resolves in a later one.
+					fmt.Fprintf(&b, "RUN mkdir -p /rl%d && ln -s later /rl%d/p\n", i, i)
+					fmt.Fprintf(&b, "RUN mkdir -p /rl%d/later && echo d > /rl%d/later/f\n", i, i)
+				case 4:
+					// Directory replaced by a symlink to a regular file, so the path changes
+					// type as well as target.
+					fmt.Fprintf(&b, "RUN mkdir -p /rl%d/d && echo e > /rl%d/d/f && echo g > /rl%d/file\n", i, i, i)
+					fmt.Fprintf(&b, "RUN rm -rf /rl%d/d && ln -s file /rl%d/d\n", i, i)
+				case 5:
+					// Relink a parent directory that already has populated children, the deep
+					// form of the dpkg case.
+					fmt.Fprintf(&b, "RUN mkdir -p /rl%d/real/sub /rl%d/a/sub && echo h > /rl%d/real/sub/f && echo i > /rl%d/a/sub/f\n", i, i, i, i)
+					fmt.Fprintf(&b, "RUN rm -rf /rl%d/a && ln -s real /rl%d/a\n", i, i)
 				}
 			}
 		}
