@@ -22,15 +22,17 @@ import (
 	"strings"
 )
 
-// Pinned base images so generation does not depend on tag state. alpine is a
-// single-layer docker v2 base and debian is multi-layer docker v2, so the mix
-// exercises kaniko's base-layer preservation against different layer counts. The
-// harness adds an OCI-media-type base at runtime (fuzzBaseRefs), and kaniko mirrors
-// whatever media type the base carries, so both output formats get tested. All
-// carry a POSIX shell for the RUN vocabulary.
+// Pinned base images so generation does not depend on tag state. alpine is a plain
+// docker v2 manifest and debian is an OCI image index, so the mix covers manifest-list
+// resolution as well as both media types, and debian's glibc and passwd db carry the
+// USER and named-chown surface alpine's busybox does not. The harness adds an
+// OCI-media-type base at runtime (fuzzBaseRefs), and kaniko mirrors whatever media type
+// the base carries, so both output formats get tested. All carry a POSIX shell for the
+// RUN vocabulary. debian is the slim variant: every kaniko build in a case extracts its
+// base afresh, so the full variant's extra 20MB is pure write cost for no extra shape.
 const (
 	alpineFuzzBase = "alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a"
-	debianFuzzBase = "debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56"
+	debianFuzzBase = "debian:12-slim@sha256:abd67ffcfa541b485a3dff59865ab629aa048a6c613e639d36e7456b0b229241"
 )
 
 // chaosFlags are internal FF_KANIKO_* toggles the chaos build flips at random (on or off)
