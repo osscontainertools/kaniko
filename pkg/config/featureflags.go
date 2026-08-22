@@ -42,6 +42,7 @@ type FeatureFlags struct {
 	HashDirFraming                 bool
 	IgnoreCachedManifest           bool
 	InferCrossStageCacheKey        bool
+	NativeCopy                     bool
 	NoPropagateAnnotations         bool
 	OCIScratchBase                 bool
 	OCIWarmer                      bool
@@ -115,6 +116,7 @@ func InitFeatureFlags() {
 		HashDirFraming:                 featureFlag("FF_KANIKO_HASH_DIR_FRAMING", false),
 		IgnoreCachedManifest:           featureFlag("FF_KANIKO_IGNORE_CACHED_MANIFEST", false),
 		InferCrossStageCacheKey:        featureFlag("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", false),
+		NativeCopy:                     featureFlag("FF_KANIKO_NATIVE_COPY", false),
 		NoPropagateAnnotations:         featureFlag("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS", true),
 		OCIScratchBase:                 featureFlag("FF_KANIKO_OCI_SCRATCH_BASE", false),
 		OCIWarmer:                      featureFlag("FF_KANIKO_OCI_WARMER", true),
