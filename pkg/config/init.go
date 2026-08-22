@@ -126,16 +126,10 @@ func safeRemove(target string) error {
 	return os.RemoveAll(target)
 }
 
-func Cleanup() error {
-	err := safeRemove(DockerfilePath)
-	if err != nil {
-		return err
-	}
-	err = safeRemove(KanikoIntermediateStagesDir)
-	if err != nil {
-		return err
-	}
-	err = safeRemove(BuildContextDir)
+// CleanupBuild removes what a single build leaves behind. Secrets and the unpacked build
+// context are resolved once per process and survive, which is why this is not all of Cleanup.
+func CleanupBuild() error {
+	err := safeRemove(KanikoIntermediateStagesDir)
 	if err != nil {
 		return err
 	}
@@ -143,7 +137,19 @@ func Cleanup() error {
 	if err != nil {
 		return err
 	}
-	err = safeRemove(KanikoLayersDir)
+	return safeRemove(KanikoLayersDir)
+}
+
+func Cleanup() error {
+	err := safeRemove(DockerfilePath)
+	if err != nil {
+		return err
+	}
+	err = CleanupBuild()
+	if err != nil {
+		return err
+	}
+	err = safeRemove(BuildContextDir)
 	if err != nil {
 		return err
 	}
