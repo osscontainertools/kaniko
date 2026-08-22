@@ -233,15 +233,17 @@ var RootCmd = &cobra.Command{
 			}()
 		}
 		tracing.Init(context.Background(), opts)
+		_, endBuild := timing.Scope("Total Build Time")
 		image, err := executor.DoBuild(opts)
+		endBuild()
 		if err != nil {
 			exit(fmt.Errorf("error building image: %w", err))
 		}
 		// mz992: a dryrun renders the plan and returns no image, there is nothing to push.
 		if !opts.Dryrun {
-			t := timing.Start("Total Push Time")
+			pushTimer := timing.Start("Total Push Time")
 			err := executor.DoPush(image, opts)
-			t.End()
+			pushTimer.End()
 			if err != nil {
 				exit(fmt.Errorf("error pushing image: %w", err))
 			}

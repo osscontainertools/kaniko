@@ -195,9 +195,6 @@ func writeDigestFile(path string, digestByteArray []byte) error {
 // DoPush is responsible for pushing image to the destinations specified in opts.
 // A dummy destination would be set when --no-push is set to true and --tar-path
 // is not empty with empty --destinations.
-// The push phase roll-up belongs to the caller pushing the built image. Cache
-// layers and pointers come through here too, and they already have their own
-// spans, so timing them as a whole push phase reported one per cache entry.
 func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 	assert.Assert("executor.push.image-nonnull", image != nil, "DoPush called with nil image")
 

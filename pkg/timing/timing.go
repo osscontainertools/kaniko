@@ -20,6 +20,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
@@ -28,28 +29,32 @@ import (
 var (
 	tracerMu  sync.Mutex
 	tracer    trace.Tracer
-	parentCtx context.Context
-	// scopes is the stack of spans an operation belongs to, innermost last. A
-	// stage pushes its span, each command pushes its own, so a span started
-	// anywhere in the call tree below them lands under the right one without
-	// every function in between having to carry a parent.
-	scopes []trace.Span
+	parentCtx = context.Background()
 )
 
-// Scope makes span the parent of spans started until the returned function runs.
-// Only the sequential build path may use it, work handed to a goroutine has to
-// name its parent with StartChild instead.
-func Scope(span trace.Span) func() {
+// Scope begins a span for category and makes it the parent of spans started until
+// the returned function runs, which also ends the span. Only the sequential build
+// path may use it, work handed to a goroutine has to name its parent with
+// StartChild instead.
+func Scope(category string) (trace.Span, func()) {
+	assert.Assert("timing.scope.container", containerCategories[category], "timing.Scope: %v is not a container category", category)
+	span := start(nil, category)
+	id := span.SpanContext().SpanID()
 	tracerMu.Lock()
-	scopes = append(scopes, span)
-	depth := len(scopes)
+	prev := parentCtx
+	parentCtx = trace.ContextWithSpan(parentCtx, span)
 	tracerMu.Unlock()
-	return func() {
+	closed := false
+	return span, func() {
 		tracerMu.Lock()
-		defer tracerMu.Unlock()
-		if len(scopes) >= depth {
-			scopes = scopes[:depth-1]
+		innermost, first := trace.SpanFromContext(parentCtx).SpanContext().SpanID(), !closed
+		if first {
+			parentCtx = prev
+			closed = true
 		}
+		tracerMu.Unlock()
+		assert.Assert("timing.scope.nesting", !first || innermost == id, "timing.Scope: innermost scope is not the span being closed")
+		span.End()
 	}
 }
 
@@ -83,7 +88,16 @@ var networkCategories = map[string]bool{
 	"Total Push Time":         true,
 }
 
+var containerCategories = map[string]bool{
+	"Stage":            true,
+	"Command":          true,
+	"Total Build Time": true,
+}
+
 func phaseFor(category string) string {
+	if containerCategories[category] {
+		return ""
+	}
 	if networkCategories[category] {
 		return "network"
 	}
@@ -103,9 +117,6 @@ func StartChild(parent trace.Span, category string) trace.Span {
 func start(parent trace.Span, category string) trace.Span {
 	tracerMu.Lock()
 	tr, ctx := tracer, parentCtx
-	if parent == nil && len(scopes) > 0 {
-		parent = scopes[len(scopes)-1]
-	}
 	tracerMu.Unlock()
 	if tr == nil || noSpanCategories[category] {
 		return noop.Span{}
@@ -114,6 +125,9 @@ func start(parent trace.Span, category string) trace.Span {
 		ctx = trace.ContextWithSpan(ctx, parent)
 	}
 	_, span := tr.Start(ctx, category)
-	span.SetAttributes(attribute.String("kaniko.phase", phaseFor(category)))
+	phase := phaseFor(category)
+	if phase != "" {
+		span.SetAttributes(attribute.String("kaniko.phase", phase))
+	}
 	return span
 }

@@ -86,10 +86,7 @@ type stageBuilder struct {
 	cmds            []commands.DockerCommand
 	lines           []int // source line per command, aligned with cmds
 	args            *dockerfile.BuildArgs
-	// span is the stage's own span. Work that belongs to the stage rather than to
-	// one of its commands names it as parent, and so does anything handed to a
-	// goroutine, which cannot rely on the scope stack.
-	span trace.Span
+	span            trace.Span
 }
 
 type stageCacheInfo struct {
@@ -599,31 +596,38 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	}
 
 	cacheGroup := errgroup.Group{}
-	// One span per command, covering everything that command causes: its cache
-	// key, its execution and its snapshot. Closing it at the top of the next
-	// iteration and on the way out keeps every exit path covered, and an unended
-	// span is never exported.
-	var cmdTimer trace.Span
-	var cmdScope func()
-	endCmd := func() {
-		if cmdScope != nil {
-			cmdScope()
-			cmdScope = nil
-		}
-		if cmdTimer != nil {
-			cmdTimer.End()
-			cmdTimer = nil
-		}
-	}
-	defer endCmd()
+	endCmd := func() {}
+	// stop on the way out too: an unended span is never exported
+	defer func() { endCmd() }()
 	for index, command := range s.cmds {
 		endCmd()
 		if command == nil {
 			continue
 		}
 
-		cmdTimer = timing.Start("Command")
-		cmdScope = timing.Scope(cmdTimer)
+		isCacheCommand := func() bool {
+			switch command.(type) {
+			case commands.Cached:
+				return true
+			default:
+				return false
+			}
+		}()
+
+		if !initSnapshotTaken && !isCacheCommand && !command.ProvidesFilesToSnapshot() {
+			// Take initial snapshot if command does not expect to return
+			// a list of files.
+			t := timing.Start("Initial FS snapshot")
+			err := snapshotter.Init()
+			t.End()
+			if err != nil {
+				return err
+			}
+			initSnapshotTaken = true
+		}
+
+		cmdTimer, closeCmd := timing.Scope("Command")
+		endCmd = closeCmd
 
 		// mz334: cross-stage copies key off the inferred pointer first, their
 		// source stage may be eliminated and its files never materialize. The
@@ -668,25 +672,10 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 
 		logrus.Info(command.String())
 
-		isCacheCommand := func() bool {
-			switch command.(type) {
-			case commands.Cached:
-				return true
-			default:
-				return false
-			}
-		}()
-
 		if timing.TracingEnabled() {
-			phase := "kaniko"
-			switch command.(type) {
-			case *commands.RunCommand, *commands.RunMarkerCommand:
-				phase = "build"
-			}
 			attrs := []attribute.KeyValue{
 				attribute.String("kaniko.command", command.String()),
 				attribute.String("kaniko.command.hash", commandHash(s.index, command.String())),
-				attribute.String("kaniko.phase", phase),
 				attribute.Int("kaniko.instruction.index", index),
 				attribute.Int("kaniko.instruction.line", s.lines[index]),
 				attribute.Int("kaniko.stage", s.index),
@@ -700,21 +689,11 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			cmdTimer.SetAttributes(attrs...)
 		}
 
-		if !initSnapshotTaken && !isCacheCommand && !command.ProvidesFilesToSnapshot() {
-			// Take initial snapshot if command does not expect to return
-			// a list of files.
-			// Stage setup, taken once for whichever command first needs it, so it
-			// belongs to the stage rather than to that arbitrary command.
-			t := timing.StartChild(s.span, "Initial FS snapshot")
-			err := snapshotter.Init()
-			t.End()
-			if err != nil {
-				return err
-			}
-			initSnapshotTaken = true
-		}
-
 		execTimer := timing.Start("Execute")
+		switch command.(type) {
+		case *commands.RunCommand, *commands.RunMarkerCommand:
+			execTimer.SetAttributes(attribute.String("kaniko.phase", "build"))
+		}
 		err := command.ExecuteCommand(&s.cf.Config, s.args)
 		execTimer.End()
 		if err != nil {
@@ -796,11 +775,8 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			}
 		}
 	}
-
-	// The stage waits for the uploads its commands kicked off, so close the last
-	// command first: the wait is the stage's, not that command's. It needs no span
-	// of its own, the layer pushes already cover the window it blocks on.
 	endCmd()
+
 	if err := cacheGroup.Wait(); err != nil {
 		logrus.Warnf("Error uploading layer to cache: %s", err)
 	}
@@ -1291,8 +1267,6 @@ func RenderStages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts
 
 // DoBuild executes building the Dockerfile
 func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
-	t := timing.Start("Total Build Time")
-	defer t.End()
 	stageFinalCacheKeys := make(map[int]string)
 
 	stages, metaArgs, err := dockerfile.ParseStages(opts)
@@ -1511,24 +1485,10 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 	}
 
-	// One span per stage, so fetching its base, unpacking it and every command it
-	// runs hang off the stage they belong to. Same close-on-next-iteration shape
-	// as the command spans, which covers the error returns below. Deferred before
-	// the cleanup below so LIFO order closes the final stage only after the
-	// filesystem cleanup has run inside its span.
-	var stageSpan trace.Span
-	var stageScope func()
-	endStage := func() {
-		if stageScope != nil {
-			stageScope()
-			stageScope = nil
-		}
-		if stageSpan != nil {
-			stageSpan.End()
-			stageSpan = nil
-		}
-	}
-	defer endStage()
+	// Deferred before the cleanup below so LIFO order closes the final stage
+	// only after the filesystem cleanup has run inside its span.
+	endStage := func() {}
+	defer func() { endStage() }()
 
 	if opts.Cleanup {
 		defer assignIfNil(&retErr, func() error {
@@ -1552,12 +1512,12 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	var pushImage v1.Image
 	for _, stage := range kanikoStages {
 		endStage()
-		stageSpan = timing.Start("Stage")
+		stageSpan, closeStage := timing.Scope("Stage")
 		stageSpan.SetAttributes(
 			attribute.Int("kaniko.stage", stage.Index),
 			attribute.String("kaniko.stage.name", stage.Name),
 		)
-		stageScope = timing.Scope(stageSpan)
+		endStage = closeStage
 
 		baseImage, err := retrieveBaseImage(stage, opts, sharedRemote[stage.BaseImageDigest])
 		if err != nil {
