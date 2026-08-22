@@ -972,6 +972,11 @@ var extraDockerRunFlags = map[string]func(contextDir string) []string{
 	"Dockerfile_test_issue_mz936": func(ctx string) []string {
 		return []string{"-v", filepath.Join(ctx, "testdata") + ":/kaniko/bases:ro"}
 	},
+	// Two filesystems in the rootfs, without needing privileges. Every tmpfs numbers
+	// its own inodes from scratch, so both hand their first file the same inode number.
+	"Dockerfile_test_issue_mz978": func(_ string) []string {
+		return []string{"--tmpfs", "/data/a", "--tmpfs", "/data/b"}
+	},
 }
 
 func buildKanikoImage(
