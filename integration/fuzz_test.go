@@ -279,6 +279,9 @@ func TestFuzz(t *testing.T) {
 	}
 
 	// Bring up the local TLS server for the https-context oracle once for the whole
+	// Port layout first: every server address below is derived from it.
+	resolveFuzzPorts()
+
 	// campaign. If it fails to start the oracle stays disabled (httpsServedDir == "").
 	if os.Getenv("FUZZ_HTTPSCONTEXT") == "1" {
 		if err := startHTTPSContextServer(); err != nil {
@@ -1987,17 +1990,40 @@ var (
 	httpsBaseURL   string
 )
 
-const httpsCtxAddr = "127.0.0.1:8899"
+// Local server addresses, derived from a base port so a second campaign can run alongside
+// the first with FUZZ_PORT_BASE set. The default is fixed rather than an ephemeral port
+// because a finding's Dockerfile embeds the ADD url verbatim, and a repro has to stay
+// replayable after the campaign that produced it has exited. Without an override a second
+// run fails to bind and quietly continues with these oracles disabled, which reads as a
+// batch of sterile cases rather than as a misconfiguration.
+var (
+	httpsCtxAddr = "127.0.0.1:8899"
+	addURLAddr   = "127.0.0.1:8890"
+	addURL       = "http://" + addURLAddr + "/addfile"
+	otlpAddr     = "127.0.0.1:8891"
+)
+
+// resolveFuzzPorts applies FUZZ_PORT_BASE, keeping the same relative layout as the defaults.
+func resolveFuzzPorts() {
+	base := os.Getenv("FUZZ_PORT_BASE")
+	if base == "" {
+		return
+	}
+	b, err := strconv.Atoi(base)
+	if err != nil || b <= 0 || b > 65000 {
+		return
+	}
+	addURLAddr = fmt.Sprintf("127.0.0.1:%d", b)
+	addURL = "http://" + addURLAddr + "/addfile"
+	otlpAddr = fmt.Sprintf("127.0.0.1:%d", b+1)
+	httpsCtxAddr = fmt.Sprintf("127.0.0.1:%d", b+9)
+}
 
 // ADD-url server: a plain HTTP file server serving one fixed file, so a generated
 // `ADD http://.../addfile` exercises kaniko's remote-fetch path (util.DownloadFileToDest),
 // which no local COPY/ADD reaches. Started once for the campaign; both docker and kaniko
 // fetch the same bytes, so the parity oracle stays valid. Plain http avoids a TLS cert.
-const (
-	addURLAddr    = "127.0.0.1:8890"
-	addURL        = "http://" + addURLAddr + "/addfile"
-	addURLContent = "add-url-fuzz-content\n"
-)
+const addURLContent = "add-url-fuzz-content\n"
 
 // addURLSha256 is the hex digest of addURLContent, set when the server starts and used by
 // generated ADD --checksum lines.
@@ -2007,8 +2033,6 @@ var addURLSha256 string
 // oracle can assert spans were actually emitted rather than only that the build still worked.
 // An empty 200 with the protobuf content type is a valid ExportTraceServiceResponse (an empty
 // message), so the SDK treats the export as successful without this needing a real collector.
-const otlpAddr = "127.0.0.1:8891"
-
 var (
 	otlpExports atomic.Int64
 	// otlpUp gates the tracing oracle: false when the sink could not bind its port, so the
