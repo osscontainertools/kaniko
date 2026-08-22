@@ -373,7 +373,7 @@ func generate(s *source, bases []string) genResult {
 
 		ninstr := 2 + s.intn(6)
 		for i := 0; i < ninstr; i++ {
-			c := s.intn(35)
+			c := s.intn(36)
 			// An empty base has no shell, so RUN-based instructions cannot execute at build
 			// time; remap them to a context COPY, which scratch supports. Metadata and other
 			// file instructions are already scratch-safe (ADD url downloads into the empty fs).
@@ -529,7 +529,11 @@ func generate(s *source, bases []string) genResult {
 					// surface. A flat script only proves the heredoc was extracted; control
 					// flow and command substitution are where kaniko's shell has diverged
 					// from buildkit's (mz474).
-					switch s.intn(4) {
+					switch s.intn(5) {
+					case 4:
+						// A quoted delimiter means the body must not be expanded by the
+						// outer shell, but it is still a script and still has to run.
+						fmt.Fprintf(&b, "RUN <<'EOF'\nmkdir -p /hq%d\necho quoted-%d > /hq%d/out\nEOF\n", i, i, i)
 					case 0:
 						fmt.Fprintf(&b, "RUN <<EOF\nmkdir -p /hd%d\necho run-heredoc-%d > /hd%d/out\nEOF\n", i, i, i)
 					case 1:
@@ -596,6 +600,36 @@ func generate(s *source, bases []string) genResult {
 					fmt.Fprintf(&b, "RUN --mount=type=secret,id=%s,env=SEC%d printf '%%s' \"$SEC%d\" | wc -c > /seclen%d\n", secretID, i, i, i)
 				} else {
 					fmt.Fprintf(&b, "RUN --mount=type=secret,id=%s,target=/sec%d wc -c < /sec%d > /seclen%d\n", secretID, i, i, i)
+				}
+			case 35:
+				// COPY/ADD modifiers the vendored buildkit parser accepts but kaniko never
+				// reads (ExcludePatterns, Parents, Checksum are all unreferenced in the tree).
+				// A Dockerfile using them builds clean and silently produces different content
+				// than docker, so the parity oracle is the only thing that can see it. Tracked
+				// upstream: GoogleContainerTools/kaniko#3373 (checksum), #3165 (parents).
+				switch s.intn(4) {
+				case 0:
+					if dirName != "" {
+						// docker puts the source's parent dirs under the dest, kaniko flattens.
+						fmt.Fprintf(&b, "COPY --parents %s/f0 /parents%d/\n", dirName, i)
+					} else {
+						fmt.Fprintf(&b, "COPY %s /dest/%s\n", regulars[0], regulars[0])
+					}
+				case 1:
+					if dirName != "" {
+						// docker drops the excluded entry, kaniko copies it anyway.
+						fmt.Fprintf(&b, "COPY --exclude=f1 %s /excl%d/\n", dirName, i)
+					} else {
+						fmt.Fprintf(&b, "COPY %s /dest/%s\n", regulars[0], regulars[0])
+					}
+				case 2:
+					// A correct checksum, so both tools succeed and the images match. This
+					// covers the modifier's parse path and becomes the regression guard once
+					// verification is implemented; asserting that a wrong checksum fails the
+					// build needs an oracle that tolerates docker failing, which is separate.
+					fmt.Fprintf(&b, "ADD --checksum=sha256:%s %s /ck%d/addfile\n", addURLSha256, addURL, i)
+				case 3:
+					fmt.Fprintf(&b, "COPY --link %s /linked%d/\n", regulars[0], i)
 				}
 			case 34:
 				// Relink shapes: a path whose type changes between two layers, which is what
