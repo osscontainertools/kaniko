@@ -721,14 +721,15 @@ func generate(s *source, bases []string) genResult {
 	if s.chance(4) {
 		flags = append(flags, "--image-download-retry="+srcPick(s, []string{"1", "2"}))
 	}
-	// Cache-side only: whether cache layers are pushed cannot change the built image.
+	// --cache-ttl only ever gets a value long enough that nothing expires during a campaign.
+	// A short TTL, like --no-push-cache, defeats the cache on purpose: the consume build then
+	// finds nothing to reuse and rebuilds, and a rebuilt layer carries fresh timestamps. The
+	// populate-versus-consume oracle compares byte-strict with no ignores, so it reports that
+	// as a cache divergence, correctly but uselessly. Neither flag belongs in a pool the cache
+	// oracle sees, so --no-push-cache is not drawn at all and the TTL stays long. Covering the
+	// expiry branch needs a build whose output nothing compares.
 	if s.chance(4) {
-		flags = append(flags, "--no-push-cache")
-	}
-	// A tiny TTL expires every cache entry, so the cache oracle takes the stale-entry
-	// branch and rebuilds instead of reusing, while the resulting image stays the same.
-	if s.chance(4) {
-		flags = append(flags, "--cache-ttl="+srcPick(s, []string{"1ns", "1s", "720h"}))
+		flags = append(flags, "--cache-ttl="+srcPick(s, []string{"720h", "336h"}))
 	}
 	// Deprecated and now the default behaviour, so passing it must be a no-op.
 	if s.chance(5) {
