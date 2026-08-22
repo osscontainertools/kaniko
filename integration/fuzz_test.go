@@ -235,28 +235,39 @@ func TestFuzz(t *testing.T) {
 		"skopeo", "copy", "--src-no-creds", "--format", "oci", "--dest-tls-verify=false",
 		"docker://"+alpineFuzzBase, "docker://"+ociBase)
 
-	// Mint a base image that carries ONBUILD triggers in its config, so a generated FROM
-	// against it exercises the image-config ONBUILD path (triggers loaded from the base's
-	// config, not the Dockerfile). The triggers are context-free RUN so any child builds.
-	onbuildBase := strings.ToLower(config.imageRepo + onbuildBaseTag)
-	if _, err := RunCommandWithoutTest(exec.Command("crane", "manifest", onbuildBase)); err != nil {
-		obDir, mkErr := os.MkdirTemp("", "kaniko-fuzz-onbuild-base-")
-		if mkErr != nil {
-			t.Fatalf("onbuild base tempdir: %v", mkErr)
-		}
-		defer os.RemoveAll(obDir)
-		df := "FROM " + strings.ToLower(config.imageRepo+baseAlpineTag) +
-			"\nONBUILD RUN mkdir -p /onbuild-base && echo fired > /onbuild-base/marker\n"
-		if err := os.WriteFile(filepath.Join(obDir, "Dockerfile"), []byte(df), 0o644); err != nil {
-			t.Fatalf("write onbuild base Dockerfile: %v", err)
-		}
-		if out, err := RunCommandWithoutTest(exec.Command("docker", "build", "--no-cache", "--provenance=false", "-t", onbuildBase, obDir)); err != nil {
-			t.Fatalf("build onbuild base: %v\n%s", err, out)
-		}
-		if out, err := RunCommandWithoutTest(exec.Command("docker", "push", onbuildBase)); err != nil {
-			t.Fatalf("push onbuild base: %v\n%s", err, out)
-		}
-	}
+	// Bases minted from an inline Dockerfile, each adding one property the upstream mirrors
+	// do not have. All build on the mirrored alpine so none of them pulls from Docker Hub.
+	alpineRef := strings.ToLower(config.imageRepo + baseAlpineTag)
+
+	// ONBUILD triggers in the config, so a generated FROM exercises the image-config trigger
+	// path (loaded from the base, not the Dockerfile). Context-free RUN so any child builds.
+	mintBase(t, strings.ToLower(config.imageRepo+onbuildBaseTag), "FROM "+alpineRef+`
+ONBUILD RUN mkdir -p /onbuild-base && echo fired > /onbuild-base/marker
+`, false)
+
+	// Several layers, pinned to docker v2. See multiLayerBaseTag.
+	mintBase(t, strings.ToLower(config.imageRepo+multiLayerBaseTag), "FROM "+alpineRef+`
+RUN mkdir -p /ml1 && echo one > /ml1/f
+RUN mkdir -p /ml2 && echo two > /ml2/f
+RUN mkdir -p /ml3 && echo three > /ml3/f
+`, false)
+
+	// Inheritable config fields. WORKDIR makes the child's relative WORKDIR draws resolve
+	// against an inherited directory; ENTRYPOINT plus CMD exercises docker's rule that a
+	// child ENTRYPOINT resets an inherited CMD. USER is set explicitly to root so the field
+	// is inherited without dropping privileges.
+	mintBase(t, strings.ToLower(config.imageRepo+richConfigBaseTag), "FROM "+alpineRef+`
+ENV FUZZ_BASE_ENV=base-value
+WORKDIR /basewd
+USER root
+LABEL fuzz.base.label=base-value
+EXPOSE 9999
+VOLUME /basevol
+STOPSIGNAL SIGQUIT
+HEALTHCHECK CMD /bin/true
+ENTRYPOINT ["/bin/echo", "base-entry"]
+CMD ["base-cmd"]
+`, true)
 
 	// Mint a base carrying OCI manifest annotations, so a generated FROM against it
 	// exercises how base-image annotations are handled and propagated (build.go, mz507
@@ -1193,6 +1204,20 @@ const (
 	onbuildBaseTag = "fuzz-onbuild-base:latest" // alpine + baked-in ONBUILD triggers
 	annotBaseTag   = "fuzz-annot-base:latest"   // OCI base carrying manifest annotations
 
+	// Every other base resolves to a single layer, which leaves the layer-plural paths
+	// exercised only in their degenerate form: relabelLayers runs its loop body once, and
+	// FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS has no plural base layers to preserve.
+	// This one stacks several RUN layers on alpine, and is pinned to docker v2, which also
+	// rebalances a base pool that was otherwise four-to-one OCI.
+	multiLayerBaseTag = "fuzz-multilayer-base:latest"
+
+	// A base whose config carries the inheritable fields, so a child Dockerfile exercises
+	// config inheritance and the override-versus-merge rules rather than only the fields it
+	// sets itself. Deliberately no non-root USER: every generated stage writes to absolute
+	// paths at the root, so a base that dropped privileges would make every case using it
+	// fail in both tools and count as sterile.
+	richConfigBaseTag = "fuzz-config-base:latest"
+
 	// Docker-Hub-normalized copies of the two upstream bases, mirrored a second time under
 	// the repository path a bare docker.io ref resolves to ("alpine" -> library/alpine).
 	// They let the registry-mirror oracle build a case from a real docker.io reference and
@@ -1203,6 +1228,33 @@ const (
 	libraryDebianTag = "library/debian:fuzz"
 )
 
+// mintBase builds a base from an inline Dockerfile and pushes it, unless the tag is already
+// in the registry. The manifest format is pinned rather than inherited: `docker build -t`
+// follows the daemon default, which is OCI wherever the containerd image store is enabled,
+// so a base meant to be docker v2 would silently come out OCI.
+func mintBase(t *testing.T, ref, dockerfile string, oci bool) {
+	if _, err := RunCommandWithoutTest(exec.Command("crane", "manifest", ref)); err == nil {
+		return
+	}
+	dir, err := os.MkdirTemp("", "kaniko-fuzz-mintbase-")
+	if err != nil {
+		t.Fatalf("mint %s: %v", ref, err)
+	}
+	defer os.RemoveAll(dir)
+	if err := os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte(dockerfile), 0o644); err != nil {
+		t.Fatalf("mint %s: %v", ref, err)
+	}
+	ociFlag := "false"
+	if oci {
+		ociFlag = "true"
+	}
+	cmd := exec.Command("docker", "buildx", "build", "--no-cache", "--provenance=false",
+		"--output=type=image,name="+ref+",oci-mediatypes="+ociFlag+",push=true", dir)
+	if out, err := RunCommandWithoutTest(cmd); err != nil {
+		t.Fatalf("mint %s: %v\n%s", ref, err, out)
+	}
+}
+
 func fuzzBaseRefs() []string {
 	repo := config.imageRepo
 	return []string{
@@ -1211,6 +1263,8 @@ func fuzzBaseRefs() []string {
 		strings.ToLower(repo + ociFuzzBaseTag),
 		strings.ToLower(repo + onbuildBaseTag),
 		strings.ToLower(repo + annotBaseTag),
+		strings.ToLower(repo + multiLayerBaseTag),
+		strings.ToLower(repo + richConfigBaseTag),
 	}
 }
 
