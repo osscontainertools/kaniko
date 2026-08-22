@@ -19,6 +19,8 @@ package integration
 import (
 	"archive/tar"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -1897,9 +1899,14 @@ const httpsCtxAddr = "127.0.0.1:8899"
 // which no local COPY/ADD reaches. Started once for the campaign; both docker and kaniko
 // fetch the same bytes, so the parity oracle stays valid. Plain http avoids a TLS cert.
 const (
-	addURLAddr = "127.0.0.1:8890"
-	addURL     = "http://" + addURLAddr + "/addfile"
+	addURLAddr    = "127.0.0.1:8890"
+	addURL        = "http://" + addURLAddr + "/addfile"
+	addURLContent = "add-url-fuzz-content\n"
 )
+
+// addURLSha256 is the hex digest of addURLContent, set when the server starts and used by
+// generated ADD --checksum lines.
+var addURLSha256 string
 
 // OTLP trace sink: accepts the executor's span exports and counts them, so the tracing
 // oracle can assert spans were actually emitted rather than only that the build still worked.
@@ -2003,9 +2010,13 @@ func startAddURLServer() error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(d, "addfile"), []byte("add-url-fuzz-content\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(d, "addfile"), []byte(addURLContent), 0o644); err != nil {
 		return err
 	}
+	// Digest of the exact bytes served, so an ADD --checksum generated for this URL cannot
+	// drift out of sync with the file if the content ever changes.
+	sum := sha256.Sum256([]byte(addURLContent))
+	addURLSha256 = hex.EncodeToString(sum[:])
 	ln, err := net.Listen("tcp", addURLAddr)
 	if err != nil {
 		return err
