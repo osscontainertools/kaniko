@@ -28,6 +28,7 @@ require (
 	github.com/moby/moby/api v1.55.0
 	github.com/moby/patternmatcher v0.6.1
 	github.com/moby/sys/signal v0.7.1
+	github.com/opencontainers/go-digest v1.0.0
 	github.com/osscontainertools/docker-credential-acr v0.8.0
 	github.com/otiai10/copy v1.14.1
 	github.com/sirupsen/logrus v1.10.1
@@ -121,7 +122,6 @@ require (
 	github.com/moby/sys/sequential v0.7.0 // indirect
 	github.com/moby/sys/user v0.4.1 // indirect
 	github.com/moby/sys/userns v0.1.0 // indirect
-	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/otiai10/mint v1.6.3 // indirect
 	github.com/pjbgf/sha1cd v0.6.0 // indirect

@@ -37,6 +37,7 @@ import (
 	"github.com/moby/go-archive"
 	"github.com/moby/patternmatcher"
 	"github.com/moby/patternmatcher/ignorefile"
+	"github.com/opencontainers/go-digest"
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/timing"
@@ -726,7 +727,7 @@ func AddVolumePathToIgnoreList(path string) {
 //  1. If <src> is a remote file URL:
 //     - destination will have permissions of 0600 by default if not specified with chmod
 //     - If remote file has HTTP Last-Modified header, we set the mtime of the file to that timestamp
-func DownloadFileToDest(rawurl, dest string, uid, gid int64, chmod fs.FileMode) error {
+func DownloadFileToDest(rawurl, dest string, uid, gid int64, chmod fs.FileMode, checksum digest.Digest) error {
 	resp, err := http.Get(rawurl) //nolint:noctx
 	if err != nil {
 		return err
@@ -737,8 +738,23 @@ func DownloadFileToDest(rawurl, dest string, uid, gid int64, chmod fs.FileMode) 
 		return fmt.Errorf("invalid response status %d", resp.StatusCode)
 	}
 
-	if err := CreateFile(dest, resp.Body, chmod, 0o755, uint32(uid), uint32(gid)); err != nil {
+	body := io.Reader(resp.Body)
+	var digester digest.Digester
+	if checksum != "" {
+		// buildkit's http source hardcodes sha256, so any other algorithm can never match
+		digester = digest.Canonical.Digester()
+		body = io.TeeReader(resp.Body, digester.Hash())
+	}
+
+	if err := CreateFile(dest, body, chmod, 0o755, uint32(uid), uint32(gid)); err != nil {
 		return err
+	}
+
+	if digester != nil {
+		got := digester.Digest()
+		if got != checksum {
+			return fmt.Errorf("digest mismatch %s: %s", got, checksum)
+		}
 	}
 	mTime := time.Time{}
 	lastMod := resp.Header.Get("Last-Modified")

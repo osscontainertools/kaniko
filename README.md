@@ -165,6 +165,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_CROSS_REPO_MOUNT`](#flag-ff_kaniko_cross_repo_mount)
       - [Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`](#flag-ff_kaniko_path_scoped_registry_auth)
       - [Flag `FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES`](#flag-ff_kaniko_deprecate_layerless_cache_entries)
+      - [Flag `FF_KANIKO_ADD_CHECKSUM`](#flag-ff_kaniko_add_checksum)
     - [Assertion Overrides](#assertion-overrides)
     - [Telemetry](#telemetry)
     - [Debug Image](#debug-image)
@@ -1485,6 +1486,13 @@ Becomes default in `v1.29.0`.
 #### Flag `FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES`
 
 Before `v1.25.0` a command that changed no files, `WORKDIR /` for example, was cached as an entry without a layer. kaniko no longer writes such entries, but on a hit it still accepts one and logs `No files were changed, appending empty layer to config`. Set this flag to `true` to reject them.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_ADD_CHECKSUM`
+
+`ADD --checksum=sha256:<hex> <url> <dest>` states that the download has to hash to the given digest. kaniko parses the flag and never checks it, so a substituted download is added to the image and the build succeeds.
+Set this flag to `true` to verify the download and fail the build on a mismatch.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
