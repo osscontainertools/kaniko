@@ -295,6 +295,15 @@ func TestFuzz(t *testing.T) {
 		t.Logf("ADD-url server serving %s", addURL)
 	}
 
+	// OTLP sink for the tracing oracle. If the port cannot be bound the oracle asserts on a
+	// collector that never answers, so leave it disabled rather than reporting false findings.
+	if err := startOTLPSink(); err != nil {
+		t.Logf("tracing oracle disabled: %v", err)
+	} else {
+		otlpUp = true
+		t.Logf("OTLP trace sink listening on %s", otlpAddr)
+	}
+
 	tracker := newCoverageTracker()
 	if tracker.enabled {
 		t.Logf("coverage admission enabled (reading executor GOCOVERDIR)")
@@ -761,6 +770,25 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	// Gated behind FUZZ_DIGESTFILE; adds one build per case.
 	if os.Getenv("FUZZ_DIGESTFILE") == "1" {
 		if f := digestFileOracle(seed, label, dir, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
+			mergeKnown(f, dockerCls.known)
+			return f
+		}
+	}
+
+	// stdin-context oracle: the context piped in as a gzipped tar must give the same image as
+	// the dir context. Gated behind FUZZ_STDINCONTEXT; adds a build and a tar per case.
+	if os.Getenv("FUZZ_STDINCONTEXT") == "1" {
+		if f := stdinContextOracle(seed, label, dir, kanikoImage, gen.dockerfile, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
+			mergeKnown(f, dockerCls.known)
+			return f
+		}
+	}
+
+	// tracing oracle: OTLP tracing is instrumentation, so the traced image must equal the
+	// untraced one, and the collector must actually receive spans. Gated behind FUZZ_TRACING
+	// and only if the sink bound its port.
+	if os.Getenv("FUZZ_TRACING") == "1" && otlpUp {
+		if f := tracingOracle(seed, label, dir, kanikoImage, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
 			mergeKnown(f, dockerCls.known)
 			return f
 		}
@@ -1423,6 +1451,66 @@ func prepareTarContext(dir string) error {
 	return os.WriteFile(filepath.Join(dir, ".buildctx.tar.gz"), data, 0o644)
 }
 
+// runFuzzKanikoStdin builds with the context piped to the executor's stdin as a gzipped tar
+// (--context=tar://stdin). docker run needs -i or the container gets a TTY on stdin and
+// kaniko rejects it as "no data found". .buildctx.tar.gz must already be in contextDir; it
+// is fed as the process stdin rather than mounted, so this is the one context path that
+// never touches a volume. No -v of the context dir: mounting it would let the build read
+// the real files and mask a bug in the stdin unpack.
+func runFuzzKanikoStdin(contextDir, image string, extra []string, covDir string, envOverride []string) (string, error) {
+	tarball, err := os.Open(filepath.Join(contextDir, ".buildctx.tar.gz"))
+	if err != nil {
+		return "", err
+	}
+	defer tarball.Close()
+	flags := []string{"run", "--rm", "-i", "--net=host"}
+	for _, e := range KanikoEnv {
+		flags = append(flags, "-e", e)
+	}
+	for _, e := range envOverride {
+		flags = append(flags, "-e", e)
+	}
+	if covDir != "" {
+		flags = append(flags, "-v", covDir+":/covdata", "-e", "GOCOVERDIR=/covdata")
+	}
+	flags = append(flags, ExecutorImage,
+		"-f", "Dockerfile",
+		"-d", image,
+		"-c", "tar://stdin",
+	)
+	flags = append(flags, extra...)
+	cmd := exec.Command("docker", flags...)
+	cmd.Stdin = tarball
+	out, err := RunCommandWithoutTest(cmd)
+	return string(out), err
+}
+
+// stdinContextOracle feeds the case's context to the executor over stdin and requires the
+// image to match the dir-context build. This is the only build context that arrives as a
+// stream with no filesystem behind it, and it is the uncovered half of
+// Tar.UnpackTarFromBuildContext, which the tar:// oracle never reaches because that path
+// takes the file branch.
+func stdinContextOracle(seed int64, label, dir, dirImage, dockerfile string, flags, envFlags []string, covDir string, fail func(severity, string, string) *finding, crashOr func(string) *finding) *finding {
+	if err := prepareTarContext(dir); err != nil {
+		return nil
+	}
+	img := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-stdin")
+	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", img))
+	out, err := runFuzzKanikoStdin(dir, img, flags, covDir, envFlags)
+	if f := crashOr(out); f != nil {
+		return f
+	}
+	if err != nil {
+		return fail(sevInvarianceDiff, "stdin-context build failed while the dir-context build succeeded", out)
+	}
+	ignores := []string{"--ignore-image-name", "--ignore-image-timestamps", "--ignore-file-timestamps"}
+	diff, same, _ := runFuzzDiffoci(dirImage, img, ignores)
+	if !same {
+		return classifyContextDiff(seed, dockerfile, dirImage, img, ignores, diff, "dir-context and stdin-context builds differ", fail)
+	}
+	return nil
+}
+
 // runFuzzKanikoTar builds with the context supplied as a tar:// archive rather than a
 // local dir, exercising pkg/buildcontext's Tar handler. .buildctx.tar.gz must already
 // be in contextDir; the Dockerfile is resolved relative to the unpacked tar.
@@ -1812,6 +1900,76 @@ const (
 	addURLAddr = "127.0.0.1:8890"
 	addURL     = "http://" + addURLAddr + "/addfile"
 )
+
+// OTLP trace sink: accepts the executor's span exports and counts them, so the tracing
+// oracle can assert spans were actually emitted rather than only that the build still worked.
+// An empty 200 with the protobuf content type is a valid ExportTraceServiceResponse (an empty
+// message), so the SDK treats the export as successful without this needing a real collector.
+const otlpAddr = "127.0.0.1:8891"
+
+var (
+	otlpExports atomic.Int64
+	// otlpUp gates the tracing oracle: false when the sink could not bind its port, so the
+	// oracle stays off rather than asserting against a collector that cannot answer.
+	otlpUp bool
+)
+
+func startOTLPSink() error {
+	ln, err := net.Listen("tcp", otlpAddr)
+	if err != nil {
+		return err
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/traces", func(w http.ResponseWriter, r *http.Request) {
+		io.Copy(io.Discard, r.Body)
+		otlpExports.Add(1)
+		w.Header().Set("Content-Type", "application/x-protobuf")
+		w.WriteHeader(http.StatusOK)
+	})
+	srv := &http.Server{Handler: mux}
+	go srv.Serve(ln)
+	return nil
+}
+
+// tracingOracle rebuilds the case with OTLP tracing pointed at the campaign's sink. Tracing
+// is pure instrumentation, so the image must be byte-for-byte what the untraced build
+// produced; a divergence means telemetry is perturbing the build. It also asserts the sink
+// actually received an export, which is what separates this from a build that silently
+// disabled tracing and passed. Covers Init, tracesEndpoint, buildAttrs, buildID,
+// registryAttrs and Shutdown, none of which any other path reaches.
+//
+// The endpoint is given without a path so tracesEndpoint has to append /v1/traces itself,
+// and the span-limit env is drawn so both branches of spanLimits are exercised.
+func tracingOracle(seed int64, label, dir, dirImage string, flags, envFlags []string, covDir string, fail func(severity, string, string) *finding, crashOr func(string) *finding) *finding {
+	img := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-trace")
+	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", img))
+	env := append(append([]string{}, envFlags...), "KANIKO_TELEMETRY_ENDPOINT=http://"+otlpAddr)
+	// Half the cases pin the attribute-value limit explicitly, which is the branch
+	// spanLimits takes when the operator has set it; the rest take kaniko's own default.
+	if seed%2 == 0 {
+		env = append(env, "OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT=4096")
+	}
+	before := otlpExports.Load()
+	out, err := runFuzzKanikoEnv(dir, img, flags, covDir, env)
+	if f := crashOr(out); f != nil {
+		return f
+	}
+	if err != nil {
+		return fail(sevInvarianceDiff, "build with tracing enabled failed while the untraced build succeeded", out)
+	}
+	if otlpExports.Load() == before {
+		return fail(sevInvarianceDiff, "tracing was configured but no spans reached the collector", out)
+	}
+	// Same ignores as the other invariance oracles. Two builds run at different wall-clock
+	// times legitimately differ in directory mtimes, so only a --reproducible pair can be
+	// compared with timestamps included; that comparison is the determinism oracle's job.
+	ignores := []string{"--ignore-image-name", "--ignore-image-timestamps", "--ignore-file-timestamps"}
+	diff, same, _ := runFuzzDiffoci(dirImage, img, ignores)
+	if !same {
+		return fail(sevInvarianceDiff, "traced and untraced builds differ", diff)
+	}
+	return nil
+}
 
 // secretLeakOracle asserts the secret value never appears in the pushed image: not in any
 // layer's flattened content and not in the config (env, history, labels). The build reads
