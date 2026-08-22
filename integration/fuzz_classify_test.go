@@ -115,6 +115,14 @@ var knownBuildFailures = []knownDivergence{
 		},
 	},
 	{
+		name: "heredoc-subshell-parens",
+		why:  "mz474: a heredoc RUN whose command substitution emits parentheses aborts in kaniko's shell (syntax error: unexpected \"(\") while buildkit runs it. Remove this entry when mz474 is fixed so the fuzzer guards the regression",
+		flag: "",
+		match: func(out string) bool {
+			return strings.Contains(out, "syntax error: unexpected \"(\"")
+		},
+	},
+	{
 		name: "chown-named-owner-no-passwd-db",
 		why:  "mz897: COPY/ADD --chown with a named user or group on a base with no /etc/passwd or /etc/group (scratch) fails; kaniko parses the name as a numeric id and errors while docker resolves it",
 		flag: "",
