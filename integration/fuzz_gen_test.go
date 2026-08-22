@@ -525,7 +525,22 @@ func generate(s *source, bases []string) genResult {
 				if s.chance(2) {
 					fmt.Fprintf(&b, "COPY <<EOF /heredoc/f%d\nheredoc-content-%d\nEOF\n", i, i)
 				} else {
-					fmt.Fprintf(&b, "RUN <<EOF\nmkdir -p /hd%d\necho run-heredoc-%d > /hd%d/out\nEOF\n", i, i, i)
+					// The heredoc body is a shell script, so its own syntax is part of the
+					// surface. A flat script only proves the heredoc was extracted; control
+					// flow and command substitution are where kaniko's shell has diverged
+					// from buildkit's (mz474).
+					switch s.intn(4) {
+					case 0:
+						fmt.Fprintf(&b, "RUN <<EOF\nmkdir -p /hd%d\necho run-heredoc-%d > /hd%d/out\nEOF\n", i, i, i)
+					case 1:
+						fmt.Fprintf(&b, "RUN <<EOF\nif true; then\n  mkdir -p /hd%d && echo ok > /hd%d/out\nfi\nEOF\n", i, i)
+					case 2:
+						fmt.Fprintf(&b, "RUN <<EOF\nif true; then\n  echo $(echo plain%d) > /hd%d\nfi\nEOF\n", i, i)
+					case 3:
+						// mz474: a substitution whose output carries parentheses. kaniko's
+						// shell reads them as syntax and aborts; buildkit runs it.
+						fmt.Fprintf(&b, "RUN <<EOF\nif true; then\n  echo $(echo \"paren%d ()\") > /hd%d\nfi\nEOF\n", i, i)
+					}
 				}
 			case 29:
 				// RUN --mount=type=bind: a context file is mounted into the RUN but is
