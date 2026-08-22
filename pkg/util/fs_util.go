@@ -252,6 +252,8 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 
 // DeleteFilesystem deletes the extracted image file system
 func DeleteFilesystem() error {
+	t := timing.Start("FS Cleaning")
+	defer t.End()
 	logrus.Info("Deleting filesystem...")
 	return fs.WalkDir(FSys, config.RootDir, func(path string, info fs.DirEntry, err error) error {
 		if err != nil {

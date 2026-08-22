@@ -40,6 +40,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/testutil"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func Test_reviewConfig(t *testing.T) {
@@ -1462,7 +1463,7 @@ RUN foobar
 			}
 			originalPushCache := pushCache
 			defer func() { pushCache = originalPushCache }()
-			pushCache = func(_ *config.KanikoOptions, cacheKey, _, _ string) error {
+			pushCache = func(_ *config.KanikoOptions, cacheKey, _, _ string, _ trace.Span) error {
 				keys = append(keys, cacheKey)
 				return nil
 			}
