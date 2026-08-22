@@ -138,6 +138,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_VOLUME_SKIP_MKDIR`](#flag-ff_kaniko_volume_skip_mkdir)
       - [Flag `FF_KANIKO_PRESERVE_HARDLINKS`](#flag-ff_kaniko_preserve_hardlinks)
       - [Flag `FF_KANIKO_RELATIVE_LINK_TARGETS`](#flag-ff_kaniko_relative_link_targets)
+      - [Flag `FF_KANIKO_COPY_SKIP_SPECIAL_FILES`](#flag-ff_kaniko_copy_skip_special_files)
       - [Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`](#flag-ff_kaniko_skip_write_whiteouts)
       - [Flag `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE`](#flag-ff_kaniko_buildkit_arg_env_precedence)
       - [Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`](#flag-ff_kaniko_infer_cross_stage_cache_key)
@@ -1276,6 +1277,12 @@ When a snapshot layer contains a hardlink, kaniko writes the link target as an a
 Set this flag to `true` to write hardlink targets relative to the tar root.
 Defaults to `true`.
 Will be deprecated in `v1.29.0`.
+
+#### Flag `FF_KANIKO_COPY_SKIP_SPECIAL_FILES`
+
+`COPY` reads each source file to copy it, which is wrong for anything that is not a regular file. A socket fails the build with `ENXIO`, and a block or character device is read as if it were a file, baking its contents into the image in place of the device node.
+Set this flag to `true` to skip both with a warning instead. Fifos are always recreated with `mkfifo` regardless of this flag, since opening one hung the build outright. Defaults to `false`.
+Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`
 

@@ -1,0 +1,24 @@
+# 1599: COPY of a fifo hangs forever on v1.28.1. Source files are copied by
+# opening and reading them, and open(2) on a fifo blocks until a writer shows
+# up, so the build never terminates and never times out. Covers the fifo inside
+# a copied directory, named directly as the source, and with --chown/--chmod.
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS builder
+RUN mkdir /work \
+    && echo "content" > /work/regular.txt \
+    && mkfifo -m 640 /work/pipe
+
+FROM ${IMAGE_REPO}busybox
+# fifo inside a copied directory
+COPY --from=builder /work/ /work/
+RUN test -p /work/pipe
+RUN test "$(stat -c %a /work/pipe)" = "640"
+RUN grep -q 'content' /work/regular.txt
+# fifo named directly as the copy source
+COPY --from=builder /work/pipe /direct/pipe
+RUN test -p /direct/pipe
+# --chown and --chmod must apply to a fifo like any other file
+COPY --chown=1000:1000 --chmod=600 --from=builder /work/pipe /owned/pipe
+RUN test -p /owned/pipe
+RUN test "$(stat -c %u:%g /owned/pipe)" = "1000:1000"
+RUN test "$(stat -c %a /owned/pipe)" = "600"
