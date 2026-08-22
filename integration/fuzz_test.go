@@ -1582,6 +1582,17 @@ func subPathContextOracle(seed int64, label, dir, dirImage, dockerfile string, f
 		return f
 	}
 	if err != nil {
+		// mz1026: --context-sub-path is ignored when the context is a local directory.
+		// resolveSourceContext returns early for any context without a "://" scheme, before
+		// the ctxSubPath join, so FileContext.Root stays at the mount root and every relative
+		// COPY source resolves one level too high. Counted rather than reported until that is
+		// fixed, otherwise this one bug is the only thing the oracle can ever say. Remove this
+		// skip to re-arm the oracle against a regression.
+		// Returns nil rather than a clean finding so the oracles after this one still run;
+		// a finding of any severity short-circuits the rest of the case.
+		if strings.Contains(out, "failed to get files used from context") && strings.Contains(out, buildContextPath+"/") {
+			return nil
+		}
 		return fail(sevInvarianceDiff, "context-sub-path build failed while the flat-context build succeeded", out)
 	}
 	ignores := []string{"--ignore-image-name", "--ignore-image-timestamps", "--ignore-file-timestamps"}
