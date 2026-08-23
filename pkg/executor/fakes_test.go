@@ -148,7 +148,7 @@ func (m MockCachedDockerCommand) IsArgsEnvsRequiredInCache() bool {
 }
 
 func (m MockCachedDockerCommand) Layer() v1.Layer {
-	return nil
+	return fakeLayer{}
 }
 
 type fakeLayerCache struct {

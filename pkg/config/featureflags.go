@@ -36,6 +36,7 @@ type FeatureFlags struct {
 	CopyChmodOnImplicitDirs        bool
 	CrossRepoMount                 bool
 	DeprecateInterStageRestore     bool
+	DeprecateLayerlessCacheEntries bool
 	DisableHTTP2                   bool
 	ExpandHeredoc                  bool
 	HashDirFraming                 bool
@@ -108,6 +109,7 @@ func InitFeatureFlags() {
 		CopyChmodOnImplicitDirs:        featureFlag("FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS", false),
 		CrossRepoMount:                 featureFlag("FF_KANIKO_CROSS_REPO_MOUNT", false),
 		DeprecateInterStageRestore:     featureFlag("FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE", true),
+		DeprecateLayerlessCacheEntries: featureFlag("FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES", false),
 		DisableHTTP2:                   featureFlag("FF_KANIKO_DISABLE_HTTP2", false),
 		ExpandHeredoc:                  featureFlag("FF_KANIKO_EXPAND_HEREDOC", false),
 		HashDirFraming:                 featureFlag("FF_KANIKO_HASH_DIR_FRAMING", false),

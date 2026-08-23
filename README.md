@@ -161,6 +161,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_SHARED_BASE_CACHE`](#flag-ff_kaniko_shared_base_cache)
       - [Flag `FF_KANIKO_CROSS_REPO_MOUNT`](#flag-ff_kaniko_cross_repo_mount)
       - [Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`](#flag-ff_kaniko_path_scoped_registry_auth)
+      - [Flag `FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES`](#flag-ff_kaniko_deprecate_layerless_cache_entries)
     - [Assertion Overrides](#assertion-overrides)
     - [Telemetry](#telemetry)
     - [Debug Image](#debug-image)
@@ -1457,6 +1458,12 @@ Becomes default in `v1.29.0`.
 
 > [!IMPORTANT]
 > The new resolver also stops offering an entry to repositories it does not cover. An entry for `registry.example.com/org-a` is currently sent for every repository on that host, ie. `registry.example.com/org-b` too. This is legacy behaviour intended to support URL-style entries that docker login used to write, but it was scoped too broadly and included entries without a scheme. We will continue to support URL-style entries, what breaks is implicit auth to sibling namespaces. A build that relies on that behaviour goes anonymous and fails with a `401` once this becomes the default.
+
+#### Flag `FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES`
+
+Before `v1.25.0` a command that changed no files, `WORKDIR /` for example, was cached as an entry without a layer. kaniko no longer writes such entries, but on a hit it still accepts one and logs `No files were changed, appending empty layer to config`. Set this flag to `true` to reject them.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
 
 ### Assertion Overrides
 
