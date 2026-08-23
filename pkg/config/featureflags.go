@@ -40,7 +40,6 @@ type FeatureFlags struct {
 	OCIScratchBase                 bool
 	PathScopedRegistryAuth         bool
 	PrecompileDockerignore         bool
-	RelativeLinkTargets            bool
 	ReproduciblePreserveBaseLayers bool
 	ResolveCacheKey                bool
 	RollingCacheKey                bool
@@ -100,7 +99,6 @@ func InitFeatureFlags() {
 		OCIScratchBase:                 featureFlag("FF_KANIKO_OCI_SCRATCH_BASE", false),
 		PathScopedRegistryAuth:         featureFlag("FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH", true),
 		PrecompileDockerignore:         featureFlag("FF_KANIKO_PRECOMPILE_DOCKERIGNORE", true),
-		RelativeLinkTargets:            featureFlag("FF_KANIKO_RELATIVE_LINK_TARGETS", true),
 		ReproduciblePreserveBaseLayers: featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS", true),
 		ResolveCacheKey:                featureFlag("FF_KANIKO_RESOLVE_CACHE_KEY", true),
 		RollingCacheKey:                featureFlag("FF_KANIKO_ROLLING_CACHE_KEY", true),

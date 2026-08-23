@@ -130,7 +130,6 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS`](#flag-ff_kaniko_copy_chmod_on_implicit_dirs)
       - [Flag `FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS`](#flag-ff_kaniko_chown_on_implicit_dirs)
       - [Flag `FF_KANIKO_OCI_SCRATCH_BASE`](#flag-ff_kaniko_oci_scratch_base)
-      - [Flag `FF_KANIKO_RELATIVE_LINK_TARGETS`](#flag-ff_kaniko_relative_link_targets)
       - [Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`](#flag-ff_kaniko_skip_write_whiteouts)
       - [Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`](#flag-ff_kaniko_infer_cross_stage_cache_key)
       - [Flag `FF_KANIKO_CACHE_LOOKAHEAD`](#flag-ff_kaniko_cache_lookahead)
@@ -1191,13 +1190,6 @@ Currently no plans to activate.
 When a Dockerfile uses `FROM scratch`, kaniko uses an empty Docker-format image as the build base, which means the output image is produced in Docker manifest schema v2 format.
 Set this flag to `true` to use an empty OCI-format image instead, causing `FROM scratch` builds to produce output in OCI manifest schema v1 format. Defaults to `false`.
 Currently no plans to activate.
-
-#### Flag `FF_KANIKO_RELATIVE_LINK_TARGETS`
-
-When a snapshot layer contains a hardlink, kaniko writes the link target as an absolute path while writing the entry name itself relative to the tar root. Docker writes both relative. Older clients accept either form and extract them to the same file, but docker `29.7.0` rejects the absolute one with `invalid hardlink target "/usr/bin/unzip"`, so affected images can no longer be loaded or pulled.
-Set this flag to `true` to write hardlink targets relative to the tar root.
-Defaults to `true`.
-Will be deprecated in `v1.29.0`.
 
 #### Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`
 
