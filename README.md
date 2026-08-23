@@ -1141,7 +1141,6 @@ delay of 1 second. Defaults to `0`.
 Opting into the Preview profile gives you early access to upcoming performance improvements, bugfixes and features. While these flags are tested and ready to use, implementation details may still change.
 
 ```sh
-FF_KANIKO_CROSS_REPO_MOUNT=true
 FF_KANIKO_RUN_VIA_TINI=true
 ```
 
@@ -1315,8 +1314,8 @@ Becomes default in `v1.29.0`.
 A registry can copy a blob between its own repositories for free, but only if it is told which repository already holds it. Kaniko loses that as soon as it copies a layer locally. Worse, with `--cache` every built layer goes up twice, once to the cache repo and once inside the image. Set this flag to `true` to remember which layers can be mounted remotely and which ones genuinely need to be pushed.
 If a cross-repository mount cannot be authorized or completed,
 kaniko falls back to the normal blob upload path using destination credential.
-Defaults to `false`.
-Becomes default in `v1.29.0`.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`
 
@@ -1331,8 +1330,8 @@ repository: registry.example.com/org-a/project-3
 ```
 
 We introduced a new PathScopedKeychain resolver that implements namespace aware authentication, so users would only need to configure a single credential for the entire `registry.example.com/org-a`. This affects explicit `auths` entries only, `DOCKER_AUTH_CONFIG`. `credsStore` and `credHelpers` keep the scopes they have without the flag. See **[docs/registries.md](docs/registries.md)** for further details and the full lookup order. Set this flag to `true` to switch to the new namespace aware PathScopedKeychain resolver and match namespace entries.
-Defaults to `false`.
-Becomes default in `v1.29.0`.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 > [!IMPORTANT]
 > The new resolver also stops offering an entry to repositories it does not cover. An entry for `registry.example.com/org-a` is currently sent for every repository on that host, ie. `registry.example.com/org-b` too. This is legacy behaviour intended to support URL-style entries that docker login used to write, but it was scoped too broadly and included entries without a scheme. We will continue to support URL-style entries, what breaks is implicit auth to sibling namespaces. A build that relies on that behaviour goes anonymous and fails with a `401` once this becomes the default.
