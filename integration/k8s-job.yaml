@@ -12,12 +12,8 @@ spec:
         workingDir: /workspace
         args: [ "--context=dir:///workspace",
                 "--destination={{.KanikoImage}}"]
-        env:
-        - name: FF_KANIKO_NO_PROPAGATE_ANNOTATIONS
-          value: "1"
-        - name: FF_KANIKO_RUN_MOUNT_BIND
-          value: "1"
         {{- if .CoverageDir}}
+        env:
         - name: GOCOVERDIR
           value: /covdata
         {{- end}}
