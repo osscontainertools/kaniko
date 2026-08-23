@@ -22,6 +22,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -333,6 +334,7 @@ CMD ["base-cmd"]
 		corpus      [][]byte // inputs that reached new coverage, preferred parents for mutation
 		knownTotals = map[string]int{}
 		sterile     int
+		wedged      int
 		caseIdx     int64 = -1
 		doneCount   int64
 	)
@@ -345,8 +347,8 @@ CMD ["base-cmd"]
 		if final {
 			state = "done"
 		}
-		fmt.Fprintf(&sb, "state: %s\nbound: %s\nworkers: %d\ncases done: %d\nfindings: %d\nsterile: %d\ncoverage blocks: %d\ncorpus: %d\n\n",
-			state, bound, workers, atomic.LoadInt64(&doneCount), len(findings), sterile, tracker.total(), len(corpus))
+		fmt.Fprintf(&sb, "state: %s\nbound: %s\nworkers: %d\ncases done: %d\nfindings: %d\nsterile: %d\nwedged: %d\ncoverage blocks: %d\ncorpus: %d\n\n",
+			state, bound, workers, atomic.LoadInt64(&doneCount), len(findings), sterile, wedged, tracker.total(), len(corpus))
 		fmt.Fprintf(&sb, "known-divergence baseline (counted, not reported):\n")
 		for _, kd := range allKnownClasses() {
 			flag := kd.flag
@@ -400,6 +402,11 @@ CMD ["base-cmd"]
 				switch {
 				case f.sev == sevClean && f.summary == "sterile":
 					sterile++
+				case f.sev == sevClean && f.summary == "wedged":
+					// A command timed out, so the case proved nothing. Counted separately
+					// from sterile: sterile means the generator produced something neither
+					// tool accepts, wedged means the environment stopped answering.
+					wedged++
 				case f.sev == sevClean:
 					// no divergence
 				default:
@@ -501,6 +508,14 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	if f := crashOr(kanikoOut); f != nil {
 		return f
 	}
+	// A command that hit fuzzCmdTimeout says nothing about kaniko, so the case is abandoned
+	// rather than reported. Reporting one is actively harmful: the finding goes to the
+	// shrinker, every shrink trial re-runs the same wedged command, and a single wedge eats
+	// the rest of the campaign a timeout at a time.
+	if strings.Contains(dockerOut, fuzzTimeoutMarker) || strings.Contains(kanikoOut, fuzzTimeoutMarker) {
+		return &finding{seed: seed, sev: sevClean, summary: "wedged"}
+	}
+
 	switch {
 	case dockerErr != nil && kanikoErr != nil:
 		// Both builds failed. Not a divergence, and the case teaches us nothing about kaniko,
@@ -1242,11 +1257,17 @@ const (
 
 // fuzzCmdTimeout bounds every external command a campaign runs. Without a bound, one wedged
 // docker call blocks its worker for good: the summary keeps reporting "running", no build
-// progresses, and nothing ends the campaign until the go test timeout hours later. That
-// failure looks identical to "slow" from the outside. Deliberately generous, tens of times
-// the slowest real build, so it only ever catches a genuine wedge. A tight bound would cut
-// off a slow-but-working build and manufacture a finding, which is worse than waiting.
-const fuzzCmdTimeout = 10 * time.Minute
+// progresses, and nothing ends the campaign until the go test timeout hours later, which
+// looks identical to "slow" from the outside. A build of a generated case measures around
+// nine seconds, so a minute is several times the slowest real one while still failing fast
+// enough that a wedge costs a minute rather than a third of the campaign.
+const fuzzCmdTimeout = time.Minute
+
+// fuzzTimeoutMarker goes into the timed-out command's output, not just its error, because
+// every oracle builds its failure detail from the output and discards the error. Without it
+// in the output a timeout is invisible in the artifacts. It also lets a case recognise its
+// own wedge and bail instead of reporting one as a kaniko divergence.
+const fuzzTimeoutMarker = "FUZZ-COMMAND-TIMED-OUT"
 
 // runFuzzBounded runs cmd under fuzzCmdTimeout, killing it on expiry. It takes a built
 // *exec.Cmd rather than an argv so callers can still set Stdin (the stdin-context runner) and
@@ -1272,7 +1293,10 @@ func runFuzzBounded(cmd *exec.Cmd) ([]byte, error) {
 		if cmd.Process != nil {
 			cmd.Process.Kill()
 		}
-		return nil, fmt.Errorf("command timed out after %s: %s", fuzzCmdTimeout, strings.Join(cmd.Args, " "))
+		// The inner goroutine stays blocked in CombinedOutput until the kill takes effect, so
+		// it is deliberately left to finish on its own rather than waited for.
+		msg := fmt.Sprintf("%s: after %s: %s", fuzzTimeoutMarker, fuzzCmdTimeout, strings.Join(cmd.Args, " "))
+		return []byte(msg), errors.New(msg)
 	}
 }
 
