@@ -208,14 +208,14 @@ func TestFuzz(t *testing.T) {
 	// the source digest, so the two are comparable; the skopeo-minted OCI base re-formats
 	// by design and falls back to an existence check.
 	mirror := func(name, src, dst string, copyArgs ...string) {
-		have, err := RunCommandWithoutTest(exec.Command("crane", "digest", dst))
+		have, err := runFuzzBounded(exec.Command("crane", "digest", dst))
 		if err == nil {
 			_, want, pinned := strings.Cut(src, "@")
 			if copyArgs[0] != "crane" || !pinned || strings.TrimSpace(string(have)) == want {
 				return
 			}
 		}
-		if out, err := RunCommandWithoutTest(exec.Command(copyArgs[0], copyArgs[1:]...)); err != nil {
+		if out, err := runFuzzBounded(exec.Command(copyArgs[0], copyArgs[1:]...)); err != nil {
 			t.Fatalf("failed to mirror %s base %s -> %s: %v\n%s", name, src, dst, err, out)
 		}
 	}
@@ -274,11 +274,11 @@ CMD ["base-cmd"]
 	// FF_KANIKO_NO_PROPAGATE_ANNOTATIONS). crane mutate adds the annotations onto the OCI
 	// base's manifest without rebuilding layers.
 	annotBase := strings.ToLower(config.imageRepo + annotBaseTag)
-	if _, err := RunCommandWithoutTest(exec.Command("crane", "manifest", annotBase)); err != nil {
+	if _, err := runFuzzBounded(exec.Command("crane", "manifest", annotBase)); err != nil {
 		mutate := exec.Command("crane", "mutate", ociBase,
 			"--annotation", "org.opencontainers.image.authors=fuzz",
 			"--annotation", "fuzz.marker=annotated-base", "-t", annotBase)
-		if out, err := RunCommandWithoutTest(mutate); err != nil {
+		if out, err := runFuzzBounded(mutate); err != nil {
 			t.Fatalf("mint annotated base: %v\n%s", err, out)
 		}
 	}
@@ -503,7 +503,19 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	}
 	switch {
 	case dockerErr != nil && kanikoErr != nil:
-		// Both builds failed. Not a divergence, and the case teaches us nothing.
+		// Both builds failed. Not a divergence, and the case teaches us nothing about kaniko,
+		// so it is counted and no artifacts are kept.
+		//
+		// FUZZ_REPORT_STERILE writes them out anyway. A sterile case says the generator
+		// produced a Dockerfile neither tool accepts, which is a generator-quality signal
+		// rather than a kaniko finding: the whole case costs a build on each tool and yields
+		// nothing. When the rate climbs there is no way to see why without this, and guessing
+		// from the summary counts alone is how a USER-before-root-write bug went unexplained
+		// through several campaigns. Off by default so a normal run is unaffected.
+		if os.Getenv("FUZZ_REPORT_STERILE") == "1" {
+			return fail(sevBuildOutcome, "sterile (both tools failed)",
+				fmt.Sprintf("docker: %v\n%s\n=== kaniko ===\n%v\n%s", dockerErr, dockerOut, kanikoErr, kanikoOut))
+		}
 		return &finding{seed: seed, sev: sevClean, summary: "sterile"}
 	case dockerErr != nil && kanikoErr == nil:
 		return fail(sevBuildOutcome, "docker failed, kaniko built", fmt.Sprintf("docker error: %v\n%s", dockerErr, dockerOut))
@@ -686,7 +698,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 			}
 			w0 := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-off0")
 			w1 := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-off1")
-			defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", w0, w1))
+			defer runFuzzBounded(exec.Command("docker", "rmi", "-f", w0, w1))
 			o0, oe0 := runOff(w0)
 			if f := crashOr(o0); f != nil {
 				return f
@@ -855,7 +867,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	// a novel crash is a finding. Gated behind FUZZ_CHAOSFLAGS.
 	if os.Getenv("FUZZ_CHAOSFLAGS") == "1" && len(gen.chaosEnv) > 0 {
 		chaosImg := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-chaos")
-		defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", chaosImg))
+		defer runFuzzBounded(exec.Command("docker", "rmi", "-f", chaosImg))
 		cout, _ := runFuzzKanikoEnv(dir, chaosImg, gen.kanikoFlags, covDir, gen.chaosEnv)
 		if f := crashOr(cout); f != nil {
 			// Record the chaos toggles so the crash is reproducible.
@@ -888,7 +900,7 @@ func determinismOracle(label, dir, fresh string, flags, envFlags []string, fail 
 	// timestamps. Any difference in layers, files, mode, ownership, or media type
 	// between two runs of the identical input is nondeterminism.
 	b := strings.ToLower(repo + kanikoPrefix + label + "-det-b")
-	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", b))
+	defer runFuzzBounded(exec.Command("docker", "rmi", "-f", b))
 	out, err := runFuzzKanikoEnv(dir, b, flags, "", envFlags)
 	if crash := detectCrash(out); crash != "" {
 		return fail(sevCrash, crash, out)
@@ -907,7 +919,7 @@ func determinismOracle(label, dir, fresh string, flags, envFlags []string, fail 
 	// epoch, so any remaining difference is a reproducibility defect.
 	r0 := strings.ToLower(repo + kanikoPrefix + label + "-det-r0")
 	r1 := strings.ToLower(repo + kanikoPrefix + label + "-det-r1")
-	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", r0, r1))
+	defer runFuzzBounded(exec.Command("docker", "rmi", "-f", r0, r1))
 	o0, e0 := runFuzzKanikoEnv(dir, r0, append([]string{"--reproducible"}, flags...), "", envFlags)
 	if f := crashOr(o0); f != nil {
 		return f
@@ -959,7 +971,7 @@ func warmerOracle(label, dir, dockerfile string, flags, envFlags []string, covDi
 	cacheFlags := append([]string{"--cache=true", "--cache-run-layers=false", "--no-push-cache"}, flags...)
 	warmImg := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-warm")
 	coldImg := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-cold")
-	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", warmImg, coldImg))
+	defer runFuzzBounded(exec.Command("docker", "rmi", "-f", warmImg, coldImg))
 
 	wOut, wErr := runFuzzKanikoCache(dir, warmImg, cacheFlags, covDir, warmCache, envFlags)
 	if f := crashOr(wOut); f != nil {
@@ -1001,7 +1013,7 @@ func warmerOracle(label, dir, dockerfile string, flags, envFlags []string, covDi
 	reproFlags := append([]string{"--reproducible"}, cacheFlags...)
 	warmRepro := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-warm-repro")
 	coldRepro := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-cold-repro")
-	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", warmRepro, coldRepro))
+	defer runFuzzBounded(exec.Command("docker", "rmi", "-f", warmRepro, coldRepro))
 
 	// warmCache is already populated, so the warm reproducible build reads the base
 	// from it; the cold one gets an empty dir and pulls the base fresh.
@@ -1069,7 +1081,7 @@ func warmFuzzCache(cacheDir string, bases []string, covDir string, envFlags []st
 	for _, b := range bases {
 		flags = append(flags, "-i", b)
 	}
-	out, err := RunCommandWithoutTest(exec.Command("docker", flags...))
+	out, err := runFuzzBounded(exec.Command("docker", flags...))
 	return string(out), err
 }
 
@@ -1228,12 +1240,48 @@ const (
 	libraryDebianTag = "library/debian:fuzz"
 )
 
+// fuzzCmdTimeout bounds every external command a campaign runs. Without a bound, one wedged
+// docker call blocks its worker for good: the summary keeps reporting "running", no build
+// progresses, and nothing ends the campaign until the go test timeout hours later. That
+// failure looks identical to "slow" from the outside. Deliberately generous, tens of times
+// the slowest real build, so it only ever catches a genuine wedge. A tight bound would cut
+// off a slow-but-working build and manufacture a finding, which is worse than waiting.
+const fuzzCmdTimeout = 10 * time.Minute
+
+// runFuzzBounded runs cmd under fuzzCmdTimeout, killing it on expiry. It takes a built
+// *exec.Cmd rather than an argv so callers can still set Stdin (the stdin-context runner) and
+// Env (the docker-side secret) first. Same signature as RunCommandWithoutTest so it is a
+// drop-in at every call site in this file.
+//
+// A timeout surfaces as a failed command, so the case may be reported as a build-outcome
+// divergence. That is intended: a wedged command is worth seeing, and the message says so.
+func runFuzzBounded(cmd *exec.Cmd) ([]byte, error) {
+	type result struct {
+		out []byte
+		err error
+	}
+	done := make(chan result, 1)
+	go func() {
+		out, err := RunCommandWithoutTest(cmd)
+		done <- result{out, err}
+	}()
+	select {
+	case r := <-done:
+		return r.out, r.err
+	case <-time.After(fuzzCmdTimeout):
+		if cmd.Process != nil {
+			cmd.Process.Kill()
+		}
+		return nil, fmt.Errorf("command timed out after %s: %s", fuzzCmdTimeout, strings.Join(cmd.Args, " "))
+	}
+}
+
 // mintBase builds a base from an inline Dockerfile and pushes it, unless the tag is already
 // in the registry. The manifest format is pinned rather than inherited: `docker build -t`
 // follows the daemon default, which is OCI wherever the containerd image store is enabled,
 // so a base meant to be docker v2 would silently come out OCI.
 func mintBase(t *testing.T, ref, dockerfile string, oci bool) {
-	if _, err := RunCommandWithoutTest(exec.Command("crane", "manifest", ref)); err == nil {
+	if _, err := runFuzzBounded(exec.Command("crane", "manifest", ref)); err == nil {
 		return
 	}
 	dir, err := os.MkdirTemp("", "kaniko-fuzz-mintbase-")
@@ -1250,7 +1298,7 @@ func mintBase(t *testing.T, ref, dockerfile string, oci bool) {
 	}
 	cmd := exec.Command("docker", "buildx", "build", "--no-cache", "--provenance=false",
 		"--output=type=image,name="+ref+",oci-mediatypes="+ociFlag+",push=true", dir)
-	if out, err := RunCommandWithoutTest(cmd); err != nil {
+	if out, err := runFuzzBounded(cmd); err != nil {
 		t.Fatalf("mint %s: %v\n%s", ref, err, out)
 	}
 }
@@ -1284,7 +1332,7 @@ func cleanupFuzzImages(label string) {
 		GetVersionedKanikoImage(config.imageRepo, label, 0),
 		GetVersionedKanikoImage(config.imageRepo, label, 1),
 	}
-	RunCommandWithoutTest(exec.Command("docker", append([]string{"rmi", "-f"}, refs...)...))
+	runFuzzBounded(exec.Command("docker", append([]string{"rmi", "-f"}, refs...)...))
 }
 
 func hasFlag(flags []string, f string) bool {
@@ -1337,7 +1385,7 @@ func baseIsOCI(ref string) bool {
 	if v, ok := baseOCICache[ref]; ok {
 		return v
 	}
-	out, err := RunCommandWithoutTest(exec.Command("crane", "manifest", "--platform", "linux/amd64", ref))
+	out, err := runFuzzBounded(exec.Command("crane", "manifest", "--platform", "linux/amd64", ref))
 	oci := err == nil && strings.Contains(string(out), "vnd.oci.image")
 	baseOCICache[ref] = oci
 	return oci
@@ -1436,7 +1484,7 @@ func runFuzzDocker(contextDir, image string, oci bool, buildArgs, labels, annota
 	if usesSecret {
 		c.Env = append(os.Environ(), secretEnvVar+"="+secretToken)
 	}
-	out, err := RunCommandWithoutTest(c)
+	out, err := runFuzzBounded(c)
 	return string(out), err
 }
 
@@ -1469,7 +1517,7 @@ func runFuzzKanikoCache(contextDir, image string, extra []string, covDir, cacheD
 		"--cache-dir=/cache",
 	)
 	flags = append(flags, extra...)
-	out, err := RunCommandWithoutTest(exec.Command("docker", flags...))
+	out, err := runFuzzBounded(exec.Command("docker", flags...))
 	return string(out), err
 }
 
@@ -1493,7 +1541,7 @@ func runFuzzKanikoEnv(contextDir, image string, extra []string, covDir string, e
 		"-c", buildContextPath,
 	)
 	flags = append(flags, extra...)
-	out, err := RunCommandWithoutTest(exec.Command("docker", flags...))
+	out, err := runFuzzBounded(exec.Command("docker", flags...))
 	return string(out), err
 }
 
@@ -1502,7 +1550,7 @@ func runFuzzKanikoEnv(contextDir, image string, extra []string, covDir string, e
 // setuid bits, symlinks and hardlinks in the context on purpose, and a naive copy flattens
 // exactly the attributes the oracles are comparing.
 func copyFuzzContext(src, dst, dockerfile string) error {
-	if out, err := RunCommandWithoutTest(exec.Command("cp", "-a", src+"/.", dst)); err != nil {
+	if out, err := runFuzzBounded(exec.Command("cp", "-a", src+"/.", dst)); err != nil {
 		return fmt.Errorf("copy context: %w: %s", err, out)
 	}
 	return os.WriteFile(filepath.Join(dst, "Dockerfile"), []byte(dockerfile), 0o644)
@@ -1518,7 +1566,7 @@ func prepareTarContext(dir string) error {
 	}
 	tmp.Close()
 	defer os.Remove(tmp.Name())
-	if out, err := RunCommandWithoutTest(exec.Command("tar", "czf", tmp.Name(), "-C", dir, ".")); err != nil {
+	if out, err := runFuzzBounded(exec.Command("tar", "czf", tmp.Name(), "-C", dir, ".")); err != nil {
 		return fmt.Errorf("tar context: %w: %s", err, out)
 	}
 	data, err := os.ReadFile(tmp.Name())
@@ -1558,7 +1606,7 @@ func runFuzzKanikoStdin(contextDir, image string, extra []string, covDir string,
 	flags = append(flags, extra...)
 	cmd := exec.Command("docker", flags...)
 	cmd.Stdin = tarball
-	out, err := RunCommandWithoutTest(cmd)
+	out, err := runFuzzBounded(cmd)
 	return string(out), err
 }
 
@@ -1572,7 +1620,7 @@ func stdinContextOracle(seed int64, label, dir, dirImage, dockerfile string, fla
 		return nil
 	}
 	img := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-stdin")
-	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", img))
+	defer runFuzzBounded(exec.Command("docker", "rmi", "-f", img))
 	out, err := runFuzzKanikoStdin(dir, img, flags, covDir, envFlags)
 	if f := crashOr(out); f != nil {
 		return f
@@ -1610,7 +1658,7 @@ func runFuzzKanikoSubPath(contextDir, image, sub string, extra []string, covDir 
 		"--context-sub-path="+sub,
 	)
 	flags = append(flags, extra...)
-	out, err := RunCommandWithoutTest(exec.Command("docker", flags...))
+	out, err := runFuzzBounded(exec.Command("docker", flags...))
 	return string(out), err
 }
 
@@ -1633,7 +1681,7 @@ func subPathContextOracle(seed int64, label, dir, dirImage, dockerfile string, f
 		return nil
 	}
 	img := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-subpath")
-	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", img))
+	defer runFuzzBounded(exec.Command("docker", "rmi", "-f", img))
 	out, err := runFuzzKanikoSubPath(nested, img, sub, flags, covDir, envFlags)
 	if f := crashOr(out); f != nil {
 		return f
@@ -1680,7 +1728,7 @@ func runFuzzKanikoTar(contextDir, image string, extra []string, covDir string, e
 		"-c", "tar://"+path.Join(buildContextPath, ".buildctx.tar.gz"),
 	)
 	flags = append(flags, extra...)
-	out, err := RunCommandWithoutTest(exec.Command("docker", flags...))
+	out, err := runFuzzBounded(exec.Command("docker", flags...))
 	return string(out), err
 }
 
@@ -1692,7 +1740,7 @@ func tarContextOracle(seed int64, label, dir, dirImage, dockerfile string, flags
 		return nil
 	}
 	tarImage := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-tarctx")
-	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", tarImage))
+	defer runFuzzBounded(exec.Command("docker", "rmi", "-f", tarImage))
 	out, err := runFuzzKanikoTar(dir, tarImage, flags, covDir, envFlags)
 	if f := crashOr(out); f != nil {
 		return f
@@ -1731,7 +1779,7 @@ func runFuzzKanikoTarPath(contextDir, image, hostDir string, extra []string, cov
 		"--no-push", "--oci-layout-path=/tarout/layout",
 	)
 	flags = append(flags, extra...)
-	out, err := RunCommandWithoutTest(exec.Command("docker", flags...))
+	out, err := runFuzzBounded(exec.Command("docker", flags...))
 	return string(out), err
 }
 
@@ -1746,7 +1794,7 @@ func runFuzzKanikoPush(hostDir, image string, envOverride []string) (string, err
 		flags = append(flags, "-e", e)
 	}
 	flags = append(flags, ExecutorImage, "push", "/tarout/layout", "--destination", image)
-	out, err := RunCommandWithoutTest(exec.Command("docker", flags...))
+	out, err := runFuzzBounded(exec.Command("docker", flags...))
 	return string(out), err
 }
 
@@ -1766,7 +1814,7 @@ func twoStepPushOracle(seed int64, label, dir, dirImage, dockerfile string, flag
 	}
 	defer os.RemoveAll(hostDir)
 	img := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-2step")
-	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", img))
+	defer runFuzzBounded(exec.Command("docker", "rmi", "-f", img))
 	out, err := runFuzzKanikoTarPath(dir, img, hostDir, flags, covDir, envFlags)
 	if f := crashOr(out); f != nil {
 		return f
@@ -1800,7 +1848,7 @@ func runFuzzKanikoDfURL(contextDir, image, dfURL string, extra []string, covDir 
 	}
 	flags = append(flags, ExecutorImage, "-f", dfURL, "-c", buildContextPath, "-d", image)
 	flags = append(flags, extra...)
-	out, err := RunCommandWithoutTest(exec.Command("docker", flags...))
+	out, err := runFuzzBounded(exec.Command("docker", flags...))
 	return string(out), err
 }
 
@@ -1818,7 +1866,7 @@ func dockerfileHTTPOracle(seed int64, label, dir, dirImage, dockerfile string, f
 	}
 	defer os.Remove(served)
 	img := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-dfhttp")
-	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", img))
+	defer runFuzzBounded(exec.Command("docker", "rmi", "-f", img))
 	out, err := runFuzzKanikoDfURL(dir, img, "http://"+addURLAddr+"/"+name, flags, covDir, envFlags)
 	if f := crashOr(out); f != nil {
 		return f
@@ -1845,7 +1893,7 @@ func digestFileOracle(seed int64, label, dir string, flags, envFlags []string, c
 	}
 	defer os.RemoveAll(hostDir)
 	img := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-df")
-	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", img))
+	defer runFuzzBounded(exec.Command("docker", "rmi", "-f", img))
 	args := append([]string{"--digest-file=/cache/d"}, flags...)
 	out, err := runFuzzKanikoCache(dir, img, args, covDir, hostDir, envFlags)
 	if f := crashOr(out); f != nil {
@@ -1858,7 +1906,7 @@ func digestFileOracle(seed int64, label, dir string, flags, envFlags []string, c
 	if rerr != nil {
 		return fail(sevInvarianceDiff, "--digest-file was not written by a successful build", out)
 	}
-	want, werr := RunCommandWithoutTest(exec.Command("crane", "digest", img))
+	want, werr := runFuzzBounded(exec.Command("crane", "digest", img))
 	if werr != nil {
 		return nil
 	}
@@ -1882,7 +1930,7 @@ func dryrunOracle(label, dir string, flags, envFlags []string, covDir string, fa
 	if err != nil {
 		return fail(sevInvarianceDiff, "--dryrun failed on a case the real build accepted", out)
 	}
-	_, derr := RunCommandWithoutTest(exec.Command("crane", "digest", img))
+	_, derr := runFuzzBounded(exec.Command("crane", "digest", img))
 	if derr == nil {
 		return fail(sevInvarianceDiff, "--dryrun pushed the destination tag to the registry", out)
 	}
@@ -1931,7 +1979,7 @@ func registryMirrorOracle(seed int64, label, dir, dirImage, dockerfile string, f
 		return nil
 	}
 	img := strings.ToLower(repo + kanikoPrefix + label + "-mirror")
-	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", img))
+	defer runFuzzBounded(exec.Command("docker", "rmi", "-f", img))
 	args := append([]string{"--registry-mirror=" + host, "--skip-default-registry-fallback"}, flags...)
 	out, err := runFuzzKanikoEnv(mirrorDir, img, args, covDir, envFlags)
 	if f := crashOr(out); f != nil {
@@ -1985,7 +2033,7 @@ func sharedCacheOracle(seed int64, label, dir, dockerfile string, argNames, flag
 	imgA := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-shA")
 	imgBShared := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-shB")
 	imgBClean := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-clB")
-	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", imgA, imgBShared, imgBClean))
+	defer runFuzzBounded(exec.Command("docker", "rmi", "-f", imgA, imgBShared, imgBClean))
 
 	build := func(image, repo string, set []string) (string, error) {
 		args := append(append([]string{}, base...), "--cache-repo="+repo)
@@ -2122,7 +2170,7 @@ func startOTLPSink() error {
 // and the span-limit env is drawn so both branches of spanLimits are exercised.
 func tracingOracle(seed int64, label, dir, dirImage string, flags, envFlags []string, covDir string, fail func(severity, string, string) *finding, crashOr func(string) *finding) *finding {
 	img := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-trace")
-	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", img))
+	defer runFuzzBounded(exec.Command("docker", "rmi", "-f", img))
 	env := append(append([]string{}, envFlags...), "KANIKO_TELEMETRY_ENDPOINT=http://"+otlpAddr)
 	// Half the cases pin the attribute-value limit explicitly, which is the branch
 	// spanLimits takes when the operator has set it; the rest take kaniko's own default.
@@ -2157,13 +2205,13 @@ func tracingOracle(seed int64, label, dir, dirImage string, flags, envFlags []st
 // token is a real leak, regardless of what the Dockerfile does. A leak is the highest-signal
 // finding the fuzzer can produce, so it is always reported.
 func secretLeakOracle(seed int64, image string, fail func(severity, string, string) *finding) *finding {
-	if cfg, err := RunCommandWithoutTest(exec.Command("crane", "config", image)); err == nil && strings.Contains(string(cfg), secretToken) {
+	if cfg, err := runFuzzBounded(exec.Command("crane", "config", image)); err == nil && strings.Contains(string(cfg), secretToken) {
 		return fail(sevSecretLeak, "secret value leaked into image config", "crane config "+image+" contains the secret token")
 	}
 	// crane export flattens every layer into the final rootfs tar; grepping the stream finds
 	// the token in any file's content or name. -a treats the tar as text.
 	scan := exec.Command("bash", "-c", fmt.Sprintf("crane export %s - 2>/dev/null | grep -a -c %s", image, secretToken))
-	out, _ := RunCommandWithoutTest(scan)
+	out, _ := runFuzzBounded(scan)
 	count := strings.TrimSpace(string(out))
 	if count != "" && count != "0" {
 		return fail(sevSecretLeak, "secret value leaked into an image layer", "crane export of "+image+" contains the secret token ("+count+" matches)")
@@ -2213,7 +2261,7 @@ func startHTTPSContextServer() error {
 	genCert := exec.Command("openssl", "req", "-x509", "-newkey", "rsa:2048",
 		"-keyout", key, "-out", cert, "-days", "2", "-nodes",
 		"-subj", "/CN=127.0.0.1", "-addext", "subjectAltName=IP:127.0.0.1")
-	if out, err := RunCommandWithoutTest(genCert); err != nil {
+	if out, err := runFuzzBounded(genCert); err != nil {
 		return fmt.Errorf("gen cert: %w: %s", err, out)
 	}
 	srv := &http.Server{Addr: httpsCtxAddr, Handler: http.FileServer(http.Dir(d))}
@@ -2244,7 +2292,7 @@ func runFuzzKanikoHTTPS(image, tarName string, extra []string, covDir string, en
 		"-c", httpsBaseURL+tarName,
 	)
 	flags = append(flags, extra...)
-	out, err := RunCommandWithoutTest(exec.Command("docker", flags...))
+	out, err := runFuzzBounded(exec.Command("docker", flags...))
 	return string(out), err
 }
 
@@ -2258,7 +2306,7 @@ func httpsContextOracle(seed int64, label, dir, dirImage, dockerfile string, fla
 	}
 	defer os.Remove(served)
 	httpsImage := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-httpsctx")
-	defer RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", httpsImage))
+	defer runFuzzBounded(exec.Command("docker", "rmi", "-f", httpsImage))
 	out, err := runFuzzKanikoHTTPS(httpsImage, tarName, flags, covDir, envFlags)
 	if f := crashOr(out); f != nil {
 		return f
@@ -2277,7 +2325,7 @@ func httpsContextOracle(seed int64, label, dir, dirImage, dockerfile string, fla
 // tarDirTo writes a gzip tar of srcDir's contents to outPath, which must lie outside
 // srcDir so the archive does not include itself.
 func tarDirTo(srcDir, outPath string) error {
-	if out, err := RunCommandWithoutTest(exec.Command("tar", "czf", outPath, "-C", srcDir, ".")); err != nil {
+	if out, err := runFuzzBounded(exec.Command("tar", "czf", outPath, "-C", srcDir, ".")); err != nil {
 		return fmt.Errorf("tar %s: %w: %s", srcDir, err, out)
 	}
 	return nil
@@ -2286,15 +2334,15 @@ func tarDirTo(srcDir, outPath string) error {
 // runFuzzDiffoci pulls both images and diffs them with the given ignores. It
 // returns the diff output, whether the images are identical, and any tool error.
 func runFuzzDiffoci(image1, image2 string, ignores []string) (string, bool, error) {
-	if out, err := RunCommandWithoutTest(exec.Command("docker", "pull", image1)); err != nil {
+	if out, err := runFuzzBounded(exec.Command("docker", "pull", image1)); err != nil {
 		return string(out), false, fmt.Errorf("pull %s: %w", image1, err)
 	}
-	if out, err := RunCommandWithoutTest(exec.Command("docker", "pull", image2)); err != nil {
+	if out, err := runFuzzBounded(exec.Command("docker", "pull", image2)); err != nil {
 		return string(out), false, fmt.Errorf("pull %s: %w", image2, err)
 	}
 	args := append([]string{"diff"}, ignores...)
 	args = append(args, daemonPrefix+image1, daemonPrefix+image2)
-	out, err := RunCommandWithoutTest(exec.Command("diffoci", args...))
+	out, err := runFuzzBounded(exec.Command("diffoci", args...))
 	return string(out), err == nil, err
 }
 
@@ -2302,7 +2350,7 @@ func runFuzzDiffoci(image1, image2 string, ignores []string) (string, bool, erro
 // which does not go through the docker daemon. Used as daemon-free ground truth when a
 // cache diff is suspected of being a daemon-side misread.
 func craneLayerDigests(image string) ([]string, error) {
-	out, err := RunCommandWithoutTest(exec.Command("crane", "manifest", image))
+	out, err := runFuzzBounded(exec.Command("crane", "manifest", image))
 	if err != nil {
 		return nil, fmt.Errorf("crane manifest: %w", err)
 	}
@@ -2342,7 +2390,7 @@ func diagnoseCacheDiff(v0, v1 string, ignores []string, firstDetail string) (boo
 		fmt.Fprintf(&b, "crane manifest inconclusive (v0 err=%v, v1 err=%v, v0 layers=%d)\n", e0, e1, len(d0))
 	}
 	// Drop the daemon copies so the re-compare pulls fresh from the registry.
-	RunCommandWithoutTest(exec.Command("docker", "rmi", "-f", v0, v1))
+	runFuzzBounded(exec.Command("docker", "rmi", "-f", v0, v1))
 	again, sameAgain, _ := runFuzzDiffoci(v0, v1, ignores)
 	if sameAgain {
 		fmt.Fprintf(&b, "diffoci re-run after fresh pull: IDENTICAL, the first diff did not reproduce (measurement artifact)")
