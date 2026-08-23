@@ -842,6 +842,10 @@ func copyDirInner(files []string, src, dest string, context FileContext, uid, gi
 		} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok && config.FF.PreserveHardlinks {
 			// #2594: inode already copied — create a hardlink instead of duplicating content.
 			logrus.Tracef("Creating hardlink %s -> %s", destPath, linkDst)
+			luid, lgid := DetermineTargetFileOwnership(fi, uid, gid)
+			if err := createParentDirectory(destPath, int(luid), int(lgid), chmod.Apply(0o755)); err != nil {
+				return nil, err
+			}
 			if err := os.Link(linkDst, destPath); err != nil {
 				return nil, err
 			}
