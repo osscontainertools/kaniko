@@ -1,11 +1,13 @@
-FROM registry.access.redhat.com/ubi7/ubi:7.7-214 AS base
+FROM ubuntu AS base
 
-# Install make libraries for build environment
-# Then clean caches
-RUN yum --disableplugin=subscription-manager install -y \
-        make-3.82-24.el7 \
-    && yum --disableplugin=subscription-manager clean all \
-    && rm -rf /var/cache/yum /var/lib/yum/yumdb
+# 1039: kaniko stopped resolving symlinked paths before scanning for changes. On
+# a usr-merged image (/bin, /lib, /sbin -> /usr/*) that produced whiteouts for
+# untouched entries, including .wh.dev, and the image then failed to extract when
+# used as a base: "removing whiteout .wh.dev: unlinkat //dev/pts/ptmx:
+# operation not permitted". The delete below is what triggers the scan.
+RUN mkdir -p /var/lib/test && echo data > /var/lib/test/f
+RUN rm -rf /var/lib/test
+
 FROM base AS nosquash
 
 FROM base AS final
