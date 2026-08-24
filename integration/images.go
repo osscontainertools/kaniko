@@ -202,7 +202,6 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz247":                {"--target=final,nosquash"},
 	"Dockerfile_test_issue_mz276":                {"--target=second,nosquash"},
 	"Dockerfile_test_pre_defined_build_args":     {"--target=final,nosquash"},
-	"Dockerfile_test_issue_1039":                 {"--target=final,nosquash"},
 	"Dockerfile_test_issue_1837":                 {"--target=final,nosquash"},
 	"Dockerfile_test_issue_2066":                 {"--target=b,nosquash"},
 	"Dockerfile_test_issue_mz782":                {"--target=final,nosquash"},

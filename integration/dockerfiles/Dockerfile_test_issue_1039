@@ -1,14 +1,8 @@
-FROM ubuntu AS base
+FROM ubuntu
 
-# 1039: kaniko stopped resolving symlinked paths before scanning for changes. On
-# a usr-merged image (/bin, /lib, /sbin -> /usr/*) that produced whiteouts for
-# untouched entries, including .wh.dev, and the image then failed to extract when
-# used as a base: "removing whiteout .wh.dev: unlinkat //dev/pts/ptmx:
-# operation not permitted". The delete below is what triggers the scan.
-RUN mkdir -p /var/lib/test && echo data > /var/lib/test/f
-RUN rm -rf /var/lib/test
-
-FROM base AS nosquash
-
-FROM base AS final
-RUN echo test
+# 1039: kaniko stopped resolving symlinked paths before scanning for changes. On a
+# usr-merged image (/bin, /lib, /sbin -> /usr/*) any snapshot then emitted
+# whiteouts for untouched entries, including .wh.dev, and the image failed to
+# extract when used as a base: "removing whiteout .wh.dev: unlinkat
+# //dev/pts/ptmx: operation not permitted".
+RUN echo test > /marker
