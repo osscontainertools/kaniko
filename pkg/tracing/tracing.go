@@ -55,6 +55,8 @@ var (
 // enables tracing when set to an OTLP-HTTP collector URL.
 const EndpointEnv = "KANIKO_TELEMETRY_ENDPOINT"
 
+const BuildIDEnv = "KANIKO_TELEMETRY_BUILD_ID"
+
 // whether to keep the Dockerfile source out of the trace.
 const OmitDockerfileEnv = "KANIKO_TELEMETRY_OMIT_DOCKERFILE"
 
@@ -209,6 +211,10 @@ func buildAttrs(opts *config.KanikoOptions, dockerfile []byte) []attribute.KeyVa
 // when the Dockerfile is readable; the path fallback is near-constant across
 // a fleet (everything mounts /workspace/Dockerfile), hence the preference.
 func buildID(path, target string, content []byte) string {
+	if id := os.Getenv(BuildIDEnv); id != "" {
+		return id
+	}
+
 	src := path
 	if content != nil {
 		src = string(content)

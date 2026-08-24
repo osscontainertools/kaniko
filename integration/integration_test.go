@@ -357,7 +357,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
-	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -429,7 +429,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
-	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(
 		dockerRunFlags,
 		ExecutorImage,
@@ -474,7 +474,7 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
-	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -517,7 +517,7 @@ func TestBuildViaRegistryMap(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
-	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -545,7 +545,7 @@ func TestBuildSkipFallback(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
-	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -587,7 +587,7 @@ func TestKanikoDir(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
-	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -632,7 +632,7 @@ func TestBuildWithLabels(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
-	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -674,7 +674,7 @@ func TestBuildWithHTTPError(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
-	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -953,7 +953,7 @@ func TestSnapshotModes(t *testing.T) {
 		t.Helper()
 		tag := GetKanikoImage(config.imageRepo, dockerfile+"-snapshot-"+mode)
 		kanikoArgs := []string{"-c", buildContextPath, "--snapshot-mode=" + mode}
-		if err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, kanikoArgs, tag, cwd, "", ""); err != nil {
+		if err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, kanikoArgs, tag, cwd, "", ""); err != nil {
 			t.Fatalf("kaniko build with --snapshot-mode=%s: %v", mode, err)
 		}
 		return tag
@@ -994,7 +994,7 @@ func TestReproducible(t *testing.T) {
 		buildArgs = append(buildArgs, "--build-arg", "IMAGE_REPO="+config.imageRepo)
 		flags := []string{"-c", buildContextPath, "--reproducible"}
 		flags = append(flags, additionalKanikoFlagsMap[dockerfile]...)
-		err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, flags, ref,
+		err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, flags, ref,
 			cwd, "", "")
 		if err != nil {
 			t.Fatalf("build %s -> %s: %v", dockerfile, ref, err)
@@ -1057,7 +1057,7 @@ func TestCache(t *testing.T) {
 
 func TestWarmer(t *testing.T) {
 	t.Parallel()
-	populateVolumeCache(t.Logf)
+	populateVolumeCache(t)
 
 	for dockerfile := range imageBuilder.TestWarmerDockerfiles {
 		t.Run("test_warmer_"+dockerfile, func(t *testing.T) {
@@ -1069,12 +1069,12 @@ func TestWarmer(t *testing.T) {
 			}
 
 			// Build the initial without warmer
-			if err := imageBuilder.buildWarmerImage(t.Logf, config, dockerfilesPath, dockerfile, 0, args, false); err != nil {
+			if err := imageBuilder.buildWarmerImage(t, config, dockerfilesPath, dockerfile, 0, args, false); err != nil {
 				t.Fatalf("error building cached image for the first time: %v", err)
 			}
 
 			// Build the second with warmer
-			if err := imageBuilder.buildWarmerImage(t.Logf, config, dockerfilesPath, dockerfile, 1, args, true); err != nil {
+			if err := imageBuilder.buildWarmerImage(t, config, dockerfilesPath, dockerfile, 1, args, true); err != nil {
 				t.Fatalf("error building cached image for the second time: %v", err)
 			}
 
@@ -1155,11 +1155,11 @@ func verifyBuildWith(t *testing.T, cache, dockerfile string) {
 	}
 
 	// Build the initial image which will cache layers
-	if err := imageBuilder.buildCachedImage(t.Logf, config, cache, dockerfilesPath, dockerfile, 0, args); err != nil {
+	if err := imageBuilder.buildCachedImage(t, config, cache, dockerfilesPath, dockerfile, 0, args); err != nil {
 		t.Fatalf("error building cached image for the first time: %v", err)
 	}
 	// Build the second image which should pull from the cache
-	if err := imageBuilder.buildCachedImage(t.Logf, config, cache, dockerfilesPath, dockerfile, 1, args); err != nil {
+	if err := imageBuilder.buildCachedImage(t, config, cache, dockerfilesPath, dockerfile, 1, args); err != nil {
 		t.Fatalf("error building cached image for the second time: %v", err)
 	}
 	// Make sure both images are the same
@@ -1184,11 +1184,11 @@ func TestCacheInvalidatesOnAllowlistedFileChange(t *testing.T) {
 
 	const dockerfile = "testdata/test_issue_mz762/Dockerfile"
 
-	if err := imageBuilder.buildCachedImageInContext(t.Logf, config, cacheRepo, dockerfile, "testdata/test_issue_mz762/original", 0); err != nil {
+	if err := imageBuilder.buildCachedImageInContext(t, config, cacheRepo, dockerfile, "testdata/test_issue_mz762/original", 0); err != nil {
 		t.Fatalf("error building original image: %v", err)
 	}
 
-	if err := imageBuilder.buildCachedImageInContext(t.Logf, config, cacheRepo, dockerfile, "testdata/test_issue_mz762/changed", 0); err != nil {
+	if err := imageBuilder.buildCachedImageInContext(t, config, cacheRepo, dockerfile, "testdata/test_issue_mz762/changed", 0); err != nil {
 		t.Fatalf("error building changed image: %v", err)
 	}
 
@@ -1255,7 +1255,7 @@ func TestRelativePaths(t *testing.T) {
 		contextPath := "./context"
 
 		err := imageBuilder.buildRelativePathsImage(
-			t.Logf,
+			t,
 			config.imageRepo,
 			dockerfile,
 			contextPath,
@@ -1319,7 +1319,7 @@ func TestExitCodePropagation(t *testing.T) {
 		}
 		dockerFlags = addAuthFlags(dockerFlags)
 		dockerFlags = addCoverageFlags(dockerFlags)
-		dockerFlags = addKanikoEnvFlags(dockerFlags)
+		dockerFlags = addKanikoEnvFlags(dockerFlags, t.Name())
 		dockerFlags = append(dockerFlags, ExecutorImage,
 			"-c", "dir:///workspace/",
 			"-f", "./Dockerfile_exit_code_propagation",
@@ -1373,7 +1373,7 @@ func TestBuildWithAnnotations(t *testing.T) {
 	dockerRunFlags := []string{"run", "--net=host"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
-	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags)
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
@@ -1411,7 +1411,7 @@ func TestPushFromArtifact(t *testing.T) {
 			runExecutor := func(executorArgs ...string) {
 				t.Helper()
 				flags := []string{"run", "--rm", "--net=host", "-v", outFlag + ":/out"}
-				flags = addKanikoEnvFlags(flags)
+				flags = addKanikoEnvFlags(flags, t.Name())
 				// mz731 keeps OCI base layers verbatim on the direct push, but the
 				// docker-archive --tar-path writer rewrites them to docker mediatypes, so
 				// the push-from-artifact image would not match. Disable it (after the
@@ -1668,7 +1668,7 @@ func TestAlpineTLS(t *testing.T) {
 	cwd := filepath.Dir(ex)
 	dest := "127.0.0.2:5001/kaniko/mz595-tls:latest"
 	err = buildKanikoImage(
-		t.Logf,
+		t,
 		dockerfilesPath,
 		"Dockerfile_test_issue_mz595",
 		nil,
@@ -1728,7 +1728,7 @@ func TestPushRepositoryScopedAuth(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			err := buildKanikoImage(
-				t.Logf,
+				t,
 				dockerfilesPath,
 				"Dockerfile_test_label",
 				nil,
@@ -1774,7 +1774,7 @@ func TestCrossRepoMountFallback(t *testing.T) {
 		"127.0.0.2:5001/userb/test_issue_mz1007": {Username: "userb", Password: "userb"},
 	})
 	err := buildKanikoImage(
-		t.Logf,
+		t,
 		dockerfilesPath,
 		"Dockerfile_test_label",
 		nil,
@@ -1813,7 +1813,7 @@ func TestCrossRepoMountFallback(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			destination := fmt.Sprintf("127.0.0.2:5001/usera/test_issue_mz1007-%s-%d", tc.repo, time.Now().UnixNano())
 			err = buildKanikoImage(
-				t.Logf,
+				t,
 				dockerfilesPath,
 				"Dockerfile_test_issue_mz1007",
 				[]string{"--build-arg", "BASE=" + base},
@@ -1987,7 +1987,7 @@ func TestCustomPlatformVariant(t *testing.T) {
 	cwd := filepath.Dir(ex)
 	kanikoImage := GetKanikoImage(config.imageRepo, "issue_mz745")
 	err := buildKanikoImage(
-		t.Logf,
+		t,
 		dockerfilesPath,
 		"Dockerfile_test_cross_compile",
 		nil,
