@@ -1,8 +1,12 @@
-FROM ubuntu
+FROM debian
 
 # 1039: kaniko stopped resolving symlinked paths before scanning for changes. On a
-# usr-merged image (/bin, /lib, /sbin -> /usr/*) any snapshot then emitted
-# whiteouts for untouched entries, including .wh.dev, and the image failed to
-# extract when used as a base: "removing whiteout .wh.dev: unlinkat
-# //dev/pts/ptmx: operation not permitted".
-RUN echo test > /marker
+# usr-merged base (/bin, /lib, /sbin -> /usr/*) it then compared a previous layer's
+# unresolved paths against resolved ones and emitted whiteouts for untouched
+# entries, including .wh.dev, so the image failed to extract when used as a base.
+# Two RUNs because the mismatch only surfaces once a prior layer exists to compare
+# against; debian rather than ubuntu because ubuntu's layers carry annotations
+# kaniko propagates and docker strips (#1038), which would fail this for an
+# unrelated reason.
+RUN echo one > /a
+RUN echo two > /b
