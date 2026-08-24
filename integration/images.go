@@ -165,7 +165,6 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_copy_root_multistage":         dockerV2Flags,
 	"Dockerfile_test_issue_1837":                   dockerV2Flags,
 	"Dockerfile_test_issue_2049":                   dockerV2Flags,
-	"Dockerfile_test_issue_1039":                   dockerV2Flags,
 	"Dockerfile_test_copyadd_chmod":                dockerV2Flags,
 	"Dockerfile_test_copy_reproducible":            dockerV2Flags,
 	"Dockerfile_test_copy_chown_intermediate_dirs": dockerV2Flags,
