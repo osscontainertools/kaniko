@@ -1,6 +1,6 @@
 module github.com/osscontainertools/kaniko
 
-go 1.26.6
+go 1.27.0
 
 require (
 	cloud.google.com/go/storage v1.65.0
