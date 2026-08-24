@@ -3,7 +3,7 @@ module github.com/osscontainertools/kaniko
 go 1.26.6
 
 require (
-	cloud.google.com/go/storage v1.64.0
+	cloud.google.com/go/storage v1.65.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.0
 	github.com/GoogleCloudPlatform/docker-credential-gcr/v2 v2.2.1
 	github.com/aws/aws-sdk-go-v2 v1.43.6
