@@ -100,11 +100,7 @@ func (t *Tar) AddFileToTar(p string) error {
 
 	hardlink, linkDst := t.checkHardlink(p, i)
 	if hardlink {
-		if config.FF.RelativeLinkTargets {
-			hdr.Linkname = strings.TrimLeft(strings.TrimPrefix(linkDst, config.RootDir), "/")
-		} else {
-			hdr.Linkname = linkDst
-		}
+		hdr.Linkname = strings.TrimLeft(strings.TrimPrefix(linkDst, config.RootDir), "/")
 		hdr.Typeflag = tar.TypeLink
 		hdr.Size = 0
 	}
