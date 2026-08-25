@@ -1,12 +1,12 @@
-FROM registry.access.redhat.com/ubi7/ubi:7.7-214 AS base
+FROM debian
 
-# Install make libraries for build environment
-# Then clean caches
-RUN yum --disableplugin=subscription-manager install -y \
-        make-3.82-24.el7 \
-    && yum --disableplugin=subscription-manager clean all \
-    && rm -rf /var/cache/yum /var/lib/yum/yumdb
-FROM base AS nosquash
-
-FROM base AS final
-RUN echo test
+# 1039: kaniko stopped resolving symlinked paths before scanning for changes. On a
+# usr-merged base (/bin, /lib, /sbin -> /usr/*) it then compared a previous layer's
+# unresolved paths against resolved ones and emitted whiteouts for untouched
+# entries, including .wh.dev, so the image failed to extract when used as a base.
+# Two RUNs because the mismatch only surfaces once a prior layer exists to compare
+# against; debian rather than ubuntu because ubuntu's layers carry annotations
+# kaniko propagates and docker strips (#1038), which would fail this for an
+# unrelated reason.
+RUN echo one > /a
+RUN echo two > /b
