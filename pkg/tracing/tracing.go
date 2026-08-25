@@ -174,6 +174,14 @@ func registryAttrs(s connstats.Stats) []attribute.KeyValue {
 	}
 }
 
+func SetPlan(plan string) {
+	mu.Lock()
+	defer mu.Unlock()
+	if rootSpan != nil {
+		rootSpan.SetAttributes(attribute.String("kaniko.plan", plan))
+	}
+}
+
 // buildAttrs holds what kaniko knows; fleet identity comes from
 // OTEL_RESOURCE_ATTRIBUTES. build_id groups runs of the same Dockerfile+target.
 func buildAttrs(opts *config.KanikoOptions, dockerfile []byte) []attribute.KeyValue {
