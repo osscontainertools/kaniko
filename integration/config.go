@@ -26,6 +26,7 @@ type integrationTestConfig struct {
 	hijackBaseImage         string
 	malformedOCIImage       string
 	nvidiaOperatorBaseImage string
+	singleManifestBaseImage string
 	dockerMajorVersion      int
 	dockerfilesPattern      string
 }

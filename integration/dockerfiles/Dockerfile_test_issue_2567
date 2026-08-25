@@ -1,0 +1,7 @@
+ARG IMAGE_REPO
+ARG BASE=base
+FROM ${IMAGE_REPO}busybox AS base
+RUN echo base > /base
+
+FROM ${BASE}
+RUN echo 2567 > /2567

@@ -131,6 +131,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_CROSS_REPO_MOUNT=1",
 	"FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=1",
 	"FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES=1",
+	"FF_KANIKO_PLATFORM_CACHE_KEY=1",
 	"KANIKO_PRINT_PLAN=1",
 	"KANIKO_TELEMETRY_ENDPOINT",
 	"OTEL_EXPORTER_OTLP_HEADERS",
@@ -575,6 +576,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz851":       {},
 	}
 	d.TestKanikoOnlyDockerfiles = map[string]struct{}{
+		"Dockerfile_test_issue_2567":    {},
 		"Dockerfile_test_issue_cg326_2": {},
 		"Dockerfile_test_issue_cg326_3": {},
 		"Dockerfile_test_issue_mz444":   {},

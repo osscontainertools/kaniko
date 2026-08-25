@@ -144,6 +144,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_CACHE_LOOKAHEAD`](#flag-ff_kaniko_cache_lookahead)
       - [Flag `FF_KANIKO_ROLLING_CACHE_KEY`](#flag-ff_kaniko_rolling_cache_key)
       - [Flag `FF_KANIKO_HASH_DIR_FRAMING`](#flag-ff_kaniko_hash_dir_framing)
+      - [Flag `FF_KANIKO_PLATFORM_CACHE_KEY`](#flag-ff_kaniko_platform_cache_key)
       - [Flag `FF_KANIKO_CACHE_PROBE_AFTER_MISS`](#flag-ff_kaniko_cache_probe_after_miss)
       - [Flag `FF_KANIKO_WARMER_CACHE_LOCK`](#flag-ff_kaniko_warmer_cache_lock)
       - [Flag `FF_KANIKO_PRESERVE_MOUNTED_PATHS`](#flag-ff_kaniko_preserve_mounted_paths)
@@ -1158,6 +1159,7 @@ FF_KANIKO_CROSS_REPO_MOUNT=true
 FF_KANIKO_EXPAND_HEREDOC=true
 FF_KANIKO_HASH_DIR_FRAMING=true
 FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=true
+FF_KANIKO_PLATFORM_CACHE_KEY=true
 FF_KANIKO_PRECOMPILE_DOCKERIGNORE=true
 FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=true
 FF_KANIKO_RESOLVE_CACHE_KEY=true
@@ -1326,6 +1328,13 @@ Becomes default in `v1.29.0`.
 
 Directory cache keys concatenate each relative path and file hash without recording their boundaries. A filename can therefore absorb an adjacent hash and make distinct directory trees produce the same cache key, silently reusing the wrong cached layer.
 Set this flag to `true` to length-prefix every path and file hash before hashing the directory. Toggling it changes cache keys for `COPY` and `ADD` directory inputs, forcing those layers to rebuild once.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_PLATFORM_CACHE_KEY`
+
+Multi-arch builds would write to the same cache causing false positive cache hits.
+Set this flag to `true` to add the target platform to the cache key.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 

@@ -168,6 +168,11 @@ func buildRequiredImages() error {
 		name:    "Building mz753 base image",
 		command: []string{"docker", "build", "--push", "-t", config.nvidiaOperatorBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz753", "--target", "base", "."},
 	}, {
+		name: "Building single manifest base image",
+		command: append(append([]string{"docker", "build", "--push"}, dockerV2Flags...),
+			"-t", config.singleManifestBaseImage, "-f", dockerfilesPath+"/Dockerfile_test_issue_2567",
+			"--target", "base", "--build-arg", "IMAGE_REPO="+config.imageRepo, "."),
+	}, {
 		name:    "Building kaniko image based on alpine",
 		command: []string{"docker", "build", coverArg, "-t", AlpineImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-alpine", ".."},
 	}}
@@ -1197,6 +1202,47 @@ func TestCacheInvalidatesOnAllowlistedFileChange(t *testing.T) {
 	containerDiff(t, original, changed, "--semantic", "--extra-ignore-files=app/test.txt")
 }
 
+// https://github.com/GoogleContainerTools/kaniko/issues/2567
+// The host and the foreign architecture crosstalk through one cache repo. The base image
+// is a single manifest, an index would already resolve to a different digest per platform.
+func TestPlatformScopedCacheKey(t *testing.T) {
+	t.Parallel()
+
+	_, ex, _, _ := runtime.Caller(0)
+	cwd := filepath.Dir(ex)
+	dockerfile := filepath.Join(buildContextPath, dockerfilesPath, "Dockerfile_test_issue_2567")
+	cacheRepo := filepath.Join(config.imageRepo, "cache", "2567", strconv.FormatInt(time.Now().UnixNano(), 10))
+
+	build := func(arch string) []byte {
+		t.Helper()
+		dockerRunFlags := []string{"run", "--rm", "--net=host", "-v", cwd + ":/workspace:ro"}
+		for _, envVariable := range KanikoEnv {
+			dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
+		}
+		dockerRunFlags = addAuthFlags(dockerRunFlags)
+		dockerRunFlags = addCoverageFlags(dockerRunFlags)
+		dockerRunFlags = append(dockerRunFlags, ExecutorImage,
+			"-f", dockerfile, "-c", buildContextPath,
+			"--no-push", "--cache=true", "--cache-repo", cacheRepo,
+			"--custom-platform=linux/"+arch, "--build-arg", "BASE="+config.singleManifestBaseImage)
+		out, err := RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
+		if err != nil {
+			t.Fatalf("build for linux/%s failed: %v\n%s", arch, err, out)
+		}
+		return out
+	}
+
+	cacheHit := []byte("Using caching version of cmd: RUN echo 2567 > /2567")
+
+	build(runtime.GOARCH)
+	if out := build(crossCompileArch); bytes.Contains(out, cacheHit) {
+		t.Errorf("%s build served a layer built for %s:\n%s", crossCompileArch, runtime.GOARCH, out)
+	}
+	if out := build(runtime.GOARCH); !bytes.Contains(out, cacheHit) {
+		t.Errorf("%s rebuild missed its own cache:\n%s", runtime.GOARCH, out)
+	}
+}
+
 func TestRelativePaths(t *testing.T) {
 	t.Parallel()
 	dockerfile := "Dockerfile_relative_copy"
@@ -1575,6 +1621,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 	c.hijackBaseImage = c.imageRepo + "hijack:latest"
 	c.malformedOCIImage = c.imageRepo + "malformed-oci:latest"
 	c.nvidiaOperatorBaseImage = c.imageRepo + "nvidia-operator-base:latest"
+	c.singleManifestBaseImage = c.imageRepo + "single-manifest-base:latest"
 	return &c
 }
 
