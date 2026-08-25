@@ -1704,7 +1704,7 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 			},
 			expectedDigest: v1.Hash{
 				Algorithm: "sha256",
-				Hex:       "1dc5887a31ec6b388646be46c5f0b2036f92f4cbba50d12163a8be4074565a91",
+				Hex:       "a247167adc33731bd941a8370b43c43617de56e90d502bea42d9d8154c11aacb",
 			},
 		},
 		{
@@ -1722,7 +1722,7 @@ func Test_stageBuilder_saveSnapshotToLayer(t *testing.T) {
 			},
 			expectedDigest: v1.Hash{
 				Algorithm: "sha256",
-				Hex:       "1dc5887a31ec6b388646be46c5f0b2036f92f4cbba50d12163a8be4074565a91",
+				Hex:       "a247167adc33731bd941a8370b43c43617de56e90d502bea42d9d8154c11aacb",
 			},
 		},
 		{
