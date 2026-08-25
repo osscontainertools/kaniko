@@ -714,6 +714,9 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		if isCacheCommand {
 			v := command.(commands.Cached)
 			layer := v.Layer()
+			if config.FF.DeprecateLayerlessCacheEntries {
+				assert.Assert("executor.build.cache-layer", layer != nil, "cached command %q carries no layer", command.String())
+			}
 			if layer == nil {
 				// a cache image without a layer indicates that no files were changed, ie. by 'WORKDIR /' prior to v1.25.0
 				// We continue to handle this case here as users might still have cache entries lying around
