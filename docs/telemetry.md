@@ -8,7 +8,7 @@ KANIKO_TELEMETRY_ENDPOINT=http://otel-collector:4318
 
 Spans are sent over OTLP/HTTP (`http://` or `https://`, collector port 4318 by default). OTLP/gRPC (port 4317) is not supported. The endpoint URL must include a scheme. `OTEL_EXPORTER_OTLP_HEADERS` authenticates to the collector and `OTEL_RESOURCE_ATTRIBUTES` adds fleet labels such as `tenant`, `repo`, and `git.sha`.
 
-Each build is one trace: a root `build` span plus a span per build phase and Dockerfile command. Command spans are named `Command` (low cardinality, so backends can aggregate on the name). The full instruction text is in the `kaniko.command` attribute. The build phases keep their descriptive names.
+Each build is one trace: a root `build` span, a `Stage` span per build stage, and under each stage a span per build phase and Dockerfile command. Stage and command spans are named `Stage` and `Command` (low cardinality, so backends can aggregate on the name). The full instruction text is in the `kaniko.command` attribute. The build phases keep their descriptive names.
 
 Set `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true` to keep the Dockerfile source out of the trace.
 
@@ -37,16 +37,25 @@ Attribute values are capped at 64 KiB. `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` 
 | `kaniko.registry.dial.ms` | time spent opening connections |
 | `kaniko.registry.idle.ms` | total time connections sat idle before being reused |
 
+## Stage spans
+
+| Attribute | Value |
+| --- | --- |
+| `kaniko.stage` | stage index (integer) |
+| `kaniko.stage.name` | stage name from `FROM ... AS <name>`, empty for unnamed stages |
+
 ## Command spans
 
 | Attribute | Value |
 | --- | --- |
 | `kaniko.command` | full instruction text |
 | `kaniko.command.hash` | hash of the stage index and command text |
-| `kaniko.phase` | `kaniko`, `build`, or `network` |
 | `kaniko.instruction.index` | command index within the stage |
 | `kaniko.instruction.line` | source line in the Dockerfile |
 | `kaniko.stage` | stage index (integer) |
 | `kaniko.cache.hit` | `true` when the command was replayed from cache (only with `--cache`, absent when caching is off) |
 | `kaniko.cache.key` | cache key for the command (only with `--cache`) |
 
+## Phases
+
+`kaniko.phase` is `network`, `build` or `kaniko`, and follows the span name.
