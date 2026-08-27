@@ -1027,7 +1027,7 @@ func TestReproducible(t *testing.T) {
 			kaniko := layerDigests(t, ref0)
 			testutil.CheckDeepEqual(t, base, kaniko[:len(base)])
 
-			// mz998: the preserved base layer stays gzip, kaniko's own layer is zstd.
+			// mz998: base layers are preserved as they were pushed upstream, so only kaniko's own layer follows --compression.
 			if want := layerMediaTypes[dockerfile]; want != nil {
 				testutil.CheckDeepEqual(t, want, manifestMediaTypes(t, ref0))
 			}

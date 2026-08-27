@@ -761,7 +761,7 @@ Defaults to `false`. Can also be set via the `KANIKO_CLEANUP` environment variab
 
 #### Flag `--compression`
 
-Use this flag to select the compression algorithm `[gzip, zstd]`. Defaults to `gzip`. `zstd` needs an OCI output image, either inherited from the base image or forced with [`--image-format=oci`](#flag---image-format).
+Use this flag to select the compression algorithm `[gzip, zstd]`. Defaults to `gzip`.
 
 #### Flag `--compression-level`
 
@@ -1370,8 +1370,8 @@ Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT`
 
-`--reproducible` rewrites every layer as gzip on a Docker schema2 manifest, so [`--compression=zstd`](#flag---compression), [`--compression-level`](#flag---compression-level) and [`--image-format=oci`](#flag---image-format) are discarded and an OCI base image comes out as Docker schema2.
-Set this flag to `true` to write the layers in the selected algorithm and keep the manifest format of the output image.
+`--reproducible` internally uses go-containerregistry's `mutate.Canonical`. It re-writes every image to dockerv2+gzip, no matter the base image or the flags you passed.
+Set this flag to `true` to keep the compression and the image format the build was asked for.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 

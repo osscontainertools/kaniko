@@ -27,6 +27,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/osscontainertools/kaniko/pkg/assert"
+	"github.com/sirupsen/logrus"
 )
 
 // ReplaceBase returns img with its first len(base.Layers()) layers and first
@@ -37,7 +38,8 @@ import (
 // Unlike mutate.Rebase, this has no digest-prefix verifier and no os/arch
 // swap — it's a pure layer/history splice that trusts the caller's invariant
 // that img.Layers()[:len(base.Layers())] are the recipient of base.
-func ReplaceBase(img, base v1.Image) (v1.Image, error) {
+func ReplaceBase(img, base v1.Image, outMediaType types.MediaType) (v1.Image, error) {
+	outVendor := mediaTypeVendor(outMediaType)
 	imgCfg, err := img.ConfigFile()
 	if err != nil {
 		return nil, err
@@ -80,6 +82,15 @@ func ReplaceBase(img, base v1.Image) (v1.Image, error) {
 		}
 		if !h.EmptyLayer {
 			if li < len(baseLayers) {
+				mt, err := baseLayers[li].MediaType()
+				if err != nil {
+					return nil, err
+				}
+				_, err = relabelLayerMediaType(mt, outVendor)
+				if err != nil {
+					logrus.Warnf("not preserving base layers: base image has %s layers, incompatible with a reproducible %s image", mt, outMediaType)
+					return img, nil
+				}
 				a.Layer = baseLayers[li]
 			} else {
 				a.Layer = imgLayers[li]

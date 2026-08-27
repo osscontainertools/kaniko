@@ -1678,7 +1678,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 					return nil, err
 				}
 				if config.FF.ReproduciblePreserveBaseLayers {
-					sourceImage, err = image_util.ReplaceBase(sourceImage, baseImage)
+					sourceImage, err = image_util.ReplaceBase(sourceImage, baseImage, outMediaType)
 					if err != nil {
 						return nil, err
 					}
