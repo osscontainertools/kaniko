@@ -761,7 +761,7 @@ Defaults to `false`. Can also be set via the `KANIKO_CLEANUP` environment variab
 
 #### Flag `--compression`
 
-Use this flag to select the compression algorithm `[gzip, zstd]`. Defaults to `gzip`.
+Use this flag to select the compression algorithm `[gzip, zstd]`. Defaults to `gzip`. `zstd` needs an OCI output image, either inherited from the base image or forced with [`--image-format=oci`](#flag---image-format).
 
 #### Flag `--compression-level`
 
