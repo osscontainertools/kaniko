@@ -152,10 +152,12 @@ func RedoHasher() func(string) (string, error) {
 			return "", err
 		}
 
-		logrus.Debugf("Hash components for file: %s, mode: %s, mtime: %s, size: %s, user-id: %s, group-id: %s",
-			p, []byte(fi.Mode().String()), []byte(fi.ModTime().String()),
-			[]byte(strconv.FormatInt(fi.Size(), 16)), []byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Uid), 36)),
-			[]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Gid), 36)))
+		if logrus.IsLevelEnabled(logrus.DebugLevel) {
+			logrus.Debugf("Hash components for file: %s, mode: %s, mtime: %s, size: %s, user-id: %s, group-id: %s",
+				p, []byte(fi.Mode().String()), []byte(fi.ModTime().String()),
+				[]byte(strconv.FormatInt(fi.Size(), 16)), []byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Uid), 36)),
+				[]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Gid), 36)))
+		}
 
 		h.Write([]byte(fi.Mode().String()))
 		h.Write([]byte(fi.ModTime().String()))
