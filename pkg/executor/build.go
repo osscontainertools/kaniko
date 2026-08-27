@@ -179,6 +179,13 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 	if err != nil {
 		return nil, err
 	}
+	outMediaType, err := sourceImage.MediaType()
+	if err != nil {
+		return nil, err
+	}
+	if extractMediaTypeVendor(outMediaType) != types.OCIVendorPrefix && opts.Compression == config.ZStd {
+		logrus.Warn("ignoring --compression=zstd, the Docker schema2 output format has no zstd layer media type, use --image-format=oci for zstd layers")
+	}
 	imageConfig, err := initializeConfig(sourceImage, &_opts)
 	if err != nil {
 		return nil, err
@@ -846,10 +853,6 @@ func saveSnapshotToImage(image v1.Image, createdBy string, tarPath string, opts 
 func saveSnapshotToLayer(tarPath string, imageMediaType types.MediaType, opts *config.KanikoOptions) (v1.Layer, error) {
 	if tarPath == "" {
 		return nil, nil
-	}
-
-	if extractMediaTypeVendor(imageMediaType) != types.OCIVendorPrefix && opts.Compression == config.ZStd {
-		logrus.Warn("ignoring --compression=zstd, the Docker schema2 output format has no zstd layer media type, use --image-format=oci for zstd layers")
 	}
 
 	layer, err := tarball.LayerFromFile(tarPath, getLayerOptionsForImage(imageMediaType, opts)...)
