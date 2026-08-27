@@ -52,6 +52,7 @@ type FeatureFlags struct {
 	PreserveMountedPaths           bool
 	RelativeLinkTargets            bool
 	ReproduciblePreserveBaseLayers bool
+	ReproduciblePreserveFormat     bool
 	ResolveCacheKey                bool
 	RollingCacheKey                bool
 	RunHonorGroup                  bool
@@ -126,6 +127,7 @@ func InitFeatureFlags() {
 		RelativeLinkTargets:            featureFlag("FF_KANIKO_RELATIVE_LINK_TARGETS", true),
 		PreserveMountedPaths:           featureFlag("FF_KANIKO_PRESERVE_MOUNTED_PATHS", true),
 		ReproduciblePreserveBaseLayers: featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS", false),
+		ReproduciblePreserveFormat:     featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT", false),
 		ResolveCacheKey:                featureFlag("FF_KANIKO_RESOLVE_CACHE_KEY", false),
 		RollingCacheKey:                featureFlag("FF_KANIKO_ROLLING_CACHE_KEY", false),
 		RunHonorGroup:                  featureFlag("FF_KANIKO_RUN_HONOR_GROUP", false),
