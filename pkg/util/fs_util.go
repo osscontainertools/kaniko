@@ -763,7 +763,8 @@ func DetermineTargetFileOwnership(fi os.FileInfo, uid, gid int64) (int64, int64)
 }
 
 type timestampUpdate struct {
-	src, dest string
+	fi   os.FileInfo
+	dest string
 }
 
 // CopyDir copies the file or directory at src to dest
@@ -798,7 +799,6 @@ func copyDirInner(files []string, src, dest string, context FileContext, uid, gi
 			logrus.Debugf("Skipping copy for ignored path: %s", destPath)
 			continue
 		}
-		isHardlink := false
 		if file == "." && fi.IsDir() {
 			logrus.Tracef("Creating directory %s", destPath)
 
@@ -849,7 +849,6 @@ func copyDirInner(files []string, src, dest string, context FileContext, uid, gi
 			if err := os.Link(linkDst, destPath); err != nil {
 				return nil, err
 			}
-			isHardlink = true
 		} else if fi.Mode()&os.ModeNamedPipe != 0 {
 			// Opening a fifo blocks until it has a writer, so recreate it instead.
 			exclude, err := CreateFifo(fullPath, destPath, fi, context, uid, gid, chmod, useDefaultChmod, skipIgnoreList)
@@ -870,13 +869,14 @@ func copyDirInner(files []string, src, dest string, context FileContext, uid, gi
 			// This loop already skipped matches
 			assert.Assert("util.copydir.file-not-excluded", !exclude, "CopyFile refused to copy %s to %s", fullPath, destPath)
 		}
-		if !IsSymlink(fi) && !isHardlink {
-			updates = append(updates, timestampUpdate{src: fullPath, dest: destPath})
+		// The branches above that do not set their own timestamps.
+		if fi.IsDir() || fi.Mode()&os.ModeNamedPipe != 0 {
+			updates = append(updates, timestampUpdate{fi: fi, dest: destPath})
 		}
 		copiedFiles = append(copiedFiles, destPath)
 	}
 	for _, u := range updates {
-		err := CopyTimestamps(u.src, u.dest)
+		err := CopyTimestamps(u.fi, u.dest)
 		if err != nil {
 			return nil, err
 		}
@@ -1049,7 +1049,7 @@ func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod mode.
 		return false, err
 	}
 
-	err = CopyTimestamps(src, dest)
+	err = CopyTimestamps(fi, dest)
 	if err != nil {
 		return false, err
 	}
@@ -1346,7 +1346,7 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 	if err := os.Chmod(destFile, fi.Mode()); err != nil {
 		return fmt.Errorf("copying file mode: %w", err)
 	}
-	if err := CopyTimestamps(src, destFile); err != nil {
+	if err := CopyTimestamps(fi, destFile); err != nil {
 		return fmt.Errorf("copying file timestamps: %w", err)
 	}
 
@@ -1432,19 +1432,15 @@ func CopyCapabilities(src string, dest string) error {
 	return nil
 }
 
-// CopyTimestamps copies the file timestamps from src to dest
-func CopyTimestamps(src string, dest string) error {
-	fi, err := os.Lstat(src)
-	if err != nil {
-		return err
-	}
+// CopyTimestamps copies the file timestamps from fi to dest
+func CopyTimestamps(fi os.FileInfo, dest string) error {
 	stat, ok := fi.Sys().(*syscall.Stat_t)
 	if !ok {
-		return fmt.Errorf("failed to retrieve timestamps from: %s", src)
+		return fmt.Errorf("failed to retrieve timestamps from: %s", fi.Name())
 	}
 	atime := time.Time{}
 	mtime := time.Unix(stat.Mtim.Sec, stat.Mtim.Nsec)
-	err = os.Chtimes(dest, atime, mtime)
+	err := os.Chtimes(dest, atime, mtime)
 	if err != nil {
 		return fmt.Errorf("failed to copy timestamps: %w", err)
 	}
