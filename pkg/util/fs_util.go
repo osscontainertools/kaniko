@@ -691,16 +691,16 @@ func CreateFile(path string, reader io.Reader, perm os.FileMode, dirPerm os.File
 		return fmt.Errorf("creating parent dir: %w", err)
 	}
 
-	// if the file is already created with ownership other than root, reset the ownership
-	if FilepathExists(path) {
+	dest, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o666)
+	if errors.Is(err, fs.ErrExist) {
+		// if the file is already created with ownership other than root, reset the ownership
 		logrus.Debugf("file at %v already exists, resetting file ownership to root", path)
-		err := resetFileOwnershipIfNotMatching(path, 0, 0)
+		err = resetFileOwnershipIfNotMatching(path, 0, 0)
 		if err != nil {
 			return fmt.Errorf("reseting file ownership: %w", err)
 		}
+		dest, err = os.Create(path)
 	}
-
-	dest, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("creating file: %w", err)
 	}
