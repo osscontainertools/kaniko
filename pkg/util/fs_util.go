@@ -862,7 +862,7 @@ func copyDirInner(files []string, src, dest string, context FileContext, uid, gi
 			continue
 		} else {
 			// ... Else, we want to copy over a file
-			exclude, err := CopyFile(fullPath, destPath, context, uid, gid, chmod, useDefaultChmod, skipIgnoreList)
+			exclude, err := CopyFile(fullPath, destPath, fi, context, uid, gid, chmod, useDefaultChmod, skipIgnoreList)
 			if err != nil {
 				return nil, err
 			}
@@ -1010,7 +1010,7 @@ func CopySymlink(src, dest string, context FileContext, skipIgnoreList bool) (bo
 }
 
 // CopyFile copies the file at src to dest
-func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool) (bool, error) {
+func CopyFile(src, dest string, fi os.FileInfo, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool) (bool, error) {
 	if context.ExcludesFile(src) {
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
@@ -1026,10 +1026,6 @@ func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod mode.
 		// We have to make sure we do this so we don't overwrite our own file.
 		// See iusse #904 for an example.
 		return false, nil
-	}
-	fi, err := os.Stat(src)
-	if err != nil {
-		return false, err
 	}
 	logrus.Debugf("Copying file %s to %s", src, dest)
 	srcFile, err := FSys.Open(src)
