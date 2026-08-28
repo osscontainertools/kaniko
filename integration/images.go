@@ -30,6 +30,7 @@ import (
 	"testing"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/osscontainertools/kaniko/pkg/tracing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
@@ -61,11 +62,11 @@ func addCoverageFlags(flags []string) []string {
 
 // addKanikoEnvFlags passes the suite's feature-flag matrix (KanikoEnv) to the executor
 // container. Every executor invocation must use it so all tests exercise the same flags.
-func addKanikoEnvFlags(flags []string) []string {
+func addKanikoEnvFlags(flags []string, buildID string) []string {
 	for _, envVariable := range KanikoEnv {
 		flags = append(flags, "-e", envVariable)
 	}
-	return flags
+	return append(flags, "-e", tracing.BuildIDEnv+"="+buildID)
 }
 
 // Arguments to build Dockerfiles with, used for both docker and kaniko builds
@@ -527,8 +528,6 @@ type DockerFileBuilder struct {
 	TestKanikoOnlyDockerfiles   map[string]struct{}
 }
 
-type logger func(string, ...any)
-
 // NewDockerFileBuilder will create a DockerFileBuilder initialized with dockerfiles, which
 // it will assume are all as yet unbuilt.
 func NewDockerFileBuilder() *DockerFileBuilder {
@@ -675,7 +674,7 @@ func (d *DockerFileBuilder) BuildKanikoImage(t *testing.T, config *integrationTe
 	additionalKanikoFlags = append(additionalKanikoFlags, "-c", buildContextPath)
 
 	kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
-	return buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
+	return buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
 		cwd, "", "")
 }
 
@@ -707,7 +706,7 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 	}
 
 	kanikoImage := GetKanikoImage(imageRepo, dockerfile)
-	if err := buildKanikoImage(t.Logf, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
+	if err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
 		contextDir, "", ""); err != nil {
 		return err
 	}
@@ -716,7 +715,7 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 }
 
 // buildCachedImage builds the image for testing caching via kaniko where version is the nth time this image has been built
-func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTestConfig, cacheRepo, dockerfilesPath, dockerfile string, version int, args []string) error {
+func (d *DockerFileBuilder) buildCachedImage(t *testing.T, config *integrationTestConfig, cacheRepo, dockerfilesPath, dockerfile string, version int, args []string) error {
 	imageRepo := config.imageRepo
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
@@ -729,9 +728,7 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 		"run", "--net=host",
 		"-v", cwd + ":/workspace",
 	}
-	for _, envVariable := range KanikoEnv {
-		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
-	}
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	for _, envVariable := range envsMap[dockerfile] {
 		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
@@ -764,7 +761,7 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
 	out, err := RunCommandWithoutTest(kanikoCmd)
-	logf("%s", out)
+	t.Logf("%s", out)
 
 	if err != nil {
 		return fmt.Errorf("failed to build cached image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
@@ -792,16 +789,14 @@ func (d *DockerFileBuilder) buildCachedImage(logf logger, config *integrationTes
 	return nil
 }
 
-func (d *DockerFileBuilder) buildCachedImageInContext(logf logger, config *integrationTestConfig, cacheRepo, dockerfile, contextDir string, version int) error {
+func (d *DockerFileBuilder) buildCachedImageInContext(t *testing.T, config *integrationTestConfig, cacheRepo, dockerfile, contextDir string, version int) error {
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
 
 	kanikoImage := GetVersionedKanikoImage(config.imageRepo, filepath.Base(contextDir), version)
 
 	dockerRunFlags := []string{"run", "--net=host", "-v", cwd + ":/workspace"}
-	for _, envVariable := range KanikoEnv {
-		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
-	}
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
@@ -814,11 +809,11 @@ func (d *DockerFileBuilder) buildCachedImageInContext(logf logger, config *integ
 		"--cache-dir", cacheDir)
 
 	out, err := RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
-	logf("%s", out)
+	t.Logf("%s", out)
 	return err
 }
 
-func populateVolumeCache(logf logger) error {
+func populateVolumeCache(t *testing.T) error {
 	fmt.Println("Populating warmer cache")
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
@@ -839,7 +834,7 @@ func populateVolumeCache(logf logger) error {
 
 	warmerCmd := exec.Command("docker", cmd...)
 	out, err := RunCommandWithoutTest(warmerCmd)
-	logf("%s", out)
+	t.Logf("%s", out)
 	if err != nil {
 		return fmt.Errorf("failed to warm kaniko cache: %w", err)
 	}
@@ -847,7 +842,7 @@ func populateVolumeCache(logf logger) error {
 }
 
 // buildCachedImage builds the image for testing caching via kaniko warmer cache where version is the nth time this image has been built
-func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTestConfig, dockerfilesPath, dockerfile string, version int, args []string, cache bool) error {
+func (d *DockerFileBuilder) buildWarmerImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile string, version int, args []string, cache bool) error {
 	imageRepo := config.imageRepo
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
@@ -858,9 +853,7 @@ func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTes
 		"run", "--net=host",
 		"-v", cwd + ":/workspace:ro",
 	}
-	for _, envVariable := range KanikoEnv {
-		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
-	}
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	executorImage := ExecutorImage
 	if exec, ok := executorImages[dockerfile]; ok {
 		executorImage = exec
@@ -880,7 +873,7 @@ func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTes
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
 	out, err := RunCommandWithoutTest(kanikoCmd)
-	logf("%s", out)
+	t.Logf("%s", out)
 
 	if err != nil {
 		return fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
@@ -904,7 +897,7 @@ func (d *DockerFileBuilder) buildWarmerImage(logf logger, config *integrationTes
 }
 
 // buildRelativePathsImage builds the images for testing passing relatives paths to Kaniko
-func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dockerfile, buildContextPath string) error {
+func (d *DockerFileBuilder) buildRelativePathsImage(t *testing.T, imageRepo, dockerfile, buildContextPath string) error {
 	_, ex, _, _ := runtime.Caller(0)
 	cwd := filepath.Dir(ex)
 
@@ -927,9 +920,7 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 	}
 
 	dockerRunFlags := []string{"run", "--net=host", "-v", cwd + ":/workspace"}
-	for _, envVariable := range KanikoEnv {
-		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
-	}
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	executorImage := ExecutorImage
 	if exec, ok := executorImages[dockerfile]; ok {
 		executorImage = exec
@@ -944,7 +935,7 @@ func (d *DockerFileBuilder) buildRelativePathsImage(logf logger, imageRepo, dock
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
 	out, err = RunCommandWithoutTest(kanikoCmd)
-	logf("%s", out)
+	t.Logf("%s", out)
 
 	if err != nil {
 		return fmt.Errorf(
@@ -974,7 +965,7 @@ var extraDockerRunFlags = map[string]func(contextDir string) []string{
 }
 
 func buildKanikoImage(
-	logf logger,
+	t *testing.T,
 	dockerfilesPath string,
 	dockerfile string,
 	buildArgs []string,
@@ -991,16 +982,14 @@ func buildKanikoImage(
 		"--image-name-with-digest-file=/dev/stdout",
 		"--image-name-tag-with-digest-file=/dev/stdout",
 	)
-	logf("Going to build image with kaniko: %s, flags: %s \n", kanikoImage, additionalFlags)
+	t.Logf("Going to build image with kaniko: %s, flags: %s \n", kanikoImage, additionalFlags)
 
 	dockerRunFlags := []string{
 		"run", "--net=host",
 		"-v", contextDir + ":/workspace:ro",
 	}
 
-	for _, envVariable := range KanikoEnv {
-		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
-	}
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	if env, ok := envsMap[dockerfile]; ok {
 		for _, envVariable := range env {
 			dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
@@ -1042,7 +1031,7 @@ func buildKanikoImage(
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
 	out, err := RunCommandWithoutTest(kanikoCmd)
-	logf("%s", out)
+	t.Logf("%s", out)
 
 	if err != nil {
 		return fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
