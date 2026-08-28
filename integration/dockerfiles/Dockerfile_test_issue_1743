@@ -1,0 +1,27 @@
+# 1743: COPY --from=<stage> breaks hardlinks on v1.28.1. The stage is persisted
+# into kaniko's dependency dir one file at a time before the copy runs, so files
+# sharing an inode arrive as independent full copies and FF_KANIKO_PRESERVE_HARDLINKS
+# has nothing left to keep. 2594 covers the same for COPY --from=<image>.
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS builder
+RUN mkdir /work \
+    && echo "content" > /work/target.txt \
+    && ln -s target.txt /work/symlink.txt \
+    && ln /work/target.txt /work/hardlink.txt \
+    && mkfifo /work/pipe
+RUN mkdir /sep1 /sep2 \
+    && echo "shared" > /sep1/target.txt \
+    && ln /sep1/target.txt /sep2/hardlink.txt
+
+FROM ${IMAGE_REPO}busybox
+COPY --from=builder /work/ /work/
+COPY --from=builder /sep1/target.txt /sep1/target.txt
+COPY --from=builder /sep2/hardlink.txt /sep2/hardlink.txt
+RUN test -L /work/symlink.txt
+RUN readlink /work/symlink.txt | grep -q '^target\.txt$'
+RUN grep -q 'content' /work/symlink.txt
+RUN test "$(stat -c %h /work/hardlink.txt)" = "2"
+RUN test "$(stat -c %i /work/hardlink.txt)" = "$(stat -c %i /work/target.txt)"
+RUN test -p /work/pipe
+RUN grep -q 'shared' /sep1/target.txt
+RUN grep -q 'shared' /sep2/hardlink.txt
