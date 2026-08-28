@@ -708,7 +708,12 @@ func CreateFile(path string, reader io.Reader, perm os.FileMode, dirPerm os.File
 	if _, err := io.Copy(dest, reader); err != nil {
 		return fmt.Errorf("copying file: %w", err)
 	}
-	return setFilePermissions(path, perm, int(uid), int(gid))
+	if err := dest.Chown(int(uid), int(gid)); err != nil {
+		return err
+	}
+	// manually set permissions on file, since the default umask (022) will interfere
+	// Must chmod after chown because chown resets the file mode.
+	return dest.Chmod(perm)
 }
 
 // AddVolumePath adds the given path to the volume ignorelist.
