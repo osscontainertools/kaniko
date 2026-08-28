@@ -260,6 +260,7 @@ var expectErr = map[string]int{
 	"Dockerfile_test_issue_3373_1":  1,
 	"Dockerfile_test_issue_3373_2":  1,
 	"Dockerfile_test_issue_3373_3":  1,
+	"Dockerfile_test_issue_3373_4":  1,
 }
 
 var crossCompileArch = func() string {

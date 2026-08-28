@@ -17,6 +17,7 @@ limitations under the License.
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -66,6 +67,9 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 
 	var checksum digest.Digest
 	if a.cmd.Checksum != "" && kConfig.FF.AddChecksum {
+		if len(srcs) > 1 {
+			return errors.New("checksum can't be specified for multiple sources")
+		}
 		resolved, err := util.ResolveEnvironmentReplacement(a.cmd.Checksum, replacementEnvs, false)
 		if err != nil {
 			return fmt.Errorf("resolving checksum: %w", err)

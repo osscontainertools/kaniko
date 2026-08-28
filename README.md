@@ -1491,7 +1491,7 @@ Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_ADD_CHECKSUM`
 
-`ADD --checksum=sha256:<hex> <url> <dest>` states that the download has to hash to the given digest. kaniko parses the flag and never checks it, so a substituted download is added to the image and the build succeeds.
+`ADD --checksum=sha256:<hex> <url> <dest>` states that the download has to hash to the given digest. With this flag off kaniko parses the flag and never checks it, so a substituted download is added to the image and the build succeeds.
 Set this flag to `true` to verify the download and fail the build on a mismatch.
 Defaults to `false`.
 Becomes default in `v1.29.0`.

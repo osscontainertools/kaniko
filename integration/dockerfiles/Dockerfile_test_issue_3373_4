@@ -1,0 +1,6 @@
+FROM busybox:1.31
+
+# 3373: one digest cannot validate two distinct files. docker rejects this with
+# "checksum can't be specified for multiple sources", kaniko let it through and
+# relied on the per-download check to fail whichever file did not match.
+ADD --checksum=sha256:a680e90a30faae7b193edf63b088a11edf856f731d93c25f1fd7c1a21cf82d06 https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_amd64-1.4.3.tar.gz /dest/
