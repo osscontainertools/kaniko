@@ -1,0 +1,6 @@
+FROM busybox:1.31
+
+# 3373: the digest is the correct sha512 of the asset, but buildkit's http source
+# always compares a sha256, so docker fails this with a digest mismatch. Honouring
+# sha512 would build an image docker refuses to build.
+ADD --checksum=sha512:2cdd08b2be9a7376b1db3e4d1278d1d9049ff79bb740d647c5444b30d348578b23c2f69589d1668e845ef554b281d727ed28301884c67a05463ee9555bf560bc https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz /release.tar.gz

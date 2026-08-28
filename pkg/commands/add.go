@@ -17,11 +17,13 @@ limitations under the License.
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/opencontainers/go-digest"
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
@@ -63,6 +65,26 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		return err
 	}
 
+	var checksum digest.Digest
+	if a.cmd.Checksum != "" && kConfig.FF.AddChecksum {
+		if len(srcs) > 1 {
+			return errors.New("checksum can't be specified for multiple sources")
+		}
+		resolved, err := util.ResolveEnvironmentReplacement(a.cmd.Checksum, replacementEnvs, false)
+		if err != nil {
+			return fmt.Errorf("resolving checksum: %w", err)
+		}
+		checksum, err = digest.Parse(resolved)
+		if err != nil {
+			return fmt.Errorf("invalid checksum digest format: %w", err)
+		}
+		for _, src := range srcs {
+			if !util.IsSrcRemoteFileURL(src) {
+				return fmt.Errorf("checksum requires HTTP(S) sources, got %s", src)
+			}
+		}
+	}
+
 	var unresolvedSrcs []string
 	// If any of the sources are local tar archives:
 	// 	1. Unpack them to the specified destination
@@ -77,7 +99,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				return err
 			}
 			logrus.Infof("Adding remote URL %s to %s", src, urlDest)
-			if err := util.DownloadFileToDest(src, urlDest, uid, gid, chmod.Apply(0o600)); err != nil {
+			if err := util.DownloadFileToDest(src, urlDest, uid, gid, chmod.Apply(0o600), checksum); err != nil {
 				return fmt.Errorf("downloading remote source file: %w", err)
 			}
 			a.snapshotFiles = append(a.snapshotFiles, urlDest)

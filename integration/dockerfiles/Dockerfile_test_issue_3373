@@ -1,0 +1,12 @@
+FROM busybox:1.31
+
+# 3373: ADD --checksum was parsed and never verified, so a substituted download
+# passed. Every digest here matches the release asset, so the build succeeds and
+# the added files are the ones docker adds.
+ARG DIGEST
+ENV URL=https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz
+ENV ENVDIGEST=sha256:a680e90a30faae7b193edf63b088a11edf856f731d93c25f1fd7c1a21cf82d06
+
+ADD --checksum=sha256:a680e90a30faae7b193edf63b088a11edf856f731d93c25f1fd7c1a21cf82d06 $URL /sha256.tar.gz
+ADD --checksum=$ENVDIGEST $URL /env.tar.gz
+ADD --checksum=$DIGEST $URL /arg.tar.gz

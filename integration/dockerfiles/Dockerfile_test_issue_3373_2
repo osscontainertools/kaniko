@@ -1,0 +1,5 @@
+FROM busybox:1.31
+
+# 3373: a checksum on a context file is not verifiable, docker fails with
+# "checksum requires HTTP(S) or Git sources".
+ADD --checksum=sha256:a680e90a30faae7b193edf63b088a11edf856f731d93c25f1fd7c1a21cf82d06 context/foo /foo

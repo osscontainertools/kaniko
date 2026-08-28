@@ -86,6 +86,7 @@ var argsMap = map[string][]string{
 	},
 	"Dockerfile_test_multistage":  {"file=/foo2"},
 	"Dockerfile_test_issue_mz655": {"BASE_TAG=1.37.0"},
+	"Dockerfile_test_issue_3373":  {"DIGEST=sha256:a680e90a30faae7b193edf63b088a11edf856f731d93c25f1fd7c1a21cf82d06"},
 }
 
 var argsMapVersion1 = map[string][]string{
@@ -135,6 +136,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_PLATFORM_CACHE_KEY=1",
 	"FF_KANIKO_COPY_SKIP_SPECIAL_FILES=1",
 	"FF_KANIKO_NATIVE_COPY=1",
+	"FF_KANIKO_ADD_CHECKSUM=1",
 	"KANIKO_PRINT_PLAN=1",
 	"KANIKO_TELEMETRY_ENDPOINT",
 	"OTEL_EXPORTER_OTLP_HEADERS",
@@ -177,6 +179,7 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_copy_bucket":                  dockerV2Flags,
 	"Dockerfile_test_cache_copy_oci":               dockerV2Flags,
 	"Dockerfile_test_add_url_with_arg":             dockerV2Flags,
+	"Dockerfile_test_issue_3373":                   dockerV2Flags,
 	"Dockerfile_test_add_dest_symlink_dir":         dockerV2Flags,
 	"Dockerfile_test_add_chown_intermediate_dirs":  dockerV2Flags,
 	"Dockerfile_test_arg_two_level":                dockerV2Flags,
@@ -254,6 +257,10 @@ var additionalKanikoFlagsMap = map[string][]string{
 var expectErr = map[string]int{
 	"Dockerfile_test_issue_cg326_1": 1,
 	"Dockerfile_test_add_404":       1,
+	"Dockerfile_test_issue_3373_1":  1,
+	"Dockerfile_test_issue_3373_2":  1,
+	"Dockerfile_test_issue_3373_3":  1,
+	"Dockerfile_test_issue_3373_4":  1,
 }
 
 var crossCompileArch = func() string {
