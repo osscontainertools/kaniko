@@ -37,7 +37,7 @@ import (
 
 // Tar knows how to write files to a tar file.
 type Tar struct {
-	hardlinks map[uint64]string
+	hardlinks map[hardlinkKey]string
 	w         *tar.Writer
 }
 
@@ -46,7 +46,7 @@ func NewTar(f io.Writer) Tar {
 	w := tar.NewWriter(f)
 	return Tar{
 		w:         w,
-		hardlinks: map[uint64]string{},
+		hardlinks: map[hardlinkKey]string{},
 	}
 }
 
@@ -180,13 +180,13 @@ func (t *Tar) checkHardlink(p string, i os.FileInfo) (bool, string) {
 	if stat != nil {
 		nlinks := stat.Nlink
 		if nlinks > 1 {
-			inode := stat.Ino
-			if original, exists := t.hardlinks[inode]; exists && original != p {
+			key := hardlinkKey{dev: stat.Dev, ino: stat.Ino}
+			if original, exists := t.hardlinks[key]; exists && original != p {
 				hardlink = true
 				logrus.Debugf("%s inode exists in hardlinks map, linking to %s", p, original)
 				linkDst = original
 			} else {
-				t.hardlinks[inode] = p
+				t.hardlinks[key] = p
 			}
 		}
 	}
