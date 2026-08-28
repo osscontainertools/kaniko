@@ -802,10 +802,10 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 	if err != nil {
 		return nil, fmt.Errorf("copying dir: %w", err)
 	}
-	return copyDirInner(files, src, dest, context, uid, gid, chmod, useDefaultChmod, false)
+	return copyDirInner(files, src, dest, context, uid, gid, chmod, useDefaultChmod, false, true)
 }
 
-func copyDirInner(files []string, src, dest string, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool) ([]string, error) {
+func copyDirInner(files []string, src, dest string, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool, collect bool) ([]string, error) {
 	var copiedFiles []string
 	var updates []timestampUpdate
 	hardlinksSeen := make(map[hardlinkKey]string)
@@ -898,7 +898,9 @@ func copyDirInner(files []string, src, dest string, context FileContext, uid, gi
 		if fi.IsDir() || fi.Mode()&os.ModeNamedPipe != 0 {
 			updates = append(updates, timestampUpdate{fi: fi, dest: destPath})
 		}
-		copiedFiles = append(copiedFiles, destPath)
+		if collect {
+			copiedFiles = append(copiedFiles, destPath)
+		}
 	}
 	for _, u := range updates {
 		err := CopyTimestamps(u.fi, u.dest)
@@ -974,7 +976,7 @@ func CopyTree(src, dest string, context FileContext, skipIgnoreList bool) error 
 	if err != nil {
 		return err
 	}
-	_, err = copyDirInner(files, src, dest, context, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true, skipIgnoreList)
+	_, err = copyDirInner(files, src, dest, context, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true, skipIgnoreList, false)
 	return err
 }
 
@@ -1395,7 +1397,7 @@ func CopyPaths(srcRoot, dstRoot string, paths []string) error {
 			}
 		}
 	}
-	_, err := copyDirInner(files, srcRoot, dstRoot, FileContext{}, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true, true)
+	_, err := copyDirInner(files, srcRoot, dstRoot, FileContext{}, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true, true, false)
 	return err
 }
 
