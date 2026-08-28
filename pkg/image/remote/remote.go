@@ -25,6 +25,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/creds"
+	"github.com/osscontainertools/kaniko/pkg/mounts"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
@@ -74,6 +75,12 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 			}
 
 			manifestCache[image] = remoteImage
+			if config.FF.CrossRepoMount {
+				// a registry-map implies that the original also holds the image,
+				// and we might push there, so record it as a possible mount reference too.
+				mounts.RecordImage(remoteImage, remappedRef.Context())
+				mounts.RecordGuess(remoteImage, ref.Context())
+			}
 
 			return remoteImage, nil
 		}
@@ -101,6 +108,9 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 	var remoteImage v1.Image
 	if remoteImage, err = util.RetryWithResult(retryFunc, opts.ImageDownloadRetry, 1000); remoteImage != nil {
 		manifestCache[image] = remoteImage
+		if config.FF.CrossRepoMount {
+			mounts.RecordImage(remoteImage, ref.Context())
+		}
 	}
 
 	return remoteImage, err
