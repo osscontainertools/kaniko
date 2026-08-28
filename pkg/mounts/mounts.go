@@ -21,9 +21,9 @@ limitations under the License.
 // from, which every local copy kaniko makes throws away. Keyed by digest rather than held on
 // the layer, so a copy that keeps the bytes keeps the entry and one that rewrites them misses.
 //
-// Only repositories this process read from or wrote to belong here. remote.Write fails a push
-// outright when the token request for a mount source is refused, so an unproven entry is not
-// a missed optimisation but a broken build.
+// The most recent repository this process read from or wrote to wins, an older one may still
+// hold the layer but is the staler answer. A guess never displaces one of those, remote.Write
+// fails a push when the token request for a mount source is refused and costs it a plain retry.
 package mounts
 
 import (
@@ -41,6 +41,14 @@ var (
 )
 
 func RecordImage(img v1.Image, repo name.Repository) {
+	record(img, repo, false)
+}
+
+func RecordGuess(img v1.Image, repo name.Repository) {
+	record(img, repo, true)
+}
+
+func record(img v1.Image, repo name.Repository, guess bool) {
 	layers, err := img.Layers()
 	if err != nil {
 		return
@@ -51,9 +59,11 @@ func RecordImage(img v1.Image, repo name.Repository) {
 		digest, err := l.Digest()
 		if err == nil {
 			// One repository per registry is all a push can ever use.
-			_, known := Mountable(sources[digest], repo.RegistryStr())
+			i, known := Mountable(sources[digest], repo.RegistryStr())
 			if !known {
 				sources[digest] = append(sources[digest], repo)
+			} else if !guess {
+				sources[digest][i] = repo
 			}
 		}
 	}
@@ -75,13 +85,13 @@ func Snapshot() map[v1.Hash][]name.Repository {
 
 // Mountable returns one of the repositories known to hold a layer that sits on registry.
 // Cross-registry origins are not honoured in practice, so a source elsewhere is no source.
-func Mountable(repos []name.Repository, registry string) (name.Repository, bool) {
-	for _, repo := range repos {
+func Mountable(repos []name.Repository, registry string) (int, bool) {
+	for i, repo := range repos {
 		if repo.RegistryStr() == registry {
-			return repo, true
+			return i, true
 		}
 	}
-	return name.Repository{}, false
+	return 0, false
 }
 
 func MountableImage(img v1.Image, registry string) v1.Image {
@@ -108,8 +118,9 @@ func (m *mountableImage) Layers() ([]v1.Layer, error) {
 		layer := l
 		digest, err := l.Digest()
 		if err == nil {
-			repo, ok := Mountable(sources[digest], m.registry)
+			i, ok := Mountable(sources[digest], m.registry)
 			if ok {
+				repo := sources[digest][i]
 				layer = &remote.MountableLayer{Layer: l, Reference: repo.Digest(digest.String())}
 			}
 		}

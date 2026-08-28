@@ -79,7 +79,7 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 				// a registry-map implies that the original also holds the image,
 				// and we might push there, so record it as a possible mount reference too.
 				mounts.RecordImage(remoteImage, remappedRef.Context())
-				mounts.RecordImage(remoteImage, ref.Context())
+				mounts.RecordGuess(remoteImage, ref.Context())
 			}
 
 			return remoteImage, nil

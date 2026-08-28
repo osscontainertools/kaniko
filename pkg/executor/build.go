@@ -1232,9 +1232,9 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 				var source name.Repository
 				serves := config.FF.CrossRepoMount && len(registries) > 0
 				for _, registry := range registries {
-					repo, ok := mounts.Mountable(sources[l.key], registry)
+					i, ok := mounts.Mountable(sources[l.key], registry)
 					if ok {
-						source = repo
+						source = sources[l.key][i]
 					} else {
 						serves = false
 					}
