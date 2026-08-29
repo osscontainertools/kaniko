@@ -23,7 +23,7 @@ import re
 import sys
 
 
-SKIPPED_DIRS = ["Godeps", "third_party", ".git", "vendor", "examples", "testdata"]
+SKIPPED_DIRS = ["Godeps", "third_party", ".git", "vendor", "examples", "testdata", "dockerfiles", "bakefiles"]
 SKIPPED_FILES = ["install_golint.sh"]
 
 parser = argparse.ArgumentParser()
