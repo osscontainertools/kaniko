@@ -1,3 +1,68 @@
+# v1.28.4 Release 2026-08-31
+
+## Community Update
+@WoozyMasta made their first contribution in https://github.com/osscontainertools/kaniko/pull/1014, and drove namespace aware registry auth across three PRs this cycle. A Quay robot account scoped to one organisation is now enough, where before you needed a credential per repository.
+
+An extraordinary thank you to @0hlov3 for reviewing 9 PRs this cycle, and for the issues fixed along the way.
+
+## What's Changed
+### Security
+* go stdlib v1.26.5: CVE-2026-33818 CVE-2026-39821 CVE-2026-46600 CVE-2026-56853 CVE-2026-56858 CVE-2026-56859 CVE-2026-56860 CVE-2026-56862
+* golang.org/x/crypto v0.54.0: CVE-2026-56854
+
+### Bugfixes
+* push ignores a credential configured for the exact destination repository: by @WoozyMasta in https://github.com/osscontainertools/kaniko/pull/1014 https://github.com/osscontainertools/kaniko/pull/1046
+* an unauthorized cross-repository mount fails the push instead of uploading the blob: by @WoozyMasta in https://github.com/osscontainertools/kaniko/pull/1013
+* `COPY` of a tree that spans a mount point hardlinks unrelated files together: https://github.com/osscontainertools/kaniko/pull/979
+* `COPY` of a directory containing a fifo hangs the build: https://github.com/osscontainertools/kaniko/pull/948
+
+### Standardization
+* `FF_KANIKO_COPY_SKIP_SPECIAL_FILES=false` skip sockets and device files during `COPY`: https://github.com/osscontainertools/kaniko/pull/948
+* `FF_KANIKO_ADD_CHECKSUM=false` verify the digest `ADD --checksum` states: https://github.com/osscontainertools/kaniko/pull/1027
+
+### Caching
+* `FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES=false` reject cache entries written without a layer: https://github.com/osscontainertools/kaniko/pull/1032
+* `FF_KANIKO_PLATFORM_CACHE_KEY=false` add the target platform to the cache key: https://github.com/osscontainertools/kaniko/pull/1029
+
+### Performance
+* the redo hasher formats a debug line for every file even when debug logging is off: by @BobDu in https://github.com/osscontainertools/kaniko/pull/1044
+* a base read back from the shared base store uploads every layer instead of mounting it: https://github.com/osscontainertools/kaniko/pull/993
+
+### Usability
+* `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=false` match an `auths` entry by repository namespace: by @WoozyMasta in https://github.com/osscontainertools/kaniko/pull/1002
+
+### Telemetry
+* record the rendered build plan on the trace: https://github.com/osscontainertools/kaniko/pull/1022
+* associate every span with the stage and command it belongs to: https://github.com/osscontainertools/kaniko/pull/1019
+* `KANIKO_TELEMETRY_BUILD_ID` overrides the build id kaniko derives from the Dockerfile: https://github.com/osscontainertools/kaniko/pull/1033
+
+### Maintenance
+* build(deps): bump step-security/harden-runner from 2.20.1 to 2.21.0: https://github.com/osscontainertools/kaniko/pull/1012
+* build(deps): bump github.com/sirupsen/logrus from 1.9.4 to 1.10.2: https://github.com/osscontainertools/kaniko/pull/1011 https://github.com/osscontainertools/kaniko/pull/1035 https://github.com/osscontainertools/kaniko/pull/1050
+* build(deps): bump google.golang.org/api from 0.292.0 to 0.294.0: https://github.com/osscontainertools/kaniko/pull/1010 https://github.com/osscontainertools/kaniko/pull/1054
+* build(deps): bump github.com/aws/aws-sdk-go-v2 from 1.43.5 to 1.45.1: https://github.com/osscontainertools/kaniko/pull/1015 https://github.com/osscontainertools/kaniko/pull/1035 https://github.com/osscontainertools/kaniko/pull/1057
+* build(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.32.36 to 1.33.1: https://github.com/osscontainertools/kaniko/pull/1015 https://github.com/osscontainertools/kaniko/pull/1035 https://github.com/osscontainertools/kaniko/pull/1057
+* build(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager from 0.3.12 to 0.4.1: https://github.com/osscontainertools/kaniko/pull/1015 https://github.com/osscontainertools/kaniko/pull/1035 https://github.com/osscontainertools/kaniko/pull/1057
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.107.1 to 1.109.1: https://github.com/osscontainertools/kaniko/pull/1015 https://github.com/osscontainertools/kaniko/pull/1035 https://github.com/osscontainertools/kaniko/pull/1057
+* build(deps): bump golang in /deploy: https://github.com/osscontainertools/kaniko/pull/1009 https://github.com/osscontainertools/kaniko/pull/1039
+* build(deps): bump github.com/containerd/platforms from 1.0.0-rc.4 to 1.0.0-rc.5: https://github.com/osscontainertools/kaniko/pull/1017
+* build(deps): bump docker/setup-buildx-action from 4.2.0 to 4.3.0: https://github.com/osscontainertools/kaniko/pull/1020
+* build(deps): bump cloud.google.com/go/storage from 1.64.0 to 1.66.0: https://github.com/osscontainertools/kaniko/pull/1036 https://github.com/osscontainertools/kaniko/pull/1052
+* build(deps): bump github.com/google/go-containerregistry from 0.21.9 to 0.22.0: https://github.com/osscontainertools/kaniko/pull/1040
+* build(deps): bump debian in /deploy: https://github.com/osscontainertools/kaniko/pull/1045
+* build(deps): bump github.com/docker/docker-credential-helpers from 0.9.8 to 0.9.9: https://github.com/osscontainertools/kaniko/pull/1050
+* build(deps): bump go.opentelemetry.io/otel from 1.45.0 to 1.46.0: https://github.com/osscontainertools/kaniko/pull/1056
+* build(deps): bump go.opentelemetry.io/otel/sdk from 1.45.0 to 1.46.0: https://github.com/osscontainertools/kaniko/pull/1056
+* build(deps): bump go.opentelemetry.io/otel/trace from 1.45.0 to 1.46.0: https://github.com/osscontainertools/kaniko/pull/1056
+* build(deps): bump go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp from 1.45.0 to 1.46.0: https://github.com/osscontainertools/kaniko/pull/1056
+* build(deps): bump github.com/osscontainertools/docker-credential-acr from 0.8.0 to 0.9.0: https://github.com/osscontainertools/kaniko/pull/1059
+
+### Fork Related
+* integration test improvements: https://github.com/osscontainertools/kaniko/pull/1016 https://github.com/osscontainertools/kaniko/pull/1021 https://github.com/osscontainertools/kaniko/pull/1024 https://github.com/osscontainertools/kaniko/pull/1037
+* let the nightly image scan fail instead of filing an issue: https://github.com/osscontainertools/kaniko/pull/1006
+* strip debug symbols from the credential helper binaries: https://github.com/osscontainertools/kaniko/pull/1031
+
+
 # v1.28.3 Release 2026-08-13
 
 ## What's Changed

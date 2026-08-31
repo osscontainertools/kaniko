@@ -1158,10 +1158,15 @@ delay of 1 second. Defaults to `0`.
 Opting into the Preview profile gives you early access to upcoming performance improvements, bugfixes and features. While these flags are tested and ready to use, implementation details may still change.
 
 ```sh
+FF_KANIKO_ADD_CHECKSUM=true
+FF_KANIKO_COPY_SKIP_SPECIAL_FILES=true
 FF_KANIKO_CROSS_REPO_MOUNT=true
+FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES=true
 FF_KANIKO_EXPAND_HEREDOC=true
 FF_KANIKO_HASH_DIR_FRAMING=true
 FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=true
+FF_KANIKO_NATIVE_COPY=true
+FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=true
 FF_KANIKO_PLATFORM_CACHE_KEY=true
 FF_KANIKO_PRECOMPILE_DOCKERIGNORE=true
 FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=true

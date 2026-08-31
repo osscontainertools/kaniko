@@ -1,11 +1,11 @@
 ## What's changed since Google's v1.24.0
 ### Security
-* go stdlib v1.24.3: CVE-2025-0913 CVE-2025-4673 CVE-2025-4674 CVE-2025-22874 CVE-2025-47906 CVE-2025-47907 CVE-2025-47912 CVE-2025-58183 CVE-2025-58185 CVE-2025-58186 CVE-2025-58187 CVE-2025-58188 CVE-2025-58189 CVE-2025-61723 CVE-2025-61724 CVE-2025-61725 CVE-2025-61729 CVE-2025-61727 CVE-2025-61726 CVE-2025-61728 CVE-2025-61730 CVE-2025-68121 CVE-2026-27137 CVE-2026-25679 CVE-2026-27142 CVE-2026-27138 CVE-2026-27139 CVE-2026-32280 CVE-2026-33810 CVE-2026-32281 CVE-2026-32283 CVE-2026-32282 CVE-2026-32289 CVE-2026-32288 CVE-2026-33811 CVE-2026-33814 CVE-2026-39820 CVE-2026-39836 CVE-2026-42499 CVE-2026-39823 CVE-2026-39825 CVE-2026-39826 CVE-2026-42504 CVE-2026-27145 CVE-2026-42507 CVE-2026-39822 CVE-2026-42505
+* go stdlib v1.24.3: CVE-2025-0913 CVE-2025-4673 CVE-2025-4674 CVE-2025-22874 CVE-2025-47906 CVE-2025-47907 CVE-2025-47912 CVE-2025-58183 CVE-2025-58185 CVE-2025-58186 CVE-2025-58187 CVE-2025-58188 CVE-2025-58189 CVE-2025-61723 CVE-2025-61724 CVE-2025-61725 CVE-2025-61729 CVE-2025-61727 CVE-2025-61726 CVE-2025-61728 CVE-2025-61730 CVE-2025-68121 CVE-2026-27137 CVE-2026-25679 CVE-2026-27142 CVE-2026-27138 CVE-2026-27139 CVE-2026-32280 CVE-2026-33810 CVE-2026-32281 CVE-2026-32283 CVE-2026-32282 CVE-2026-32289 CVE-2026-32288 CVE-2026-33811 CVE-2026-33814 CVE-2026-39820 CVE-2026-39836 CVE-2026-42499 CVE-2026-39823 CVE-2026-39825 CVE-2026-39826 CVE-2026-42504 CVE-2026-27145 CVE-2026-42507 CVE-2026-39822 CVE-2026-42505 CVE-2026-33818 CVE-2026-46600 CVE-2026-56853 CVE-2026-56858 CVE-2026-56859 CVE-2026-56860 CVE-2026-56862
 * containerd v1.7.27: GHSA-m6hq-p25p-ffr2 GHSA-pwhc-rpq9-4c8w
 * containerd-v2 v2.1.1: GHSA-m6hq-p25p-ffr2 GHSA-pwhc-rpq9-4c8w
 * selinux v1.12.0: GHSA-cgrx-mc8f-2prm
 * remove binary artifacts: by @tlk in https://github.com/mzihlmann/kaniko/pull/54
-* golang.org/x/crypto 0.44.0: CVE-2025-47914 CVE-2025-58181 CVE-2026-39827 CVE-2026-39828 CVE-2026-39829 CVE-2026-39830 CVE-2026-39831 CVE-2026-39832 CVE-2026-39833 CVE-2026-39834 CVE-2026-39835 CVE-2026-42508 CVE-2026-46595 CVE-2026-46597 CVE-2026-46598
+* golang.org/x/crypto 0.44.0: CVE-2025-47914 CVE-2025-58181 CVE-2026-39827 CVE-2026-39828 CVE-2026-39829 CVE-2026-39830 CVE-2026-39831 CVE-2026-39832 CVE-2026-39833 CVE-2026-39834 CVE-2026-39835 CVE-2026-42508 CVE-2026-46595 CVE-2026-46597 CVE-2026-46598 CVE-2026-56854
 * golang.org/x/net 0.40.0: CVE-2026-25680 CVE-2026-25681 CVE-2026-27136 CVE-2026-39821 CVE-2026-42502 CVE-2026-42506
 * golang.org/x/text 0.25.0: CVE-2026-56852
 * github.com/docker/cli v29.4.1: CVE-2025-15558
@@ -41,6 +41,9 @@
 * malformed Dockerfile input now errors instead of crashing: https://github.com/osscontainertools/kaniko/pull/733
 * malformed base-image config now errors instead of crashing: https://github.com/osscontainertools/kaniko/pull/742
 * `FF_KANIKO_RELATIVE_LINK_TARGETS=true` absolute hardlink targets make `docker load` fail with `invalid hardlink target`: https://github.com/osscontainertools/kaniko/pull/947
+* push ignores a credential configured for the exact destination repository: by @WoozyMasta in https://github.com/osscontainertools/kaniko/pull/1014 https://github.com/osscontainertools/kaniko/pull/1046
+* `COPY` of a tree that spans a mount point hardlinks unrelated files together: https://github.com/osscontainertools/kaniko/pull/979
+* `COPY` of a directory containing a fifo hangs the build: https://github.com/osscontainertools/kaniko/pull/948
 
 ### Standardization
 * sticky bit gets lost on COPY: https://github.com/mzihlmann/kaniko/pull/45
@@ -74,6 +77,8 @@
 * `FF_KANIKO_RUN_HONOR_GROUP=false` honor an explicit group from `USER user:group` in `RUN`, matching Docker: https://github.com/osscontainertools/kaniko/pull/840
 * `FF_KANIKO_EXPAND_HEREDOC=false` expand build args and env in unquoted `COPY` and `ADD` heredoc bodies, matching Docker: https://github.com/osscontainertools/kaniko/pull/821
 * `FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS=false` chown the parent directories `WORKDIR` creates implicitly to the active user, matching buildkit: https://github.com/osscontainertools/kaniko/pull/867
+* `FF_KANIKO_COPY_SKIP_SPECIAL_FILES=false` skip sockets and device files during `COPY`, matching Docker: https://github.com/osscontainertools/kaniko/pull/948
+* `FF_KANIKO_ADD_CHECKSUM=false` verify the digest `ADD --checksum` states: https://github.com/osscontainertools/kaniko/pull/1027
 
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
@@ -90,6 +95,8 @@
 * `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=false` infer the cross-stage `COPY --from` cache key instead of hashing the copied files, so it hits without unpacking the source stage: https://github.com/osscontainertools/kaniko/pull/618 https://github.com/osscontainertools/kaniko/pull/741 https://github.com/osscontainertools/kaniko/pull/767
 * `FF_KANIKO_ROLLING_CACHE_KEY=false` fold composite cache-key parts into a rolling hash so distinct key sequences can no longer collide and serve the wrong layer: https://github.com/osscontainertools/kaniko/pull/875
 * `FF_KANIKO_HASH_DIR_FRAMING=false` length-prefix directory paths and file hashes in the cache key so distinct directory trees can no longer collide: by @JSap0914 in https://github.com/osscontainertools/kaniko/pull/912
+* `FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES=false` reject cache entries written without a layer: https://github.com/osscontainertools/kaniko/pull/1032
+* `FF_KANIKO_PLATFORM_CACHE_KEY=false` add the target platform to the cache key: https://github.com/osscontainertools/kaniko/pull/1029
 
 ### Performance
 * squash stages together, speeding up build: https://github.com/mzihlmann/kaniko/pull/141 https://github.com/osscontainertools/kaniko/pull/283
@@ -100,7 +107,7 @@
 * `FF_KANIKO_OCI_WARMER=true` ocilayout warmer: https://github.com/osscontainertools/kaniko/pull/307
 * `FF_KANIKO_PRECOMPILE_DOCKERIGNORE=false` compile `.dockerignore` patterns once per build instead of once per file: https://github.com/osscontainertools/kaniko/pull/887
 * `FF_KANIKO_SKIP_CACHED_STAGES=false` drop stages whose consumers all hit the cache: https://github.com/osscontainertools/kaniko/pull/871 https://github.com/osscontainertools/kaniko/pull/964
-* `FF_KANIKO_SHARED_BASE_CACHE=false` download a shared base image once instead of once per stage or `COPY --from`: https://github.com/osscontainertools/kaniko/pull/937 https://github.com/osscontainertools/kaniko/pull/949
+* `FF_KANIKO_SHARED_BASE_CACHE=false` download a shared base image once instead of once per stage or `COPY --from`: https://github.com/osscontainertools/kaniko/pull/937 https://github.com/osscontainertools/kaniko/pull/949 https://github.com/osscontainertools/kaniko/pull/993
 * `FF_KANIKO_CROSS_REPO_MOUNT=false` mount layers the destination registry already holds: https://github.com/osscontainertools/kaniko/pull/990
 
 ### Usability
@@ -131,11 +138,14 @@
 * `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE=true` deprecate the `--preserve-context` inter-stage restore: https://github.com/osscontainertools/kaniko/pull/710
 * `COPY` and `ADD` `--chmod` now accepts symbolic notation (e.g. `go=u`, `u=rwX,go=rX`) in addition to octal: https://github.com/osscontainertools/kaniko/pull/800
 * `--image-format=docker|oci` pins the output manifest media type instead of inheriting it from the base image: https://github.com/osscontainertools/kaniko/pull/850
+* `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=false` match an `auths` entry by repository namespace: by @WoozyMasta in https://github.com/osscontainertools/kaniko/pull/1002
 
 ### Telemetry
-* opt-in OpenTelemetry tracing via `KANIKO_TELEMETRY_ENDPOINT`, one trace per build: by @babs in https://github.com/osscontainertools/kaniko/pull/902 https://github.com/osscontainertools/kaniko/pull/951 https://github.com/osscontainertools/kaniko/pull/913 https://github.com/osscontainertools/kaniko/pull/931
+* opt-in OpenTelemetry tracing via `KANIKO_TELEMETRY_ENDPOINT`, one trace per build: by @babs in https://github.com/osscontainertools/kaniko/pull/902 https://github.com/osscontainertools/kaniko/pull/951 https://github.com/osscontainertools/kaniko/pull/913 https://github.com/osscontainertools/kaniko/pull/931 https://github.com/osscontainertools/kaniko/pull/1019
 * `KANIKO_TELEMETRY_OMIT_DOCKERFILE=false` keep the Dockerfile source out of the trace: by @babs in https://github.com/osscontainertools/kaniko/pull/913
 * report registry socket and request counts on the build span: https://github.com/osscontainertools/kaniko/pull/971
+* record the rendered build plan on the trace: https://github.com/osscontainertools/kaniko/pull/1022
+* `KANIKO_TELEMETRY_BUILD_ID` overrides the build id kaniko derives from the Dockerfile: https://github.com/osscontainertools/kaniko/pull/1033
 
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
