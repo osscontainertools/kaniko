@@ -14,7 +14,7 @@ require (
 	github.com/containerd/platforms v1.0.0-rc.5
 	github.com/cyphar/filepath-securejoin v0.7.0
 	github.com/docker/cli v29.7.2+incompatible
-	github.com/docker/docker-credential-helpers v0.9.8
+	github.com/docker/docker-credential-helpers v0.9.9
 	github.com/ePirat/docker-credential-gitlabci v1.0.0
 	github.com/go-git/go-billy/v5 v5.9.1
 	github.com/go-git/go-git/v5 v5.19.2
@@ -31,7 +31,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/osscontainertools/docker-credential-acr v0.8.0
 	github.com/otiai10/copy v1.14.1
-	github.com/sirupsen/logrus v1.10.1
+	github.com/sirupsen/logrus v1.10.2
 	github.com/spf13/afero v1.15.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10

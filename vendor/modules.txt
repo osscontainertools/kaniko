@@ -387,7 +387,7 @@ github.com/docker/cli/cli/config/configfile
 github.com/docker/cli/cli/config/credentials
 github.com/docker/cli/cli/config/memorystore
 github.com/docker/cli/cli/config/types
-# github.com/docker/docker-credential-helpers v0.9.8
+# github.com/docker/docker-credential-helpers v0.9.9
 ## explicit; go 1.21
 github.com/docker/docker-credential-helpers/client
 github.com/docker/docker-credential-helpers/credentials
@@ -738,7 +738,7 @@ github.com/planetscale/vtprotobuf/types/known/wrapperspb
 # github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3
 ## explicit; go 1.13
 github.com/sergi/go-diff/diffmatchpatch
-# github.com/sirupsen/logrus v1.10.1
+# github.com/sirupsen/logrus v1.10.2
 ## explicit; go 1.23
 github.com/sirupsen/logrus
 # github.com/skeema/knownhosts v1.3.1
