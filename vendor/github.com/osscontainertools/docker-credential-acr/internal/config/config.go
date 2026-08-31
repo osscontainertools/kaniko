@@ -1,5 +1,5 @@
 /*
-Copyright © 2020 Chris Mellard chris.mellard@icloud.com
+Copyright 2026 OSS Container Tools
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -13,13 +13,21 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package registry
+package config
 
 import (
-	"time"
+	"os"
+	"strconv"
 )
 
-const (
-	secureScheme   = "https://"
-	defaultTimeOut = time.Duration(30) * time.Second
-)
+func EnvBool(key string, def bool) bool {
+	value, isPresent := os.LookupEnv(key)
+	if !isPresent {
+		return def
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return def
+	}
+	return parsed
+}

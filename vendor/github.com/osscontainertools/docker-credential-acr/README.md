@@ -38,3 +38,17 @@ have to set any ENVs as they will get injected automatically.
 If the above are not set then authentication falls back to managed service identities and the MSI endpoint is
 attempted to be contacted which will work in various Azure contexts such as App Service and Azure Kubernetes Service
 where the MSI endpoint will authenticate the MSI context the service is running under.
+
+## Feature Flags
+
+### Flag `FF_DOCKER_ACR_AZIDENTITY`
+
+Token acquisition goes through go-autorest, which Microsoft retired. Set this flag to `true` to go through azidentity instead, its successor in the Azure SDK for Go.
+Defaults to `false`.
+Becomes default in `v1.0.0`.
+
+### Flag `FF_DOCKER_ACR_REGISTRY_SCOPED_TOKEN`
+
+The AAD access token is requested for Azure Resource Manager and then handed to the registry host, as a `Bearer` header and as a form field, so a token good for the whole subscription travels to a host that came out of an image reference. Set this flag to `true` to request it for the registry instead, so a token that reaches the wrong host is useless outside ACR.
+Defaults to `true`.
+Will be deprecated in `v1.0.0`.
