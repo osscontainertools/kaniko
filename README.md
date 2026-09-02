@@ -1362,7 +1362,7 @@ Becomes default in `v1.29.0`.
 #### Flag `FF_KANIKO_CACHE_HASH_BLAKE3`
 
 `COPY` and `ADD` inputs are folded into the layer cache key with md5, which is not collision resistant.
-Set this flag to `true` to fold them with [BLAKE3](https://github.com/BLAKE3-team/BLAKE3) instead. Toggling it changes cache keys for `COPY` and `ADD` inputs, forcing those layers to rebuild once.
+Set this flag to `true` to fold them with [BLAKE3](https://github.com/BLAKE3-team/BLAKE3) instead.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 

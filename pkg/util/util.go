@@ -94,18 +94,15 @@ func Hasher() func(string) (string, error) {
 	return hasher
 }
 
-// cacheHash returns the hash a file is folded into the layer cache key with
-func cacheHash() hash.Hash {
-	if config.FF.CacheHashBlake3 {
-		return blake3.New()
-	}
-	return md5.New()
-}
-
 // CacheHasher takes into account everything the regular hasher does except for mtime
 func CacheHasher() func(string) (string, error) {
 	hasher := func(p string) (string, error) {
-		h := cacheHash()
+		var h hash.Hash
+		if config.FF.CacheHashBlake3 {
+			h = blake3.New()
+		} else {
+			h = md5.New()
+		}
 		fi, err := os.Lstat(p)
 		if err != nil {
 			return "", err
