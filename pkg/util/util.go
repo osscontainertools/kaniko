@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"math"
 	"os"
@@ -31,7 +32,9 @@ import (
 	"time"
 
 	"github.com/minio/highwayhash"
+	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/sirupsen/logrus"
+	"github.com/zeebo/blake3"
 	"golang.org/x/sys/unix"
 )
 
@@ -91,10 +94,19 @@ func Hasher() func(string) (string, error) {
 	return hasher
 }
 
+var blake3Pool = sync.Pool{New: func() any { return blake3.New() }}
+
 // CacheHasher takes into account everything the regular hasher does except for mtime
 func CacheHasher() func(string) (string, error) {
 	hasher := func(p string) (string, error) {
-		h := md5.New()
+		var h hash.Hash
+		if config.FF.CacheHashBlake3 {
+			h = blake3Pool.Get().(hash.Hash)
+			h.Reset()
+			defer blake3Pool.Put(h)
+		} else {
+			h = md5.New()
+		}
 		fi, err := os.Lstat(p)
 		if err != nil {
 			return "", err

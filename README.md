@@ -147,6 +147,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_ROLLING_CACHE_KEY`](#flag-ff_kaniko_rolling_cache_key)
       - [Flag `FF_KANIKO_HASH_DIR_FRAMING`](#flag-ff_kaniko_hash_dir_framing)
       - [Flag `FF_KANIKO_PLATFORM_CACHE_KEY`](#flag-ff_kaniko_platform_cache_key)
+      - [Flag `FF_KANIKO_CACHE_HASH_BLAKE3`](#flag-ff_kaniko_cache_hash_blake3)
       - [Flag `FF_KANIKO_CACHE_PROBE_AFTER_MISS`](#flag-ff_kaniko_cache_probe_after_miss)
       - [Flag `FF_KANIKO_WARMER_CACHE_LOCK`](#flag-ff_kaniko_warmer_cache_lock)
       - [Flag `FF_KANIKO_PRESERVE_MOUNTED_PATHS`](#flag-ff_kaniko_preserve_mounted_paths)
@@ -1355,6 +1356,13 @@ Becomes default in `v1.29.0`.
 
 Multi-arch builds would write to the same cache causing false positive cache hits.
 Set this flag to `true` to add the target platform to the cache key.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_CACHE_HASH_BLAKE3`
+
+`COPY` and `ADD` inputs are folded into the layer cache key with md5, which is not collision resistant.
+Set this flag to `true` to fold them with [BLAKE3](https://github.com/BLAKE3-team/BLAKE3) instead.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
