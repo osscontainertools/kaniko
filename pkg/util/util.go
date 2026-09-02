@@ -94,12 +94,16 @@ func Hasher() func(string) (string, error) {
 	return hasher
 }
 
+var blake3Pool = sync.Pool{New: func() any { return blake3.New() }}
+
 // CacheHasher takes into account everything the regular hasher does except for mtime
 func CacheHasher() func(string) (string, error) {
 	hasher := func(p string) (string, error) {
 		var h hash.Hash
 		if config.FF.CacheHashBlake3 {
-			h = blake3.New()
+			h = blake3Pool.Get().(hash.Hash)
+			h.Reset()
+			defer blake3Pool.Put(h)
 		} else {
 			h = md5.New()
 		}
