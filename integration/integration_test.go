@@ -45,6 +45,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	ggcrtypes "github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/osscontainertools/kaniko/testutil"
 )
 
@@ -1005,6 +1006,9 @@ func TestReproducible(t *testing.T) {
 		"Dockerfile_test_issue_mz731":       "alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
 		"Dockerfile_test_issue_mz851":       "debian@sha256:6bc30d909583f38600edd6609e29eb3fb284ab8affce8d0389f332fc91c2dd91",
 	}
+	layerMediaTypes := map[string][]ggcrtypes.MediaType{
+		"Dockerfile_test_issue_mz851": {ggcrtypes.OCIManifestSchema1, ggcrtypes.OCILayer, ggcrtypes.OCILayerZStd},
+	}
 	for dockerfile := range imageBuilder.TestReproducibleDockerfiles {
 		if match, _ := filepath.Match(config.dockerfilesPattern, dockerfile); !match {
 			continue
@@ -1022,6 +1026,11 @@ func TestReproducible(t *testing.T) {
 			base := layerDigests(t, baseRefs[dockerfile])
 			kaniko := layerDigests(t, ref0)
 			testutil.CheckDeepEqual(t, base, kaniko[:len(base)])
+
+			// mz998: base layers are preserved as they were pushed upstream, so only kaniko's own layer follows --compression.
+			if want := layerMediaTypes[dockerfile]; want != nil {
+				testutil.CheckDeepEqual(t, want, manifestMediaTypes(t, ref0))
+			}
 		})
 	}
 }
@@ -1533,6 +1542,24 @@ func layerDigests(t *testing.T, image string) []string {
 			t.Fatalf("%s[%d] digest: %v", image, i, err)
 		}
 		out[i] = d.String()
+	}
+	return out
+}
+
+// manifestMediaTypes returns the manifest media type followed by each layer's.
+func manifestMediaTypes(t *testing.T, image string) []ggcrtypes.MediaType {
+	t.Helper()
+	img, err := getImage(image)
+	if err != nil {
+		t.Fatalf("getImage %s: %v", image, err)
+	}
+	man, err := img.Manifest()
+	if err != nil {
+		t.Fatalf("%s manifest: %v", image, err)
+	}
+	out := []ggcrtypes.MediaType{man.MediaType}
+	for _, l := range man.Layers {
+		out = append(out, l.MediaType)
 	}
 	return out
 }

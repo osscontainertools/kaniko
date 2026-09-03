@@ -178,6 +178,13 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 	if err != nil {
 		return nil, err
 	}
+	outMediaType, err := sourceImage.MediaType()
+	if err != nil {
+		return nil, err
+	}
+	if extractMediaTypeVendor(outMediaType) != types.OCIVendorPrefix && opts.Compression == config.ZStd {
+		logrus.Warn("ignoring --compression=zstd, the Docker schema2 output format has no zstd layer media type, use --image-format=oci for zstd layers")
+	}
 	imageConfig, err := initializeConfig(sourceImage, &_opts)
 	if err != nil {
 		return nil, err
@@ -846,6 +853,15 @@ func saveSnapshotToLayer(tarPath string, imageMediaType types.MediaType, opts *c
 		return nil, nil
 	}
 
+	layer, err := tarball.LayerFromFile(tarPath, getLayerOptionsForImage(imageMediaType, opts)...)
+	if err != nil {
+		return nil, err
+	}
+
+	return layer, nil
+}
+
+func getLayerOptionsForImage(imageMediaType types.MediaType, opts *config.KanikoOptions) []tarball.LayerOption {
 	layerOpts := getLayerOptionFromOpts(opts)
 
 	// Only appending MediaType for OCI images as the default is docker
@@ -855,16 +871,8 @@ func saveSnapshotToLayer(tarPath string, imageMediaType types.MediaType, opts *c
 		} else {
 			layerOpts = append(layerOpts, tarball.WithMediaType(types.OCILayer))
 		}
-	} else if opts.Compression == config.ZStd {
-		logrus.Warn("ignoring --compression=zstd, the Docker schema2 output format has no zstd layer media type, use --image-format=oci for zstd layers")
 	}
-
-	layer, err := tarball.LayerFromFile(tarPath, layerOpts...)
-	if err != nil {
-		return nil, err
-	}
-
-	return layer, nil
+	return layerOpts
 }
 
 func getLayerOptionFromOpts(opts *config.KanikoOptions) []tarball.LayerOption {
@@ -1656,15 +1664,29 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				return nil, err
 			}
 			if opts.Reproducible {
-				sourceImage, err = mutate.Canonical(sourceImage)
+				outMediaType := types.DockerManifestSchema2
+				if config.FF.ReproduciblePreserveFormat {
+					outMediaType, err = sourceImage.MediaType()
+					if err != nil {
+						return nil, err
+					}
+					sourceImage, err = mutate.Canonical(sourceImage, getLayerOptionsForImage(outMediaType, opts)...)
+				} else {
+					sourceImage, err = mutate.Canonical(sourceImage)
+				}
 				if err != nil {
 					return nil, err
 				}
 				if config.FF.ReproduciblePreserveBaseLayers {
-					sourceImage, err = image_util.ReplaceBase(sourceImage, baseImage)
+					sourceImage, err = image_util.ReplaceBase(sourceImage, baseImage, outMediaType)
 					if err != nil {
 						return nil, err
 					}
+				}
+				// ggcr workaround: mutate.Canonical and mutate.Append stack the layers onto empty.Image, so the manifest and config come back dockerv2 even when the layer options wrote OCI layers.
+				sourceImage, err = image_util.WithMediaType(sourceImage, outMediaType)
+				if err != nil {
+					return nil, err
 				}
 			}
 			if len(opts.Annotations) > 0 {
