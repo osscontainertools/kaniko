@@ -23,7 +23,7 @@ jobs:
       COVERAGE_DIR: '${{ github.workspace }}/out/covdata'
       KANIKO_TELEMETRY_ENDPOINT: '${{ vars.KANIKO_TELEMETRY_ENDPOINT }}'
       OTEL_EXPORTER_OTLP_HEADERS: 'authorization=Bearer ${{ secrets.KANIKO_OTLP_TOKEN }}'
-      OTEL_RESOURCE_ATTRIBUTES: 'tenant=ci,ci.pipeline=integration,git.sha=${{ github.sha }},git.ref=${{ github.ref_name }}'
+      OTEL_RESOURCE_ATTRIBUTES: 'tenant=ci,ci.pipeline=integration'
 
     strategy:
       fail-fast: false
