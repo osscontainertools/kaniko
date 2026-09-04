@@ -14,6 +14,36 @@ Set `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true` to keep the Dockerfile source out of
 
 Attribute values are capped at 64 KiB. `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` and `OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT` override the cap, including an explicit `-1` for unlimited.
 
+## CI attributes
+
+On GitLab CI and GitHub Actions kaniko reads the predefined variables and emits them itself, so a pipeline does not have to repeat them in `OTEL_RESOURCE_ATTRIBUTES`. Detection is `GITLAB_CI` / `GITHUB_ACTIONS`; elsewhere none of this is emitted.
+
+| Attribute | GitLab | GitHub Actions |
+| --- | --- | --- |
+| `repo` | `CI_PROJECT_PATH` | `GITHUB_REPOSITORY` |
+| `ci.pipeline` | `CI_PIPELINE_ID` | `GITHUB_RUN_ID` |
+| `git.sha` | `CI_COMMIT_SHA` | `GITHUB_SHA` |
+| `git.ref` | `CI_COMMIT_REF_NAME` | `GITHUB_HEAD_REF`, else `GITHUB_REF_NAME` |
+| `vcs.repository.url.full` | `CI_PROJECT_URL` | `GITHUB_SERVER_URL` + `GITHUB_REPOSITORY` |
+| `vcs.repository.name` | `CI_PROJECT_PATH` | `GITHUB_REPOSITORY` |
+| `vcs.ref.head.name` | `CI_COMMIT_REF_NAME` | `GITHUB_HEAD_REF`, else `GITHUB_REF_NAME` |
+| `vcs.ref.head.revision` | `CI_COMMIT_SHA` | `GITHUB_SHA` |
+| `vcs.change.id` | `CI_MERGE_REQUEST_IID` | pull request number, from `GITHUB_REF_NAME` |
+| `cicd.pipeline.name` | `CI_PIPELINE_NAME` | `GITHUB_WORKFLOW` |
+| `cicd.pipeline.run.id` | `CI_PIPELINE_ID` | `GITHUB_RUN_ID` |
+| `cicd.pipeline.run.url.full` | `CI_PIPELINE_URL` | constructed, including `GITHUB_RUN_ATTEMPT` past the first |
+| `cicd.pipeline.task.name` | `CI_JOB_NAME` | `GITHUB_JOB` |
+| `cicd.pipeline.task.run.id` | `CI_JOB_ID` | — |
+| `cicd.pipeline.task.run.url.full` | `CI_JOB_URL` | — |
+| `kaniko.ci` | `gitlab` | `github` |
+| `kaniko.ci.run_attempt` | — | `GITHUB_RUN_ATTEMPT` |
+
+An absent variable is an absent attribute, never an empty one. `repo`, `ci.pipeline`, `git.sha` and `git.ref` are kept alongside their `vcs.*` and `cicd.*` equivalents because consumers order on them.
+
+`OTEL_RESOURCE_ATTRIBUTES` has the last word: anything it sets overrides what kaniko read off the CI system, and it remains the way to label a build outside these two forges.
+
+Never put a tenant, customer or account identifier here. A multi-tenant collector derives that from the CI credential it verified and discards what the build sent.
+
 ## Build span
 
 | Attribute | Value |
@@ -23,7 +53,7 @@ Attribute values are capped at 64 KiB. `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` 
 | `kaniko.dockerfile.content` | full Dockerfile source (absent for URL Dockerfiles) |
 | `kaniko.plan` | build plan, the text `--dryrun` would print |
 | `kaniko.target` | build target(s), comma-joined |
-| `kaniko.build_id` | sha256 of Dockerfile content + target, for grouping runs of the same build (falls back to the path when the Dockerfile is unreadable) |
+| `kaniko.build_id` | groups runs of the same build. In CI: sha256 of the job's identity + target — project and job name on GitLab, repository, workflow and job on GitHub — so it survives commits and Dockerfile edits. Outside CI, or when those variables are incomplete: sha256 of Dockerfile content + target, falling back to the path when the Dockerfile is unreadable. `KANIKO_TELEMETRY_BUILD_ID` overrides all of it |
 | `kaniko.ff.*` | explicitly-set `FF_KANIKO_*` feature flags (flags left at their defaults are not reported) |
 | `service.name` | `kaniko`, unless `OTEL_SERVICE_NAME` is set |
 | `kaniko.registry.sockets.opened` | TCP connections the build made to registries |
