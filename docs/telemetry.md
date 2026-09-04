@@ -14,11 +14,38 @@ Set `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true` to keep the Dockerfile source out of
 
 Attribute values are capped at 64 KiB. `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` and `OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT` override the cap, including an explicit `-1` for unlimited.
 
+## Authenticating to the collector
+
+A collector that requires a credential can be given one two ways.
+
+`OTEL_EXPORTER_OTLP_HEADERS=authorization=Bearer <token>` sends a token the job already holds. It always wins over the exchange below.
+
+Or kaniko trades the job's CI identity token for one, so no token has to be stored in the repository:
+
+```sh
+KANIKO_TELEMETRY_EXCHANGE_URL=https://<backend>/ingest/token
+```
+
+Nothing is exchanged unless that URL is set. A job may hold an identity token for reasons that have nothing to do with telemetry, and kaniko does not offer a credential to a host that did not ask for one. The identity token is looked for in order:
+
+| Source | Where it comes from |
+| --- | --- |
+| `KANIKO_TELEMETRY_ID_TOKEN` | any CI system that can put a token in the environment, such as GitLab `id_tokens:` |
+| `KANIKO_TELEMETRY_ID_TOKEN_FILE` | the same token in a file, such as a Kubernetes projected service-account token |
+| `ACTIONS_ID_TOKEN_REQUEST_URL` and `ACTIONS_ID_TOKEN_REQUEST_TOKEN` | GitHub Actions, which hands out a request URL rather than a token; needs `permissions: id-token: write` |
+
+A token already in the environment wins over one kaniko has to go ask for. A source that is configured but fails ends the search rather than falling through to the next one.
+
+kaniko asks for the audience `kaniko-telemetry`, overridable with `KANIKO_TELEMETRY_AUDIENCE`. Where the pipeline sets the audience itself (GitLab's `aud:`), a mismatch is reported rather than left as a bare 401.
+
+A refusal logs `ingest token exchange refused` and the build continues without telemetry. The exchange is bounded at 10s. The identity token is sent only over `https` (loopback excepted, for local development), is never carried across a redirect, and neither token is logged.
+
 ## Build span
 
 | Attribute | Value |
 | --- | --- |
 | `kaniko.version` | kaniko version |
+| `kaniko.telemetry.auth` | how the exporter authenticated: `exchange`, `env` or `none` |
 | `kaniko.dockerfile` | Dockerfile path |
 | `kaniko.dockerfile.content` | full Dockerfile source (absent for URL Dockerfiles) |
 | `kaniko.plan` | build plan, the text `--dryrun` would print |

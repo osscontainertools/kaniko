@@ -96,7 +96,11 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 	if strings.HasPrefix(endpoint, "http://") {
 		logrus.Warnf("%s uses plaintext http: spans (including Dockerfile content) are sent unencrypted", EndpointEnv)
 	}
-	exp, err := otlptracehttp.New(ctx, otlptracehttp.WithEndpointURL(tracesEndpoint(endpoint)))
+	headers, auth := exportHeaders(ctx)
+	exp, err := otlptracehttp.New(ctx,
+		otlptracehttp.WithEndpointURL(tracesEndpoint(endpoint)),
+		otlptracehttp.WithHeaders(headers),
+	)
 	if err != nil {
 		logrus.Debugf("tracing disabled: failed to create OTLP exporter: %v", err)
 		return
@@ -125,6 +129,7 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 
 	tracer := tp.Tracer("github.com/osscontainertools/kaniko")
 	sctx, span := tracer.Start(ctx, "build")
+	span.SetAttributes(attribute.String("kaniko.telemetry.auth", auth))
 	raw, set := os.LookupEnv(OmitDockerfileEnv)
 	if set {
 		_, perr := strconv.ParseBool(raw)
