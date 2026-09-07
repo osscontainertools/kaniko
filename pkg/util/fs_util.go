@@ -257,6 +257,7 @@ func DeleteFilesystem() error {
 	t := timing.Start("FS Cleaning")
 	defer t.End()
 	logrus.Info("Deleting filesystem...")
+	clear(dirAliases)
 	return fs.WalkDir(FSys, config.RootDir, func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			// ignore errors when deleting.
@@ -334,6 +335,74 @@ func removeAllSkipIgnored(path string) (skip bool, err error) {
 		return nil
 	})
 	return true, err
+}
+
+// A directory and a symlink to it are two names for one directory, and which of the two
+// the base image gave the content to carries no information. When that name holds an
+// ignored path, and so has to stay a directory, the content goes there instead and the
+// symlink moves to the free name. dirAliases maps the moved symlink back, so snapshots
+// still record what the base image declared.
+var dirAliases = map[string]string{}
+
+func preserveMountedSymlink(dest, path, linkname string) error {
+	parent := filepath.Dir(path)
+	if filepath.IsAbs(linkname) {
+		parent = dest
+	}
+	target := filepath.Join(parent, linkname)
+	if target == path {
+		return nil
+	}
+	if childDirInIgnoreList(target) {
+		return fmt.Errorf("cannot restore symlink %s -> %s: both paths contain an ignored path", path, target)
+	}
+	if FilepathExists(target) {
+		entries, err := os.ReadDir(target)
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			if err := MoveDir(filepath.Join(target, entry.Name()), filepath.Join(path, entry.Name())); err != nil {
+				return err
+			}
+		}
+		if err := os.Remove(target); err != nil {
+			return err
+		}
+	}
+	targetDir := filepath.Dir(target)
+	if err := os.MkdirAll(targetDir, 0o755); err != nil {
+		return err
+	}
+	rel, err := filepath.Rel(targetDir, path)
+	if err != nil {
+		return err
+	}
+	logrus.Debugf("Keeping %s a directory and pointing %s at it, %s contains an ignored path", path, target, path)
+	if err := os.Symlink(rel, target); err != nil {
+		return err
+	}
+	dirAliases[target] = path
+	return nil
+}
+
+// a RUN is free to delete or replace the symlink, which leaves the pair no longer aliased
+func pruneDirAliases() {
+	for alias, dir := range dirAliases {
+		resolved, err := filepath.EvalSymlinks(alias)
+		if err != nil || resolved != dir {
+			delete(dirAliases, alias)
+		}
+	}
+}
+
+func logicalPath(path string) string {
+	for alias, dir := range dirAliases {
+		if HasFilepathPrefix(path, dir, false) {
+			return filepath.Join(alias, strings.TrimPrefix(path, dir))
+		}
+	}
+	return path
 }
 
 // UnTar returns a list of files that have been extracted from the tar archive at r to the path at dest
@@ -452,6 +521,11 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		}
 	case tar.TypeDir:
 		logrus.Tracef("Creating dir %s", path)
+		// must stay in sync with preserveMountedSymlink, which put this symlink here
+		_, aliased := dirAliases[path]
+		if aliased {
+			return os.Chmod(path, mode)
+		}
 		if config.FF.SecurejoinExtraction {
 			fi, lerr := os.Lstat(path)
 			if lerr == nil && fi.Mode()&os.ModeSymlink != 0 {
@@ -524,6 +598,9 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 			skip, err := removeAllSkipIgnored(path)
 			if err != nil {
 				return fmt.Errorf("error removing %s to make way for new symlink: %w", hdr.Name, err)
+			}
+			if skip && config.FF.PreserveMountedSymlinks {
+				return preserveMountedSymlink(dest, path, hdr.Linkname)
 			}
 			if skip {
 				return nil
