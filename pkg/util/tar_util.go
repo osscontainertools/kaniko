@@ -43,6 +43,7 @@ type Tar struct {
 
 // NewTar will create an instance of Tar that can write files to the writer at f.
 func NewTar(f io.Writer) Tar {
+	pruneDirAliases()
 	w := tar.NewWriter(f)
 	return Tar{
 		w:         w,
@@ -85,7 +86,7 @@ func (t *Tar) AddFileToTar(p string) error {
 	assert.Assert("tar.root-path-excluded", p != config.RootDir, "snapshot must not include root path '/'")
 
 	// Docker uses no leading / in the tarball
-	hdr.Name = strings.TrimPrefix(p, config.RootDir)
+	hdr.Name = strings.TrimPrefix(logicalPath(p), config.RootDir)
 	hdr.Name = strings.TrimLeft(hdr.Name, "/")
 
 	if hdr.Typeflag == tar.TypeDir && !strings.HasSuffix(hdr.Name, "/") {
@@ -157,6 +158,7 @@ func readSecurityXattrToTarHeader(path string, hdr *tar.Header) error {
 }
 
 func (t *Tar) Whiteout(p string) error {
+	p = logicalPath(p)
 	dir := filepath.Dir(p)
 	name := archive.WhiteoutPrefix + filepath.Base(p)
 
