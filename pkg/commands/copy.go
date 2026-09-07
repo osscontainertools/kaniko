@@ -142,7 +142,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 			continue
 		} else {
 			// ... Else, we want to copy over a file
-			exclude, err := util.CopyFile(fullPath, destPath, c.fileContext, uid, gid, chmod, useDefaultChmod, false)
+			exclude, err := util.CopyFile(fullPath, destPath, fi, c.fileContext, uid, gid, chmod, useDefaultChmod, false)
 			if err != nil {
 				return fmt.Errorf("copying file: %w", err)
 			}
