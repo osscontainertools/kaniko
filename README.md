@@ -772,7 +772,7 @@ Use this flag to select the compression level. Defaults to `-1` (no compression)
 
 #### Flag `--image-format`
 
-Use this flag to select the output image media type `[docker, oci]`. `docker` writes a Docker schema2 manifest, `oci` writes an OCI image manifest. When unset, kaniko inherits the format of the base image.
+Use this flag to select the output image media type `[docker, oci]`. `docker` writes a Docker schema2 manifest, `oci` writes an OCI image manifest. When unset, kaniko inherits the format of the base image. A base image that mixes OCI and docker media types is inherited as it is, set this flag to unify the output on one of them.
 
 #### Flag `--compressed-caching`
 

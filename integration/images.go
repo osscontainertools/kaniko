@@ -159,6 +159,7 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_cross_compile":                {"--platform=linux/" + crossCompileArch},
 	"Dockerfile_test_issue_mz849":                  dockerV2Flags,
 	"Dockerfile_test_issue_mz849_dockerv2":         dockerV2Flags,
+	"Dockerfile_test_issue_mz1066_docker":          dockerV2Flags,
 	"Dockerfile_test_stopsignal":                   dockerV2Flags,
 	"Dockerfile_test_healthcheck":                  dockerV2Flags,
 	"Dockerfile_test_snapshotter_ignorelist":       dockerV2Flags,
@@ -205,6 +206,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz849":                {"--image-format=docker"},
 	"Dockerfile_test_issue_mz849_dockerv2":       {"--image-format=docker"},
 	"Dockerfile_test_issue_mz849_ociv1":          {"--image-format=oci"},
+	"Dockerfile_test_issue_mz1066_docker":        {"--image-format=docker"},
 	"Dockerfile_test_multistage_args_issue_1911": {"--target=base-custom2,nosquash1,nosquash2,nosquash3"},
 	"Dockerfile_test_cmd":                        {"--target=final,nosquash"},
 	"Dockerfile_test_issue_mz247":                {"--target=final,nosquash"},
@@ -598,6 +600,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz661":   {},
 		"Dockerfile_test_issue_mz753":   {},
 		"Dockerfile_test_issue_mz992":   {},
+		"Dockerfile_test_issue_mz1066":  {},
 	}
 	return &d
 }
