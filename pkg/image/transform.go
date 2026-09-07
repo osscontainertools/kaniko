@@ -127,11 +127,7 @@ func (l *mediaTypeLayer) MediaType() (types.MediaType, error) {
 	return l.mediaType, nil
 }
 
-func AssertConsistentMediaType(img v1.Image) error {
-	man, err := img.Manifest()
-	if err != nil {
-		return err
-	}
+func MixesMediaTypes(man *v1.Manifest) bool {
 	oci, docker := false, false
 	classify := func(mt types.MediaType) {
 		s := string(mt)
@@ -147,7 +143,16 @@ func AssertConsistentMediaType(img v1.Image) error {
 	for _, l := range man.Layers {
 		classify(l.MediaType)
 	}
-	assert.Assert("image.consistent-media-type", !(oci && docker), "manifest mixes OCI and docker media types")
+	return oci && docker
+}
+
+// Only holds where the base image was consistent, callers establish that with MixesMediaTypes.
+func AssertConsistentMediaType(img v1.Image) error {
+	man, err := img.Manifest()
+	if err != nil {
+		return err
+	}
+	assert.Assert("image.consistent-media-type", !MixesMediaTypes(man), "manifest mixes OCI and docker media types")
 	return nil
 }
 

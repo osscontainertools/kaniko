@@ -45,6 +45,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	ggcrtypes "github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/osscontainertools/kaniko/testutil"
 )
 
@@ -208,6 +209,66 @@ func buildRequiredImages() error {
 		return err
 	}
 
+	err = pushMixedMediaTypeImage(config.busyboxBaseImage, config.mixedMediaTypeImage)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// pushMixedMediaTypeImage appends a layer whose descriptor carries the vendor the
+// base manifest does not use. docker build cannot produce such an image, buildkit
+// relabels every descriptor to the format it exports, but a base assembled by
+// several tools ends up this way and the OCI spec asks consumers to tolerate it.
+func pushMixedMediaTypeImage(baseRef, imageRef string) error {
+	src, err := name.ParseReference(baseRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing base ref %s: %v", baseRef, err)
+	}
+	base, err := remote.Image(src, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		return fmt.Errorf("pulling mixed-media-type base image: %v", err)
+	}
+	man, err := base.Manifest()
+	if err != nil {
+		return fmt.Errorf("reading mixed-media-type base manifest: %v", err)
+	}
+	mediaType := ggcrtypes.OCILayer
+	if strings.Contains(string(man.MediaType), ggcrtypes.OCIVendorPrefix) {
+		mediaType = ggcrtypes.DockerLayer
+	}
+
+	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		if err := tw.WriteHeader(&tar.Header{
+			Name:     "mixed-media-type",
+			Typeflag: tar.TypeReg,
+			Size:     0,
+			Mode:     0o644,
+		}); err != nil {
+			return nil, err
+		}
+		tw.Close()
+		return io.NopCloser(bytes.NewReader(buf.Bytes())), nil
+	}, tarball.WithMediaType(mediaType))
+	if err != nil {
+		return fmt.Errorf("creating %s layer: %v", mediaType, err)
+	}
+	img, err := mutate.AppendLayers(base, layer)
+	if err != nil {
+		return fmt.Errorf("appending %s layer: %v", mediaType, err)
+	}
+
+	dst, err := name.ParseReference(imageRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing image ref %s: %v", imageRef, err)
+	}
+	err = remote.Write(dst, img, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		return fmt.Errorf("pushing mixed-media-type image to %s: %v", imageRef, err)
+	}
 	return nil
 }
 
@@ -252,6 +313,9 @@ func TestRun(t *testing.T) {
 // TestKanikoOnly asserts kaniko survives the build.
 func TestKanikoOnly(t *testing.T) {
 	t.Parallel()
+	baseRefs := map[string]string{
+		"Dockerfile_test_issue_mz1066": config.mixedMediaTypeImage,
+	}
 	for dockerfile := range imageBuilder.TestKanikoOnlyDockerfiles {
 		if match, _ := filepath.Match(config.dockerfilesPattern, dockerfile); !match {
 			continue
@@ -263,6 +327,9 @@ func TestKanikoOnly(t *testing.T) {
 			err := imageBuilder.BuildKanikoImage(t, config, dockerfilesPath, dockerfile)
 			if err != nil {
 				t.Fatal(err)
+			}
+			if base, ok := baseRefs[dockerfile]; ok {
+				containerDiff(t, base, GetKanikoImage(config.imageRepo, dockerfile), "--semantic")
 			}
 		})
 	}
@@ -1620,6 +1687,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 	c.hardlinkBaseImage = c.imageRepo + "hardlink-base:latest"
 	c.hijackBaseImage = c.imageRepo + "hijack:latest"
 	c.malformedOCIImage = c.imageRepo + "malformed-oci:latest"
+	c.mixedMediaTypeImage = c.imageRepo + "mixed-media-type:latest"
 	c.nvidiaOperatorBaseImage = c.imageRepo + "nvidia-operator-base:latest"
 	c.singleManifestBaseImage = c.imageRepo + "single-manifest-base:latest"
 	return &c

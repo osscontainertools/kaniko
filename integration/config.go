@@ -25,6 +25,7 @@ type integrationTestConfig struct {
 	hardlinkBaseImage       string
 	hijackBaseImage         string
 	malformedOCIImage       string
+	mixedMediaTypeImage     string
 	nvidiaOperatorBaseImage string
 	singleManifestBaseImage string
 	dockerMajorVersion      int

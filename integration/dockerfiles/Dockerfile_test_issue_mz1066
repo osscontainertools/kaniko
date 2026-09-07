@@ -1,0 +1,12 @@
+ARG IMAGE_REPO
+
+# The base is pushed by test setup, a Go helper appends a layer whose descriptor
+# carries the vendor its manifest does not use. Docker and containerd take such a
+# base, and the OCI spec asks consumers to tolerate a media type conflict as long
+# as the digest matches.
+#
+# Breaks on v1.28.0, where the push chokepoint asserted that the whole output
+# manifest sticks to one vendor and so panicked on a mix the base brought along.
+# Without --image-format the base dictates the media types, so with no command to
+# add a layer of its own kaniko has to reproduce the base descriptor for descriptor.
+FROM ${IMAGE_REPO}mixed-media-type:latest
