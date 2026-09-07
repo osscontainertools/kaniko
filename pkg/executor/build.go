@@ -83,6 +83,7 @@ type stageBuilder struct {
 	index           int
 	final           bool
 	image           v1.Image
+	mixedBase       bool
 	cf              *v1.ConfigFile
 	baseImageDigest string
 	cmds            []commands.DockerCommand
@@ -215,6 +216,7 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 		index:           stage.Index,
 		final:           stage.Final,
 		image:           sourceImage,
+		mixedBase:       image_util.MixesMediaTypes(man),
 		cf:              imageConfig,
 		baseImageDigest: digest.String(),
 		args:            args.Clone(),
@@ -1670,9 +1672,11 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			if len(opts.Annotations) > 0 {
 				sourceImage = mutate.Annotations(sourceImage, opts.Annotations).(v1.Image)
 			}
-			err = image_util.AssertConsistentMediaType(sourceImage)
-			if err != nil {
-				return nil, err
+			if !sb.mixedBase {
+				err = image_util.AssertConsistentMediaType(sourceImage)
+				if err != nil {
+					return nil, err
+				}
 			}
 			pushImage = sourceImage
 		}
