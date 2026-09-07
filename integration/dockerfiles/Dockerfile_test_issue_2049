@@ -1,6 +1,17 @@
-FROM debian:bullseye-20220328
+# 2049: files installed by a package manager were missing from the pushed image.
+# Fixed in v1.9.0 by #2066, which taught the snapshot hasher to read the link
+# target. Before that a symlink hashed as mode, mtime, uid and gid only. All
+# four survive a retarget that puts the mtime back, so the link was judged
+# unchanged, never entered the layer, and the image kept the old target.
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
 
-RUN set -x; \
-    apt-get update && \
-    apt-get install -y curl openssh-client gnupg gpg-agent git make && \
-    rm -rf /var/lib/apt/lists/*
+RUN mkdir /v1 && \
+    echo one > /v1/tool && \
+    ln -s /v1/tool /usr/bin/tool && \
+    touch -h -d @1000000000 /usr/bin/tool
+
+RUN mkdir /v2 && \
+    echo two > /v2/tool && \
+    ln -sfn /v2/tool /usr/bin/tool && \
+    touch -h -d @1000000000 /usr/bin/tool
