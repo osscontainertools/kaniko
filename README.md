@@ -152,6 +152,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_WARMER_CACHE_LOCK`](#flag-ff_kaniko_warmer_cache_lock)
       - [Flag `FF_KANIKO_PRESERVE_MOUNTED_PATHS`](#flag-ff_kaniko_preserve_mounted_paths)
       - [Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`](#flag-ff_kaniko_reproducible_preserve_base_layers)
+      - [Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT`](#flag-ff_kaniko_reproducible_preserve_format)
       - [Flag `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE`](#flag-ff_kaniko_deprecate_inter_stage_restore)
       - [Flag `FF_KANIKO_SCOPED_DOCKERIGNORE`](#flag-ff_kaniko_scoped_dockerignore)
       - [Flag `FF_KANIKO_PRECOMPILE_DOCKERIGNORE`](#flag-ff_kaniko_precompile_dockerignore)
@@ -1392,6 +1393,13 @@ Will be deprecated in `v1.29.0`.
 
 `--reproducible` re-tars every layer to zero its timestamps, including layers inherited from the `FROM` image. Base-layer blobs get fresh digests on every build and stop matching the upstream registry, defeating layer reuse even though kaniko changed nothing in them.
 Set this flag to `true` to re-time only kaniko-appended layers and pass base layers through unchanged.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT`
+
+`--reproducible` internally uses go-containerregistry's `mutate.Canonical`. It re-writes every image to dockerv2+gzip, no matter the base image or the flags you passed.
+Set this flag to `true` to keep the compression and the image format the build was asked for.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
