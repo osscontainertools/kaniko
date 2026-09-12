@@ -138,6 +138,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_NATIVE_COPY=1",
 	"FF_KANIKO_ADD_CHECKSUM=1",
 	"FF_KANIKO_CACHE_HASH_BLAKE3=1",
+	"FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS=1",
 	"KANIKO_PRINT_PLAN=1",
 	"KANIKO_TELEMETRY_ENDPOINT",
 	"OTEL_EXPORTER_OTLP_HEADERS",
@@ -596,7 +597,6 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz473":   {},
 		"Dockerfile_test_issue_mz560":   {},
 		"Dockerfile_test_issue_mz661":   {},
-		"Dockerfile_test_issue_mz753":   {},
 		"Dockerfile_test_issue_mz992":   {},
 	}
 	return &d

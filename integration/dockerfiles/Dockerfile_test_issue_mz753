@@ -11,3 +11,10 @@ RUN mkdir -p /opt/real && ln -s /opt/real /opt/driver
 
 FROM ${IMAGE_REPO}nvidia-operator-base:latest
 RUN echo mz753
+
+# mz1073: preserving the mount is not enough, /opt/driver and /opt/real have to stay
+# two names for one directory. Since v1.28.1 kaniko keeps the directory but drops the
+# symlink. The write then lands under a path docker never wrote, which diffoci sees,
+# and the read back through the other name fails, which it would not.
+RUN echo mz1073 > /opt/driver/data && cat /opt/real/data
+RUN rm /opt/real/data
