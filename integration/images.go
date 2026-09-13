@@ -146,10 +146,12 @@ var KanikoEnv = []string{
 
 var WarmerEnv = []string{}
 
+// buildkit wraps the export in an index when it attaches provenance, kaniko never does
+const noDefaultAttestations = "BUILDX_NO_DEFAULT_ATTESTATIONS=1"
+
 // For these images kaniko emits dockerv2, so the oracle has to emit dockerv2 too.
-// oci-mediatypes=false pins the manifest format. buildkit refuses to export
-// attestations in that format, so provenance has to go as well.
-var dockerV2Flags = []string{"--provenance=false", "--output=type=image,oci-mediatypes=false"}
+// oci-mediatypes=false pins the manifest format.
+var dockerV2Flags = []string{"--output=type=image,oci-mediatypes=false"}
 
 // Arguments to build Dockerfiles with when building with docker
 var additionalDockerFlagsMap = map[string][]string{
@@ -638,9 +640,8 @@ func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfile
 	dockerArgs = append(dockerArgs, additionalFlags...)
 
 	dockerCmd := exec.Command("docker", dockerArgs...)
-	if env, ok := envsMap[dockerfile]; ok {
-		dockerCmd.Env = append(dockerCmd.Env, env...)
-	}
+	dockerCmd.Env = append(os.Environ(), noDefaultAttestations)
+	dockerCmd.Env = append(dockerCmd.Env, envsMap[dockerfile]...)
 
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -920,6 +921,7 @@ func (d *DockerFileBuilder) buildRelativePathsImage(t *testing.T, imageRepo, doc
 	}
 	dockerArgs = append(dockerArgs, additionalDockerFlagsMap[dockerfile]...)
 	dockerCmd := exec.Command("docker", dockerArgs...)
+	dockerCmd.Env = append(os.Environ(), noDefaultAttestations)
 
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {

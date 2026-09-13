@@ -55,7 +55,6 @@ var (
 )
 
 const (
-	daemonPrefix    = "docker://"
 	integrationPath = "integration"
 	dockerfilesPath = "dockerfiles"
 )
@@ -180,6 +179,7 @@ func buildRequiredImages() error {
 	for _, setupCmd := range setupCommands {
 		fmt.Println(setupCmd.name)
 		cmd := exec.Command(setupCmd.command[0], setupCmd.command[1:]...)
+		cmd.Env = append(os.Environ(), noDefaultAttestations)
 		if out, err := RunCommandWithoutTest(cmd); err != nil {
 			return fmt.Errorf("%s failed: %s: %w", setupCmd.name, string(out), err)
 		}
@@ -244,7 +244,7 @@ func TestRun(t *testing.T) {
 			dockerImage := GetDockerImage(config.imageRepo, dockerfile)
 			kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 
-			containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
+			diffoci(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 		})
 	}
 }
@@ -370,7 +370,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
+	diffoci(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 }
 
 // TestGitBuildcontext explicitly names the main branch
@@ -446,7 +446,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
+	diffoci(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 }
 
 func TestBuildViaRegistryMirrors(t *testing.T) {
@@ -489,7 +489,7 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
+	diffoci(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 }
 
 func TestBuildViaRegistryMap(t *testing.T) {
@@ -532,7 +532,7 @@ func TestBuildViaRegistryMap(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
+	diffoci(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 }
 
 func TestBuildSkipFallback(t *testing.T) {
@@ -601,7 +601,7 @@ func TestKanikoDir(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
+	diffoci(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 }
 
 func TestBuildWithLabels(t *testing.T) {
@@ -647,7 +647,7 @@ func TestBuildWithLabels(t *testing.T) {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
 
-	containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
+	diffoci(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 }
 
 func TestBuildWithHTTPError(t *testing.T) {
@@ -965,7 +965,7 @@ func TestSnapshotModes(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			t.Parallel()
 			modeImage := build(t, mode)
-			containerDiff(t, refImage, modeImage, "--ignore-timestamps")
+			diffoci(t, refImage, modeImage, "--ignore-timestamps")
 		})
 	}
 }
@@ -1016,7 +1016,7 @@ func TestReproducible(t *testing.T) {
 			ref1 := GetVersionedKanikoImage(config.imageRepo, dockerfile, 1)
 			build(t, dockerfile, ref0)
 			build(t, dockerfile, ref1)
-			containerDiff(t, ref0, ref1)
+			diffoci(t, ref0, ref1)
 
 			// mz731: make sure the inherited base layers were not mutated.
 			base := layerDigests(t, baseRefs[dockerfile])
@@ -1082,7 +1082,7 @@ func TestWarmer(t *testing.T) {
 			kanikoVersion0 := GetKanikoImage(imageRepo, "test_warmer_"+dockerfile) + strconv.Itoa(0)
 			kanikoVersion1 := GetKanikoImage(imageRepo, "test_warmer_"+dockerfile) + strconv.Itoa(1)
 
-			containerDiff(t, kanikoVersion0, kanikoVersion1)
+			diffoci(t, kanikoVersion0, kanikoVersion1)
 		})
 	}
 }
@@ -1166,7 +1166,7 @@ func verifyBuildWith(t *testing.T, cache, dockerfile string) {
 	kanikoVersion0 := GetVersionedKanikoImage(config.imageRepo, dockerfile, 0)
 	kanikoVersion1 := GetVersionedKanikoImage(config.imageRepo, dockerfile, 1)
 
-	containerDiff(t, kanikoVersion0, kanikoVersion1)
+	diffoci(t, kanikoVersion0, kanikoVersion1)
 	if check, ok := imageChecks[dockerfile]; ok {
 		check(t, kanikoVersion0)
 	}
@@ -1195,11 +1195,11 @@ func TestCacheInvalidatesOnAllowlistedFileChange(t *testing.T) {
 	original := GetVersionedKanikoImage(config.imageRepo, "original", 0)
 	changed := GetVersionedKanikoImage(config.imageRepo, "changed", 0)
 
-	if out, err := RunCommandWithoutTest(diffoci(t, original, changed, "", "--semantic")); err == nil {
+	if out, err := RunCommandWithoutTest(diffociCmd(original, changed, "", "--semantic")); err == nil {
 		t.Errorf("mz762: images identical after changing the allowlisted COPY --from source — stale cached layer served:\n%s", out)
 	}
 
-	containerDiff(t, original, changed, "--semantic", "--extra-ignore-files=app/test.txt")
+	diffoci(t, original, changed, "--semantic", "--extra-ignore-files=app/test.txt")
 }
 
 // https://github.com/GoogleContainerTools/kaniko/issues/2567
@@ -1267,7 +1267,7 @@ func TestRelativePaths(t *testing.T) {
 		dockerImage := GetDockerImage(config.imageRepo, "test_relative_"+dockerfile)
 		kanikoImage := GetKanikoImage(config.imageRepo, "test_relative_"+dockerfile)
 
-		containerDiff(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
+		diffoci(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 	})
 }
 
@@ -1385,7 +1385,7 @@ func TestBuildWithAnnotations(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to build image %s with kaniko command %q: %v %s", dockerImage, kanikoCmd.Args, err, string(out))
 	}
-	containerDiff(t, dockerImage, kanikoImage, "--ignore-history")
+	diffoci(t, dockerImage, kanikoImage, "--ignore-history")
 }
 
 func TestPushFromArtifact(t *testing.T) {
@@ -1448,7 +1448,7 @@ func TestPushFromArtifact(t *testing.T) {
 				"-d", fromArtifactImage,
 			)
 
-			containerDiff(t, directImage, fromArtifactImage)
+			diffoci(t, directImage, fromArtifactImage)
 		})
 	}
 }
@@ -2009,35 +2009,25 @@ func TestCustomPlatformVariant(t *testing.T) {
 	testutil.CheckDeepEqual(t, "v7", cfg.Variant)
 }
 
-func diffoci(t *testing.T, image1, image2, platform string, flags ...string) *exec.Cmd {
-	// workaround for container-diff OCI issue https://github.com/GoogleContainerTools/container-diff/issues/389
-	pullArgs := []string{"pull"}
+func diffociCmd(image1, image2, platform string, flags ...string) *exec.Cmd {
 	if platform != "" {
-		pullArgs = append(pullArgs, "--platform="+platform)
 		flags = append(flags, "--platform="+platform)
 	}
-	out := RunCommand(exec.Command("docker", append(pullArgs, image1)...), t)
-	t.Logf("docker pull cmd output for image1 = %s", string(out))
-	image1 = daemonPrefix + image1
-
-	out = RunCommand(exec.Command("docker", append(pullArgs, image2)...), t)
-	t.Logf("docker pull cmd output for image2 = %s", string(out))
-	image2 = daemonPrefix + image2
-
-	flags = append([]string{"diff"}, flags...)
+	// tests reuse tags, so a cached copy of an earlier run's image would be compared instead
+	flags = append([]string{"diff", "--pull=always"}, flags...)
 	flags = append(flags, image1, image2)
 
 	return exec.Command("diffoci", flags...)
 }
 
-// containerDiff compares the container images image1 and image2 and fails if they differ.
-func containerDiff(t *testing.T, image1, image2 string, flags ...string) {
+// diffoci compares the container images image1 and image2 and fails if they differ.
+func diffoci(t *testing.T, image1, image2 string, flags ...string) {
 	var platform string
 	if p, ok := platformMap[t.Name()]; ok {
 		platform = fmt.Sprintf("%s/%s", p.OS, p.Architecture)
 	}
 	flags = append(flags, "--ignore-image-name", "--ignore-image-timestamps")
 	flags = append(flags, diffArgsMap[t.Name()]...)
-	diff := RunCommand(diffoci(t, image1, image2, platform, flags...), t)
+	diff := RunCommand(diffociCmd(image1, image2, platform, flags...), t)
 	t.Logf("diff = %s", string(diff))
 }
