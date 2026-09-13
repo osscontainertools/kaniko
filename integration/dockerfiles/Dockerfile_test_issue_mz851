@@ -10,7 +10,9 @@
 # the pristine OCI base layers back on top of that docker manifest.
 #
 # Pin an OCI base and add one RUN so kaniko produces a layer of its own. With
-# the fix the preserved base layers are relabeled so the output manifest,
-# config, and every layer are consistently dockerv2.
+# the fix the manifest, config and every layer share one vendor. mz998 then
+# built on this and made that vendor the one the build asked for, so this file
+# is run with --image-format=oci --compression=zstd and the expectation is an
+# OCI manifest with a gzip base layer and a zstd kaniko layer.
 FROM debian:12.10@sha256:6bc30d909583f38600edd6609e29eb3fb284ab8affce8d0389f332fc91c2dd91
 RUN echo 'hi' > /root/hi.txt
