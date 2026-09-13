@@ -38,6 +38,11 @@ import (
 // Unlike mutate.Rebase, this has no digest-prefix verifier and no os/arch
 // swap — it's a pure layer/history splice that trusts the caller's invariant
 // that img.Layers()[:len(base.Layers())] are the recipient of base.
+//
+// outMediaType is a compatibility probe only. Base layers are spliced in with
+// the media type they were pushed with, and WithMediaType relabels them to
+// outMediaType afterwards, so a base layer that has no counterpart under
+// outMediaType makes this return img unchanged.
 func ReplaceBase(img, base v1.Image, outMediaType types.MediaType) (v1.Image, error) {
 	outVendor := mediaTypeVendor(outMediaType)
 	imgCfg, err := img.ConfigFile()
