@@ -132,20 +132,11 @@ func AssertConsistentMediaType(img v1.Image) error {
 	if err != nil {
 		return err
 	}
-	oci, docker := false, false
-	classify := func(mt types.MediaType) {
-		s := string(mt)
-		switch {
-		case strings.Contains(s, types.OCIVendorPrefix):
-			oci = true
-		case strings.Contains(s, types.DockerVendorPrefix):
-			docker = true
-		}
-	}
-	classify(man.MediaType)
-	classify(man.Config.MediaType)
-	for _, l := range man.Layers {
-		classify(l.MediaType)
+	oci := strings.Contains(string(man.MediaType), types.OCIVendorPrefix)
+	docker := strings.Contains(string(man.MediaType), types.DockerVendorPrefix)
+	for _, l := range append([]v1.Descriptor{man.Config}, man.Layers...) {
+		oci = oci || strings.Contains(string(l.MediaType), types.OCIVendorPrefix)
+		docker = docker || strings.Contains(string(l.MediaType), types.DockerVendorPrefix)
 	}
 	assert.Assert("image.consistent-media-type", !(oci && docker), "manifest mixes OCI and docker media types")
 	return nil
