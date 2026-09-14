@@ -58,7 +58,7 @@ out/warmer: $(GO_FILES)
 install-diffoci:
 	@ git clone https://github.com/mzihlmann/diffoci.git && \
 		cd diffoci/cmd/diffoci && \
-		git checkout 95fcda482de24c04a8e36a57657c4321be0d53f0 && \
+		git checkout 75c35f4f0e1289565c6fff66bcac75c3b05188e2 && \
 		go mod vendor && \
 		go install
 
