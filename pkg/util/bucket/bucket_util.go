@@ -22,24 +22,23 @@ import (
 	"net/url"
 	"strings"
 
-	"cloud.google.com/go/storage"
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"google.golang.org/api/option"
+	"google.golang.org/api/storage/v1"
 )
 
 // ReadCloser will create io.ReadCloser for the specified bucket and path
-func ReadCloser(ctx context.Context, bucketName string, path string, client *storage.Client) (io.ReadCloser, error) {
-	bucket := client.Bucket(bucketName)
-	r, err := bucket.Object(path).NewReader(ctx)
+func ReadCloser(ctx context.Context, bucketName string, path string, client *storage.Service) (io.ReadCloser, error) {
+	resp, err := client.Objects.Get(bucketName, path).Context(ctx).Download()
 	if err != nil {
 		return nil, err
 	}
-	return r, nil
+	return resp.Body, nil
 }
 
 // NewClient returns a new google storage client
-func NewClient(ctx context.Context, opts ...option.ClientOption) (*storage.Client, error) {
-	client, err := storage.NewClient(ctx, opts...)
+func NewClient(ctx context.Context, opts ...option.ClientOption) (*storage.Service, error) {
+	client, err := storage.NewService(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
