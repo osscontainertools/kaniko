@@ -151,6 +151,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_CACHE_PROBE_AFTER_MISS`](#flag-ff_kaniko_cache_probe_after_miss)
       - [Flag `FF_KANIKO_WARMER_CACHE_LOCK`](#flag-ff_kaniko_warmer_cache_lock)
       - [Flag `FF_KANIKO_PRESERVE_MOUNTED_PATHS`](#flag-ff_kaniko_preserve_mounted_paths)
+      - [Flag `FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS`](#flag-ff_kaniko_preserve_mounted_symlinks)
       - [Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`](#flag-ff_kaniko_reproducible_preserve_base_layers)
       - [Flag `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE`](#flag-ff_kaniko_deprecate_inter_stage_restore)
       - [Flag `FF_KANIKO_SCOPED_DOCKERIGNORE`](#flag-ff_kaniko_scoped_dockerignore)
@@ -1387,6 +1388,12 @@ Will be deprecated in `v1.29.0`.
 When a container runtime bind-mounts files read-only into the build container — as the NVIDIA GPU operator does with driver artifacts (`nvidia-smi`, `libnvidia*`, firmware blobs) on GPU nodes — and a base image layer ships a directory along that mount path as a symlink, kaniko `os.RemoveAll`s the directory while unpacking to make way for the symlink. The recursive remove hits the read-only bind mount and the build fails with `unlinkat ...: device or resource busy`.
 Set this flag to `true` to skip removing a directory that contains a mounted (ignored) path: its other contents are still cleared, but the mount is preserved and the conflicting layer entry is left in place, matching how `DeleteFilesystem` already treats mounts. Defaults to `true`.
 Will be deprecated in `v1.29.0`.
+
+#### Flag `FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS`
+
+Ubuntu ships `/lib` as a symlink to `/usr/lib`. When the container runtime bind-mounts a driver file into `/lib`, as the NVIDIA GPU operator does on GPU nodes, that path has to stay a real directory, so kaniko keeps it and ignores the symlink that ubuntu ships. The base image files land in `/usr/lib` where nothing reaches them through `/lib`, taking the dynamic loader with them, and every `RUN` fails with `fork/exec /bin/sh: no such file or directory`.
+Set this flag to `true` to swap the link and the directory: `/lib` becomes the real directory holding the files, `/usr/lib` becomes the symlink pointing back at it, and both paths reach the same files again, and the snapshotter is made aware of the swap. Defaults to `false`.
+Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`
 
