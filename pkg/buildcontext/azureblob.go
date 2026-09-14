@@ -20,11 +20,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/sas"
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -44,16 +46,16 @@ func (b *AzureBlob) UnpackTarFromBuildContext() (string, error) {
 	}
 
 	// Get storage accountName for Azure Blob Storage
-	parts, err := azblob.ParseURL(b.context)
+	parts, err := sas.ParseURL(b.context)
 	if err != nil {
 		return parts.Host, err
 	}
 
-	accountUrl := fmt.Sprintf("%s://%s", parts.Scheme, parts.Host)
+	blobUrl := fmt.Sprintf("%s://%s/%s/%s", parts.Scheme, parts.Host, parts.ContainerName, url.PathEscape(parts.BlobName))
 	accountName := strings.Split(parts.Host, ".")[0]
 
 	// Generate credential with accountName and accountKey
-	credential, err := azblob.NewSharedKeyCredential(accountName, accountKey)
+	credential, err := blob.NewSharedKeyCredential(accountName, accountKey)
 	if err != nil {
 		return parts.Host, err
 	}
@@ -67,13 +69,13 @@ func (b *AzureBlob) UnpackTarFromBuildContext() (string, error) {
 	}
 
 	// Downloading context file from Azure Blob Storage
-	client, err := azblob.NewClientWithSharedKeyCredential(accountUrl, credential, nil)
+	client, err := blob.NewClientWithSharedKeyCredential(blobUrl, credential, nil)
 	if err != nil {
 		return parts.Host, err
 	}
 	ctx := context.Background()
 
-	if _, err := client.DownloadFile(ctx, parts.ContainerName, parts.BlobName, file, nil); err != nil {
+	if _, err := client.DownloadFile(ctx, file, nil); err != nil {
 		return parts.Host, err
 	}
 
