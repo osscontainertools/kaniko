@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/storage v1.67.1
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.0
 	github.com/GoogleCloudPlatform/docker-credential-gcr/v2 v2.2.1
-	github.com/aws/aws-sdk-go-v2 v1.46.0
+	github.com/aws/aws-sdk-go-v2 v1.47.0
 	github.com/aws/aws-sdk-go-v2/config v1.33.3
 	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.3
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.111.0
