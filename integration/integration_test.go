@@ -93,6 +93,9 @@ func runIntegrationTests(m *testing.M) int {
 		return 1
 	}
 
+	// buildkit wraps the export in an index when it attaches provenance, kaniko never does
+	os.Setenv("BUILDX_NO_DEFAULT_ATTESTATIONS", "1")
+
 	config = initIntegrationTestConfig()
 
 	defer removeTarFixtures()
@@ -179,7 +182,6 @@ func buildRequiredImages() error {
 	for _, setupCmd := range setupCommands {
 		fmt.Println(setupCmd.name)
 		cmd := exec.Command(setupCmd.command[0], setupCmd.command[1:]...)
-		cmd.Env = append(os.Environ(), noDefaultAttestations)
 		if out, err := RunCommandWithoutTest(cmd); err != nil {
 			return fmt.Errorf("%s failed: %s: %w", setupCmd.name, string(out), err)
 		}
@@ -1146,6 +1148,23 @@ func TestWarmerTwice(t *testing.T) {
 			}
 		})
 	}
+}
+
+// can be removed once buildkit releases this fix
+// https://github.com/moby/buildkit/issues/6712
+var imageChecks = map[string]func(*testing.T, string){
+	"Dockerfile_test_issue_mz334": func(t *testing.T, kanikoImage string) {
+		t.Helper()
+		cfg, err := getImageConfig(kanikoImage)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		// final stage is based on first; if second's LABEL mutated first's shared map the value is "second"
+		if got, want := cfg.Config.Labels["from"], "first"; got != want {
+			t.Errorf("final stage label 'from': got %q, want %q (shallow-copy corruption from second stage)", got, want)
+		}
+	},
 }
 
 func verifyBuildWith(t *testing.T, cache, dockerfile string) {

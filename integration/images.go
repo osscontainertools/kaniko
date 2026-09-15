@@ -146,9 +146,6 @@ var KanikoEnv = []string{
 
 var WarmerEnv = []string{}
 
-// buildkit wraps the export in an index when it attaches provenance, kaniko never does
-const noDefaultAttestations = "BUILDX_NO_DEFAULT_ATTESTATIONS=1"
-
 // For these images kaniko emits dockerv2, so the oracle has to emit dockerv2 too.
 // oci-mediatypes=false pins the manifest format.
 var dockerV2Flags = []string{"--output=type=image,oci-mediatypes=false"}
@@ -384,23 +381,6 @@ var cacheHitOutputChecks = map[string]func(string, []byte) error{
 			}
 		}
 		return nil
-	},
-}
-
-// can be removed once buildkit releases this fix
-// https://github.com/moby/buildkit/issues/6712
-var imageChecks = map[string]func(*testing.T, string){
-	"Dockerfile_test_issue_mz334": func(t *testing.T, kanikoImage string) {
-		t.Helper()
-		out, err := exec.Command("docker", "inspect", "--format", `{{index .Config.Labels "from"}}`, kanikoImage).Output()
-		if err != nil {
-			t.Errorf("docker inspect: %v", err)
-			return
-		}
-		// final stage is based on first; if second's LABEL mutated first's shared map the value is "second"
-		if got, want := strings.TrimSpace(string(out)), "first"; got != want {
-			t.Errorf("final stage label 'from': got %q, want %q (shallow-copy corruption from second stage)", got, want)
-		}
 	},
 }
 
@@ -640,8 +620,7 @@ func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfile
 	dockerArgs = append(dockerArgs, additionalFlags...)
 
 	dockerCmd := exec.Command("docker", dockerArgs...)
-	dockerCmd.Env = append(os.Environ(), noDefaultAttestations)
-	dockerCmd.Env = append(dockerCmd.Env, envsMap[dockerfile]...)
+	dockerCmd.Env = append(os.Environ(), envsMap[dockerfile]...)
 
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -921,7 +900,6 @@ func (d *DockerFileBuilder) buildRelativePathsImage(t *testing.T, imageRepo, doc
 	}
 	dockerArgs = append(dockerArgs, additionalDockerFlagsMap[dockerfile]...)
 	dockerCmd := exec.Command("docker", dockerArgs...)
-	dockerCmd.Env = append(os.Environ(), noDefaultAttestations)
 
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
