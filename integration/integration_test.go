@@ -1010,9 +1010,9 @@ func TestReproducible(t *testing.T) {
 		"Dockerfile_test_issue_mz851":       "debian@sha256:6bc30d909583f38600edd6609e29eb3fb284ab8affce8d0389f332fc91c2dd91",
 	}
 	layerMediaTypes := map[string][]ggcrtypes.MediaType{
-		"Dockerfile_test_copy_reproducible": append([]ggcrtypes.MediaType{ggcrtypes.DockerManifestSchema2}, slices.Repeat([]ggcrtypes.MediaType{ggcrtypes.DockerLayer}, 18)...),
-		"Dockerfile_test_issue_mz731":       {ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerLayer, ggcrtypes.DockerLayer},
-		"Dockerfile_test_issue_mz851":       {ggcrtypes.OCIManifestSchema1, ggcrtypes.OCILayer, ggcrtypes.OCILayerZStd},
+		"Dockerfile_test_copy_reproducible": append([]ggcrtypes.MediaType{ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerConfigJSON}, slices.Repeat([]ggcrtypes.MediaType{ggcrtypes.DockerLayer}, 18)...),
+		"Dockerfile_test_issue_mz731":       {ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerConfigJSON, ggcrtypes.DockerLayer, ggcrtypes.DockerLayer},
+		"Dockerfile_test_issue_mz851":       {ggcrtypes.OCIManifestSchema1, ggcrtypes.OCIConfigJSON, ggcrtypes.OCILayer, ggcrtypes.OCILayerZStd},
 	}
 	for dockerfile := range imageBuilder.TestReproducibleDockerfiles {
 		if match, _ := filepath.Match(config.dockerfilesPattern, dockerfile); !match {
@@ -1035,7 +1035,7 @@ func TestReproducible(t *testing.T) {
 			// mz998: base layers are preserved as they were pushed upstream, so only kaniko's own layer follows --compression.
 			testutil.CheckDeepEqual(t, layerMediaTypes[dockerfile], manifestMediaTypes(t, ref0))
 
-			checkLayerMagics(t, ref0, layerMediaTypes[dockerfile][1:])
+			checkLayerMagics(t, ref0, layerMediaTypes[dockerfile][2:])
 		})
 	}
 }
@@ -1565,7 +1565,7 @@ func manifestMediaTypes(t *testing.T, image string) []ggcrtypes.MediaType {
 	if err != nil {
 		t.Fatalf("%s manifest: %v", image, err)
 	}
-	out := []ggcrtypes.MediaType{man.MediaType}
+	out := []ggcrtypes.MediaType{man.MediaType, man.Config.MediaType}
 	for _, l := range man.Layers {
 		out = append(out, l.MediaType)
 	}
