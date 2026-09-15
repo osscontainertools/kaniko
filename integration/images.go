@@ -147,9 +147,8 @@ var KanikoEnv = []string{
 var WarmerEnv = []string{}
 
 // For these images kaniko emits dockerv2, so the oracle has to emit dockerv2 too.
-// oci-mediatypes=false pins the manifest format. buildkit refuses to export
-// attestations in that format, so provenance has to go as well.
-var dockerV2Flags = []string{"--provenance=false", "--output=type=image,oci-mediatypes=false"}
+// oci-mediatypes=false pins the manifest format.
+var dockerV2Flags = []string{"--output=type=image,oci-mediatypes=false"}
 
 // Arguments to build Dockerfiles with when building with docker
 var additionalDockerFlagsMap = map[string][]string{
@@ -390,7 +389,13 @@ var cacheHitOutputChecks = map[string]func(string, []byte) error{
 var imageChecks = map[string]func(*testing.T, string){
 	"Dockerfile_test_issue_mz334": func(t *testing.T, kanikoImage string) {
 		t.Helper()
-		out, err := exec.Command("docker", "inspect", "--format", `{{index .Config.Labels "from"}}`, kanikoImage).Output()
+		// inspect reads the daemon, the build only pushed to the registry
+		out, err := exec.Command("docker", "pull", kanikoImage).CombinedOutput()
+		if err != nil {
+			t.Errorf("docker pull: %v %s", err, out)
+			return
+		}
+		out, err = exec.Command("docker", "inspect", "--format", `{{index .Config.Labels "from"}}`, kanikoImage).Output()
 		if err != nil {
 			t.Errorf("docker inspect: %v", err)
 			return
@@ -638,9 +643,7 @@ func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfile
 	dockerArgs = append(dockerArgs, additionalFlags...)
 
 	dockerCmd := exec.Command("docker", dockerArgs...)
-	if env, ok := envsMap[dockerfile]; ok {
-		dockerCmd.Env = append(dockerCmd.Env, env...)
-	}
+	dockerCmd.Env = append(os.Environ(), envsMap[dockerfile]...)
 
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
