@@ -1543,6 +1543,9 @@ func TestPushFromArtifact(t *testing.T) {
 				// the push-from-artifact image would not match. Disable it (after the
 				// KanikoEnv default) so both paths re-tar the base identically.
 				flags = append(flags, "-e", "FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=0")
+				if outFlag == "tar-path" {
+					flags = append(flags, "-e", "FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT=0")
+				}
 				flags = addAuthFlags(flags)
 				flags = addCoverageFlags(flags)
 				flags = append(flags, ExecutorImage)
