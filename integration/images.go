@@ -384,6 +384,29 @@ var cacheHitOutputChecks = map[string]func(string, []byte) error{
 	},
 }
 
+// can be removed once buildkit releases this fix
+// https://github.com/moby/buildkit/issues/6712
+var imageChecks = map[string]func(*testing.T, string){
+	"Dockerfile_test_issue_mz334": func(t *testing.T, kanikoImage string) {
+		t.Helper()
+		// inspect reads the daemon, the build only pushed to the registry
+		out, err := exec.Command("docker", "pull", kanikoImage).CombinedOutput()
+		if err != nil {
+			t.Errorf("docker pull: %v %s", err, out)
+			return
+		}
+		out, err = exec.Command("docker", "inspect", "--format", `{{index .Config.Labels "from"}}`, kanikoImage).Output()
+		if err != nil {
+			t.Errorf("docker inspect: %v", err)
+			return
+		}
+		// final stage is based on first; if second's LABEL mutated first's shared map the value is "second"
+		if got, want := strings.TrimSpace(string(out)), "first"; got != want {
+			t.Errorf("final stage label 'from': got %q, want %q (shallow-copy corruption from second stage)", got, want)
+		}
+	},
+}
+
 // Digest for debian:12.10 (see baseImageToCache)
 const debian1210Digest = "6bc30d909583f38600edd6609e29eb3fb284ab8affce8d0389f332fc91c2dd91"
 
