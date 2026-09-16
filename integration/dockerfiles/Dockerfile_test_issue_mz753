@@ -9,7 +9,7 @@ ARG IMAGE_REPO
 FROM busybox AS base
 # the symlink has to land in a later layer than its target's content, or the tar orders
 # opt/driver ahead of opt/real and the target does not exist yet when kaniko unpacks it
-RUN mkdir -p /opt/real/sub /opt/other /opt/driver/link && echo sub > /opt/real/sub/b
+RUN mkdir -p /opt/real/sub /opt/other /opt/driver/link && echo sub > /opt/real/sub/b && echo other > /opt/other/c
 RUN rm -rf /opt/driver/link && ln -s /opt/other /opt/driver/link
 RUN ln -s /opt/other /opt/real/link
 RUN rm -rf /opt/driver && ln -s /opt/real /opt/driver
@@ -29,5 +29,9 @@ RUN rm /opt/real/data
 RUN cat /opt/driver/sub/b
 
 # /opt/real/link already resolves to the directory /opt/driver/link was pinned as, so merging
-# the outer pair has nothing to move for it. Getting this wrong aborts the unpack, which is
-# why the link pair carries no command of its own.
+# the outer pair has nothing to move for it.
+#
+# /opt/other holds base image content, which the inner pair moves onto /opt/driver/link before
+# the outer pair is cleared. Clearing /opt/driver must leave it alone, it is another name's
+# content rather than content the incoming symlink supersedes.
+RUN cat /opt/other/c

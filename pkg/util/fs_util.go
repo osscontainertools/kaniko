@@ -316,6 +316,10 @@ func removeAllSkipIgnored(path string) (skip bool, err error) {
 		if p == path {
 			return nil
 		}
+		// this subtree is another name's content, not content the incoming symlink supersedes
+		if isDirAlias(p) {
+			return filepath.SkipDir
+		}
 		if CheckCleanedPathAgainstIgnoreList(p) {
 			if d.IsDir() {
 				return filepath.SkipDir
@@ -343,6 +347,15 @@ func removeAllSkipIgnored(path string) (skip bool, err error) {
 // symlink moves to the free name. dirAliases maps the moved symlink back, so snapshots
 // still record what the base image declared.
 var dirAliases = map[string]string{}
+
+func isDirAlias(path string) bool {
+	for _, dir := range dirAliases {
+		if path == dir {
+			return true
+		}
+	}
+	return false
+}
 
 // both names can hold a directory of the same name, so the move descends until it reaches
 // a name only one of them has
