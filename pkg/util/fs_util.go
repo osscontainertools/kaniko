@@ -419,12 +419,17 @@ func pruneDirAliases() {
 }
 
 func logicalPath(path string) string {
+	// aliases nest, and the innermost one is the name the base image gave this path
+	longest, target := "", ""
 	for alias, dir := range dirAliases {
-		if HasFilepathPrefix(path, dir, false) {
-			return filepath.Join(alias, strings.TrimPrefix(path, dir))
+		if HasFilepathPrefix(path, dir, false) && len(dir) > len(longest) {
+			longest, target = dir, alias
 		}
 	}
-	return path
+	if longest == "" {
+		return path
+	}
+	return filepath.Join(target, strings.TrimPrefix(path, longest))
 }
 
 // UnTar returns a list of files that have been extracted from the tar archive at r to the path at dest
