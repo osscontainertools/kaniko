@@ -9,7 +9,9 @@ ARG IMAGE_REPO
 FROM busybox AS base
 # the symlink has to land in a later layer than its target's content, or the tar orders
 # opt/driver ahead of opt/real and the target does not exist yet when kaniko unpacks it
-RUN mkdir -p /opt/real/sub /opt/other /opt/driver/link /opt/elsewhere && echo sub > /opt/real/sub/b && echo other > /opt/other/c && echo far > /opt/elsewhere/d
+# /opt/real/sub/lib.so is the name the harness mounts over. The mount shadows it and cannot
+# be renamed over, so moving the base image content across has to leave that name alone.
+RUN mkdir -p /opt/real/sub /opt/other /opt/driver/link /opt/elsewhere && echo sub > /opt/real/sub/b && echo base > /opt/real/sub/lib.so && echo other > /opt/other/c && echo far > /opt/elsewhere/d
 RUN rm -rf /opt/driver/link && ln -s /opt/other /opt/driver/link
 RUN ln -s /opt/other /opt/real/link && ln -s /opt/elsewhere /opt/real/far
 RUN rm -rf /opt/driver && ln -s /opt/real /opt/driver

@@ -360,6 +360,10 @@ func isDirAlias(path string) bool {
 // both names can hold a directory of the same name, so the move descends until it reaches
 // a name only one of them has
 func mergeInto(root, src, dest string) error {
+	// a mount shadows whatever the base image puts under it, and cannot be renamed over
+	if CheckCleanedPathAgainstIgnoreList(dest) {
+		return os.RemoveAll(src)
+	}
 	srcInfo, err := os.Lstat(src)
 	if err != nil {
 		return err
