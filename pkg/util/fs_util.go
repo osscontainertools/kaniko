@@ -409,6 +409,11 @@ func preserveMountedSymlink(dest, path, linkname string) error {
 	if target == path {
 		return nil
 	}
+	// a link text of enough ".." would otherwise put the content outside the image
+	outside, err := filepath.Rel(dest, target)
+	if err != nil || outside == ".." || strings.HasPrefix(outside, "../") {
+		return fmt.Errorf("cannot restore symlink %s -> %s: target leaves %s", path, target, dest)
+	}
 	if childDirInIgnoreList(target) {
 		return fmt.Errorf("cannot restore symlink %s -> %s: both paths contain an ignored path", path, target)
 	}
