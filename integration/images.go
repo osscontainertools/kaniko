@@ -969,6 +969,7 @@ var extraDockerRunFlags = map[string]func(contextDir string) []string{
 			"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/opt/driver/lib.so:ro",
 			"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/opt/driver/sub/lib.so:ro",
 			"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/opt/driver/link/lib.so:ro",
+			"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/opt/driver/far/lib.so:ro",
 		}
 	},
 	// Mount any existing directory read-only over the shared-base store so storing

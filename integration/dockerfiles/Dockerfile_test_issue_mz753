@@ -9,9 +9,9 @@ ARG IMAGE_REPO
 FROM busybox AS base
 # the symlink has to land in a later layer than its target's content, or the tar orders
 # opt/driver ahead of opt/real and the target does not exist yet when kaniko unpacks it
-RUN mkdir -p /opt/real/sub /opt/other /opt/driver/link && echo sub > /opt/real/sub/b && echo other > /opt/other/c
+RUN mkdir -p /opt/real/sub /opt/other /opt/driver/link /opt/elsewhere && echo sub > /opt/real/sub/b && echo other > /opt/other/c && echo far > /opt/elsewhere/d
 RUN rm -rf /opt/driver/link && ln -s /opt/other /opt/driver/link
-RUN ln -s /opt/other /opt/real/link
+RUN ln -s /opt/other /opt/real/link && ln -s /opt/elsewhere /opt/real/far
 RUN rm -rf /opt/driver && ln -s /opt/real /opt/driver
 
 FROM ${IMAGE_REPO}nvidia-operator-base:latest
@@ -35,3 +35,8 @@ RUN cat /opt/driver/sub/b
 # the outer pair is cleared. Clearing /opt/driver must leave it alone, it is another name's
 # content rather than content the incoming symlink supersedes.
 RUN cat /opt/other/c
+
+# /opt/real/far names a third directory, and /opt/driver/far is mounted so it cannot become
+# that link. The same swap applies one level down: /opt/driver/far keeps the content and
+# /opt/elsewhere takes the link.
+RUN cat /opt/elsewhere/d

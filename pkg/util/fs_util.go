@@ -359,19 +359,27 @@ func isDirAlias(path string) bool {
 
 // both names can hold a directory of the same name, so the move descends until it reaches
 // a name only one of them has
-func mergeInto(src, dest string) error {
+func mergeInto(root, src, dest string) error {
 	srcInfo, err := os.Lstat(src)
 	if err != nil {
 		return err
 	}
-	if srcInfo.Mode()&os.ModeSymlink != 0 {
-		// both names already reach one directory, so the link is redundant rather than moved
-		resolved, err := filepath.EvalSymlinks(src)
-		if err == nil && resolved == dest {
-			return os.Remove(src)
-		}
-	}
 	destInfo, err := os.Lstat(dest)
+	if srcInfo.Mode()&os.ModeSymlink != 0 && err == nil && destInfo.IsDir() {
+		resolved, err := filepath.EvalSymlinks(src)
+		if err != nil || resolved != dest {
+			// dest has to stay a directory, so the name the link names takes the link instead
+			linkname, err := os.Readlink(src)
+			if err != nil {
+				return err
+			}
+			if err := preserveMountedSymlink(root, dest, linkname); err != nil {
+				return err
+			}
+		}
+		// both names now reach one directory, so the link is redundant rather than moved
+		return os.Remove(src)
+	}
 	if err != nil || !destInfo.IsDir() || !srcInfo.IsDir() {
 		return MoveDir(src, dest)
 	}
@@ -380,7 +388,7 @@ func mergeInto(src, dest string) error {
 		return err
 	}
 	for _, entry := range entries {
-		err := mergeInto(filepath.Join(src, entry.Name()), filepath.Join(dest, entry.Name()))
+		err := mergeInto(root, filepath.Join(src, entry.Name()), filepath.Join(dest, entry.Name()))
 		if err != nil {
 			return err
 		}
@@ -401,7 +409,7 @@ func preserveMountedSymlink(dest, path, linkname string) error {
 		return fmt.Errorf("cannot restore symlink %s -> %s: both paths contain an ignored path", path, target)
 	}
 	if FilepathExists(target) {
-		if err := mergeInto(target, path); err != nil {
+		if err := mergeInto(dest, target, path); err != nil {
 			return err
 		}
 	}
