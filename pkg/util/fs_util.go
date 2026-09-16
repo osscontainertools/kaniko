@@ -351,6 +351,13 @@ func mergeInto(src, dest string) error {
 	if err != nil {
 		return err
 	}
+	if srcInfo.Mode()&os.ModeSymlink != 0 {
+		// both names already reach one directory, so the link is redundant rather than moved
+		resolved, err := filepath.EvalSymlinks(src)
+		if err == nil && resolved == dest {
+			return os.Remove(src)
+		}
+	}
 	destInfo, err := os.Lstat(dest)
 	if err != nil || !destInfo.IsDir() || !srcInfo.IsDir() {
 		return MoveDir(src, dest)
