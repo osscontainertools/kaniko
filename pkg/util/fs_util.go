@@ -410,6 +410,11 @@ func preserveMountedSymlink(dest, path, linkname string) error {
 
 // a RUN is free to delete or replace the symlink, which leaves the pair no longer aliased
 func pruneDirAliases() {
+	// preserveMountedSymlink is the only writer and runs behind the flag, the readers are ungated
+	if !config.FF.PreserveMountedSymlinks {
+		assert.Assert("util.diraliases.gated", len(dirAliases) == 0,
+			"dir aliases recorded with FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS off")
+	}
 	for alias, dir := range dirAliases {
 		resolved, err := filepath.EvalSymlinks(alias)
 		if err != nil || resolved != dir {
