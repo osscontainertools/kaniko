@@ -101,6 +101,8 @@ func (t *Tar) AddFileToTar(p string) error {
 
 	hardlink, linkDst := t.checkHardlink(p, i)
 	if hardlink {
+		// the target has to name the entry this tar emitted for it, not where it sits on disk
+		linkDst = logicalPath(linkDst)
 		if config.FF.RelativeLinkTargets {
 			hdr.Linkname = strings.TrimLeft(strings.TrimPrefix(linkDst, config.RootDir), "/")
 		} else {

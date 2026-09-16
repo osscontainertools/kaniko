@@ -44,5 +44,6 @@ RUN cat /opt/other/c
 RUN cat /opt/elsewhere/d
 
 # writing under the swapped pair reaches it through a physical parent that its name does not
-# have, and naming that parent would put a directory in the layer docker never wrote
-RUN echo hard > /opt/other/h1
+# have, and naming that parent would put a directory in the layer docker never wrote. A
+# hardlink then names another entry of the same tar, so its target has to be that entry's name.
+RUN echo hard > /opt/other/h1 && ln /opt/other/h1 /opt/other/h2
