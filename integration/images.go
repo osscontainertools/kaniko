@@ -965,7 +965,10 @@ func (d *DockerFileBuilder) buildRelativePathsImage(t *testing.T, imageRepo, doc
 
 var extraDockerRunFlags = map[string]func(contextDir string) []string{
 	"Dockerfile_test_issue_mz753": func(ctx string) []string {
-		return []string{"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/opt/driver/lib.so:ro"}
+		return []string{
+			"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/opt/driver/lib.so:ro",
+			"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/opt/driver/sub/lib.so:ro",
+		}
 	},
 	// Mount any existing directory read-only over the shared-base store so storing
 	// the base fails and both stages must degrade to a registry fetch, not panic.

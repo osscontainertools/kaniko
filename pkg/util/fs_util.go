@@ -344,6 +344,30 @@ func removeAllSkipIgnored(path string) (skip bool, err error) {
 // still record what the base image declared.
 var dirAliases = map[string]string{}
 
+// both names can hold a directory of the same name, so the move descends until it reaches
+// a name only one of them has
+func mergeInto(src, dest string) error {
+	srcInfo, err := os.Lstat(src)
+	if err != nil {
+		return err
+	}
+	destInfo, err := os.Lstat(dest)
+	if err != nil || !destInfo.IsDir() || !srcInfo.IsDir() {
+		return MoveDir(src, dest)
+	}
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		err := mergeInto(filepath.Join(src, entry.Name()), filepath.Join(dest, entry.Name()))
+		if err != nil {
+			return err
+		}
+	}
+	return os.Remove(src)
+}
+
 func preserveMountedSymlink(dest, path, linkname string) error {
 	parent := filepath.Dir(path)
 	if filepath.IsAbs(linkname) {
@@ -357,16 +381,7 @@ func preserveMountedSymlink(dest, path, linkname string) error {
 		return fmt.Errorf("cannot restore symlink %s -> %s: both paths contain an ignored path", path, target)
 	}
 	if FilepathExists(target) {
-		entries, err := os.ReadDir(target)
-		if err != nil {
-			return err
-		}
-		for _, entry := range entries {
-			if err := MoveDir(filepath.Join(target, entry.Name()), filepath.Join(path, entry.Name())); err != nil {
-				return err
-			}
-		}
-		if err := os.Remove(target); err != nil {
+		if err := mergeInto(target, path); err != nil {
 			return err
 		}
 	}

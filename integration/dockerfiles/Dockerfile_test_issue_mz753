@@ -7,7 +7,10 @@
 # hit the busy mount. The mounted path must be preserved instead.
 ARG IMAGE_REPO
 FROM busybox AS base
-RUN mkdir -p /opt/real && ln -s /opt/real /opt/driver
+# the symlink has to land in a later layer than its target's content, or the tar orders
+# opt/driver ahead of opt/real and the target does not exist yet when kaniko unpacks it
+RUN mkdir -p /opt/real/sub && echo sub > /opt/real/sub/b
+RUN ln -s /opt/real /opt/driver
 
 FROM ${IMAGE_REPO}nvidia-operator-base:latest
 RUN echo mz753
@@ -18,3 +21,7 @@ RUN echo mz753
 # and the read back through the other name fails, which it would not.
 RUN echo mz1073 > /opt/driver/data && cat /opt/real/data
 RUN rm /opt/real/data
+
+# the second mount makes /opt/driver/sub a directory too, so moving the base image content
+# off /opt/real onto the pinned name has to merge the two rather than rename over one
+RUN cat /opt/driver/sub/b
