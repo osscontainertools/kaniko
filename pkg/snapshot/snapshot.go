@@ -313,6 +313,9 @@ func addParentDirectories(t util.Tar, addedPaths map[string]bool, path string) e
 		if _, pathAdded := addedPaths[parentPath]; pathAdded {
 			continue
 		}
+		if !util.LogicalAncestor(parentPath, path) {
+			continue
+		}
 		if err := t.AddFileToTar(parentPath); err != nil {
 			return err
 		}

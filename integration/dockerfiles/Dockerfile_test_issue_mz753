@@ -42,3 +42,7 @@ RUN cat /opt/other/c
 # that link. The same swap applies one level down: /opt/driver/far keeps the content and
 # /opt/elsewhere takes the link.
 RUN cat /opt/elsewhere/d
+
+# writing under the swapped pair reaches it through a physical parent that its name does not
+# have, and naming that parent would put a directory in the layer docker never wrote
+RUN echo hard > /opt/other/h1

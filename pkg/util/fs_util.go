@@ -782,6 +782,15 @@ func RelativeFiles(fp string, root string) ([]string, error) {
 	return files, err
 }
 
+// A swapped directory sits under a physical parent its logical name does not have, and naming
+// that parent would put a directory in the layer docker never wrote.
+func LogicalAncestor(parent, child string) bool {
+	if len(dirAliases) == 0 {
+		return true
+	}
+	return HasFilepathPrefix(logicalPath(child), logicalPath(parent), true)
+}
+
 // ParentDirectories returns a list of paths to all parent directories
 // Ex. /some/temp/dir -> [/, /some, /some/temp, /some/temp/dir]
 func ParentDirectories(path string) []string {
