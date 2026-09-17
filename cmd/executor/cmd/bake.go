@@ -110,11 +110,18 @@ It is the analogue of a docker-bake.hcl, expressed in kaniko's commands rather
 than buildx's. A docker-bake.hcl will not parse. Variables, functions, groups
 and inherits are not supported.`,
 	Args: cobra.RangeArgs(1, 2),
-	RunE: func(_ *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {
 			return err
 		}
 		config.LogFeatureFlags()
+		opts.CompressionLevelSet = cmd.Flags().Changed("compression-level")
+		if opts.CompressionLevelSet {
+			err := validateCompressionLevel(opts.Compression, opts.CompressionLevel)
+			if err != nil {
+				return err
+			}
+		}
 		targets, err := ConfigureFromBakefile(opts, args[0], args[1:], bakeSet)
 		if err != nil {
 			return err
