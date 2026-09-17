@@ -75,6 +75,6 @@ kaniko uses its own names. An image reference is a `destination`, not a `tag`. T
 
 A buildx bakefile fails with the construct it does not understand named:
 
-```
+```text
 4:3: "tags" in target "app" is a docker-bake.hcl key, use destination
 ```
