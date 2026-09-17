@@ -1391,8 +1391,8 @@ Will be deprecated in `v1.29.0`.
 
 #### Flag `FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS`
 
-Ubuntu ships `/lib` as a symlink to `/usr/lib`. When the container runtime bind-mounts a driver file into `/lib`, as the NVIDIA GPU operator does on GPU nodes, that path has to stay a real directory, so kaniko keeps it and ignores the symlink that ubuntu ships. The base image files land in `/usr/lib` where nothing reaches them through `/lib`, taking the dynamic loader with them, and every `RUN` fails with `fork/exec /bin/sh: no such file or directory`.
-Set this flag to `true` to swap the link and the directory: `/lib` becomes the real directory holding the files, `/usr/lib` becomes the symlink pointing back at it, and both paths reach the same files again, and the snapshotter is made aware of the swap. Defaults to `false`.
+Ubuntu ships `/lib` as a symlink to `/usr/lib`. A bind-mount into `/lib`, as the NVIDIA GPU operator does on GPU nodes, forces it to stay a real directory, so kaniko drops the symlink and nothing reaches the base image files through `/lib` any more. Every `RUN` then fails with `fork/exec /bin/sh: no such file or directory`.
+Set this flag to `true` to keep both paths resolving to the same files. Defaults to `false`.
 Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`
