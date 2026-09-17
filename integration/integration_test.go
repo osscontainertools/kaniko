@@ -1390,6 +1390,47 @@ func TestBuildWithAnnotations(t *testing.T) {
 	diffoci(t, dockerImage, kanikoImage, "--ignore-history")
 }
 
+func TestCompressionLevel(t *testing.T) {
+	t.Parallel()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sizes := map[string]int64{}
+	for _, level := range []string{"-1", "0", "1"} {
+		image := GetKanikoImage(config.imageRepo, "compression-gzip"+level)
+		err := buildKanikoImage(t, "testdata", "Dockerfile_test_issue_mz1061", nil,
+			[]string{"--compression=gzip", "--compression-level=" + level}, image, cwd, "", "")
+		if err != nil {
+			t.Fatalf("building at --compression-level=%s: %v", level, err)
+		}
+		sizes[level] = lastLayerSize(t, image)
+	}
+
+	// 0 stores the layer, 1 is the fastest deflate, -1 is the gzip default of 6
+	if sizes["0"] <= sizes["1"] || sizes["1"] <= sizes["-1"] {
+		t.Errorf("layer should shrink as the gzip level rises, got 0=%d 1=%d -1=%d", sizes["0"], sizes["1"], sizes["-1"])
+	}
+}
+
+func lastLayerSize(t *testing.T, image string) int64 {
+	t.Helper()
+	img, err := getImage(image)
+	if err != nil {
+		t.Fatalf("getImage %s: %v", image, err)
+	}
+	layers, err := img.Layers()
+	if err != nil {
+		t.Fatalf("%s layers: %v", image, err)
+	}
+	size, err := layers[len(layers)-1].Size()
+	if err != nil {
+		t.Fatalf("%s last layer size: %v", image, err)
+	}
+	return size
+}
+
 func TestPushFromArtifact(t *testing.T) {
 	t.Parallel()
 	branch, _, url := getBranchCommitAndURL()

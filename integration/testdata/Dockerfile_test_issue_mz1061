@@ -1,0 +1,6 @@
+# mz1061: --compression-level was only forwarded to go-containerregistry for
+# values greater than zero. Through v1.28.4, gzip level 0 and level -1 were both
+# dropped and the build fell back to the library default of gzip.BestSpeed.
+# The RUN writes a compressible file so the level shows in the pushed layer size.
+FROM busybox
+RUN seq 1 200000 > /numbers.txt

@@ -79,6 +79,7 @@ type KanikoOptions struct {
 	Compression                  Compression
 	ImageFormat                  ImageFormat
 	CompressionLevel             int
+	CompressionLevelSet          bool
 	ImageFSExtractRetry          int
 	SingleSnapshot               bool
 	Reproducible                 bool
