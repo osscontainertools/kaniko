@@ -255,9 +255,13 @@ func TestBake(t *testing.T) {
 				t.Run(testSuite.Name, func(t *testing.T) {
 					for _, test := range testSuite.Tests {
 						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
+							t.Cleanup(config.InitFeatureFlags)
 							for k, v := range test.Env {
 								t.Setenv(k, v)
 							}
+							// Feature flags resolve once at startup; re-resolve so
+							// this subtest's env takes effect, and restore afterwards.
+							config.InitFeatureFlags()
 
 							opts := config.KanikoOptions{}
 							var set []string
