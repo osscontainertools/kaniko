@@ -768,7 +768,11 @@ Use this flag to select the compression algorithm `[gzip, zstd]`. Defaults to `g
 
 #### Flag `--compression-level`
 
-Use this flag to select the compression level. Defaults to `-1` (no compression)
+Use this flag to select the compression level. When it is not set, layers compress at the fastest level of the selected codec.
+
+For `--compression=gzip` the level runs from `-2` to `9`, see [compress/gzip](https://pkg.go.dev/compress/gzip#pkg-constants).
+
+For `--compression=zstd` the level runs from `1` to `22` and maps onto four encoder presets, see [EncoderLevelFromZstd](https://pkg.go.dev/github.com/klauspost/compress/zstd#EncoderLevelFromZstd).
 
 #### Flag `--image-format`
 

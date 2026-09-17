@@ -162,6 +162,13 @@ var RootCmd = &cobra.Command{
 			if opts.TarPath != "" && opts.Compression == config.ZStd {
 				return errors.New("--compression=zstd cannot be used with --tar-path, the Docker schema2 tarball has no zstd layer media type, use --oci-layout-path for zstd layers")
 			}
+			opts.CompressionLevelSet = cmd.Flags().Changed("compression-level")
+			if opts.CompressionLevelSet {
+				err := validateCompressionLevel(opts.Compression, opts.CompressionLevel)
+				if err != nil {
+					return err
+				}
+			}
 			if err := cacheFlagsValid(); err != nil {
 				return fmt.Errorf("cache flags invalid: %w", err)
 			}
@@ -279,7 +286,7 @@ func AddKanikoOptionsFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().StringVarP(&opts.OCILayoutPath, "oci-layout-path", "", "", "Path to save the OCI image layout of the built image.")
 	cmd.Flags().VarP(&opts.Compression, "compression", "", "Compression algorithm (gzip, zstd)")
 	cmd.Flags().VarP(&opts.ImageFormat, "image-format", "", "Output image media type (docker, oci). Defaults to inheriting the format of the base image.")
-	cmd.Flags().IntVarP(&opts.CompressionLevel, "compression-level", "", -1, "Compression level")
+	cmd.Flags().IntVarP(&opts.CompressionLevel, "compression-level", "", 0, "Compression level, gzip -2 to 9, zstd 1 to 22. Defaults to the fastest level.")
 	cmd.Flags().BoolVarP(&opts.Cache, "cache", "", false, "Use cache when building image")
 	cmd.Flags().BoolVarP(&opts.CompressedCaching, "compressed-caching", "", true, "Compress the cached layers. Decreases build time, but increases memory usage.")
 	cmd.Flags().BoolVarP(&opts.PreCleanup, "pre-cleanup", "", config.EnvBool("KANIKO_PRE_CLEANUP"), "Clean the filesystem before the build")
@@ -414,6 +421,18 @@ func cacheFlagsValid() error {
 	// since cache can't be inferred from destination
 	if !opts.NoPushCache && opts.CacheRepo == "" && opts.NoPush {
 		return errors.New("if using cache with --no-push, specify cache repo with --cache-repo")
+	}
+	return nil
+}
+
+// gzip takes the range of compress/gzip, zstd the range of the zstd CLI.
+func validateCompressionLevel(compression config.Compression, level int) error {
+	if compression == config.ZStd {
+		if level < 1 || level > 22 {
+			return fmt.Errorf("--compression-level=%d is out of range for zstd, use 1 to 22", level)
+		}
+	} else if level < -2 || level > 9 {
+		return fmt.Errorf("--compression-level=%d is out of range for gzip, use -2 to 9", level)
 	}
 	return nil
 }

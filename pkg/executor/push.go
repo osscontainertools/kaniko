@@ -380,7 +380,7 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 		layerOpts = append(layerOpts, tarball.WithCompressedCaching)
 	}
 
-	if opts.CompressionLevel > 0 {
+	if opts.CompressionLevelSet {
 		layerOpts = append(layerOpts, tarball.WithCompressionLevel(opts.CompressionLevel))
 	}
 
