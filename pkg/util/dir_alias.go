@@ -100,7 +100,6 @@ func preserveMountedSymlink(dest, path, linkname string) error {
 	if target == path {
 		return nil
 	}
-	// a link text of enough ".." would otherwise put the content outside the image
 	outside, err := filepath.Rel(dest, target)
 	if err != nil || outside == ".." || strings.HasPrefix(outside, "../") {
 		return fmt.Errorf("cannot restore symlink %s -> %s: target leaves %s", path, target, dest)
@@ -171,8 +170,8 @@ func physicalPath(path string) string {
 	return filepath.Join(target, strings.TrimPrefix(path, longest))
 }
 
-// A swap gives a path a physical parent chain that differs from its name's, in both directions,
-// so the parents worth naming are the ones the name has, each mapped back to where it lives.
+// A swapped path sits under a different chain than its name has, so the parents worth naming
+// are the name's, each mapped back to where it lives.
 func LogicalParents(path string) []string {
 	if len(dirAliases) == 0 {
 		return ParentDirectories(path)

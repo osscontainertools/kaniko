@@ -95,8 +95,8 @@ func (t *Tar) AddFileToTar(p string) error {
 		hdr.Name = hdr.Name + "/"
 	}
 
-	// a swapped pair gives the alias and the directory it names one archive name, and the
-	// later entry would replace the earlier one on extraction
+	// a swapped pair gives the alias and the directory it names one archive name, and extraction
+	// keeps the last entry under a name
 	if t.names[strings.TrimSuffix(hdr.Name, "/")] {
 		return nil
 	}
