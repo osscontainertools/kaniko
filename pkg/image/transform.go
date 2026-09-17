@@ -38,7 +38,13 @@ import (
 // Unlike mutate.Rebase, this has no digest-prefix verifier and no os/arch
 // swap — it's a pure layer/history splice that trusts the caller's invariant
 // that img.Layers()[:len(base.Layers())] are the recipient of base.
-func ReplaceBase(img, base v1.Image) (v1.Image, error) {
+//
+// outMediaType is a compatibility probe only. Base layers are spliced in with
+// the media type they were pushed with, and WithMediaType relabels them to
+// outMediaType afterwards, so a base layer that has no counterpart under
+// outMediaType makes this return img unchanged.
+func ReplaceBase(img, base v1.Image, outMediaType types.MediaType) (v1.Image, error) {
+	outVendor := mediaTypeVendor(outMediaType)
 	imgCfg, err := img.ConfigFile()
 	if err != nil {
 		return nil, err
@@ -85,17 +91,12 @@ func ReplaceBase(img, base v1.Image) (v1.Image, error) {
 				if err != nil {
 					return nil, err
 				}
-				switch mt {
-				case types.DockerLayer, types.DockerUncompressedLayer, types.DockerForeignLayer:
-					a.Layer = baseLayers[li]
-				case types.OCILayer:
-					a.Layer = &mediaTypeLayer{Layer: baseLayers[li], mediaType: types.DockerLayer}
-				case types.OCIUncompressedLayer:
-					a.Layer = &mediaTypeLayer{Layer: baseLayers[li], mediaType: types.DockerUncompressedLayer}
-				default:
-					logrus.Warnf("not preserving base layers: base image has %s layers, incompatible with a reproducible dockerv2 image", mt)
+				_, err = relabelLayerMediaType(mt, outVendor)
+				if err != nil {
+					logrus.Warnf("not preserving base layers: base image has %s layers, incompatible with a reproducible %s image", mt, outMediaType)
 					return img, nil
 				}
+				a.Layer = baseLayers[li]
 			} else {
 				a.Layer = imgLayers[li]
 			}

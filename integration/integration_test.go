@@ -31,6 +31,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -1079,6 +1080,11 @@ func TestReproducible(t *testing.T) {
 		"Dockerfile_test_issue_mz731":       "alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
 		"Dockerfile_test_issue_mz851":       "debian@sha256:6bc30d909583f38600edd6609e29eb3fb284ab8affce8d0389f332fc91c2dd91",
 	}
+	layerMediaTypes := map[string][]ggcrtypes.MediaType{
+		"Dockerfile_test_copy_reproducible": append([]ggcrtypes.MediaType{ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerConfigJSON}, slices.Repeat([]ggcrtypes.MediaType{ggcrtypes.DockerLayer}, 18)...),
+		"Dockerfile_test_issue_mz731":       {ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerConfigJSON, ggcrtypes.DockerLayer, ggcrtypes.DockerLayer},
+		"Dockerfile_test_issue_mz851":       {ggcrtypes.OCIManifestSchema1, ggcrtypes.OCIConfigJSON, ggcrtypes.OCILayer, ggcrtypes.OCILayerZStd},
+	}
 	for dockerfile := range imageBuilder.TestReproducibleDockerfiles {
 		if match, _ := filepath.Match(config.dockerfilesPattern, dockerfile); !match {
 			continue
@@ -1096,6 +1102,11 @@ func TestReproducible(t *testing.T) {
 			base := layerDigests(t, baseRefs[dockerfile])
 			kaniko := layerDigests(t, ref0)
 			testutil.CheckDeepEqual(t, base, kaniko[:len(base)])
+
+			// mz998: base layers are preserved as they were pushed upstream, so only kaniko's own layer follows --compression.
+			testutil.CheckDeepEqual(t, layerMediaTypes[dockerfile], manifestMediaTypes(t, ref0))
+
+			checkLayerMagics(t, ref0, layerMediaTypes[dockerfile][2:])
 		})
 	}
 }
@@ -1532,6 +1543,9 @@ func TestPushFromArtifact(t *testing.T) {
 				// the push-from-artifact image would not match. Disable it (after the
 				// KanikoEnv default) so both paths re-tar the base identically.
 				flags = append(flags, "-e", "FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=0")
+				if outFlag == "tar-path" {
+					flags = append(flags, "-e", "FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT=0")
+				}
 				flags = addAuthFlags(flags)
 				flags = addCoverageFlags(flags)
 				flags = append(flags, ExecutorImage)
@@ -1652,7 +1666,8 @@ func layerDigests(t *testing.T, image string) []string {
 	return out
 }
 
-func manifestMediaTypes(t *testing.T, image string) []string {
+// manifestMediaTypes returns the manifest media type followed by each layer's.
+func manifestMediaTypes(t *testing.T, image string) []ggcrtypes.MediaType {
 	t.Helper()
 	img, err := getImage(image)
 	if err != nil {
@@ -1662,11 +1677,54 @@ func manifestMediaTypes(t *testing.T, image string) []string {
 	if err != nil {
 		t.Fatalf("%s manifest: %v", image, err)
 	}
-	out := []string{string(man.MediaType), string(man.Config.MediaType)}
+	out := []ggcrtypes.MediaType{man.MediaType, man.Config.MediaType}
 	for _, l := range man.Layers {
-		out = append(out, string(l.MediaType))
+		out = append(out, l.MediaType)
 	}
 	return out
+}
+
+var (
+	gzipMagic = []byte{0x1f, 0x8b}
+	zstdMagic = []byte{0x28, 0xb5, 0x2f, 0xfd}
+)
+
+var layerMagics = map[ggcrtypes.MediaType][]byte{
+	ggcrtypes.DockerLayer:  gzipMagic,
+	ggcrtypes.OCILayer:     gzipMagic,
+	ggcrtypes.OCILayerZStd: zstdMagic,
+}
+
+func checkLayerMagics(t *testing.T, image string, want []ggcrtypes.MediaType) {
+	t.Helper()
+	img, err := getImage(image)
+	if err != nil {
+		t.Fatalf("getImage %s: %v", image, err)
+	}
+	layers, err := img.Layers()
+	if err != nil {
+		t.Fatalf("%s layers: %v", image, err)
+	}
+	if len(layers) != len(want) {
+		t.Fatalf("%s has %d layers, want %d", image, len(layers), len(want))
+	}
+	for i, l := range layers {
+		magic, ok := layerMagics[want[i]]
+		if !ok {
+			t.Fatalf("%s: no magic bytes known for layer media type %s", image, want[i])
+		}
+		rc, err := l.Compressed()
+		if err != nil {
+			t.Fatalf("%s compressed: %v", image, err)
+		}
+		got := make([]byte, len(magic))
+		_, err = io.ReadFull(rc, got)
+		rc.Close()
+		if err != nil {
+			t.Fatalf("%s read magic: %v", image, err)
+		}
+		testutil.CheckDeepEqual(t, magic, got)
+	}
 }
 
 func getImageDetails(image string, opts ...remote.Option) (*imageDetails, error) {
