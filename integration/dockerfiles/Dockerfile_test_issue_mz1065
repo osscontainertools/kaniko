@@ -1,0 +1,10 @@
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
+
+# mz1065: in kaniko v1.28.4, with FF_KANIKO_NATIVE_COPY the relocation of the
+# kaniko dir emptied it instead of moving it. The copy consulted the ignore list,
+# whose first entry is the destination, so every file was skipped and the source
+# was deleted afterwards.
+# Relocation only copies when os.Rename fails with EXDEV. A rename into a tmpfs
+# is cross-device on every host, mz473 covers the rename itself.
+RUN [ ! -d /kaniko ] && [ -f /tmpdir/kaniko2/executor ]

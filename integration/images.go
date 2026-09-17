@@ -95,15 +95,16 @@ var argsMapVersion1 = map[string][]string{
 
 // Environment to build Dockerfiles with, used for both docker and kaniko builds
 var envsMap = map[string][]string{
-	"Dockerfile_test_arg_secret":  {"SSH_PRIVATE_KEY=ThEPriv4t3Key"},
-	"Dockerfile_test_issue_519":   {"DOCKER_BUILDKIT=0"},
-	"Dockerfile_test_issue_cg188": {"SECRET=blubb"},
-	"Dockerfile_test_issue_mz775": {"FF_KANIKO_CACHE_LOOKAHEAD=0"},
-	"Dockerfile_test_issue_mz334": {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
-	"Dockerfile_test_issue_mz960": {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
-	"Dockerfile_test_issue_mz793": {"FF_KANIKO_VOLUME_SKIP_MKDIR=0"},
-	"Dockerfile_test_issue_mz473": {"KANIKO_DIR=/kaniko2"},
-	"Dockerfile_test_issue_mz661": {"KANIKO_DIR=/kaniko2"},
+	"Dockerfile_test_arg_secret":   {"SSH_PRIVATE_KEY=ThEPriv4t3Key"},
+	"Dockerfile_test_issue_519":    {"DOCKER_BUILDKIT=0"},
+	"Dockerfile_test_issue_cg188":  {"SECRET=blubb"},
+	"Dockerfile_test_issue_mz775":  {"FF_KANIKO_CACHE_LOOKAHEAD=0"},
+	"Dockerfile_test_issue_mz334":  {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
+	"Dockerfile_test_issue_mz960":  {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
+	"Dockerfile_test_issue_mz793":  {"FF_KANIKO_VOLUME_SKIP_MKDIR=0"},
+	"Dockerfile_test_issue_mz473":  {"KANIKO_DIR=/kaniko2"},
+	"Dockerfile_test_issue_mz661":  {"KANIKO_DIR=/kaniko2"},
+	"Dockerfile_test_issue_mz1065": {"KANIKO_DIR=/tmpdir/kaniko2"},
 	// mz970: layout layers carry no reference, so a stored base cannot be mounted
 	"Dockerfile_test_issue_mz1007": {"FF_KANIKO_SHARED_BASE_CACHE=0"},
 	"Dockerfile_test_stopsignal":   {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
@@ -600,6 +601,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz455":   {},
 		"Dockerfile_test_issue_mz473":   {},
 		"Dockerfile_test_issue_mz560":   {},
+		"Dockerfile_test_issue_mz1065":  {},
 		"Dockerfile_test_issue_mz661":   {},
 		"Dockerfile_test_issue_mz753":   {},
 		"Dockerfile_test_issue_mz992":   {},
@@ -976,6 +978,9 @@ var extraDockerRunFlags = map[string]func(contextDir string) []string{
 	// its own inodes from scratch, so both hand their first file the same inode number.
 	"Dockerfile_test_issue_mz978": func(_ string) []string {
 		return []string{"--tmpfs", "/data/a", "--tmpfs", "/data/b"}
+	},
+	"Dockerfile_test_issue_mz1065": func(_ string) []string {
+		return []string{"--tmpfs", "/tmpdir:exec,size=512m"}
 	},
 }
 
