@@ -965,13 +965,16 @@ func (d *DockerFileBuilder) buildRelativePathsImage(t *testing.T, imageRepo, doc
 
 var extraDockerRunFlags = map[string]func(contextDir string) []string{
 	"Dockerfile_test_issue_mz753": func(ctx string) []string {
-		return []string{
-			"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/opt/driver/lib.so:ro",
-			"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/opt/driver/sub/lib.so:ro",
-			"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/opt/driver/link/lib.so:ro",
-			"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/opt/driver/far/lib.so:ro",
-			"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/opt/via/lib.so:ro",
+		return []string{"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/opt/driver/lib.so:ro"}
+	},
+	// each mount pins one path the base image ships as a symlink, so the swap fires once per pair
+	"Dockerfile_test_issue_mz1073": func(ctx string) []string {
+		lib := filepath.Join(ctx, "testdata/Dockerfile.trivial")
+		flags := []string{}
+		for _, dir := range []string{"/opt/driver", "/opt/driver/sub", "/opt/driver/link", "/opt/driver/far", "/opt/via"} {
+			flags = append(flags, "-v", lib+":"+dir+"/lib.so:ro")
 		}
+		return flags
 	},
 	// Mount any existing directory read-only over the shared-base store so storing
 	// the base fails and both stages must degrade to a registry fetch, not panic.

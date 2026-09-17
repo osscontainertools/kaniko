@@ -7,52 +7,7 @@
 # hit the busy mount. The mounted path must be preserved instead.
 ARG IMAGE_REPO
 FROM busybox AS base
-# the symlink has to land in a later layer than its target's content, or the tar orders
-# opt/driver ahead of opt/real and the target does not exist yet when kaniko unpacks it
-# /opt/real/sub/lib.so is the name the harness mounts over. The mount shadows it and cannot
-# be renamed over, so moving the base image content across has to leave that name alone.
-RUN mkdir -p /opt/real/sub /opt/other /opt/driver/link /opt/elsewhere /opt/deep/inner && echo sub > /opt/real/sub/b && echo base > /opt/real/sub/lib.so && echo other > /opt/other/c && echo far > /opt/elsewhere/d && ln -s /opt/deep /opt/link2
-RUN rm -rf /opt/driver/link && ln -s /opt/other /opt/driver/link
-# /opt/via names its target through /opt/link2, so the symlink lands on /opt/deep/inner
-RUN ln -s /opt/other /opt/real/link && ln -s /opt/elsewhere /opt/real/far && ln -s /opt/link2/inner /opt/via
-RUN rm -rf /opt/driver && ln -s /opt/real /opt/driver
+RUN mkdir -p /opt/real && ln -s /opt/real /opt/driver
 
 FROM ${IMAGE_REPO}nvidia-operator-base:latest
 RUN echo mz753
-
-# mz1073: preserving the mount is not enough, /opt/driver and /opt/real have to stay
-# two names for one directory. Since v1.28.1 kaniko keeps the directory but drops the
-# symlink. The write then lands under a path docker never wrote, which diffoci sees,
-# and the read back through the other name fails, which it would not.
-RUN echo mz1073 > /opt/driver/data && cat /opt/real/data
-RUN rm /opt/real/data
-
-# the second mount makes /opt/driver/sub a directory too, so moving the base image content
-# off /opt/real onto the pinned name has to merge the two rather than rename over one
-RUN cat /opt/driver/sub/b
-
-# /opt/real/link already resolves to the directory /opt/driver/link was pinned as, so merging
-# the outer pair has nothing to move for it.
-#
-# /opt/other holds base image content, which the inner pair moves onto /opt/driver/link before
-# the outer pair is cleared. Clearing /opt/driver must leave it alone, it is another name's
-# content rather than content the incoming symlink supersedes.
-RUN cat /opt/other/c
-
-# /opt/real/far names a third directory, and /opt/driver/far is mounted so it cannot become
-# that link. The same swap applies one level down: /opt/driver/far keeps the content and
-# /opt/elsewhere takes the link.
-RUN cat /opt/elsewhere/d
-
-# writing under the swapped pair reaches it through a physical parent that its name does not
-# have, and naming that parent would put a directory in the layer docker never wrote. A
-# hardlink then names another entry of the same tar, so its target has to be that entry's name.
-RUN echo hard > /opt/other/h1 && ln /opt/other/h1 /opt/other/h2
-
-# /opt/via was pinned, so /opt/deep/inner holds the link. Naming it /opt/link2/inner instead
-# would put the content under a path docker resolves somewhere else.
-RUN echo w > /opt/deep/inner/w
-
-# the alias and the directory it names share one archive name, and writing both would let the
-# later entry replace the earlier one on extraction
-RUN echo y > /opt/other/y && touch -h /opt/other

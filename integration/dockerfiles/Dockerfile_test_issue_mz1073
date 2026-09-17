@@ -1,0 +1,38 @@
+# mz1073: preserving the mount is not enough, a path the base image ships as a symlink and the
+# path it points at have to stay two names for one directory. Since v1.28.1 kaniko keeps the
+# pinned directory and drops the symlink, so the base image files behind it become unreachable.
+# The harness mounts a file into each pinned path below, so the swap fires once per pair.
+ARG IMAGE_REPO
+FROM busybox AS base
+# the symlink has to land in a later layer than its target's content, or the tar orders
+# opt/driver ahead of opt/real and the target does not exist yet when kaniko unpacks it.
+# /opt/real/sub/lib.so is a name the harness mounts over, so the content moving across it
+# has to leave that name alone.
+RUN mkdir -p /opt/real/sub /opt/other /opt/driver/link /opt/elsewhere /opt/deep/inner && echo sub > /opt/real/sub/b && echo base > /opt/real/sub/lib.so && echo other > /opt/other/c && echo far > /opt/elsewhere/d && ln -s /opt/deep /opt/link2
+RUN rm -rf /opt/driver/link && ln -s /opt/other /opt/driver/link
+# /opt/via names its target through /opt/link2, so the symlink lands on /opt/deep/inner
+RUN ln -s /opt/other /opt/real/link && ln -s /opt/elsewhere /opt/real/far && ln -s /opt/link2/inner /opt/via
+RUN rm -rf /opt/driver && ln -s /opt/real /opt/driver
+
+FROM ${IMAGE_REPO}test-issue-mz1073-base:latest
+RUN echo mz1073 > /opt/driver/data && cat /opt/real/data
+RUN rm /opt/real/data
+
+# /opt/driver/sub is mounted too, so the content moving off /opt/real has to merge into it
+RUN cat /opt/driver/sub/b
+
+# /opt/real/link already resolves to what /opt/driver/link was pinned as, so nothing moves for it
+RUN cat /opt/other/c
+
+# /opt/driver/far is mounted, so /opt/real/far cannot become that link and the swap recurses
+RUN cat /opt/elsewhere/d
+
+# a swapped path reaches its content through a parent its name does not have, and a hardlink
+# names another entry of the same tar
+RUN echo hard > /opt/other/h1 && ln /opt/other/h1 /opt/other/h2
+
+# /opt/via was pinned, so /opt/deep/inner holds the link, not /opt/link2/inner
+RUN echo w > /opt/deep/inner/w
+
+# the alias and the directory it names share one archive name, and extraction keeps the last
+RUN echo y > /opt/other/y && touch -h /opt/other
