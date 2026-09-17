@@ -38,6 +38,7 @@ import (
 // Tar knows how to write files to a tar file.
 type Tar struct {
 	hardlinks map[hardlinkKey]string
+	names     map[string]bool
 	w         *tar.Writer
 }
 
@@ -48,6 +49,7 @@ func NewTar(f io.Writer) Tar {
 	return Tar{
 		w:         w,
 		hardlinks: map[hardlinkKey]string{},
+		names:     map[string]bool{},
 	}
 }
 
@@ -92,6 +94,14 @@ func (t *Tar) AddFileToTar(p string) error {
 	if hdr.Typeflag == tar.TypeDir && !strings.HasSuffix(hdr.Name, "/") {
 		hdr.Name = hdr.Name + "/"
 	}
+
+	// a swapped pair gives the alias and the directory it names one archive name, and the
+	// later entry would replace the earlier one on extraction
+	if t.names[strings.TrimSuffix(hdr.Name, "/")] {
+		return nil
+	}
+	t.names[strings.TrimSuffix(hdr.Name, "/")] = true
+
 	// rootfs may not have been extracted when using cache, preventing uname/gname from resolving
 	// this makes this layer unnecessarily differ from a cached layer which does contain this information
 	hdr.Uname = ""

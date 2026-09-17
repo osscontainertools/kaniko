@@ -52,3 +52,7 @@ RUN echo hard > /opt/other/h1 && ln /opt/other/h1 /opt/other/h2
 # /opt/via was pinned, so /opt/deep/inner holds the link. Naming it /opt/link2/inner instead
 # would put the content under a path docker resolves somewhere else.
 RUN echo w > /opt/deep/inner/w
+
+# the alias and the directory it names share one archive name, and writing both would let the
+# later entry replace the earlier one on extraction
+RUN echo y > /opt/other/y && touch -h /opt/other
