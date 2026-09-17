@@ -1,0 +1,6 @@
+ARG IMAGE_REPO
+
+# mz1066: --image-format=docker makes kaniko the author of every descriptor, so the
+# same mixed base has to come out as a manifest that is consistently docker schema2.
+FROM ${IMAGE_REPO}mixed-media-type:latest
+RUN echo mz1066 > /mz1066
