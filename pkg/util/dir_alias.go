@@ -153,11 +153,29 @@ func logicalPath(path string) string {
 	return filepath.Join(target, strings.TrimPrefix(path, longest))
 }
 
-// A swapped directory sits under a physical parent its logical name does not have, and naming
-// that parent would put a directory in the layer docker never wrote.
-func LogicalAncestor(parent, child string) bool {
-	if len(dirAliases) == 0 {
-		return true
+func physicalPath(path string) string {
+	longest, target := "", ""
+	for alias, dir := range dirAliases {
+		if HasFilepathPrefix(path, alias, false) && len(alias) > len(longest) {
+			longest, target = alias, dir
+		}
 	}
-	return HasFilepathPrefix(logicalPath(child), logicalPath(parent), true)
+	if longest == "" {
+		return path
+	}
+	return filepath.Join(target, strings.TrimPrefix(path, longest))
+}
+
+// A swap gives a path a physical parent chain that differs from its name's, in both directions,
+// so the parents worth naming are the ones the name has, each mapped back to where it lives.
+func LogicalParents(path string) []string {
+	if len(dirAliases) == 0 {
+		return ParentDirectories(path)
+	}
+	parents := ParentDirectories(logicalPath(path))
+	physical := make([]string, 0, len(parents))
+	for _, parent := range parents {
+		physical = append(physical, physicalPath(parent))
+	}
+	return physical
 }

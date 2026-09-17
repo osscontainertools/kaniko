@@ -306,14 +306,11 @@ func parentPathIncludesNonDirectory(path string) (bool, error) {
 }
 
 func addParentDirectories(t util.Tar, addedPaths map[string]bool, path string) error {
-	for _, parentPath := range util.ParentDirectories(path) {
+	for _, parentPath := range util.LogicalParents(path) {
 		if parentPath == config.RootDir {
 			continue
 		}
 		if _, pathAdded := addedPaths[parentPath]; pathAdded {
-			continue
-		}
-		if !util.LogicalAncestor(parentPath, path) {
 			continue
 		}
 		if err := t.AddFileToTar(parentPath); err != nil {
