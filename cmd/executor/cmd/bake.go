@@ -39,6 +39,9 @@ func AddBakeFlags(cmd *cobra.Command, opts *config.KanikoOptions, set *[]string)
 }
 
 func ConfigureFromBakefile(opts *config.KanikoOptions, path string, selection, set []string) ([]bake.ResolvedTarget, error) {
+	if err := validateOutputFlags(opts); err != nil {
+		return nil, err
+	}
 	bakefile, err := bake.Parse(path)
 	if err != nil {
 		return nil, err
@@ -111,6 +114,7 @@ and inherits are not supported.`,
 		if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {
 			return err
 		}
+		config.LogFeatureFlags()
 		targets, err := ConfigureFromBakefile(opts, args[0], args[1:], bakeSet)
 		if err != nil {
 			return err

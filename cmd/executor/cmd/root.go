@@ -171,6 +171,21 @@ func setupBuild() error {
 	return nil
 }
 
+// validateOutputFlags rejects the flag combinations that describe an image kaniko
+// cannot write. Every command that builds has to run it.
+func validateOutputFlags(opts *config.KanikoOptions) error {
+	if opts.ImageFormat == config.ImageFormatDocker && opts.Compression == config.ZStd {
+		return errors.New("--compression=zstd cannot be used with --image-format=docker, the Docker schema2 format has no zstd layer media type, use --image-format=oci")
+	}
+	if opts.TarPath != "" && opts.ImageFormat == config.ImageFormatOCI {
+		return errors.New("--tar-path writes a Docker schema2 tarball and cannot be used with --image-format=oci, use --oci-layout-path to write an OCI image")
+	}
+	if opts.TarPath != "" && opts.Compression == config.ZStd {
+		return errors.New("--compression=zstd cannot be used with --tar-path, the Docker schema2 tarball has no zstd layer media type, use --oci-layout-path for zstd layers")
+	}
+	return nil
+}
+
 // RootCmd is the kaniko command that is run
 var RootCmd = &cobra.Command{
 	Use: "executor",
@@ -184,14 +199,8 @@ var RootCmd = &cobra.Command{
 			if !opts.NoPush && len(opts.Destinations) == 0 {
 				return errors.New("you must provide --destination, or use --no-push")
 			}
-			if opts.ImageFormat == config.ImageFormatDocker && opts.Compression == config.ZStd {
-				return errors.New("--compression=zstd cannot be used with --image-format=docker, the Docker schema2 format has no zstd layer media type, use --image-format=oci")
-			}
-			if opts.TarPath != "" && opts.ImageFormat == config.ImageFormatOCI {
-				return errors.New("--tar-path writes a Docker schema2 tarball and cannot be used with --image-format=oci, use --oci-layout-path to write an OCI image")
-			}
-			if opts.TarPath != "" && opts.Compression == config.ZStd {
-				return errors.New("--compression=zstd cannot be used with --tar-path, the Docker schema2 tarball has no zstd layer media type, use --oci-layout-path for zstd layers")
+			if err := validateOutputFlags(opts); err != nil {
+				return err
 			}
 			opts.CompressionLevelSet = cmd.Flags().Changed("compression-level")
 			if opts.CompressionLevelSet {
