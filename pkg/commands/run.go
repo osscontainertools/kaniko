@@ -258,7 +258,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				}
 
 				if kConfig.FF.NativeCopy {
-					err = util.CopyTree(src, target, fileContext)
+					err = util.CopyTree(src, target, fileContext, false)
 				} else {
 					err = otiai10Cpy.Copy(src, target, otiai10Cpy.Options{
 						PreserveTimes:     true,

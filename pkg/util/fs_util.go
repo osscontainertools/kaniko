@@ -798,9 +798,6 @@ func copyDirInner(files []string, src, dest string, context FileContext, uid, gi
 	hardlinksSeen := make(map[hardlinkKey]string)
 	for _, file := range files {
 		fullPath := filepath.Join(src, file)
-		if skipIgnoreList && HasFilepathPrefix(fullPath, config.KanikoDir, false) {
-			continue
-		}
 		if context.ExcludesFile(fullPath) {
 			logrus.Debugf("%s found in .dockerignore, ignoring", src)
 			continue
@@ -960,12 +957,12 @@ func checkCopyHardlink(fi os.FileInfo, dest string, seen map[hardlinkKey]string)
 
 // CopyTree copies the file, symlink or directory at src to dest. Everything is
 // copied in one pass, so hardlinks within the tree are preserved.
-func CopyTree(src, dest string, context FileContext) error {
+func CopyTree(src, dest string, context FileContext, skipIgnoreList bool) error {
 	files, err := RelativeFiles("", src)
 	if err != nil {
 		return err
 	}
-	_, err = copyDirInner(files, src, dest, context, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true, false)
+	_, err = copyDirInner(files, src, dest, context, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true, skipIgnoreList)
 	return err
 }
 
@@ -978,7 +975,7 @@ func MoveDir(src, dest string) error {
 	if errors.Is(err, syscall.EXDEV) {
 		// Cross-device move: copy + delete
 		if config.FF.NativeCopy {
-			err = CopyTree(src, dest, FileContext{})
+			err = CopyTree(src, dest, FileContext{}, true)
 		} else {
 			opts := otiai10Cpy.Options{
 				PreserveTimes:     true,
@@ -1384,7 +1381,10 @@ func CopyPaths(srcRoot, dstRoot string, paths []string) error {
 			return fmt.Errorf("copying %s: %w", p, err)
 		}
 		for _, f := range relative {
-			files = append(files, filepath.Join(p, f))
+			file := filepath.Join(p, f)
+			if !HasFilepathPrefix(filepath.Join(srcRoot, file), config.KanikoDir, false) {
+				files = append(files, file)
+			}
 		}
 	}
 	_, err := copyDirInner(files, srcRoot, dstRoot, FileContext{}, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true, true)
