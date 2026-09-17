@@ -92,6 +92,11 @@ func preserveMountedSymlink(dest, path, linkname string) error {
 		parent = dest
 	}
 	target := filepath.Join(parent, linkname)
+	// the symlink lands where the target's own links lead, so the alias has to name that place
+	resolvedParent, err := filepath.EvalSymlinks(filepath.Dir(target))
+	if err == nil {
+		target = filepath.Join(resolvedParent, filepath.Base(target))
+	}
 	if target == path {
 		return nil
 	}

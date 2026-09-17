@@ -11,9 +11,10 @@ FROM busybox AS base
 # opt/driver ahead of opt/real and the target does not exist yet when kaniko unpacks it
 # /opt/real/sub/lib.so is the name the harness mounts over. The mount shadows it and cannot
 # be renamed over, so moving the base image content across has to leave that name alone.
-RUN mkdir -p /opt/real/sub /opt/other /opt/driver/link /opt/elsewhere && echo sub > /opt/real/sub/b && echo base > /opt/real/sub/lib.so && echo other > /opt/other/c && echo far > /opt/elsewhere/d
+RUN mkdir -p /opt/real/sub /opt/other /opt/driver/link /opt/elsewhere /opt/deep/inner && echo sub > /opt/real/sub/b && echo base > /opt/real/sub/lib.so && echo other > /opt/other/c && echo far > /opt/elsewhere/d && ln -s /opt/deep /opt/link2
 RUN rm -rf /opt/driver/link && ln -s /opt/other /opt/driver/link
-RUN ln -s /opt/other /opt/real/link && ln -s /opt/elsewhere /opt/real/far
+# /opt/via names its target through /opt/link2, so the symlink lands on /opt/deep/inner
+RUN ln -s /opt/other /opt/real/link && ln -s /opt/elsewhere /opt/real/far && ln -s /opt/link2/inner /opt/via
 RUN rm -rf /opt/driver && ln -s /opt/real /opt/driver
 
 FROM ${IMAGE_REPO}nvidia-operator-base:latest
@@ -47,3 +48,7 @@ RUN cat /opt/elsewhere/d
 # have, and naming that parent would put a directory in the layer docker never wrote. A
 # hardlink then names another entry of the same tar, so its target has to be that entry's name.
 RUN echo hard > /opt/other/h1 && ln /opt/other/h1 /opt/other/h2
+
+# /opt/via was pinned, so /opt/deep/inner holds the link. Naming it /opt/link2/inner instead
+# would put the content under a path docker resolves somewhere else.
+RUN echo w > /opt/deep/inner/w
