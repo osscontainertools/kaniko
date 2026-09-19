@@ -18,7 +18,10 @@ package integration
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -28,6 +31,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/osscontainertools/kaniko/pkg/tracing"
@@ -63,10 +67,76 @@ func addCoverageFlags(flags []string) []string {
 // addKanikoEnvFlags passes the suite's feature-flag matrix (KanikoEnv) to the executor
 // container. Every executor invocation must use it so all tests exercise the same flags.
 func addKanikoEnvFlags(flags []string, buildID string) []string {
+	token := mintIdentityToken()
+	if token != "" {
+		// a failing build logs the command line, so the token travels in the environment
+		os.Setenv(tracing.IDTokenEnv, token)
+	}
+	identity := os.Getenv(tracing.IDTokenEnv) != ""
 	for _, envVariable := range KanikoEnv {
+		// an executor asked to log in without an identity warns, which fails the build
+		if envVariable == tracing.TokenExchangeEndpointEnv && !identity {
+			continue
+		}
 		flags = append(flags, "-e", envVariable)
 	}
 	return append(flags, "-e", tracing.BuildIDEnv+"="+buildID)
+}
+
+const (
+	githubRequestURLEnv   = "ACTIONS_ID_TOKEN_REQUEST_URL"
+	githubRequestTokenEnv = "ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+	telemetryAudience     = "kaniko-telemetry"
+	mintTimeout           = 10 * time.Second
+)
+
+// mintIdentityToken returns the token one build logs in with. GitHub's expires five
+// minutes on, a fraction of a suite, so each build gets its own. A pull request from a
+// fork is not granted id-token: write and has none, and the request token stays on the
+// host because a RUN step can read the executor's environment.
+func mintIdentityToken() string {
+	requestURL := os.Getenv(githubRequestURLEnv)
+	requestToken := os.Getenv(githubRequestTokenEnv)
+	if requestURL == "" || requestToken == "" {
+		return ""
+	}
+	token, err := mintIDToken(requestURL, requestToken)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "minting an identity token failed: %v\n", err)
+		return ""
+	}
+	return token
+}
+
+// the request URL already carries a query string, so the audience appends
+func mintIDToken(requestURL, requestToken string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), mintTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL+"&audience="+telemetryAudience, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+requestToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("%s: %s", requestURL, resp.Status)
+	}
+	var minted struct {
+		Value string `json:"value"`
+	}
+	err = json.NewDecoder(resp.Body).Decode(&minted)
+	if err != nil {
+		return "", err
+	}
+	if minted.Value == "" {
+		return "", fmt.Errorf("%s: returned no token", requestURL)
+	}
+	return minted.Value, nil
 }
 
 // Arguments to build Dockerfiles with, used for both docker and kaniko builds
@@ -143,7 +213,8 @@ var KanikoEnv = []string{
 	"FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS=1",
 	"KANIKO_PRINT_PLAN=1",
 	"KANIKO_TELEMETRY_ENDPOINT",
-	"OTEL_EXPORTER_OTLP_HEADERS",
+	"KANIKO_TELEMETRY_TOKEN_EXCHANGE_ENDPOINT",
+	"KANIKO_TELEMETRY_ID_TOKEN",
 	"OTEL_RESOURCE_ATTRIBUTES",
 }
 

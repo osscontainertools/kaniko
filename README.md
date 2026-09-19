@@ -1579,7 +1579,7 @@ Spans are sent over OTLP/**HTTP(S)**, OTLP/**gRPC** is not supported. The endpoi
 
 See [Telemetry attributes](docs/telemetry.md) for the full list of exported span attributes.
 
-Standard OpenTelemetry environment variables apply for the rest: `OTEL_EXPORTER_OTLP_HEADERS` for authenticating to the collector, and `OTEL_RESOURCE_ATTRIBUTES` for fleet labels such as `tenant`, `repo`, and `git.sha`.
+Standard OpenTelemetry environment variables apply for the rest: `OTEL_EXPORTER_OTLP_HEADERS` for authenticating to the collector, and `OTEL_RESOURCE_ATTRIBUTES` for fleet labels such as `tenant`, `repo`, and `git.sha`. `KANIKO_TELEMETRY_TOKEN_EXCHANGE_ENDPOINT` authenticates without a stored token, see [Authenticating to the collector](docs/telemetry.md#authenticating-to-the-collector).
 
 ### Debug Image
 
