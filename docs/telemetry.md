@@ -6,7 +6,7 @@ kaniko can export an OpenTelemetry trace of each build. It is off by default and
 KANIKO_TELEMETRY_ENDPOINT=http://otel-collector:4318
 ```
 
-Spans are sent over OTLP/HTTP (`http://` or `https://`, collector port 4318 by default). OTLP/gRPC (port 4317) is not supported. The endpoint URL must include a scheme. `OTEL_EXPORTER_OTLP_HEADERS` authenticates to the collector and `OTEL_RESOURCE_ATTRIBUTES` adds fleet labels such as `tenant`, `repo`, and `git.sha`.
+Spans are sent over OTLP/HTTP (`http://` or `https://`, collector port 4318 by default). OTLP/gRPC (port 4317) is not supported. The endpoint URL must include a scheme. `OTEL_EXPORTER_OTLP_HEADERS` authenticates to the collector and `OTEL_RESOURCE_ATTRIBUTES` adds fleet labels of your own.
 
 Each build is one trace: a root `build` span, a `Stage` span per build stage, and under each stage a span per build phase and Dockerfile command. Stage and command spans are named `Stage` and `Command` (low cardinality, so backends can aggregate on the name). The full instruction text is in the `kaniko.command` attribute. The build phases keep their descriptive names.
 
@@ -58,6 +58,36 @@ GitHub Actions hands the job a request URL rather than a token, so mint it with 
 
 A refusal logs `ingest token exchange refused` and the build continues without telemetry. Both endpoints have to be `https`, loopback excepted for local development.
 
+## CI attributes
+
+kaniko reads the predefined variables of the CI system it runs on and emits them itself, so a pipeline does not have to repeat them in `OTEL_RESOURCE_ATTRIBUTES`.
+
+| Attribute | GitLab | GitHub Actions |
+| --- | --- | --- |
+| `repo` | `CI_PROJECT_PATH` | `GITHUB_REPOSITORY` |
+| `ci.pipeline` | `CI_PIPELINE_ID` | `GITHUB_RUN_ID` |
+| `git.sha` | `CI_COMMIT_SHA` | `GITHUB_SHA` |
+| `git.ref` | `CI_COMMIT_REF_NAME` | `GITHUB_HEAD_REF`, else `GITHUB_REF_NAME` |
+| `vcs.repository.url.full` | `CI_PROJECT_URL` | `GITHUB_SERVER_URL` + `GITHUB_REPOSITORY` |
+| `vcs.repository.name` | `CI_PROJECT_NAME` | `GITHUB_REPOSITORY`, without the organization |
+| `vcs.ref.head.name` | `CI_COMMIT_REF_NAME` | `GITHUB_HEAD_REF`, else `GITHUB_REF_NAME` |
+| `vcs.ref.head.revision` | `CI_COMMIT_SHA` | `GITHUB_SHA` |
+| `vcs.change.id` | `CI_MERGE_REQUEST_IID` | pull request number, from `GITHUB_REF_NAME` |
+| `cicd.pipeline.name` | `CI_PIPELINE_NAME` | `GITHUB_WORKFLOW` |
+| `cicd.pipeline.run.id` | `CI_PIPELINE_ID` | `GITHUB_RUN_ID` |
+| `cicd.pipeline.run.url.full` | `CI_PIPELINE_URL` | constructed, including `GITHUB_RUN_ATTEMPT` past the first |
+| `cicd.pipeline.task.name` | `CI_JOB_NAME` | `GITHUB_JOB` |
+| `cicd.pipeline.task.run.id` | `CI_JOB_ID` | — |
+| `cicd.pipeline.task.run.url.full` | `CI_JOB_URL` | — |
+| `kaniko.ci` | `gitlab` | `github` |
+| `kaniko.ci.run_attempt` | — | `GITHUB_RUN_ATTEMPT` |
+
+An absent variable is an absent attribute, never an empty one. `repo`, `ci.pipeline`, `git.sha` and `git.ref` are kept alongside their `vcs.*` and `cicd.*` equivalents because consumers order on them.
+
+`OTEL_RESOURCE_ATTRIBUTES` has the last word: anything it sets overrides what kaniko read off the CI system.
+
+Never put a tenant, customer or account identifier here. A multi-tenant collector derives that from the CI credential it verified and discards what the build sent.
+
 ## Build span
 
 | Attribute | Value |
@@ -68,7 +98,7 @@ A refusal logs `ingest token exchange refused` and the build continues without t
 | `kaniko.dockerfile.content` | full Dockerfile source (absent for URL Dockerfiles) |
 | `kaniko.plan` | build plan, the text `--dryrun` would print |
 | `kaniko.target` | build target(s), comma-joined |
-| `kaniko.build_id` | sha256 of Dockerfile content + target, for grouping runs of the same build (falls back to the path when the Dockerfile is unreadable) |
+| `kaniko.build_id` | groups runs of the same build. In CI: sha256 of the job's identity + target — project and job name on GitLab, repository, workflow file and job on GitHub — so it survives commits and Dockerfile edits. Outside CI, or when those variables are incomplete: sha256 of Dockerfile content + target, falling back to the path when the Dockerfile is unreadable. `KANIKO_TELEMETRY_BUILD_ID` overrides all of it |
 | `kaniko.ff.*` | explicitly-set `FF_KANIKO_*` feature flags (flags left at their defaults are not reported) |
 | `service.name` | `kaniko`, unless `OTEL_SERVICE_NAME` is set |
 | `kaniko.registry.sockets.opened` | TCP connections the build made to registries |

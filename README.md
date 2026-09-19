@@ -1573,13 +1573,13 @@ KANIKO_TELEMETRY_ENDPOINT=http://otel-collector:4318
 
 Each build becomes a trace, with a span per build phase and Dockerfile command. Telemetry is best effort and never fails a build.
 
-**What leaves the machine**: every trace carries the verbatim text of every instruction, the values of any explicitly-set `FF_KANIKO_*` flags, and cache keys, all unredacted, plus the full Dockerfile source (`kaniko.dockerfile.content`) and the build plan (`kaniko.plan`) unless `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true`. Nothing beyond that is captured: the runtime value behind a `RUN --mount=type=secret` or the contents of a `--mount=type=cache` never reach a trace. In case your Dockerfile and `RUN` themselves contain credentials, treat the collector as part of your secret boundary.
+**What leaves the machine**: every trace carries the verbatim text of every instruction, the values of any explicitly-set `FF_KANIKO_*` flags, and cache keys, all unredacted, plus the full Dockerfile source (`kaniko.dockerfile.content`) and the build plan (`kaniko.plan`) unless `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true`. On a CI system it also carries what that system says about the build: repository, branch, commit and pipeline, listed in [CI attributes](docs/telemetry.md#ci-attributes). Nothing beyond that is captured: the runtime value behind a `RUN --mount=type=secret` or the contents of a `--mount=type=cache` never reach a trace. In case your Dockerfile and `RUN` themselves contain credentials, treat the collector as part of your secret boundary.
 
 Spans are sent over OTLP/**HTTP(S)**, OTLP/**gRPC** is not supported. The endpoint URL must include a scheme, and only `KANIKO_TELEMETRY_ENDPOINT` enables tracing, the standard `OTEL_EXPORTER_OTLP_ENDPOINT` alone does not.
 
 See [Telemetry attributes](docs/telemetry.md) for the full list of exported span attributes.
 
-Standard OpenTelemetry environment variables apply for the rest: `OTEL_EXPORTER_OTLP_HEADERS` for authenticating to the collector, and `OTEL_RESOURCE_ATTRIBUTES` for fleet labels such as `tenant`, `repo`, and `git.sha`. `KANIKO_TELEMETRY_TOKEN_EXCHANGE_ENDPOINT` authenticates without a stored token, see [Authenticating to the collector](docs/telemetry.md#authenticating-to-the-collector).
+Standard OpenTelemetry environment variables apply for the rest: `OTEL_EXPORTER_OTLP_HEADERS` for authenticating to the collector, and `OTEL_RESOURCE_ATTRIBUTES` for fleet labels of your own. `KANIKO_TELEMETRY_TOKEN_EXCHANGE_ENDPOINT` authenticates without a stored token, see [Authenticating to the collector](docs/telemetry.md#authenticating-to-the-collector).
 
 ### Debug Image
 
