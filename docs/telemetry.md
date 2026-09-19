@@ -14,11 +14,56 @@ Set `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true` to keep the Dockerfile source out of
 
 Attribute values are capped at 64 KiB. `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` and `OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT` override the cap, including an explicit `-1` for unlimited.
 
+## Authenticating to the collector
+
+Send a token the job already holds:
+
+```sh
+OTEL_EXPORTER_OTLP_HEADERS=authorization=Bearer <token>
+```
+
+Or have kaniko trade the job's CI identity token for one, so no token is stored in the repository:
+
+```sh
+KANIKO_TELEMETRY_TOKEN_EXCHANGE_ENDPOINT=https://<backend>/ingest/token
+```
+
+`OTEL_EXPORTER_OTLP_HEADERS` wins if both are set. Nothing is exchanged unless the exchange endpoint is set. The identity token is looked for in order:
+
+| Source | Where it comes from |
+| --- | --- |
+| `KANIKO_TELEMETRY_ID_TOKEN` | any CI system that exports a token, such as GitLab `id_tokens:` |
+| `KANIKO_TELEMETRY_ID_TOKEN_FILE` | the same token in a file, such as a Kubernetes projected service-account token |
+
+A source that is configured but fails ends the search rather than falling through to the next one.
+
+On GitLab, declare the token on the job and it is exported for you:
+
+```yaml
+build:
+  id_tokens:
+    KANIKO_TELEMETRY_ID_TOKEN:
+      aud: kaniko-telemetry
+```
+
+GitHub Actions hands the job a request URL rather than a token, so mint it with `permissions: id-token: write` in the step before the build. The token expires five minutes after it is minted:
+
+```yaml
+- run: |
+    token=$(curl -sf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+      "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=kaniko-telemetry" | jq -er .value)
+    echo "::add-mask::$token"
+    echo "KANIKO_TELEMETRY_ID_TOKEN=$token" >> "$GITHUB_ENV"
+```
+
+A refusal logs `ingest token exchange refused` and the build continues without telemetry. Both endpoints have to be `https`, loopback excepted for local development.
+
 ## Build span
 
 | Attribute | Value |
 | --- | --- |
 | `kaniko.version` | kaniko version |
+| `kaniko.telemetry.auth` | how the exporter authenticated: `exchange`, `env` or `none` |
 | `kaniko.dockerfile` | Dockerfile path |
 | `kaniko.dockerfile.content` | full Dockerfile source (absent for URL Dockerfiles) |
 | `kaniko.plan` | build plan, the text `--dryrun` would print |
