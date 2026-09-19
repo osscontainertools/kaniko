@@ -12,7 +12,11 @@ builds:
     targets:
       - linux_amd64
       - linux_arm64
+      - linux_arm_7
       - linux_386
+      - linux_ppc64le
+      - linux_riscv64
+      - linux_s390x
       - darwin_amd64
       - darwin_arm64
       - windows_amd64

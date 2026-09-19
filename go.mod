@@ -29,7 +29,7 @@ require (
 	github.com/moby/patternmatcher v0.6.1
 	github.com/moby/sys/signal v0.7.1
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/osscontainertools/docker-credential-acr v0.9.0
+	github.com/osscontainertools/docker-credential-acr v0.9.1
 	github.com/otiai10/copy v1.14.1
 	github.com/sirupsen/logrus v1.10.2
 	github.com/spf13/afero v1.15.0

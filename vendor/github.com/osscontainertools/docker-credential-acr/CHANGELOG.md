@@ -1,3 +1,15 @@
+# v0.9.1 Release 2026-09-19
+
+## What's Changed
+### Usability
+* release binaries for riscv64, ppc64le, s390x and 32 bit arm: https://github.com/osscontainertools/docker-credential-acr/pull/15
+
+### Maintenance
+* build(deps): bump step-security/harden-runner from 2.21.0 to 2.21.1: https://github.com/osscontainertools/docker-credential-acr/pull/16
+* build(deps): bump github.com/google/go-containerregistry from 0.22.0 to 0.22.1: https://github.com/osscontainertools/docker-credential-acr/pull/17
+* build(deps): bump go from 1.26.7 to 1.26.8: https://github.com/osscontainertools/docker-credential-acr/pull/18
+
+
 # v0.9.0 Release 2026-08-31
 ## Update Notice
 In this Release we activated these feature-flags:
