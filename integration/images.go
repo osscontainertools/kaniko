@@ -145,6 +145,17 @@ var KanikoEnv = []string{
 	"KANIKO_TELEMETRY_ENDPOINT",
 	"OTEL_EXPORTER_OTLP_HEADERS",
 	"OTEL_RESOURCE_ATTRIBUTES",
+	// what the executor reads the CI attributes off, GITHUB_ACTIONS being the marker
+	"GITHUB_ACTIONS",
+	"GITHUB_REPOSITORY",
+	"GITHUB_SERVER_URL",
+	"GITHUB_RUN_ID",
+	"GITHUB_RUN_ATTEMPT",
+	"GITHUB_SHA",
+	"GITHUB_HEAD_REF",
+	"GITHUB_REF_NAME",
+	"GITHUB_WORKFLOW",
+	"GITHUB_JOB",
 }
 
 var WarmerEnv = []string{}
