@@ -71,6 +71,7 @@ var (
 	quotedHeredocPath = regexp.MustCompile(`\bhq[0-9]+/`)
 	copyParentsPath   = regexp.MustCompile(`\bparents[0-9]+/`)
 	copyExcludePath   = regexp.MustCompile(`\bexcl[0-9]+/`)
+	addURLPath        = regexp.MustCompile(`\burlget[0-9]+/`)
 )
 
 // dockerKnownDivergences are the classes observed on the docker oracle. The cache
@@ -98,6 +99,14 @@ var dockerKnownDivergences = []knownDivergence{
 		flag: "",
 		match: func(row string) bool {
 			return copyExcludePath.MatchString(row)
+		},
+	},
+	{
+		name: "add-url-owner-under-user",
+		why:  "ADD of a URL under a non-root USER: docker leaves the download owned by root, kaniko gives it the active USER, because add.go takes uid and gid from GetActiveUserGroup. COPY in the same stage stays root through FF_KANIKO_COPY_AS_ROOT, so kaniko also disagrees with itself. Only the ownership row is suppressed, any other ADD-url divergence still reports",
+		flag: "",
+		match: func(row string) bool {
+			return addURLPath.MatchString(row) && strings.Contains(row, "Uid")
 		},
 	},
 	{
