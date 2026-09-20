@@ -103,8 +103,8 @@ var dockerKnownDivergences = []knownDivergence{
 	},
 	{
 		name: "add-url-owner-under-user",
-		why:  "ADD of a URL under a non-root USER: docker leaves the download owned by root, kaniko gives it the active USER, because add.go takes uid and gid from GetActiveUserGroup. COPY in the same stage stays root through FF_KANIKO_COPY_AS_ROOT, so kaniko also disagrees with itself. Only the ownership row is suppressed, any other ADD-url divergence still reports",
-		flag: "",
+		why:  "mz1112: FF_KANIKO_COPY_AS_ROOT aligns ownership with the spec but does not reach the ADD-from-URL path, so under a non-root USER the download is owned by that user while a COPY in the same stage is root. Owning brought-in files by USER is kaniko's deliberate default, the gap is the flag's coverage. Only the ownership row is suppressed, any other ADD-url divergence still reports",
+		flag: "FF_KANIKO_COPY_AS_ROOT",
 		match: func(row string) bool {
 			return addURLPath.MatchString(row) && strings.Contains(row, "Uid")
 		},
