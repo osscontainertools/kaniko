@@ -159,7 +159,16 @@ type genResult struct {
 	// chaosEnv is a random subset of internal FF_KANIKO_* toggles (on or off) for the
 	// coverage-only chaos build; it is not applied to the output-checked builds.
 	chaosEnv []string
+	// mounts are container paths bind-mounted read-only into every kaniko build of the
+	// case. Only drawn for a case built on the symlink base, whose directories they pin.
+	// docker gets no mount, so the parity oracle checks the mount left no trace.
+	mounts []string
 }
+
+// swapMountTargets are the directories the symlink base ships as a symlink, or names
+// through one. A mount under any of them pins it as a real directory, and kaniko then has
+// to keep the pinned directory and the symlink two names for one directory (mz1073).
+var swapMountTargets = []string{"/opt/driver", "/opt/driver/sub", "/opt/driver/link", "/opt/driver/far", "/opt/via"}
 
 // generate turns a byte source into a Dockerfile and its context. It does not try
 // to guarantee the build succeeds: docker is the arbiter of validity. A Dockerfile
@@ -266,14 +275,20 @@ func generate(s *source, bases []string) genResult {
 	// (FROM $SBASE). It must precede the first FROM; docker only allows pre-FROM ARGs in
 	// FROM. Its default is a real base so finalBaseRef can resolve the media type.
 	baseArg := ""
+	// Whether FROM $SBASE resolves to the symlink base, so a stage using it gets the swap
+	// instructions and the case gets the mounts.
+	argBaseSwap := false
 	if s.chance(3) {
 		baseArg = "SBASE"
-		fmt.Fprintf(&b, "ARG %s=%s\n", baseArg, srcPick(s, bases))
+		argBase := srcPick(s, bases)
+		fmt.Fprintf(&b, "ARG %s=%s\n", baseArg, argBase)
 		// Sometimes override the default at build time (dynamic base), threaded to both
 		// docker and kaniko via buildArgs so FROM $SBASE resolves to the overridden base.
 		if s.chance(2) {
-			buildArgs = append(buildArgs, baseArg+"="+srcPick(s, bases))
+			argBase = srcPick(s, bases)
+			buildArgs = append(buildArgs, baseArg+"="+argBase)
 		}
+		argBaseSwap = strings.Contains(argBase, symlinkBaseTag)
 	}
 	// Sometimes build from an empty base (FROM scratch), which has no shell or base
 	// filesystem, so the stage carries only file and metadata instructions, no RUN. A
@@ -288,6 +303,10 @@ func generate(s *source, bases []string) genResult {
 	// Set when a generated RUN --mount=type=secret appears, so both tools get the --secret
 	// flag and the secret-leak oracle runs on the built image.
 	usesSecret := false
+	// Stages whose filesystem carries the symlink base's /opt tree, so a later FROM stageN
+	// inherits it and its instructions can still reach the swapped paths.
+	stageSwap := map[string]bool{}
+	usesSwapBase := false
 	nstages := 1 + s.intn(4)
 	if scratch {
 		nstages = 1
@@ -305,6 +324,9 @@ func generate(s *source, bases []string) genResult {
 		} else if baseArg != "" && s.chance(2) {
 			base = "$" + baseArg // build-arg base (FROM $SBASE)
 		}
+		swapBase := strings.Contains(base, symlinkBaseTag) || stageSwap[base] || (baseArg != "" && base == "$"+baseArg && argBaseSwap)
+		stageSwap[fmt.Sprintf("stage%d", stage)] = swapBase
+		usesSwapBase = usesSwapBase || swapBase
 		if last {
 			fmt.Fprintf(&b, "FROM %s\n", base)
 			// A full-context COPY makes .dockerignore observable: docker and kaniko must
@@ -380,7 +402,7 @@ func generate(s *source, bases []string) genResult {
 
 		ninstr := 2 + s.intn(6)
 		for i := 0; i < ninstr; i++ {
-			c := s.intn(36)
+			c := s.intn(37)
 			// An empty base has no shell, so RUN-based instructions cannot execute at build
 			// time; remap them to a context COPY, which scratch supports. Metadata and other
 			// file instructions are already scratch-safe (ADD url downloads into the empty fs).
@@ -673,6 +695,37 @@ func generate(s *source, bases []string) genResult {
 					fmt.Fprintf(&b, "RUN mkdir -p /rl%d/real/sub /rl%d/a/sub && echo h > /rl%d/real/sub/f && echo i > /rl%d/a/sub/f\n", i, i, i, i)
 					fmt.Fprintf(&b, "RUN rm -rf /rl%d/a && ln -s real /rl%d/a\n", i, i)
 				}
+			case 36:
+				// Reach the symlink base's /opt tree through both names of a swapped pair.
+				// The case is built with mounts pinning some of those directories, so kaniko
+				// works on a swapped filesystem while docker works on the base as shipped, and
+				// the two images still have to come out the same.
+				if swapBase {
+					switch s.intn(6) {
+					case 0:
+						// write through the alias, read it back through its target
+						fmt.Fprintf(&b, "RUN echo sw%d > /opt/driver/d%d && cat /opt/real/d%d\n", i, i, i)
+					case 1:
+						// a base image file under a name a mount covers stays readable
+						fmt.Fprintf(&b, "RUN cat /opt/driver/sub/b > /opt/read%d\n", i)
+					case 2:
+						// a hardlink under a swapped pair names another entry of the same tar
+						fmt.Fprintf(&b, "RUN echo h%d > /opt/other/h%d && ln /opt/other/h%d /opt/other/l%d\n", i, i, i, i)
+					case 3:
+						// /opt/via names its target through /opt/link2, so the write lands under
+						// /opt/deep/inner and the layer has to name it there
+						fmt.Fprintf(&b, "RUN echo w%d > /opt/via/w%d && cat /opt/deep/inner/w%d\n", i, i, i)
+					case 4:
+						// the alias and the directory it names share one archive name
+						fmt.Fprintf(&b, "RUN echo y%d > /opt/other/y%d && touch -h /opt/other\n", i, i)
+					case 5:
+						// deleting a swapped symlink has to take its alias with it
+						fmt.Fprintf(&b, "RUN rm -rf /opt/real/far && echo p%d > /opt/elsewhere/p%d\n", i, i)
+					}
+				} else {
+					f := srcPick(s, regulars)
+					fmt.Fprintf(&b, "COPY %s /dest/%s\n", f, f)
+				}
 			}
 		}
 	}
@@ -877,7 +930,22 @@ func generate(s *source, bases []string) genResult {
 		}
 	}
 
-	return genResult{dockerfile: b.String(), context: ctx, kanikoFlags: flags, buildArgs: buildArgs, argNames: argNames, envFlags: envFlags, cacheCompression: cacheCompression, cacheLocal: cacheLocal, target: target, labels: labels, annotations: annotations, usesSecret: usesSecret, chaosEnv: chaosEnv}
+	// Pin a subset of the symlink base's directories, at least one. Which combination of
+	// paths a runtime mounts is what no fixture can enumerate, and each pinned path is one
+	// more swap the build has to get right at once.
+	var mounts []string
+	if usesSwapBase {
+		for _, t := range swapMountTargets {
+			if s.chance(2) {
+				mounts = append(mounts, t+"/lib.so")
+			}
+		}
+		if len(mounts) == 0 {
+			mounts = append(mounts, srcPick(s, swapMountTargets)+"/lib.so")
+		}
+	}
+
+	return genResult{dockerfile: b.String(), context: ctx, kanikoFlags: flags, buildArgs: buildArgs, argNames: argNames, envFlags: envFlags, cacheCompression: cacheCompression, cacheLocal: cacheLocal, target: target, labels: labels, annotations: annotations, usesSecret: usesSecret, chaosEnv: chaosEnv, mounts: mounts}
 }
 
 // argValue returns a build-arg value drawn from a pool biased toward strings that stress
