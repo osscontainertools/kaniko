@@ -90,6 +90,7 @@ type finding struct {
 	cacheCompression string
 	cacheLocal       bool
 	context          []fileSpec
+	mounts           []string
 }
 
 // mergeKnown folds src into f.known without dropping counts already there (a counted
@@ -269,6 +270,18 @@ HEALTHCHECK CMD /bin/true
 ENTRYPOINT ["/bin/echo", "base-entry"]
 CMD ["base-cmd"]
 `, true)
+
+	// Symlinked directories, nested and crossing each other. See symlinkBaseTag. Each
+	// symlink lands in a later layer than its target's content, or the tar orders
+	// opt/driver ahead of opt/real and the target does not exist yet at unpack time.
+	// /opt/real/sub/lib.so is a name a mount covers, so the base ships a file the mount
+	// shadows.
+	mintBase(t, strings.ToLower(config.imageRepo+symlinkBaseTag), "FROM "+alpineRef+`
+RUN mkdir -p /opt/real/sub /opt/other /opt/driver/link /opt/elsewhere /opt/deep/inner && echo sub > /opt/real/sub/b && echo base > /opt/real/sub/lib.so && echo other > /opt/other/c && echo far > /opt/elsewhere/d && ln -s /opt/deep /opt/link2
+RUN rm -rf /opt/driver/link && ln -s /opt/other /opt/driver/link
+RUN ln -s /opt/other /opt/real/link && ln -s /opt/elsewhere /opt/real/far && ln -s /opt/link2/inner /opt/via
+RUN rm -rf /opt/driver && ln -s /opt/real /opt/driver
+`, false)
 
 	// Mint a base carrying OCI manifest annotations, so a generated FROM against it
 	// exercises how base-image annotations are handled and propagated (build.go, mz507
@@ -483,7 +496,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	fail := func(sev severity, summary, detail string) *finding {
 		return &finding{
 			seed: seed, sev: sev, summary: summary, detail: detail, dockerfile: gen.dockerfile,
-			flags: gen.kanikoFlags, envFlags: gen.envFlags, cacheCompression: gen.cacheCompression, cacheLocal: gen.cacheLocal, context: gen.context,
+			flags: gen.kanikoFlags, envFlags: gen.envFlags, cacheCompression: gen.cacheCompression, cacheLocal: gen.cacheLocal, context: gen.context, mounts: gen.mounts,
 		}
 	}
 
@@ -503,7 +516,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 
 	// kaniko mirrors the final base's media type, so tell docker to emit the same.
 	dockerOut, dockerErr := runFuzzDocker(dir, dockerImage, dockerWantsOCI(gen), gen.buildArgs, gen.labels, gen.annotations, gen.target, gen.usesSecret)
-	kanikoOut, kanikoErr := runFuzzKanikoEnv(dir, kanikoImage, gen.kanikoFlags, covDir, gen.envFlags)
+	kanikoOut, kanikoErr := runFuzzKanikoEnv(dir, kanikoImage, gen.kanikoFlags, covDir, gen.envFlags, gen.mounts...)
 
 	if f := crashOr(kanikoOut); f != nil {
 		return f
@@ -614,9 +627,9 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		// the same per-case GOCOVERDIR as the fresh build (sequential, so it accumulates).
 		runCache := func(image, cov string) (string, error) {
 			if cacheHost != "" {
-				return runFuzzKanikoCache(dir, image, cacheArgs, cov, cacheHost, gen.envFlags)
+				return runFuzzKanikoCache(dir, image, cacheArgs, cov, cacheHost, gen.envFlags, gen.mounts...)
 			}
-			return runFuzzKanikoEnv(dir, image, cacheArgs, cov, gen.envFlags)
+			return runFuzzKanikoEnv(dir, image, cacheArgs, cov, gen.envFlags, gen.mounts...)
 		}
 		c0, ce0 := runCache(v0, covDir)
 		if f := crashOr(c0); f != nil {
@@ -705,9 +718,9 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 			}
 			runOff := func(image string) (string, error) {
 				if offHost != "" {
-					return runFuzzKanikoCache(dir, image, offArgs, "", offHost, offEnv)
+					return runFuzzKanikoCache(dir, image, offArgs, "", offHost, offEnv, gen.mounts...)
 				}
-				return runFuzzKanikoEnv(dir, image, offArgs, "", offEnv)
+				return runFuzzKanikoEnv(dir, image, offArgs, "", offEnv, gen.mounts...)
 			}
 			w0 := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-off0")
 			w1 := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-off1")
@@ -741,7 +754,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	// FUZZ_DETERMINISM because it adds kaniko builds per case. Two modes catch
 	// different classes, so a divergence is a nondeterminism bug either way.
 	if os.Getenv("FUZZ_DETERMINISM") == "1" {
-		if f := determinismOracle(label, dir, kanikoImage, gen.kanikoFlags, gen.envFlags, fail, crashOr); f != nil {
+		if f := determinismOracle(label, dir, kanikoImage, gen.kanikoFlags, gen.envFlags, fail, crashOr, gen.mounts...); f != nil {
 			// A cross-stage reproducible-determinism diff is the filed mz876 class (load
 			// dependent); count, do not report, so novel nondeterminism stays visible.
 			if f.sev == sevDeterminismDiff && isCrossStage(gen.dockerfile) {
@@ -881,7 +894,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	if os.Getenv("FUZZ_CHAOSFLAGS") == "1" && len(gen.chaosEnv) > 0 {
 		chaosImg := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-chaos")
 		defer runFuzzBounded(exec.Command("docker", "rmi", "-f", chaosImg))
-		cout, _ := runFuzzKanikoEnv(dir, chaosImg, gen.kanikoFlags, covDir, gen.chaosEnv)
+		cout, _ := runFuzzKanikoEnv(dir, chaosImg, gen.kanikoFlags, covDir, gen.chaosEnv, gen.mounts...)
 		if f := crashOr(cout); f != nil {
 			// Record the chaos toggles so the crash is reproducible.
 			f.envFlags = append(append([]string{}, gen.envFlags...), gen.chaosEnv...)
@@ -906,7 +919,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 // with itself, docker out of the loop. fresh is the already-built non-reproducible
 // image for the structural comparison. Returns a finding on any nondeterminism, else
 // nil. It removes the extra images it creates.
-func determinismOracle(label, dir, fresh string, flags, envFlags []string, fail func(severity, string, string) *finding, crashOr func(string) *finding) *finding {
+func determinismOracle(label, dir, fresh string, flags, envFlags []string, fail func(severity, string, string) *finding, crashOr func(string) *finding, mounts ...string) *finding {
 	repo := config.imageRepo
 
 	// Mode 1, structural: a second fresh build must match the first apart from
@@ -914,7 +927,7 @@ func determinismOracle(label, dir, fresh string, flags, envFlags []string, fail 
 	// between two runs of the identical input is nondeterminism.
 	b := strings.ToLower(repo + kanikoPrefix + label + "-det-b")
 	defer runFuzzBounded(exec.Command("docker", "rmi", "-f", b))
-	out, err := runFuzzKanikoEnv(dir, b, flags, "", envFlags)
+	out, err := runFuzzKanikoEnv(dir, b, flags, "", envFlags, mounts...)
 	if crash := detectCrash(out); crash != "" {
 		return fail(sevCrash, crash, out)
 	}
@@ -933,11 +946,11 @@ func determinismOracle(label, dir, fresh string, flags, envFlags []string, fail 
 	r0 := strings.ToLower(repo + kanikoPrefix + label + "-det-r0")
 	r1 := strings.ToLower(repo + kanikoPrefix + label + "-det-r1")
 	defer runFuzzBounded(exec.Command("docker", "rmi", "-f", r0, r1))
-	o0, e0 := runFuzzKanikoEnv(dir, r0, append([]string{"--reproducible"}, flags...), "", envFlags)
+	o0, e0 := runFuzzKanikoEnv(dir, r0, append([]string{"--reproducible"}, flags...), "", envFlags, mounts...)
 	if f := crashOr(o0); f != nil {
 		return f
 	}
-	o1, e1 := runFuzzKanikoEnv(dir, r1, append([]string{"--reproducible"}, flags...), "", envFlags)
+	o1, e1 := runFuzzKanikoEnv(dir, r1, append([]string{"--reproducible"}, flags...), "", envFlags, mounts...)
 	if f := crashOr(o1); f != nil {
 		return f
 	}
@@ -1243,6 +1256,14 @@ const (
 	// fail in both tools and count as sterile.
 	richConfigBaseTag = "fuzz-config-base:latest"
 
+	// A base whose /opt is a tree of symlinked directories, nested and crossing each other.
+	// A case built on it is run with read-only mounts pinning some of those paths, the shape
+	// a container runtime creates when it bind-mounts driver files into the build container,
+	// and kaniko then has to keep each pinned directory and its symlink two names for one
+	// directory (mz1073). docker builds the same Dockerfile with no mount at all, so the
+	// parity oracle compares the swapped result against the mount-free truth.
+	symlinkBaseTag = "fuzz-symlink-base:latest"
+
 	// Docker-Hub-normalized copies of the two upstream bases, mirrored a second time under
 	// the repository path a bare docker.io ref resolves to ("alpine" -> library/alpine).
 	// They let the registry-mirror oracle build a case from a real docker.io reference and
@@ -1335,6 +1356,7 @@ func fuzzBaseRefs() []string {
 		strings.ToLower(repo + annotBaseTag),
 		strings.ToLower(repo + multiLayerBaseTag),
 		strings.ToLower(repo + richConfigBaseTag),
+		strings.ToLower(repo + symlinkBaseTag),
 	}
 }
 
@@ -1518,11 +1540,33 @@ func runFuzzKaniko(contextDir, image string, extra []string, covDir string) (str
 	return runFuzzKanikoEnv(contextDir, image, extra, covDir, nil)
 }
 
+// fuzzMountSource is the host file every pinned path is mounted from. One fixed file for
+// the whole campaign, so two builds of a case see identical mounted content.
+const fuzzMountSource = "testdata/Dockerfile.trivial"
+
+// fuzzMountFlags turns a case's pinned container paths into docker run -v specs. Read-only,
+// which is how a runtime mounts driver files in, and what makes the path busy for kaniko.
+func fuzzMountFlags(mounts []string) []string {
+	if len(mounts) == 0 {
+		return nil
+	}
+	src, err := filepath.Abs(fuzzMountSource)
+	if err != nil {
+		return nil
+	}
+	var flags []string
+	for _, m := range mounts {
+		flags = append(flags, "-v", src+":"+m+":ro")
+	}
+	return flags
+}
+
 // runFuzzKanikoCache is runFuzzKaniko with a host directory bind-mounted at /cache for
 // the base-image cache. The caller passes --cache-dir=/cache in extra. Used by the
 // warmer oracle so the executor reads the base layers the warmer wrote there.
-func runFuzzKanikoCache(contextDir, image string, extra []string, covDir, cacheDir string, envOverride []string) (string, error) {
+func runFuzzKanikoCache(contextDir, image string, extra []string, covDir, cacheDir string, envOverride []string, mounts ...string) (string, error) {
 	flags := []string{"run", "--rm", "--net=host", "-v", contextDir + ":/workspace:ro", "-v", cacheDir + ":/cache"}
+	flags = append(flags, fuzzMountFlags(mounts)...)
 	for _, e := range KanikoEnv {
 		flags = append(flags, "-e", e)
 	}
@@ -1546,8 +1590,10 @@ func runFuzzKanikoCache(contextDir, image string, extra []string, covDir, cacheD
 // runFuzzKanikoEnv is runFuzzKaniko with extra -e env vars appended after KanikoEnv.
 // docker keeps the last value for a repeated -e, so an override here wins over the
 // KanikoEnv default (used to flip FF_KANIKO_* flags off for the invariance oracle).
-func runFuzzKanikoEnv(contextDir, image string, extra []string, covDir string, envOverride []string) (string, error) {
+// mounts are the case's pinned container paths, bind-mounted read-only into the build.
+func runFuzzKanikoEnv(contextDir, image string, extra []string, covDir string, envOverride []string, mounts ...string) (string, error) {
 	flags := []string{"run", "--rm", "--net=host", "-v", contextDir + ":/workspace:ro"}
+	flags = append(flags, fuzzMountFlags(mounts)...)
 	for _, e := range KanikoEnv {
 		flags = append(flags, "-e", e)
 	}
@@ -2453,8 +2499,8 @@ func writeFinding(outDir string, f finding) error {
 	if err := os.WriteFile(filepath.Join(dir, "repro.sh"), []byte(reproScript(f)), 0o755); err != nil {
 		return err
 	}
-	report := fmt.Sprintf("seed: %d\nseverity: %s\nsummary: %s\nflags: %s\nenvFlags: %s\ncacheCompression: %q\ncacheLocal: %v\n\n%s\n",
-		f.seed, f.sev, f.summary, strings.Join(f.flags, " "), strings.Join(f.envFlags, " "), f.cacheCompression, f.cacheLocal, f.detail)
+	report := fmt.Sprintf("seed: %d\nseverity: %s\nsummary: %s\nflags: %s\nenvFlags: %s\ncacheCompression: %q\ncacheLocal: %v\nmounts: %s\n\n%s\n",
+		f.seed, f.sev, f.summary, strings.Join(f.flags, " "), strings.Join(f.envFlags, " "), f.cacheCompression, f.cacheLocal, strings.Join(f.mounts, " "), f.detail)
 	return os.WriteFile(filepath.Join(dir, "report.txt"), []byte(report), 0o644)
 }
 
@@ -2487,9 +2533,15 @@ func reproScript(f finding) string {
 	// No set -e: diffoci exits non-zero when images differ, which is exactly the finding
 	// we want to see, not a reason to abort before later sections run.
 	b.WriteString("# Run from this directory. Assumes the fuzz local registry and executor-image are up.\nset -ux\n")
-	fmt.Fprintf(&b, "CTX=\"$(cd \"$(dirname \"$0\")/context\" && pwd)\"\nENV=\"%s\"\nFLAGS=\"%s\"\nREPO=%q\n\n", strings.TrimSpace(env.String()), flagStr, repo)
+	// The pinned paths the case was built with. Their source is any file, so the reproducer
+	// mounts its own Dockerfile rather than depending on a path in the kaniko tree.
+	var mounts strings.Builder
+	for _, m := range f.mounts {
+		fmt.Fprintf(&mounts, " -v \"$CTX\"/Dockerfile:%s:ro", m)
+	}
+	fmt.Fprintf(&b, "CTX=\"$(cd \"$(dirname \"$0\")/context\" && pwd)\"\nENV=\"%s\"\nFLAGS=\"%s\"\nMOUNTS=\"%s\"\nREPO=%q\n\n", strings.TrimSpace(env.String()), flagStr, strings.TrimSpace(mounts.String()), repo)
 	b.WriteString("# fresh build (docker-parity / determinism baseline)\n")
-	fmt.Fprintf(&b, "docker run --rm --net=host -v \"$CTX\":/workspace:ro $ENV %s -f /workspace/Dockerfile -c /workspace -d ${REPO}%s-fresh $FLAGS\n\n", ExecutorImage, tag)
+	fmt.Fprintf(&b, "docker run --rm --net=host -v \"$CTX\":/workspace:ro $MOUNTS $ENV %s -f /workspace/Dockerfile -c /workspace -d ${REPO}%s-fresh $FLAGS\n\n", ExecutorImage, tag)
 	b.WriteString("# cache populate then consume, compared byte-strict (cache oracle)\n")
 	// The case's cache backend: an on-disk OCI layout shared across the two builds, or a
 	// registry repo. The built image must not depend on which.
@@ -2500,10 +2552,10 @@ func reproScript(f finding) string {
 		cacheMount = " -v \"$LAYOUT\":/cache"
 		b.WriteString("LAYOUT=$(mktemp -d)\n")
 	}
-	fmt.Fprintf(&b, "for v in v0 v1; do docker run --rm --net=host -v \"$CTX\":/workspace:ro%s $ENV %s -f /workspace/Dockerfile -c /workspace -d ${REPO}%s-$v --cache=true --cache-copy-layers=true %s %s $FLAGS; done\n", cacheMount, ExecutorImage, tag, cacheRepoArg, comp)
+	fmt.Fprintf(&b, "for v in v0 v1; do docker run --rm --net=host -v \"$CTX\":/workspace:ro%s $MOUNTS $ENV %s -f /workspace/Dockerfile -c /workspace -d ${REPO}%s-$v --cache=true --cache-copy-layers=true %s %s $FLAGS; done\n", cacheMount, ExecutorImage, tag, cacheRepoArg, comp)
 	fmt.Fprintf(&b, "diffoci diff --pull=always --ignore-image-name --ignore-image-timestamps%s ${REPO}%s-v0 ${REPO}%s-v1\n\n", cacheIgnore, tag, tag)
 	b.WriteString("# determinism (reproducible, byte-strict) - relevant for DETERMINISM_DIFF\n")
-	fmt.Fprintf(&b, "for r in r0 r1; do docker run --rm --net=host -v \"$CTX\":/workspace:ro $ENV %s -f /workspace/Dockerfile -c /workspace -d ${REPO}%s-$r --reproducible $FLAGS; done\n", ExecutorImage, tag)
+	fmt.Fprintf(&b, "for r in r0 r1; do docker run --rm --net=host -v \"$CTX\":/workspace:ro $MOUNTS $ENV %s -f /workspace/Dockerfile -c /workspace -d ${REPO}%s-$r --reproducible $FLAGS; done\n", ExecutorImage, tag)
 	fmt.Fprintf(&b, "diffoci diff --pull=always --ignore-image-name ${REPO}%s-r0 ${REPO}%s-r1\n", tag, tag)
 	return b.String()
 }
