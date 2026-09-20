@@ -98,6 +98,28 @@ resolving dest symlink: failed to eval symlinks: lstat /dest/ctx0: no such file 
 
 docker builds, because it dereferenced the symlink and there is no dangling link. This is a build-outcome divergence: kaniko refuses to build a Dockerfile docker builds. It is a more clear-cut bug than the expected divergences below and is a strong candidate to file. It is a direct consequence of the copy-symlink-dereference behavior.
 
+### deleting a swapped symlink name hits the busy mount
+
+```dockerfile
+FROM localhost:5000/fuzz-symlink-base:latest
+RUN rm -rf /opt/real/far
+RUN echo done > /marker
+```
+
+Built with `-v lib.so:/opt/driver/far/lib.so:ro`, which is the symlink base plus one pinned path. The first campaign against that base ran 288 cases with up to four paths pinned at once and reported four findings, every one of them this shape, with no crash, cache or determinism diff beside it.
+
+```
+rm: can't remove '/opt/real/far/lib.so': Resource busy
+rm: can't remove '/opt/real/far': Directory not empty
+error building image: error building stage: failed to execute command: waiting for process to exit: exit status 1
+```
+
+The base ships `/opt/driver -> /opt/real` and `/opt/real/far -> /opt/elsewhere`. The runtime creates `/opt/driver/far` as a real directory before the base is extracted, so `/opt/driver` cannot become a symlink and the swap keeps the directory and makes `/opt/real` the name that resolves into it. `/opt/real/far` is then the pinned directory rather than a symlink, and the build's own `rm -rf` tries to unlink the mount. docker builds the same Dockerfile, because it has no such mount.
+
+Three variants pin what causes it. With the flag off and the same mount the build succeeds, and the image matches docker apart from timestamps and history. With the flag on and no mount it succeeds. With the flag off and `rm -rf /opt/driver/far`, the name the runtime actually mounted, it fails the same way.
+
+So this is not swap bookkeeping. Unlinking a bind mount needs privileges kaniko does not have, and the failure already existed for the mounted path itself. What the swap changes is which names reach it: the base image's symlink name now resolves into the pinned directory too, so a Dockerfile that deletes the symlink aborts where it used to build. The fuzzer counts it as a known build failure rather than reporting it, so the delete shape keeps being generated and a different failure under it still surfaces.
+
 ## Expected divergences, not bugs
 
 These are real and stable, but reflect either intended kaniko behavior or long-standing differences that are not obviously wrong. They are counted in the classifier baseline, not reported as findings.
