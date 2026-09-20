@@ -152,6 +152,12 @@ The `Flag` field ties the catalog to the compatibility work. When a new flag shi
 
 The classifier reports counts per class per campaign. As flags graduate the known noise shrinks, and a new novel class stands out against a quiet baseline.
 
+### Feature-flag dependencies
+
+Some flags are not independent. `FF_KANIKO_SKIP_CACHED_STAGES` eliminates fully cached stages after the cache lookahead, so it is meaningless without `FF_KANIKO_CACHE_LOOKAHEAD`. The fuzzer never generates that invalid pair today because `CACHE_LOOKAHEAD` is pinned on in `KanikoEnv`, but the dependency is real and worth stating. The output-neutral flags that ride in the randomized envFlags pool (`SKIP_CACHED_STAGES`, `SHARED_BASE_CACHE`, `DISABLE_HTTP2`, and the cache-key flags) are toggled independently, so a combination that no hand-written test would try is normal for the fuzzer.
+
+That independence is the point, and it found mz960. With `CACHE_LOOKAHEAD`, `SKIP_CACHED_STAGES`, and `INFER_CROSS_STAGE_CACHE_KEY` all on, a cache-consume build with a `COPY --from` to a fully cached chained stage aborts, because the inferred cross-stage key marks the stage fully cached, `SKIP_CACHED_STAGES` eliminates it after the lookahead, and the optimize pass then cannot find its deps at `/kaniko/deps/N`. Turning off any one of the three fixes it. A build that succeeds fresh must never fail on the cache-consume path regardless of the flag combination, so this is a bug rather than an unsupported combo, and it is counted as a known build failure until the fix lands.
+
 ## The cache oracle
 
 docker is not the only oracle. kaniko must also agree with itself across a cache. A build that populates a cache and a build that consumes it have to produce the same image. `verifyBuildWith` in `integration/integration_test.go` already does exactly this: it builds a Dockerfile once to fill a fresh cache, builds it again to read from the cache, then compares the two with `containerDiff` and no ignores at all. The comparison is strict because both sides are kaniko, so there is no docker nondeterminism to excuse away.
@@ -193,6 +199,12 @@ A performance flag that only changes how kaniko caches or detects changes must n
 The first target is `FF_KANIKO_CACHE_LOOKAHEAD` (with the related `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY` and `FF_KANIKO_RESOLVE_CACHE_KEY`). Build the case with `--cache` and the flag on, and again with it off, and compare the images byte-strict apart from image name and config timestamp. mz872 is exactly this class: lookahead over-folds later ARGs into an earlier command's aggregate cache key, which the internal `executor.build.cache-lookahead` assertion catches as a crash. This oracle also catches the silent variant, where lookahead does not crash but serves a wrong cached layer, which no assertion covers. It generalizes to any flag that is meant to be output-neutral, for example `--compressed-caching` and `--cache-run-layers`.
 
 The wrinkle is that the flag lives in the environment, not the build args, so the harness needs an env override on one of the two builds rather than a CLI flag. A case where the flag-on build crashes on an assertion is already caught by crash detection before this oracle runs.
+
+### Warmer invariance
+
+The cache warmer only pre-fetches base image layers into a `--cache-dir`, so whether a build reads its base from a warmed cache or pulls it cold, the result must be the same image. The oracle warms a fresh cache dir with the case's base images, then builds the case twice with identical flags, once with the warmed dir and once with an empty one, and compares. Both builds pass `--cache-run-layers=false` and `--no-push-cache` so the layer cache stays inert and the base-image cache is the only variable. A divergence is a warmer bug: a wrong, corrupted, or restamped base layer served from the cache.
+
+It runs in two modes for the same reason the determinism oracle does. The structural mode ignores file timestamps, since the two builds run at different wall-clock times, and catches content, mode, ownership, and layout differences. The reproducible mode builds both sides with `--reproducible`, which pins timestamps, so the two can be compared byte-strict apart from image name. Combined with `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`, which carries base layers through unrewritten, that byte-strict pass catches a warmer that stores a base layer even a byte differently from a fresh pull, which the timestamp-tolerant mode would hide. This oracle also grows coverage into `pkg/warmer`, which no other oracle reaches. Gated behind `FUZZ_WARMER` because it adds a warmer run plus extra builds per case.
 
 ### Deferred or arbitration-only
 
