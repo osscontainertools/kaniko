@@ -1170,15 +1170,6 @@ delay of 1 second. Defaults to `0`.
 Opting into the Preview profile gives you early access to upcoming performance improvements, bugfixes and features. While these flags are tested and ready to use, implementation details may still change.
 
 ```sh
-FF_KANIKO_ADD_CHECKSUM=true
-FF_KANIKO_CACHE_HASH_BLAKE3=true
-FF_KANIKO_COPY_SKIP_SPECIAL_FILES=true
-FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES=true
-FF_KANIKO_NATIVE_COPY=true
-FF_KANIKO_PLATFORM_CACHE_KEY=true
-FF_KANIKO_POOL_REGISTRY_CONNECTIONS=true
-FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS=true
-FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT=true
 FF_KANIKO_RUN_VIA_TINI=true
 ```
 
@@ -1233,14 +1224,14 @@ Currently no plans to activate.
 #### Flag `FF_KANIKO_COPY_SKIP_SPECIAL_FILES`
 
 `COPY` reads each source file to copy it, which is wrong for anything that is not a regular file. A socket fails the build with `ENXIO`, and a block or character device is read as if it were a file, baking its contents into the image in place of the device node.
-Set this flag to `true` to skip both with a warning instead. Fifos are always recreated with `mkfifo` regardless of this flag, since opening one hung the build outright. Defaults to `false`.
-Becomes default in `v1.29.0`.
+Set this flag to `true` to skip both with a warning instead. Fifos are always recreated with `mkfifo` regardless of this flag, since opening one hung the build outright. Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_NATIVE_COPY`
 
-Three copy paths use the `github.com/otiai10/copy` library instead of kaniko's own copy: persisting a stage's files so `COPY --from=<stage>` can read them, the cross-device fallback when a bind mount target is moved aside, and the `RUN --mount=type=bind` source copy. The library copies every file on its own and knows nothing about hardlinks or file capabilities, so all three expand hardlinks into independent copies. Capabilities fare a little better: the cross-stage save reapplies them, but only to the path named in the `COPY`, so a file carrying capabilities inside a copied directory still loses them, and the two mount paths do not reapply them at all. For the cross-stage save all of this happens before the dependent stage ever sees the files, which is why `FF_KANIKO_PRESERVE_HARDLINKS` alone cannot keep the hardlinks.
-Set this flag to `true` to use kaniko's own copy for all three, walking each tree once and linking repeated inodes instead of duplicating them. Defaults to `false`.
-Becomes default in `v1.29.0`.
+Three copy paths use the `github.com/otiai10/copy` library instead of kaniko's own copy: persisting a stage's files so `COPY --from=<stage>` can read them, the cross-device fallback when a bind mount target is moved aside, and the `RUN --mount=type=bind` source copy. The library copies every file on its own and knows nothing about hardlinks or file capabilities, so all three expand hardlinks into independent copies. Capabilities fare a little better: the cross-stage save reapplies them, but only to the path named in the `COPY`, so a file carrying capabilities inside a copied directory still loses them, and the two mount paths do not reapply them at all. For the cross-stage save all of this happens before the dependent stage ever sees the files, which is why hardlink-preserving extraction alone cannot keep the hardlinks.
+Set this flag to `true` to use kaniko's own copy for all three, walking each tree once and linking repeated inodes instead of duplicating them. Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`
 
@@ -1279,15 +1270,15 @@ Will be deprecated in `v1.30.0`.
 
 Multi-arch builds would write to the same cache causing false positive cache hits.
 Set this flag to `true` to add the target platform to the cache key.
-Defaults to `false`.
-Becomes default in `v1.29.0`.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_CACHE_HASH_BLAKE3`
 
 `COPY` and `ADD` inputs are folded into the layer cache key with md5, which is not collision resistant.
 Set this flag to `true` to fold them with [BLAKE3](https://github.com/BLAKE3-team/BLAKE3) instead.
-Defaults to `false`.
-Becomes default in `v1.29.0`.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_CACHE_PROBE_AFTER_MISS`
 
@@ -1301,8 +1292,8 @@ Defaults to `false`.
 #### Flag `FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS`
 
 Ubuntu ships `/lib` as a symlink to `/usr/lib`. A bind-mount into `/lib`, as the NVIDIA GPU operator does on GPU nodes, forces it to stay a real directory, so kaniko drops the symlink and nothing reaches the base image files through `/lib` any more. Every `RUN` then fails with `fork/exec /bin/sh: no such file or directory`.
-Set this flag to `true` to keep both paths resolving to the same files. Defaults to `false`.
-Becomes default in `v1.29.0`.
+Set this flag to `true` to keep both paths resolving to the same files. Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`
 
@@ -1315,8 +1306,8 @@ Will be deprecated in `v1.30.0`.
 
 `--reproducible` internally uses go-containerregistry's `mutate.Canonical`. It re-writes every image to dockerv2+gzip, no matter the base image or the flags you passed.
 Set this flag to `true` to keep the compression and the image format the build was asked for.
-Defaults to `false`.
-Becomes default in `v1.29.0`.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_SCOPED_DOCKERIGNORE`
 
@@ -1409,22 +1400,22 @@ Will be deprecated in `v1.30.0`.
 #### Flag `FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES`
 
 Before `v1.25.0` a command that changed no files, `WORKDIR /` for example, was cached as an entry without a layer. kaniko no longer writes such entries, but on a hit it still accepts one and logs `No files were changed, appending empty layer to config`. Set this flag to `true` to reject them.
-Defaults to `false`.
-Becomes default in `v1.29.0`.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_ADD_CHECKSUM`
 
 `ADD --checksum=sha256:<hex> <url> <dest>` states that the download has to hash to the given digest. With this flag off kaniko parses the flag and never checks it, so a substituted download is added to the image and the build succeeds.
 Set this flag to `true` to verify the download and fail the build on a mismatch.
-Defaults to `false`.
-Becomes default in `v1.29.0`.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_POOL_REGISTRY_CONNECTIONS`
 
 With this flag off a build opens a new connection for every registry operation and repeats the token exchange each time.
 Set this flag to `true` to share one connection pool per registry.
-Defaults to `false`.
-Becomes default in `v1.29.0`.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 ### Assertion Overrides
 
