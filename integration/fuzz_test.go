@@ -1134,7 +1134,10 @@ func runFuzzCase(t *testing.T, seed int64, input []byte, tracker *coverageTracke
 		os.Chmod(covDir, 0o777)
 	}
 
-	f := buildAndClassify(t, seed, label, gen, covDir, false)
+	// FUZZ_NOCACHE aims a campaign at the docker oracle: the cache oracle is two of the
+	// four builds a case makes, so dropping it roughly doubles the cases per minute that
+	// reach a docker comparison.
+	f := buildAndClassify(t, seed, label, gen, covDir, os.Getenv("FUZZ_NOCACHE") == "1")
 
 	newCov := 0
 	if n, cerr := tracker.observe(covDir); cerr != nil {
