@@ -51,6 +51,7 @@ var chaosFlags = []string{
 	"FF_KANIKO_OCI_SCRATCH_BASE", "FF_KANIKO_OCI_WARMER",
 	"FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH", "FF_KANIKO_PRECOMPILE_DOCKERIGNORE",
 	"FF_KANIKO_PRESERVE_HARDLINKS", "FF_KANIKO_PRESERVE_MOUNTED_PATHS",
+	"FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS",
 	"FF_KANIKO_RELATIVE_LINK_TARGETS", "FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS",
 	"FF_KANIKO_RESOLVE_CACHE_KEY", "FF_KANIKO_ROLLING_CACHE_KEY",
 	"FF_KANIKO_RUN_HONOR_GROUP", "FF_KANIKO_RUN_MOUNT_BIND",
@@ -835,6 +836,7 @@ func generate(s *source, bases []string) genResult {
 		"FF_KANIKO_CLEAN_KANIKO_DIR",          // wipe /kaniko after build, image unaffected
 		"FF_KANIKO_SKIP_RELABEL_RECOMPRESS",   // relabel a converted layer without recompress; digest-asserted equal
 		"FF_KANIKO_DISABLE_HTTP2",             // registry transport over HTTP/1.1, image unaffected
+		"FF_KANIKO_POOL_REGISTRY_CONNECTIONS", // one connection pool per registry (mz961), transport-only
 		"FF_KANIKO_SHARED_BASE_CACHE",         // dedup base-image downloads across stages (mz936), image unaffected
 		"FF_KANIKO_SKIP_CACHED_STAGES",        // squash fully cached stages after lookahead (mz334), final image unaffected
 		"FF_KANIKO_CROSS_REPO_MOUNT",          // mount a blob the registry already holds instead of uploading it (mz989)
