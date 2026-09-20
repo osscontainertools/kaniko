@@ -52,6 +52,33 @@ WORKDIR /work/dir4
 
 `/work` and `/work/dir4` are created. docker owns both by uid `1000`, kaniko owns `/work/dir4` by `1000` but `/work` by root. `MkdirAllWithPermissions` calls `os.MkdirAll` then chowns only the final path, so intermediate parents stay root owned.
 
+### 1038: base-image layer annotations propagate into derived images
+
+```dockerfile
+FROM ubuntu
+RUN echo hi > /marker
+```
+
+Layers inherited from the base keep that base's descriptor annotations. `ubuntu`
+ships `ci.umo.uncompressed_blob_size` on its layer descriptors, kaniko copies it
+onto the derived image's layers, docker strips it. `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS`
+covers only manifest-level annotations: `WithoutAnnotations` nils
+`manifest.annotations` and never touches `manifest.layers[].annotations`.
+
+**The fuzzer cannot reach this.** Its bases are pinned: alpine is a docker v2
+manifest, whose layer descriptors have no annotations field at all, and debian is
+OCI but ships `annotations: null`. No generated Dockerfile can exercise
+propagation when nothing in the input space carries an annotation to propagate.
+The oracle was strict enough — layer descriptors are compared unless
+`--single-snapshot` relaxes the layer count — so this is an input-space gap, not
+a comparison gap.
+
+The generator varies Dockerfile content and treats base images as fixed opaque
+inputs, so every bug that depends on base-image *metadata* is out of reach the
+same way: manifest annotations, config labels and env, foreign layers, empty
+layers. Minting a base that carries the property, as the ONBUILD base already
+does for image-config triggers, is the shape of the fix.
+
 ## Confirmed real, not yet filed
 
 ### dangling-symlink dest resolution failure
