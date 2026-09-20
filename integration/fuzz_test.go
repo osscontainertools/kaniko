@@ -653,10 +653,8 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		cacheDiff, cacheSame, _ := runFuzzDiffoci(v0, v1, cacheIgnores)
 
 		// The cache oracle uses no allowlist: both sides are kaniko building the
-		// identical context, so any diff is novel and outranks a cross-tool diff.
-		// But diffoci compares through the docker daemon (the insecure registry blocks
-		// diffoci's direct read), which can misread a layer under concurrent load. So a
-		// diff is diagnosed against registry ground truth before it is trusted: a diff
+		// identical context, so any diff is novel and outranks a cross-tool diff. A diff
+		// is still diagnosed against registry ground truth before it is trusted: a diff
 		// that does not reproduce is a measurement artifact, counted not reported.
 		if !cacheSame {
 			real, evidence := diagnoseCacheDiff(v0, v1, cacheIgnores, cacheDiff)
@@ -2355,17 +2353,13 @@ func tarDirTo(srcDir, outPath string) error {
 	return nil
 }
 
-// runFuzzDiffoci pulls both images and diffs them with the given ignores. It
-// returns the diff output, whether the images are identical, and any tool error.
+// runFuzzDiffoci diffs both images straight from the registry with the given
+// ignores. It returns the diff output, whether the images are identical, and any
+// tool error.
 func runFuzzDiffoci(image1, image2 string, ignores []string) (string, bool, error) {
-	if out, err := runFuzzBounded(exec.Command("docker", "pull", image1)); err != nil {
-		return string(out), false, fmt.Errorf("pull %s: %w", image1, err)
-	}
-	if out, err := runFuzzBounded(exec.Command("docker", "pull", image2)); err != nil {
-		return string(out), false, fmt.Errorf("pull %s: %w", image2, err)
-	}
-	args := append([]string{"diff"}, ignores...)
-	args = append(args, daemonPrefix+image1, daemonPrefix+image2)
+	// cases reuse tags, so a cached copy of an earlier case's image would be compared instead
+	args := append([]string{"diff", "--pull=always"}, ignores...)
+	args = append(args, image1, image2)
 	out, err := runFuzzBounded(exec.Command("diffoci", args...))
 	return string(out), err == nil, err
 }
@@ -2394,27 +2388,23 @@ func craneLayerDigests(image string) ([]string, error) {
 }
 
 // diagnoseCacheDiff decides whether a diffoci cache diff is a real divergence or a
-// docker-daemon measurement artifact. diffoci must compare through the daemon because
-// the insecure registry blocks its direct read, and under concurrent load (many workers
-// pulling, pushing, and rmi-ing at once) the daemon can hand diffoci a wrong layer. Two
-// daemon-free checks confirm the diff: crane reads the registry layer digests directly,
-// and a re-compare after dropping the daemon copies re-fetches from the registry. A diff
-// that neither confirms did not reproduce and is treated as an artifact.
+// measurement artifact of a registry under concurrent load from many workers. Two
+// checks confirm the diff: crane reads the registry layer digests directly, and the
+// comparison is run a second time. A diff that neither confirms did not reproduce and
+// is treated as an artifact.
 func diagnoseCacheDiff(v0, v1 string, ignores []string, firstDetail string) (bool, string) {
 	var b strings.Builder
 	d0, e0 := craneLayerDigests(v0)
 	d1, e1 := craneLayerDigests(v1)
 	if e0 == nil && e1 == nil && len(d0) > 0 {
 		if strings.Join(d0, ",") == strings.Join(d1, ",") {
-			fmt.Fprintf(&b, "crane: registry layer digests are IDENTICAL, so the two images match and diffoci's diff came from the shared docker daemon, not the cache\n  layers = %v", d0)
+			fmt.Fprintf(&b, "crane: registry layer digests are IDENTICAL, so the two images match and diffoci's diff did not come from the cache\n  layers = %v", d0)
 			return false, b.String()
 		}
 		fmt.Fprintf(&b, "crane: registry layer digests differ\n  v0 = %v\n  v1 = %v\n", d0, d1)
 	} else {
 		fmt.Fprintf(&b, "crane manifest inconclusive (v0 err=%v, v1 err=%v, v0 layers=%d)\n", e0, e1, len(d0))
 	}
-	// Drop the daemon copies so the re-compare pulls fresh from the registry.
-	runFuzzBounded(exec.Command("docker", "rmi", "-f", v0, v1))
 	again, sameAgain, _ := runFuzzDiffoci(v0, v1, ignores)
 	if sameAgain {
 		fmt.Fprintf(&b, "diffoci re-run after fresh pull: IDENTICAL, the first diff did not reproduce (measurement artifact)")
@@ -2511,12 +2501,9 @@ func reproScript(f finding) string {
 		b.WriteString("LAYOUT=$(mktemp -d)\n")
 	}
 	fmt.Fprintf(&b, "for v in v0 v1; do docker run --rm --net=host -v \"$CTX\":/workspace:ro%s $ENV %s -f /workspace/Dockerfile -c /workspace -d ${REPO}%s-$v --cache=true --cache-copy-layers=true %s %s $FLAGS; done\n", cacheMount, ExecutorImage, tag, cacheRepoArg, comp)
-	// diffoci reads from the docker daemon, so pull the pushed images into it first.
-	fmt.Fprintf(&b, "docker pull ${REPO}%s-v0; docker pull ${REPO}%s-v1\n", tag, tag)
-	fmt.Fprintf(&b, "diffoci diff --ignore-image-name --ignore-image-timestamps%s docker://${REPO}%s-v0 docker://${REPO}%s-v1\n\n", cacheIgnore, tag, tag)
+	fmt.Fprintf(&b, "diffoci diff --pull=always --ignore-image-name --ignore-image-timestamps%s ${REPO}%s-v0 ${REPO}%s-v1\n\n", cacheIgnore, tag, tag)
 	b.WriteString("# determinism (reproducible, byte-strict) - relevant for DETERMINISM_DIFF\n")
 	fmt.Fprintf(&b, "for r in r0 r1; do docker run --rm --net=host -v \"$CTX\":/workspace:ro $ENV %s -f /workspace/Dockerfile -c /workspace -d ${REPO}%s-$r --reproducible $FLAGS; done\n", ExecutorImage, tag)
-	fmt.Fprintf(&b, "docker pull ${REPO}%s-r0; docker pull ${REPO}%s-r1\n", tag, tag)
-	fmt.Fprintf(&b, "diffoci diff --ignore-image-name docker://${REPO}%s-r0 docker://${REPO}%s-r1\n", tag, tag)
+	fmt.Fprintf(&b, "diffoci diff --pull=always --ignore-image-name ${REPO}%s-r0 ${REPO}%s-r1\n", tag, tag)
 	return b.String()
 }
