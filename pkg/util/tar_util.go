@@ -39,8 +39,11 @@ import (
 type Tar struct {
 	hardlinks map[hardlinkKey]string
 	names     map[string]bool
-	seen      map[string]struct{}
-	w         *tar.Writer
+	// seen is the assertion set, and it is not names: it also holds the whiteouts, and it
+	// records what was written rather than what was claimed, so a name skipped by the
+	// dedup above never counts as an entry.
+	seen map[string]struct{}
+	w    *tar.Writer
 }
 
 // NewTar will create an instance of Tar that can write files to the writer at f.
