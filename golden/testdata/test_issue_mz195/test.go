@@ -24,6 +24,7 @@ var Tests = types.GoldenTests{
 		{
 			Args: []string{"--destination=registry"},
 			Env: map[string]string{
+				"FF_KANIKO_CROSS_REPO_MOUNT":  "0",
 				"FF_KANIKO_SHARED_BASE_CACHE": "0",
 			},
 			Plan: "push",
