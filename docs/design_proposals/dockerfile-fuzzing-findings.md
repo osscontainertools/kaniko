@@ -13,7 +13,7 @@ This report lists the docker versus kaniko divergences surfaced by the different
 | chmod on implicit parent dir | `COPY --chmod=M f /new/f` | `/new` gets mode M | `/new` stays 0755 | filed mz863 |
 | ownership of implicit parent dir | `USER u` then `WORKDIR /new/sub` | `/new` owned by u | `/new` owned by root | filed mz864 |
 | dangling-symlink dest resolution | copy a symlink, then COPY through it | builds | build fails | real, not filed |
-| ADD url owner under USER | `USER u` then `ADD <url> /d/f` | file owned by root | file owned by u | real, not filed |
+| ADD url owner under USER | `USER u` then `ADD <url> /d/f`, COPY_AS_ROOT on | file owned by root | file owned by u | filed mz1112 |
 | history for metadata instructions | `ENV`, `LABEL`, ... | one history row each | no row emitted | expected divergence |
 | no-op RUN unchanged dir layer | a RUN with no net change on an existing dir | empty layer | layer holds the unchanged dir | expected divergence |
 | copy symlink dereference | `COPY symlink /dest/` | dereferences to a file | preserves the symlink | expected, kaniko correct |
@@ -103,6 +103,29 @@ Three variants pin what causes it. With the flag off and the same mount the buil
 
 So this is not swap bookkeeping. Unlinking a bind mount needs privileges kaniko does not have, and the failure already existed for the mounted path itself. What the swap changes is which names reach it: the base image's symlink name now resolves into the pinned directory too, so a Dockerfile that deletes the symlink aborts where it used to build. The fuzzer counts it as a known build failure rather than reporting it, so the delete shape keeps being generated and a different failure under it still surfaces.
 
+### mz1112: FF_KANIKO_COPY_AS_ROOT does not cover ADD from a URL
+
+```dockerfile
+FROM alpine
+USER daemon
+ADD --chmod=0600 http://127.0.0.1:8890/addfile /urlget3/addfile
+```
+
+docker leaves the downloaded file owned by uid 0, kaniko gives it uid 2, the active `USER`.
+
+Owning brought-in files by the active `USER` is kaniko's default and a deliberate divergence, since the spec says uid and gid 0 and flipping the default would break most Dockerfiles. `FF_KANIKO_COPY_AS_ROOT` is the opt-in that aligns it, and the campaign runs with it on. The finding is that the flag does not reach this path, so one image carries two conventions at once.
+
+| instruction, flag on, `USER daemon` | docker | kaniko |
+|---|---|---|
+| `COPY f /cp/f` | uid 0 | uid 0 |
+| `ADD f /addl/f`, a local file | uid 0 | uid 0 |
+| `ADD x.tar /extract/`, a local tar | tar's own uid | tar's own uid |
+| `ADD <url> /urlget/f` | uid 0 | uid 2 |
+
+`copy.go` reads `kConfig.FF.CopyAsRoot` and substitutes `0:0`. `add.go` calls `util.GetActiveUserGroup(config.User, a.cmd.Chown, ...)` and never consults the flag, so the uid and gid it hands to `DownloadFileToDest` are the active `USER`. A local file source lands on root only because `add.go` delegates it to the copy command, and a tar source keeps the uids in the archive.
+
+The mode row on the implicit parent (`urlget3/` 0600 versus 0755) that shows up beside it is the separate mz922 class.
+
 ## Confirmed real, not yet filed
 
 ### dangling-symlink dest resolution failure
@@ -121,20 +144,6 @@ resolving dest symlink: failed to eval symlinks: lstat /dest/ctx0: no such file 
 ```
 
 docker builds, because it dereferenced the symlink and there is no dangling link. This is a build-outcome divergence: kaniko refuses to build a Dockerfile docker builds. It is a more clear-cut bug than the expected divergences below and is a strong candidate to file. It is a direct consequence of the copy-symlink-dereference behavior.
-
-### ADD from a URL is owned by USER, not root
-
-```dockerfile
-FROM alpine
-USER daemon
-ADD --chmod=0600 http://127.0.0.1:8890/addfile /urlget3/addfile
-```
-
-docker leaves the downloaded file owned by uid 0, kaniko gives it uid 2, the active `USER`. `add.go` takes `uid, gid` from `util.GetActiveUserGroup(config.User, a.cmd.Chown, ...)` and hands them to `DownloadFileToDest`, so with no `--chown` the current USER owns the download.
-
-Three variants place it. Without the `USER` line both sides are uid 0. A `COPY` in the same stage under the same `USER` matches docker, because `FF_KANIKO_COPY_AS_ROOT` puts the copy path back on root. Only the URL download diverges, so kaniko is also inconsistent with itself: two file-producing instructions under one `USER` give the file two different owners.
-
-The mode row on the implicit parent (`urlget3/` 0600 versus 0755) that shows up beside it is the separate mz922 class.
 
 ## Expected divergences, not bugs
 
