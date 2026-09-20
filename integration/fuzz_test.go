@@ -1348,6 +1348,12 @@ func mintBase(t *testing.T, ref, dockerfile string, oci bool) {
 
 func fuzzBaseRefs() []string {
 	repo := config.imageRepo
+	// Aim a whole campaign at the swap. Drawn from a pool of eight, the symlink base is a
+	// third of the cases at best, which is too thin to say much about a mechanism whose
+	// defects came one per fixture.
+	if os.Getenv("FUZZ_SYMLINK_BASE_ONLY") == "1" {
+		return []string{strings.ToLower(repo + symlinkBaseTag)}
+	}
 	return []string{
 		strings.ToLower(repo + baseAlpineTag),
 		strings.ToLower(repo + baseDebianTag),
