@@ -44,6 +44,7 @@
 * push ignores a credential configured for the exact destination repository: by @WoozyMasta in https://github.com/osscontainertools/kaniko/pull/1014 https://github.com/osscontainertools/kaniko/pull/1046
 * `COPY` of a tree that spans a mount point hardlinks unrelated files together: https://github.com/osscontainertools/kaniko/pull/979
 * `COPY` of a directory containing a fifo hangs the build: https://github.com/osscontainertools/kaniko/pull/948
+* `FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS=false` a bind-mount over a base image symlink breaks every `RUN`: https://github.com/osscontainertools/kaniko/pull/1080
 
 ### Standardization
 * sticky bit gets lost on COPY: https://github.com/mzihlmann/kaniko/pull/45
@@ -79,6 +80,7 @@
 * `FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS=false` chown the parent directories `WORKDIR` creates implicitly to the active user, matching buildkit: https://github.com/osscontainertools/kaniko/pull/867
 * `FF_KANIKO_COPY_SKIP_SPECIAL_FILES=false` skip sockets and device files during `COPY`, matching Docker: https://github.com/osscontainertools/kaniko/pull/948
 * `FF_KANIKO_ADD_CHECKSUM=false` verify the digest `ADD --checksum` states: https://github.com/osscontainertools/kaniko/pull/1027
+* `FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT=false` `--reproducible` keeps the requested compression and format: https://github.com/osscontainertools/kaniko/pull/1047
 
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
@@ -109,6 +111,9 @@
 * `FF_KANIKO_SKIP_CACHED_STAGES=false` drop stages whose consumers all hit the cache: https://github.com/osscontainertools/kaniko/pull/871 https://github.com/osscontainertools/kaniko/pull/964
 * `FF_KANIKO_SHARED_BASE_CACHE=false` download a shared base image once instead of once per stage or `COPY --from`: https://github.com/osscontainertools/kaniko/pull/937 https://github.com/osscontainertools/kaniko/pull/949 https://github.com/osscontainertools/kaniko/pull/993
 * `FF_KANIKO_CROSS_REPO_MOUNT=false` mount layers the destination registry already holds: https://github.com/osscontainertools/kaniko/pull/990
+* `FF_KANIKO_CACHE_HASH_BLAKE3=false` hash cache-key inputs with blake3 instead of md5: by @BobDu in https://github.com/osscontainertools/kaniko/pull/1042
+* `FF_KANIKO_POOL_REGISTRY_CONNECTIONS=false` share one connection pool per registry: https://github.com/osscontainertools/kaniko/pull/972
+* `CopyDir` repeats stat and utimensat calls for every file: https://github.com/osscontainertools/kaniko/pull/1049
 
 ### Usability
 * if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
@@ -139,6 +144,7 @@
 * `COPY` and `ADD` `--chmod` now accepts symbolic notation (e.g. `go=u`, `u=rwX,go=rX`) in addition to octal: https://github.com/osscontainertools/kaniko/pull/800
 * `--image-format=docker|oci` pins the output manifest media type instead of inheriting it from the base image: https://github.com/osscontainertools/kaniko/pull/850
 * `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=false` match an `auths` entry by repository namespace: by @WoozyMasta in https://github.com/osscontainertools/kaniko/pull/1002
+* `kaniko bake` builds every target in a `kaniko-bake.hcl`: https://github.com/osscontainertools/kaniko/pull/773
 
 ### Telemetry
 * opt-in OpenTelemetry tracing via `KANIKO_TELEMETRY_ENDPOINT`, one trace per build: by @babs in https://github.com/osscontainertools/kaniko/pull/902 https://github.com/osscontainertools/kaniko/pull/951 https://github.com/osscontainertools/kaniko/pull/913 https://github.com/osscontainertools/kaniko/pull/931 https://github.com/osscontainertools/kaniko/pull/1019
@@ -146,6 +152,9 @@
 * report registry socket and request counts on the build span: https://github.com/osscontainertools/kaniko/pull/971
 * record the rendered build plan on the trace: https://github.com/osscontainertools/kaniko/pull/1022
 * `KANIKO_TELEMETRY_BUILD_ID` overrides the build id kaniko derives from the Dockerfile: https://github.com/osscontainertools/kaniko/pull/1033
+* `KANIKO_TELEMETRY_TOKEN_EXCHANGE_ENDPOINT` exchanges a CI identity token for a collector token: https://github.com/osscontainertools/kaniko/pull/1071
+* read CI attributes from github and gitlab predefined variables: https://github.com/osscontainertools/kaniko/pull/1072
+* `kaniko.build_id` derives from the CI job instead of the Dockerfile: https://github.com/osscontainertools/kaniko/pull/1072
 
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
