@@ -1,3 +1,60 @@
+# v1.28.5 Release 2026-09-20
+
+## Community Update
+Many thanks to @WoozyMasta, @pstoeckle, @7schroet, and @MikeMoore63 for reporting issues fixed in this release.
+
+## What's Changed
+### Bugfixes
+* `KANIKO_DIR` relocation deletes the directory instead of moving it: https://github.com/osscontainertools/kaniko/pull/1099
+* `--compression-level` below 1 is ignored: https://github.com/osscontainertools/kaniko/pull/1100
+* `FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS=false` a bind-mount over a base image symlink breaks every `RUN`: https://github.com/osscontainertools/kaniko/pull/1080
+* a base image mixing OCI and docker media types panics the build: https://github.com/osscontainertools/kaniko/pull/1079
+
+### Standardization
+* `FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT=false` `--reproducible` keeps the requested compression and format: https://github.com/osscontainertools/kaniko/pull/1047
+
+### Performance
+* `FF_KANIKO_CACHE_HASH_BLAKE3=false` hash cache-key inputs with blake3 instead of md5: by @BobDu in https://github.com/osscontainertools/kaniko/pull/1042
+* `FF_KANIKO_POOL_REGISTRY_CONNECTIONS=false` share one connection pool per registry: https://github.com/osscontainertools/kaniko/pull/972
+* `CopyDir` repeats stat and utimensat calls for every file: https://github.com/osscontainertools/kaniko/pull/1049
+
+### Telemetry
+* `KANIKO_TELEMETRY_TOKEN_EXCHANGE_ENDPOINT` exchanges a CI identity token for a collector token: https://github.com/osscontainertools/kaniko/pull/1071
+* read CI attributes from github and gitlab predefined variables: https://github.com/osscontainertools/kaniko/pull/1072
+* `kaniko.build_id` derives from the CI job instead of the Dockerfile: https://github.com/osscontainertools/kaniko/pull/1072
+
+### Maintenance
+* build(deps): bump step-security/harden-runner from 2.21.0 to 2.21.1: https://github.com/osscontainertools/kaniko/pull/1063
+* build(deps): bump google.golang.org/api from 0.294.0 to 0.298.0: https://github.com/osscontainertools/kaniko/pull/1062 https://github.com/osscontainertools/kaniko/pull/1077 https://github.com/osscontainertools/kaniko/pull/1097
+* build(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.33.1 to 1.33.5: https://github.com/osscontainertools/kaniko/pull/1068 https://github.com/osscontainertools/kaniko/pull/1081 https://github.com/osscontainertools/kaniko/pull/1090 https://github.com/osscontainertools/kaniko/pull/1101
+* build(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager from 0.4.1 to 0.4.7: https://github.com/osscontainertools/kaniko/pull/1068 https://github.com/osscontainertools/kaniko/pull/1081 https://github.com/osscontainertools/kaniko/pull/1090 https://github.com/osscontainertools/kaniko/pull/1092 https://github.com/osscontainertools/kaniko/pull/1101
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.109.1 to 1.113.1: https://github.com/osscontainertools/kaniko/pull/1068 https://github.com/osscontainertools/kaniko/pull/1081 https://github.com/osscontainertools/kaniko/pull/1090 https://github.com/osscontainertools/kaniko/pull/1092
+* build(deps): bump github.com/docker/cli from 29.7.2+incompatible to 29.8.1+incompatible: https://github.com/osscontainertools/kaniko/pull/1075 https://github.com/osscontainertools/kaniko/pull/1102
+* build(deps): bump docker/setup-qemu-action from 4.2.0 to 4.4.0: https://github.com/osscontainertools/kaniko/pull/1067 https://github.com/osscontainertools/kaniko/pull/1105
+* build(deps): bump github.com/aws/aws-sdk-go-v2 from 1.45.1 to 1.47.0: https://github.com/osscontainertools/kaniko/pull/1081 https://github.com/osscontainertools/kaniko/pull/1089
+* build(deps): bump github.com/google/go-containerregistry from 0.22.0 to 0.22.1: https://github.com/osscontainertools/kaniko/pull/1081
+* build(deps): bump github.com/moby/moby/api from 1.55.0 to 1.56.0: https://github.com/osscontainertools/kaniko/pull/1076
+* build(deps): bump github.com/moby/buildkit from 0.32.2 to 0.33.0: https://github.com/osscontainertools/kaniko/pull/1070
+* build(deps): bump golang.org/x/sys from 0.47.0 to 0.48.0: https://github.com/osscontainertools/kaniko/pull/1085
+* build(deps): bump golang.org/x/sync from 0.22.0 to 0.23.0: https://github.com/osscontainertools/kaniko/pull/1083
+* build(deps): bump github.com/Azure/azure-sdk-for-go/sdk/storage/azblob from 1.8.0 to 1.8.1: https://github.com/osscontainertools/kaniko/pull/1092
+* build(deps): bump go from 1.26.7 to 1.26.8: https://github.com/osscontainertools/kaniko/pull/1095
+* build(deps): bump codecov/codecov-action from 7.0.0 to 7.1.1: https://github.com/osscontainertools/kaniko/pull/1096 https://github.com/osscontainertools/kaniko/pull/1105
+* build(deps): bump docker/build-push-action from 7.3.0 to 7.4.0: https://github.com/osscontainertools/kaniko/pull/1105
+* build(deps): bump docker/setup-buildx-action from 4.3.0 to 4.4.1: https://github.com/osscontainertools/kaniko/pull/1105
+* build(deps): bump docker/setup-docker-action from 5.4.0 to 5.5.0: https://github.com/osscontainertools/kaniko/pull/1105
+* build(deps): bump github.com/osscontainertools/docker-credential-acr from 0.9.0 to 0.9.1: https://github.com/osscontainertools/kaniko/pull/1106
+
+### Fork Related
+* replace the EOL bullseye fixture for 2049 with a synthetic repro: https://github.com/osscontainertools/kaniko/pull/1078
+* inline the media type classification: https://github.com/osscontainertools/kaniko/pull/1082
+* bump diffoci to containerd v2: https://github.com/osscontainertools/kaniko/pull/1094
+* narrow azblob imports to blob and sas: https://github.com/osscontainertools/kaniko/pull/1091
+* read the GCS build context over the JSON API: https://github.com/osscontainertools/kaniko/pull/1093
+* compare integration images in the registry: https://github.com/osscontainertools/kaniko/pull/1087
+* pin the bake golden base image by digest: https://github.com/osscontainertools/kaniko/pull/1104
+
+
 # v1.28.4 Release 2026-08-31
 
 ## Community Update
