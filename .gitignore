@@ -15,3 +15,4 @@ integration/context/tars/file.tar.zst
 integration/context/tars/sys.tar.gz
 # differential fuzzer run logs and findings (local, not committed)
 integration/fuzz-out/
+fuzz-out/
