@@ -18,6 +18,9 @@ Many thanks to @WoozyMasta, @pstoeckle, @7schroet, and @MikeMoore63 for reportin
 * `FF_KANIKO_POOL_REGISTRY_CONNECTIONS=false` share one connection pool per registry: https://github.com/osscontainertools/kaniko/pull/972
 * `CopyDir` repeats stat and utimensat calls for every file: https://github.com/osscontainertools/kaniko/pull/1049
 
+### Usability
+* `kaniko bake` builds every target in a `kaniko-bake.hcl`: https://github.com/osscontainertools/kaniko/pull/773
+
 ### Telemetry
 * `KANIKO_TELEMETRY_TOKEN_EXCHANGE_ENDPOINT` exchanges a CI identity token for a collector token: https://github.com/osscontainertools/kaniko/pull/1071
 * read CI attributes from github and gitlab predefined variables: https://github.com/osscontainertools/kaniko/pull/1072
