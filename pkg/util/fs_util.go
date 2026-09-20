@@ -704,16 +704,16 @@ func CreateFile(path string, reader io.Reader, perm os.FileMode, dirPerm os.File
 		return fmt.Errorf("creating parent dir: %w", err)
 	}
 
-	// if the file is already created with ownership other than root, reset the ownership
-	if FilepathExists(path) {
+	dest, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o666)
+	if errors.Is(err, fs.ErrExist) {
+		// if the file is already created with ownership other than root, reset the ownership
 		logrus.Debugf("file at %v already exists, resetting file ownership to root", path)
-		err := resetFileOwnershipIfNotMatching(path, 0, 0)
+		err = resetFileOwnershipIfNotMatching(path, 0, 0)
 		if err != nil {
 			return fmt.Errorf("reseting file ownership: %w", err)
 		}
+		dest, err = os.Create(path)
 	}
-
-	dest, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("creating file: %w", err)
 	}
@@ -721,7 +721,12 @@ func CreateFile(path string, reader io.Reader, perm os.FileMode, dirPerm os.File
 	if _, err := io.Copy(dest, reader); err != nil {
 		return fmt.Errorf("copying file: %w", err)
 	}
-	return setFilePermissions(path, perm, int(uid), int(gid))
+	if err := dest.Chown(int(uid), int(gid)); err != nil {
+		return err
+	}
+	// manually set permissions on file, since the default umask (022) will interfere
+	// Must chmod after chown because chown resets the file mode.
+	return dest.Chmod(perm)
 }
 
 // AddVolumePath adds the given path to the volume ignorelist.
@@ -791,7 +796,8 @@ func DetermineTargetFileOwnership(fi os.FileInfo, uid, gid int64) (int64, int64)
 }
 
 type timestampUpdate struct {
-	src, dest string
+	src  os.FileInfo
+	dest string
 }
 
 // CopyDir copies the file or directory at src to dest
@@ -801,10 +807,10 @@ func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.S
 	if err != nil {
 		return nil, fmt.Errorf("copying dir: %w", err)
 	}
-	return copyDirInner(files, src, dest, context, uid, gid, chmod, useDefaultChmod, false)
+	return copyDirInner(files, src, dest, context, uid, gid, chmod, useDefaultChmod, false, true)
 }
 
-func copyDirInner(files []string, src, dest string, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool) ([]string, error) {
+func copyDirInner(files []string, src, dest string, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool, collect bool) ([]string, error) {
 	var copiedFiles []string
 	var updates []timestampUpdate
 	hardlinksSeen := make(map[hardlinkKey]string)
@@ -823,7 +829,6 @@ func copyDirInner(files []string, src, dest string, context FileContext, uid, gi
 			logrus.Debugf("Skipping copy for ignored path: %s", destPath)
 			continue
 		}
-		isHardlink := false
 		if file == "." && fi.IsDir() {
 			logrus.Tracef("Creating directory %s", destPath)
 
@@ -842,6 +847,7 @@ func copyDirInner(files []string, src, dest string, context FileContext, uid, gi
 			if err := MkdirAllWithPermissions(destPath, perm, uid, gid); err != nil {
 				return nil, err
 			}
+			updates = append(updates, timestampUpdate{src: fi, dest: destPath})
 		} else if fi.IsDir() {
 			logrus.Tracef("Creating directory %s", destPath)
 
@@ -856,6 +862,7 @@ func copyDirInner(files []string, src, dest string, context FileContext, uid, gi
 					return nil, err
 				}
 			}
+			updates = append(updates, timestampUpdate{src: fi, dest: destPath})
 		} else if IsSymlink(fi) {
 			// If file is a symlink, we want to create the same relative symlink
 			exclude, err := CopySymlink(fullPath, destPath, context, skipIgnoreList)
@@ -874,7 +881,6 @@ func copyDirInner(files []string, src, dest string, context FileContext, uid, gi
 			if err := os.Link(linkDst, destPath); err != nil {
 				return nil, err
 			}
-			isHardlink = true
 		} else if fi.Mode()&os.ModeNamedPipe != 0 {
 			// Opening a fifo blocks until it has a writer, so recreate it instead.
 			exclude, err := CreateFifo(fullPath, destPath, fi, context, uid, gid, chmod, useDefaultChmod, skipIgnoreList)
@@ -883,23 +889,24 @@ func copyDirInner(files []string, src, dest string, context FileContext, uid, gi
 			}
 			// This loop already skipped matches
 			assert.Assert("util.copydir.fifo-not-excluded", !exclude, "CreateFifo refused to copy %s to %s", fullPath, destPath)
+			updates = append(updates, timestampUpdate{src: fi, dest: destPath})
 		} else if !fi.Mode().IsRegular() && config.FF.CopySkipSpecialFiles {
 			logrus.Warnf("Ignoring special file %s, not copying to %s", fullPath, destPath)
 			continue
 		} else {
 			// ... Else, we want to copy over a file
-			exclude, err := CopyFile(fullPath, destPath, context, uid, gid, chmod, useDefaultChmod, skipIgnoreList)
+			exclude, err := CopyFile(fullPath, destPath, fi, context, uid, gid, chmod, useDefaultChmod, skipIgnoreList)
 			if err != nil {
 				return nil, err
 			}
 			// This loop already skipped matches
 			assert.Assert("util.copydir.file-not-excluded", !exclude, "CopyFile refused to copy %s to %s", fullPath, destPath)
 		}
-		if !IsSymlink(fi) && !isHardlink {
-			updates = append(updates, timestampUpdate{src: fullPath, dest: destPath})
+		if collect {
+			copiedFiles = append(copiedFiles, destPath)
 		}
-		copiedFiles = append(copiedFiles, destPath)
 	}
+	// deferred to here because writing a child moves the parent directory's mtime
 	for _, u := range updates {
 		err := CopyTimestamps(u.src, u.dest)
 		if err != nil {
@@ -974,7 +981,7 @@ func CopyTree(src, dest string, context FileContext, skipIgnoreList bool) error 
 	if err != nil {
 		return err
 	}
-	_, err = copyDirInner(files, src, dest, context, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true, skipIgnoreList)
+	_, err = copyDirInner(files, src, dest, context, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true, skipIgnoreList, false)
 	return err
 }
 
@@ -1039,8 +1046,9 @@ func CopySymlink(src, dest string, context FileContext, skipIgnoreList bool) (bo
 	return false, os.Symlink(link, dest)
 }
 
-// CopyFile copies the file at src to dest
-func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool) (bool, error) {
+// CopyFile copies the file at src to dest. fi is the Lstat of src, so a symlink
+// handed here would be written with its own mode and times rather than its target's.
+func CopyFile(src, dest string, fi os.FileInfo, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool) (bool, error) {
 	if context.ExcludesFile(src) {
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
@@ -1056,10 +1064,6 @@ func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod mode.
 		// We have to make sure we do this so we don't overwrite our own file.
 		// See iusse #904 for an example.
 		return false, nil
-	}
-	fi, err := os.Stat(src)
-	if err != nil {
-		return false, err
 	}
 	logrus.Debugf("Copying file %s to %s", src, dest)
 	srcFile, err := FSys.Open(src)
@@ -1079,7 +1083,7 @@ func CopyFile(src, dest string, context FileContext, uid, gid int64, chmod mode.
 		return false, err
 	}
 
-	err = CopyTimestamps(src, dest)
+	err = CopyTimestamps(fi, dest)
 	if err != nil {
 		return false, err
 	}
@@ -1376,7 +1380,7 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 	if err := os.Chmod(destFile, fi.Mode()); err != nil {
 		return fmt.Errorf("copying file mode: %w", err)
 	}
-	if err := CopyTimestamps(src, destFile); err != nil {
+	if err := CopyTimestamps(fi, destFile); err != nil {
 		return fmt.Errorf("copying file timestamps: %w", err)
 	}
 
@@ -1399,7 +1403,7 @@ func CopyPaths(srcRoot, dstRoot string, paths []string) error {
 			}
 		}
 	}
-	_, err := copyDirInner(files, srcRoot, dstRoot, FileContext{}, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true, true)
+	_, err := copyDirInner(files, srcRoot, dstRoot, FileContext{}, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true, true, false)
 	return err
 }
 
@@ -1465,19 +1469,15 @@ func CopyCapabilities(src string, dest string) error {
 	return nil
 }
 
-// CopyTimestamps copies the file timestamps from src to dest
-func CopyTimestamps(src string, dest string) error {
-	fi, err := os.Lstat(src)
-	if err != nil {
-		return err
-	}
-	stat, ok := fi.Sys().(*syscall.Stat_t)
+// CopyTimestamps copies the file timestamps from src to dest, src being an Lstat
+func CopyTimestamps(src os.FileInfo, dest string) error {
+	stat, ok := src.Sys().(*syscall.Stat_t)
 	if !ok {
-		return fmt.Errorf("failed to retrieve timestamps from: %s", src)
+		return fmt.Errorf("failed to retrieve timestamps from: %s", src.Name())
 	}
 	atime := time.Time{}
 	mtime := time.Unix(stat.Mtim.Sec, stat.Mtim.Nsec)
-	err = os.Chtimes(dest, atime, mtime)
+	err := os.Chtimes(dest, atime, mtime)
 	if err != nil {
 		return fmt.Errorf("failed to copy timestamps: %w", err)
 	}
