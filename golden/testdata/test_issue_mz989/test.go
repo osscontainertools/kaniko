@@ -27,10 +27,11 @@ var Tests = types.GoldenTests{
 			// sends the same blob to example.com/img.
 			Args: []string{"-d", "example.com/img:latest", "--cache", "--cache-repo", "example.com/cache"},
 			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD":   "1",
-				"FF_KANIKO_RESOLVE_CACHE_KEY": "0",
-				"FF_KANIKO_ROLLING_CACHE_KEY": "0",
-				"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				"FF_KANIKO_CACHE_LOOKAHEAD":    "1",
+				"FF_KANIKO_PLATFORM_CACHE_KEY": "0",
+				"FF_KANIKO_RESOLVE_CACHE_KEY":  "0",
+				"FF_KANIKO_ROLLING_CACHE_KEY":  "0",
+				"FF_KANIKO_SHARED_BASE_CACHE":  "0",
 			},
 			Plan: "cache_miss",
 		},
@@ -39,10 +40,11 @@ var Tests = types.GoldenTests{
 			// example.com/img anyway.
 			Args: []string{"-d", "example.com/img:latest", "--cache", "--cache-repo", "example.com/cache"},
 			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD":   "1",
-				"FF_KANIKO_RESOLVE_CACHE_KEY": "0",
-				"FF_KANIKO_ROLLING_CACHE_KEY": "0",
-				"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				"FF_KANIKO_CACHE_LOOKAHEAD":    "1",
+				"FF_KANIKO_PLATFORM_CACHE_KEY": "0",
+				"FF_KANIKO_RESOLVE_CACHE_KEY":  "0",
+				"FF_KANIKO_ROLLING_CACHE_KEY":  "0",
+				"FF_KANIKO_SHARED_BASE_CACHE":  "0",
 			},
 			CachedKeys: []string{
 				"9960b0560d3e4212d47329ac9e3379b8891474e43756b7650ae3bc18092b62f7",
@@ -55,10 +57,11 @@ var Tests = types.GoldenTests{
 			// command reaches the cache repo or the push.
 			Args: []string{"-d", "example.com/img:latest", "--cache", "--cache-repo", "example.com/cache", "--single-snapshot"},
 			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD":   "1",
-				"FF_KANIKO_RESOLVE_CACHE_KEY": "0",
-				"FF_KANIKO_ROLLING_CACHE_KEY": "0",
-				"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				"FF_KANIKO_CACHE_LOOKAHEAD":    "1",
+				"FF_KANIKO_PLATFORM_CACHE_KEY": "0",
+				"FF_KANIKO_RESOLVE_CACHE_KEY":  "0",
+				"FF_KANIKO_ROLLING_CACHE_KEY":  "0",
+				"FF_KANIKO_SHARED_BASE_CACHE":  "0",
 			},
 			Plan: "single_snapshot",
 		},
@@ -68,10 +71,11 @@ var Tests = types.GoldenTests{
 			// not the blob the cache repo holds. These uploads must stay uploads.
 			Args: []string{"-d", "example.com/img:latest", "--cache", "--cache-repo", "example.com/cache", "--compression", "zstd"},
 			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD":   "1",
-				"FF_KANIKO_RESOLVE_CACHE_KEY": "0",
-				"FF_KANIKO_ROLLING_CACHE_KEY": "0",
-				"FF_KANIKO_SHARED_BASE_CACHE": "0",
+				"FF_KANIKO_CACHE_LOOKAHEAD":    "1",
+				"FF_KANIKO_PLATFORM_CACHE_KEY": "0",
+				"FF_KANIKO_RESOLVE_CACHE_KEY":  "0",
+				"FF_KANIKO_ROLLING_CACHE_KEY":  "0",
+				"FF_KANIKO_SHARED_BASE_CACHE":  "0",
 			},
 			CachedKeys: []string{
 				"9960b0560d3e4212d47329ac9e3379b8891474e43756b7650ae3bc18092b62f7",
