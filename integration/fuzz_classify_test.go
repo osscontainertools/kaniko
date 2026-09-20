@@ -153,7 +153,10 @@ var knownBuildFailures = []knownDivergence{
 		why:  "mz474: a heredoc RUN whose command substitution emits parentheses aborts in kaniko's shell (syntax error: unexpected \"(\") while buildkit runs it. Remove this entry when mz474 is fixed so the fuzzer guards the regression",
 		flag: "",
 		match: func(out string) bool {
-			return strings.Contains(out, "syntax error: unexpected \"(\"")
+			// busybox ash and debian's dash word the same abort differently, and a case
+			// drawn on the debian base reports the second one
+			return strings.Contains(out, "syntax error: unexpected \"(\"") ||
+				strings.Contains(out, "Syntax error: \"(\" unexpected")
 		},
 	},
 	{
