@@ -264,6 +264,7 @@ Each novel finding writes an artifact directory: the seed, the minimal Dockerfil
 - Locally: `go test ./integration -run TestFuzz` with a seed and case count, against a local registry, the same setup `TestRun` needs.
 - Corpus session: `go test ./integration -fuzz=FuzzDockerfile`.
 - Aimed at the swap: `FUZZ_SYMLINK_BASE_ONLY=1` draws every case from the symlink base, so a campaign spends all of its cases on mounted paths instead of a third of them.
+- Aimed at the docker oracle: `FUZZ_NOCACHE=1` drops the cache oracle, which is two of the four builds a case makes, so more cases per minute reach a docker comparison.
 - CI: a scheduled job, not a per-PR gate at first. Container builds are too slow to fuzz on every PR. The scheduled job runs a fixed seed range so a regression is reproducible, uploads artifacts on any novel finding, and does not fail the build on known classes.
 
 Throughput is roughly one case every few seconds to a minute depending on RUN mode and base image, times the worker count. A campaign is hundreds to low thousands of cases, not millions.
