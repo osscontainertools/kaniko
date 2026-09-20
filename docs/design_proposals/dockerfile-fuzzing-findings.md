@@ -16,6 +16,7 @@ This report lists the docker versus kaniko divergences surfaced by the different
 | history for metadata instructions | `ENV`, `LABEL`, ... | one history row each | no row emitted | expected divergence |
 | no-op RUN unchanged dir layer | a RUN with no net change on an existing dir | empty layer | layer holds the unchanged dir | expected divergence |
 | copy symlink dereference | `COPY symlink /dest/` | dereferences to a file | preserves the symlink | expected, kaniko correct |
+| removing a swapped symlink | `RUN rm -rf` a base symlink a mount pins | builds | build fails, Resource busy | filed mz1111 |
 | oci vs docker media type | any build | OCI by default | mirrors the base | dismissed, harness artifact |
 
 ## Filed bugs
@@ -79,26 +80,7 @@ same way: manifest annotations, config labels and env, foreign layers, empty
 layers. Minting a base that carries the property, as the ONBUILD base already
 does for image-config triggers, is the shape of the fix.
 
-## Confirmed real, not yet filed
-
-### dangling-symlink dest resolution failure
-
-```dockerfile
-FROM alpine
-COPY linkS /dest/linkS
-COPY linkS /dest/linkS
-```
-
-`linkS` is a context symlink to `ctx0`. kaniko copies it as a dangling symlink `/dest/linkS` to `/dest/ctx0`, which does not exist. A later COPY whose destination resolves through that symlink then fails:
-
-```
-error building stage: failed to execute command:
-resolving dest symlink: failed to eval symlinks: lstat /dest/ctx0: no such file or directory
-```
-
-docker builds, because it dereferenced the symlink and there is no dangling link. This is a build-outcome divergence: kaniko refuses to build a Dockerfile docker builds. It is a more clear-cut bug than the expected divergences below and is a strong candidate to file. It is a direct consequence of the copy-symlink-dereference behavior.
-
-### deleting a swapped symlink name hits the busy mount
+### mz1111: deleting a swapped symlink name hits the busy mount
 
 ```dockerfile
 FROM localhost:5000/fuzz-symlink-base:latest
@@ -119,6 +101,25 @@ The base ships `/opt/driver -> /opt/real` and `/opt/real/far -> /opt/elsewhere`.
 Three variants pin what causes it. With the flag off and the same mount the build succeeds, and the image matches docker apart from timestamps and history. With the flag on and no mount it succeeds. With the flag off and `rm -rf /opt/driver/far`, the name the runtime actually mounted, it fails the same way.
 
 So this is not swap bookkeeping. Unlinking a bind mount needs privileges kaniko does not have, and the failure already existed for the mounted path itself. What the swap changes is which names reach it: the base image's symlink name now resolves into the pinned directory too, so a Dockerfile that deletes the symlink aborts where it used to build. The fuzzer counts it as a known build failure rather than reporting it, so the delete shape keeps being generated and a different failure under it still surfaces.
+
+## Confirmed real, not yet filed
+
+### dangling-symlink dest resolution failure
+
+```dockerfile
+FROM alpine
+COPY linkS /dest/linkS
+COPY linkS /dest/linkS
+```
+
+`linkS` is a context symlink to `ctx0`. kaniko copies it as a dangling symlink `/dest/linkS` to `/dest/ctx0`, which does not exist. A later COPY whose destination resolves through that symlink then fails:
+
+```
+error building stage: failed to execute command:
+resolving dest symlink: failed to eval symlinks: lstat /dest/ctx0: no such file or directory
+```
+
+docker builds, because it dereferenced the symlink and there is no dangling link. This is a build-outcome divergence: kaniko refuses to build a Dockerfile docker builds. It is a more clear-cut bug than the expected divergences below and is a strong candidate to file. It is a direct consequence of the copy-symlink-dereference behavior.
 
 ## Expected divergences, not bugs
 
