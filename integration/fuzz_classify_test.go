@@ -158,7 +158,7 @@ var knownBuildFailures = []knownDivergence{
 	},
 	{
 		name: "mounted-path-removal-busy",
-		why:  "a RUN that deletes a path the runtime bind-mounted into aborts, because unlinking a mount needs privileges kaniko does not have. FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS widens this from the mounted path to the base image symlink name that now resolves into it (mz1073). docker has no mount and builds",
+		why:  "mz1111: a RUN that deletes a path the runtime bind-mounted into aborts, because unlinking a mount needs privileges kaniko does not have. FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS widens this from the mounted path to the base image symlink name that now resolves into it (mz1073). docker has no mount and builds",
 		flag: "FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS",
 		match: func(out string) bool {
 			// the pinned file is the only lib.so in play, and the name in the error is
