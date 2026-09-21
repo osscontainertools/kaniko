@@ -152,7 +152,6 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_CACHE_PROBE_AFTER_MISS`](#flag-ff_kaniko_cache_probe_after_miss)
       - [Flag `FF_KANIKO_WARMER_CACHE_LOCK`](#flag-ff_kaniko_warmer_cache_lock)
       - [Flag `FF_KANIKO_PRESERVE_MOUNTED_PATHS`](#flag-ff_kaniko_preserve_mounted_paths)
-      - [Flag `FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS`](#flag-ff_kaniko_preserve_mounted_symlinks)
       - [Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`](#flag-ff_kaniko_reproducible_preserve_base_layers)
       - [Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT`](#flag-ff_kaniko_reproducible_preserve_format)
       - [Flag `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE`](#flag-ff_kaniko_deprecate_inter_stage_restore)
@@ -1415,12 +1414,6 @@ Will be deprecated in `v1.29.0`.
 When a container runtime bind-mounts files read-only into the build container — as the NVIDIA GPU operator does with driver artifacts (`nvidia-smi`, `libnvidia*`, firmware blobs) on GPU nodes — and a base image layer ships a directory along that mount path as a symlink, kaniko `os.RemoveAll`s the directory while unpacking to make way for the symlink. The recursive remove hits the read-only bind mount and the build fails with `unlinkat ...: device or resource busy`.
 Set this flag to `true` to skip removing a directory that contains a mounted (ignored) path: its other contents are still cleared, but the mount is preserved and the conflicting layer entry is left in place, matching how `DeleteFilesystem` already treats mounts. Defaults to `true`.
 Will be deprecated in `v1.29.0`.
-
-#### Flag `FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS`
-
-Ubuntu ships `/lib` as a symlink to `/usr/lib`. A bind-mount into `/lib`, as the NVIDIA GPU operator does on GPU nodes, forces it to stay a real directory, so kaniko drops the symlink and nothing reaches the base image files through `/lib` any more. Every `RUN` then fails with `fork/exec /bin/sh: no such file or directory`.
-Set this flag to `true` to keep both paths resolving to the same files. Defaults to `false`.
-Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`
 

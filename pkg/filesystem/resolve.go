@@ -107,7 +107,7 @@ func filesWithParentDirs(files []string) []string {
 		file = filepath.Clean(file)
 		filesSet[file] = true
 
-		for _, dir := range util.LogicalParents(file) {
+		for _, dir := range util.ParentDirectories(file) {
 			dir = filepath.Clean(dir)
 			filesSet[dir] = true
 		}

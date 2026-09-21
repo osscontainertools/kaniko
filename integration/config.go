@@ -27,7 +27,6 @@ type integrationTestConfig struct {
 	malformedOCIImage       string
 	mixedMediaTypeImage     string
 	nvidiaOperatorBaseImage string
-	mz1073BaseImage         string
 	singleManifestBaseImage string
 	dockerMajorVersion      int
 	dockerfilesPattern      string
