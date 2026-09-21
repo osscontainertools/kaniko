@@ -210,6 +210,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_NATIVE_COPY=1",
 	"FF_KANIKO_ADD_CHECKSUM=1",
 	"FF_KANIKO_CACHE_HASH_BLAKE3=1",
+	"FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS=1",
 	"FF_KANIKO_POOL_REGISTRY_CONNECTIONS=1",
 	"KANIKO_PRINT_PLAN=1",
 	"KANIKO_TELEMETRY_ENDPOINT",
@@ -689,7 +690,6 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz560":   {},
 		"Dockerfile_test_issue_mz1065":  {},
 		"Dockerfile_test_issue_mz661":   {},
-		"Dockerfile_test_issue_mz753":   {},
 		"Dockerfile_test_issue_mz992":   {},
 		"Dockerfile_test_issue_mz1066":  {},
 	}
@@ -1053,8 +1053,24 @@ func (d *DockerFileBuilder) buildRelativePathsImage(t *testing.T, imageRepo, doc
 }
 
 var extraDockerRunFlags = map[string]func(contextDir string) []string{
+	// every mount below a pinned name needs a directory above it to be moved through, the depth
+	// the reports have, for example /lib/firmware/nvidia/<version>/gsp.bin
 	"Dockerfile_test_issue_mz753": func(ctx string) []string {
-		return []string{"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/opt/driver/lib.so:ro"}
+		return []string{"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/opt/driver/nvidia/lib.so:ro"}
+	},
+	// each mount pins one path the base image ships as a symlink
+	"Dockerfile_test_issue_mz1073": func(ctx string) []string {
+		lib := filepath.Join(ctx, "testdata/Dockerfile.trivial")
+		flags := []string{}
+		for _, dir := range []string{"/opt/driver", "/opt/driver/sub", "/opt/driver/link", "/opt/driver/far", "/opt/via"} {
+			flags = append(flags, "-v", lib+":"+dir+"/nvidia/lib.so:ro")
+		}
+		return flags
+	},
+	// both names of one pair are pinned, so the mount moves rather than the link
+	"Dockerfile_test_issue_mz1113": func(ctx string) []string {
+		lib := filepath.Join(ctx, "testdata/Dockerfile.trivial")
+		return []string{"-v", lib + ":/opt/driver/nvidia/lib.so:ro", "-v", lib + ":/opt/real/other.so:ro"}
 	},
 	// Mount any existing directory read-only over the shared-base store so storing
 	// the base fails and both stages must degrade to a registry fetch, not panic.

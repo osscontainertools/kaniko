@@ -336,7 +336,6 @@ func removeAllSkipIgnored(path string) (skip bool, err error) {
 	return true, err
 }
 
-// UnTar returns a list of files that have been extracted from the tar archive at r to the path at dest
 func UnTar(r io.Reader, dest string) ([]string, error) {
 	var extractedFiles []string
 	tr := tar.NewReader(r)
@@ -524,6 +523,13 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 			skip, err := removeAllSkipIgnored(path)
 			if err != nil {
 				return fmt.Errorf("error removing %s to make way for new symlink: %w", hdr.Name, err)
+			}
+			if skip && config.FF.PreserveMountedSymlinks {
+				freed, err := relocateMountedPaths(dest, path, hdr.Linkname)
+				if err != nil {
+					return err
+				}
+				skip = !freed
 			}
 			if skip {
 				return nil
