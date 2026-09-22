@@ -42,6 +42,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/connstats"
 	"github.com/osscontainertools/kaniko/pkg/timing"
+	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/version"
 	"github.com/sirupsen/logrus"
 )
@@ -134,9 +135,11 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 			logrus.Warnf("%s=%q is not a valid boolean; Dockerfile content WILL be exported", OmitDockerfileEnv, raw)
 		}
 	}
-	if cerr == nil && !config.EnvBool(OmitDockerfileEnv) {
+	omit := config.EnvBool(OmitDockerfileEnv)
+	if cerr == nil && !omit {
 		span.SetAttributes(attribute.String("kaniko.dockerfile.content", string(content)))
 	}
+	setDockerignore(span, opts, omit)
 
 	mu.Lock()
 	provider, rootSpan = tp, span
@@ -267,4 +270,20 @@ func Shutdown(err error) {
 		logrus.Debugf("tracing: shutdown flush failed: %v", sderr)
 	}
 	provider = nil
+}
+
+func setDockerignore(span trace.Span, opts *config.KanikoOptions, omit bool) {
+	path := util.DockerignorePath(opts.DockerfilePath, opts.SrcContext)
+	// Reported even when the content is withheld: no filter and filter not
+	// captured are different answers.
+	span.SetAttributes(attribute.Bool("kaniko.dockerignore.present", path != ""))
+	if path == "" || omit {
+		return
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		logrus.Debugf("tracing: .dockerignore not readable, kaniko.dockerignore.content omitted: %v", err)
+		return
+	}
+	span.SetAttributes(attribute.String("kaniko.dockerignore.content", string(content)))
 }

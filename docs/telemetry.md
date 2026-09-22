@@ -96,6 +96,8 @@ Never put a tenant, customer or account identifier here. A multi-tenant collecto
 | `kaniko.telemetry.auth` | how the exporter authenticated: `exchange`, `env` or `none` |
 | `kaniko.dockerfile` | Dockerfile path |
 | `kaniko.dockerfile.content` | full Dockerfile source (absent for URL Dockerfiles) |
+| `kaniko.dockerignore.present` | whether a `.dockerignore` was applied. Always reported, so an unfiltered context is distinguishable from one whose filter was not captured |
+| `kaniko.dockerignore.content` | the applied `.dockerignore`, resolved as `<dockerfile>.dockerignore` then `<context>/.dockerignore`. Withheld by `KANIKO_TELEMETRY_OMIT_DOCKERFILE` alongside the Dockerfile |
 | `kaniko.plan` | build plan, the text `--dryrun` would print |
 | `kaniko.target` | build target(s), comma-joined |
 | `kaniko.build_id` | groups runs of the same build. In CI: sha256 of the job's identity + target — project and job name on GitLab, repository, workflow file and job on GitHub — so it survives commits and Dockerfile edits. Outside CI, or when those variables are incomplete: sha256 of Dockerfile content + target, falling back to the path when the Dockerfile is unreadable. `KANIKO_TELEMETRY_BUILD_ID` overrides all of it |
