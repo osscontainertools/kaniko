@@ -62,7 +62,11 @@ func reportHints(files []string) {
 	}
 	for _, dir := range slices.Sorted(maps.Keys(vcs)) {
 		u := vcs[dir]
-		hint.Report("SnapshotVCSDir", "%s in %d files under %s, add it to .dockerignore", formatBytes(u.bytes), u.files, dir)
+		if strings.HasSuffix(dir, "/.git") {
+			hint.Report("SnapshotVCSDir", "%s in %d files under %s, exclude it in .dockerignore for COPY, use ADD <git url>, or git clone --depth 1 and remove it in the same RUN", formatBytes(u.bytes), u.files, dir)
+		} else {
+			hint.Report("SnapshotVCSDir", "%s in %d files under %s, exclude it in .dockerignore for COPY or remove it in the same RUN", formatBytes(u.bytes), u.files, dir)
+		}
 	}
 }
 

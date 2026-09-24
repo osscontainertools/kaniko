@@ -1,3 +1,4 @@
 FROM alpine@sha256:def822f9851ca422481ec6fee59a9966f12b351c62ccb9aca841526ffaa9f748
 RUN mkdir -p /root/.cache/pip/http && echo wheel > /root/.cache/pip/http/wheel
 RUN mkdir -p /src/.git && echo ref > /src/.git/HEAD
+RUN mkdir -p /src/.hg && echo store > /src/.hg/requires
