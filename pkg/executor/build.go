@@ -728,10 +728,22 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				// We continue to handle this case here as users might still have cache entries lying around
 				logrus.Info("No files were changed, appending empty layer to config. No layer added to image.")
 			} else {
+				var appended v1.Layer
 				var err error
-				s.image, err = saveLayerToImage(s.image, layer, command.String(), opts)
+				// output mediatype might be different from cache layer
+				s.image, appended, err = saveLayerToImage(s.image, layer, command.String(), opts)
 				if err != nil {
 					return fmt.Errorf("failed to save layer: %w", err)
+				}
+				if timing.TracingEnabled() {
+					size, serr := appended.Size()
+					if serr == nil {
+						cmdTimer.SetAttributes(attribute.Int64("kaniko.layer.size", size))
+					}
+					digest, derr := appended.Digest()
+					if derr == nil {
+						cmdTimer.SetAttributes(attribute.String("kaniko.layer.digest", digest.String()))
+					}
 				}
 			}
 		} else {
@@ -783,9 +795,20 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 					}
 				}
 			}
-			s.image, err = saveSnapshotToImage(s.image, command.String(), tarPath, opts)
+			var appended v1.Layer
+			s.image, appended, err = saveSnapshotToImage(s.image, command.String(), tarPath, opts)
 			if err != nil {
 				return fmt.Errorf("failed to save snapshot to image: %w", err)
+			}
+			if timing.TracingEnabled() {
+				size, serr := appended.Size()
+				if serr == nil {
+					cmdTimer.SetAttributes(attribute.Int64("kaniko.layer.size", size))
+				}
+				digest, derr := appended.Digest()
+				if derr == nil {
+					cmdTimer.SetAttributes(attribute.String("kaniko.layer.digest", digest.String()))
+				}
 			}
 		}
 	}
@@ -832,19 +855,19 @@ func shouldTakeSnapshot(isMetadataCmd bool, isLastCommand bool, opts *config.Kan
 	return !isMetadataCmd
 }
 
-func saveSnapshotToImage(image v1.Image, createdBy string, tarPath string, opts *config.KanikoOptions) (v1.Image, error) {
+func saveSnapshotToImage(image v1.Image, createdBy string, tarPath string, opts *config.KanikoOptions) (v1.Image, v1.Layer, error) {
 	imageMediaType, err := image.MediaType()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	layer, err := saveSnapshotToLayer(tarPath, imageMediaType, opts)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if layer == nil {
-		return image, nil
+		return image, nil, nil
 	}
 
 	return saveLayerToImage(image, layer, createdBy, opts)
@@ -1005,11 +1028,11 @@ func convertLayerMediaType(layer v1.Layer, image v1.Image, opts *config.KanikoOp
 	return layer, nil
 }
 
-func saveLayerToImage(image v1.Image, layer v1.Layer, createdBy string, opts *config.KanikoOptions) (v1.Image, error) {
+func saveLayerToImage(image v1.Image, layer v1.Layer, createdBy string, opts *config.KanikoOptions) (v1.Image, v1.Layer, error) {
 	assert.Assert("executor.savelayer.layer-nonnull", layer != nil, "saveLayerToImage called with nil layer")
 	layer, err := convertLayerMediaType(layer, image, opts)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Images in google/go-containerregistry don't support adding unique layers
@@ -1021,14 +1044,14 @@ func saveLayerToImage(image v1.Image, layer v1.Layer, createdBy string, opts *co
 	// referencing a blob that has been "overwritten".
 	diffID, err := layer.DiffID()
 	if err != nil {
-		return nil, fmt.Errorf("checking layer diffID failed: %w", err)
+		return nil, nil, fmt.Errorf("checking layer diffID failed: %w", err)
 	}
 	if el, err := image.LayerByDiffID(diffID); err == nil {
 		logrus.Debugf("Layer already exists in image, using existing layer: %s", diffID)
 		layer = el
 	}
 
-	return mutate.Append(image,
+	image, err = mutate.Append(image,
 		mutate.Addendum{
 			Layer: layer,
 			History: v1.History{
@@ -1037,6 +1060,7 @@ func saveLayerToImage(image v1.Image, layer v1.Layer, createdBy string, opts *co
 			},
 		},
 	)
+	return image, layer, err
 }
 
 func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptions) (map[int][]string, error) {
