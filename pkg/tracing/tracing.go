@@ -139,7 +139,16 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 	if cerr == nil && !omit {
 		span.SetAttributes(attribute.String("kaniko.dockerfile.content", string(content)))
 	}
-	setDockerignore(span, opts, omit)
+	ignorePath := util.DockerignorePath(opts.DockerfilePath, opts.SrcContext)
+	span.SetAttributes(attribute.Bool("kaniko.dockerignore.present", ignorePath != ""))
+	if ignorePath != "" && !omit {
+		ignoreContent, ierr := os.ReadFile(ignorePath)
+		if ierr != nil {
+			logrus.Debugf("tracing: .dockerignore not readable, kaniko.dockerignore.content omitted: %v", ierr)
+		} else {
+			span.SetAttributes(attribute.String("kaniko.dockerignore.content", string(ignoreContent)))
+		}
+	}
 
 	mu.Lock()
 	provider, rootSpan = tp, span
@@ -270,20 +279,4 @@ func Shutdown(err error) {
 		logrus.Debugf("tracing: shutdown flush failed: %v", sderr)
 	}
 	provider = nil
-}
-
-func setDockerignore(span trace.Span, opts *config.KanikoOptions, omit bool) {
-	path := util.DockerignorePath(opts.DockerfilePath, opts.SrcContext)
-	// Reported even when the content is withheld: no filter and filter not
-	// captured are different answers.
-	span.SetAttributes(attribute.Bool("kaniko.dockerignore.present", path != ""))
-	if path == "" || omit {
-		return
-	}
-	content, err := os.ReadFile(path)
-	if err != nil {
-		logrus.Debugf("tracing: .dockerignore not readable, kaniko.dockerignore.content omitted: %v", err)
-		return
-	}
-	span.SetAttributes(attribute.String("kaniko.dockerignore.content", string(content)))
 }
