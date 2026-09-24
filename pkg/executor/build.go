@@ -717,7 +717,6 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			logrus.Debugf("Build: skipping snapshot for [%v]", command.String())
 			continue
 		}
-		var appended v1.Layer
 		if isCacheCommand {
 			v := command.(commands.Cached)
 			layer := v.Layer()
@@ -729,10 +728,22 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				// We continue to handle this case here as users might still have cache entries lying around
 				logrus.Info("No files were changed, appending empty layer to config. No layer added to image.")
 			} else {
+				var appended v1.Layer
 				var err error
+				// output mediatype might be different from cache layer
 				s.image, appended, err = saveLayerToImage(s.image, layer, command.String(), opts)
 				if err != nil {
 					return fmt.Errorf("failed to save layer: %w", err)
+				}
+				if timing.TracingEnabled() {
+					size, serr := appended.Size()
+					if serr == nil {
+						cmdTimer.SetAttributes(attribute.Int64("kaniko.layer.size", size))
+					}
+					digest, derr := appended.Digest()
+					if derr == nil {
+						cmdTimer.SetAttributes(attribute.String("kaniko.layer.digest", digest.String()))
+					}
 				}
 			}
 		} else {
@@ -784,19 +795,20 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 					}
 				}
 			}
+			var appended v1.Layer
 			s.image, appended, err = saveSnapshotToImage(s.image, command.String(), tarPath, opts)
 			if err != nil {
 				return fmt.Errorf("failed to save snapshot to image: %w", err)
 			}
-		}
-		if appended != nil && timing.TracingEnabled() {
-			size, serr := appended.Size()
-			if serr == nil {
-				cmdTimer.SetAttributes(attribute.Int64("kaniko.layer.size", size))
-			}
-			digest, derr := appended.Digest()
-			if derr == nil {
-				cmdTimer.SetAttributes(attribute.String("kaniko.layer.digest", digest.String()))
+			if timing.TracingEnabled() {
+				size, serr := appended.Size()
+				if serr == nil {
+					cmdTimer.SetAttributes(attribute.Int64("kaniko.layer.size", size))
+				}
+				digest, derr := appended.Digest()
+				if derr == nil {
+					cmdTimer.SetAttributes(attribute.String("kaniko.layer.digest", digest.String()))
+				}
 			}
 		}
 	}
