@@ -215,6 +215,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS=1",
 	"FF_KANIKO_POOL_REGISTRY_CONNECTIONS=1",
 	"FF_KANIKO_DEFER_CACHE_PUSH=1",
+	"FF_KANIKO_LAYER_HINTS=1",
 	"KANIKO_PRINT_PLAN=1",
 	"KANIKO_TELEMETRY_ENDPOINT",
 	"KANIKO_TELEMETRY_TOKEN_EXCHANGE_ENDPOINT",
@@ -248,7 +249,6 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz849_dockerv2":         dockerV2Flags,
 	"Dockerfile_test_issue_mz1066_docker":          dockerV2Flags,
 	"Dockerfile_test_stopsignal":                   dockerV2Flags,
-	"Dockerfile_test_layer_hints":                  dockerV2Flags,
 	"Dockerfile_test_healthcheck":                  dockerV2Flags,
 	"Dockerfile_test_snapshotter_ignorelist":       dockerV2Flags,
 	"Dockerfile_test_whitelist":                    dockerV2Flags,
@@ -444,11 +444,12 @@ var diffArgsMap = map[string][]string{
 // output check to do when building with kaniko
 var outputChecks = map[string]func(string, []byte) error{
 	"Dockerfile_test_arg_secret": checkArgsNotPrinted,
-	"Dockerfile_test_layer_hints": func(_ string, out []byte) error {
+	"Dockerfile_test_issue_mz1121": func(_ string, out []byte) error {
 		for _, s := range []string{
-			"HINT SnapshotCacheDir: 6 B in 1 files under /root/.cache/pip",
-			"HINT SnapshotVCSDir: 4 B in 1 files under /src/.git, exclude it in .dockerignore for COPY, use ADD <git url>",
-			"HINT SnapshotVCSDir: 6 B in 1 files under /src/.hg",
+			"HINT SnapshotCacheDir: 9B in 1 files under /var/lib/apt/lists",
+			"HINT SnapshotCacheDir: 6B in 1 files under /root/.cache/pip",
+			"HINT SnapshotVCSDir: 4B in 1 files under /src/.git, exclude it in .dockerignore for COPY, use ADD <git url>",
+			"HINT SnapshotVCSDir: 6B in 1 files under /src/.hg",
 		} {
 			if !strings.Contains(string(out), s) {
 				return fmt.Errorf("output must contain %s", s)

@@ -26,31 +26,37 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-var ignoredHints map[string]struct{}
+type Rule string
+
+const (
+	SnapshotCacheDir Rule = "SnapshotCacheDir"
+	SnapshotVCSDir   Rule = "SnapshotVCSDir"
+)
+
+var ignoredHints map[Rule]struct{}
 
 func init() {
 	val := os.Getenv("KANIKO_IGNORE_HINTS")
 	if val == "" {
 		return
 	}
-	ignoredHints = make(map[string]struct{})
+	ignoredHints = make(map[Rule]struct{})
 	for name := range strings.SplitSeq(val, ",") {
 		name = strings.TrimSpace(name)
 		if name != "" {
-			ignoredHints[name] = struct{}{}
+			ignoredHints[Rule(name)] = struct{}{}
 		}
 	}
 }
 
-// name is user-facing: KANIKO_IGNORE_HINTS matches on it.
-func Report(name string, format string, args ...any) {
-	if _, ignored := ignoredHints[name]; ignored {
+func Report(rule Rule, format string, args ...any) {
+	if _, ignored := ignoredHints[rule]; ignored {
 		return
 	}
 	msg := fmt.Sprintf(format, args...)
-	logrus.Infof("HINT %s: %s", name, msg)
+	logrus.Infof("HINT %s: %s", rule, msg)
 	timing.AddEvent("kaniko.hint",
-		attribute.String("kaniko.hint.rule", name),
+		attribute.String("kaniko.hint.rule", string(rule)),
 		attribute.String("kaniko.hint.message", msg),
 	)
 }
