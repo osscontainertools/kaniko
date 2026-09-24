@@ -279,9 +279,6 @@ func Shutdown(err error) {
 	provider = nil
 }
 
-// RedactCommand keeps the keyword and leading flags of RUN, ENV and ARG, and
-// of ONBUILD wrapping them, and drops the rest, which can hold literal
-// credentials. Other instructions are returned unchanged.
 func RedactCommand(cmd string) string {
 	fields := strings.Fields(cmd)
 	if len(fields) == 0 {
