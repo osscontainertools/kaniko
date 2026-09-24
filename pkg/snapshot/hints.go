@@ -17,88 +17,94 @@ limitations under the License.
 package snapshot
 
 import (
-	"fmt"
 	"maps"
 	"os"
 	"slices"
 	"strings"
 
+	units "github.com/docker/go-units"
+	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/hint"
 )
 
-var cacheDirs = []string{
-	".cache/pip",
-	".cache/go-build",
-	".cache/yarn",
-	".npm",
-	".m2/repository",
-	".gradle/caches",
-	".cargo/registry",
-	"usr/local/cargo/registry",
-	"var/cache/apt/archives",
-	"var/lib/apt/lists",
-	"var/cache/apk",
+const (
+	cacheAdvice = "use RUN --mount=type=cache or remove it in the same RUN"
+	gitAdvice   = "exclude it in .dockerignore for COPY, use ADD <git url>, or git clone --depth 1 and remove it in the same RUN"
+	vcsAdvice   = "exclude it in .dockerignore for COPY or remove it in the same RUN"
+)
+
+// anchored rules match from the filesystem root, the others under any directory.
+type pathRule struct {
+	rule     hint.Rule
+	dir      string
+	anchored bool
+	advice   string
 }
 
-var vcsDirs = []string{".git", ".hg", ".svn"}
+var pathRules = []pathRule{
+	{hint.SnapshotCacheDir, "/.cache/pip/", false, cacheAdvice},
+	{hint.SnapshotCacheDir, "/.cache/go-build/", false, cacheAdvice},
+	{hint.SnapshotCacheDir, "/.cache/yarn/", false, cacheAdvice},
+	{hint.SnapshotCacheDir, "/.npm/", false, cacheAdvice},
+	{hint.SnapshotCacheDir, "/.m2/repository/", false, cacheAdvice},
+	{hint.SnapshotCacheDir, "/.gradle/caches/", false, cacheAdvice},
+	{hint.SnapshotCacheDir, "/.cargo/registry/", false, cacheAdvice},
+	{hint.SnapshotCacheDir, "/usr/local/cargo/registry/", true, cacheAdvice},
+	{hint.SnapshotCacheDir, "/var/cache/apt/archives/", true, cacheAdvice},
+	{hint.SnapshotCacheDir, "/var/lib/apt/lists/", true, cacheAdvice},
+	{hint.SnapshotCacheDir, "/var/cache/apk/", true, cacheAdvice},
+	{hint.SnapshotVCSDir, "/.git/", false, gitAdvice},
+	{hint.SnapshotVCSDir, "/.hg/", false, vcsAdvice},
+	{hint.SnapshotVCSDir, "/.svn/", false, vcsAdvice},
+}
 
 type dirUsage struct {
+	rule  *pathRule
 	bytes int64
 	files int
 }
 
 func reportHints(files []string) {
-	caches := map[string]*dirUsage{}
-	vcs := map[string]*dirUsage{}
+	if !config.FF.LayerHints {
+		return
+	}
+	usage := map[string]*dirUsage{}
 	for _, file := range files {
-		addUsage(caches, file, cacheDirs)
-		addUsage(vcs, file, vcsDirs)
-	}
-	for _, dir := range slices.Sorted(maps.Keys(caches)) {
-		u := caches[dir]
-		if u.bytes > 0 {
-			hint.Report("SnapshotCacheDir", "%s in %d files under %s, use RUN --mount=type=cache or remove it in the same RUN", formatBytes(u.bytes), u.files, dir)
-		}
-	}
-	for _, dir := range slices.Sorted(maps.Keys(vcs)) {
-		u := vcs[dir]
-		if strings.HasSuffix(dir, "/.git") {
-			hint.Report("SnapshotVCSDir", "%s in %d files under %s, exclude it in .dockerignore for COPY, use ADD <git url>, or git clone --depth 1 and remove it in the same RUN", formatBytes(u.bytes), u.files, dir)
-		} else {
-			hint.Report("SnapshotVCSDir", "%s in %d files under %s, exclude it in .dockerignore for COPY or remove it in the same RUN", formatBytes(u.bytes), u.files, dir)
-		}
-	}
-}
-
-func formatBytes(b int64) string {
-	switch {
-	case b >= 1e9:
-		return fmt.Sprintf("%.1f GB", float64(b)/1e9)
-	case b >= 1e6:
-		return fmt.Sprintf("%.1f MB", float64(b)/1e6)
-	case b >= 1e3:
-		return fmt.Sprintf("%.1f kB", float64(b)/1e3)
-	default:
-		return fmt.Sprintf("%d B", b)
-	}
-}
-
-func addUsage(usage map[string]*dirUsage, file string, dirs []string) {
-	for _, dir := range dirs {
-		i := strings.Index(file+"/", "/"+dir+"/")
-		if i >= 0 {
-			fi, err := os.Lstat(file)
-			if err == nil && fi.Mode().IsRegular() {
-				prefix := file[:i+1+len(dir)]
-				u := usage[prefix]
-				if u == nil {
-					u = &dirUsage{}
-					usage[prefix] = u
+		for i := range pathRules {
+			r := &pathRules[i]
+			dir := matchDir(file, r)
+			if dir != "" {
+				fi, err := os.Lstat(file)
+				if err == nil && fi.Mode().IsRegular() {
+					u := usage[dir]
+					if u == nil {
+						u = &dirUsage{rule: r}
+						usage[dir] = u
+					}
+					u.bytes += fi.Size()
+					u.files++
 				}
-				u.bytes += fi.Size()
-				u.files++
 			}
-			return
 		}
 	}
+	for _, dir := range slices.Sorted(maps.Keys(usage)) {
+		u := usage[dir]
+		if u.bytes > 0 {
+			hint.Report(u.rule.rule, "%s in %d files under %s, %s", units.HumanSize(float64(u.bytes)), u.files, dir, u.rule.advice)
+		}
+	}
+}
+
+func matchDir(file string, r *pathRule) string {
+	if r.anchored {
+		if strings.HasPrefix(file, r.dir) {
+			return strings.TrimSuffix(r.dir, "/")
+		}
+		return ""
+	}
+	i := strings.Index(file, r.dir)
+	if i < 0 {
+		return ""
+	}
+	return file[:i+len(r.dir)-1]
 }
