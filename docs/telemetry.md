@@ -16,9 +16,10 @@ Attribute values are capped at 64 KiB. `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` 
 
 Traces carry build details unredacted. The [build](#build-span), [stage](#stage-spans) and [command](#command-spans) span tables list every attribute.
 
-Always sent:
+Sent by default:
 
 - the kaniko version, Dockerfile path, build targets and stage names
+- the full Dockerfile source and the build plan
 - the text of every instruction
 - the `.dockerignore` the build applied
 - cache keys
@@ -26,7 +27,7 @@ Always sent:
 - timings per phase and per command, and registry connection statistics
 - on CI: repository, branch, commit and pipeline, see [CI attributes](#ci-attributes)
 
-Sent unless `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true`:
+Hidden with `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true`:
 
 - the full Dockerfile source
 - the build plan
