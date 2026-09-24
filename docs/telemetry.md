@@ -24,7 +24,7 @@ Sent by default:
 - the `.dockerignore` the build applied
 - cache keys
 - the values of explicitly set `FF_KANIKO_*` flags
-- timings per phase and per command, and registry connection statistics
+- timings per phase and per command, layer sizes, and registry connection statistics
 - on CI: repository, branch, commit and pipeline, see [CI attributes](#ci-attributes)
 
 Hidden with `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true`:
@@ -153,6 +153,7 @@ Never put a tenant, customer or account identifier here. A multi-tenant collecto
 | `kaniko.stage` | stage index (integer) |
 | `kaniko.cache.hit` | `true` when the command was replayed from cache (only with `--cache`, absent when caching is off) |
 | `kaniko.cache.key` | cache key for the command (only with `--cache`) |
+| `kaniko.layer.size` | compressed size in bytes of the layer the command added |
 
 ## Phases
 
