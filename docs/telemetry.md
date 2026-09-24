@@ -31,7 +31,7 @@ Hidden with `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true`:
 
 - the full Dockerfile source
 - the build plan
-- the arguments of `RUN`, `ENV` and `ARG`, so `RUN --mount=type=cache,target=/root/.cache pip install .` is sent as `RUN --mount=type=cache,target=/root/.cache`
+- the arguments of `RUN`, `ENV` and `ARG`
 
 Never sent: the value behind a `RUN --mount=type=secret` and the contents of a `--mount=type=cache`.
 
