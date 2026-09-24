@@ -135,13 +135,11 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 			logrus.Warnf("%s=%q is not a valid boolean; Dockerfile content WILL be exported", OmitDockerfileEnv, raw)
 		}
 	}
-	omit := config.EnvBool(OmitDockerfileEnv)
-	if cerr == nil && !omit {
+	if cerr == nil && !config.EnvBool(OmitDockerfileEnv) {
 		span.SetAttributes(attribute.String("kaniko.dockerfile.content", string(content)))
 	}
 	ignorePath := util.DockerignorePath(opts.DockerfilePath, opts.SrcContext)
-	span.SetAttributes(attribute.Bool("kaniko.dockerignore.present", ignorePath != ""))
-	if ignorePath != "" && !omit {
+	if ignorePath != "" {
 		ignoreContent, ierr := os.ReadFile(ignorePath)
 		if ierr != nil {
 			logrus.Debugf("tracing: .dockerignore not readable, kaniko.dockerignore.content omitted: %v", ierr)
