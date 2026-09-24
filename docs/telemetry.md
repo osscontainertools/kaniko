@@ -10,9 +10,30 @@ Spans are sent over OTLP/HTTP (`http://` or `https://`, collector port 4318 by d
 
 Each build is one trace: a root `build` span, a `Stage` span per build stage, and under each stage a span per build phase and Dockerfile command. Stage and command spans are named `Stage` and `Command` (low cardinality, so backends can aggregate on the name). The full instruction text is in the `kaniko.command` attribute. The build phases keep their descriptive names.
 
-Set `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true` to keep the Dockerfile source out of the trace.
-
 Attribute values are capped at 64 KiB. `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` and `OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT` override the cap, including an explicit `-1` for unlimited.
+
+## What leaves the machine
+
+Traces carry build details unredacted. The [build](#build-span), [stage](#stage-spans) and [command](#command-spans) span tables list every attribute.
+
+Always sent:
+
+- the kaniko version, Dockerfile path, build targets and stage names
+- the text of every instruction
+- the `.dockerignore` the build applied
+- cache keys
+- the values of explicitly set `FF_KANIKO_*` flags
+- timings per phase and per command, and registry connection statistics
+- on CI: repository, branch, commit and pipeline, see [CI attributes](#ci-attributes)
+
+Sent unless `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true`:
+
+- the full Dockerfile source
+- the build plan
+
+Never sent: the value behind a `RUN --mount=type=secret` and the contents of a `--mount=type=cache`.
+
+If your Dockerfile or `RUN` commands contain credentials, treat the collector as part of your secret boundary.
 
 ## Authenticating to the collector
 
