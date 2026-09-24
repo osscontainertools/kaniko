@@ -1130,9 +1130,7 @@ func NewFileContextFromDockerfile(dockerfilePath, buildcontext string) (FileCont
 	return fileContext, nil
 }
 
-// DockerignorePath returns the .dockerignore this build applies, or "" when
-// there is none. Shared with pkg/tracing so a trace reports the file the build
-// reads.
+// Shared with pkg/tracing so a trace reports the file the build reads.
 func DockerignorePath(dockerfilePath, buildcontext string) string {
 	path := dockerfilePath + ".dockerignore"
 	if !FilepathExists(path) {
