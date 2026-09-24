@@ -245,6 +245,7 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz849_dockerv2":         dockerV2Flags,
 	"Dockerfile_test_issue_mz1066_docker":          dockerV2Flags,
 	"Dockerfile_test_stopsignal":                   dockerV2Flags,
+	"Dockerfile_test_layer_hints":                  dockerV2Flags,
 	"Dockerfile_test_healthcheck":                  dockerV2Flags,
 	"Dockerfile_test_snapshotter_ignorelist":       dockerV2Flags,
 	"Dockerfile_test_whitelist":                    dockerV2Flags,
@@ -435,6 +436,17 @@ var diffArgsMap = map[string][]string{
 // output check to do when building with kaniko
 var outputChecks = map[string]func(string, []byte) error{
 	"Dockerfile_test_arg_secret": checkArgsNotPrinted,
+	"Dockerfile_test_layer_hints": func(_ string, out []byte) error {
+		for _, s := range []string{
+			"HINT SnapshotCacheDir: 6 B in 1 files under /root/.cache/pip",
+			"HINT SnapshotVCSDir: 4 B in 1 files under /src/.git",
+		} {
+			if !strings.Contains(string(out), s) {
+				return fmt.Errorf("output must contain %s", s)
+			}
+		}
+		return nil
+	},
 	"Dockerfile_test_snapshotter_ignorelist": func(_ string, out []byte) error {
 		for _, s := range []string{
 			"Adding whiteout for /dev",
