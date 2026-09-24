@@ -31,6 +31,7 @@ Hidden with `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true`:
 
 - the full Dockerfile source
 - the build plan
+- the arguments of `RUN`, `ENV` and `ARG`, so `RUN --mount=type=cache,target=/root/.cache pip install .` is sent as `RUN --mount=type=cache,target=/root/.cache`
 
 Never sent: the value behind a `RUN --mount=type=secret` and the contents of a `--mount=type=cache`.
 
@@ -146,7 +147,7 @@ Never put a tenant, customer or account identifier here. A multi-tenant collecto
 
 | Attribute | Value |
 | --- | --- |
-| `kaniko.command` | full instruction text |
+| `kaniko.command` | full instruction text. `RUN`, `ENV` and `ARG` keep only the keyword and flags under `KANIKO_TELEMETRY_OMIT_DOCKERFILE` |
 | `kaniko.command.hash` | hash of the stage index and command text |
 | `kaniko.instruction.index` | command index within the stage |
 | `kaniko.instruction.line` | source line in the Dockerfile |

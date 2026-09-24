@@ -684,8 +684,12 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		logrus.Info(command.String())
 
 		if timing.TracingEnabled() {
+			commandText := command.String()
+			if config.EnvBool(tracing.OmitDockerfileEnv) {
+				commandText = tracing.RedactCommand(commandText)
+			}
 			attrs := []attribute.KeyValue{
-				attribute.String("kaniko.command", command.String()),
+				attribute.String("kaniko.command", commandText),
 				attribute.String("kaniko.command.hash", commandHash(s.index, command.String())),
 				attribute.Int("kaniko.instruction.index", index),
 				attribute.Int("kaniko.instruction.line", s.lines[index]),
