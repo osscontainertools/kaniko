@@ -439,7 +439,8 @@ var outputChecks = map[string]func(string, []byte) error{
 	"Dockerfile_test_layer_hints": func(_ string, out []byte) error {
 		for _, s := range []string{
 			"HINT SnapshotCacheDir: 6 B in 1 files under /root/.cache/pip",
-			"HINT SnapshotVCSDir: 4 B in 1 files under /src/.git",
+			"HINT SnapshotVCSDir: 4 B in 1 files under /src/.git, exclude it in .dockerignore for COPY, use ADD <git url>",
+			"HINT SnapshotVCSDir: 6 B in 1 files under /src/.hg",
 		} {
 			if !strings.Contains(string(out), s) {
 				return fmt.Errorf("output must contain %s", s)
