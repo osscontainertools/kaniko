@@ -83,6 +83,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 
 	sort.Strings(filesToAdd)
 	logrus.Debugf("Adding to layer: %v", filesToAdd)
+	reportHints(filesToAdd)
 
 	// Add files to current layer.
 	for _, file := range filesToAdd {
@@ -143,6 +144,7 @@ func (s *Snapshotter) TakeSnapshotFS() (string, int, error) {
 	if err != nil {
 		return "", 0, err
 	}
+	reportHints(filesToAdd)
 
 	if err := writeToTar(t, filesToAdd, filesToWhiteOut); err != nil {
 		return "", 0, err

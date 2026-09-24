@@ -176,6 +176,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_DEFER_CACHE_PUSH`](#flag-ff_kaniko_defer_cache_push)
       - [Flag `FF_KANIKO_CONFINE_COPY_SOURCE`](#flag-ff_kaniko_confine_copy_source)
     - [Assertion Overrides](#assertion-overrides)
+    - [Layer Hints](#layer-hints)
     - [Telemetry](#telemetry)
     - [Debug Image](#debug-image)
   - [Security](#security)
@@ -1598,6 +1599,25 @@ As a temporary workaround, pass the name in brackets to `KANIKO_IGNORE_ASSERTION
 
 ```sh
 KANIKO_IGNORE_ASSERTIONS=executor.build.metadata-only
+```
+
+### Layer Hints
+
+After each snapshot kaniko logs a hint when the new layer contains something that is often added by mistake:
+
+```
+HINT SnapshotCacheDir: 184.2 MB in 1532 files under /root/.cache/pip, use RUN --mount=type=cache or remove it in the same RUN
+```
+
+| Hint | Layer contains |
+| --- | --- |
+| `SnapshotCacheDir` | package manager or build caches, such as `.cache/pip`, `.npm`, `.m2/repository`, `var/lib/apt/lists` |
+| `SnapshotVCSDir` | `.git`, `.hg` or `.svn` directories |
+
+Pass hint names to `KANIKO_IGNORE_HINTS` to silence them:
+
+```sh
+KANIKO_IGNORE_HINTS=SnapshotCacheDir,SnapshotVCSDir
 ```
 
 Multiple names can be passed as a comma-separated list.

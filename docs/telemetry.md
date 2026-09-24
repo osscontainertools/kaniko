@@ -22,6 +22,7 @@ Sent by default:
 - the full Dockerfile source and the build plan
 - the text of every instruction
 - the `.dockerignore` the build applied
+- layer hints, including the paths they name
 - cache keys
 - the values of explicitly set `FF_KANIKO_*` flags
 - timings per phase and per command, and registry connection statistics
@@ -154,6 +155,8 @@ Never put a tenant, customer or account identifier here. A multi-tenant collecto
 | `kaniko.cache.hit` | `true` when the command was replayed from cache (only with `--cache`, absent when caching is off) |
 | `kaniko.cache.eligible` | `true` when the command takes part in the layer cache, following `--cache-run-layers` and `--cache-copy-layers` (only with `--cache`) |
 | `kaniko.cache.key` | cache key for the command (only with `--cache`) |
+
+Each [layer hint](../README.md#layer-hints) is a `kaniko.hint` event on the command span, with `kaniko.hint.rule` and `kaniko.hint.message`.
 
 ## Phases
 
