@@ -278,3 +278,27 @@ func Shutdown(err error) {
 	}
 	provider = nil
 }
+
+// RedactCommand keeps the keyword and leading flags of RUN, ENV and ARG, and
+// of ONBUILD wrapping them, and drops the rest, which can hold literal
+// credentials. Other instructions are returned unchanged.
+func RedactCommand(cmd string) string {
+	fields := strings.Fields(cmd)
+	if len(fields) == 0 {
+		return cmd
+	}
+	k := 0
+	if len(fields) > 1 && strings.EqualFold(fields[0], "ONBUILD") {
+		k = 1
+	}
+	switch strings.ToUpper(fields[k]) {
+	case "RUN", "ENV", "ARG":
+		n := k + 1
+		for n < len(fields) && strings.HasPrefix(fields[n], "--") {
+			n++
+		}
+		return strings.Join(fields[:n], " ")
+	default:
+		return cmd
+	}
+}

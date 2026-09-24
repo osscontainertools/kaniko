@@ -1585,7 +1585,7 @@ KANIKO_TELEMETRY_ENDPOINT=http://otel-collector:4318
 
 Each build becomes a trace, with a span per build phase and Dockerfile command. Telemetry is best effort and never fails a build.
 
-**What leaves the machine**: traces carry build details unredacted, including the text of every instruction, listed in [What leaves the machine](docs/telemetry.md#what-leaves-the-machine). `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true` withholds the full Dockerfile source and the build plan, but not the instruction text. The value behind a `RUN --mount=type=secret` and the contents of a `--mount=type=cache` are never sent. If your Dockerfile or `RUN` commands contain credentials, treat the collector as part of your secret boundary.
+**What leaves the machine**: traces carry build details unredacted, including the text of every instruction, listed in [What leaves the machine](docs/telemetry.md#what-leaves-the-machine). `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true` withholds the full Dockerfile source, the build plan and the arguments of `RUN`, `ENV` and `ARG`. The value behind a `RUN --mount=type=secret` and the contents of a `--mount=type=cache` are never sent. If your Dockerfile or `RUN` commands contain credentials, treat the collector as part of your secret boundary.
 
 Spans are sent over OTLP/**HTTP(S)**, OTLP/**gRPC** is not supported. The endpoint URL must include a scheme, and only `KANIKO_TELEMETRY_ENDPOINT` enables tracing, the standard `OTEL_EXPORTER_OTLP_ENDPOINT` alone does not.
 
