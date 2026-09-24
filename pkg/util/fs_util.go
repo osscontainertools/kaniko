@@ -1135,14 +1135,13 @@ func NewFileContextFromDockerfile(dockerfilePath, buildcontext string) (FileCont
 // reads.
 func DockerignorePath(dockerfilePath, buildcontext string) string {
 	path := dockerfilePath + ".dockerignore"
-	if FilepathExists(path) {
-		return path
+	if !FilepathExists(path) {
+		path = filepath.Join(buildcontext, ".dockerignore")
 	}
-	path = filepath.Join(buildcontext, ".dockerignore")
-	if FilepathExists(path) {
-		return path
+	if !FilepathExists(path) {
+		return ""
 	}
-	return ""
+	return path
 }
 
 // getExcludedFiles returns a list of files to exclude from the .dockerignore
