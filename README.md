@@ -1185,6 +1185,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 ```sh
 FF_KANIKO_ADD_CHECKSUM=true
 FF_KANIKO_CACHE_HASH_BLAKE3=true
+FF_KANIKO_CACHE_LOOKAHEAD=true
 FF_KANIKO_COPY_SKIP_SPECIAL_FILES=true
 FF_KANIKO_CROSS_REPO_MOUNT=true
 FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES=true
@@ -1362,8 +1363,9 @@ Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_CACHE_LOOKAHEAD`
 
-Set this flag to `true` to run a precompute pass before the build loop that derives each stage's final cache key ahead of time. The build loop still recomputes each key during its own `optimize()` call and asserts that it matches the precomputed value. This is a developer assertion to verify the new precompute pass is correct, there is no benefit to enabling it in production.
+Set this flag to `true` to run a precompute pass before the build loop that derives each stage's final cache key ahead of time. The build loop still recomputes each key during its own `optimize()` call and asserts that it matches the precomputed value. `FF_KANIKO_SKIP_CACHED_STAGES` needs these keys and has no effect without this flag.
 Defaults to `false`.
+Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_ROLLING_CACHE_KEY`
 
@@ -1500,6 +1502,7 @@ Becomes default in `v1.29.0`.
 
 When a multi-stage build uses `COPY --from=<stage>`, the downstream cache key depends on the copied files. So the entire source stage has to be built and unpacked, only to then realize that we had a cache hit and can throw away the upstream stage. We recently introduced `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`, `FF_KANIKO_CACHE_LOOKAHEAD` and `FF_KANIKO_ROLLING_CACHE_KEY`, with that we can know a-priori whether we will have a cache hit or not. `FF_KANIKO_SKIP_CACHED_STAGES` is the logical conclusion then, it simply runs another elision pass over the now updated list of stages and drops all stages that are no longer required to be built. Where a key cannot be inferred the stage is built as before. A fully cached build collapses into a single stage with nothing to unpack.
 Set this flag to `true` to run the second elision pass.
+Requires `--cache-copy-layers` and `FF_KANIKO_CACHE_LOOKAHEAD`.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
