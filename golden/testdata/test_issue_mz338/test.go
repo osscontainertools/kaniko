@@ -8,6 +8,7 @@ var Tests = types.GoldenTests{
 	Tests: []types.GoldenTest{
 		{
 			Args: []string{"--no-push"},
+			Env:  map[string]string{},
 			Plan: "plan",
 		},
 	},

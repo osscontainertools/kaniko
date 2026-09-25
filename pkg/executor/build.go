@@ -191,15 +191,9 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 		return nil, err
 	}
 
-	// mz507: This workaround to prevent cache invalidation via base image annotations
-	// can be removed once FF_KANIKO_NO_PROPAGATE_ANNOTATIONS becomes standard.
 	man, err := sourceImage.Manifest()
 	if err != nil {
 		return nil, err
-	}
-	ann := map[string]string{}
-	for k := range man.Annotations {
-		ann[k] = ""
 	}
 
 	cf, err := sourceImage.ConfigFile()
@@ -214,7 +208,6 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 		return nil, err
 	}
 
-	sourceImageReproducible = mutate.Annotations(sourceImageReproducible, ann).(v1.Image)
 	digest, err := sourceImageReproducible.Digest()
 	if err != nil {
 		return nil, err
@@ -746,9 +739,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				// So the only case where we don't need a filesystem is if all commands are MetadataOnly.
 				assert.Assert("executor.build.metadata-only", command.MetadataOnly(), "build: non-MetadataOnly command %q ran without unpacked filesystem in stage %d", command.String(), s.index)
 			}
-			_, isVolume := command.(*commands.VolumeCommand)
-			volumeCreatesFiles := isVolume && !config.FF.VolumeSkipMkdir
-			if command.MetadataOnly() && !opts.SingleSnapshot && !volumeCreatesFiles {
+			if command.MetadataOnly() && !opts.SingleSnapshot {
 				// MetadataOnly commands must not change or even need the filesystem.
 				assert.Assert("executor.build.without-fs", snapshotted == 0, "build: MetadataOnly command %q snapshotted %d file(s)", command.String(), snapshotted)
 			}
@@ -807,10 +798,6 @@ func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, sn
 	if files == nil || opts.SingleSnapshot {
 		snapshot, snapshotted, err = snapshotter.TakeSnapshotFS()
 	} else {
-		if !config.FF.VolumeSkipMkdir {
-			// Volumes are very weird. They get snapshotted in the next command.
-			files = append(files, util.Volumes()...)
-		}
 		snapshot, snapshotted, err = snapshotter.TakeSnapshot(files, shdDelete)
 	}
 	t.End()
@@ -1270,11 +1257,6 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 			printf("SAVE FILES %v %s%d\n", filesToSave, config.KanikoInterStageDepsDir, s.Index)
 		}
 		printf("CLEAN\n\n")
-		if !config.FF.DeprecateInterStageRestore {
-			if opts.PreserveContext && !opts.PreCleanup {
-				printf("RESTORE CONTEXT\n\n")
-			}
-		}
 	}
 	assert.Unreachable("we should always have a final stage")
 	return retErr
@@ -1324,12 +1306,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	if err != nil {
 		return nil, err
 	}
-	// legacy warmer overrides images override digest method to not return the digest
-	// as they get stored in a tarball and digest is lost in the process.
-	// But this also means that our defensive store and load here can't play nicely with them.
-	legacyCache := !config.FF.OCIWarmer && opts.Cache && opts.CacheDir != ""
 	var sharedRemote map[string]bool
-	if config.FF.SharedBaseCache && !legacyCache {
+	if config.FF.SharedBaseCache {
 		sharedRemote = sharedRemoteImages(kanikoStages, externalImageDigests, opts)
 	}
 
@@ -1358,9 +1336,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 					return nil, fmt.Errorf("precompute: failed to get baseImage: %w", err)
 				}
 			}
-			if config.FF.NoPropagateAnnotations {
-				baseImage = image_util.WithoutAnnotations(baseImage)
-			}
+			baseImage = image_util.WithoutAnnotations(baseImage)
 			args := baseArgs
 			if stage.BaseImageStoredLocally {
 				args = stageArgs[stage.BaseImageIndex]
@@ -1564,9 +1540,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to get baseImage: %w", err)
 		}
-		if config.FF.NoPropagateAnnotations {
-			baseImage = image_util.WithoutAnnotations(baseImage)
-		}
+		baseImage = image_util.WithoutAnnotations(baseImage)
 
 		args := baseArgs
 		if stage.BaseImageStoredLocally {
@@ -1740,18 +1714,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		// Delete the filesystem
 		if err := util.DeleteFilesystem(); err != nil {
 			return nil, fmt.Errorf("deleting file system after stage %d: %w", stage.Index, err)
-		}
-		if !config.FF.DeprecateInterStageRestore {
-			if opts.PreserveContext && !opts.PreCleanup {
-				if tarball == "" {
-					return nil, errors.New("context snapshot is missing")
-				}
-				_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
-				if err != nil {
-					return nil, fmt.Errorf("failed to unpack context snapshot: %w", err)
-				}
-				logrus.Info("Context restored")
-			}
 		}
 	}
 

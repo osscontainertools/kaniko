@@ -31,7 +31,7 @@ import (
 const warmerLockDir = ".warmer-locks"
 
 // acquireCacheLock takes an exclusive flock on cacheDir/.warmer-locks/<key>.lock
-// and returns a cacheLock. It is used by warmToFile and ociWarmToFile to
+// and returns a cacheLock. It is used by ociWarmToFile to
 // serialize the cache write for the same digest across processes sharing
 // the same cache volume.
 type cacheLock struct {

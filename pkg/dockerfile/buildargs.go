@@ -24,7 +24,6 @@ import (
 	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/assert"
-	"github.com/osscontainertools/kaniko/pkg/config"
 )
 
 // builtinAllowedBuildArgs is list of built-in allowed build args
@@ -93,13 +92,8 @@ func (b *BuildArgs) ReplacementEnvs(envs []string) []string {
 	nenvs := len(merged)
 	args := b.GetAllAllowed()
 	for key, val := range args {
-		if config.FF.BuildkitArgEnvPrecedence {
-			// 3344: args always override envs
-			merged[key] = &val
-		} else if _, exists := merged[key]; !exists {
-			// 3344: legacy behaviour, envs always override args
-			merged[key] = &val
-		}
+		// 3344: args always override envs
+		merged[key] = &val
 	}
 	result := make([]string, 0, len(merged))
 	for key, val := range merged {
