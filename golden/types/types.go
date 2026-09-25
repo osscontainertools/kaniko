@@ -20,7 +20,9 @@ type GoldenTest struct {
 	Args       []string
 	Env        map[string]string
 	CachedKeys []string
-	Plan       string
+	// CacheMediaType is the layer media type of every cache entry, docker gzip when empty.
+	CacheMediaType string
+	Plan           string
 }
 
 type GoldenTests struct {

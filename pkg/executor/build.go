@@ -42,6 +42,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/partial"
+	ggcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
@@ -953,6 +954,22 @@ func layerCompression(mt types.MediaType) config.Compression {
 	}
 }
 
+func layerConversion(layerMediaType, imageMediaType types.MediaType, opts *config.KanikoOptions) (targetMediaType types.MediaType, recompress bool) {
+	if extractMediaTypeVendor(layerMediaType) == extractMediaTypeVendor(imageMediaType) {
+		return layerMediaType, false
+	}
+	targetMediaType = convertMediaType(layerMediaType)
+	if extractMediaTypeVendor(imageMediaType) == types.OCIVendorPrefix {
+		if opts.Compression == config.ZStd {
+			targetMediaType = types.OCILayerZStd
+		}
+	}
+	srcCompression := layerCompression(layerMediaType)
+	dstCompression := layerCompression(targetMediaType)
+	relabel := config.FF.SkipRelabelRecompress && srcCompression != "" && srcCompression == dstCompression
+	return targetMediaType, !relabel
+}
+
 func convertLayerMediaType(layer v1.Layer, image v1.Image, opts *config.KanikoOptions) (v1.Layer, error) {
 	layerMediaType, err := layer.MediaType()
 	if err != nil {
@@ -962,23 +979,17 @@ func convertLayerMediaType(layer v1.Layer, image v1.Image, opts *config.KanikoOp
 	if err != nil {
 		return nil, err
 	}
-	if extractMediaTypeVendor(layerMediaType) != extractMediaTypeVendor(imageMediaType) {
+	targetMediaType, recompress := layerConversion(layerMediaType, imageMediaType, opts)
+	if targetMediaType != layerMediaType {
 		layerOpts := getLayerOptionFromOpts(opts)
-		targetMediaType := convertMediaType(layerMediaType)
-
-		if extractMediaTypeVendor(imageMediaType) == types.OCIVendorPrefix {
-			if opts.Compression == config.ZStd {
-				targetMediaType = types.OCILayerZStd
-				layerOpts = append(layerOpts, tarball.WithCompression("zstd"))
-			}
+		if targetMediaType == types.OCILayerZStd {
+			layerOpts = append(layerOpts, tarball.WithCompression("zstd"))
 		}
 
 		layerOpts = append(layerOpts, tarball.WithMediaType(targetMediaType))
 
 		if targetMediaType != "" {
-			srcCompression := layerCompression(layerMediaType)
-			dstCompression := layerCompression(targetMediaType)
-			if config.FF.SkipRelabelRecompress && srcCompression != "" && srcCompression == dstCompression {
+			if !recompress {
 				relabeled, err := tarball.LayerFromOpener(layer.Compressed, layerOpts...)
 				if err != nil {
 					return nil, err
@@ -1112,8 +1123,9 @@ var (
 )
 
 type pushedLayer struct {
-	name string
-	key  v1.Hash
+	name   string
+	key    v1.Hash
+	origin *name.Repository
 }
 
 func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string, layerCache *memoizedLayerCache, externalImageDigests map[string]string, sharedRemote map[string]bool) (retErr error) {
@@ -1131,6 +1143,7 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 	}
 	sources := mounts.Snapshot()
 	stageLayers := map[int][]pushedLayer{}
+	stageMediaTypes := map[int]types.MediaType{}
 	for _, ref := range slices.Sorted(maps.Keys(externalImageDigests)) {
 		if sharedRemote[externalImageDigests[ref]] {
 			printf("FETCH %s\n", ref)
@@ -1146,9 +1159,14 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 			printf("FROM %s\n", s.BaseName)
 		}
 		var layers []pushedLayer
+		var mediaType types.MediaType
 		if s.BaseImageStoredLocally {
 			printf("  UNPACK %s%d\n", config.KanikoIntermediateStagesDir, s.BaseImageIndex)
-			layers = slices.Clone(stageLayers[s.BaseImageIndex])
+			// The stored stage is read back from its layout, which does not know where a layer came from.
+			for _, l := range stageLayers[s.BaseImageIndex] {
+				layers = append(layers, pushedLayer{name: l.name, key: l.key})
+			}
+			mediaType = stageMediaTypes[s.BaseImageIndex]
 		} else {
 			if sharedRemote[s.BaseImageDigest] {
 				printf("  FETCH %s\n", s.BaseName)
@@ -1156,8 +1174,10 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 			} else {
 				printf("  STREAM %s\n", s.BaseName)
 			}
+			base := image_util.EmptyBaseImage
 			if s.BaseImageDigest != "" {
-				base, err := image_util.RetrieveSourceImage(s, opts)
+				var err error
+				base, err = image_util.RetrieveSourceImage(s, opts)
 				if err != nil {
 					return err
 				}
@@ -1169,7 +1189,16 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 					layers = append(layers, pushedLayer{name: l.Digest.String(), key: l.Digest})
 				}
 			}
+			base, err := applyImageFormat(base, opts.ImageFormat)
+			if err != nil {
+				return err
+			}
+			mediaType, err = base.MediaType()
+			if err != nil {
+				return err
+			}
 		}
+		stageMediaTypes[s.Index] = mediaType
 		for jdx, c := range s.Commands {
 			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
 			if err != nil {
@@ -1181,6 +1210,7 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 			printf("%s\n", command)
 			snapshots := shouldTakeSnapshot(command.MetadataOnly(), jdx == len(s.Commands)-1, opts)
 			var key v1.Hash
+			var origin *name.Repository
 			if opts.Cache && opts.CacheCopyLayers && config.FF.InferCrossStageCacheKey && config.FF.CacheLookahead {
 				if copyCmd, ok := c.(*instructions.CopyCommand); ok && copyCmd.From != "" {
 					ci := cacheInfo[s.Index]
@@ -1206,7 +1236,19 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 						if err == nil {
 							cachedLayers, err := cached.Layers()
 							if err == nil && len(cachedLayers) == 1 && snapshots {
-								key, _ = cachedLayers[0].Digest()
+								cachedMediaType, err := cachedLayers[0].MediaType()
+								if err != nil {
+									return err
+								}
+								targetMediaType, recompress := layerConversion(cachedMediaType, mediaType, opts)
+								if !recompress {
+									key, _ = cachedLayers[0].Digest()
+								}
+								ml, ok := cachedLayers[0].(*ggcrremote.MountableLayer)
+								if ok && targetMediaType == cachedMediaType {
+									repo := ml.Reference.Context()
+									origin = &repo
+								}
 							}
 						}
 					} else {
@@ -1224,7 +1266,7 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 				}
 			}
 			if snapshots {
-				layers = append(layers, pushedLayer{name: command.String(), key: key})
+				layers = append(layers, pushedLayer{name: command.String(), key: key, origin: origin})
 			}
 		}
 		stageLayers[s.Index] = layers
@@ -1240,12 +1282,15 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 			}
 			for _, l := range layers {
 				var source name.Repository
-				serves := config.FF.CrossRepoMount && len(registries) > 0
+				serves := len(registries) > 0
 				for _, registry := range registries {
 					i, ok := mounts.Mountable(sources[l.key], registry)
-					if ok {
+					switch {
+					case config.FF.CrossRepoMount && ok:
 						source = sources[l.key][i]
-					} else {
+					case l.origin != nil && l.origin.RegistryStr() == registry:
+						source = *l.origin
+					default:
 						serves = false
 					}
 				}
