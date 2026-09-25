@@ -212,6 +212,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_CACHE_HASH_BLAKE3=1",
 	"FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS=1",
 	"FF_KANIKO_POOL_REGISTRY_CONNECTIONS=1",
+	"FF_KANIKO_LAYER_HINTS=1",
 	"KANIKO_PRINT_PLAN=1",
 	"KANIKO_TELEMETRY_ENDPOINT",
 	"KANIKO_TELEMETRY_TOKEN_EXCHANGE_ENDPOINT",
@@ -435,6 +436,20 @@ var diffArgsMap = map[string][]string{
 // output check to do when building with kaniko
 var outputChecks = map[string]func(string, []byte) error{
 	"Dockerfile_test_arg_secret": checkArgsNotPrinted,
+	"Dockerfile_test_issue_mz1121": func(_ string, out []byte) error {
+		for _, s := range []string{
+			"HINT SnapshotCacheDir: 9B in 1 files under /var/lib/apt/lists",
+			"HINT SnapshotCacheDir: 6B in 1 files under /root/.cache/pip",
+			"HINT SnapshotVCSDir: 4B in 1 files under /src/.git, use ADD <git url>",
+			"HINT SnapshotVCSDir: 6B in 1 files under /src/.hg, remove it in the same RUN",
+			"HINT SnapshotVCSDir: 3B in 1 files under /copied/.svn, copied from stage vcs, remove it in that stage or copy a narrower path",
+		} {
+			if !strings.Contains(string(out), s) {
+				return fmt.Errorf("output must contain %s", s)
+			}
+		}
+		return nil
+	},
 	"Dockerfile_test_snapshotter_ignorelist": func(_ string, out []byte) error {
 		for _, s := range []string{
 			"Adding whiteout for /dev",

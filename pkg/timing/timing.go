@@ -65,6 +65,14 @@ func SetTracer(ctx context.Context, t trace.Tracer) {
 	tracer = t
 }
 
+// AddEvent records an event on the innermost Scope span.
+func AddEvent(name string, attrs ...attribute.KeyValue) {
+	tracerMu.Lock()
+	ctx := parentCtx
+	tracerMu.Unlock()
+	trace.SpanFromContext(ctx).AddEvent(name, trace.WithAttributes(attrs...))
+}
+
 func TracingEnabled() bool {
 	tracerMu.Lock()
 	defer tracerMu.Unlock()

@@ -74,8 +74,8 @@ var (
 
 type snapShotter interface {
 	Init() error
-	TakeSnapshotFS() (string, int, error)
-	TakeSnapshot([]string, bool) (string, int, error)
+	TakeSnapshotFS() (string, []string, []string, error)
+	TakeSnapshot([]string, bool) (string, []string, []string, error)
 }
 
 // stageBuilder contains all fields necessary to build one stage of a Dockerfile
@@ -90,6 +90,7 @@ type stageBuilder struct {
 	lines           []int // source line per command, aligned with cmds
 	args            *dockerfile.BuildArgs
 	span            trace.Span
+	stageNames      map[int]string
 }
 
 type stageCacheInfo struct {
@@ -735,10 +736,13 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				}
 			}
 		} else {
-			tarPath, snapshotted, err := takeSnapshot(files, command.ShouldDetectDeletedFiles(), opts, snapshotter)
+			tarPath, added, whiteouts, err := takeSnapshot(files, command.ShouldDetectDeletedFiles(), opts, snapshotter)
 			if err != nil {
 				return fmt.Errorf("failed to take snapshot: %w", err)
 			}
+			source, from := hintSource(command, opts, s.stageNames)
+			snapshot.ReportHints(added, source, from)
+			snapshotted := len(added) + len(whiteouts)
 
 			unpacked := shouldUnpack || (s.index == 0 && opts.InitialFSUnpacked)
 			if !unpacked {
@@ -798,23 +802,49 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	return nil
 }
 
-func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, snapshotter snapShotter) (string, int, error) {
+func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, snapshotter snapShotter) (string, []string, []string, error) {
 	var snapshot string
-	var snapshotted int
+	var added, whiteouts []string
 	var err error
 
 	t := timing.Start("Snapshotting FS")
 	if files == nil || opts.SingleSnapshot {
-		snapshot, snapshotted, err = snapshotter.TakeSnapshotFS()
+		snapshot, added, whiteouts, err = snapshotter.TakeSnapshotFS()
 	} else {
 		if !config.FF.VolumeSkipMkdir {
 			// Volumes are very weird. They get snapshotted in the next command.
 			files = append(files, util.Volumes()...)
 		}
-		snapshot, snapshotted, err = snapshotter.TakeSnapshot(files, shdDelete)
+		snapshot, added, whiteouts, err = snapshotter.TakeSnapshot(files, shdDelete)
 	}
 	t.End()
-	return snapshot, snapshotted, err
+	return snapshot, added, whiteouts, err
+}
+
+func hintSource(command commands.DockerCommand, opts *config.KanikoOptions, stageNames map[int]string) (snapshot.HintSource, string) {
+	if opts.SingleSnapshot {
+		return snapshot.SourceUnknown, ""
+	}
+	switch c := command.(type) {
+	case *commands.RunCommand, *commands.RunMarkerCommand:
+		return snapshot.SourceRun, ""
+	case *commands.CopyCommand:
+		idx, err := strconv.Atoi(c.From())
+		switch {
+		case c.From() == "":
+			return snapshot.SourceContext, ""
+		case err != nil:
+			return snapshot.SourceImage, c.From()
+		case stageNames[idx] != "":
+			return snapshot.SourceStage, stageNames[idx]
+		default:
+			return snapshot.SourceStage, c.From()
+		}
+	case *commands.AddCommand:
+		return snapshot.SourceContext, ""
+	default:
+		return snapshot.SourceUnknown, ""
+	}
 }
 
 func shouldTakeSnapshot(isMetadataCmd bool, isLastCommand bool, opts *config.KanikoOptions) bool {
@@ -1293,6 +1323,10 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	if err != nil {
 		return nil, err
 	}
+	stageNames := map[int]string{}
+	for _, s := range kanikoStages {
+		stageNames[s.Index] = s.Name
+	}
 
 	fileContext, err := util.NewFileContextFromDockerfile(opts.DockerfilePath, opts.SrcContext)
 	if err != nil {
@@ -1371,6 +1405,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			if err != nil {
 				return nil, err
 			}
+			sb.stageNames = stageNames
 
 			var compositeKey *CompositeCache
 			if stage.BaseImageStoredLocally {
@@ -1512,7 +1547,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	if opts.PreserveContext {
 		if len(kanikoStages) > 1 || opts.PreCleanup || opts.Cleanup {
 			logrus.Info("Creating snapshot of build context")
-			tarball, _, err = snapshotter.TakeSnapshotFS()
+			tarball, _, _, err = snapshotter.TakeSnapshotFS()
 			if err != nil {
 				return nil, err
 			}
@@ -1581,6 +1616,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return nil, err
 		}
 		sb.span = stageSpan
+		sb.stageNames = stageNames
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
 			stage.BaseName, stage.Index, stage.BaseImageIndex)
 

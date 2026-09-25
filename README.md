@@ -171,7 +171,9 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES`](#flag-ff_kaniko_deprecate_layerless_cache_entries)
       - [Flag `FF_KANIKO_ADD_CHECKSUM`](#flag-ff_kaniko_add_checksum)
       - [Flag `FF_KANIKO_POOL_REGISTRY_CONNECTIONS`](#flag-ff_kaniko_pool_registry_connections)
+      - [Flag `FF_KANIKO_LAYER_HINTS`](#flag-ff_kaniko_layer_hints)
     - [Assertion Overrides](#assertion-overrides)
+    - [Layer Hints](#layer-hints)
     - [Telemetry](#telemetry)
     - [Debug Image](#debug-image)
   - [Security](#security)
@@ -1557,6 +1559,11 @@ Set this flag to `true` to share one connection pool per registry.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
+#### Flag `FF_KANIKO_LAYER_HINTS`
+
+Set this flag to `true` to log [layer hints](#layer-hints).
+Defaults to `false`.
+
 ### Assertion Overrides
 
 Kaniko checks internal invariants at runtime. If one is violated the build stops with a message like:
@@ -1574,6 +1581,25 @@ KANIKO_IGNORE_ASSERTIONS=executor.build.metadata-only
 ```
 
 Multiple names can be passed as a comma-separated list.
+
+### Layer Hints
+
+With `FF_KANIKO_LAYER_HINTS=true`, kaniko logs a hint when a command adds files to its layer that usually do not belong in an image:
+
+```
+HINT SnapshotCacheDir: 184.2MB in 1532 files under /root/.cache/pip, use RUN --mount=type=cache or remove it in the same RUN
+```
+
+| Hint | Layer contains |
+| --- | --- |
+| `SnapshotCacheDir` | package manager or build caches, such as `~/.cache/pip`, `~/.npm`, `~/.m2/repository`, `/var/lib/apt/lists` |
+| `SnapshotVCSDir` | `.git`, `.hg` or `.svn` directories |
+
+Pass hint names to `KANIKO_IGNORE_HINTS` to silence them:
+
+```sh
+KANIKO_IGNORE_HINTS=SnapshotCacheDir,SnapshotVCSDir
+```
 
 ### Telemetry
 
