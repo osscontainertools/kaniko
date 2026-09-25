@@ -63,7 +63,60 @@ var Tests = types.GoldenTests{
 				"9960b0560d3e4212d47329ac9e3379b8891474e43756b7650ae3bc18092b62f7",
 				"c4d1d053ed51898d12bc0fe84e96f70fc77ad862f9e38b677cf97c1cddd78784",
 			},
-			Plan: "rekeyed",
+			CacheMediaType: "application/vnd.oci.image.layer.v1.tar+zstd",
+			Plan:           "rekeyed",
+		},
+		{
+			// A layer read out of the cache repo passes through unchanged, and
+			// go-containerregistry mounts it without the flag.
+			Args: []string{"-d", "example.com/img:latest", "--cache", "--cache-repo", "example.com/cache"},
+			Env:  map[string]string{"FF_KANIKO_CACHE_LOOKAHEAD": "1"},
+			CachedKeys: []string{
+				"9960b0560d3e4212d47329ac9e3379b8891474e43756b7650ae3bc18092b62f7",
+				"c4d1d053ed51898d12bc0fe84e96f70fc77ad862f9e38b677cf97c1cddd78784",
+			},
+			Plan: "cache_hit",
+		},
+		{
+			// A layout cache has no repository to mount from.
+			Args: []string{"-d", "example.com/img:latest", "--cache", "--cache-repo", "oci:/cache"},
+			Env:  map[string]string{"FF_KANIKO_CACHE_LOOKAHEAD": "1", "FF_KANIKO_CROSS_REPO_MOUNT": "1"},
+			CachedKeys: []string{
+				"9960b0560d3e4212d47329ac9e3379b8891474e43756b7650ae3bc18092b62f7",
+				"c4d1d053ed51898d12bc0fe84e96f70fc77ad862f9e38b677cf97c1cddd78784",
+			},
+			Plan: "layout_cache",
+		},
+		{
+			// The docker gzip entries are relabeled into the oci image. The relabel keeps the
+			// digest, so the flag still mounts them.
+			Args: []string{"-d", "example.com/img:latest", "--cache", "--cache-repo", "example.com/cache", "--image-format", "oci"},
+			Env:  map[string]string{"FF_KANIKO_CACHE_LOOKAHEAD": "1", "FF_KANIKO_CROSS_REPO_MOUNT": "1", "FF_KANIKO_SKIP_RELABEL_RECOMPRESS": "1"},
+			CachedKeys: []string{
+				"169858ec48524dcf8072fe7d9853fd2a1b885612e782f62135c7844f742ec463",
+				"5ba430ac16bd5c0263ae55b68687c96a6fc2c0ebf3e232ea894707492381f906",
+			},
+			Plan: "relabeled_mount",
+		},
+		{
+			// Without the flag the relabeled layer has lost its origin, so it uploads.
+			Args: []string{"-d", "example.com/img:latest", "--cache", "--cache-repo", "example.com/cache", "--image-format", "oci"},
+			Env:  map[string]string{"FF_KANIKO_CACHE_LOOKAHEAD": "1", "FF_KANIKO_SKIP_RELABEL_RECOMPRESS": "1"},
+			CachedKeys: []string{
+				"169858ec48524dcf8072fe7d9853fd2a1b885612e782f62135c7844f742ec463",
+				"5ba430ac16bd5c0263ae55b68687c96a6fc2c0ebf3e232ea894707492381f906",
+			},
+			Plan: "relabeled",
+		},
+		{
+			// Recompressing the relabel changes the digest, so the flag has nothing to mount.
+			Args: []string{"-d", "example.com/img:latest", "--cache", "--cache-repo", "example.com/cache", "--image-format", "oci"},
+			Env:  map[string]string{"FF_KANIKO_CACHE_LOOKAHEAD": "1", "FF_KANIKO_CROSS_REPO_MOUNT": "1"},
+			CachedKeys: []string{
+				"169858ec48524dcf8072fe7d9853fd2a1b885612e782f62135c7844f742ec463",
+				"5ba430ac16bd5c0263ae55b68687c96a6fc2c0ebf3e232ea894707492381f906",
+			},
+			Plan: "relabeled",
 		},
 	},
 }
