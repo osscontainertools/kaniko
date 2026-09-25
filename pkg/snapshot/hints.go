@@ -33,28 +33,33 @@ const (
 	SourceUnknown HintSource = iota
 	SourceContext
 	SourceStage
+	SourceImage
 	SourceRun
+	sourceCount
 )
 
-type advice [4]string
+type advice [sourceCount]string
 
 var (
 	cacheAdvice = advice{
 		SourceUnknown: "use RUN --mount=type=cache or remove it in the same RUN",
 		SourceContext: "exclude it in .dockerignore",
-		SourceStage:   "do not copy it from that stage",
+		SourceStage:   "remove it in that stage or copy a narrower path",
+		SourceImage:   "copy a narrower path",
 		SourceRun:     "use RUN --mount=type=cache or remove it in the same RUN",
 	}
 	gitAdvice = advice{
 		SourceUnknown: "exclude it in .dockerignore for COPY, use ADD <git url>, or git clone --depth 1 and remove it in the same RUN",
 		SourceContext: "exclude it in .dockerignore",
-		SourceStage:   "do not copy it from that stage",
+		SourceStage:   "remove it in that stage or copy a narrower path",
+		SourceImage:   "copy a narrower path",
 		SourceRun:     "use ADD <git url>, or git clone --depth 1 and remove it in the same RUN",
 	}
 	vcsAdvice = advice{
 		SourceUnknown: "exclude it in .dockerignore for COPY or remove it in the same RUN",
 		SourceContext: "exclude it in .dockerignore",
-		SourceStage:   "do not copy it from that stage",
+		SourceStage:   "remove it in that stage or copy a narrower path",
+		SourceImage:   "copy a narrower path",
 		SourceRun:     "remove it in the same RUN",
 	}
 )
@@ -90,9 +95,16 @@ type dirUsage struct {
 	files int
 }
 
-func ReportHints(files []string, source HintSource) {
+func ReportHints(files []string, source HintSource, from string) {
 	if !config.FF.LayerHints {
 		return
+	}
+	origin := ""
+	switch source {
+	case SourceStage:
+		origin = "copied from stage " + from + ", "
+	case SourceImage:
+		origin = "copied from image " + from + ", "
 	}
 	usage := map[string]dirUsage{}
 	for _, file := range files {
@@ -113,7 +125,7 @@ func ReportHints(files []string, source HintSource) {
 	for _, dir := range slices.Sorted(maps.Keys(usage)) {
 		u := usage[dir]
 		if u.bytes > 0 {
-			hint.Report(u.rule.rule, "%s in %d files under %s, %s", units.HumanSize(float64(u.bytes)), u.files, dir, u.rule.advice[source])
+			hint.Report(u.rule.rule, "%s in %d files under %s, %s%s", units.HumanSize(float64(u.bytes)), u.files, dir, origin, u.rule.advice[source])
 		}
 	}
 }

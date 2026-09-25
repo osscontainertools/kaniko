@@ -93,6 +93,7 @@ type stageBuilder struct {
 	lines           []int // source line per command, aligned with cmds
 	args            *dockerfile.BuildArgs
 	span            trace.Span
+	stageNames      map[int]string
 }
 
 type stageCacheInfo struct {
@@ -760,7 +761,8 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			if err != nil {
 				return fmt.Errorf("failed to take snapshot: %w", err)
 			}
-			snapshot.ReportHints(added, hintSource(command, opts))
+			source, from := hintSource(command, opts, s.stageNames)
+			snapshot.ReportHints(added, source, from)
 			snapshotted := len(added) + len(whiteouts)
 
 			unpacked := shouldUnpack || (s.index == 0 && opts.InitialFSUnpacked)
@@ -851,22 +853,29 @@ func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, sn
 	return snapshot, added, whiteouts, err
 }
 
-func hintSource(command commands.DockerCommand, opts *config.KanikoOptions) snapshot.HintSource {
+func hintSource(command commands.DockerCommand, opts *config.KanikoOptions, stageNames map[int]string) (snapshot.HintSource, string) {
 	if opts.SingleSnapshot {
-		return snapshot.SourceUnknown
+		return snapshot.SourceUnknown, ""
 	}
 	switch c := command.(type) {
 	case *commands.RunCommand, *commands.RunMarkerCommand:
-		return snapshot.SourceRun
+		return snapshot.SourceRun, ""
 	case *commands.CopyCommand:
-		if c.From() != "" {
-			return snapshot.SourceStage
+		idx, err := strconv.Atoi(c.From())
+		switch {
+		case c.From() == "":
+			return snapshot.SourceContext, ""
+		case err != nil:
+			return snapshot.SourceImage, c.From()
+		case stageNames[idx] != "":
+			return snapshot.SourceStage, stageNames[idx]
+		default:
+			return snapshot.SourceStage, c.From()
 		}
-		return snapshot.SourceContext
 	case *commands.AddCommand:
-		return snapshot.SourceContext
+		return snapshot.SourceContext, ""
 	default:
-		return snapshot.SourceUnknown
+		return snapshot.SourceUnknown, ""
 	}
 }
 
@@ -1407,6 +1416,10 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	if err != nil {
 		return nil, err
 	}
+	stageNames := map[int]string{}
+	for _, s := range kanikoStages {
+		stageNames[s.Index] = s.Name
+	}
 
 	fileContext, err := util.NewFileContextFromDockerfile(opts.DockerfilePath, opts.SrcContext)
 	if err != nil {
@@ -1485,6 +1498,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			if err != nil {
 				return nil, err
 			}
+			sb.stageNames = stageNames
 
 			var compositeKey *CompositeCache
 			if stage.BaseImageStoredLocally {
@@ -1695,6 +1709,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return nil, err
 		}
 		sb.span = stageSpan
+		sb.stageNames = stageNames
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
 			stage.BaseName, stage.Index, stage.BaseImageIndex)
 
