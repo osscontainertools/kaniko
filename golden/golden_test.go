@@ -33,6 +33,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	ggcrtypes "github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
 	testbake "github.com/osscontainertools/kaniko/golden/testdata/test_bake"
@@ -64,19 +65,21 @@ const cachePointerLabel = "kaniko.cache.pointer-target"
 type fakeLayerCache struct {
 	opts       *config.KanikoOptions
 	cachedKeys []string
+	mediaType  ggcrtypes.MediaType
 }
 
 // fakeLayer stands in for a cache entry's layer. Its content is the key that found it, so its
 // digest is derived rather than fixed by hand and stays stable across runs.
 type fakeLayer struct {
-	key string
+	key       string
+	mediaType ggcrtypes.MediaType
 }
 
 func (l *fakeLayer) Digest() (v1.Hash, error) { return l.hash() }
 func (l *fakeLayer) DiffID() (v1.Hash, error) { return l.hash() }
 func (l *fakeLayer) Size() (int64, error)     { return int64(len(l.key)), nil }
 
-func (l *fakeLayer) MediaType() (ggcrtypes.MediaType, error) { return ggcrtypes.DockerLayer, nil }
+func (l *fakeLayer) MediaType() (ggcrtypes.MediaType, error) { return l.mediaType, nil }
 func (l *fakeLayer) Compressed() (io.ReadCloser, error)      { return l.reader(), nil }
 
 func (l *fakeLayer) Uncompressed() (io.ReadCloser, error) { return l.reader(), nil }
@@ -99,19 +102,25 @@ func (f *fakeLayerCache) RetrieveLayer(key string) (v1.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	img, err = mutate.AppendLayers(img, &fakeLayer{key: key})
+	var layer v1.Layer = &fakeLayer{key: key, mediaType: f.mediaType}
+	var tag name.Tag
+	dest, err := cache.Destination(f.opts, key)
+	remoteCache := err == nil && !strings.HasPrefix(dest, "oci:")
+	if remoteCache {
+		tag, err = name.NewTag(dest, name.WeakValidation)
+		remoteCache = err == nil
+	}
+	// Layers read through remote.Image are mountable, layers read from a layout are not.
+	if remoteCache {
+		layer = &remote.MountableLayer{Layer: layer, Reference: tag}
+	}
+	img, err = mutate.AppendLayers(img, layer)
 	if err != nil {
 		return nil, err
 	}
 	// The real registry cache records where it read from, and the plan reads that back.
-	if config.FF.CrossRepoMount {
-		dest, err := cache.Destination(f.opts, key)
-		if err == nil {
-			tag, err := name.NewTag(dest, name.WeakValidation)
-			if err == nil {
-				mounts.RecordImage(img, tag.Context())
-			}
-		}
+	if config.FF.CrossRepoMount && remoteCache {
+		mounts.RecordImage(img, tag.Context())
 	}
 	return img, nil
 }
@@ -160,11 +169,15 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
-func renderPlan(t *testing.T, opts *config.KanikoOptions, cachedKeys []string) string {
+func renderPlan(t *testing.T, opts *config.KanikoOptions, test types.GoldenTest) string {
 	t.Helper()
+	cacheMediaType := ggcrtypes.MediaType(test.CacheMediaType)
+	if cacheMediaType == "" {
+		cacheMediaType = ggcrtypes.DockerLayer
+	}
 	origNewLayerCache := executor.NewLayerCache
 	executor.NewLayerCache = func(opts *config.KanikoOptions) cache.LayerCache {
-		return &fakeLayerCache{opts: opts, cachedKeys: cachedKeys}
+		return &fakeLayerCache{opts: opts, cachedKeys: test.CachedKeys, mediaType: cacheMediaType}
 	}
 	t.Cleanup(func() { executor.NewLayerCache = origNewLayerCache })
 
@@ -214,6 +227,7 @@ func TestRun(t *testing.T) {
 							// Feature flags resolve once at startup; re-resolve so
 							// this subtest's env takes effect, and restore afterwards.
 							config.InitFeatureFlags()
+							mounts.Reset()
 
 							opts := config.KanikoOptions{}
 							exec := &cobra.Command{
@@ -231,7 +245,7 @@ func TestRun(t *testing.T) {
 							}
 							cmd.ValidateFlags(&opts)
 
-							output := renderPlan(t, &opts, test.CachedKeys)
+							output := renderPlan(t, &opts, test)
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), output)
 						})
 					}
@@ -262,6 +276,7 @@ func TestBake(t *testing.T) {
 							// Feature flags resolve once at startup; re-resolve so
 							// this subtest's env takes effect, and restore afterwards.
 							config.InitFeatureFlags()
+							mounts.Reset()
 
 							opts := config.KanikoOptions{}
 							var set []string
@@ -287,7 +302,7 @@ func TestBake(t *testing.T) {
 							var output string
 							for _, target := range targets {
 								cmd.ApplyTarget(&opts, target)
-								output += renderPlan(t, &opts, test.CachedKeys)
+								output += renderPlan(t, &opts, test)
 							}
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), output)
 						})
