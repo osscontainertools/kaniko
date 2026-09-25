@@ -442,7 +442,7 @@ var outputChecks = map[string]func(string, []byte) error{
 			"HINT SnapshotCacheDir: 6B in 1 files under /root/.cache/pip",
 			"HINT SnapshotVCSDir: 4B in 1 files under /src/.git, use ADD <git url>",
 			"HINT SnapshotVCSDir: 6B in 1 files under /src/.hg, remove it in the same RUN",
-			"HINT SnapshotVCSDir: 3B in 1 files under /copied/.svn, do not copy it from that stage",
+			"HINT SnapshotVCSDir: 3B in 1 files under /copied/.svn, copied from stage vcs, remove it in that stage or copy a narrower path",
 		} {
 			if !strings.Contains(string(out), s) {
 				return fmt.Errorf("output must contain %s", s)
