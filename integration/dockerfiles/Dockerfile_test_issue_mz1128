@@ -1,0 +1,14 @@
+# mz1128: a fully cached stage is built although its only consumer hits the cache.
+# Builds the stage on main@cf3b18c65 with FF_KANIKO_SKIP_CACHED_STAGES.
+# BUST changes on the second build, so first misses but writes the same /first.
+# COPY --from=second can only be keyed once first is rebuilt, then it hits.
+FROM busybox AS first
+ARG BUST
+RUN echo "$BUST" > /dev/null && echo first > /first
+
+FROM busybox AS second
+RUN echo second > /second
+
+FROM busybox
+COPY --from=first /first /first
+COPY --from=second /second /second

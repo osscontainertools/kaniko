@@ -160,7 +160,8 @@ var argsMap = map[string][]string{
 }
 
 var argsMapVersion1 = map[string][]string{
-	"Dockerfile_test_issue_mz655": {"BASE_TAG=1.36.1"},
+	"Dockerfile_test_issue_mz655":  {"BASE_TAG=1.36.1"},
+	"Dockerfile_test_issue_mz1128": {"BUST=1"},
 }
 
 // Environment to build Dockerfiles with, used for both docker and kaniko builds
@@ -171,6 +172,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_mz775":  {"FF_KANIKO_CACHE_LOOKAHEAD=0"},
 	"Dockerfile_test_issue_mz334":  {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
 	"Dockerfile_test_issue_mz960":  {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
+	"Dockerfile_test_issue_mz1128": {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
 	"Dockerfile_test_issue_mz793":  {"FF_KANIKO_VOLUME_SKIP_MKDIR=0"},
 	"Dockerfile_test_issue_mz473":  {"KANIKO_DIR=/kaniko2"},
 	"Dockerfile_test_issue_mz661":  {"KANIKO_DIR=/kaniko2"},
@@ -312,6 +314,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_snapshotter_ignorelist":     {"--use-new-run=true", "-v=trace"},
 	"Dockerfile_test_issue_mz334":                {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz960":                {"--cache-copy-layers=true"},
+	"Dockerfile_test_issue_mz1128":               {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz879":                {"--cache-copy-layers=true", "--use-new-run"},
 	"Dockerfile_test_issue_mz896":                {"--cache-copy-layers=true", "--cache-run-layers=false"},
 	"Dockerfile_test_issue_mz787":                {"--cache=true"},
@@ -467,6 +470,12 @@ var cacheHitOutputChecks = map[string]func(string, []byte) error{
 			if !strings.Contains(string(out), "Cache hit via inferred cross-stage key for cmd: "+cmd) {
 				return fmt.Errorf("expected inferred-key cache hit for %q but found none in output", cmd)
 			}
+		}
+		return nil
+	},
+	"Dockerfile_test_issue_mz1128": func(_ string, out []byte) error {
+		if !strings.Contains(string(out), "Eliminating stage 'busybox' [idx: '1']") {
+			return fmt.Errorf("expected stage second to be eliminated")
 		}
 		return nil
 	},
@@ -662,6 +671,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz879":   {},
 		"Dockerfile_test_issue_mz896":   {},
 		"Dockerfile_test_issue_mz960":   {},
+		"Dockerfile_test_issue_mz1128":  {},
 	}
 	d.TestOCICacheDockerfiles = map[string]struct{}{
 		"Dockerfile_test_cache_oci":         {},
