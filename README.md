@@ -1185,6 +1185,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 ```sh
 FF_KANIKO_ADD_CHECKSUM=true
 FF_KANIKO_CACHE_HASH_BLAKE3=true
+FF_KANIKO_CACHE_LOOKAHEAD=true
 FF_KANIKO_COPY_SKIP_SPECIAL_FILES=true
 FF_KANIKO_CROSS_REPO_MOUNT=true
 FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES=true
@@ -1362,8 +1363,9 @@ Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_CACHE_LOOKAHEAD`
 
-Set this flag to `true` to run a precompute pass before the build loop that derives each stage's final cache key ahead of time. The build loop still recomputes each key during its own `optimize()` call and asserts that it matches the precomputed value. This is a developer assertion to verify the new precompute pass is correct, there is no benefit to enabling it in production.
+Set this flag to `true` to run a precompute pass before the build loop that derives each stage's final cache key ahead of time. The build loop still recomputes each key during its own `optimize()` call and asserts that it matches the precomputed value.
 Defaults to `false`.
+Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_ROLLING_CACHE_KEY`
 
