@@ -1363,7 +1363,7 @@ Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_CACHE_LOOKAHEAD`
 
-Set this flag to `true` to run a precompute pass before the build loop that derives each stage's final cache key ahead of time. The build loop still recomputes each key during its own `optimize()` call and asserts that it matches the precomputed value. `FF_KANIKO_SKIP_CACHED_STAGES` needs these keys and has no effect without this flag.
+Set this flag to `true` to run a precompute pass before the build loop that derives each stage's final cache key ahead of time. The build loop still recomputes each key during its own `optimize()` call and asserts that it matches the precomputed value.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
@@ -1502,7 +1502,6 @@ Becomes default in `v1.29.0`.
 
 When a multi-stage build uses `COPY --from=<stage>`, the downstream cache key depends on the copied files. So the entire source stage has to be built and unpacked, only to then realize that we had a cache hit and can throw away the upstream stage. We recently introduced `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`, `FF_KANIKO_CACHE_LOOKAHEAD` and `FF_KANIKO_ROLLING_CACHE_KEY`, with that we can know a-priori whether we will have a cache hit or not. `FF_KANIKO_SKIP_CACHED_STAGES` is the logical conclusion then, it simply runs another elision pass over the now updated list of stages and drops all stages that are no longer required to be built. Where a key cannot be inferred the stage is built as before. A fully cached build collapses into a single stage with nothing to unpack.
 Set this flag to `true` to run the second elision pass.
-Requires `--cache-copy-layers` and `FF_KANIKO_CACHE_LOOKAHEAD`.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
