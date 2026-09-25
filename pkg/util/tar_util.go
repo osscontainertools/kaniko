@@ -39,7 +39,11 @@ import (
 type Tar struct {
 	hardlinks map[hardlinkKey]string
 	names     map[string]bool
-	w         *tar.Writer
+	// seen is the assertion set, and it is not names: it also holds the whiteouts, and it
+	// records what was written rather than what was claimed, so a name skipped by the
+	// dedup above never counts as an entry.
+	seen map[string]struct{}
+	w    *tar.Writer
 }
 
 // NewTar will create an instance of Tar that can write files to the writer at f.
@@ -50,7 +54,33 @@ func NewTar(f io.Writer) Tar {
 		w:         w,
 		hardlinks: map[hardlinkKey]string{},
 		names:     map[string]bool{},
+		seen:      map[string]struct{}{},
 	}
+}
+
+// entryName normalizes a filesystem path to the header name used in the layer
+// tar, without a trailing slash so files and directories share one key space.
+func entryName(p string) string {
+	name := strings.TrimPrefix(p, config.RootDir)
+	name = strings.TrimLeft(name, "/")
+	return strings.TrimSuffix(name, "/")
+}
+
+// assertEntry checks the layer-shape invariants for a header name about to be
+// written and records it as seen.
+func (t *Tar) assertEntry(name string) {
+	// A duplicate entry makes extraction order-dependent and is always a
+	// snapshot bookkeeping bug.
+	_, dup := t.seen[name]
+	assert.Assert("tar.entry-unique", !dup, "tar entry %q must be written at most once", name)
+	// Entry names must stay relative and inside the image root.
+	clean := name != "" && !strings.HasPrefix(name, "/") && !strings.Contains("/"+name+"/", "/../")
+	assert.Assert("tar.name-clean", clean, "tar entry name %q must be a clean relative path", name)
+	// The executor's own directory must never leak into an image layer; this is
+	// the last line of defense after the ignore list.
+	kdir := strings.TrimLeft(config.KanikoDir, "/")
+	assert.Assert("tar.kaniko-excluded", name != kdir && !strings.HasPrefix(name, kdir+"/"), "tar entry %q must not be inside the kaniko directory", name)
+	t.seen[name] = struct{}{}
 }
 
 // Close will close any open streams used by Tar.
@@ -121,6 +151,21 @@ func (t *Tar) AddFileToTar(p string) error {
 		hdr.Typeflag = tar.TypeLink
 		hdr.Size = 0
 	}
+
+	name := entryName(hdr.Name)
+	// An entry alongside its own whiteout contradicts itself; extraction
+	// behavior would be undefined.
+	whiteout := entryName(filepath.Join(filepath.Dir(name), archive.WhiteoutPrefix+filepath.Base(name)))
+	_, conflicting := t.seen[whiteout]
+	assert.Assert("tar.whiteout-conflict", !conflicting, "tar entry %q must not coexist with its whiteout", name)
+	if hardlink {
+		// A hardlink can only be extracted if its target was already written
+		// to the same tar.
+		_, targetSeen := t.seen[entryName(linkDst)]
+		assert.Assert("tar.hardlink-target-in-tar", targetSeen, "hardlink %q target %q must already be in the tar", name, entryName(linkDst))
+	}
+	t.assertEntry(name)
+
 	if err := t.w.WriteHeader(hdr); err != nil {
 		return err
 	}
@@ -179,6 +224,13 @@ func (t *Tar) Whiteout(p string) error {
 		Name: strings.TrimLeft(filepath.Join(dir, name), "/"),
 		Size: 0,
 	}
+
+	// A whiteout alongside the entry it deletes contradicts itself; extraction
+	// behavior would be undefined.
+	_, conflicting := t.seen[entryName(p)]
+	assert.Assert("tar.whiteout-conflict", !conflicting, "whiteout %q must not coexist with the entry it deletes", th.Name)
+	t.assertEntry(entryName(th.Name))
+
 	if err := t.w.WriteHeader(th); err != nil {
 		return err
 	}
