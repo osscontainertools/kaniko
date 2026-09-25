@@ -74,8 +74,8 @@ var (
 
 type snapShotter interface {
 	Init() error
-	TakeSnapshotFS() (string, int, error)
-	TakeSnapshot([]string, bool) (string, int, error)
+	TakeSnapshotFS() (string, []string, []string, error)
+	TakeSnapshot([]string, bool) (string, []string, []string, error)
 }
 
 // stageBuilder contains all fields necessary to build one stage of a Dockerfile
@@ -735,10 +735,12 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				}
 			}
 		} else {
-			tarPath, snapshotted, err := takeSnapshot(files, command.ShouldDetectDeletedFiles(), opts, snapshotter)
+			tarPath, added, whiteouts, err := takeSnapshot(files, command.ShouldDetectDeletedFiles(), opts, snapshotter)
 			if err != nil {
 				return fmt.Errorf("failed to take snapshot: %w", err)
 			}
+			snapshot.ReportHints(added, hintSource(command, opts))
+			snapshotted := len(added) + len(whiteouts)
 
 			unpacked := shouldUnpack || (s.index == 0 && opts.InitialFSUnpacked)
 			if !unpacked {
@@ -798,23 +800,42 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	return nil
 }
 
-func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, snapshotter snapShotter) (string, int, error) {
+func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, snapshotter snapShotter) (string, []string, []string, error) {
 	var snapshot string
-	var snapshotted int
+	var added, whiteouts []string
 	var err error
 
 	t := timing.Start("Snapshotting FS")
 	if files == nil || opts.SingleSnapshot {
-		snapshot, snapshotted, err = snapshotter.TakeSnapshotFS()
+		snapshot, added, whiteouts, err = snapshotter.TakeSnapshotFS()
 	} else {
 		if !config.FF.VolumeSkipMkdir {
 			// Volumes are very weird. They get snapshotted in the next command.
 			files = append(files, util.Volumes()...)
 		}
-		snapshot, snapshotted, err = snapshotter.TakeSnapshot(files, shdDelete)
+		snapshot, added, whiteouts, err = snapshotter.TakeSnapshot(files, shdDelete)
 	}
 	t.End()
-	return snapshot, snapshotted, err
+	return snapshot, added, whiteouts, err
+}
+
+func hintSource(command commands.DockerCommand, opts *config.KanikoOptions) snapshot.HintSource {
+	if opts.SingleSnapshot {
+		return snapshot.SourceUnknown
+	}
+	switch c := command.(type) {
+	case *commands.RunCommand, *commands.RunMarkerCommand:
+		return snapshot.SourceRun
+	case *commands.CopyCommand:
+		if c.From() != "" {
+			return snapshot.SourceStage
+		}
+		return snapshot.SourceContext
+	case *commands.AddCommand:
+		return snapshot.SourceContext
+	default:
+		return snapshot.SourceUnknown
+	}
 }
 
 func shouldTakeSnapshot(isMetadataCmd bool, isLastCommand bool, opts *config.KanikoOptions) bool {
@@ -1512,7 +1533,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	if opts.PreserveContext {
 		if len(kanikoStages) > 1 || opts.PreCleanup || opts.Cleanup {
 			logrus.Info("Creating snapshot of build context")
-			tarball, _, err = snapshotter.TakeSnapshotFS()
+			tarball, _, _, err = snapshotter.TakeSnapshotFS()
 			if err != nil {
 				return nil, err
 			}

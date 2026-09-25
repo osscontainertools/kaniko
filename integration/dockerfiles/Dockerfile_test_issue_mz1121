@@ -1,5 +1,9 @@
+FROM debian:12.10 AS vcs
+RUN mkdir -p /src/.svn && echo db > /src/.svn/wc.db
+
 FROM debian:12.10
 RUN mkdir -p /var/lib/apt/lists && echo packages > /var/lib/apt/lists/deb.debian.org_debian_dists_bookworm_InRelease
 RUN mkdir -p /root/.cache/pip/http && echo wheel > /root/.cache/pip/http/wheel
 RUN mkdir -p /src/.git && echo ref > /src/.git/HEAD
 RUN mkdir -p /src/.hg && echo store > /src/.hg/requires
+COPY --from=vcs /src /copied

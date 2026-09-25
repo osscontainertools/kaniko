@@ -440,8 +440,9 @@ var outputChecks = map[string]func(string, []byte) error{
 		for _, s := range []string{
 			"HINT SnapshotCacheDir: 9B in 1 files under /var/lib/apt/lists",
 			"HINT SnapshotCacheDir: 6B in 1 files under /root/.cache/pip",
-			"HINT SnapshotVCSDir: 4B in 1 files under /src/.git, exclude it in .dockerignore for COPY, use ADD <git url>",
-			"HINT SnapshotVCSDir: 6B in 1 files under /src/.hg",
+			"HINT SnapshotVCSDir: 4B in 1 files under /src/.git, use ADD <git url>",
+			"HINT SnapshotVCSDir: 6B in 1 files under /src/.hg, remove it in the same RUN",
+			"HINT SnapshotVCSDir: 3B in 1 files under /copied/.svn, do not copy it from that stage",
 		} {
 			if !strings.Contains(string(out), s) {
 				return fmt.Errorf("output must contain %s", s)

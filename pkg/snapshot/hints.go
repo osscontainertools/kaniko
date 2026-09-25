@@ -27,10 +27,36 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/hint"
 )
 
+type HintSource int
+
 const (
-	cacheAdvice = "use RUN --mount=type=cache or remove it in the same RUN"
-	gitAdvice   = "exclude it in .dockerignore for COPY, use ADD <git url>, or git clone --depth 1 and remove it in the same RUN"
-	vcsAdvice   = "exclude it in .dockerignore for COPY or remove it in the same RUN"
+	SourceUnknown HintSource = iota
+	SourceContext
+	SourceStage
+	SourceRun
+)
+
+type advice [4]string
+
+var (
+	cacheAdvice = advice{
+		SourceUnknown: "use RUN --mount=type=cache or remove it in the same RUN",
+		SourceContext: "exclude it in .dockerignore",
+		SourceStage:   "do not copy it from that stage",
+		SourceRun:     "use RUN --mount=type=cache or remove it in the same RUN",
+	}
+	gitAdvice = advice{
+		SourceUnknown: "exclude it in .dockerignore for COPY, use ADD <git url>, or git clone --depth 1 and remove it in the same RUN",
+		SourceContext: "exclude it in .dockerignore",
+		SourceStage:   "do not copy it from that stage",
+		SourceRun:     "use ADD <git url>, or git clone --depth 1 and remove it in the same RUN",
+	}
+	vcsAdvice = advice{
+		SourceUnknown: "exclude it in .dockerignore for COPY or remove it in the same RUN",
+		SourceContext: "exclude it in .dockerignore",
+		SourceStage:   "do not copy it from that stage",
+		SourceRun:     "remove it in the same RUN",
+	}
 )
 
 // anchored rules match from the filesystem root, the others under any directory.
@@ -38,7 +64,7 @@ type pathRule struct {
 	rule     hint.Rule
 	dir      string
 	anchored bool
-	advice   string
+	advice   advice
 }
 
 var pathRules = []pathRule{
@@ -64,25 +90,22 @@ type dirUsage struct {
 	files int
 }
 
-func reportHints(files []string) {
+func ReportHints(files []string, source HintSource) {
 	if !config.FF.LayerHints {
 		return
 	}
-	usage := map[string]*dirUsage{}
+	usage := map[string]dirUsage{}
 	for _, file := range files {
 		for i := range pathRules {
-			r := &pathRules[i]
-			dir := matchDir(file, r)
+			dir := matchDir(file, &pathRules[i])
 			if dir != "" {
 				fi, err := os.Lstat(file)
 				if err == nil && fi.Mode().IsRegular() {
 					u := usage[dir]
-					if u == nil {
-						u = &dirUsage{rule: r}
-						usage[dir] = u
-					}
+					u.rule = &pathRules[i]
 					u.bytes += fi.Size()
 					u.files++
+					usage[dir] = u
 				}
 			}
 		}
@@ -90,7 +113,7 @@ func reportHints(files []string) {
 	for _, dir := range slices.Sorted(maps.Keys(usage)) {
 		u := usage[dir]
 		if u.bytes > 0 {
-			hint.Report(u.rule.rule, "%s in %d files under %s, %s", units.HumanSize(float64(u.bytes)), u.files, dir, u.rule.advice)
+			hint.Report(u.rule.rule, "%s in %d files under %s, %s", units.HumanSize(float64(u.bytes)), u.files, dir, u.rule.advice[source])
 		}
 	}
 }
