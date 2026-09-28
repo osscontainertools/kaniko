@@ -253,10 +253,6 @@ func (c *CopyCommand) From() string {
 	return c.cmd.From
 }
 
-func (c *CopyCommand) Link() bool {
-	return c.cmd.Link
-}
-
 func (c *CopyCommand) ShouldCacheOutput() bool {
 	return c.shdCache
 }
@@ -300,60 +296,40 @@ func (cr *CachingCopyCommand) From() string {
 	return cr.cmd.From
 }
 
-func (cr *CachingCopyCommand) Link() bool {
-	return cr.cmd.Link
-}
-
-// materializeLinkDest drops the symlinks along destPath, turning ancestors into
-// real directories and removing the destination itself. A --link copy is merged
-// in from a filesystem of its own, so it writes to the literal path rather than
-// through what the layers below put there, and on a single rootfs that means
-// replacing the symlink before the write follows it.
+// materializeLinkDest drops the symlinks along destPath. A --link copy is
+// merged in from a filesystem of its own, so it writes to the literal path
+// rather than through what the layers below put there, and on a single rootfs
+// that means removing the symlink before the write follows it.
 func materializeLinkDest(destPath string) error {
 	if !filepath.IsAbs(destPath) {
 		return errors.New("dest path must be abs")
 	}
 
-	var ancestors []string
-	for p := filepath.Dir(destPath); p != "/"; p = filepath.Dir(p) {
-		ancestors = append(ancestors, p)
+	var paths []string
+	for p := destPath; p != "/"; p = filepath.Dir(p) {
+		paths = append(paths, p)
 	}
 
-	// shallowest first: replacing one invalidates everything below it
-	for _, dir := range slices.Backward(ancestors) {
-		fi, err := os.Lstat(dir)
+	// shallowest first: removing one changes what the deeper names mean
+	for _, p := range slices.Backward(paths) {
+		fi, err := os.Lstat(p)
 		if os.IsNotExist(err) {
 			continue
 		}
 		if err != nil {
-			return fmt.Errorf("lstat %s: %w", dir, err)
+			return fmt.Errorf("lstat %s: %w", p, err)
 		}
 		if !util.IsSymlink(fi) {
 			continue
 		}
-		logrus.Debugf("Replacing symlinked directory %s for a --link copy", dir)
-		err = os.Remove(dir)
-		if err != nil {
-			return err
-		}
-		err = os.Mkdir(dir, 0o755)
+		logrus.Debugf("Removing symlink %s for a --link copy", p)
+		err = os.Remove(p)
 		if err != nil {
 			return err
 		}
 	}
 
-	fi, err := os.Lstat(destPath)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("lstat %s: %w", destPath, err)
-	}
-	if !util.IsSymlink(fi) {
-		return nil
-	}
-	logrus.Debugf("Replacing symlinked destination %s for a --link copy", destPath)
-	return os.Remove(destPath)
+	return nil
 }
 
 func resolveIfSymlink(destPath string) (string, error) {
@@ -434,7 +410,6 @@ func copyCmdFilesUsedFromContext(
 // AbstractCopyCommand can either be a CopyCommand or a CachingCopyCommand.
 type AbstractCopyCommand interface {
 	From() string
-	Link() bool
 }
 
 // CastAbstractCopyCommand tries to convert a command to an AbstractCopyCommand.
