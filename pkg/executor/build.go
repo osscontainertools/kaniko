@@ -90,7 +90,8 @@ type stageBuilder struct {
 	cf              *v1.ConfigFile
 	baseImageDigest string
 	cmds            []commands.DockerCommand
-	lines           []int // source line per command, aligned with cmds
+	lines           []int  // source line per command, aligned with cmds
+	links           []bool // COPY --link per command, aligned with cmds
 	args            *dockerfile.BuildArgs
 	span            trace.Span
 	stageNames      map[int]string
@@ -240,6 +241,8 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 		}
 		s.cmds = append(s.cmds, command)
 		s.lines = append(s.lines, commandLine(cmd))
+		copyCmd, isCopy := cmd.(*instructions.CopyCommand)
+		s.links = append(s.links, isCopy && copyCmd.Link)
 	}
 	s.args.AddMetaArgs(stage.MetaArgs)
 	return s, nil
@@ -432,7 +435,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 			// source files do not exist during precompute or after elimination.
 			copyCmd, isCopy := commands.CastAbstractCopyCommand(command)
 			crossStageCopy := isCopy && copyCmd.From() != ""
-			linkCopy := isCopy && config.FF.CopyLink && copyCmd.Link()
+			linkCopy := config.FF.CopyLink && s.links[i]
 			inferred := false
 			precomputed := false
 			if crossStageCopy && !linkCopy && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
@@ -671,14 +674,14 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		cmdTimer, closeCmd := timing.Scope("Command")
 		endCmd = closeCmd
 
-		copyCmd, isCopy := commands.CastAbstractCopyCommand(command)
-		linkCopy := isCopy && config.FF.CopyLink && copyCmd.Link()
+		linkCopy := config.FF.CopyLink && s.links[index]
 		// mz334: cross-stage copies key off the inferred pointer first, their
 		// source stage may be eliminated and its files never materialize. The
 		// inferred key also serves to push a pointer below.
 		inferred := false
 		var inferredCacheKey string
 		if opts.Cache && !linkCopy && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
+			copyCmd, isCopy := commands.CastAbstractCopyCommand(command)
 			if isCopy && copyCmd.From() != "" {
 				inferredKey, err := populateCompositeKey(command, nil, compositeKey.Clone(), s.args, s.cf.Config.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 				if err == nil {
