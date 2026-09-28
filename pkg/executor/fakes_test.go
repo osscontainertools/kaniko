@@ -98,6 +98,10 @@ func (m MockDockerCommand) IsArgsEnvsRequiredInCache() bool {
 	return m.argToCompositeCache
 }
 
+func (m MockDockerCommand) HasIndependentCacheKey() bool {
+	return false
+}
+
 type MockCachedDockerCommand struct {
 	contextFiles        []string
 	argToCompositeCache bool
@@ -145,6 +149,10 @@ func (m MockCachedDockerCommand) ShouldCacheOutput() bool {
 
 func (m MockCachedDockerCommand) IsArgsEnvsRequiredInCache() bool {
 	return m.argToCompositeCache
+}
+
+func (m MockCachedDockerCommand) HasIndependentCacheKey() bool {
+	return false
 }
 
 func (m MockCachedDockerCommand) CachedLayer() (v1.Layer, error) {

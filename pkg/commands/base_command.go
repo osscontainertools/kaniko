@@ -27,6 +27,10 @@ func (b *BaseCommand) IsArgsEnvsRequiredInCache() bool {
 	return false
 }
 
+func (b *BaseCommand) HasIndependentCacheKey() bool {
+	return false
+}
+
 func (b *BaseCommand) CacheCommand(v1.Image) DockerCommand {
 	return nil
 }
