@@ -253,6 +253,10 @@ func (c *CopyCommand) From() string {
 	return c.cmd.From
 }
 
+func (c *CopyCommand) HasIndependentCacheKey() bool {
+	return kConfig.FF.CopyLink && c.cmd.Link
+}
+
 func (c *CopyCommand) ShouldCacheOutput() bool {
 	return c.shdCache
 }
@@ -334,6 +338,10 @@ func (cr *CachingCopyCommand) CacheKey(replacementEnvs []string) (string, error)
 
 func (cr *CachingCopyCommand) From() string {
 	return cr.cmd.From
+}
+
+func (cr *CachingCopyCommand) HasIndependentCacheKey() bool {
+	return kConfig.FF.CopyLink && cr.cmd.Link
 }
 
 // materializeLinkDest drops the symlinks along destPath. A --link copy is
