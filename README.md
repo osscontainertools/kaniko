@@ -15,6 +15,7 @@ or Kubernetes cluster.
 > repository, which was archived in June of 2025.
 > The focus of this fork is to keep dependencies up-to-date, fix bugs and improve performance.
 > The images are available on docker hub [martizih/kaniko](https://hub.docker.com/r/martizih/kaniko).
+> News and blog posts are on [osscontainertools.org](https://osscontainertools.org).
 > If you are new here you can refer to our [Changelog Overview](./CHANGELOG_OVERVIEW.md) for the main differences to Google's v1.24.0 release.
 
 kaniko doesn't depend on a Docker daemon and executes each command within a
