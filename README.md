@@ -180,6 +180,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES`](#flag-ff_kaniko_scoped_registry_certificates)
       - [Flag `FF_KANIKO_PEEK_ARCHIVE_HEADER`](#flag-ff_kaniko_peek_archive_header)
       - [Flag `FF_KANIKO_ADD_UNPACK`](#flag-ff_kaniko_add_unpack)
+      - [Flag `FF_KANIKO_COPY_LINK`](#flag-ff_kaniko_copy_link)
     - [Assertion Overrides](#assertion-overrides)
     - [Layer Hints](#layer-hints)
     - [Telemetry](#telemetry)
@@ -1233,6 +1234,7 @@ In a few places, Kaniko keeps its historical, non-compliant behaviour instead of
 FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS=true
 FF_KANIKO_COPY_AS_ROOT=true
 FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=true
+FF_KANIKO_COPY_LINK=true
 FF_KANIKO_EXPAND_HEREDOC=true
 FF_KANIKO_RUN_HONOR_GROUP=true
 FF_KANIKO_UNPACK_XZ=true
@@ -1627,6 +1629,16 @@ Becomes default in `v1.29.0`.
 Set this flag to `true` to honor `--unpack`.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_COPY_LINK`
+
+```dockerfile
+COPY --link context/foo /link/foo
+```
+
+`--link` copies into a filesystem of its own that is merged into the image. The destination is the path as written, so a `/link` that the base image ships as a symlink to `/real` is replaced by a directory instead of being written through, and the layer is keyed on the copy alone, so it is reused after anything above it changed. With this flag off kaniko parses the modifier and drops it.
+Set this flag to `true` to honour it on `COPY` and `ADD`.
+Defaults to `false`.
 
 ### Assertion Overrides
 
