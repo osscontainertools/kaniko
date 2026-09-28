@@ -1633,11 +1633,15 @@ Becomes default in `v1.29.0`.
 #### Flag `FF_KANIKO_COPY_LINK`
 
 ```dockerfile
-COPY --link context/foo /link/foo
+COPY --link ./dist /app
 ```
 
-`--link` copies into a filesystem of its own that is merged into the image. The destination is the path as written, so a `/link` that the base image ships as a symlink to `/real` is replaced by a directory instead of being written through, and the layer is keyed on the copy alone, so it is reused after anything above it changed. With this flag off kaniko parses the modifier and drops it.
-Set this flag to `true` to honour it on `COPY` and `ADD`.
+The layer this produces is cached under a key built from the copy alone. Rebuild on a new base image, or change an instruction above it, and the layer is still served from the cache instead of being built and uploaded again. Everything a `COPY` normally inherits from the layers below it is dropped in exchange: the destination is the path as written, so an `/app` that the base image ships as a symlink to `/usr/share/app` is replaced by a directory rather than written through to its target.
+
+`ADD --link` follows the same destination rule, its layer stays keyed on the build up to that point.
+
+With this flag off kaniko parses `--link` and drops it, building the layer as if it were not there.
+Set this flag to `true` to honour it.
 Defaults to `false`.
 
 ### Assertion Overrides
