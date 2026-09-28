@@ -343,10 +343,11 @@ func (cr *CachingCopyCommand) Link() bool {
 	return kConfig.FF.CopyLink && cr.cmd.Link
 }
 
-// materializeLinkDest turns symlinked ancestors of destPath into real
-// directories. A --link copy is merged in from a filesystem of its own, so it
-// writes to the literal path rather than through what the layers below put
-// there, and on a single rootfs that means replacing the symlink.
+// materializeLinkDest drops the symlinks along destPath, turning ancestors into
+// real directories and removing the destination itself. A --link copy is merged
+// in from a filesystem of its own, so it writes to the literal path rather than
+// through what the layers below put there, and on a single rootfs that means
+// replacing the symlink before the write follows it.
 func materializeLinkDest(destPath string) error {
 	if !filepath.IsAbs(destPath) {
 		return errors.New("dest path must be abs")
@@ -378,7 +379,18 @@ func materializeLinkDest(destPath string) error {
 		}
 	}
 
-	return nil
+	fi, err := os.Lstat(destPath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("lstat %s: %w", destPath, err)
+	}
+	if !util.IsSymlink(fi) {
+		return nil
+	}
+	logrus.Debugf("Replacing symlinked destination %s for a --link copy", destPath)
+	return os.Remove(destPath)
 }
 
 func resolveIfSymlink(destPath string) (string, error) {

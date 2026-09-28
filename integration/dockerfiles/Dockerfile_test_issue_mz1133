@@ -1,11 +1,15 @@
 # mz1133: a --link copy lands in a filesystem of its own that is merged in, so
-# /link stays the literal destination instead of resolving to /real, and the
-# layer is keyed on its own inputs alone. TestCopyLinkCacheAfterEarlierChange
-# varies SALT to break the chain above the copies.
-ARG SALT=0
+# the destination is the path as written. /link is replaced by a directory
+# instead of resolving to /real, /aslink by a regular file that leaves /target
+# alone, and /keep keeps what it already held.
 FROM alpine
-ARG SALT
-RUN mkdir -p /real && ln -s /real /link && echo "$SALT" > /salt
-COPY context/foo /plain/foo
+RUN mkdir -p /real /keep && ln -s /real /link
+RUN echo base > /keep/base && printf target > /target && ln -s /target /aslink && printf old > /old
 COPY --link context/foo /link/foo
+COPY --link context/foo /keep/foo
+COPY --link context/foo /aslink
+COPY --link context/foo /old
 RUN test ! -L /link && test -f /link/foo && test ! -e /real/foo
+RUN test -f /keep/base && test -f /keep/foo
+RUN test ! -L /aslink && test "$(cat /target)" = target
+RUN test "$(cat /old)" = "$(cat /keep/foo)"
