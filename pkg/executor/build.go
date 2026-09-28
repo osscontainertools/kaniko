@@ -357,6 +357,19 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	return compositeKey, nil
 }
 
+// linkCacheKey keys a --link layer on its own inputs alone. The chain key stays
+// the one the following commands build on, only the lookup and the push move to
+// this key, so the layer outlives a change to anything below it. WorkingDir and
+// User are folded in because they pick the destination and the ownership that
+// the chain would otherwise have carried.
+func linkCacheKey(command commands.DockerCommand, files []string, cfg v1.Config, args *dockerfile.BuildArgs, fileContext util.FileContext) (string, error) {
+	key, err := populateCompositeKey(command, files, *NewCompositeCache("link", cfg.WorkingDir, cfg.User), args, cfg.Env, fileContext, nil, nil)
+	if err != nil {
+		return "", err
+	}
+	return key.Hash()
+}
+
 func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (*CompositeCache, error) {
 	inferredCk, err := inferredKey.Hash()
 	if err != nil {
@@ -415,9 +428,10 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 			// source files do not exist during precompute or after elimination.
 			copyCmd, isCopy := commands.CastAbstractCopyCommand(command)
 			crossStageCopy := isCopy && copyCmd.From() != ""
+			linkCopy := isCopy && copyCmd.Link()
 			inferred := false
 			precomputed := false
-			if crossStageCopy && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
+			if crossStageCopy && !linkCopy && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
 				inferredKey, err := populateCompositeKey(command, nil, compositeKey.Clone(), args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 				if err == nil {
 					inferredCK, err := inferredKey.Hash()
@@ -463,6 +477,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 					}
 				}
 			}
+			var files []string
 			if !inferred {
 				if crossStageCopy && !hasContext {
 					// Can't hash COPY --from contents without the file context.
@@ -471,7 +486,8 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 					finalCacheKey = ""
 					continue // COPY is never MetadataOnly, safe to skip
 				}
-				files, err := command.FilesUsedFromContext(&cfg, args)
+				var err error
+				files, err = command.FilesUsedFromContext(&cfg, args)
 				if err != nil {
 					return "", ci, v1.Config{}, fmt.Errorf("failed to get files used from context: %w", err)
 				}
@@ -489,11 +505,19 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 
 			logrus.Debugf("Optimize: cache key for command %v %v", command.String(), ck)
 			finalCacheKey = ck
+			if linkCopy {
+				ck, err = linkCacheKey(command, files, cfg, args, fileContext)
+				if err != nil {
+					return "", ci, v1.Config{}, err
+				}
+				logrus.Debugf("Optimize: link cache key for command %v %v", command.String(), ck)
+			}
 			ci.cacheKeys[i] = ck
 
 			// a precompute-resolved copy must apply its cached layer even after
-			// an earlier miss, its source stage may be eliminated
-			if command.ShouldCacheOutput() && (!stopCache || (precomputed && config.FF.SkipCachedStages)) {
+			// an earlier miss, its source stage may be eliminated. A --link layer
+			// holds nothing from the layers below, so no earlier miss reaches it.
+			if command.ShouldCacheOutput() && (!stopCache || linkCopy || (precomputed && config.FF.SkipCachedStages)) {
 				img, err := layerCache.RetrieveLayer(ck)
 				if err != nil {
 					logrus.Debugf("Failed to retrieve layer: %s", err)
@@ -640,13 +664,14 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		cmdTimer, closeCmd := timing.Scope("Command")
 		endCmd = closeCmd
 
+		copyCmd, isCopy := commands.CastAbstractCopyCommand(command)
+		linkCopy := isCopy && copyCmd.Link()
 		// mz334: cross-stage copies key off the inferred pointer first, their
 		// source stage may be eliminated and its files never materialize. The
 		// inferred key also serves to push a pointer below.
 		inferred := false
 		var inferredCacheKey string
-		if opts.Cache && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
-			copyCmd, isCopy := commands.CastAbstractCopyCommand(command)
+		if opts.Cache && !linkCopy && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
 			if isCopy && copyCmd.From() != "" {
 				inferredKey, err := populateCompositeKey(command, nil, compositeKey.Clone(), s.args, s.cf.Config.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 				if err == nil {
@@ -667,6 +692,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		}
 		// If the command uses files from the context, add them.
 		var files []string
+		var linkCacheKeyHash string
 		if !inferred {
 			var err error
 			files, err = command.FilesUsedFromContext(&s.cf.Config, s.args)
@@ -677,6 +703,12 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, s.cf.Config.Env, fileContext, nil, nil)
 				if err != nil {
 					return err
+				}
+				if linkCopy {
+					linkCacheKeyHash, err = linkCacheKey(command, files, s.cf.Config, s.args, fileContext)
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -762,10 +794,16 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 
 				logrus.Debugf("Build: cache key for command %v %v", command.String(), ck)
 
+				pushKey := ck
+				if linkCacheKeyHash != "" {
+					pushKey = linkCacheKeyHash
+					logrus.Debugf("Build: link cache key for command %v %v", command.String(), pushKey)
+				}
+
 				// Push layer to cache (in parallel) now along with new config file
 				if command.ShouldCacheOutput() && !opts.NoPushCache {
 					cacheGroup.Go(func() error {
-						return pushCache(opts, ck, tarPath, command.String(), s.span)
+						return pushCache(opts, pushKey, tarPath, command.String(), s.span)
 					})
 					// mz334: also push a pointer under the inferred key so that a
 					// subsequent optimize pass can find the content key and continue

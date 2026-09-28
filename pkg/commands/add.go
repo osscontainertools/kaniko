@@ -130,6 +130,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 			SourcesAndDest: instructions.SourcesAndDest{SourcePaths: unresolvedSrcs, DestPath: dest, SourceContents: heredocs},
 			Chown:          a.cmd.Chown,
 			Chmod:          a.cmd.Chmod,
+			Link:           a.cmd.Link,
 		},
 		fileContext: a.fileContext,
 	}

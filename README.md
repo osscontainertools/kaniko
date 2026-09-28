@@ -171,6 +171,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES`](#flag-ff_kaniko_deprecate_layerless_cache_entries)
       - [Flag `FF_KANIKO_ADD_CHECKSUM`](#flag-ff_kaniko_add_checksum)
       - [Flag `FF_KANIKO_POOL_REGISTRY_CONNECTIONS`](#flag-ff_kaniko_pool_registry_connections)
+      - [Flag `FF_KANIKO_COPY_LINK`](#flag-ff_kaniko_copy_link)
     - [Assertion Overrides](#assertion-overrides)
     - [Telemetry](#telemetry)
     - [Debug Image](#debug-image)
@@ -1219,6 +1220,7 @@ In a few places, Kaniko keeps its historical, non-compliant behaviour instead of
 FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS=true
 FF_KANIKO_COPY_AS_ROOT=true
 FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=true
+FF_KANIKO_COPY_LINK=true
 FF_KANIKO_EXPAND_HEREDOC=true
 FF_KANIKO_RUN_HONOR_GROUP=true
 FF_KANIKO_UNTAR_SKIP_ROOT=true
@@ -1558,6 +1560,16 @@ With this flag off a build opens a new connection for every registry operation a
 Set this flag to `true` to share one connection pool per registry.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_COPY_LINK`
+
+```dockerfile
+COPY --link context/foo /link/foo
+```
+
+`--link` copies into a filesystem of its own that is merged into the image. The destination is the path as written, so a `/link` that the base image ships as a symlink to `/real` is replaced by a directory instead of being written through, and the layer is keyed on the copy alone, so it is reused after anything above it changed. With this flag off kaniko parses the modifier and drops it.
+Set this flag to `true` to honour it on `COPY` and `ADD`.
+Defaults to `false`.
 
 ### Assertion Overrides
 
