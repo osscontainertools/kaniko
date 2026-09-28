@@ -185,6 +185,7 @@ var envsMap = map[string][]string{
 
 var KanikoEnv = []string{
 	"FF_KANIKO_COPY_AS_ROOT=1",
+	"FF_KANIKO_COPY_LINK=1",
 	"FF_KANIKO_RUN_VIA_TINI=1",
 	"FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=1",
 	"FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS=1",

@@ -1,0 +1,11 @@
+# mz1133: a --link copy lands in a filesystem of its own that is merged in, so
+# /link stays the literal destination instead of resolving to /real, and the
+# layer is keyed on its own inputs alone. TestCopyLinkCacheAfterEarlierChange
+# varies SALT to break the chain above the copies.
+ARG SALT=0
+FROM alpine
+ARG SALT
+RUN mkdir -p /real && ln -s /real /link && echo "$SALT" > /salt
+COPY context/foo /plain/foo
+COPY --link context/foo /link/foo
+RUN test ! -L /link && test -f /link/foo && test ! -e /real/foo

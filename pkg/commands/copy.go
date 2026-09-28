@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -104,11 +105,17 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 			return fmt.Errorf("find destination path: %w", err)
 		}
 
-		// If the destination dir is a symlink we need to resolve the path and use
-		// that instead of the symlink path
-		destPath, err = resolveIfSymlink(destPath)
-		if err != nil {
-			return fmt.Errorf("resolving dest symlink: %w", err)
+		if c.Link() {
+			if err := materializeLinkDest(destPath); err != nil {
+				return fmt.Errorf("materializing link destination: %w", err)
+			}
+		} else {
+			// If the destination dir is a symlink we need to resolve the path and use
+			// that instead of the symlink path
+			destPath, err = resolveIfSymlink(destPath)
+			if err != nil {
+				return fmt.Errorf("resolving dest symlink: %w", err)
+			}
 		}
 
 		if fi.IsDir() {
@@ -245,6 +252,10 @@ func (c *CopyCommand) From() string {
 	return c.cmd.From
 }
 
+func (c *CopyCommand) Link() bool {
+	return kConfig.FF.CopyLink && c.cmd.Link
+}
+
 func (c *CopyCommand) ShouldCacheOutput() bool {
 	return c.shdCache
 }
@@ -286,6 +297,48 @@ func (cr *CachingCopyCommand) CacheKey(replacementEnvs []string) (string, error)
 
 func (cr *CachingCopyCommand) From() string {
 	return cr.cmd.From
+}
+
+func (cr *CachingCopyCommand) Link() bool {
+	return kConfig.FF.CopyLink && cr.cmd.Link
+}
+
+// materializeLinkDest turns symlinked ancestors of destPath into real
+// directories. A --link copy is merged in from a filesystem of its own, so it
+// writes to the literal path rather than through what the layers below put
+// there, and on a single rootfs that means replacing the symlink.
+func materializeLinkDest(destPath string) error {
+	if !filepath.IsAbs(destPath) {
+		return errors.New("dest path must be abs")
+	}
+
+	var ancestors []string
+	for p := filepath.Dir(destPath); p != "/"; p = filepath.Dir(p) {
+		ancestors = append(ancestors, p)
+	}
+
+	// shallowest first: replacing one invalidates everything below it
+	for _, dir := range slices.Backward(ancestors) {
+		fi, err := os.Lstat(dir)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("lstat %s: %w", dir, err)
+		}
+		if !util.IsSymlink(fi) {
+			continue
+		}
+		logrus.Debugf("Replacing symlinked directory %s for a --link copy", dir)
+		if err := os.Remove(dir); err != nil {
+			return err
+		}
+		if err := os.Mkdir(dir, 0o755); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func resolveIfSymlink(destPath string) (string, error) {
@@ -366,6 +419,8 @@ func copyCmdFilesUsedFromContext(
 // AbstractCopyCommand can either be a CopyCommand or a CachingCopyCommand.
 type AbstractCopyCommand interface {
 	From() string
+	// Link is false while FF_KANIKO_COPY_LINK is off, whatever the Dockerfile says.
+	Link() bool
 }
 
 // CastAbstractCopyCommand tries to convert a command to an AbstractCopyCommand.

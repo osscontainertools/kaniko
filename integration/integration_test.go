@@ -1336,6 +1336,45 @@ func TestCacheInvalidatesOnAllowlistedFileChange(t *testing.T) {
 	diffoci(t, original, changed, "--semantic", "--extra-ignore-files=app/test.txt")
 }
 
+// mz1133: a --link layer is keyed on its own inputs, so a change above it leaves
+// the layer usable while the plain copy beside it has to be rebuilt.
+func TestCopyLinkCacheAfterEarlierChange(t *testing.T) {
+	t.Parallel()
+
+	_, ex, _, _ := runtime.Caller(0)
+	cwd := filepath.Dir(ex)
+	dockerfile := filepath.Join(buildContextPath, dockerfilesPath, "Dockerfile_test_issue_mz1133")
+	cacheRepo := filepath.Join(config.imageRepo, "cache", "mz1133", strconv.FormatInt(time.Now().UnixNano(), 10))
+
+	build := func(salt string) []byte {
+		t.Helper()
+		dockerRunFlags := []string{"run", "--rm", "--net=host", "-v", cwd + ":/workspace:ro"}
+		for _, envVariable := range KanikoEnv {
+			dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
+		}
+		dockerRunFlags = addAuthFlags(dockerRunFlags)
+		dockerRunFlags = addCoverageFlags(dockerRunFlags)
+		dockerRunFlags = append(dockerRunFlags, ExecutorImage,
+			"-f", dockerfile, "-c", buildContextPath,
+			"--no-push", "--cache=true", "--cache-copy-layers", "--cache-repo", cacheRepo,
+			"--build-arg", "SALT="+salt)
+		out, err := RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
+		if err != nil {
+			t.Fatalf("build with SALT=%s failed: %v\n%s", salt, err, out)
+		}
+		return out
+	}
+
+	build("1")
+	out := build("2")
+	if !bytes.Contains(out, []byte("Using caching version of cmd: COPY --link context/foo /link/foo")) {
+		t.Errorf("mz1133: the --link layer was rebuilt after a change above it:\n%s", out)
+	}
+	if bytes.Contains(out, []byte("Using caching version of cmd: COPY context/foo /plain/foo")) {
+		t.Errorf("mz1133: the plain copy was served from cache, the salt did not break the chain:\n%s", out)
+	}
+}
+
 // https://github.com/GoogleContainerTools/kaniko/issues/2567
 // The host and the foreign architecture crosstalk through one cache repo. The base image
 // is a single manifest, an index would already resolve to a different digest per platform.
