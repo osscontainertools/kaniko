@@ -105,8 +105,9 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 			return fmt.Errorf("find destination path: %w", err)
 		}
 
-		if c.Link() {
-			if err := materializeLinkDest(destPath); err != nil {
+		if kConfig.FF.CopyLink && c.cmd.Link {
+			err = materializeLinkDest(destPath)
+			if err != nil {
 				return fmt.Errorf("materializing link destination: %w", err)
 			}
 		} else {
@@ -253,7 +254,7 @@ func (c *CopyCommand) From() string {
 }
 
 func (c *CopyCommand) Link() bool {
-	return kConfig.FF.CopyLink && c.cmd.Link
+	return c.cmd.Link
 }
 
 func (c *CopyCommand) ShouldCacheOutput() bool {
@@ -300,7 +301,7 @@ func (cr *CachingCopyCommand) From() string {
 }
 
 func (cr *CachingCopyCommand) Link() bool {
-	return kConfig.FF.CopyLink && cr.cmd.Link
+	return cr.cmd.Link
 }
 
 // materializeLinkDest drops the symlinks along destPath, turning ancestors into
@@ -331,10 +332,12 @@ func materializeLinkDest(destPath string) error {
 			continue
 		}
 		logrus.Debugf("Replacing symlinked directory %s for a --link copy", dir)
-		if err := os.Remove(dir); err != nil {
+		err = os.Remove(dir)
+		if err != nil {
 			return err
 		}
-		if err := os.Mkdir(dir, 0o755); err != nil {
+		err = os.Mkdir(dir, 0o755)
+		if err != nil {
 			return err
 		}
 	}
@@ -431,7 +434,6 @@ func copyCmdFilesUsedFromContext(
 // AbstractCopyCommand can either be a CopyCommand or a CachingCopyCommand.
 type AbstractCopyCommand interface {
 	From() string
-	// Link is false while FF_KANIKO_COPY_LINK is off, whatever the Dockerfile says.
 	Link() bool
 }
 
