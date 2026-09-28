@@ -428,7 +428,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 			// source files do not exist during precompute or after elimination.
 			copyCmd, isCopy := commands.CastAbstractCopyCommand(command)
 			crossStageCopy := isCopy && copyCmd.From() != ""
-			linkCopy := isCopy && copyCmd.Link()
+			linkCopy := isCopy && config.FF.CopyLink && copyCmd.Link()
 			inferred := false
 			precomputed := false
 			if crossStageCopy && !linkCopy && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
@@ -665,7 +665,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		endCmd = closeCmd
 
 		copyCmd, isCopy := commands.CastAbstractCopyCommand(command)
-		linkCopy := isCopy && copyCmd.Link()
+		linkCopy := isCopy && config.FF.CopyLink && copyCmd.Link()
 		// mz334: cross-stage copies key off the inferred pointer first, their
 		// source stage may be eliminated and its files never materialize. The
 		// inferred key also serves to push a pointer below.
