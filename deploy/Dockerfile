@@ -91,6 +91,14 @@ ADD --checksum=sha256:c5b0666b4cb676901f90dfcb37106783c5fe2077b04590973b88595061
     --chown=0:0 --chmod=555 \
     https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-amd64 \
     /kaniko/tini
+# Agilicus addition: upstream publishes images for amd64, arm64, s390x, ppc64le
+# and riscv64 only. We still build for linux/arm/v7, which resolves TARGETARCH
+# to "arm", so provide the matching tini stage here as well.
+FROM kaniko-base AS kaniko-base-arm
+ADD --checksum=sha256:d33a3731dce1e7db7754ed92edf97236ca7c7b786455abe3b286cda82205a4ae \
+    --chown=0:0 --chmod=555 \
+    https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-armhf \
+    /kaniko/tini
 FROM kaniko-base AS kaniko-base-arm64
 ADD --checksum=sha256:eae1d3aa50c48fb23b8cbdf4e369d0910dfc538566bfd09df89a774aa84a48b9 \
     --chown=0:0 --chmod=555 \
