@@ -52,10 +52,11 @@ var (
 	FSys fs.FS = NoAtimeFS{}
 )
 
-const (
-	DoNotChangeUID = -1
-	DoNotChangeGID = -1
-)
+// A nil *Owner leaves ownership alone.
+type Owner struct {
+	UID uint32
+	GID uint32
+}
 
 const (
 	snapshotTimeout = "SNAPSHOT_TIMEOUT_DURATION"
@@ -390,9 +391,6 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 	base := filepath.Base(path)
 	dir := filepath.Dir(path)
 	mode := hdr.FileInfo().Mode()
-	uid := hdr.Uid
-	gid := hdr.Gid
-
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return err
@@ -402,6 +400,8 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		logrus.Debugf("Not adding %s because it is ignored", path)
 		return nil
 	}
+	owner := Owner{UID: uint32(hdr.Uid), GID: uint32(hdr.Gid)}
+
 	switch hdr.Typeflag {
 	case tar.TypeReg:
 		logrus.Tracef("Creating file %s", path)
@@ -438,7 +438,7 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 			return err
 		}
 
-		if err = setFilePermissions(path, mode, uid, gid); err != nil {
+		if err = setFilePermissions(path, mode, owner); err != nil {
 			return err
 		}
 
@@ -469,7 +469,10 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 				}
 			}
 		}
-		if err := MkdirAllWithPermissions(path, mode, int64(uid), int64(gid)); err != nil {
+		if int64(hdr.Uid) > math.MaxUint32 || int64(hdr.Gid) > math.MaxUint32 {
+			return fmt.Errorf("user-id %d and group-id %d must fit a 32 bit id", hdr.Uid, hdr.Gid)
+		}
+		if err := MkdirAllWithPermissions(path, mode, owner); err != nil {
 			return err
 		}
 		// For existing directories, MkdirAll doesn't change the permissions, so run Chmod
@@ -698,9 +701,9 @@ func resetFileOwnershipIfNotMatching(path string, newUID, newGID uint32) error {
 }
 
 // CreateFile creates a file at path and copies over contents from the reader
-func CreateFile(path string, reader io.Reader, perm os.FileMode, dirPerm os.FileMode, uid uint32, gid uint32) error {
+func CreateFile(path string, reader io.Reader, perm os.FileMode, dirPerm os.FileMode, owner *Owner) error {
 	// Create directory path if it doesn't exist
-	if err := createParentDirectory(path, int(uid), int(gid), dirPerm); err != nil {
+	if err := createParentDirectory(path, owner, dirPerm); err != nil {
 		return fmt.Errorf("creating parent dir: %w", err)
 	}
 
@@ -721,8 +724,10 @@ func CreateFile(path string, reader io.Reader, perm os.FileMode, dirPerm os.File
 	if _, err := io.Copy(dest, reader); err != nil {
 		return fmt.Errorf("copying file: %w", err)
 	}
-	if err := dest.Chown(int(uid), int(gid)); err != nil {
-		return err
+	if owner != nil {
+		if err := dest.Chown(int(owner.UID), int(owner.GID)); err != nil {
+			return err
+		}
 	}
 	// manually set permissions on file, since the default umask (022) will interfere
 	// Must chmod after chown because chown resets the file mode.
@@ -744,7 +749,7 @@ func AddVolumePathToIgnoreList(path string) {
 //  1. If <src> is a remote file URL:
 //     - destination will have permissions of 0600 by default if not specified with chmod
 //     - If remote file has HTTP Last-Modified header, we set the mtime of the file to that timestamp
-func DownloadFileToDest(rawurl, dest string, uid, gid int64, chmod fs.FileMode, checksum digest.Digest) error {
+func DownloadFileToDest(rawurl, dest string, owner *Owner, chmod fs.FileMode, checksum digest.Digest) error {
 	resp, err := http.Get(rawurl) //nolint:noctx
 	if err != nil {
 		return err
@@ -763,7 +768,7 @@ func DownloadFileToDest(rawurl, dest string, uid, gid int64, chmod fs.FileMode, 
 		body = io.TeeReader(resp.Body, digester.Hash())
 	}
 
-	if err := CreateFile(dest, body, chmod, 0o755, uint32(uid), uint32(gid)); err != nil {
+	if err := CreateFile(dest, body, chmod, 0o755, owner); err != nil {
 		return err
 	}
 
@@ -783,16 +788,14 @@ func DownloadFileToDest(rawurl, dest string, uid, gid int64, chmod fs.FileMode, 
 	return os.Chtimes(dest, mTime, mTime)
 }
 
-// DetermineTargetFileOwnership returns the user provided uid/gid combination.
-// If they are set to -1, the uid/gid from the original file is used.
-func DetermineTargetFileOwnership(fi os.FileInfo, uid, gid int64) (int64, int64) {
-	if uid <= DoNotChangeUID {
-		uid = int64(fi.Sys().(*syscall.Stat_t).Uid)
+// DetermineTargetFileOwnership returns the user provided ownership, falling
+// back to the ownership of the original file.
+func DetermineTargetFileOwnership(fi os.FileInfo, owner *Owner) Owner {
+	if owner != nil {
+		return *owner
 	}
-	if gid <= DoNotChangeGID {
-		gid = int64(fi.Sys().(*syscall.Stat_t).Gid)
-	}
-	return uid, gid
+	stat := fi.Sys().(*syscall.Stat_t)
+	return Owner{UID: stat.Uid, GID: stat.Gid}
 }
 
 type timestampUpdate struct {
@@ -802,15 +805,15 @@ type timestampUpdate struct {
 
 // CopyDir copies the file or directory at src to dest
 // It returns a list of files it copied over
-func CopyDir(src, dest string, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool) ([]string, error) {
+func CopyDir(src, dest string, context FileContext, owner *Owner, chmod mode.Set, useDefaultChmod bool) ([]string, error) {
 	files, err := RelativeFiles("", src)
 	if err != nil {
 		return nil, fmt.Errorf("copying dir: %w", err)
 	}
-	return copyDirInner(files, src, dest, context, uid, gid, chmod, useDefaultChmod, false, true)
+	return copyDirInner(files, src, dest, context, owner, chmod, useDefaultChmod, false, true)
 }
 
-func copyDirInner(files []string, src, dest string, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool, collect bool) ([]string, error) {
+func copyDirInner(files []string, src, dest string, context FileContext, owner *Owner, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool, collect bool) ([]string, error) {
 	var copiedFiles []string
 	var updates []timestampUpdate
 	hardlinksSeen := make(map[hardlinkKey]string)
@@ -843,16 +846,14 @@ func copyDirInner(files []string, src, dest string, context FileContext, uid, gi
 				perm = chmod.Apply(fi.Mode()) & ^umask
 			}
 
-			uid, gid := DetermineTargetFileOwnership(fi, uid, gid)
-			if err := MkdirAllWithPermissions(destPath, perm, uid, gid); err != nil {
+			if err := MkdirAllWithPermissions(destPath, perm, DetermineTargetFileOwnership(fi, owner)); err != nil {
 				return nil, err
 			}
 			updates = append(updates, timestampUpdate{src: fi, dest: destPath})
 		} else if fi.IsDir() {
 			logrus.Tracef("Creating directory %s", destPath)
 
-			uid, gid := DetermineTargetFileOwnership(fi, uid, gid)
-			if err := MkdirAllWithPermissions(destPath, fi.Mode(), uid, gid); err != nil {
+			if err := MkdirAllWithPermissions(destPath, fi.Mode(), DetermineTargetFileOwnership(fi, owner)); err != nil {
 				return nil, err
 			}
 			if !useDefaultChmod {
@@ -874,8 +875,8 @@ func copyDirInner(files []string, src, dest string, context FileContext, uid, gi
 		} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok && config.FF.PreserveHardlinks {
 			// #2594: inode already copied — create a hardlink instead of duplicating content.
 			logrus.Tracef("Creating hardlink %s -> %s", destPath, linkDst)
-			luid, lgid := DetermineTargetFileOwnership(fi, uid, gid)
-			if err := createParentDirectory(destPath, int(luid), int(lgid), chmod.Apply(0o755)); err != nil {
+			linkOwner := DetermineTargetFileOwnership(fi, owner)
+			if err := createParentDirectory(destPath, &linkOwner, chmod.Apply(0o755)); err != nil {
 				return nil, err
 			}
 			if err := os.Link(linkDst, destPath); err != nil {
@@ -883,7 +884,7 @@ func copyDirInner(files []string, src, dest string, context FileContext, uid, gi
 			}
 		} else if fi.Mode()&os.ModeNamedPipe != 0 {
 			// Opening a fifo blocks until it has a writer, so recreate it instead.
-			exclude, err := CreateFifo(fullPath, destPath, fi, context, uid, gid, chmod, useDefaultChmod, skipIgnoreList)
+			exclude, err := CreateFifo(fullPath, destPath, fi, context, owner, chmod, useDefaultChmod, skipIgnoreList)
 			if err != nil {
 				return nil, err
 			}
@@ -895,7 +896,7 @@ func copyDirInner(files []string, src, dest string, context FileContext, uid, gi
 			continue
 		} else {
 			// ... Else, we want to copy over a file
-			exclude, err := CopyFile(fullPath, destPath, fi, context, uid, gid, chmod, useDefaultChmod, skipIgnoreList)
+			exclude, err := CopyFile(fullPath, destPath, fi, context, owner, chmod, useDefaultChmod, skipIgnoreList)
 			if err != nil {
 				return nil, err
 			}
@@ -918,7 +919,7 @@ func copyDirInner(files []string, src, dest string, context FileContext, uid, gi
 
 // CreateFifo recreates the fifo at src as dest. Opening a fifo blocks until it
 // has a writer, so it can never be copied by reading it.
-func CreateFifo(src, dest string, fi os.FileInfo, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool) (bool, error) {
+func CreateFifo(src, dest string, fi os.FileInfo, context FileContext, owner *Owner, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool) (bool, error) {
 	if context.ExcludesFile(src) {
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
@@ -933,8 +934,8 @@ func CreateFifo(src, dest string, fi os.FileInfo, context FileContext, uid, gid 
 		// Recreating the fifo in place would drop it and take its readers with it.
 		return false, nil
 	}
-	uid, gid = DetermineTargetFileOwnership(fi, uid, gid)
-	if err := createParentDirectory(dest, int(uid), int(gid), chmod.Apply(0o755)); err != nil {
+	fifoOwner := DetermineTargetFileOwnership(fi, owner)
+	if err := createParentDirectory(dest, &fifoOwner, chmod.Apply(0o755)); err != nil {
 		return false, err
 	}
 	if FilepathExists(dest) {
@@ -954,7 +955,7 @@ func CreateFifo(src, dest string, fi os.FileInfo, context FileContext, uid, gid 
 	if err := os.Chmod(dest, perm.Perm()); err != nil {
 		return false, err
 	}
-	return false, os.Lchown(dest, int(uid), int(gid))
+	return false, os.Lchown(dest, int(fifoOwner.UID), int(fifoOwner.GID))
 }
 
 type hardlinkKey struct {
@@ -981,7 +982,7 @@ func CopyTree(src, dest string, context FileContext, skipIgnoreList bool) error 
 	if err != nil {
 		return err
 	}
-	_, err = copyDirInner(files, src, dest, context, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true, skipIgnoreList, false)
+	_, err = copyDirInner(files, src, dest, context, nil, mode.Set{}, true, skipIgnoreList, false)
 	return err
 }
 
@@ -1036,7 +1037,7 @@ func CopySymlink(src, dest string, context FileContext, skipIgnoreList bool) (bo
 			return false, err
 		}
 	}
-	if err := createParentDirectory(dest, DoNotChangeUID, DoNotChangeGID); err != nil {
+	if err := createParentDirectory(dest, nil); err != nil {
 		return false, err
 	}
 	link, err := os.Readlink(src)
@@ -1048,7 +1049,7 @@ func CopySymlink(src, dest string, context FileContext, skipIgnoreList bool) (bo
 
 // CopyFile copies the file at src to dest. fi is the Lstat of src, so a symlink
 // handed here would be written with its own mode and times rather than its target's.
-func CopyFile(src, dest string, fi os.FileInfo, context FileContext, uid, gid int64, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool) (bool, error) {
+func CopyFile(src, dest string, fi os.FileInfo, context FileContext, owner *Owner, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool) (bool, error) {
 	if context.ExcludesFile(src) {
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
@@ -1071,14 +1072,14 @@ func CopyFile(src, dest string, fi os.FileInfo, context FileContext, uid, gid in
 		return false, err
 	}
 	defer srcFile.Close()
-	uid, gid = DetermineTargetFileOwnership(fi, uid, gid)
+	fileOwner := DetermineTargetFileOwnership(fi, owner)
 
 	perm := fi.Mode()
 	if !useDefaultChmod {
 		perm = chmod.Apply(fi.Mode())
 	}
 
-	err = CreateFile(dest, srcFile, perm, chmod.Apply(0o755), uint32(uid), uint32(gid))
+	err = CreateFile(dest, srcFile, perm, chmod.Apply(0o755), &fileOwner)
 	if err != nil {
 		return false, err
 	}
@@ -1102,11 +1103,10 @@ func CopyFileInternal(src, dest string, _ FileContext) error {
 		return err
 	}
 	defer srcFile.Close()
-	uid := fi.Sys().(*syscall.Stat_t).Uid
-	gid := fi.Sys().(*syscall.Stat_t).Gid
+	stat := fi.Sys().(*syscall.Stat_t)
 	mode := fi.Mode()
 
-	err = CreateFile(dest, srcFile, mode, 0o755, uid, gid)
+	err = CreateFile(dest, srcFile, mode, 0o755, &Owner{UID: stat.Uid, GID: stat.Gid})
 	if err != nil {
 		return err
 	}
@@ -1214,7 +1214,7 @@ func Volumes() []string {
 	return volumes
 }
 
-func MkdirAllWithPermissions(path string, mode os.FileMode, uid, gid int64) error {
+func MkdirAllWithPermissions(path string, mode os.FileMode, owner Owner) error {
 	// Check if a file already exists on the path, if yes then delete it
 	info, err := os.Lstat(path)
 	if err == nil && !info.IsDir() {
@@ -1250,18 +1250,11 @@ func MkdirAllWithPermissions(path string, mode os.FileMode, uid, gid int64) erro
 	if err != nil {
 		return err
 	}
-	if uid > math.MaxUint32 || gid > math.MaxUint32 {
-		// due to https://github.com/golang/go/issues/8537
-		return fmt.Errorf(
-			"numeric user-id or group-id greater than %v are not properly supported",
-			uint64(math.MaxUint32),
-		)
-	}
-	if err := os.Chown(path, int(uid), int(gid)); err != nil {
+	if err := os.Chown(path, int(owner.UID), int(owner.GID)); err != nil {
 		return err
 	}
 	for _, dir := range parents {
-		err = os.Chown(dir, int(uid), int(gid))
+		err = os.Chown(dir, int(owner.UID), int(owner.GID))
 		if err != nil {
 			return err
 		}
@@ -1269,8 +1262,8 @@ func MkdirAllWithPermissions(path string, mode os.FileMode, uid, gid int64) erro
 	return nil
 }
 
-func setFilePermissions(path string, mode os.FileMode, uid, gid int) error {
-	if err := os.Chown(path, uid, gid); err != nil {
+func setFilePermissions(path string, mode os.FileMode, owner Owner) error {
+	if err := os.Chown(path, int(owner.UID), int(owner.GID)); err != nil {
 		return err
 	}
 	// manually set permissions on file, since the default umask (022) will interfere
@@ -1359,7 +1352,7 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 		if err != nil {
 			return fmt.Errorf("copying file or symlink: %w", err)
 		}
-		if err := createParentDirectory(destFile, DoNotChangeUID, DoNotChangeGID); err != nil {
+		if err := createParentDirectory(destFile, nil); err != nil {
 			return err
 		}
 		return os.Symlink(link, destFile)
@@ -1403,7 +1396,7 @@ func CopyPaths(srcRoot, dstRoot string, paths []string) error {
 			}
 		}
 	}
-	_, err := copyDirInner(files, srcRoot, dstRoot, FileContext{}, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true, true, false)
+	_, err := copyDirInner(files, srcRoot, dstRoot, FileContext{}, nil, mode.Set{}, true, true, false)
 	return err
 }
 
@@ -1484,7 +1477,7 @@ func CopyTimestamps(src os.FileInfo, dest string) error {
 	return nil
 }
 
-func createParentDirectory(path string, uid int, gid int, dirPerm ...os.FileMode) error {
+func createParentDirectory(path string, owner *Owner, dirPerm ...os.FileMode) error {
 	perm := os.FileMode(0o755)
 	if len(dirPerm) > 0 && config.FF.CopyChmodOnImplicitDirs {
 		perm = dirPerm[0]
@@ -1508,18 +1501,10 @@ func createParentDirectory(path string, uid int, gid int, dirPerm ...os.FileMode
 				if err != nil {
 					return err
 				}
-				if uid != DoNotChangeUID {
-					if gid != DoNotChangeGID {
-						err = os.Chown(dir, uid, gid)
-						if err != nil {
-							return err
-						}
-					} else {
-						return fmt.Errorf("UID=%d but GID=-1, i.e. it is not set for %s", uid, dir)
-					}
-				} else {
-					if gid != DoNotChangeGID {
-						return fmt.Errorf("GID=%d but UID=-1, i.e. it is not set for %s", gid, dir)
+				if owner != nil {
+					err = os.Chown(dir, int(owner.UID), int(owner.GID))
+					if err != nil {
+						return err
 					}
 				}
 			} else if err != nil {

@@ -1042,8 +1042,8 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 		uid := os.Getuid()
 		gid := os.Getgid()
 
-		getActiveUserGroup = func(_ string, _ string, _ []string) (int64, int64, error) {
-			return int64(uid), int64(gid), nil
+		getActiveUserGroup = func(_ string, _ string, _ []string) (*util.Owner, error) {
+			return &util.Owner{UID: uint32(uid), GID: uint32(gid)}, nil
 		}
 
 		cmd := CopyCommand{
@@ -1087,8 +1087,8 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 		original := getActiveUserGroup
 		defer func() { getActiveUserGroup = original }()
 
-		getActiveUserGroup = func(_ string, _ string, _ []string) (int64, int64, error) {
-			return 12345, 12345, nil
+		getActiveUserGroup = func(_ string, _ string, _ []string) (*util.Owner, error) {
+			return &util.Owner{UID: 12345, GID: 12345}, nil
 		}
 
 		cmd := CopyCommand{

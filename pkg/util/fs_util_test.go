@@ -1416,7 +1416,7 @@ func Test_CopyFile_skips_self(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ignored, err := CopyFile(tempFile, tempFile, fi, FileContext{}, DoNotChangeUID, DoNotChangeGID, mode.Set{}, true, false)
+	ignored, err := CopyFile(tempFile, tempFile, fi, FileContext{}, nil, mode.Set{}, true, false)
 	if err != nil {
 		t.Fatal(err)
 	}

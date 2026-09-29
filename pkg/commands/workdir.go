@@ -68,14 +68,14 @@ func (w *WorkdirCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile
 	// Only create and snapshot the dir if it didn't exist already
 	w.snapshotFiles = []string{}
 	if _, err := os.Stat(config.WorkingDir); os.IsNotExist(err) {
-		uid, gid, err := util.GetActiveUserGroup(config.User, "", replacementEnvs)
+		owner, err := util.GetActiveUserGroup(config.User, "", replacementEnvs)
 		if err != nil {
 			return fmt.Errorf("getting user group: %w", err)
 		}
 
-		logrus.Infof("Creating directory %s with uid %d and gid %d", config.WorkingDir, uid, gid)
+		logrus.Infof("Creating directory %s with uid %d and gid %d", config.WorkingDir, owner.UID, owner.GID)
 		w.snapshotFiles = append(w.snapshotFiles, config.WorkingDir)
-		if err := mkdirAllWithPermissions(config.WorkingDir, 0o755, uid, gid); err != nil {
+		if err := mkdirAllWithPermissions(config.WorkingDir, 0o755, *owner); err != nil {
 			return fmt.Errorf("creating workdir %s: %w", config.WorkingDir, err)
 		}
 	}
