@@ -1476,7 +1476,7 @@ func CopyTimestamps(src os.FileInfo, dest string) error {
 		return fmt.Errorf("failed to retrieve timestamps from: %s", src.Name())
 	}
 	atime := time.Time{}
-	mtime := time.Unix(stat.Mtim.Sec, stat.Mtim.Nsec)
+	mtime := time.Unix(stat.Mtim.Unix())
 	err := os.Chtimes(dest, atime, mtime)
 	if err != nil {
 		return fmt.Errorf("failed to copy timestamps: %w", err)
