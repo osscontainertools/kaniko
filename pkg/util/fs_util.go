@@ -698,9 +698,9 @@ func resetFileOwnershipIfNotMatching(path string, newUID, newGID uint32) error {
 }
 
 // CreateFile creates a file at path and copies over contents from the reader
-func CreateFile(path string, reader io.Reader, perm os.FileMode, dirPerm os.FileMode, uid uint32, gid uint32) error {
+func CreateFile(path string, reader io.Reader, perm os.FileMode, dirPerm os.FileMode, uid int64, gid int64) error {
 	// Create directory path if it doesn't exist
-	if err := createParentDirectory(path, int(uid), int(gid), dirPerm); err != nil {
+	if err := createParentDirectory(path, uid, gid, dirPerm); err != nil {
 		return fmt.Errorf("creating parent dir: %w", err)
 	}
 
@@ -763,7 +763,7 @@ func DownloadFileToDest(rawurl, dest string, uid, gid int64, chmod fs.FileMode, 
 		body = io.TeeReader(resp.Body, digester.Hash())
 	}
 
-	if err := CreateFile(dest, body, chmod, 0o755, uint32(uid), uint32(gid)); err != nil {
+	if err := CreateFile(dest, body, chmod, 0o755, uid, gid); err != nil {
 		return err
 	}
 
@@ -875,7 +875,7 @@ func copyDirInner(files []string, src, dest string, context FileContext, uid, gi
 			// #2594: inode already copied — create a hardlink instead of duplicating content.
 			logrus.Tracef("Creating hardlink %s -> %s", destPath, linkDst)
 			luid, lgid := DetermineTargetFileOwnership(fi, uid, gid)
-			if err := createParentDirectory(destPath, int(luid), int(lgid), chmod.Apply(0o755)); err != nil {
+			if err := createParentDirectory(destPath, luid, lgid, chmod.Apply(0o755)); err != nil {
 				return nil, err
 			}
 			if err := os.Link(linkDst, destPath); err != nil {
@@ -934,7 +934,7 @@ func CreateFifo(src, dest string, fi os.FileInfo, context FileContext, uid, gid 
 		return false, nil
 	}
 	uid, gid = DetermineTargetFileOwnership(fi, uid, gid)
-	if err := createParentDirectory(dest, int(uid), int(gid), chmod.Apply(0o755)); err != nil {
+	if err := createParentDirectory(dest, uid, gid, chmod.Apply(0o755)); err != nil {
 		return false, err
 	}
 	if FilepathExists(dest) {
@@ -1078,7 +1078,7 @@ func CopyFile(src, dest string, fi os.FileInfo, context FileContext, uid, gid in
 		perm = chmod.Apply(fi.Mode())
 	}
 
-	err = CreateFile(dest, srcFile, perm, chmod.Apply(0o755), uint32(uid), uint32(gid))
+	err = CreateFile(dest, srcFile, perm, chmod.Apply(0o755), uid, gid)
 	if err != nil {
 		return false, err
 	}
@@ -1106,7 +1106,7 @@ func CopyFileInternal(src, dest string, _ FileContext) error {
 	gid := fi.Sys().(*syscall.Stat_t).Gid
 	mode := fi.Mode()
 
-	err = CreateFile(dest, srcFile, mode, 0o755, uid, gid)
+	err = CreateFile(dest, srcFile, mode, 0o755, int64(uid), int64(gid))
 	if err != nil {
 		return err
 	}
@@ -1484,7 +1484,7 @@ func CopyTimestamps(src os.FileInfo, dest string) error {
 	return nil
 }
 
-func createParentDirectory(path string, uid int, gid int, dirPerm ...os.FileMode) error {
+func createParentDirectory(path string, uid int64, gid int64, dirPerm ...os.FileMode) error {
 	perm := os.FileMode(0o755)
 	if len(dirPerm) > 0 && config.FF.CopyChmodOnImplicitDirs {
 		perm = dirPerm[0]
@@ -1510,7 +1510,7 @@ func createParentDirectory(path string, uid int, gid int, dirPerm ...os.FileMode
 				}
 				if uid != DoNotChangeUID {
 					if gid != DoNotChangeGID {
-						err = os.Chown(dir, uid, gid)
+						err = os.Chown(dir, int(uid), int(gid))
 						if err != nil {
 							return err
 						}
