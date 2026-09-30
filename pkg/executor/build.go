@@ -696,7 +696,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		}
 		// If the command uses files from the context, add them.
 		var files []string
-		var layerCacheKey string
+		var ck string
 		if !inferred {
 			var err error
 			files, err = command.FilesUsedFromContext(&s.cf.Config, s.args)
@@ -712,7 +712,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		}
 		if opts.Cache {
 			var err error
-			layerCacheKey, err = layerKey.Hash()
+			ck, err = layerKey.Hash()
 			if err != nil {
 				return fmt.Errorf("failed to hash composite key: %w", err)
 			}
@@ -720,7 +720,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			// the chain already extended by it, an independent one was built
 			// apart from the chain and gets spliced in under its hash.
 			if independentKey {
-				compositeKey.AddKey(layerCacheKey)
+				compositeKey.AddKey(ck)
 			} else {
 				compositeKey = layerKey
 			}
@@ -800,23 +800,23 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 
 			if opts.Cache {
 				logrus.Debugf("Build: composite key for command %v %v", command.String(), compositeKey)
-				logrus.Debugf("Build: cache key for command %v %v", command.String(), layerCacheKey)
+				logrus.Debugf("Build: cache key for command %v %v", command.String(), ck)
 
 				// Push layer to cache (in parallel) now along with new config file
 				if command.ShouldCacheOutput() && !opts.NoPushCache {
 					cacheGroup.Go(func() error {
-						return pushCache(opts, layerCacheKey, tarPath, command.String(), s.span)
+						return pushCache(opts, ck, tarPath, command.String(), s.span)
 					})
 					// mz334: also push a pointer under the inferred key so that a
 					// subsequent optimize pass can find the content key and continue
 					// the cache chain without unpacking the source stage.
-					if inferredCacheKey != "" && inferredCacheKey != layerCacheKey {
+					if inferredCacheKey != "" && inferredCacheKey != ck {
 						rawKey := layerKey.State()
 						h, err := ResumeCompositeCache(rawKey).Hash()
 						if err != nil {
 							return err
 						}
-						assert.Assert("executor.build.key-hash", h == layerCacheKey, "rawCompositeKey hash %v does not match layer cache key %v", h, layerCacheKey)
+						assert.Assert("executor.build.key-hash", h == ck, "rawCompositeKey hash %v does not match ck %v", h, ck)
 						cacheGroup.Go(func() error {
 							return pushPointer(opts, inferredCacheKey, rawKey, s.span)
 						})
