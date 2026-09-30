@@ -32,7 +32,7 @@ var Tests = types.GoldenTests{
 		},
 		// With the flag off the copy is keyed on the chain like any other, so the
 		// same cache entry is not found and the modifier only reaches the plan text.
-		// The trailing RUN also moves, the chain carried the copy's own inputs here
+		// The trailing COPY also moves, the chain carried the copy's own inputs here
 		// and the link key in salt_one.
 		{
 			Args: []string{"--no-push", "--cache", "--cache-copy-layers", "--build-arg", "SALT=one"},
