@@ -343,10 +343,8 @@ func (cr *CachingCopyCommand) HasIndependentCacheKey() bool {
 	return kConfig.FF.CopyLink && cr.cmd.Link
 }
 
-// materializeLinkDest drops the symlinks along destPath. A --link copy is
-// merged in from a filesystem of its own, so it writes to the literal path
-// rather than through what the layers below put there, and on a single rootfs
-// that means removing the symlink before the write follows it.
+// materializeLinkDest drops the symlinks along destPath. A --link copy writes
+// to the literal path, not through what the layers below put there.
 func materializeLinkDest(destPath string) error {
 	if !filepath.IsAbs(destPath) {
 		return errors.New("dest path must be abs")

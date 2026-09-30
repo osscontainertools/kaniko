@@ -357,10 +357,8 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	return compositeKey, nil
 }
 
-// advanceChain moves the chain past a command and returns the key its layer is
-// stored under. An ordinary key is the chain already extended by the command,
-// an independent one was built apart from the chain and gets spliced in under
-// its hash.
+// advanceChain moves the chain past a command. An ordinary key already is the
+// extended chain, an independent one was built apart and is spliced in by hash.
 func advanceChain(chain, layerKey CompositeCache, independent bool) (CompositeCache, string, error) {
 	ck, err := layerKey.Hash()
 	if err != nil {
@@ -438,8 +436,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 			var layerKey CompositeCache
 			seed := compositeKey
 			if independentKey {
-				// keyed on itself, so it has to supply the WorkingDir and User
-				// that pick the destination and the ownership
+				// WorkingDir and User pick the destination and the ownership
 				seed = *NewCompositeCache(cfg.WorkingDir, cfg.User)
 			}
 			if crossStageCopy && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
@@ -681,8 +678,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		var layerKey CompositeCache
 		seed := compositeKey
 		if independentKey {
-			// keyed on itself, so it has to supply the WorkingDir and User
-			// that pick the destination and the ownership
+			// WorkingDir and User pick the destination and the ownership
 			seed = *NewCompositeCache(s.cf.Config.WorkingDir, s.cf.Config.User)
 		}
 		if opts.Cache && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
@@ -727,8 +723,8 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			if err != nil {
 				return err
 			}
-			// optimize looked the layer up under its key, this pushes under ck.
-			// They disagree and the cache silently never hits.
+			// optimize looked the layer up under its key and this pushes under ck,
+			// so a drift between the passes is a cache that silently never hits
 			if ci.cacheKeys[index] != "" {
 				assert.Assert("executor.compositekey.pass-match", ci.cacheKeys[index] == ck, "optimize cache key %v does not match build %v for command %q", ci.cacheKeys[index], ck, command.String())
 			}
