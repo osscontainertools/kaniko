@@ -1567,16 +1567,13 @@ Becomes default in `v1.29.0`.
 COPY --link ./dist /app
 ```
 
-A `--link` copy does not depend on anything above it. Bump the base image, edit a `RUN` it sits on top of, or reorder the instructions before it, and the copy comes back from the cache instead of being rebuilt and uploaded again. Only a change to the files it copies rebuilds it. Run with `--cache --cache-copy-layers` to get this, and expect the most from it on a large `COPY` late in a Dockerfile that a base image bump would otherwise invalidate.
+A `--link` copy is cached independently of everything above it, so a base image bump or an edit further up does not rebuild it. Requires `--cache --cache-copy-layers`. With `--from` the copy is keyed on the source stage, which then does not have to be built on a cache hit.
 
-In exchange the destination is the path exactly as written. If the base image ships `/app` as a symlink to `/usr/share/app`, `COPY ./dist /app` writes into `/usr/share/app` and `COPY --link ./dist /app` replaces `/app` with a real directory instead. The same applies to a symlink anywhere along the destination path. Files already at the destination are left alone unless the copy overwrites them.
+The destination is the literal path. Where a base image ships `/app` as a symlink to `/usr/share/app`, a plain `COPY` writes into `/usr/share/app` and `COPY --link` replaces `/app` with a directory. Same for a symlink anywhere along the path.
 
-`COPY --link --from=builder` works too, keyed on the builder stage rather than on the copied files, so a cache hit does not need the builder stage built at all.
+`ADD --link` resolves its destination the same way but is not cached independently.
 
-`ADD --link` resolves its destination the same way, but its layer is not cached independently.
-
-Set this flag to `true` to honour `--link`. With it off kaniko parses the modifier and ignores it.
-Defaults to `false`.
+Set this flag to `true` to honour `--link`. Defaults to `false`.
 
 ### Assertion Overrides
 

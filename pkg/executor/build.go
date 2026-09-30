@@ -357,17 +357,6 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	return compositeKey, nil
 }
 
-// cacheKeySeed is what a command's cache key starts from. An ordinary command
-// continues the chain. An independently keyed command starts from nothing, so
-// it has to supply the WorkingDir and User itself, they pick the destination
-// and the ownership that the chain would otherwise have carried.
-func cacheKeySeed(independent bool, chain CompositeCache, cfg v1.Config) CompositeCache {
-	if independent {
-		return *NewCompositeCache(cfg.WorkingDir, cfg.User)
-	}
-	return chain
-}
-
 func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (*CompositeCache, error) {
 	inferredCk, err := inferredKey.Hash()
 	if err != nil {
@@ -430,7 +419,12 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 			inferred := false
 			precomputed := false
 			var layerKey CompositeCache
-			seed := cacheKeySeed(independentKey, compositeKey, cfg)
+			seed := compositeKey
+			if independentKey {
+				// keyed on itself, so it has to supply the WorkingDir and User
+				// that pick the destination and the ownership
+				seed = *NewCompositeCache(cfg.WorkingDir, cfg.User)
+			}
 			if crossStageCopy && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
 				inferredKey, err := populateCompositeKey(command, nil, seed.Clone(), args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 				if err == nil {
@@ -499,9 +493,10 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 			if err != nil {
 				return "", ci, v1.Config{}, fmt.Errorf("failed to hash composite key: %w", err)
 			}
+			// the chain advances past the command either way. an ordinary key is
+			// the chain already extended by it, an independent one was built
+			// apart from the chain and gets spliced in under its hash.
 			if independentKey {
-				// the chain carries the layer under its key instead of
-				// descending into inputs the layer never took from it
 				compositeKey.AddKey(ck)
 			} else {
 				compositeKey = layerKey
@@ -673,7 +668,12 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		inferred := false
 		var inferredCacheKey string
 		var layerKey CompositeCache
-		seed := cacheKeySeed(independentKey, compositeKey, s.cf.Config)
+		seed := compositeKey
+		if independentKey {
+			// keyed on itself, so it has to supply the WorkingDir and User
+			// that pick the destination and the ownership
+			seed = *NewCompositeCache(s.cf.Config.WorkingDir, s.cf.Config.User)
+		}
 		if opts.Cache && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
 			copyCmd, isCopy := commands.CastAbstractCopyCommand(command)
 			if isCopy && copyCmd.From() != "" {
@@ -716,9 +716,10 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			if err != nil {
 				return fmt.Errorf("failed to hash composite key: %w", err)
 			}
+			// the chain advances past the command either way. an ordinary key is
+			// the chain already extended by it, an independent one was built
+			// apart from the chain and gets spliced in under its hash.
 			if independentKey {
-				// the chain carries the layer under its key instead of
-				// descending into inputs the layer never took from it
 				compositeKey.AddKey(layerCacheKey)
 			} else {
 				compositeKey = layerKey
