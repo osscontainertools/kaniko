@@ -505,6 +505,9 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 			} else {
 				compositeKey = layerKey
 			}
+			// the layer is looked up under ck and everything after it keys off the
+			// chain, so the two may only come apart where the command asked for it
+			assert.Assert("executor.compositekey.chain-advance", independentKey || compositeKey.State() == layerKey.State(), "chain state %v does not match layer key state %v", compositeKey.State(), layerKey.State())
 
 			logrus.Debugf("Optimize: composite key for command %v %v", command.String(), compositeKey)
 			finalCacheKey, err = compositeKey.Hash()
@@ -731,6 +734,9 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			} else {
 				compositeKey = layerKey
 			}
+			// the layer is pushed under ck and everything after it keys off the
+			// chain, so the two may only come apart where the command asked for it
+			assert.Assert("executor.compositekey.chain-advance", independentKey || compositeKey.State() == layerKey.State(), "chain state %v does not match layer key state %v", compositeKey.State(), layerKey.State())
 		}
 
 		logrus.Info(command.String())
