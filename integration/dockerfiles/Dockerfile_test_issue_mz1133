@@ -1,7 +1,6 @@
-# mz1133: a --link copy lands in a filesystem of its own that is merged in, so
-# the destination is the path as written. /link is replaced by a directory
-# instead of resolving to /real, /aslink by a regular file that leaves /target
-# alone, and /keep keeps what it already held.
+# mz1133: a --link copy writes to the destination as written, not through the
+# symlinks the layers below put there. Each case below was checked against
+# docker first.
 FROM alpine
 RUN mkdir -p /real /keep && ln -s /real /link
 RUN echo base > /keep/base && printf target > /target && ln -s /target /aslink && printf old > /old
