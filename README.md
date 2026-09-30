@@ -1567,11 +1567,7 @@ Becomes default in `v1.29.0`.
 COPY --link ./dist /app
 ```
 
-A `--link` copy is cached independently of everything above it, so a base image bump or an edit further up does not rebuild it. Requires `--cache --cache-copy-layers`. With `--from` the copy is keyed on the source stage, which then does not have to be built on a cache hit.
-
-The destination is the literal path. Where a base image ships `/app` as a symlink to `/usr/share/app`, a plain `COPY` writes into `/usr/share/app` and `COPY --link` replaces `/app` with a directory. Same for a symlink anywhere along the path.
-
-`ADD --link` resolves its destination the same way but is not cached independently.
+The layer is cached on its own, so a base image bump or an edit above it does not rebuild it. The destination is the literal path, symlinks along it are replaced. `ADD --link` behaves the same.
 
 Set this flag to `true` to honour `--link`. Defaults to `false`.
 
