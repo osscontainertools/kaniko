@@ -71,7 +71,15 @@ func (m MockDockerCommand) ProvidesFilesToSnapshot() bool {
 }
 
 func (m MockDockerCommand) CacheCommand(_ v1.Image) commands.DockerCommand {
-	return m.cacheCommand
+	c, ok := m.cacheCommand.(MockCachedDockerCommand)
+	if !ok {
+		return m.cacheCommand
+	}
+	// a real caching command keys identically to the one it replaces
+	c.command = m.command
+	c.contextFiles = m.contextFiles
+	c.argToCompositeCache = m.argToCompositeCache
+	return c
 }
 
 func (m MockDockerCommand) FilesUsedFromContext(_ *v1.Config, _ *dockerfile.BuildArgs) ([]string, error) {
@@ -103,6 +111,7 @@ func (m MockDockerCommand) HasIndependentCacheKey() bool {
 }
 
 type MockCachedDockerCommand struct {
+	command             string
 	contextFiles        []string
 	argToCompositeCache bool
 }
@@ -112,7 +121,7 @@ func (m MockCachedDockerCommand) ExecuteCommand(_ *v1.Config, _ *dockerfile.Buil
 }
 
 func (m MockCachedDockerCommand) String() string {
-	return "meow"
+	return m.command
 }
 
 func (m MockCachedDockerCommand) FilesToSnapshot() []string {
