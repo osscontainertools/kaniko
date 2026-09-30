@@ -2,96 +2,56 @@ package testissuemz1133
 
 import "github.com/osscontainertools/kaniko/golden/types"
 
-// the key the --link copy is cached under, seeded into every case below
-var linkKey = []string{"6a9effed78e57934c40f5a32cb08a30adb13b071be8bce91881fd2c387fb6aab"}
+// the key the --link heredoc copy is cached under, seeded into every case below
+var linkKey = []string{"f9e845d0b012dbb36137eda5a670fad1a0958d03d08382b599dd512346818c23"}
 
-var Tests = types.GoldenTests{
-	Name:       "test_issue_mz1133",
-	Dockerfile: "Dockerfile",
-	Tests: []types.GoldenTest{
-		// The salt changes the RUN key, and with it the chain key the plain COPY
-		// misses under. The two plans differ in those two keys and agree on the
-		// COPY --link key, which stays a hit although the command above it missed.
-		{
-			Args: []string{"--no-push", "--cache", "--cache-copy-layers", "--build-arg", "SALT=one"},
-			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD": "1",
-				"FF_KANIKO_COPY_LINK":       "1",
-			},
-			CachedKeys: linkKey,
-			Plan:       "salt_one",
-		},
-		{
-			Args: []string{"--no-push", "--cache", "--cache-copy-layers", "--build-arg", "SALT=two"},
-			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD": "1",
-				"FF_KANIKO_COPY_LINK":       "1",
-			},
-			CachedKeys: linkKey,
-			Plan:       "salt_two",
-		},
-		// With the flag off the copy is keyed on the chain like any other, so the
-		// same cache entry is not found and the modifier only reaches the plan text.
-		// The trailing COPY also moves, the chain carried the copy's own inputs here
-		// and the link key in salt_one.
-		{
-			Args: []string{"--no-push", "--cache", "--cache-copy-layers", "--build-arg", "SALT=one"},
-			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD": "1",
-				"FF_KANIKO_COPY_LINK":       "0",
-			},
-			CachedKeys: linkKey,
-			Plan:       "unlinked",
-		},
-	},
-}
-
-var xstageEnv = map[string]string{
+var env = map[string]string{
 	"FF_KANIKO_CACHE_LOOKAHEAD":             "1",
 	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "1",
 	"FF_KANIKO_ROLLING_CACHE_KEY":           "1",
 	"FF_KANIKO_COPY_LINK":                   "1",
 }
 
-var xstageUnlinkedEnv = map[string]string{
+var unlinkedEnv = map[string]string{
 	"FF_KANIKO_CACHE_LOOKAHEAD":             "1",
 	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "1",
 	"FF_KANIKO_ROLLING_CACHE_KEY":           "1",
 	"FF_KANIKO_COPY_LINK":                   "0",
 }
 
-var XStageTests = types.GoldenTests{
-	Name:       "test_issue_mz1133_xstage",
-	Dockerfile: "Dockerfile.xstage",
+var Tests = types.GoldenTests{
+	Name:       "test_issue_mz1133",
+	Dockerfile: "Dockerfile",
 	Tests: []types.GoldenTest{
-		// The copy is keyed off the source stage instead of its files, so the
-		// builder is never materialized. The salt moves the RUN above it and the
-		// redirect key is the same in both plans.
+		// The salt changes the RUN key, and with it the chain key the plain COPY
+		// and /after miss under. Across the two plans those move and both --link
+		// keys stay put, the heredoc one a hit under the seeded entry and the
+		// cross-stage one a redirect that never needs the builder built.
 		{
 			Args:       []string{"--no-push", "--cache", "--cache-copy-layers", "--build-arg", "SALT=one"},
-			Env:        xstageEnv,
-			CachedKeys: []string{},
-			Plan:       "xstage_salt_one",
+			Env:        env,
+			CachedKeys: linkKey,
+			Plan:       "salt_one",
 		},
 		{
 			Args:       []string{"--no-push", "--cache", "--cache-copy-layers", "--build-arg", "SALT=two"},
-			Env:        xstageEnv,
-			CachedKeys: []string{},
-			Plan:       "xstage_salt_two",
+			Env:        env,
+			CachedKeys: linkKey,
+			Plan:       "salt_two",
 		},
-		// With the flag off the copy is seeded on the chain like any other, so the
-		// redirect key moves with the salt across these two.
+		// With the flag off both copies are keyed on the chain like any other, so
+		// the seeded entry is not found and every key moves with the salt.
 		{
 			Args:       []string{"--no-push", "--cache", "--cache-copy-layers", "--build-arg", "SALT=one"},
-			Env:        xstageUnlinkedEnv,
-			CachedKeys: []string{},
-			Plan:       "xstage_unlinked_one",
+			Env:        unlinkedEnv,
+			CachedKeys: linkKey,
+			Plan:       "unlinked_one",
 		},
 		{
 			Args:       []string{"--no-push", "--cache", "--cache-copy-layers", "--build-arg", "SALT=two"},
-			Env:        xstageUnlinkedEnv,
-			CachedKeys: []string{},
-			Plan:       "xstage_unlinked_two",
+			Env:        unlinkedEnv,
+			CachedKeys: linkKey,
+			Plan:       "unlinked_two",
 		},
 	},
 }
