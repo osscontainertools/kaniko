@@ -65,8 +65,8 @@ type DockerCommand interface {
 	// need only for RUN instruction
 	IsArgsEnvsRequiredInCache() bool
 
-	// True if the output layer is keyed on this command alone rather than on the
-	// commands before it, so the key survives a change further up.
+	// True if the output layer is keyed on this command and its sources rather
+	// than on the commands before it, so the key survives a change further up.
 	HasIndependentCacheKey() bool
 }
 
