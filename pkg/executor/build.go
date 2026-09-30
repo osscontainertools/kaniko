@@ -729,7 +729,9 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			}
 			// optimize looked the layer up under its key, this pushes under ck.
 			// They disagree and the cache silently never hits.
-			assert.Assert("executor.compositekey.pass-match", ci.cacheKeys[index] == "" || ci.cacheKeys[index] == ck, "optimize cache key %v does not match build %v for command %q", ci.cacheKeys[index], ck, command.String())
+			if ci.cacheKeys[index] != "" {
+				assert.Assert("executor.compositekey.pass-match", ci.cacheKeys[index] == ck, "optimize cache key %v does not match build %v for command %q", ci.cacheKeys[index], ck, command.String())
+			}
 		}
 
 		logrus.Info(command.String())
