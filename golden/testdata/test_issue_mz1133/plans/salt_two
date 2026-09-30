@@ -7,4 +7,6 @@ RUN echo "${SALT}" > /salt
 COPY <<EOF /plain/foo
   CACHE MISS: 114f017a0fb31e8da42f4511829123241ee62f21017f272eef2ba09d4b074a8d
 COPY --link <<EOF /link/foo
-  CACHE HIT: 08eb6b5421a43b628f055ba84b73338727fc8231e531814be98f4ee98c7f86d7
+  CACHE HIT: 6a9effed78e57934c40f5a32cb08a30adb13b071be8bce91881fd2c387fb6aab
+RUN cat /link/foo
+  CACHE MISS: 6fdbdce6c5af7ccb147f895e5cc4ec3e8f9aebe75de1005cdc10d8e8caf6e2ce
