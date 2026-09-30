@@ -361,17 +361,15 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	return compositeKey, nil
 }
 
-// independentCacheKey keys a layer on its own inputs alone. The chain key stays
-// the one the following commands build on, only the lookup and the push move to
-// this key, so the layer outlives a change to anything below it. WorkingDir and
-// User are folded in because they pick the destination and the ownership that
-// the chain would otherwise have carried.
-func independentCacheKey(command commands.DockerCommand, files []string, cfg v1.Config, args *dockerfile.BuildArgs, fileContext util.FileContext) (string, error) {
-	key, err := populateCompositeKey(command, files, *NewCompositeCache("link", cfg.WorkingDir, cfg.User), args, cfg.Env, fileContext, nil, nil)
-	if err != nil {
-		return "", err
+// cacheKeySeed is what a command's cache key starts from. An ordinary command
+// continues the chain. An independently keyed command starts from nothing, so
+// it has to supply the WorkingDir and User itself, they pick the destination
+// and the ownership that the chain would otherwise have carried.
+func cacheKeySeed(independent bool, chain CompositeCache, cfg v1.Config) CompositeCache {
+	if independent {
+		return *NewCompositeCache(cfg.WorkingDir, cfg.User)
 	}
-	return key.Hash()
+	return chain
 }
 
 func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (*CompositeCache, error) {
@@ -481,7 +479,8 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 					}
 				}
 			}
-			var files []string
+			var ck string
+			var layerKey CompositeCache
 			if !inferred {
 				if crossStageCopy && !hasContext {
 					// Can't hash COPY --from contents without the file context.
@@ -490,32 +489,39 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 					finalCacheKey = ""
 					continue // COPY is never MetadataOnly, safe to skip
 				}
-				var err error
-				files, err = command.FilesUsedFromContext(&cfg, args)
+				files, err := command.FilesUsedFromContext(&cfg, args)
 				if err != nil {
 					return "", ci, v1.Config{}, fmt.Errorf("failed to get files used from context: %w", err)
 				}
-				compositeKey, err = populateCompositeKey(command, files, compositeKey, args, cfg.Env, fileContext, nil, nil)
+				layerKey, err = populateCompositeKey(command, files, cacheKeySeed(independentKey, compositeKey, cfg), args, cfg.Env, fileContext, nil, nil)
 				if err != nil {
 					return "", ci, v1.Config{}, err
+				}
+				ck, err = layerKey.Hash()
+				if err != nil {
+					return "", ci, v1.Config{}, fmt.Errorf("failed to hash composite key: %w", err)
+				}
+				if independentKey {
+					// the chain carries the layer under its key instead of
+					// descending into inputs the layer never took from it
+					compositeKey.AddKey(ck)
+				} else {
+					compositeKey = layerKey
 				}
 			}
 
 			logrus.Debugf("Optimize: composite key for command %v %v", command.String(), compositeKey)
-			ck, err := compositeKey.Hash()
+			chainKey, err := compositeKey.Hash()
 			if err != nil {
 				return "", ci, v1.Config{}, fmt.Errorf("failed to hash composite key: %w", err)
 			}
+			finalCacheKey = chainKey
+			if inferred {
+				layerKey = compositeKey
+				ck = chainKey
+			}
 
 			logrus.Debugf("Optimize: cache key for command %v %v", command.String(), ck)
-			finalCacheKey = ck
-			if independentKey {
-				ck, err = independentCacheKey(command, files, cfg, args, fileContext)
-				if err != nil {
-					return "", ci, v1.Config{}, err
-				}
-				logrus.Debugf("Optimize: independent cache key for command %v %v", command.String(), ck)
-			}
 			ci.cacheKeys[i] = ck
 
 			// a precompute-resolved copy must apply its cached layer even after
@@ -526,7 +532,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 				if err != nil {
 					logrus.Debugf("Failed to retrieve layer: %s", err)
 					logrus.Infof("No cached layer found for cmd %s", command.String())
-					logrus.Debugf("Key missing was: %s", compositeKey.Key())
+					logrus.Debugf("Key missing was: %s", layerKey.Key())
 					sawCacheMiss = true
 					// FF_KANIKO_CACHE_PROBE_AFTER_MISS: when set, a regular cache miss no
 					// longer disables lookups for the remaining layers in the stage. Cached
@@ -699,7 +705,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		}
 		// If the command uses files from the context, add them.
 		var files []string
-		var independentKeyHash string
+		var layerCacheKey string
 		if !inferred {
 			var err error
 			files, err = command.FilesUsedFromContext(&s.cf.Config, s.args)
@@ -707,15 +713,20 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				return fmt.Errorf("failed to get files used from context: %w", err)
 			}
 			if opts.Cache {
-				compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, s.cf.Config.Env, fileContext, nil, nil)
+				layerKey, err := populateCompositeKey(command, files, cacheKeySeed(independentKey, compositeKey, s.cf.Config), s.args, s.cf.Config.Env, fileContext, nil, nil)
 				if err != nil {
 					return err
 				}
+				layerCacheKey, err = layerKey.Hash()
+				if err != nil {
+					return fmt.Errorf("failed to hash composite key: %w", err)
+				}
 				if independentKey {
-					independentKeyHash, err = independentCacheKey(command, files, s.cf.Config, s.args, fileContext)
-					if err != nil {
-						return err
-					}
+					// the chain carries the layer under its key instead of
+					// descending into inputs the layer never took from it
+					compositeKey.AddKey(layerCacheKey)
+				} else {
+					compositeKey = layerKey
 				}
 			}
 		}
@@ -833,18 +844,15 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 					return fmt.Errorf("failed to hash composite key: %w", err)
 				}
 
-				logrus.Debugf("Build: cache key for command %v %v", command.String(), ck)
-
-				pushKey := ck
-				if independentKeyHash != "" {
-					pushKey = independentKeyHash
-					logrus.Debugf("Build: independent cache key for command %v %v", command.String(), pushKey)
+				if inferred {
+					layerCacheKey = ck
 				}
+				logrus.Debugf("Build: cache key for command %v %v", command.String(), layerCacheKey)
 
 				// Push layer to cache (in parallel) now along with new config file
 				if command.ShouldCacheOutput() && !opts.NoPushCache {
 					cacheGroup.Go(func() error {
-						return pushCache(opts, pushKey, tarPath, command.String(), s.span)
+						return pushCache(opts, layerCacheKey, tarPath, command.String(), s.span)
 					})
 					// mz334: also push a pointer under the inferred key so that a
 					// subsequent optimize pass can find the content key and continue
