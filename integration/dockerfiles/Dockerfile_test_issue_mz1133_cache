@@ -1,0 +1,11 @@
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS builder
+RUN mkdir -p /out && printf built > /out/file
+
+FROM ${IMAGE_REPO}busybox
+
+# mz1133: the second build serves both --link layers out of the first build's
+# cache, so the two images have to come out identical.
+RUN mkdir -p /real && ln -s /real /link
+COPY --link context/foo /link/foo
+COPY --link --from=builder /out/file /xfile
