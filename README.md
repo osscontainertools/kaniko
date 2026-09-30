@@ -1567,9 +1567,10 @@ Becomes default in `v1.29.0`.
 COPY --link ./dist /app
 ```
 
-The layer is cached on its own, so a base image bump or an edit above it does not rebuild it. The destination is the literal path, symlinks along it are replaced. `ADD --link` behaves the same.
-
-Set this flag to `true` to honour `--link`. Defaults to `false`.
+Kaniko parses `--link` and drops it, building the layer as if it were not there. buildkit caches the layer on its own, so a base image bump or an edit above it does not rebuild it, and writes to the destination as written rather than through a symlink the layers below put there.
+Set this flag to `true` to honour `--link` on `COPY` and `ADD`.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
 
 ### Assertion Overrides
 
