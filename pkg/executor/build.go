@@ -361,6 +361,23 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	return compositeKey, nil
 }
 
+// advanceChain moves the chain past a command and returns the key its layer is
+// stored under. An ordinary key is the chain already extended by the command,
+// an independent one was built apart from the chain and gets spliced in under
+// its hash.
+func advanceChain(chain, layerKey CompositeCache, independent bool) (CompositeCache, string, error) {
+	ck, err := layerKey.Hash()
+	if err != nil {
+		return chain, "", fmt.Errorf("failed to hash composite key: %w", err)
+	}
+	if independent {
+		chain.AddKey(ck)
+	} else {
+		chain = layerKey
+	}
+	return chain, ck, nil
+}
+
 func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (*CompositeCache, error) {
 	inferredCk, err := inferredKey.Hash()
 	if err != nil {
@@ -493,21 +510,12 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 				}
 			}
 
-			ck, err := layerKey.Hash()
+			var err error
+			var ck string
+			compositeKey, ck, err = advanceChain(compositeKey, layerKey, independentKey)
 			if err != nil {
-				return "", ci, v1.Config{}, fmt.Errorf("failed to hash composite key: %w", err)
+				return "", ci, v1.Config{}, err
 			}
-			// the chain advances past the command either way. an ordinary key is
-			// the chain already extended by it, an independent one was built
-			// apart from the chain and gets spliced in under its hash.
-			if independentKey {
-				compositeKey.AddKey(ck)
-			} else {
-				compositeKey = layerKey
-			}
-			// the layer is looked up under ck and everything after it keys off the
-			// chain, so the two may only come apart where the command asked for it
-			assert.Assert("executor.compositekey.chain-advance", independentKey || compositeKey.State() == layerKey.State(), "chain state %v does not match layer key state %v", compositeKey.State(), layerKey.State())
 
 			logrus.Debugf("Optimize: composite key for command %v %v", command.String(), compositeKey)
 			finalCacheKey, err = compositeKey.Hash()
@@ -571,7 +579,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 	return finalCacheKey, ci, cfg, nil
 }
 
-func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string, layerCache cache.LayerCache) error {
+func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string, layerCache cache.LayerCache, ci *stageCacheInfo) error {
 	assert.Assert("executor.stagebuilder.config-nonnull", s.cf != nil, "stageBuilder (index %d) has nil config file", s.index)
 	// Unpack file system to root if we need to.
 	shouldUnpack := false
@@ -722,21 +730,13 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		}
 		if opts.Cache {
 			var err error
-			ck, err = layerKey.Hash()
+			compositeKey, ck, err = advanceChain(compositeKey, layerKey, independentKey)
 			if err != nil {
-				return fmt.Errorf("failed to hash composite key: %w", err)
+				return err
 			}
-			// the chain advances past the command either way. an ordinary key is
-			// the chain already extended by it, an independent one was built
-			// apart from the chain and gets spliced in under its hash.
-			if independentKey {
-				compositeKey.AddKey(ck)
-			} else {
-				compositeKey = layerKey
-			}
-			// the layer is pushed under ck and everything after it keys off the
-			// chain, so the two may only come apart where the command asked for it
-			assert.Assert("executor.compositekey.chain-advance", independentKey || compositeKey.State() == layerKey.State(), "chain state %v does not match layer key state %v", compositeKey.State(), layerKey.State())
+			// optimize looked the layer up under its key, this pushes under ck.
+			// They disagree and the cache silently never hits.
+			assert.Assert("executor.compositekey.pass-match", ci.cacheKeys[index] == "" || ci.cacheKeys[index] == ck, "optimize cache key %v does not match build %v for command %q", ci.cacheKeys[index], ck, command.String())
 		}
 
 		logrus.Info(command.String())
@@ -1826,7 +1826,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 		stageArgs[stage.Index] = sb.args
 		crossStageDeps := len(crossStageDependencies[stage.Index]) > 0
-		err = sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps, stageFinalCacheKeys, externalImageDigests, layerCache)
+		err = sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps, stageFinalCacheKeys, externalImageDigests, layerCache, buildCi)
 		if err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
 		}
