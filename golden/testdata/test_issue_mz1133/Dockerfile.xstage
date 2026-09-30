@@ -1,0 +1,11 @@
+# mz1133: a --link cross-stage copy takes the mz334 inferred key like any other
+# cross-stage copy, so the source stage stays unmaterialized, and the key is
+# seeded on the copy rather than on the chain. The salted RUN above it moves and
+# the redirect key does not.
+FROM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d AS builder
+RUN echo built > /out
+
+FROM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+ARG SALT
+RUN echo "${SALT}" > /salt
+COPY --link --from=builder /out /link

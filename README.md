@@ -1571,6 +1571,8 @@ A `--link` copy does not depend on anything above it. Bump the base image, edit 
 
 In exchange the destination is the path exactly as written. If the base image ships `/app` as a symlink to `/usr/share/app`, `COPY ./dist /app` writes into `/usr/share/app` and `COPY --link ./dist /app` replaces `/app` with a real directory instead. The same applies to a symlink anywhere along the destination path. Files already at the destination are left alone unless the copy overwrites them.
 
+`COPY --link --from=builder` works too, keyed on the builder stage rather than on the copied files, so a cache hit does not need the builder stage built at all.
+
 `ADD --link` resolves its destination the same way, but its layer is not cached independently.
 
 Set this flag to `true` to honour `--link`. With it off kaniko parses the modifier and ignores it.
