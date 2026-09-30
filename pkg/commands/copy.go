@@ -312,10 +312,12 @@ func materializeLinkDest(destPath string) error {
 		return errors.New("dest path must be abs")
 	}
 
+	names := strings.Trim(destPath, "/")
+
 	// shallowest first. lstat on a deeper path resolves through an ancestor
 	// symlink, so the remove below would land wherever that symlink points.
 	p := "/"
-	for _, name := range strings.Split(strings.Trim(destPath, "/"), "/") {
+	for name := range strings.SplitSeq(names, "/") {
 		p = filepath.Join(p, name)
 		fi, err := os.Lstat(p)
 		if os.IsNotExist(err) {
