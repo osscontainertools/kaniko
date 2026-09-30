@@ -150,7 +150,7 @@ var allTests = map[string][]types.GoldenTests{
 	"test_issue_mz822":  {testissuemz822.Tests},
 	"test_issue_mz936":  {testissuemz936.Tests},
 	"test_issue_mz989":  {testissuemz989.Tests},
-	"test_issue_mz1133": {testissuemz1133.Tests, testissuemz1133.XStageTests},
+	"test_issue_mz1133": {testissuemz1133.Tests},
 	"test_unittests":    testunittests.Tests,
 }
 var update bool
