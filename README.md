@@ -1636,12 +1636,13 @@ Becomes default in `v1.29.0`.
 COPY --link ./dist /app
 ```
 
-The layer this produces is cached under a key built from the copy alone. Rebuild on a new base image, or change an instruction above it, and the layer is still served from the cache instead of being built and uploaded again. Everything a `COPY` normally inherits from the layers below it is dropped in exchange: the destination is the path as written, so an `/app` that the base image ships as a symlink to `/usr/share/app` is replaced by a directory rather than written through to its target.
+A `--link` copy does not depend on anything above it. Bump the base image, edit a `RUN` it sits on top of, or reorder the instructions before it, and the copy comes back from the cache instead of being rebuilt and uploaded again. Only a change to the files it copies rebuilds it. Run with `--cache --cache-copy-layers` to get this, and expect the most from it on a large `COPY` late in a Dockerfile that a base image bump would otherwise invalidate.
 
-`ADD --link` follows the same destination rule, its layer stays keyed on the build up to that point.
+In exchange the destination is the path exactly as written. If the base image ships `/app` as a symlink to `/usr/share/app`, `COPY ./dist /app` writes into `/usr/share/app` and `COPY --link ./dist /app` replaces `/app` with a real directory instead. The same applies to a symlink anywhere along the destination path. Files already at the destination are left alone unless the copy overwrites them.
 
-With this flag off kaniko parses `--link` and drops it, building the layer as if it were not there.
-Set this flag to `true` to honour it.
+`ADD --link` resolves its destination the same way, but its layer is not cached independently.
+
+Set this flag to `true` to honour `--link`. With it off kaniko parses the modifier and ignores it.
 Defaults to `false`.
 
 ### Assertion Overrides
