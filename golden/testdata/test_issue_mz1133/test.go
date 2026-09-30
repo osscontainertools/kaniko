@@ -45,3 +45,53 @@ var Tests = types.GoldenTests{
 		},
 	},
 }
+
+var xstageEnv = map[string]string{
+	"FF_KANIKO_CACHE_LOOKAHEAD":             "1",
+	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "1",
+	"FF_KANIKO_ROLLING_CACHE_KEY":           "1",
+	"FF_KANIKO_COPY_LINK":                   "1",
+}
+
+var xstageUnlinkedEnv = map[string]string{
+	"FF_KANIKO_CACHE_LOOKAHEAD":             "1",
+	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "1",
+	"FF_KANIKO_ROLLING_CACHE_KEY":           "1",
+	"FF_KANIKO_COPY_LINK":                   "0",
+}
+
+var XStageTests = types.GoldenTests{
+	Name:       "test_issue_mz1133_xstage",
+	Dockerfile: "Dockerfile.xstage",
+	Tests: []types.GoldenTest{
+		// The copy is keyed off the source stage instead of its files, so the
+		// builder is never materialized. The salt moves the RUN above it and the
+		// redirect key is the same in both plans.
+		{
+			Args:       []string{"--no-push", "--cache", "--cache-copy-layers", "--build-arg", "SALT=one"},
+			Env:        xstageEnv,
+			CachedKeys: []string{},
+			Plan:       "xstage_salt_one",
+		},
+		{
+			Args:       []string{"--no-push", "--cache", "--cache-copy-layers", "--build-arg", "SALT=two"},
+			Env:        xstageEnv,
+			CachedKeys: []string{},
+			Plan:       "xstage_salt_two",
+		},
+		// With the flag off the copy is seeded on the chain like any other, so the
+		// redirect key moves with the salt across these two.
+		{
+			Args:       []string{"--no-push", "--cache", "--cache-copy-layers", "--build-arg", "SALT=one"},
+			Env:        xstageUnlinkedEnv,
+			CachedKeys: []string{},
+			Plan:       "xstage_unlinked_one",
+		},
+		{
+			Args:       []string{"--no-push", "--cache", "--cache-copy-layers", "--build-arg", "SALT=two"},
+			Env:        xstageUnlinkedEnv,
+			CachedKeys: []string{},
+			Plan:       "xstage_unlinked_two",
+		},
+	},
+}

@@ -433,8 +433,10 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 			independentKey := command.HasIndependentCacheKey()
 			inferred := false
 			precomputed := false
-			if crossStageCopy && !independentKey && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
-				inferredKey, err := populateCompositeKey(command, nil, compositeKey.Clone(), args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
+			var layerKey CompositeCache
+			seed := cacheKeySeed(independentKey, compositeKey, cfg)
+			if crossStageCopy && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
+				inferredKey, err := populateCompositeKey(command, nil, seed.Clone(), args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 				if err == nil {
 					inferredCK, err := inferredKey.Hash()
 					if err != nil {
@@ -457,7 +459,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 							if err != nil {
 								return "", ci, v1.Config{}, fmt.Errorf("failed to get files used from context: %w", err)
 							}
-							hashedKey, err := populateCompositeKey(command, files, compositeKey.Clone(), args, cfg.Env, fileContext, nil, nil)
+							hashedKey, err := populateCompositeKey(command, files, seed.Clone(), args, cfg.Env, fileContext, nil, nil)
 							if err != nil {
 								return "", ci, v1.Config{}, err
 							}
@@ -471,7 +473,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 							}
 							assert.Assert("executor.compositekey.key-match", ick == ck, "pointer inferred content key %v does not match the computed content key %v", ick, ck)
 						}
-						compositeKey = *contentKey
+						layerKey = *contentKey
 						inferred = true
 						ci.redirectHits[i] = true
 						// mz334: log when the inferred key produced the hit (integration test observability only).
@@ -479,8 +481,6 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 					}
 				}
 			}
-			var ck string
-			var layerKey CompositeCache
 			if !inferred {
 				if crossStageCopy && !hasContext {
 					// Can't hash COPY --from contents without the file context.
@@ -493,32 +493,28 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 				if err != nil {
 					return "", ci, v1.Config{}, fmt.Errorf("failed to get files used from context: %w", err)
 				}
-				layerKey, err = populateCompositeKey(command, files, cacheKeySeed(independentKey, compositeKey, cfg), args, cfg.Env, fileContext, nil, nil)
+				layerKey, err = populateCompositeKey(command, files, seed, args, cfg.Env, fileContext, nil, nil)
 				if err != nil {
 					return "", ci, v1.Config{}, err
 				}
-				ck, err = layerKey.Hash()
-				if err != nil {
-					return "", ci, v1.Config{}, fmt.Errorf("failed to hash composite key: %w", err)
-				}
-				if independentKey {
-					// the chain carries the layer under its key instead of
-					// descending into inputs the layer never took from it
-					compositeKey.AddKey(ck)
-				} else {
-					compositeKey = layerKey
-				}
 			}
 
-			logrus.Debugf("Optimize: composite key for command %v %v", command.String(), compositeKey)
-			chainKey, err := compositeKey.Hash()
+			ck, err := layerKey.Hash()
 			if err != nil {
 				return "", ci, v1.Config{}, fmt.Errorf("failed to hash composite key: %w", err)
 			}
-			finalCacheKey = chainKey
-			if inferred {
-				layerKey = compositeKey
-				ck = chainKey
+			if independentKey {
+				// the chain carries the layer under its key instead of
+				// descending into inputs the layer never took from it
+				compositeKey.AddKey(ck)
+			} else {
+				compositeKey = layerKey
+			}
+
+			logrus.Debugf("Optimize: composite key for command %v %v", command.String(), compositeKey)
+			finalCacheKey, err = compositeKey.Hash()
+			if err != nil {
+				return "", ci, v1.Config{}, fmt.Errorf("failed to hash composite key: %w", err)
 			}
 
 			logrus.Debugf("Optimize: cache key for command %v %v", command.String(), ck)
@@ -683,10 +679,12 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		// inferred key also serves to push a pointer below.
 		inferred := false
 		var inferredCacheKey string
-		if opts.Cache && !independentKey && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
+		var layerKey CompositeCache
+		seed := cacheKeySeed(independentKey, compositeKey, s.cf.Config)
+		if opts.Cache && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
 			copyCmd, isCopy := commands.CastAbstractCopyCommand(command)
 			if isCopy && copyCmd.From() != "" {
-				inferredKey, err := populateCompositeKey(command, nil, compositeKey.Clone(), s.args, s.cf.Config.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
+				inferredKey, err := populateCompositeKey(command, nil, seed.Clone(), s.args, s.cf.Config.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 				if err == nil {
 					inferredCacheKey, err = inferredKey.Hash()
 					if err != nil {
@@ -697,7 +695,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 						return err
 					}
 					if contentKey != nil {
-						compositeKey = *contentKey
+						layerKey = *contentKey
 						inferred = true
 					}
 				}
@@ -713,21 +711,24 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				return fmt.Errorf("failed to get files used from context: %w", err)
 			}
 			if opts.Cache {
-				layerKey, err := populateCompositeKey(command, files, cacheKeySeed(independentKey, compositeKey, s.cf.Config), s.args, s.cf.Config.Env, fileContext, nil, nil)
+				layerKey, err = populateCompositeKey(command, files, seed, s.args, s.cf.Config.Env, fileContext, nil, nil)
 				if err != nil {
 					return err
 				}
-				layerCacheKey, err = layerKey.Hash()
-				if err != nil {
-					return fmt.Errorf("failed to hash composite key: %w", err)
-				}
-				if independentKey {
-					// the chain carries the layer under its key instead of
-					// descending into inputs the layer never took from it
-					compositeKey.AddKey(layerCacheKey)
-				} else {
-					compositeKey = layerKey
-				}
+			}
+		}
+		if opts.Cache {
+			var err error
+			layerCacheKey, err = layerKey.Hash()
+			if err != nil {
+				return fmt.Errorf("failed to hash composite key: %w", err)
+			}
+			if independentKey {
+				// the chain carries the layer under its key instead of
+				// descending into inputs the layer never took from it
+				compositeKey.AddKey(layerCacheKey)
+			} else {
+				compositeKey = layerKey
 			}
 		}
 
@@ -839,14 +840,6 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 
 			if opts.Cache {
 				logrus.Debugf("Build: composite key for command %v %v", command.String(), compositeKey)
-				ck, err := compositeKey.Hash()
-				if err != nil {
-					return fmt.Errorf("failed to hash composite key: %w", err)
-				}
-
-				if inferred {
-					layerCacheKey = ck
-				}
 				logrus.Debugf("Build: cache key for command %v %v", command.String(), layerCacheKey)
 
 				// Push layer to cache (in parallel) now along with new config file
@@ -857,13 +850,13 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 					// mz334: also push a pointer under the inferred key so that a
 					// subsequent optimize pass can find the content key and continue
 					// the cache chain without unpacking the source stage.
-					if inferredCacheKey != "" && inferredCacheKey != ck {
-						rawKey := compositeKey.State()
+					if inferredCacheKey != "" && inferredCacheKey != layerCacheKey {
+						rawKey := layerKey.State()
 						h, err := ResumeCompositeCache(rawKey).Hash()
 						if err != nil {
 							return err
 						}
-						assert.Assert("executor.build.key-hash", h == ck, "rawCompositeKey hash %v does not match ck %v", h, ck)
+						assert.Assert("executor.build.key-hash", h == layerCacheKey, "rawCompositeKey hash %v does not match layer cache key %v", h, layerCacheKey)
 						cacheGroup.Go(func() error {
 							return pushPointer(opts, inferredCacheKey, rawKey, s.span)
 						})
