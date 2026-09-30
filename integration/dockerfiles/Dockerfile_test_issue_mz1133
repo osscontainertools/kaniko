@@ -1,16 +1,21 @@
 ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS builder
+RUN mkdir -p /out && printf built > /out/file
+
 FROM ${IMAGE_REPO}busybox
 
 # mz1133: a --link copy writes to the destination as written, not through the
-# symlinks the layers below put there. Each case below was checked against
-# docker first.
-RUN mkdir -p /real /keep && ln -s /real /link
+# symlinks the layers below put there, whether the source is the build context
+# or another stage. Each case below was checked against docker first.
+RUN mkdir -p /real /keep /xreal && ln -s /real /link && ln -s /xreal /xlink
 RUN echo base > /keep/base && printf target > /target && ln -s /target /aslink && printf old > /old
 COPY --link context/foo /link/foo
 COPY --link context/foo /keep/foo
 COPY --link context/foo /aslink
 COPY --link context/foo /old
+COPY --link --from=builder /out/file /xlink/file
 RUN test ! -L /link && test -f /link/foo && test ! -e /real/foo
 RUN test -f /keep/base && test -f /keep/foo
 RUN test ! -L /aslink && test "$(cat /target)" = target
 RUN test "$(cat /old)" = "$(cat /keep/foo)"
+RUN test ! -L /xlink && test "$(cat /xlink/file)" = built && test ! -e /xreal/file
