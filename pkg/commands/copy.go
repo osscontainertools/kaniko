@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -312,29 +311,27 @@ func materializeLinkDest(destPath string) error {
 	if !filepath.IsAbs(destPath) {
 		return errors.New("dest path must be abs")
 	}
-
-	var paths []string
-	for p := destPath; p != "/"; p = filepath.Dir(p) {
-		paths = append(paths, p)
+	if destPath == "/" {
+		return nil
 	}
 
-	// shallowest first: removing one changes what the deeper names mean
-	for _, p := range slices.Backward(paths) {
-		fi, err := os.Lstat(p)
-		if os.IsNotExist(err) {
-			continue
-		}
-		if err != nil {
-			return fmt.Errorf("lstat %s: %w", p, err)
-		}
-		if !util.IsSymlink(fi) {
-			continue
-		}
-		logrus.Debugf("Removing symlink %s for a --link copy", p)
-		err = os.Remove(p)
-		if err != nil {
-			return err
-		}
+	// the parent goes first. lstat on a deeper path resolves through an ancestor
+	// symlink, so the remove below would land wherever that symlink points.
+	err := materializeLinkDest(filepath.Dir(destPath))
+	if err != nil {
+		return err
+	}
+
+	fi, err := os.Lstat(destPath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("lstat %s: %w", destPath, err)
+	}
+	if util.IsSymlink(fi) {
+		logrus.Debugf("Removing symlink %s for a --link copy", destPath)
+		return os.Remove(destPath)
 	}
 
 	return nil
