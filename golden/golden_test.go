@@ -36,6 +36,7 @@ import (
 	ggcrtypes "github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
 	testbake "github.com/osscontainertools/kaniko/golden/testdata/test_bake"
+	testissuemz1133 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1133"
 	testissuemz195 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz195"
 	testissuemz333 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz333"
 	testissuemz334 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz334"
@@ -137,19 +138,20 @@ func renderCommand(env map[string]string, args []string) string {
 }
 
 var allTests = map[string][]types.GoldenTests{
-	"test_issue_mz195": {testissuemz195.Tests},
-	"test_issue_mz333": {testissuemz333.Tests},
-	"test_issue_mz334": {testissuemz334.Tests},
-	"test_issue_mz338": {testissuemz338.Tests},
-	"test_issue_mz487": {testissuemz487.Tests},
-	"test_issue_mz480": {testissuemz480.Tests},
-	"test_issue_mz703": {testissuemz703.Tests},
-	"test_issue_mz791": {testissuemz791.Tests},
-	"test_issue_mz813": {testissuemz813.Tests},
-	"test_issue_mz822": {testissuemz822.Tests},
-	"test_issue_mz936": {testissuemz936.Tests},
-	"test_issue_mz989": {testissuemz989.Tests},
-	"test_unittests":   testunittests.Tests,
+	"test_issue_mz195":  {testissuemz195.Tests},
+	"test_issue_mz333":  {testissuemz333.Tests},
+	"test_issue_mz334":  {testissuemz334.Tests},
+	"test_issue_mz338":  {testissuemz338.Tests},
+	"test_issue_mz487":  {testissuemz487.Tests},
+	"test_issue_mz480":  {testissuemz480.Tests},
+	"test_issue_mz703":  {testissuemz703.Tests},
+	"test_issue_mz791":  {testissuemz791.Tests},
+	"test_issue_mz813":  {testissuemz813.Tests},
+	"test_issue_mz822":  {testissuemz822.Tests},
+	"test_issue_mz936":  {testissuemz936.Tests},
+	"test_issue_mz989":  {testissuemz989.Tests},
+	"test_issue_mz1133": {testissuemz1133.Tests},
+	"test_unittests":    testunittests.Tests,
 }
 var update bool
 

@@ -357,6 +357,21 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 	return compositeKey, nil
 }
 
+// advanceChain moves the chain past a command. An ordinary key already is the
+// extended chain, an independent one was built apart and is spliced in by hash.
+func advanceChain(chain, layerKey CompositeCache, independent bool) (CompositeCache, string, error) {
+	ck, err := layerKey.Hash()
+	if err != nil {
+		return chain, "", fmt.Errorf("failed to hash composite key: %w", err)
+	}
+	if independent {
+		chain.AddKey(ck)
+	} else {
+		chain = layerKey
+	}
+	return chain, ck, nil
+}
+
 func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (*CompositeCache, error) {
 	inferredCk, err := inferredKey.Hash()
 	if err != nil {
@@ -415,10 +430,17 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 			// source files do not exist during precompute or after elimination.
 			copyCmd, isCopy := commands.CastAbstractCopyCommand(command)
 			crossStageCopy := isCopy && copyCmd.From() != ""
+			independentKey := command.HasIndependentCacheKey()
 			inferred := false
 			precomputed := false
+			var layerKey CompositeCache
+			seed := compositeKey
+			if independentKey {
+				// WorkingDir and User pick the destination and the ownership
+				seed = *NewCompositeCache(cfg.WorkingDir, cfg.User)
+			}
 			if crossStageCopy && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
-				inferredKey, err := populateCompositeKey(command, nil, compositeKey.Clone(), args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
+				inferredKey, err := populateCompositeKey(command, nil, seed.Clone(), args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 				if err == nil {
 					inferredCK, err := inferredKey.Hash()
 					if err != nil {
@@ -441,7 +463,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 							if err != nil {
 								return "", ci, v1.Config{}, fmt.Errorf("failed to get files used from context: %w", err)
 							}
-							hashedKey, err := populateCompositeKey(command, files, compositeKey.Clone(), args, cfg.Env, fileContext, nil, nil)
+							hashedKey, err := populateCompositeKey(command, files, seed.Clone(), args, cfg.Env, fileContext, nil, nil)
 							if err != nil {
 								return "", ci, v1.Config{}, err
 							}
@@ -455,7 +477,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 							}
 							assert.Assert("executor.compositekey.key-match", ick == ck, "pointer inferred content key %v does not match the computed content key %v", ick, ck)
 						}
-						compositeKey = *contentKey
+						layerKey = *contentKey
 						inferred = true
 						ci.redirectHits[i] = true
 						// mz334: log when the inferred key produced the hit (integration test observability only).
@@ -475,30 +497,37 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 				if err != nil {
 					return "", ci, v1.Config{}, fmt.Errorf("failed to get files used from context: %w", err)
 				}
-				compositeKey, err = populateCompositeKey(command, files, compositeKey, args, cfg.Env, fileContext, nil, nil)
+				layerKey, err = populateCompositeKey(command, files, seed, args, cfg.Env, fileContext, nil, nil)
 				if err != nil {
 					return "", ci, v1.Config{}, err
 				}
 			}
 
+			var err error
+			var ck string
+			compositeKey, ck, err = advanceChain(compositeKey, layerKey, independentKey)
+			if err != nil {
+				return "", ci, v1.Config{}, err
+			}
+
 			logrus.Debugf("Optimize: composite key for command %v %v", command.String(), compositeKey)
-			ck, err := compositeKey.Hash()
+			finalCacheKey, err = compositeKey.Hash()
 			if err != nil {
 				return "", ci, v1.Config{}, fmt.Errorf("failed to hash composite key: %w", err)
 			}
 
 			logrus.Debugf("Optimize: cache key for command %v %v", command.String(), ck)
-			finalCacheKey = ck
 			ci.cacheKeys[i] = ck
 
 			// a precompute-resolved copy must apply its cached layer even after
-			// an earlier miss, its source stage may be eliminated
-			if command.ShouldCacheOutput() && (!stopCache || (precomputed && config.FF.SkipCachedStages)) {
+			// an earlier miss, its source stage may be eliminated. An independently
+			// keyed layer holds nothing from below, so no earlier miss reaches it.
+			if command.ShouldCacheOutput() && (!stopCache || independentKey || (precomputed && config.FF.SkipCachedStages)) {
 				img, err := layerCache.RetrieveLayer(ck)
 				if err != nil {
 					logrus.Debugf("Failed to retrieve layer: %s", err)
 					logrus.Infof("No cached layer found for cmd %s", command.String())
-					logrus.Debugf("Key missing was: %s", compositeKey.Key())
+					logrus.Debugf("Key missing was: %s", layerKey.Key())
 					sawCacheMiss = true
 					// FF_KANIKO_CACHE_PROBE_AFTER_MISS: when set, a regular cache miss no
 					// longer disables lookups for the remaining layers in the stage. Cached
@@ -543,7 +572,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 	return finalCacheKey, ci, cfg, nil
 }
 
-func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string, layerCache cache.LayerCache) error {
+func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string, layerCache cache.LayerCache, ci *stageCacheInfo) error {
 	assert.Assert("executor.stagebuilder.config-nonnull", s.cf != nil, "stageBuilder (index %d) has nil config file", s.index)
 	// Unpack file system to root if we need to.
 	shouldUnpack := false
@@ -640,15 +669,22 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		cmdTimer, closeCmd := timing.Scope("Command")
 		endCmd = closeCmd
 
+		independentKey := command.HasIndependentCacheKey()
 		// mz334: cross-stage copies key off the inferred pointer first, their
 		// source stage may be eliminated and its files never materialize. The
 		// inferred key also serves to push a pointer below.
 		inferred := false
 		var inferredCacheKey string
+		var layerKey CompositeCache
+		seed := compositeKey
+		if independentKey {
+			// WorkingDir and User pick the destination and the ownership
+			seed = *NewCompositeCache(s.cf.Config.WorkingDir, s.cf.Config.User)
+		}
 		if opts.Cache && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
 			copyCmd, isCopy := commands.CastAbstractCopyCommand(command)
 			if isCopy && copyCmd.From() != "" {
-				inferredKey, err := populateCompositeKey(command, nil, compositeKey.Clone(), s.args, s.cf.Config.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
+				inferredKey, err := populateCompositeKey(command, nil, seed.Clone(), s.args, s.cf.Config.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 				if err == nil {
 					inferredCacheKey, err = inferredKey.Hash()
 					if err != nil {
@@ -659,7 +695,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 						return err
 					}
 					if contentKey != nil {
-						compositeKey = *contentKey
+						layerKey = *contentKey
 						inferred = true
 					}
 				}
@@ -667,6 +703,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		}
 		// If the command uses files from the context, add them.
 		var files []string
+		var ck string
 		if !inferred {
 			var err error
 			files, err = command.FilesUsedFromContext(&s.cf.Config, s.args)
@@ -674,10 +711,22 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				return fmt.Errorf("failed to get files used from context: %w", err)
 			}
 			if opts.Cache {
-				compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, s.cf.Config.Env, fileContext, nil, nil)
+				layerKey, err = populateCompositeKey(command, files, seed, s.args, s.cf.Config.Env, fileContext, nil, nil)
 				if err != nil {
 					return err
 				}
+			}
+		}
+		if opts.Cache {
+			var err error
+			compositeKey, ck, err = advanceChain(compositeKey, layerKey, independentKey)
+			if err != nil {
+				return err
+			}
+			// optimize looked the layer up under its key and this pushes under ck,
+			// so a drift between the passes is a cache that silently never hits
+			if ci.cacheKeys[index] != "" {
+				assert.Assert("executor.compositekey.pass-match", ci.cacheKeys[index] == ck, "optimize cache key %v does not match build %v for command %q", ci.cacheKeys[index], ck, command.String())
 			}
 		}
 
@@ -755,11 +804,6 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 
 			if opts.Cache {
 				logrus.Debugf("Build: composite key for command %v %v", command.String(), compositeKey)
-				ck, err := compositeKey.Hash()
-				if err != nil {
-					return fmt.Errorf("failed to hash composite key: %w", err)
-				}
-
 				logrus.Debugf("Build: cache key for command %v %v", command.String(), ck)
 
 				// Push layer to cache (in parallel) now along with new config file
@@ -771,7 +815,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 					// subsequent optimize pass can find the content key and continue
 					// the cache chain without unpacking the source stage.
 					if inferredCacheKey != "" && inferredCacheKey != ck {
-						rawKey := compositeKey.State()
+						rawKey := layerKey.State()
 						h, err := ResumeCompositeCache(rawKey).Hash()
 						if err != nil {
 							return err
@@ -1623,7 +1667,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 		stageArgs[stage.Index] = sb.args
 		crossStageDeps := len(crossStageDependencies[stage.Index]) > 0
-		err = sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps, stageFinalCacheKeys, externalImageDigests, layerCache)
+		err = sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps, stageFinalCacheKeys, externalImageDigests, layerCache, buildCi)
 		if err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
 		}
