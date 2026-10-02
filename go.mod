@@ -7,7 +7,7 @@ require (
 	github.com/GoogleCloudPlatform/docker-credential-gcr/v2 v2.2.1
 	github.com/aws/aws-sdk-go-v2 v1.47.1
 	github.com/aws/aws-sdk-go-v2/config v1.33.6
-	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.10
+	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.11
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.113.4
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.12.0
 	github.com/containerd/platforms v1.0.0-rc.5
