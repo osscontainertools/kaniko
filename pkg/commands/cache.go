@@ -16,16 +16,41 @@ limitations under the License.
 
 package commands
 
-import v1 "github.com/google/go-containerregistry/pkg/v1"
+import (
+	"errors"
+	"fmt"
+
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/osscontainertools/kaniko/pkg/dockerfile"
+)
 
 type Cached interface {
-	Layer() v1.Layer
+	CachedLayer() (v1.Layer, error)
 }
 
 type caching struct {
-	layer v1.Layer
+	img v1.Image
+	// an empty image in cache indicates that no directory was created by WORKDIR
+	allowEmpty bool
 }
 
-func (c caching) Layer() v1.Layer {
-	return c.layer
+func (c *caching) ExecuteCommand(_ *v1.Config, _ *dockerfile.BuildArgs) error {
+	return nil
+}
+
+func (c *caching) CachedLayer() (v1.Layer, error) {
+	if c.img == nil {
+		return nil, errors.New("cached command image is nil")
+	}
+	layers, err := c.img.Layers()
+	if err != nil {
+		return nil, fmt.Errorf("retrieve image layers: %w", err)
+	}
+	if len(layers) == 0 && c.allowEmpty {
+		return nil, nil
+	}
+	if len(layers) != 1 {
+		return nil, fmt.Errorf("expected %d layers but got %d", 1, len(layers))
+	}
+	return layers[0], nil
 }

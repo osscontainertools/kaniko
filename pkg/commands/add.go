@@ -174,61 +174,21 @@ func (a *AddCommand) ShouldCacheOutput() bool {
 // CacheCommand returns true since this command should be cached
 func (a *AddCommand) CacheCommand(img v1.Image) DockerCommand {
 	return &CachingAddCommand{
-		img:         img,
+		caching:     caching{img: img},
 		cmd:         a.cmd,
 		fileContext: a.fileContext,
-		extractFn:   util.ExtractFile,
 	}
 }
 
 type CachingAddCommand struct {
 	BaseCommand
 	caching
-	img            v1.Image
-	extractedFiles []string
-	cmd            *instructions.AddCommand
-	fileContext    util.FileContext
-	extractFn      util.ExtractFunction
-}
-
-func (ca *CachingAddCommand) ExecuteCommand(_ *v1.Config, _ *dockerfile.BuildArgs) error {
-	logrus.Infof("Found cached layer, extracting to filesystem")
-	var err error
-
-	if ca.img == nil {
-		return fmt.Errorf("cached command image is nil %v", ca.String())
-	}
-
-	layers, err := ca.img.Layers()
-	if err != nil {
-		return fmt.Errorf("retrieve image layers: %w", err)
-	}
-
-	if len(layers) != 1 {
-		return fmt.Errorf("expected %d layers but got %d", 1, len(layers))
-	}
-
-	ca.layer = layers[0]
-	ca.extractedFiles, err = util.GetFSFromLayers(kConfig.RootDir, layers, util.ExtractFunc(ca.extractFn), util.IncludeWhiteout())
-
-	logrus.Debugf("ExtractedFiles: %s", ca.extractedFiles)
-	if err != nil {
-		return fmt.Errorf("extracting fs from image: %w", err)
-	}
-
-	return nil
+	cmd         *instructions.AddCommand
+	fileContext util.FileContext
 }
 
 func (ca *CachingAddCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
 	return addCmdFilesUsedFromContext(config, buildArgs, ca.cmd, ca.fileContext)
-}
-
-func (ca *CachingAddCommand) FilesToSnapshot() []string {
-	f := ca.extractedFiles
-	logrus.Debugf("%d files extracted by caching copy command", len(f))
-	logrus.Tracef("Extracted files: %s", f)
-
-	return f
 }
 
 func (ca *CachingAddCommand) MetadataOnly() bool {
