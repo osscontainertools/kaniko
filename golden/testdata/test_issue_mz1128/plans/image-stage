@@ -1,0 +1,46 @@
+FROM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d AS common
+  STREAM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+RUN touch /common
+  CACHE HIT: 1c016060d47d3e3e06f1495da9217e1c46134d7cfb263f4fdfd1c49201c6733c
+SAVE STAGE /kaniko/stages/0
+
+FROM common AS first
+  UNPACK /kaniko/stages/0
+RUN touch /first
+  CACHE MISS: c27118a566db9c9b56065d433bb729d3a8b98ce6363e88a8a4ea515a67ccac07
+SAVE FILES [/first] /kaniko/deps/1
+CLEAN
+
+FROM common AS second
+  UNPACK /kaniko/stages/0
+RUN touch /second
+  CACHE MISS: f5bcd4b254c436835afd08258a639b3ee0ffea668d4821219761afa7b0f28efc
+SAVE FILES [/second] /kaniko/deps/2
+CLEAN
+
+FROM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d AS meta
+  STREAM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+ENV FOO=bar
+  CACHE MISS: 32a29e68d7ac0aad9e4992682c717accf657d786725b8d572c47245d31a81a9f
+SAVE STAGE /kaniko/stages/3
+
+FROM meta AS third
+  UNPACK /kaniko/stages/3
+RUN touch /third
+  CACHE MISS: e730f5243dd37b98901092ef0125895ef9f034896a95d1755df4203622ef77b1
+SAVE FILES [/third] /kaniko/deps/4
+CLEAN
+
+FROM meta AS fourth
+  UNPACK /kaniko/stages/3
+RUN touch /fourth
+  CACHE MISS: 08fc657f2e4747d5f7878ca6a4ee568b7c250103e101beef837ab259d48c32a1
+SAVE FILES [/fourth] /kaniko/deps/5
+CLEAN
+
+FROM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+  STREAM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+COPY --from=first /first /first
+COPY --from=second /second /second
+COPY --from=third /third /third
+COPY --from=fourth /fourth /fourth

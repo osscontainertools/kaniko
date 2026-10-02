@@ -180,6 +180,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES`](#flag-ff_kaniko_scoped_registry_certificates)
       - [Flag `FF_KANIKO_PEEK_ARCHIVE_HEADER`](#flag-ff_kaniko_peek_archive_header)
       - [Flag `FF_KANIKO_ADD_UNPACK`](#flag-ff_kaniko_add_unpack)
+      - [Flag `FF_KANIKO_IMAGE_STAGES`](#flag-ff_kaniko_image_stages)
     - [Assertion Overrides](#assertion-overrides)
     - [Layer Hints](#layer-hints)
     - [Telemetry](#telemetry)
@@ -1202,6 +1203,7 @@ FF_KANIKO_CROSS_REPO_MOUNT=true
 FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES=true
 FF_KANIKO_EXPAND_HEREDOC=true
 FF_KANIKO_HASH_DIR_FRAMING=true
+FF_KANIKO_IMAGE_STAGES=true
 FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=true
 FF_KANIKO_LAYER_HINTS=true
 FF_KANIKO_NATIVE_COPY=true
@@ -1625,6 +1627,13 @@ Becomes default in `v1.29.0`.
 
 `ADD --unpack=<bool>` overrides whether a tar archive is extracted. A local archive is extracted and a URL download is not, so `--unpack=false` adds a local archive as a file and `--unpack=true` extracts a download. A source that turns out not to be an archive is added as a file either way. With this flag off kaniko parses the modifier and ignores it, so both sources keep their default treatment.
 Set this flag to `true` to honor `--unpack`.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_IMAGE_STAGES`
+
+A stage whose commands are all cache hits is already an image. Kaniko still unpacks every one of its cached layers onto the root filesystem and deletes them again when the stage ends, although nothing reads them.
+Set this flag to `true` to download the image and use it as is, skipping the unpack to the root filesystem.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
