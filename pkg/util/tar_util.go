@@ -38,18 +38,15 @@ import (
 // Tar knows how to write files to a tar file.
 type Tar struct {
 	hardlinks map[hardlinkKey]string
-	names     map[string]bool
 	w         *tar.Writer
 }
 
 // NewTar will create an instance of Tar that can write files to the writer at f.
 func NewTar(f io.Writer) Tar {
-	pruneDirAliases()
 	w := tar.NewWriter(f)
 	return Tar{
 		w:         w,
 		hardlinks: map[hardlinkKey]string{},
-		names:     map[string]bool{},
 	}
 }
 
@@ -88,19 +85,12 @@ func (t *Tar) AddFileToTar(p string) error {
 	assert.Assert("tar.root-path-excluded", p != config.RootDir, "snapshot must not include root path '/'")
 
 	// Docker uses no leading / in the tarball
-	hdr.Name = strings.TrimPrefix(logicalPath(p), config.RootDir)
+	hdr.Name = strings.TrimPrefix(p, config.RootDir)
 	hdr.Name = strings.TrimLeft(hdr.Name, "/")
 
 	if hdr.Typeflag == tar.TypeDir && !strings.HasSuffix(hdr.Name, "/") {
 		hdr.Name = hdr.Name + "/"
 	}
-
-	// a swapped pair gives the alias and the directory it names one archive name, and extraction
-	// keeps the last entry under a name
-	if t.names[strings.TrimSuffix(hdr.Name, "/")] {
-		return nil
-	}
-	t.names[strings.TrimSuffix(hdr.Name, "/")] = true
 
 	// rootfs may not have been extracted when using cache, preventing uname/gname from resolving
 	// this makes this layer unnecessarily differ from a cached layer which does contain this information
@@ -111,8 +101,6 @@ func (t *Tar) AddFileToTar(p string) error {
 
 	hardlink, linkDst := t.checkHardlink(p, i)
 	if hardlink {
-		// the target has to name the entry this tar emitted for it, not where it sits on disk
-		linkDst = logicalPath(linkDst)
 		if config.FF.RelativeLinkTargets {
 			hdr.Linkname = strings.TrimLeft(strings.TrimPrefix(linkDst, config.RootDir), "/")
 		} else {
@@ -170,7 +158,6 @@ func readSecurityXattrToTarHeader(path string, hdr *tar.Header) error {
 }
 
 func (t *Tar) Whiteout(p string) error {
-	p = logicalPath(p)
 	dir := filepath.Dir(p)
 	name := archive.WhiteoutPrefix + filepath.Base(p)
 

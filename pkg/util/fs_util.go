@@ -257,7 +257,6 @@ func DeleteFilesystem() error {
 	t := timing.Start("FS Cleaning")
 	defer t.End()
 	logrus.Info("Deleting filesystem...")
-	clear(dirAliases)
 	return fs.WalkDir(FSys, config.RootDir, func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			// ignore errors when deleting.
@@ -315,10 +314,6 @@ func removeAllSkipIgnored(path string) (skip bool, err error) {
 		}
 		if p == path {
 			return nil
-		}
-		// this subtree is another name's content, not content the incoming symlink supersedes
-		if isDirAlias(p) {
-			return filepath.SkipDir
 		}
 		if CheckCleanedPathAgainstIgnoreList(p) {
 			if d.IsDir() {
@@ -456,11 +451,6 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		}
 	case tar.TypeDir:
 		logrus.Tracef("Creating dir %s", path)
-		// must stay in sync with preserveMountedSymlink, which put this symlink here
-		_, aliased := dirAliases[path]
-		if aliased {
-			return os.Chmod(path, mode)
-		}
 		if config.FF.SecurejoinExtraction {
 			fi, lerr := os.Lstat(path)
 			if lerr == nil && fi.Mode()&os.ModeSymlink != 0 {
@@ -535,7 +525,11 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 				return fmt.Errorf("error removing %s to make way for new symlink: %w", hdr.Name, err)
 			}
 			if skip && config.FF.PreserveMountedSymlinks {
-				return preserveMountedSymlink(dest, path, hdr.Linkname)
+				freed, err := relocateMountedPaths(dest, path, hdr.Linkname)
+				if err != nil {
+					return err
+				}
+				skip = !freed
 			}
 			if skip {
 				return nil

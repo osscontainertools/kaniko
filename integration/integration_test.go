@@ -175,6 +175,9 @@ func buildRequiredImages() error {
 		name:    "Building mz1073 base image",
 		command: []string{"docker", "build", "--push", "-t", config.mz1073BaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz1073", "--target", "base", "."},
 	}, {
+		name:    "Building mz1113 base image",
+		command: []string{"docker", "build", "--push", "-t", config.mz1113BaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz1113", "--target", "base", "."},
+	}, {
 		name: "Building single manifest base image",
 		command: append(append([]string{"docker", "build", "--push"}, dockerV2Flags...),
 			"-t", config.singleManifestBaseImage, "-f", dockerfilesPath+"/Dockerfile_test_issue_2567",
@@ -1813,6 +1816,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 	c.mixedMediaTypeImage = c.imageRepo + "mixed-media-type:latest"
 	c.nvidiaOperatorBaseImage = c.imageRepo + "nvidia-operator-base:latest"
 	c.mz1073BaseImage = c.imageRepo + "test-issue-mz1073-base:latest"
+	c.mz1113BaseImage = c.imageRepo + "test-issue-mz1113-base:latest"
 	c.singleManifestBaseImage = c.imageRepo + "single-manifest-base:latest"
 	return &c
 }
