@@ -582,8 +582,7 @@ func TestGetUserGroup(t *testing.T) {
 		mockIDGetter func(userStr string, groupStr string) (uint32, uint32, error)
 		// needed, in case uid is a valid number, but group is a name
 		mockGroupIDGetter func(groupStr string) (*user.Group, error)
-		expectedU         int64
-		expectedG         int64
+		expected          *Owner
 		shdErr            bool
 	}{
 		{
@@ -593,8 +592,7 @@ func TestGetUserGroup(t *testing.T) {
 			mockIDGetter: func(string, string) (uint32, uint32, error) {
 				return 100, 1000, nil
 			},
-			expectedU: 100,
-			expectedG: 1000,
+			expected: &Owner{UID: 100, GID: 1000},
 		},
 		{
 			description: "non empty chown with env replacement",
@@ -606,16 +604,13 @@ func TestGetUserGroup(t *testing.T) {
 				}
 				return 0, 0, errors.New("did not resolve environment variable")
 			},
-			expectedU: 10,
-			expectedG: 100,
+			expected: &Owner{UID: 10, GID: 100},
 		},
 		{
 			description: "empty chown string",
 			mockIDGetter: func(string, string) (uint32, uint32, error) {
 				return 0, 0, errors.New("should not be called")
 			},
-			expectedU: -1,
-			expectedG: -1,
 		},
 	}
 	for _, tc := range tests {
@@ -625,9 +620,8 @@ func TestGetUserGroup(t *testing.T) {
 				getUIDAndGIDFunc = originalIDGetter
 			}()
 			getUIDAndGIDFunc = tc.mockIDGetter
-			uid, gid, err := GetUserGroup(tc.chown, tc.env)
-			testutil.CheckErrorAndDeepEqual(t, tc.shdErr, err, uid, tc.expectedU)
-			testutil.CheckErrorAndDeepEqual(t, tc.shdErr, err, gid, tc.expectedG)
+			owner, err := GetUserGroup(tc.chown, tc.env)
+			testutil.CheckErrorAndDeepEqual(t, tc.shdErr, err, tc.expected, owner)
 		})
 	}
 }

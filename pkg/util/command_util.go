@@ -370,62 +370,52 @@ Loop:
 	return nil
 }
 
-func GetActiveUserGroup(configUser string, chownStr string, replacementEnvs []string) (int64, int64, error) {
+func GetActiveUserGroup(configUser string, chownStr string, replacementEnvs []string) (*Owner, error) {
 	user, err := user.Current()
 	if err != nil {
-		return DoNotChangeUID, DoNotChangeGID, fmt.Errorf("failed to lookup current user: %w", err)
+		return nil, fmt.Errorf("failed to lookup current user: %w", err)
 	}
 	uid32, gid32, err := getUIDAndGIDFunc(user.Uid, user.Gid)
 	if err != nil {
-		return DoNotChangeUID, DoNotChangeGID, fmt.Errorf("failed parsing uid and gid %s:%s: %w", user.Uid, user.Gid, err)
+		return nil, fmt.Errorf("failed parsing uid and gid %s:%s: %w", user.Uid, user.Gid, err)
 	}
-	uid, gid := int64(uid32), int64(gid32)
+	owner := Owner{UID: uid32, GID: gid32}
 
 	if configUser != "" {
-		ouid, ogid, err := GetUserGroup(configUser, replacementEnvs)
+		configOwner, err := GetUserGroup(configUser, replacementEnvs)
 		if err != nil {
-			return DoNotChangeUID, DoNotChangeGID, fmt.Errorf("identifying uid and gid for user %s: %w", configUser, err)
+			return nil, fmt.Errorf("identifying uid and gid for user %s: %w", configUser, err)
 		}
-		if ouid > DoNotChangeUID {
-			uid = ouid
-		}
-		if ogid > DoNotChangeGID {
-			gid = ogid
-		}
+		owner = *configOwner
 	}
 
 	if chownStr != "" {
-		ouid, ogid, err := GetUserGroup(chownStr, replacementEnvs)
+		chownOwner, err := GetUserGroup(chownStr, replacementEnvs)
 		if err != nil {
-			return DoNotChangeUID, DoNotChangeGID, fmt.Errorf("getting user group from chown: %w", err)
+			return nil, fmt.Errorf("getting user group from chown: %w", err)
 		}
-		if ouid > DoNotChangeUID {
-			uid = ouid
-		}
-		if ogid > DoNotChangeGID {
-			gid = ogid
-		}
+		owner = *chownOwner
 	}
 
-	return uid, gid, nil
+	return &owner, nil
 }
 
-func GetUserGroup(chownStr string, env []string) (int64, int64, error) {
+func GetUserGroup(chownStr string, env []string) (*Owner, error) {
 	if chownStr == "" {
-		return DoNotChangeUID, DoNotChangeGID, nil
+		return nil, nil
 	}
 
 	chown, err := ResolveEnvironmentReplacement(chownStr, env, false)
 	if err != nil {
-		return -1, -1, err
+		return nil, err
 	}
 
 	uid32, gid32, err := getUIDAndGIDFromString(chown)
 	if err != nil {
-		return -1, -1, err
+		return nil, err
 	}
 
-	return int64(uid32), int64(gid32), nil
+	return &Owner{UID: uid32, GID: gid32}, nil
 }
 
 func GetChmod(chmodStr string, env []string) (chmod mode.Set, useDefault bool, err error) {

@@ -48,12 +48,12 @@ type CopyCommand struct {
 
 func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
 	// Resolve from
-	var uid, gid int64
+	var owner *util.Owner
 	var err error
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 	if c.cmd.From != "" {
 		c.fileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoInterStageDepsDir, c.cmd.From)}
-		uid, gid, err = getUserGroup(c.cmd.Chown, replacementEnvs)
+		owner, err = getUserGroup(c.cmd.Chown, replacementEnvs)
 		if err != nil {
 			return fmt.Errorf("getting user group from chown: %w", err)
 		}
@@ -66,7 +66,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 			// But this is a breaking change so we keep it optional for now
 			user = "0:0"
 		}
-		uid, gid, err = getActiveUserGroup(user, c.cmd.Chown, replacementEnvs)
+		owner, err = getActiveUserGroup(user, c.cmd.Chown, replacementEnvs)
 		if err != nil {
 			return fmt.Errorf("getting user group from chown: %w", err)
 		}
@@ -112,7 +112,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		}
 
 		if fi.IsDir() {
-			copiedFiles, err := util.CopyDir(fullPath, destPath, c.fileContext, uid, gid, chmod, useDefaultChmod)
+			copiedFiles, err := util.CopyDir(fullPath, destPath, c.fileContext, owner, chmod, useDefaultChmod)
 			if err != nil {
 				return fmt.Errorf("copying dir: %w", err)
 			}
@@ -129,7 +129,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 			c.snapshotFiles = append(c.snapshotFiles, destPath)
 		} else if fi.Mode()&os.ModeNamedPipe != 0 {
 			// Opening a fifo blocks until it has a writer, so recreate it instead.
-			exclude, err := util.CreateFifo(fullPath, destPath, fi, c.fileContext, uid, gid, chmod, useDefaultChmod, false)
+			exclude, err := util.CreateFifo(fullPath, destPath, fi, c.fileContext, owner, chmod, useDefaultChmod, false)
 			if err != nil {
 				return fmt.Errorf("copying fifo: %w", err)
 			}
@@ -142,7 +142,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 			continue
 		} else {
 			// ... Else, we want to copy over a file
-			exclude, err := util.CopyFile(fullPath, destPath, fi, c.fileContext, uid, gid, chmod, useDefaultChmod, false)
+			exclude, err := util.CopyFile(fullPath, destPath, fi, c.fileContext, owner, chmod, useDefaultChmod, false)
 			if err != nil {
 				return fmt.Errorf("copying file: %w", err)
 			}
@@ -181,7 +181,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		}
 
 		srcFile := strings.NewReader(data)
-		err = util.CreateFile(destPath, srcFile, chmod.Apply(0o644), chmod.Apply(0o755), uint32(uid), uint32(gid))
+		err = util.CreateFile(destPath, srcFile, chmod.Apply(0o644), chmod.Apply(0o755), owner)
 		if err != nil {
 			return fmt.Errorf("creating file: %w", err)
 		}
