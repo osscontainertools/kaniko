@@ -44,6 +44,7 @@ type FeatureFlags struct {
 	ExpandHeredoc                  bool
 	HashDirFraming                 bool
 	IgnoreCachedManifest           bool
+	ImageStages                    bool
 	InferCrossStageCacheKey        bool
 	NativeCopy                     bool
 	NoPropagateAnnotations         bool
@@ -125,6 +126,7 @@ func InitFeatureFlags() {
 		ExpandHeredoc:                  featureFlag("FF_KANIKO_EXPAND_HEREDOC", false),
 		HashDirFraming:                 featureFlag("FF_KANIKO_HASH_DIR_FRAMING", false),
 		IgnoreCachedManifest:           featureFlag("FF_KANIKO_IGNORE_CACHED_MANIFEST", false),
+		ImageStages:                    featureFlag("FF_KANIKO_IMAGE_STAGES", false),
 		InferCrossStageCacheKey:        featureFlag("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", false),
 		NativeCopy:                     featureFlag("FF_KANIKO_NATIVE_COPY", false),
 		NoPropagateAnnotations:         featureFlag("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS", true),

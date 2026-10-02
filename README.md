@@ -172,6 +172,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES`](#flag-ff_kaniko_deprecate_layerless_cache_entries)
       - [Flag `FF_KANIKO_ADD_CHECKSUM`](#flag-ff_kaniko_add_checksum)
       - [Flag `FF_KANIKO_POOL_REGISTRY_CONNECTIONS`](#flag-ff_kaniko_pool_registry_connections)
+      - [Flag `FF_KANIKO_IMAGE_STAGES`](#flag-ff_kaniko_image_stages)
     - [Assertion Overrides](#assertion-overrides)
     - [Telemetry](#telemetry)
     - [Debug Image](#debug-image)
@@ -1192,6 +1193,7 @@ FF_KANIKO_CROSS_REPO_MOUNT=true
 FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES=true
 FF_KANIKO_EXPAND_HEREDOC=true
 FF_KANIKO_HASH_DIR_FRAMING=true
+FF_KANIKO_IMAGE_STAGES=true
 FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=true
 FF_KANIKO_NATIVE_COPY=true
 FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=true
@@ -1557,6 +1559,13 @@ Becomes default in `v1.29.0`.
 
 With this flag off a build opens a new connection for every registry operation and repeats the token exchange each time.
 Set this flag to `true` to share one connection pool per registry.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_IMAGE_STAGES`
+
+A stage whose commands are all cache hits is already an image. Kaniko still unpacks every one of its cached layers onto the root filesystem and deletes them again when the stage ends, although nothing reads them.
+Set this flag to `true` to download the image and use it as is, skipping the unpack to the root filesystem.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 

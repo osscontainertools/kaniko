@@ -543,7 +543,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 	return finalCacheKey, ci, cfg, nil
 }
 
-func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string, layerCache cache.LayerCache) error {
+func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string, layerCache cache.LayerCache) (bool, error) {
 	assert.Assert("executor.stagebuilder.config-nonnull", s.cf != nil, "stageBuilder (index %d) has nil config file", s.index)
 	// Unpack file system to root if we need to.
 	shouldUnpack := false
@@ -566,6 +566,8 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	if s.index == 0 && opts.InitialFSUnpacked {
 		shouldUnpack = false
 	}
+	unpacked := shouldUnpack || (s.index == 0 && opts.InitialFSUnpacked)
+	needsRootFS := unpacked
 
 	if shouldUnpack {
 		t := timing.Start("FS Unpacking")
@@ -578,7 +580,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		err := util.Retry(retryFunc, opts.ImageFSExtractRetry, 1000)
 		t.End()
 		if err != nil {
-			return fmt.Errorf("failed to get filesystem from image: %w", err)
+			return false, fmt.Errorf("failed to get filesystem from image: %w", err)
 		}
 		assert.Assert("executor.getfs.volumes-reset", len(util.Volumes()) == 0, "stageBuilder.build: getFSFromImage must reset volumes for stage %d", s.index)
 	} else {
@@ -591,7 +593,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		err := snapshotter.Init()
 		t.End()
 		if err != nil {
-			return err
+			return false, err
 		}
 		initSnapshotTaken = true
 	}
@@ -632,7 +634,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			err := snapshotter.Init()
 			t.End()
 			if err != nil {
-				return err
+				return false, err
 			}
 			initSnapshotTaken = true
 		}
@@ -652,11 +654,11 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				if err == nil {
 					inferredCacheKey, err = inferredKey.Hash()
 					if err != nil {
-						return err
+						return false, err
 					}
 					contentKey, err := redirectCacheKey(inferredKey, layerCache)
 					if err != nil {
-						return err
+						return false, err
 					}
 					if contentKey != nil {
 						compositeKey = *contentKey
@@ -671,12 +673,12 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			var err error
 			files, err = command.FilesUsedFromContext(&s.cf.Config, s.args)
 			if err != nil {
-				return fmt.Errorf("failed to get files used from context: %w", err)
+				return false, fmt.Errorf("failed to get files used from context: %w", err)
 			}
 			if opts.Cache {
 				compositeKey, err = populateCompositeKey(command, files, compositeKey, s.args, s.cf.Config.Env, fileContext, nil, nil)
 				if err != nil {
-					return err
+					return false, err
 				}
 			}
 		}
@@ -708,19 +710,20 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		err := command.ExecuteCommand(&s.cf.Config, s.args)
 		execTimer.End()
 		if err != nil {
-			return fmt.Errorf("failed to execute command: %w", err)
+			return false, fmt.Errorf("failed to execute command: %w", err)
 		}
 		var layer v1.Layer
 		if isCacheCommand {
-			logrus.Infof("Found cached layer, extracting to filesystem")
+			logrus.Infof("Found cached layer")
 			layer, err = command.(commands.Cached).CachedLayer()
 			if err != nil {
-				return fmt.Errorf("%s: %w", command.String(), err)
+				return false, fmt.Errorf("%s: %w", command.String(), err)
 			}
-			if layer != nil {
+			if layer != nil && (!config.FF.ImageStages || unpacked) {
+				logrus.Infof("Extracting cached layer to filesystem")
 				_, err = util.GetFSFromLayers(config.RootDir, []v1.Layer{layer}, util.ExtractFunc(util.ExtractFile), util.IncludeWhiteout())
 				if err != nil {
-					return fmt.Errorf("extracting fs from image: %w", err)
+					return false, fmt.Errorf("extracting fs from image: %w", err)
 				}
 			}
 		}
@@ -742,16 +745,15 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			} else {
 				s.image, err = saveLayerToImage(s.image, layer, command.String(), opts)
 				if err != nil {
-					return fmt.Errorf("failed to save layer: %w", err)
+					return false, fmt.Errorf("failed to save layer: %w", err)
 				}
 			}
 		} else {
 			tarPath, snapshotted, err := takeSnapshot(files, command.ShouldDetectDeletedFiles(), opts, snapshotter)
 			if err != nil {
-				return fmt.Errorf("failed to take snapshot: %w", err)
+				return false, fmt.Errorf("failed to take snapshot: %w", err)
 			}
 
-			unpacked := shouldUnpack || (s.index == 0 && opts.InitialFSUnpacked)
 			if !unpacked {
 				// Caching commands go through the isCacheCommand branch above
 				// So the only case where we don't need a filesystem is if all commands are MetadataOnly.
@@ -759,6 +761,9 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			}
 			_, isVolume := command.(*commands.VolumeCommand)
 			volumeCreatesFiles := isVolume && !config.FF.VolumeSkipMkdir
+			if volumeCreatesFiles {
+				needsRootFS = true
+			}
 			if command.MetadataOnly() && !opts.SingleSnapshot && !volumeCreatesFiles {
 				// MetadataOnly commands must not change or even need the filesystem.
 				assert.Assert("executor.build.without-fs", snapshotted == 0, "build: MetadataOnly command %q snapshotted %d file(s)", command.String(), snapshotted)
@@ -768,7 +773,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				logrus.Debugf("Build: composite key for command %v %v", command.String(), compositeKey)
 				ck, err := compositeKey.Hash()
 				if err != nil {
-					return fmt.Errorf("failed to hash composite key: %w", err)
+					return false, fmt.Errorf("failed to hash composite key: %w", err)
 				}
 
 				logrus.Debugf("Build: cache key for command %v %v", command.String(), ck)
@@ -785,7 +790,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 						rawKey := compositeKey.State()
 						h, err := ResumeCompositeCache(rawKey).Hash()
 						if err != nil {
-							return err
+							return false, err
 						}
 						assert.Assert("executor.build.key-hash", h == ck, "rawCompositeKey hash %v does not match ck %v", h, ck)
 						cacheGroup.Go(func() error {
@@ -796,7 +801,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			}
 			s.image, err = saveSnapshotToImage(s.image, command.String(), tarPath, opts)
 			if err != nil {
-				return fmt.Errorf("failed to save snapshot to image: %w", err)
+				return false, fmt.Errorf("failed to save snapshot to image: %w", err)
 			}
 		}
 	}
@@ -806,7 +811,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		logrus.Warnf("Error uploading layer to cache: %s", err)
 	}
 
-	return nil
+	return needsRootFS, nil
 }
 
 func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, snapshotter snapShotter) (string, int, error) {
@@ -1151,6 +1156,7 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 		}
 	}
 	for _, s := range stages {
+		needsRootFS := len(crossStageDependencies[s.Index]) > 0 || (s.Index == 0 && opts.InitialFSUnpacked)
 		if s.Name != "" {
 			printf("FROM %s AS %s\n", s.BaseName, s.Name)
 		} else {
@@ -1190,6 +1196,14 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 				continue
 			}
 			printf("%s\n", command)
+			cached := opts.Cache && config.FF.CacheLookahead && cacheInfo[s.Index].cacheHits[jdx]
+			if !cached && command.RequiresUnpackedFS() {
+				needsRootFS = true
+			}
+			_, isVolume := c.(*instructions.VolumeCommand)
+			if isVolume && !config.FF.VolumeSkipMkdir {
+				needsRootFS = true
+			}
 			snapshots := shouldTakeSnapshot(command.MetadataOnly(), jdx == len(s.Commands)-1, opts)
 			var key v1.Hash
 			if opts.Cache && opts.CacheCopyLayers && config.FF.InferCrossStageCacheKey && config.FF.CacheLookahead {
@@ -1280,12 +1294,15 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 		if len(filesToSave) > 0 {
 			printf("SAVE FILES %v %s%d\n", filesToSave, config.KanikoInterStageDepsDir, s.Index)
 		}
-		printf("CLEAN\n\n")
-		if !config.FF.DeprecateInterStageRestore {
-			if opts.PreserveContext && !opts.PreCleanup {
-				printf("RESTORE CONTEXT\n\n")
+		if !config.FF.ImageStages || needsRootFS {
+			printf("CLEAN\n")
+			if !config.FF.DeprecateInterStageRestore {
+				if opts.PreserveContext && !opts.PreCleanup {
+					printf("\nRESTORE CONTEXT\n")
+				}
 			}
 		}
+		printf("\n")
 	}
 	assert.Unreachable("we should always have a final stage")
 	return retErr
@@ -1634,7 +1651,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 		stageArgs[stage.Index] = sb.args
 		crossStageDeps := len(crossStageDependencies[stage.Index]) > 0
-		err = sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps, stageFinalCacheKeys, externalImageDigests, layerCache)
+		needsRootFS, err := sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps, stageFinalCacheKeys, externalImageDigests, layerCache)
 		if err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
 		}
@@ -1749,19 +1766,21 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		}
 
 		// Delete the filesystem
-		if err := util.DeleteFilesystem(); err != nil {
-			return nil, fmt.Errorf("deleting file system after stage %d: %w", stage.Index, err)
-		}
-		if !config.FF.DeprecateInterStageRestore {
-			if opts.PreserveContext && !opts.PreCleanup {
-				if tarball == "" {
-					return nil, errors.New("context snapshot is missing")
+		if !config.FF.ImageStages || needsRootFS {
+			if err := util.DeleteFilesystem(); err != nil {
+				return nil, fmt.Errorf("deleting file system after stage %d: %w", stage.Index, err)
+			}
+			if !config.FF.DeprecateInterStageRestore {
+				if opts.PreserveContext && !opts.PreCleanup {
+					if tarball == "" {
+						return nil, errors.New("context snapshot is missing")
+					}
+					_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
+					if err != nil {
+						return nil, fmt.Errorf("failed to unpack context snapshot: %w", err)
+					}
+					logrus.Info("Context restored")
 				}
-				_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
-				if err != nil {
-					return nil, fmt.Errorf("failed to unpack context snapshot: %w", err)
-				}
-				logrus.Info("Context restored")
 			}
 		}
 	}
