@@ -710,6 +710,20 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		if err != nil {
 			return fmt.Errorf("failed to execute command: %w", err)
 		}
+		var layer v1.Layer
+		if isCacheCommand {
+			logrus.Infof("Found cached layer, extracting to filesystem")
+			layer, err = command.(commands.Cached).CachedLayer()
+			if err != nil {
+				return fmt.Errorf("%s: %w", command.String(), err)
+			}
+			if layer != nil {
+				_, err = util.GetFSFromLayers(config.RootDir, []v1.Layer{layer}, util.ExtractFunc(util.ExtractFile), util.IncludeWhiteout())
+				if err != nil {
+					return fmt.Errorf("extracting fs from image: %w", err)
+				}
+			}
+		}
 		files = command.FilesToSnapshot()
 
 		isLastCommand := index == lastRunnableIdx
@@ -718,8 +732,6 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			continue
 		}
 		if isCacheCommand {
-			v := command.(commands.Cached)
-			layer := v.Layer()
 			if config.FF.DeprecateLayerlessCacheEntries {
 				assert.Assert("executor.build.cache-layer", layer != nil, "cached command %q carries no layer", command.String())
 			}
@@ -728,7 +740,6 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				// We continue to handle this case here as users might still have cache entries lying around
 				logrus.Info("No files were changed, appending empty layer to config. No layer added to image.")
 			} else {
-				var err error
 				s.image, err = saveLayerToImage(s.image, layer, command.String(), opts)
 				if err != nil {
 					return fmt.Errorf("failed to save layer: %w", err)

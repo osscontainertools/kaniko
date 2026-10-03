@@ -147,8 +147,8 @@ func (m MockCachedDockerCommand) IsArgsEnvsRequiredInCache() bool {
 	return m.argToCompositeCache
 }
 
-func (m MockCachedDockerCommand) Layer() v1.Layer {
-	return fakeLayer{}
+func (m MockCachedDockerCommand) CachedLayer() (v1.Layer, error) {
+	return fakeLayer{}, nil
 }
 
 type fakeLayerCache struct {
