@@ -1003,6 +1003,10 @@ func convertLayerMediaType(layer v1.Layer, image v1.Image, opts *config.KanikoOp
 					return nil, err
 				}
 				assert.Assert("executor.convertlayer.relabel-digest", rd == ld, "relabel changed layer digest %s != %s", rd, ld)
+				ml, ok := layer.(*ggcrremote.MountableLayer)
+				if ok {
+					return &ggcrremote.MountableLayer{Layer: relabeled, Reference: ml.Reference}, nil
+				}
 				return relabeled, nil
 			}
 			return tarball.LayerFromOpener(layer.Uncompressed, layerOpts...)
@@ -1023,7 +1027,7 @@ func planLayerMediaType(layer v1.Layer, imageMediaType types.MediaType, opts *co
 	if err != nil {
 		return v1.Hash{}, nil, err
 	}
-	targetMediaType, recompress := layerConversion(layerMediaType, imageMediaType, opts)
+	_, recompress := layerConversion(layerMediaType, imageMediaType, opts)
 	if !recompress {
 		key, err = layer.Digest()
 		if err != nil {
@@ -1031,7 +1035,7 @@ func planLayerMediaType(layer v1.Layer, imageMediaType types.MediaType, opts *co
 		}
 	}
 	ml, ok := layer.(*ggcrremote.MountableLayer)
-	if ok && targetMediaType == layerMediaType {
+	if ok && !recompress {
 		repo := ml.Reference.Context()
 		origin = &repo
 	}
