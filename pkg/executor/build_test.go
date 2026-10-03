@@ -1485,7 +1485,7 @@ RUN foobar
 			if err != nil {
 				t.Errorf("failed to optimize instructions: %v", err)
 			}
-			err = sb.build(*compositeKey, tc.opts, util.FileContext{}, snap, tc.crossStageDeps, nil, nil, lc)
+			_, err = sb.build(*compositeKey, tc.opts, util.FileContext{}, snap, tc.crossStageDeps, nil, nil, lc)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
