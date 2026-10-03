@@ -400,6 +400,9 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		logrus.Debugf("Not adding %s because it is ignored", path)
 		return nil
 	}
+	if int64(hdr.Uid) > math.MaxUint32 || int64(hdr.Gid) > math.MaxUint32 {
+		return fmt.Errorf("user-id %d and group-id %d must fit a 32 bit id", hdr.Uid, hdr.Gid)
+	}
 	owner := Owner{UID: uint32(hdr.Uid), GID: uint32(hdr.Gid)}
 
 	switch hdr.Typeflag {
@@ -468,9 +471,6 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 					return fmt.Errorf("error removing symlink %s to make way for new directory: %w", path, err)
 				}
 			}
-		}
-		if int64(hdr.Uid) > math.MaxUint32 || int64(hdr.Gid) > math.MaxUint32 {
-			return fmt.Errorf("user-id %d and group-id %d must fit a 32 bit id", hdr.Uid, hdr.Gid)
 		}
 		if err := MkdirAllWithPermissions(path, mode, owner); err != nil {
 			return err
