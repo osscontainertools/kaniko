@@ -343,6 +343,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 
 var expectErr = map[string]int{
 	"Dockerfile_test_issue_cg326_1": 1,
+	"Dockerfile_test_issue_mz1140":  1,
 	"Dockerfile_test_add_404":       1,
 	"Dockerfile_test_issue_3373_1":  1,
 	"Dockerfile_test_issue_3373_2":  1,

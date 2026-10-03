@@ -204,6 +204,12 @@ func buildRequiredImages() error {
 		return err
 	}
 
+	oversizedIDRef := strings.ToLower(config.imageRepo + "oversized-id:latest")
+	err = pushOversizedIDImage(oversizedIDRef)
+	if err != nil {
+		return err
+	}
+
 	excessDotdotRef := strings.ToLower(config.imageRepo + "excess-dotdot-symlink:latest")
 	err = pushExcessDotdotSymlinkImage(excessDotdotRef)
 	if err != nil {
@@ -849,6 +855,46 @@ func pushMaliciousPathTraversalImage(imageRef string) error {
 	}
 	if err := remote.Write(ref, img, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
 		return fmt.Errorf("pushing malicious image to %s: %v", imageRef, err)
+	}
+	return nil
+}
+
+// pushOversizedIDImage creates and pushes a minimal OCI image whose single layer
+// holds a regular file owned by an id that does not fit 32 bits. Docker cannot
+// produce such a layer, so the image is crafted programmatically.
+func pushOversizedIDImage(imageRef string) error {
+	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		if err := tw.WriteHeader(&tar.Header{
+			Name:     "blubb",
+			Typeflag: tar.TypeReg,
+			Size:     0,
+			Mode:     0o644,
+			Uid:      math.MaxUint32 + 1,
+			Gid:      math.MaxUint32 + 1,
+			Format:   tar.FormatPAX,
+		}); err != nil {
+			return nil, err
+		}
+		tw.Close()
+		return io.NopCloser(bytes.NewReader(buf.Bytes())), nil
+	})
+	if err != nil {
+		return fmt.Errorf("creating oversized-id layer: %v", err)
+	}
+
+	img, err := mutate.AppendLayers(empty.Image, layer)
+	if err != nil {
+		return fmt.Errorf("appending layer to empty image: %v", err)
+	}
+
+	ref, err := name.ParseReference(imageRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing image ref %s: %v", imageRef, err)
+	}
+	if err := remote.Write(ref, img, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
+		return fmt.Errorf("pushing oversized-id image to %s: %v", imageRef, err)
 	}
 	return nil
 }
