@@ -1357,7 +1357,7 @@ Will be deprecated in `v1.29.0`.
 
 #### Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`
 
-When a multi-stage build uses `COPY --from=<stage>`, kaniko normally hashes the copied files from the source stage's filesystem to compute the downstream cache key. The source stage's `finalCacheKey` is a deterministic function of its build inputs and can be used as a stable proxy for those file contents, so the downstream cache key can be inferred without accessing the filesystem at all. This is a preparatory optimisation for a future change that will avoid unpacking the source stage's filesystem entirely when all downstream stages are also fully cached.
+When a multi-stage build uses `COPY --from=<stage>`, kaniko normally hashes the copied files from the source stage's filesystem to compute the downstream cache key. The layers the source stage is made of are known before any of its files are unpacked, so they serve as a handle for the copy, and a pointer entry in the cache repo translates that handle into the key the copied files hash to. The copy layer itself keeps its file-hash key, so the pointer only saves the unpacking. This is a preparatory optimisation for a future change that will avoid unpacking the source stage's filesystem entirely when all downstream stages are also fully cached.
 Set this flag to `true` to add additional cache entries for the shortcuts, currently they do not yet allow optimization.
 Requires `--cache-copy-layers`. Defaults to `false`.
 Becomes default in `v1.29.0`.
