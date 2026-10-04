@@ -1,0 +1,9 @@
+# ADD extracts a local tar archive in every compression format docker recognises.
+# kaniko only decompressed gzip and bzip2 and called logrus.Fatalf on the rest, so an
+# xz or zstd archive killed the build with "unsupported compression algorithm".
+FROM busybox
+ADD context/tars/file.tar /plain/
+ADD context/tars/file.tar.gz /gzip/
+ADD context/tars/file.bz2 /bzip2/
+ADD context/tars/file.tar.xz /xz/
+ADD context/tars/file.tar.zst /zstd/
