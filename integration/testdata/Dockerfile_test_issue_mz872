@@ -1,0 +1,12 @@
+# mz872: a cross-stage COPY off a source stage whose content is not reproducible.
+# Panics on main@55fc45d57 with FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY, which keys the
+# COPY off a cache pointer written for the content the source stage held back then. A
+# build that refreshes the source stage's cached layer leaves that pointer naming
+# content that is gone, and kaniko asserts on the mismatch instead of missing the cache.
+FROM alpine:3.22.4@sha256:310c62b5e7ca5b08167e4384c68db0fd2905dd9c7493756d356e893909057601 AS source
+
+RUN cat /proc/sys/kernel/random/uuid > /u
+
+FROM alpine:3.22.4@sha256:310c62b5e7ca5b08167e4384c68db0fd2905dd9c7493756d356e893909057601
+
+COPY --from=source /u /u

@@ -1287,6 +1287,47 @@ func TestCacheInvalidatesOnAllowlistedFileChange(t *testing.T) {
 	diffoci(t, original, changed, "--semantic", "--extra-ignore-files=app/test.txt")
 }
 
+// mz872: the cross-stage COPY cache pointer names the content the source stage held when
+// the pointer was written. Refreshing the source stage's own cached layer under the same
+// key leaves the pointer naming content that is gone. That is a cache miss, the copy has
+// to be rebuilt from what the source stage holds now.
+func TestCacheStaleCrossStageCopyPointer(t *testing.T) {
+	t.Parallel()
+
+	_, ex, _, _ := runtime.Caller(0)
+	cwd := filepath.Dir(ex)
+	cacheRepo := filepath.Join(config.imageRepo, "cache", "mz872", strconv.FormatInt(time.Now().UnixNano(), 10))
+
+	const dockerfile = "Dockerfile_test_issue_mz872"
+
+	build := func(version int, flags ...string) string {
+		t.Helper()
+		image := GetVersionedKanikoImage(config.imageRepo, dockerfile, version)
+		args := append([]string{"--cache=true", "--cache-repo=" + cacheRepo}, flags...)
+		if err := buildKanikoImage(t, "testdata", dockerfile, nil, args, image, cwd, "", ""); err != nil {
+			t.Fatalf("build %d: %v", version, err)
+		}
+		return image
+	}
+
+	// caches the source stage's RUN layer and writes the pointer for the COPY --from
+	stale := build(0, "--cache-copy-layers=true")
+	// an expired cache re-runs the source stage and overwrites its cached layer with new
+	// content, and with copy layers off the COPY pointer is left as it was
+	refreshed := build(1, "--cache-copy-layers=false", "--cache-ttl=0s")
+	// the source stage serves the refreshed layer now, which the pointer no longer names
+	copied := build(2, "--cache-copy-layers=true")
+
+	// the copied file keeps the atime of the build that read it, so both comparisons
+	// have to ignore timestamps to be about the copied content
+	ignore := []string{"--ignore-timestamps", "--ignore-image-name", "--ignore-image-timestamps"}
+	if out, err := RunCommandWithoutTest(diffociCmd(stale, copied, "", ignore...)); err == nil {
+		t.Errorf("mz872: the copy was served from the pointer, which names the content of the first build:\n%s", out)
+	}
+
+	diffoci(t, refreshed, copied, "--ignore-timestamps")
+}
+
 // https://github.com/GoogleContainerTools/kaniko/issues/2567
 // The host and the foreign architecture crosstalk through one cache repo. The base image
 // is a single manifest, an index would already resolve to a different digest per platform.
