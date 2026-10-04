@@ -22,6 +22,7 @@ require (
 	github.com/google/go-containerregistry v0.22.1
 	github.com/google/slowjam v1.1.2
 	github.com/hashicorp/hcl v1.0.0
+	github.com/klauspost/compress v1.19.2
 	github.com/minio/highwayhash v1.0.4
 	github.com/moby/buildkit v0.33.0
 	github.com/moby/go-archive v0.3.3
@@ -36,6 +37,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/tonistiigi/dchapes-mode v0.0.0-20250318174251-73d941a28323
+	github.com/ulikunitz/xz v0.5.17
 	github.com/zeebo/blake3 v0.2.4
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.46.0
@@ -109,7 +111,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
-	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect

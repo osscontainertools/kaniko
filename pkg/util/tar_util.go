@@ -28,11 +28,13 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/klauspost/compress/zstd"
 	"github.com/moby/go-archive"
 	"github.com/moby/go-archive/compression"
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/sirupsen/logrus"
+	"github.com/ulikunitz/xz"
 )
 
 // Tar knows how to write files to a tar file.
@@ -237,8 +239,21 @@ func UnpackLocalTarArchive(path, dest string) ([]string, error) {
 		case compression.Bzip2:
 			bzr := bzip2.NewReader(file)
 			return UnTar(bzr, dest)
+		case compression.Xz:
+			xzr, err := xz.NewReader(file)
+			if err != nil {
+				return nil, err
+			}
+			return UnTar(xzr, dest)
+		case compression.Zstd:
+			zstdr, err := zstd.NewReader(file)
+			if err != nil {
+				return nil, err
+			}
+			defer zstdr.Close()
+			return UnTar(zstdr, dest)
 		default:
-			logrus.Fatalf("unsupported compression algorithm: %d", compressionLevel)
+			return nil, fmt.Errorf("unsupported compression algorithm: %d", compressionLevel)
 		}
 	}
 	if fileIsUncompressedTar(path) {
