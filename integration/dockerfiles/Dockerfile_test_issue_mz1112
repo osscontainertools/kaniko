@@ -1,0 +1,10 @@
+# mz1112: FF_KANIKO_COPY_AS_ROOT does not reach ADD from a URL.
+# Since v1.25.2 the flag only substitutes 0:0 in the copy command. ADD hands the active USER
+# to the downloader, so with the flag on one image carries two ownership conventions, the
+# copied file owned by root and the downloaded one owned by daemon.
+# The destination is a directory busybox already ships, so the implicit parent dir mode
+# divergence of mz922 stays out of this.
+FROM busybox
+USER daemon
+COPY context/foo /home/foo
+ADD https://raw.githubusercontent.com/osscontainertools/kaniko/main/README.md /home/README.md
