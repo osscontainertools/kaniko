@@ -3,19 +3,19 @@ module github.com/osscontainertools/kaniko
 go 1.26.8
 
 require (
-	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.1
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.2
 	github.com/GoogleCloudPlatform/docker-credential-gcr/v2 v2.2.1
 	github.com/aws/aws-sdk-go-v2 v1.47.1
 	github.com/aws/aws-sdk-go-v2/config v1.33.6
-	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.11
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.113.4
+	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.4.13
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.0
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.12.0
 	github.com/containerd/platforms v1.0.0-rc.5
 	github.com/cyphar/filepath-securejoin v0.7.0
 	github.com/docker/cli v29.8.2+incompatible
 	github.com/docker/docker-credential-helpers v0.9.9
 	github.com/ePirat/docker-credential-gitlabci v1.0.0
-	github.com/go-git/go-billy/v5 v5.9.1
+	github.com/go-git/go-billy/v5 v5.9.2
 	github.com/go-git/go-git/v5 v5.19.2
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.7.0
@@ -23,9 +23,9 @@ require (
 	github.com/google/slowjam v1.1.2
 	github.com/hashicorp/hcl v1.0.0
 	github.com/minio/highwayhash v1.0.4
-	github.com/moby/buildkit v0.33.0
+	github.com/moby/buildkit v0.33.1
 	github.com/moby/go-archive v0.3.3
-	github.com/moby/moby/api v1.56.0
+	github.com/moby/moby/api v1.56.1
 	github.com/moby/patternmatcher v0.6.1
 	github.com/moby/sys/signal v0.7.1
 	github.com/opencontainers/go-digest v1.0.0
@@ -52,10 +52,11 @@ require (
 	cloud.google.com/go/compute/metadata v0.9.1 // indirect
 	dario.cat/mergo v1.0.2 // indirect
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.1 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.2 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/containers/azcontainerregistry v0.2.3 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/storage/internal v0.1.0 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest v0.11.30 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.9.24 // indirect
