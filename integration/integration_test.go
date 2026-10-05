@@ -1818,7 +1818,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 }
 
 func meetsRequirements() bool {
-	requiredTools := []string{"diffoci", "bzip2"}
+	requiredTools := []string{"diffoci", "bzip2", "zstd"}
 	hasRequirements := true
 	for _, tool := range requiredTools {
 		_, err := exec.LookPath(tool)

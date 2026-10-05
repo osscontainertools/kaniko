@@ -82,20 +82,28 @@ func gzipBytes(in []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// bzip2Bytes shells out to bzip2 because the standard library has no bzip2 writer.
+// bzip2Bytes and zstdBytes shell out because the standard library has no writer for either.
 func bzip2Bytes(in []byte) ([]byte, error) {
-	cmd := exec.Command("bzip2", "-c")
+	return compressBytes(in, "bzip2", "-c")
+}
+
+func zstdBytes(in []byte) ([]byte, error) {
+	return compressBytes(in, "zstd", "-q", "-c")
+}
+
+func compressBytes(in []byte, name string, args ...string) ([]byte, error) {
+	cmd := exec.Command(name, args...)
 	cmd.Stdin = bytes.NewReader(in)
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	err := cmd.Run()
 	if err != nil {
-		return nil, fmt.Errorf("bzip2: %w", err)
+		return nil, fmt.Errorf("%s: %w", name, err)
 	}
 	return out.Bytes(), nil
 }
 
-var tarFixtureNames = []string{"file.tar", "file.tar.gz", "file.bz2", "sys.tar.gz"}
+var tarFixtureNames = []string{"file.tar", "file.tar.gz", "file.bz2", "file.tar.zst", "sys.tar.gz"}
 
 func tarFixtureDir() string {
 	_, ex, _, _ := runtime.Caller(0)
@@ -144,7 +152,19 @@ func generateTarFixtures() error {
 		return err
 	}
 
+	zstded, err := buildTar([]tarEntry{
+		{name: "./", typeflag: tar.TypeDir, mode: 0o755},
+		{name: "./zstdCompressedFile", typeflag: tar.TypeReg, mode: 0o644, content: "zstd\n"},
+	})
+	if err != nil {
+		return err
+	}
+
 	gzippedGz, err := gzipBytes(gzipped)
+	if err != nil {
+		return err
+	}
+	zstdedZst, err := zstdBytes(zstded)
 	if err != nil {
 		return err
 	}
@@ -158,10 +178,11 @@ func generateTarFixtures() error {
 	}
 
 	fixtures := map[string][]byte{
-		"file.tar":    plain,
-		"file.tar.gz": gzippedGz,
-		"file.bz2":    bzippedBz,
-		"sys.tar.gz":  sysGz,
+		"file.tar":     plain,
+		"file.tar.gz":  gzippedGz,
+		"file.bz2":     bzippedBz,
+		"file.tar.zst": zstdedZst,
+		"sys.tar.gz":   sysGz,
 	}
 	for name, data := range fixtures {
 		err = os.WriteFile(filepath.Join(dir, name), data, 0o644)
