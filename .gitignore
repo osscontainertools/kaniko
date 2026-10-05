@@ -10,5 +10,6 @@ BUILD.bazel
 integration/context/tars/file.tar
 integration/context/tars/file.tar.gz
 integration/context/tars/file.bz2
+integration/context/tars/file.tar.xz
 integration/context/tars/file.tar.zst
 integration/context/tars/sys.tar.gz
