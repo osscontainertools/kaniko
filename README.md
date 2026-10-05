@@ -163,6 +163,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_SECUREJOIN_EXTRACTION`](#flag-ff_kaniko_securejoin_extraction)
       - [Flag `FF_KANIKO_RESOLVE_CACHE_KEY`](#flag-ff_kaniko_resolve_cache_key)
       - [Flag `FF_KANIKO_UNTAR_SKIP_ROOT`](#flag-ff_kaniko_untar_skip_root)
+      - [Flag `FF_KANIKO_UNPACK_ZSTD`](#flag-ff_kaniko_unpack_zstd)
       - [Flag `FF_KANIKO_RUN_HONOR_GROUP`](#flag-ff_kaniko_run_honor_group)
       - [Flag `FF_KANIKO_EXPAND_HEREDOC`](#flag-ff_kaniko_expand_heredoc)
       - [Flag `FF_KANIKO_SKIP_CACHED_STAGES`](#flag-ff_kaniko_skip_cached_stages)
@@ -1209,6 +1210,7 @@ FF_KANIKO_SHARED_BASE_CACHE=true
 FF_KANIKO_SKIP_CACHED_STAGES=true
 FF_KANIKO_SKIP_RELABEL_RECOMPRESS=true
 FF_KANIKO_SKIP_WRITE_WHITEOUTS=true
+FF_KANIKO_UNPACK_ZSTD=true
 FF_KANIKO_UNTAR_SKIP_ROOT=true
 ```
 
@@ -1482,6 +1484,13 @@ Will be deprecated in `v1.29.0`.
 
 When `ADD` extracts a local tar archive into a directory, kaniko applies the archive's root `.` entry to the destination directory and overwrites its mode and ownership, while docker leaves the destination untouched.
 Set this flag to `true` to skip the root `.` entry when untarring.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_UNPACK_ZSTD`
+
+`ADD` extracts a local tar archive, and docker recognises zstd among the compression formats it accepts. kaniko detects zstd but does not decompress it, so `ADD archive.tar.zst` fails with `unsupported compression algorithm`.
+Set this flag to `true` to extract zstd archives.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
