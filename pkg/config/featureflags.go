@@ -71,6 +71,7 @@ type FeatureFlags struct {
 	SkipCachedStages               bool
 	SkipRelabelRecompress          bool
 	SkipWriteWhiteouts             bool
+	UnpackXz                       bool
 	UnpackZstd                     bool
 	UntarSkipRoot                  bool
 	VolumeSkipMkdir                bool
@@ -154,6 +155,7 @@ func InitFeatureFlags() {
 		SkipCachedStages:               featureFlag("FF_KANIKO_SKIP_CACHED_STAGES", false),
 		SkipRelabelRecompress:          featureFlag("FF_KANIKO_SKIP_RELABEL_RECOMPRESS", false),
 		SkipWriteWhiteouts:             featureFlag("FF_KANIKO_SKIP_WRITE_WHITEOUTS", false),
+		UnpackXz:                       featureFlag("FF_KANIKO_UNPACK_XZ", false),
 		UnpackZstd:                     featureFlag("FF_KANIKO_UNPACK_ZSTD", false),
 		UntarSkipRoot:                  featureFlag("FF_KANIKO_UNTAR_SKIP_ROOT", false),
 		VolumeSkipMkdir:                featureFlag("FF_KANIKO_VOLUME_SKIP_MKDIR", true),

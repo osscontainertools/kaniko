@@ -164,6 +164,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_RESOLVE_CACHE_KEY`](#flag-ff_kaniko_resolve_cache_key)
       - [Flag `FF_KANIKO_UNTAR_SKIP_ROOT`](#flag-ff_kaniko_untar_skip_root)
       - [Flag `FF_KANIKO_UNPACK_ZSTD`](#flag-ff_kaniko_unpack_zstd)
+      - [Flag `FF_KANIKO_UNPACK_XZ`](#flag-ff_kaniko_unpack_xz)
       - [Flag `FF_KANIKO_RUN_HONOR_GROUP`](#flag-ff_kaniko_run_honor_group)
       - [Flag `FF_KANIKO_EXPAND_HEREDOC`](#flag-ff_kaniko_expand_heredoc)
       - [Flag `FF_KANIKO_SKIP_CACHED_STAGES`](#flag-ff_kaniko_skip_cached_stages)
@@ -1225,6 +1226,7 @@ FF_KANIKO_COPY_AS_ROOT=true
 FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=true
 FF_KANIKO_EXPAND_HEREDOC=true
 FF_KANIKO_RUN_HONOR_GROUP=true
+FF_KANIKO_UNPACK_XZ=true
 FF_KANIKO_UNTAR_SKIP_ROOT=true
 ```
 
@@ -1494,6 +1496,13 @@ Becomes default in `v1.29.0`.
 Set this flag to `true` to extract zstd archives.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_UNPACK_XZ`
+
+`ADD` extracts a local tar archive, and docker recognises xz among the compression formats it accepts. kaniko detects xz but does not decompress it, so `ADD archive.tar.xz` fails with `unsupported compression algorithm`.
+Set this flag to `true` to extract xz archives.
+Defaults to `false`.
+Currently no plans to activate.
 
 #### Flag `FF_KANIKO_RUN_HONOR_GROUP`
 
