@@ -1,0 +1,20 @@
+# mz1148: ADD --unpack overrides the per-source default, a local archive is extracted and a
+# download is not. The parser has always accepted the modifier and kaniko dropped it, so before
+# FF_KANIKO_ADD_UNPACK the override lines below behaved like the default ones.
+FROM busybox
+
+# a local archive, extracted by default and kept whole on --unpack=false
+ADD context/tars/file.tar /default/
+ADD --unpack=true context/tars/file.tar /forcelocal/
+ADD --unpack=false context/tars/file.tar /keep/
+ADD --unpack=false context/tars/file.tar.gz /keepgz/
+ADD --unpack=false context/tars/file.bz2 /keepbz/
+
+# a download, kept whole by default and extracted on --unpack=true
+ADD https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz /download/
+ADD --unpack=false https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz /nounpack/
+ADD --unpack=true https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz /extract/
+
+# a source that is not an archive is added as a file whatever --unpack says
+ADD --unpack=true context/foo /plainlocal/
+ADD --unpack=true https://raw.githubusercontent.com/osscontainertools/kaniko/main/README.md /plainremote/
