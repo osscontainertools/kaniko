@@ -28,6 +28,7 @@ import (
 
 type FeatureFlags struct {
 	AddChecksum                    bool
+	AddUnpack                      bool
 	BuildkitArgEnvPrecedence       bool
 	CacheHashBlake3                bool
 	CacheLookahead                 bool
@@ -116,6 +117,7 @@ func InitFeatureFlags() {
 
 	FF = FeatureFlags{
 		AddChecksum:                    featureFlag("FF_KANIKO_ADD_CHECKSUM", false),
+		AddUnpack:                      featureFlag("FF_KANIKO_ADD_UNPACK", false),
 		BuildkitArgEnvPrecedence:       featureFlag("FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE", true),
 		CacheHashBlake3:                featureFlag("FF_KANIKO_CACHE_HASH_BLAKE3", false),
 		CacheLookahead:                 featureFlag("FF_KANIKO_CACHE_LOOKAHEAD", false),

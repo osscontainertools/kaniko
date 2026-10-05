@@ -179,6 +179,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_LAYER_HINTS`](#flag-ff_kaniko_layer_hints)
       - [Flag `FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES`](#flag-ff_kaniko_scoped_registry_certificates)
       - [Flag `FF_KANIKO_PEEK_ARCHIVE_HEADER`](#flag-ff_kaniko_peek_archive_header)
+      - [Flag `FF_KANIKO_ADD_UNPACK`](#flag-ff_kaniko_add_unpack)
     - [Assertion Overrides](#assertion-overrides)
     - [Layer Hints](#layer-hints)
     - [Telemetry](#telemetry)
@@ -1193,6 +1194,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 
 ```sh
 FF_KANIKO_ADD_CHECKSUM=true
+FF_KANIKO_ADD_UNPACK=true
 FF_KANIKO_CACHE_HASH_BLAKE3=true
 FF_KANIKO_CACHE_LOOKAHEAD=true
 FF_KANIKO_COPY_SKIP_SPECIAL_FILES=true
@@ -1616,6 +1618,13 @@ Will be deprecated in `v1.30.0`.
 
 To detect whether an `ADD` source is a compressed archive, kaniko reads the entire file into memory, at least twice per `ADD`. A multi-GB archive can push the build past its memory limit.
 Set this flag to `true` to read only the first 8 bytes.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_ADD_UNPACK`
+
+`ADD --unpack=<bool>` overrides whether a tar archive is extracted. A local archive is extracted and a URL download is not, so `--unpack=false` adds a local archive as a file and `--unpack=true` extracts a download. A source that turns out not to be an archive is added as a file either way. With this flag off kaniko parses the modifier and ignores it, so both sources keep their default treatment.
+Set this flag to `true` to honor `--unpack`.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
