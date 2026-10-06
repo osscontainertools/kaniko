@@ -1,0 +1,66 @@
+name: DevGuard DevSecOps
+
+on:
+  push:
+    branches:
+      - 'main'
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+  pull_request:
+    branches:
+      - 'main'
+
+permissions:
+  contents: read
+
+# Fork pull requests get no repository secrets, so DEVGUARD_TOKEN is empty and
+# the scans would fail rather than report. They skip instead.
+jobs:
+  find-leaked-secrets:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    uses: l3montree-dev/devguard-ci-components/.github/workflows/secret-scanning.yml@a4154a46cf92377efd93b53379ebae6a5171d81d # v1.15.0
+    with:
+      devguard-asset-name: "osscontainertools/projects/osscontainertools/assets/kaniko"
+    secrets:
+      devguard-token: "${{ secrets.DEVGUARD_TOKEN }}"
+
+  bad-practice-finder:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    uses: l3montree-dev/devguard-ci-components/.github/workflows/static-application-security-testing.yml@a4154a46cf92377efd93b53379ebae6a5171d81d # v1.15.0
+    with:
+      devguard-asset-name: "osscontainertools/projects/osscontainertools/assets/kaniko"
+    secrets:
+      devguard-token: "${{ secrets.DEVGUARD_TOKEN }}"
+
+  infrastructure-as-code-scanning:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    uses: l3montree-dev/devguard-ci-components/.github/workflows/iac.yml@a4154a46cf92377efd93b53379ebae6a5171d81d # v1.15.0
+    with:
+      devguard-asset-name: "osscontainertools/projects/osscontainertools/assets/kaniko"
+    secrets:
+      devguard-token: "${{ secrets.DEVGUARD_TOKEN }}"
+
+  dependency-scanning:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    uses: l3montree-dev/devguard-ci-components/.github/workflows/software-composition-analysis.yml@a4154a46cf92377efd93b53379ebae6a5171d81d # v1.15.0
+    with:
+      devguard-asset-name: "osscontainertools/projects/osscontainertools/assets/kaniko"
+    secrets:
+      devguard-token: "${{ secrets.DEVGUARD_TOKEN }}"
+
+  build-image:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    uses: l3montree-dev/devguard-ci-components/.github/workflows/build-image.yml@a4154a46cf92377efd93b53379ebae6a5171d81d # v1.15.0
+    with:
+      devguard-asset-name: "osscontainertools/projects/osscontainertools/assets/kaniko"
+    secrets:
+      devguard-token: "${{ secrets.DEVGUARD_TOKEN }}"
+      build-args: "--context=. --dockerfile=deploy/Dockerfile --target=kaniko-alpine"
+
+  container-scanning:
+    needs: build-image
+    uses: l3montree-dev/devguard-ci-components/.github/workflows/container-scanning.yml@a4154a46cf92377efd93b53379ebae6a5171d81d # v1.15.0
+    with:
+      devguard-asset-name: "osscontainertools/projects/osscontainertools/assets/kaniko"
+    secrets:
+      devguard-token: "${{ secrets.DEVGUARD_TOKEN }}"
