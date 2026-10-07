@@ -94,7 +94,30 @@ var volumes = []string{}
 type FileContext struct {
 	Root          string
 	ExcludedFiles []string
+	AllowedPath   string
 	matcher       *patternmatcher.PatternMatcher
+}
+
+func CheckSource(src string, context FileContext) error {
+	// The last component stays unresolved because a symlink source is copied as a symlink.
+	parent, err := filepath.EvalSymlinks(filepath.Dir(src))
+	if err != nil {
+		return err
+	}
+	resolved := filepath.Join(parent, filepath.Base(src))
+	if !hasCleanedFilepathPrefix(resolved, filepath.Clean(config.KanikoDir), false) {
+		return nil
+	}
+	if context.Root != "" {
+		root, err := filepath.EvalSymlinks(context.Root)
+		if err == nil && hasCleanedFilepathPrefix(resolved, root, false) {
+			return nil
+		}
+	}
+	if context.AllowedPath != "" && HasFilepathPrefix(resolved, context.AllowedPath, false) {
+		return nil
+	}
+	return fmt.Errorf("source %s resolves to %s in the kaniko directory", src, resolved)
 }
 
 type ExtractFunction func(string, *tar.Header, string, io.Reader) error
@@ -800,6 +823,12 @@ type timestampUpdate struct {
 // CopyDir copies the file or directory at src to dest
 // It returns a list of files it copied over
 func CopyDir(src, dest string, context FileContext, owner *Owner, chmod mode.Set, useDefaultChmod bool) ([]string, error) {
+	if config.FF.ConfineCopySource {
+		err := CheckSource(src, context)
+		if err != nil {
+			return nil, err
+		}
+	}
 	files, err := RelativeFiles("", src)
 	if err != nil {
 		return nil, fmt.Errorf("copying dir: %w", err)
@@ -860,7 +889,7 @@ func copyDirInner(files []string, src, dest string, context FileContext, owner *
 			updates = append(updates, timestampUpdate{src: fi, dest: destPath})
 		} else if IsSymlink(fi) {
 			// If file is a symlink, we want to create the same relative symlink
-			exclude, err := CopySymlink(fullPath, destPath, context, skipIgnoreList)
+			exclude, err := copySymlink(fullPath, destPath, context, skipIgnoreList)
 			if err != nil {
 				return nil, err
 			}
@@ -890,7 +919,7 @@ func copyDirInner(files []string, src, dest string, context FileContext, owner *
 			continue
 		} else {
 			// ... Else, we want to copy over a file
-			exclude, err := CopyFile(fullPath, destPath, fi, context, owner, chmod, useDefaultChmod, skipIgnoreList)
+			exclude, err := copyFile(fullPath, destPath, fi, context, owner, chmod, useDefaultChmod, skipIgnoreList)
 			if err != nil {
 				return nil, err
 			}
@@ -972,6 +1001,12 @@ func checkCopyHardlink(fi os.FileInfo, dest string, seen map[hardlinkKey]string)
 // CopyTree copies the file, symlink or directory at src to dest. Everything is
 // copied in one pass, so hardlinks within the tree are preserved.
 func CopyTree(src, dest string, context FileContext, skipIgnoreList bool) error {
+	if config.FF.ConfineCopySource {
+		err := CheckSource(src, context)
+		if err != nil {
+			return err
+		}
+	}
 	files, err := RelativeFiles("", src)
 	if err != nil {
 		return err
@@ -989,7 +1024,7 @@ func MoveDir(src, dest string) error {
 	if errors.Is(err, syscall.EXDEV) {
 		// Cross-device move: copy + delete
 		if config.FF.NativeCopy {
-			err = CopyTree(src, dest, FileContext{}, true)
+			err = CopyTree(src, dest, FileContext{AllowedPath: config.KanikoDir}, true)
 		} else {
 			opts := otiai10Cpy.Options{
 				PreserveTimes:     true,
@@ -1016,6 +1051,16 @@ func MoveDir(src, dest string) error {
 
 // CopySymlink copies the symlink at src to dest.
 func CopySymlink(src, dest string, context FileContext, skipIgnoreList bool) (bool, error) {
+	if config.FF.ConfineCopySource {
+		err := CheckSource(src, context)
+		if err != nil {
+			return false, err
+		}
+	}
+	return copySymlink(src, dest, context, skipIgnoreList)
+}
+
+func copySymlink(src, dest string, context FileContext, skipIgnoreList bool) (bool, error) {
 	if context.ExcludesFile(src) {
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
@@ -1044,6 +1089,16 @@ func CopySymlink(src, dest string, context FileContext, skipIgnoreList bool) (bo
 // CopyFile copies the file at src to dest. fi is the Lstat of src, so a symlink
 // handed here would be written with its own mode and times rather than its target's.
 func CopyFile(src, dest string, fi os.FileInfo, context FileContext, owner *Owner, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool) (bool, error) {
+	if config.FF.ConfineCopySource {
+		err := CheckSource(src, context)
+		if err != nil {
+			return false, err
+		}
+	}
+	return copyFile(src, dest, fi, context, owner, chmod, useDefaultChmod, skipIgnoreList)
+}
+
+func copyFile(src, dest string, fi os.FileInfo, context FileContext, owner *Owner, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool) (bool, error) {
 	if context.ExcludesFile(src) {
 		logrus.Debugf("%s found in .dockerignore, ignoring", src)
 		return true, nil
@@ -1345,6 +1400,12 @@ func getSymlink(path string) error {
 func CopyFileOrSymlink(src string, destDir string, root string) error {
 	destFile := filepath.Join(destDir, src)
 	src = filepath.Join(root, src)
+	if config.FF.ConfineCopySource {
+		err := CheckSource(src, FileContext{AllowedPath: config.KanikoInterStageDepsDir})
+		if err != nil {
+			return err
+		}
+	}
 	fi, err := os.Lstat(src)
 	if err != nil {
 		return fmt.Errorf("getting file info: %w", err)
@@ -1387,6 +1448,12 @@ func CopyFileOrSymlink(src string, destDir string, root string) error {
 func CopyPaths(srcRoot, dstRoot string, paths []string) error {
 	var files []string
 	for _, p := range paths {
+		if config.FF.ConfineCopySource {
+			err := CheckSource(filepath.Join(srcRoot, p), FileContext{AllowedPath: config.KanikoInterStageDepsDir})
+			if err != nil {
+				return err
+			}
+		}
 		relative, err := RelativeFiles("", filepath.Join(srcRoot, p))
 		if err != nil {
 			return fmt.Errorf("copying %s: %w", p, err)

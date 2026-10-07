@@ -104,6 +104,16 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 			}
 			a.snapshotFiles = append(a.snapshotFiles, urlDest)
 		} else if util.IsFileLocalTarArchive(fullPath) {
+			if kConfig.FF.ConfineCopySource {
+				resolved, err := filepath.EvalSymlinks(fullPath)
+				if err != nil {
+					return err
+				}
+				err = util.CheckSource(resolved, a.fileContext)
+				if err != nil {
+					return err
+				}
+			}
 			tarDest, err := util.DestinationFilepath("", dest, config.WorkingDir)
 			if err != nil {
 				return fmt.Errorf("determining dest for tar: %w", err)

@@ -176,9 +176,10 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_mz661":  {"KANIKO_DIR=/kaniko2"},
 	"Dockerfile_test_issue_mz1065": {"KANIKO_DIR=/tmpdir/kaniko2"},
 	// mz970: layout layers carry no reference, so a stored base cannot be mounted
-	"Dockerfile_test_issue_mz1007": {"FF_KANIKO_SHARED_BASE_CACHE=0"},
-	"Dockerfile_test_stopsignal":   {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
-	"Dockerfile_test_healthcheck":  {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
+	"Dockerfile_test_issue_mz1007":   {"FF_KANIKO_SHARED_BASE_CACHE=0"},
+	"Dockerfile_test_stopsignal":     {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
+	"Dockerfile_test_healthcheck":    {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
+	"Dockerfile_test_issue_mz1160_3": {"FF_KANIKO_NATIVE_COPY=0"},
 }
 
 var KanikoEnv = []string{
@@ -344,13 +345,17 @@ var additionalKanikoFlagsMap = map[string][]string{
 }
 
 var expectErr = map[string]int{
-	"Dockerfile_test_issue_cg326_1": 1,
-	"Dockerfile_test_issue_mz1140":  1,
-	"Dockerfile_test_add_404":       1,
-	"Dockerfile_test_issue_3373_1":  1,
-	"Dockerfile_test_issue_3373_2":  1,
-	"Dockerfile_test_issue_3373_3":  1,
-	"Dockerfile_test_issue_3373_4":  1,
+	"Dockerfile_test_issue_cg326_1":  1,
+	"Dockerfile_test_issue_mz1140":   1,
+	"Dockerfile_test_add_404":        1,
+	"Dockerfile_test_issue_3373_1":   1,
+	"Dockerfile_test_issue_3373_2":   1,
+	"Dockerfile_test_issue_3373_3":   1,
+	"Dockerfile_test_issue_3373_4":   1,
+	"Dockerfile_test_issue_mz1160_1": 1,
+	"Dockerfile_test_issue_mz1160_2": 1,
+	"Dockerfile_test_issue_mz1160_3": 1,
+	"Dockerfile_test_issue_mz1160_4": 1,
 }
 
 var crossCompileArch = func() string {

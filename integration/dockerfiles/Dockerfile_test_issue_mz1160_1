@@ -1,0 +1,8 @@
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
+
+# mz1160: on v1.28.5 a COPY or ADD source is not confined to the build context.
+# The source is joined onto the context root and cleaned, so "../" walks out of it.
+# The context is /workspace, so "../kaniko/executor" copies kaniko itself into the image,
+# and the same path reaches the registry credentials in /kaniko/.docker/config.json.
+COPY ../kaniko/executor /copied

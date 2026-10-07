@@ -1,0 +1,10 @@
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS planted
+RUN ln -s / /escape
+
+# mz1160: on v1.28.5 a symlink in the parent of a COPY --from=<stage> source reaches the kaniko directory.
+# A stage's files are saved from the live root, where "escape -> /" resolves for real,
+# so "escape/kaniko/executor" is kaniko itself and slips past the lexical kaniko directory check.
+# The link stands in for one shipped by a malicious base image.
+FROM ${IMAGE_REPO}busybox
+COPY --from=planted /escape/kaniko/executor /copied

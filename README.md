@@ -174,6 +174,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_ADD_CHECKSUM`](#flag-ff_kaniko_add_checksum)
       - [Flag `FF_KANIKO_POOL_REGISTRY_CONNECTIONS`](#flag-ff_kaniko_pool_registry_connections)
       - [Flag `FF_KANIKO_DEFER_CACHE_PUSH`](#flag-ff_kaniko_defer_cache_push)
+      - [Flag `FF_KANIKO_CONFINE_COPY_SOURCE`](#flag-ff_kaniko_confine_copy_source)
     - [Assertion Overrides](#assertion-overrides)
     - [Telemetry](#telemetry)
     - [Debug Image](#debug-image)
@@ -1575,6 +1576,13 @@ Becomes default in `v1.29.0`.
 Every stage waits for its cache layers to finish uploading before the next stage starts. Set this flag to `true` to keep uploading cache layers in the background while the build continues. They are awaited before the image is pushed.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
+
+#### Flag `FF_KANIKO_CONFINE_COPY_SOURCE`
+
+A `COPY` or `ADD` source that points into the kaniko directory, for example `COPY ../kaniko/.docker/config.json /` or `COPY --from=<stage> /kaniko/executor /`, copies kaniko's own files into the image.
+Set this flag to `true` to fail the build instead.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 ### Assertion Overrides
 
