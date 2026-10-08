@@ -1986,6 +1986,87 @@ func TestPushRepositoryScopedAuth(t *testing.T) {
 	}
 }
 
+// mz881: the test registry answers as both 127.0.0.2:5001 and localhost:5001, so each name
+// can carry its own --registry-certificate. The CA given for one name must not be trusted
+// for the other.
+func TestRegistryCertificateScopedToRegistry(t *testing.T) {
+	caCert := os.Getenv("TLS_REGISTRY_CERT")
+	if caCert == "" {
+		t.Fatal("TLS_REGISTRY_CERT not set")
+	}
+
+	ctxDir := t.TempDir()
+	pem, err := os.ReadFile(caCert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.WriteFile(filepath.Join(ctxDir, "registry-ca.crt"), pem, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command("openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
+		"-keyout", filepath.Join(ctxDir, "unrelated-ca.key"),
+		"-out", filepath.Join(ctxDir, "unrelated-ca.crt"),
+		"-days", "1", "-subj", "/CN=unrelated-ca").CombinedOutput()
+	if err != nil {
+		t.Fatalf("generating unrelated CA: %v\n%s", err, out)
+	}
+	err = os.WriteFile(filepath.Join(ctxDir, "Dockerfile"), []byte("FROM scratch\nLABEL mz881=true\n"), 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerConfig := writeDockerConfig(t, map[string]types.AuthConfig{
+		"127.0.0.2:5001": {Username: "kanikotest", Password: "kanikotest"},
+		"localhost:5001": {Username: "kanikotest", Password: "kanikotest"},
+	})
+
+	tests := []struct {
+		name         string
+		certificates []string
+		destinations []string
+		wantErr      bool
+	}{{
+		name:         "each name holds the registry CA",
+		certificates: []string{"localhost:5001=/workspace/registry-ca.crt", "127.0.0.2:5001=/workspace/registry-ca.crt"},
+		destinations: []string{"localhost:5001/kaniko/mz881:latest", "127.0.0.2:5001/kaniko/mz881:latest"},
+	}, {
+		name:         "registry CA scoped to the other name",
+		certificates: []string{"localhost:5001=/workspace/registry-ca.crt", "127.0.0.2:5001=/workspace/unrelated-ca.crt"},
+		destinations: []string{"localhost:5001/kaniko/mz881:latest", "127.0.0.2:5001/kaniko/mz881:latest"},
+		wantErr:      true,
+	}}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dockerRunFlags := []string{"run", "--rm", "--net=host",
+				"-v", ctxDir + ":/workspace:ro",
+				"-v", dockerConfig + ":/kaniko/.docker/config.json:ro",
+			}
+			dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
+			dockerRunFlags = addCoverageFlags(dockerRunFlags)
+			dockerRunFlags = append(dockerRunFlags, ExecutorImage, "-f", "/workspace/Dockerfile", "-c", "/workspace")
+			for _, c := range tc.certificates {
+				dockerRunFlags = append(dockerRunFlags, "--registry-certificate", c)
+			}
+			for _, d := range tc.destinations {
+				dockerRunFlags = append(dockerRunFlags, "-d", d)
+			}
+
+			out, err := RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
+			t.Logf("%s", out)
+			if tc.wantErr {
+				if err == nil {
+					t.Error("push to 127.0.0.2:5001 succeeded without its CA")
+				} else if !strings.Contains(string(out), "x509") {
+					t.Error("build failed for a reason other than certificate verification")
+				}
+			} else if err != nil {
+				t.Error(err)
+			}
+		})
+	}
+}
+
 func registryLog(t *testing.T) string {
 	t.Helper()
 	out, err := exec.Command("docker", "logs", "kaniko-tls-registry").CombinedOutput()

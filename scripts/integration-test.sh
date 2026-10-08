@@ -39,6 +39,7 @@ function start_local_tls_registry {
     docker rm -f kaniko-tls-registry 2>/dev/null || true
     docker run -d --name kaniko-tls-registry \
       -p 127.0.0.2:5001:5000 \
+      -p 127.0.0.1:5001:5000 \
       -v "${dir}/tls.crt:/certs/tls.crt:ro" \
       -v "${dir}/tls.key:/certs/tls.key:ro" \
       -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/tls.crt \
