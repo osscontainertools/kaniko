@@ -177,7 +177,6 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_CONFINE_COPY_SOURCE`](#flag-ff_kaniko_confine_copy_source)
       - [Flag `FF_KANIKO_LAYER_HINTS`](#flag-ff_kaniko_layer_hints)
     - [Assertion Overrides](#assertion-overrides)
-    - [Layer Hints](#layer-hints)
     - [Telemetry](#telemetry)
     - [Debug Image](#debug-image)
   - [Security](#security)
@@ -1588,7 +1587,7 @@ Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_LAYER_HINTS`
 
-Set this flag to `true` to log [layer hints](#layer-hints).
+Set this flag to `true` to log [layer hints](docs/layer-hints.md).
 Defaults to `false`.
 
 ### Assertion Overrides
@@ -1608,25 +1607,6 @@ KANIKO_IGNORE_ASSERTIONS=executor.build.metadata-only
 ```
 
 Multiple names can be passed as a comma-separated list.
-
-### Layer Hints
-
-With `FF_KANIKO_LAYER_HINTS=true`, kaniko logs a hint when a command adds files to its layer that usually do not belong in an image:
-
-```
-HINT SnapshotCacheDir: 184.2MB in 1532 files under /root/.cache/pip, use RUN --mount=type=cache or remove it in the same RUN
-```
-
-| Hint | Layer contains |
-| --- | --- |
-| `SnapshotCacheDir` | package manager or build caches, such as `~/.cache/pip`, `~/.npm`, `~/.m2/repository`, `/var/lib/apt/lists` |
-| `SnapshotVCSDir` | `.git`, `.hg` or `.svn` directories |
-
-Pass hint names to `KANIKO_IGNORE_HINTS` to silence them:
-
-```sh
-KANIKO_IGNORE_HINTS=SnapshotCacheDir,SnapshotVCSDir
-```
 
 ### Telemetry
 
