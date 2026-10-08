@@ -46,6 +46,9 @@ func (p *mockedKeyPairLoader) load(_, _ string) (tls.Certificate, error) {
 }
 
 func Test_makeTransport(t *testing.T) {
+	previous := config.FF.ScopedRegistryCertificates
+	config.FF.ScopedRegistryCertificates = false
+	t.Cleanup(func() { config.FF.ScopedRegistryCertificates = previous })
 	registryName := "my.registry.name"
 
 	tests := []struct {

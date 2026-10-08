@@ -177,6 +177,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_DEFER_CACHE_PUSH`](#flag-ff_kaniko_defer_cache_push)
       - [Flag `FF_KANIKO_CONFINE_COPY_SOURCE`](#flag-ff_kaniko_confine_copy_source)
       - [Flag `FF_KANIKO_LAYER_HINTS`](#flag-ff_kaniko_layer_hints)
+      - [Flag `FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES`](#flag-ff_kaniko_scoped_registry_certificates)
     - [Assertion Overrides](#assertion-overrides)
     - [Layer Hints](#layer-hints)
     - [Telemetry](#telemetry)
@@ -1601,6 +1602,13 @@ Will be deprecated in `v1.30.0`.
 Set this flag to `true` to log [layer hints](#layer-hints).
 Defaults to `false`.
 Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES`
+
+A CA passed with `--registry-certificate` is trusted for every registry that has one, for example `--registry-certificate a.example.com=/ca-a.pem --registry-certificate b.example.com=/ca-b.pem` accepts a certificate for `b.example.com` signed by `/ca-a.pem`.
+Set this flag to `true` to trust each CA only for its own registry. A certificate file without a valid certificate then fails the build.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 ### Assertion Overrides
 

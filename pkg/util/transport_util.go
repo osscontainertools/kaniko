@@ -58,6 +58,8 @@ func (p *X509CertPool) append(path string) error {
 
 var systemCertLoader CertPool
 
+var systemRoots *x509.CertPool
+
 type KeyPairLoader interface {
 	load(string, string) (tls.Certificate, error)
 }
@@ -76,6 +78,7 @@ func init() {
 		logrus.Warn("Failed to load system cert pool. Loading empty one instead.")
 		systemCertPool = x509.NewCertPool()
 	}
+	systemRoots = systemCertPool.Clone()
 	systemCertLoader = &X509CertPool{
 		inner: *systemCertPool,
 	}
@@ -140,11 +143,24 @@ func instrument(tr *http.Transport) http.RoundTripper {
 func makeTransport(opts config.RegistryOptions, registryName string) (*http.Transport, error) {
 	// Create a transport to set our user-agent.
 	tr := http.DefaultTransport.(*http.Transport).Clone()
+	certificatePath := opts.RegistriesCertificates[registryName]
 	if opts.SkipTLSVerify || opts.SkipTLSVerifyRegistries.Contains(registryName) {
 		tr.TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: true,
 		}
-	} else if certificatePath := opts.RegistriesCertificates[registryName]; certificatePath != "" {
+	} else if certificatePath != "" && config.FF.ScopedRegistryCertificates {
+		pem, err := os.ReadFile(certificatePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load certificate %s for %s: %w", certificatePath, registryName, err)
+		}
+		pool := systemRoots.Clone()
+		if !pool.AppendCertsFromPEM(pem) {
+			return nil, fmt.Errorf("no valid certificates in %s for %s", certificatePath, registryName)
+		}
+		tr.TLSClientConfig = &tls.Config{
+			RootCAs: pool,
+		}
+	} else if certificatePath != "" {
 		if err := systemCertLoader.append(certificatePath); err != nil {
 			return nil, fmt.Errorf("failed to load certificate %s for %s: %w", certificatePath, registryName, err)
 		}
