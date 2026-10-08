@@ -797,7 +797,8 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	endCmd()
 
 	if !config.FF.DeferCachePush {
-		if err := cacheGroup.Wait(); err != nil {
+		err := cacheGroup.Wait()
+		if err != nil {
 			logrus.Warnf("Error uploading layer to cache: %s", err)
 		}
 	}
@@ -807,7 +808,8 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 
 // Deferred uploads read their tarballs from KanikoLayersDir, so this must run before anything removes it.
 func WaitCachePushes() {
-	if err := deferredCachePushes.Wait(); err != nil {
+	err := deferredCachePushes.Wait()
+	if err != nil {
 		logrus.Warnf("Error uploading layer to cache: %s", err)
 	}
 	deferredCachePushes = errgroup.Group{}
