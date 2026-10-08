@@ -180,6 +180,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_stopsignal":     {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
 	"Dockerfile_test_healthcheck":    {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
 	"Dockerfile_test_issue_mz1160_3": {"FF_KANIKO_NATIVE_COPY=0"},
+	"Dockerfile_test_issue_mz881":    {"KANIKO_127_0_0_2:5001_USER=kanikotest", "KANIKO_127_0_0_2:5001_PASSWORD=kanikotest"},
 }
 
 var KanikoEnv = []string{
@@ -1115,13 +1116,8 @@ var extraDockerRunFlags = map[string]func(contextDir string) []string{
 	"Dockerfile_test_issue_mz1065": func(_ string) []string {
 		return []string{"--tmpfs", "/tmpdir:exec,size=512m"}
 	},
-	// must come after addAuthFlags, the last -e DOCKER_CONFIG wins
-	"Dockerfile_test_issue_mz881": func(ctx string) []string {
-		return []string{
-			"-v", os.Getenv("TLS_REGISTRY_CERT") + ":/mz881/registry-ca.crt:ro",
-			"-v", filepath.Join(ctx, "testdata/test_issue_mz881_docker_config.json") + ":/mz881/docker/config.json:ro",
-			"-e", "DOCKER_CONFIG=/mz881/docker",
-		}
+	"Dockerfile_test_issue_mz881": func(_ string) []string {
+		return []string{"-v", os.Getenv("TLS_REGISTRY_CERT") + ":/mz881/registry-ca.crt:ro"}
 	},
 }
 
