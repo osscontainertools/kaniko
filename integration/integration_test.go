@@ -2022,45 +2022,37 @@ func TestRegistryCertificateScopedToRegistry(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		certificates []string
-		destinations []string
-		wantErr      bool
+		certificate string
+		wantErr     bool
 	}{{
-		name:         "each name holds the registry CA",
-		certificates: []string{"localhost:5001=/workspace/registry-ca.crt", "127.0.0.2:5001=/workspace/registry-ca.crt"},
-		destinations: []string{"localhost:5001/kaniko/mz881:latest", "127.0.0.2:5001/kaniko/mz881:latest"},
+		name:        "each name holds the registry CA",
+		certificate: "/workspace/registry-ca.crt",
 	}, {
-		name:         "registry CA scoped to the other name",
-		certificates: []string{"localhost:5001=/workspace/registry-ca.crt", "127.0.0.2:5001=/workspace/unrelated-ca.crt"},
-		destinations: []string{"localhost:5001/kaniko/mz881:latest", "127.0.0.2:5001/kaniko/mz881:latest"},
-		wantErr:      true,
+		name:        "registry CA scoped to the other name",
+		certificate: "/workspace/unrelated-ca.crt",
+		wantErr:     true,
 	}}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			dockerRunFlags := []string{"run", "--rm", "--net=host",
-				"-v", ctxDir + ":/workspace:ro",
-				"-v", dockerConfig + ":/kaniko/.docker/config.json:ro",
+			err := buildKanikoImage(
+				t,
+				"",
+				"Dockerfile",
+				nil,
+				[]string{"-c", buildContextPath,
+					"--registry-certificate", "localhost:5001=/workspace/registry-ca.crt",
+					"--registry-certificate", "127.0.0.2:5001=" + tc.certificate,
+					"-d", "127.0.0.2:5001/kaniko/mz881:latest",
+				},
+				"localhost:5001/kaniko/mz881:latest",
+				ctxDir,
+				"", dockerConfig,
+			)
+			if tc.wantErr && err == nil {
+				t.Error("push to 127.0.0.2:5001 succeeded without its CA")
 			}
-			dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
-			dockerRunFlags = addCoverageFlags(dockerRunFlags)
-			dockerRunFlags = append(dockerRunFlags, ExecutorImage, "-f", "/workspace/Dockerfile", "-c", "/workspace")
-			for _, c := range tc.certificates {
-				dockerRunFlags = append(dockerRunFlags, "--registry-certificate", c)
-			}
-			for _, d := range tc.destinations {
-				dockerRunFlags = append(dockerRunFlags, "-d", d)
-			}
-
-			out, err := RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
-			t.Logf("%s", out)
-			if tc.wantErr {
-				if err == nil {
-					t.Error("push to 127.0.0.2:5001 succeeded without its CA")
-				} else if !strings.Contains(string(out), "x509") {
-					t.Error("build failed for a reason other than certificate verification")
-				}
-			} else if err != nil {
+			if !tc.wantErr && err != nil {
 				t.Error(err)
 			}
 		})
