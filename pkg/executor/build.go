@@ -72,6 +72,8 @@ var (
 	NewLayerCache                = newLayerCacheImpl
 )
 
+var deferredCachePushes errgroup.Group
+
 type snapShotter interface {
 	Init() error
 	TakeSnapshotFS() (string, int, error)
@@ -606,7 +608,10 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		}
 	}
 
-	cacheGroup := errgroup.Group{}
+	cacheGroup := &errgroup.Group{}
+	if config.FF.DeferCachePush {
+		cacheGroup = &deferredCachePushes
+	}
 	endCmd := func() {}
 	// stop on the way out too: an unended span is never exported
 	defer func() { endCmd() }()
@@ -791,11 +796,23 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	}
 	endCmd()
 
-	if err := cacheGroup.Wait(); err != nil {
-		logrus.Warnf("Error uploading layer to cache: %s", err)
+	if !config.FF.DeferCachePush {
+		if err := cacheGroup.Wait(); err != nil {
+			logrus.Warnf("Error uploading layer to cache: %s", err)
+		}
 	}
 
 	return nil
+}
+
+// WaitCachePushes drains the cache uploads deferred past their stage. They read
+// layer tarballs from KanikoLayersDir, so this must run before anything removes it.
+func WaitCachePushes() {
+	if err := deferredCachePushes.Wait(); err != nil {
+		logrus.Warnf("Error uploading layer to cache: %s", err)
+	}
+	// errgroup keeps the first error forever, a fresh group reports each drain on its own.
+	deferredCachePushes = errgroup.Group{}
 }
 
 func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, snapshotter snapShotter) (string, int, error) {

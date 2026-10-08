@@ -305,6 +305,7 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 				return fmt.Errorf("error pushing image: %w", err)
 			}
 		}
+		executor.WaitCachePushes()
 	}
 	util.LogRegistryConnections()
 	tracing.Shutdown(nil)
