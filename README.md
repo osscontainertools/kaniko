@@ -1563,8 +1563,7 @@ Becomes default in `v1.29.0`.
 
 #### Flag `FF_KANIKO_DEFER_CACHE_PUSH`
 
-With this flag off every stage waits for its cache layers to finish uploading before the next stage starts.
-Set this flag to `true` to keep uploading cache layers in the background while the build continues. They are awaited after the image is pushed.
+Every stage waits for its cache layers to finish uploading before the next stage starts. Set this flag to `true` to keep uploading cache layers in the background while the build continues. They are awaited after the image is pushed.
 With `FF_KANIKO_CROSS_REPO_MOUNT` a layer shared by the cache and the image may be uploaded twice instead of mounted.
 Defaults to `false`.
 
