@@ -806,7 +806,6 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	return nil
 }
 
-// Deferred uploads read their tarballs from KanikoLayersDir, so this must run before anything removes it.
 func WaitCachePushes() {
 	err := deferredCachePushes.Wait()
 	if err != nil {
