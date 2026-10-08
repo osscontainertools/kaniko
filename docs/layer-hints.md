@@ -1,6 +1,6 @@
 # Layer hints
 
-With `FF_KANIKO_LAYER_HINTS=true`, kaniko logs a hint when a command adds files to its layer that usually do not belong in an image:
+kaniko logs a hint when a command adds files to its layer that usually do not belong in an image:
 
 ```
 HINT SnapshotCacheDir: 184.2MB in 1532 files under /root/.cache/pip, use RUN --mount=type=cache or remove it in the same RUN

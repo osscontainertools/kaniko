@@ -1197,6 +1197,7 @@ FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES=true
 FF_KANIKO_EXPAND_HEREDOC=true
 FF_KANIKO_HASH_DIR_FRAMING=true
 FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=true
+FF_KANIKO_LAYER_HINTS=true
 FF_KANIKO_NATIVE_COPY=true
 FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=true
 FF_KANIKO_PLATFORM_CACHE_KEY=true
@@ -1589,6 +1590,7 @@ Will be deprecated in `v1.30.0`.
 
 Set this flag to `true` to log [layer hints](docs/layer-hints.md).
 Defaults to `false`.
+Becomes default in `v1.29.0`.
 
 ### Assertion Overrides
 
