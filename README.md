@@ -1190,7 +1190,6 @@ FF_KANIKO_CACHE_HASH_BLAKE3=true
 FF_KANIKO_CACHE_LOOKAHEAD=true
 FF_KANIKO_COPY_SKIP_SPECIAL_FILES=true
 FF_KANIKO_CROSS_REPO_MOUNT=true
-FF_KANIKO_DEFER_CACHE_PUSH=true
 FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES=true
 FF_KANIKO_EXPAND_HEREDOC=true
 FF_KANIKO_HASH_DIR_FRAMING=true
@@ -1566,7 +1565,7 @@ Becomes default in `v1.29.0`.
 
 Every stage waits for its cache layers to finish uploading before the next stage starts. Set this flag to `true` to keep uploading cache layers in the background while the build continues. They are awaited before the image is pushed.
 Defaults to `false`.
-Becomes default in `v1.29.0`.
+Becomes default in `v1.30.0`.
 
 ### Assertion Overrides
 
