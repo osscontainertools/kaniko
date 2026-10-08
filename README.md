@@ -1181,7 +1181,6 @@ Opting into the Preview profile gives you early access to upcoming performance i
 
 ```sh
 FF_KANIKO_ADD_UNPACK=true
-FF_KANIKO_CACHE_LOOKAHEAD=true
 FF_KANIKO_LAYER_HINTS=true
 FF_KANIKO_PEEK_ARCHIVE_HEADER=true
 FF_KANIKO_RUN_VIA_TINI=true
@@ -1265,8 +1264,8 @@ Will be deprecated in `v1.30.0`.
 #### Flag `FF_KANIKO_CACHE_LOOKAHEAD`
 
 Set this flag to `true` to run a precompute pass before the build loop that derives each stage's final cache key ahead of time. The build loop still recomputes each key during its own `optimize()` call and asserts that it matches the precomputed value.
-Defaults to `false`.
-Becomes default in `v1.29.0`.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_ROLLING_CACHE_KEY`
 

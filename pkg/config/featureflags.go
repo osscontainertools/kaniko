@@ -106,7 +106,7 @@ func InitFeatureFlags() {
 		AddUnpack:                      featureFlag("FF_KANIKO_ADD_UNPACK", false),
 		AddChecksum:                    featureFlag("FF_KANIKO_ADD_CHECKSUM", true),
 		CacheHashBlake3:                featureFlag("FF_KANIKO_CACHE_HASH_BLAKE3", true),
-		CacheLookahead:                 featureFlag("FF_KANIKO_CACHE_LOOKAHEAD", false),
+		CacheLookahead:                 featureFlag("FF_KANIKO_CACHE_LOOKAHEAD", true),
 		CacheProbeAfterMiss:            featureFlag("FF_KANIKO_CACHE_PROBE_AFTER_MISS", false),
 		ChownOnImplicitDirs:            featureFlag("FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS", false),
 		ConfineCopySource:              featureFlag("FF_KANIKO_CONFINE_COPY_SOURCE", true),
