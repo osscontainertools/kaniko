@@ -272,6 +272,7 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 			}
 		}()
 	}
+	defer executor.WaitCachePushes()
 	tracing.Init(context.Background(), opts)
 	for i, target := range targets {
 		if i > 0 {
