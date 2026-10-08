@@ -344,6 +344,11 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz595":   {"--cleanup"},
 	"Dockerfile_test_issue_mz661":   {"--secret=id=kaniko,src=/kaniko/executor"},
 	"Dockerfile_test_issue_mz992":   {"--dryrun", "--tar-path=/kaniko/dryrun.tar", "--oci-layout-path=/kaniko/dryrun-layout"},
+	"Dockerfile_test_issue_mz881": {
+		"--registry-certificate=localhost:5000=/mz881/registry-ca.crt",
+		"--registry-certificate=127.0.0.2:5001=/kaniko/ssl/certs/ca-certificates.crt",
+		"--destination=127.0.0.2:5001/kaniko/mz881:latest",
+	},
 }
 
 var expectErr = map[string]int{
@@ -358,6 +363,7 @@ var expectErr = map[string]int{
 	"Dockerfile_test_issue_mz1160_2": 1,
 	"Dockerfile_test_issue_mz1160_3": 1,
 	"Dockerfile_test_issue_mz1160_4": 1,
+	"Dockerfile_test_issue_mz881":    1,
 }
 
 var crossCompileArch = func() string {
@@ -1108,6 +1114,14 @@ var extraDockerRunFlags = map[string]func(contextDir string) []string{
 	},
 	"Dockerfile_test_issue_mz1065": func(_ string) []string {
 		return []string{"--tmpfs", "/tmpdir:exec,size=512m"}
+	},
+	// must come after addAuthFlags, the last -e DOCKER_CONFIG wins
+	"Dockerfile_test_issue_mz881": func(ctx string) []string {
+		return []string{
+			"-v", os.Getenv("TLS_REGISTRY_CERT") + ":/mz881/registry-ca.crt:ro",
+			"-v", filepath.Join(ctx, "testdata/test_issue_mz881_docker_config.json") + ":/mz881/docker/config.json:ro",
+			"-e", "DOCKER_CONFIG=/mz881/docker",
+		}
 	},
 }
 

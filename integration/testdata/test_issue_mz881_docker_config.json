@@ -1,0 +1,7 @@
+{
+  "auths": {
+    "127.0.0.2:5001": {
+      "auth": "a2FuaWtvdGVzdDprYW5pa290ZXN0"
+    }
+  }
+}
