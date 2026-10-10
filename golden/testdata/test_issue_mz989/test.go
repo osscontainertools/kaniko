@@ -99,14 +99,14 @@ var Tests = types.GoldenTests{
 			Plan: "relabeled_mount",
 		},
 		{
-			// Without the flag the relabeled layer has lost its origin, so it uploads.
+			// The relabeled layer keeps its origin, so it mounts without the flag.
 			Args: []string{"-d", "example.com/img:latest", "--cache", "--cache-repo", "example.com/cache", "--image-format", "oci"},
 			Env:  map[string]string{"FF_KANIKO_CACHE_LOOKAHEAD": "1", "FF_KANIKO_SKIP_RELABEL_RECOMPRESS": "1"},
 			CachedKeys: []string{
 				"169858ec48524dcf8072fe7d9853fd2a1b885612e782f62135c7844f742ec463",
 				"5ba430ac16bd5c0263ae55b68687c96a6fc2c0ebf3e232ea894707492381f906",
 			},
-			Plan: "relabeled",
+			Plan: "relabeled_mount",
 		},
 		{
 			// Recompressing the relabel changes the digest, so the flag has nothing to mount.
