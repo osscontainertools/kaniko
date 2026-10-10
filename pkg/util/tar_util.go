@@ -275,8 +275,8 @@ func fileIsCompressedTar(src string) (bool, compression.Compression) {
 	defer r.Close()
 	var buf []byte
 	if config.FF.PeekArchiveHeader {
-		// compression.Detect only matches magic numbers, the longest prefix it inspects is 8 bytes
-		buf, err = io.ReadAll(io.LimitReader(r, 512))
+		// compression.Detect inspects at most 8 bytes, for the zstd skippable frame
+		buf, err = io.ReadAll(io.LimitReader(r, 8))
 	} else {
 		buf, err = io.ReadAll(r)
 	}
