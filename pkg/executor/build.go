@@ -821,7 +821,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			if err != nil {
 				return fmt.Errorf("failed to save snapshot to image: %w", err)
 			}
-			if timing.TracingEnabled() {
+			if appended != nil && timing.TracingEnabled() {
 				size, serr := appended.Size()
 				if serr == nil {
 					cmdTimer.SetAttributes(attribute.Int64("kaniko.layer.size", size))
