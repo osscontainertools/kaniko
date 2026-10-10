@@ -28,6 +28,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/klauspost/compress/zstd"
 	"github.com/moby/go-archive"
 	"github.com/moby/go-archive/compression"
 	"github.com/osscontainertools/kaniko/pkg/assert"
@@ -237,8 +238,18 @@ func UnpackLocalTarArchive(path, dest string) ([]string, error) {
 		case compression.Bzip2:
 			bzr := bzip2.NewReader(file)
 			return UnTar(bzr, dest)
+		case compression.Zstd:
+			if !config.FF.UnpackZstd {
+				return nil, fmt.Errorf("unsupported compression algorithm: %d", compressionLevel)
+			}
+			zstdr, err := zstd.NewReader(file)
+			if err != nil {
+				return nil, err
+			}
+			defer zstdr.Close()
+			return UnTar(zstdr, dest)
 		default:
-			logrus.Fatalf("unsupported compression algorithm: %d", compressionLevel)
+			return nil, fmt.Errorf("unsupported compression algorithm: %d", compressionLevel)
 		}
 	}
 	if fileIsUncompressedTar(path) {
