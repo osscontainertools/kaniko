@@ -13,11 +13,11 @@ This report lists the docker versus kaniko divergences surfaced by the different
 | chmod on implicit parent dir | `COPY --chmod=M f /new/f` | `/new` gets mode M | `/new` stays 0755 | filed mz863 |
 | ownership of implicit parent dir | `USER u` then `WORKDIR /new/sub` | `/new` owned by u | `/new` owned by root | filed mz864 |
 | dangling-symlink dest resolution | copy a symlink, then COPY through it | builds | build fails | real, not filed |
-| ADD url owner under USER | `USER u` then `ADD <url> /d/f`, COPY_AS_ROOT on | file owned by root | file owned by u | filed mz1112 |
+| ADD url owner under USER | `USER u` then `ADD <url> /d/f`, COPY_AS_ROOT on | file owned by root | file owned by u | fixed by #1146 |
 | history for metadata instructions | `ENV`, `LABEL`, ... | one history row each | no row emitted | expected divergence |
 | no-op RUN unchanged dir layer | a RUN with no net change on an existing dir | empty layer | layer holds the unchanged dir | expected divergence |
 | copy symlink dereference | `COPY symlink /dest/` | dereferences to a file | preserves the symlink | expected, kaniko correct |
-| removing a swapped symlink | `RUN rm -rf` a base symlink a mount pins | builds | build fails, Resource busy | filed mz1111 |
+| removing a swapped symlink | `RUN rm -rf` a base symlink a mount pins | builds | build fails, Resource busy | fixed by #1114 |
 | oci vs docker media type | any build | OCI by default | mirrors the base | dismissed, harness artifact |
 
 ## Filed bugs
@@ -101,7 +101,7 @@ The base ships `/opt/driver -> /opt/real` and `/opt/real/far -> /opt/elsewhere`.
 
 Three variants pin what causes it. With the flag off and the same mount the build succeeds, and the image matches docker apart from timestamps and history. With the flag on and no mount it succeeds. With the flag off and `rm -rf /opt/driver/far`, the name the runtime actually mounted, it fails the same way.
 
-So this is not swap bookkeeping. Unlinking a bind mount needs privileges kaniko does not have, and the failure already existed for the mounted path itself. What the swap changes is which names reach it: the base image's symlink name now resolves into the pinned directory too, so a Dockerfile that deletes the symlink aborts where it used to build. The fuzzer counts it as a known build failure rather than reporting it, so the delete shape keeps being generated and a different failure under it still surfaces.
+So this is not swap bookkeeping. Unlinking a bind mount needs privileges kaniko does not have, and the failure already existed for the mounted path itself. What the swap changes is which names reach it: the base image's symlink name now resolves into the pinned directory too, so a Dockerfile that deletes the symlink aborts where it used to build. #1114 fixed it by moving the directory that holds the mount to the name the base image symlink points at, so the symlink goes down as declared. The fuzzer no longer counts this failure, so a regression reports.
 
 ### mz1112: FF_KANIKO_COPY_AS_ROOT does not cover ADD from a URL
 
@@ -125,6 +125,8 @@ Owning brought-in files by the active `USER` is kaniko's default and a deliberat
 `copy.go` reads `kConfig.FF.CopyAsRoot` and substitutes `0:0`. `add.go` calls `util.GetActiveUserGroup(config.User, a.cmd.Chown, ...)` and never consults the flag, so the uid and gid it hands to `DownloadFileToDest` are the active `USER`. A local file source lands on root only because `add.go` delegates it to the copy command, and a tar source keeps the uids in the archive.
 
 The mode row on the implicit parent (`urlget3/` 0600 versus 0755) that shows up beside it is the separate mz922 class.
+
+#1146 fixed it, `add.go` now substitutes root under the flag as `copy.go` does. The fuzzer no longer counts the ownership row, so a regression reports.
 
 ## Confirmed real, not yet filed
 
