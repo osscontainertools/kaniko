@@ -1235,7 +1235,7 @@ FF_KANIKO_UNTAR_SKIP_ROOT=true
 #### Flag `FF_KANIKO_COPY_AS_ROOT`
 
 When files are copied from context, kaniko will copy them as the current user. But according to [dockerfile specification](https://docs.docker.com/reference/dockerfile/#copy---chown---chmod) they should always be copied as `root:root` unless specified otherwise.
-Set this flag to `true` to implement COPY as specified. Defaults to `false`.
+Set this flag to `true` to implement COPY/ADD as specified. Defaults to `false`.
 Currently no plans to activate.
 
 #### Flag `FF_KANIKO_IGNORE_CACHED_MANIFEST`
