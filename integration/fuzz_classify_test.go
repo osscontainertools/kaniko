@@ -71,6 +71,8 @@ var (
 	quotedHeredocPath = regexp.MustCompile(`\bhq[0-9]+/`)
 	copyParentsPath   = regexp.MustCompile(`\bparents[0-9]+/`)
 	copyExcludePath   = regexp.MustCompile(`\bexcl[0-9]+/`)
+	// the downloaded archive lands in the bare dir, the plain download as urlgetN/addfile
+	urlUnpackOwner = regexp.MustCompile(`\burlget[0-9]+/(inside/\S*)?\s+(Uid|Gid) `)
 )
 
 // dockerKnownDivergences are the classes observed on the docker oracle. The cache
@@ -90,6 +92,14 @@ var dockerKnownDivergences = []knownDivergence{
 		flag: "",
 		match: func(row string) bool {
 			return copyParentsPath.MatchString(row)
+		},
+	},
+	{
+		name: "add-chown-extracted-archive",
+		why:  "mz1175: ADD --chown is not applied to the entries of an extracted archive, a download unpacked with --unpack=true comes out 0:0 where docker gives it the --chown owner",
+		flag: "",
+		match: func(row string) bool {
+			return urlUnpackOwner.MatchString(row)
 		},
 	},
 	{
@@ -176,6 +186,14 @@ var knownBuildFailures = []knownDivergence{
 		},
 	},
 	{
+		name: "mounted-file-over-base-file",
+		why:  "mz1177: with FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS a file mounted where the base, reached through a symlink, ships a file of its own fails the unpack",
+		flag: "FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS",
+		match: func(out string) bool {
+			return strings.Contains(out, "cannot move the mounted path") && strings.Contains(out, "the base image ships a file there")
+		},
+	},
+	{
 		name: "workdir-named-user-no-passwd-db",
 		why:  "mz1173: WORKDIR after USER with a name fails on a scratch base, the same lookup as mz897 reached from WORKDIR",
 		flag: "",
@@ -193,7 +211,7 @@ var knownBuildFailures = []knownDivergence{
 	},
 	{
 		name: "add-gzip-around-non-tar",
-		why:  "ADD of a gzip file whose content is not a tar is extracted as a tar and fails, docker adds it as a file. Present in v1.28.5, not filed yet",
+		why:  "mz1176: ADD of a gzip file whose content is not a tar is extracted as a tar and fails, docker adds it as a file",
 		flag: "",
 		match: func(out string) bool {
 			return strings.Contains(out, "unpacking local tar: unexpected EOF")
