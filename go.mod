@@ -22,7 +22,7 @@ require (
 	github.com/google/go-containerregistry v0.22.1
 	github.com/google/slowjam v1.1.2
 	github.com/hashicorp/hcl v1.0.0
-	github.com/klauspost/compress v1.19.2
+	github.com/klauspost/compress v1.20.1
 	github.com/minio/highwayhash v1.0.4
 	github.com/moby/buildkit v0.33.1
 	github.com/moby/go-archive v0.3.3
