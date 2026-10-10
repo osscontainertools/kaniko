@@ -104,11 +104,18 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 			return fmt.Errorf("find destination path: %w", err)
 		}
 
-		// If the destination dir is a symlink we need to resolve the path and use
-		// that instead of the symlink path
-		destPath, err = resolveIfSymlink(destPath)
-		if err != nil {
-			return fmt.Errorf("resolving dest symlink: %w", err)
+		if kConfig.FF.CopyLink && c.cmd.Link {
+			err = materializeLinkDest(destPath)
+			if err != nil {
+				return fmt.Errorf("materializing link destination: %w", err)
+			}
+		} else {
+			// If the destination dir is a symlink we need to resolve the path and use
+			// that instead of the symlink path
+			destPath, err = resolveIfSymlink(destPath)
+			if err != nil {
+				return fmt.Errorf("resolving dest symlink: %w", err)
+			}
 		}
 
 		if fi.IsDir() {
@@ -245,6 +252,10 @@ func (c *CopyCommand) From() string {
 	return c.cmd.From
 }
 
+func (c *CopyCommand) HasIndependentCacheKey() bool {
+	return kConfig.FF.CopyLink && c.cmd.Link
+}
+
 func (c *CopyCommand) ShouldCacheOutput() bool {
 	return c.shdCache
 }
@@ -286,6 +297,43 @@ func (cr *CachingCopyCommand) CacheKey(replacementEnvs []string) (string, error)
 
 func (cr *CachingCopyCommand) From() string {
 	return cr.cmd.From
+}
+
+func (cr *CachingCopyCommand) HasIndependentCacheKey() bool {
+	return kConfig.FF.CopyLink && cr.cmd.Link
+}
+
+// materializeLinkDest drops the symlinks along destPath. A --link copy writes
+// to the literal path, not through what the layers below put there.
+func materializeLinkDest(destPath string) error {
+	if !filepath.IsAbs(destPath) {
+		return errors.New("dest path must be abs")
+	}
+
+	names := strings.Trim(destPath, "/")
+
+	// shallowest first. lstat on a deeper path resolves through an ancestor
+	// symlink, so the remove below would land wherever that symlink points.
+	p := "/"
+	for name := range strings.SplitSeq(names, "/") {
+		p = filepath.Join(p, name)
+		fi, err := os.Lstat(p)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("lstat %s: %w", p, err)
+		}
+		if util.IsSymlink(fi) {
+			logrus.Debugf("Removing symlink %s for a --link copy", p)
+			err = os.Remove(p)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func resolveIfSymlink(destPath string) (string, error) {

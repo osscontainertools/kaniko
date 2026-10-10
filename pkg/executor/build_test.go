@@ -1481,11 +1481,11 @@ RUN foobar
 				getFSFromImage = tc.mockGetFSFromImage
 			}
 			compositeKey := NewCompositeCache(sb.baseImageDigest)
-			_, _, _, err := sb.optimize(compositeKey, sb.cf.Config, sb.args, tc.opts, util.FileContext{}, lc, nil, nil, true)
+			_, ci, _, err := sb.optimize(compositeKey, sb.cf.Config, sb.args, tc.opts, util.FileContext{}, lc, nil, nil, true)
 			if err != nil {
 				t.Errorf("failed to optimize instructions: %v", err)
 			}
-			err = sb.build(*compositeKey, tc.opts, util.FileContext{}, snap, tc.crossStageDeps, nil, nil, lc)
+			err = sb.build(*compositeKey, tc.opts, util.FileContext{}, snap, tc.crossStageDeps, nil, nil, lc, ci)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}

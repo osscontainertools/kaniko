@@ -205,6 +205,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 			SourcesAndDest: instructions.SourcesAndDest{SourcePaths: unresolvedSrcs, DestPath: dest, SourceContents: heredocs},
 			Chown:          a.cmd.Chown,
 			Chmod:          a.cmd.Chmod,
+			Link:           a.cmd.Link,
 		},
 		fileContext: a.fileContext,
 	}
@@ -246,6 +247,10 @@ func (a *AddCommand) ShouldCacheOutput() bool {
 	return a.shdCache
 }
 
+func (a *AddCommand) HasIndependentCacheKey() bool {
+	return kConfig.FF.CopyLink && a.cmd.Link
+}
+
 // CacheCommand returns true since this command should be cached
 func (a *AddCommand) CacheCommand(img v1.Image) DockerCommand {
 	return &CachingAddCommand{
@@ -279,6 +284,10 @@ func (ca *CachingAddCommand) String() string {
 
 func (ca *CachingAddCommand) CacheKey(replacementEnvs []string) (string, error) {
 	return resolvedCacheKey(ca.cmd.String(), ca.cmd.SourceContents, replacementEnvs)
+}
+
+func (ca *CachingAddCommand) HasIndependentCacheKey() bool {
+	return kConfig.FF.CopyLink && ca.cmd.Link
 }
 
 func addCmdFilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd *instructions.AddCommand,

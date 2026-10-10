@@ -180,6 +180,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES`](#flag-ff_kaniko_scoped_registry_certificates)
       - [Flag `FF_KANIKO_PEEK_ARCHIVE_HEADER`](#flag-ff_kaniko_peek_archive_header)
       - [Flag `FF_KANIKO_ADD_UNPACK`](#flag-ff_kaniko_add_unpack)
+      - [Flag `FF_KANIKO_COPY_LINK`](#flag-ff_kaniko_copy_link)
     - [Assertion Overrides](#assertion-overrides)
     - [Layer Hints](#layer-hints)
     - [Telemetry](#telemetry)
@@ -1233,6 +1234,7 @@ In a few places, Kaniko keeps its historical, non-compliant behaviour instead of
 FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS=true
 FF_KANIKO_COPY_AS_ROOT=true
 FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=true
+FF_KANIKO_COPY_LINK=true
 FF_KANIKO_EXPAND_HEREDOC=true
 FF_KANIKO_RUN_HONOR_GROUP=true
 FF_KANIKO_UNPACK_XZ=true
@@ -1625,6 +1627,17 @@ Becomes default in `v1.29.0`.
 
 `ADD --unpack=<bool>` overrides whether a tar archive is extracted. A local archive is extracted and a URL download is not, so `--unpack=false` adds a local archive as a file and `--unpack=true` extracts a download. A source that turns out not to be an archive is added as a file either way. With this flag off kaniko parses the modifier and ignores it, so both sources keep their default treatment.
 Set this flag to `true` to honor `--unpack`.
+Defaults to `false`.
+Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_COPY_LINK`
+
+```dockerfile
+COPY --link ./dist /app
+```
+
+Kaniko parses `--link` and drops it, building the layer as if it were not there. buildkit caches the layer on its own, so a base image bump or an edit above it does not rebuild it, and writes to the destination as written rather than through a symlink the layers below put there.
+Set this flag to `true` to honour `--link` on `COPY` and `ADD`.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
 
