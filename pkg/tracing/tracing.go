@@ -42,6 +42,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/connstats"
 	"github.com/osscontainertools/kaniko/pkg/timing"
+	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/version"
 	"github.com/sirupsen/logrus"
 )
@@ -136,6 +137,15 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 	}
 	if cerr == nil && !config.EnvBool(OmitDockerfileEnv) {
 		span.SetAttributes(attribute.String("kaniko.dockerfile.content", string(content)))
+	}
+	ignorePath := util.DockerignorePath(opts.DockerfilePath, opts.SrcContext)
+	if ignorePath != "" {
+		ignoreContent, ierr := os.ReadFile(ignorePath)
+		if ierr != nil {
+			logrus.Debugf("tracing: .dockerignore not readable, kaniko.dockerignore.content omitted: %v", ierr)
+		} else {
+			span.SetAttributes(attribute.String("kaniko.dockerignore.content", string(ignoreContent)))
+		}
 	}
 
 	mu.Lock()
