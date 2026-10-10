@@ -555,7 +555,10 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		if cmd == nil {
 			continue
 		}
-		if cmd.RequiresUnpackedFS() {
+		_, isVolume := cmd.(*commands.VolumeCommand)
+		// must stay in sync with the plan, which counts a directory-creating VOLUME as needing the rootfs
+		volumeCreatesFiles := config.FF.ImageStages && isVolume && !config.FF.VolumeSkipMkdir
+		if cmd.RequiresUnpackedFS() || volumeCreatesFiles {
 			logrus.Infof("Unpacking rootfs as cmd %s requires it.", cmd.String())
 			shouldUnpack = true
 			break
@@ -791,9 +794,6 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			}
 			_, isVolume := command.(*commands.VolumeCommand)
 			volumeCreatesFiles := isVolume && !config.FF.VolumeSkipMkdir
-			if volumeCreatesFiles {
-				needsRootFS = true
-			}
 			if command.MetadataOnly() && !opts.SingleSnapshot && !volumeCreatesFiles {
 				// MetadataOnly commands must not change or even need the filesystem.
 				assert.Assert("executor.build.without-fs", snapshotted == 0, "build: MetadataOnly command %q snapshotted %d file(s)", command.String(), snapshotted)
