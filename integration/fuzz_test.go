@@ -40,6 +40,7 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/ulikunitz/xz"
+	"github.com/ulikunitz/xz/lzma"
 )
 
 type severity int
@@ -1176,8 +1177,12 @@ func writeContext(dir string, gen genResult) error {
 			if err := os.Link(filepath.Join(dir, f.target), p); err != nil {
 				return err
 			}
-		case kindTar, kindTarGz, kindTarZst, kindTarXz:
+		case kindTar, kindTarGz, kindTarZst, kindTarXz, kindTarBz2, kindTarLzma:
 			if err := writeTarFixture(p, f.kind); err != nil {
+				return err
+			}
+		case kindGzipPlain:
+			if err := writeGzipPlain(p); err != nil {
 				return err
 			}
 		default:
@@ -1201,9 +1206,36 @@ func writeContext(dir string, gen genResult) error {
 	return nil
 }
 
+// writeGzipPlain writes gzip around content that is not a tar, which ADD adds as a file.
+func writeGzipPlain(path string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	zw := gzip.NewWriter(f)
+	zw.ModTime = time.Unix(fixedFuzzEpoch, 0)
+	if _, err := zw.Write([]byte("not a tar\n")); err != nil {
+		return err
+	}
+	return zw.Close()
+}
+
 // writeTarFixture writes a small deterministic tar so ADD can auto-extract it, wrapped in
 // the compression the kind names, exercising kaniko's compressed-archive extraction.
 func writeTarFixture(path string, kind fileKind) error {
+	if kind == kindTarBz2 {
+		// the standard library only reads bzip2, so the host tool compresses a plain tar
+		if err := writeTarFixture(path+".tmp", kindTar); err != nil {
+			return err
+		}
+		defer os.Remove(path + ".tmp")
+		out, err := exec.Command("bash", "-c", fmt.Sprintf("bzip2 -c %q > %q", path+".tmp", path)).CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("bzip2: %w: %s", err, out)
+		}
+		return nil
+	}
 	f, err := os.Create(path)
 	if err != nil {
 		return err
@@ -1224,6 +1256,13 @@ func writeTarFixture(path string, kind fileKind) error {
 		w = zw
 	case kindTarXz:
 		zw, err := xz.NewWriter(f)
+		if err != nil {
+			return err
+		}
+		defer zw.Close()
+		w = zw
+	case kindTarLzma:
+		zw, err := lzma.NewWriter(f)
 		if err != nil {
 			return err
 		}
@@ -2193,6 +2232,7 @@ var (
 	httpsCtxAddr = "127.0.0.1:8899"
 	addURLAddr   = "127.0.0.1:8890"
 	addURL       = "http://" + addURLAddr + "/addfile"
+	addArcURL    = "http://" + addURLAddr + "/addarc.tar.gz"
 	otlpAddr     = "127.0.0.1:8891"
 )
 
@@ -2208,6 +2248,7 @@ func resolveFuzzPorts() {
 	}
 	addURLAddr = fmt.Sprintf("127.0.0.1:%d", b)
 	addURL = "http://" + addURLAddr + "/addfile"
+	addArcURL = "http://" + addURLAddr + "/addarc.tar.gz"
 	otlpAddr = fmt.Sprintf("127.0.0.1:%d", b+1)
 	httpsCtxAddr = fmt.Sprintf("127.0.0.1:%d", b+9)
 }
@@ -2323,6 +2364,12 @@ func startAddURLServer() error {
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(d, "addfile"), []byte(addURLContent), 0o644); err != nil {
+		return err
+	}
+	if err := writeTarFixture(filepath.Join(d, "addarc.tar.gz"), kindTarGz); err != nil {
+		return err
+	}
+	if err := os.Chtimes(filepath.Join(d, "addarc.tar.gz"), time.Unix(fixedFuzzEpoch, 0), time.Unix(fixedFuzzEpoch, 0)); err != nil {
 		return err
 	}
 	// Digest of the exact bytes served, so an ADD --checksum generated for this URL cannot
