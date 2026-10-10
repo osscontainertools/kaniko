@@ -135,7 +135,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 			switch {
 			case !unpackRemote:
 				a.snapshotFiles = append(a.snapshotFiles, urlDest)
-			case util.IsFileLocalTarArchive(download):
+			case util.IsFileTarArchive(download):
 				tarDest, err := util.DestinationFilepath("", dest, config.WorkingDir)
 				if err != nil {
 					return fmt.Errorf("determining dest for tar: %w", err)

@@ -18,3 +18,4 @@ ADD --unpack=true https://github.com/GoogleCloudPlatform/docker-credential-gcr/r
 # a source that is not an archive is added as a file whatever --unpack says
 ADD --unpack=true context/foo /plainlocal/
 ADD --unpack=true https://raw.githubusercontent.com/osscontainertools/kaniko/main/README.md /plainremote/
+ADD --unpack=true https://archive.debian.org/debian/dists/jessie/main/i18n/Translation-eo.bz2 /compressedremote/
