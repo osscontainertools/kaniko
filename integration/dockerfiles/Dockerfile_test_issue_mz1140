@@ -1,0 +1,6 @@
+FROM busybox
+
+# A tar id that does not fit 32 bits used to be rejected for directories and
+# silently truncated to a different owner for every other entry type. The layer
+# holds a regular file owned by math.MaxUint32+1, so the build must fail.
+COPY --from=localhost:5000/oversized-id:latest blubb blubb
