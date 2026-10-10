@@ -120,7 +120,7 @@ func InitFeatureFlags() {
 		ExpandHeredoc:                  featureFlag("FF_KANIKO_EXPAND_HEREDOC", true),
 		HashDirFraming:                 featureFlag("FF_KANIKO_HASH_DIR_FRAMING", true),
 		InferCrossStageCacheKey:        featureFlag("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", true),
-		LayerHints:                     featureFlag("FF_KANIKO_LAYER_HINTS", false),
+		LayerHints:                     featureFlag("FF_KANIKO_LAYER_HINTS", true),
 		NativeCopy:                     featureFlag("FF_KANIKO_NATIVE_COPY", true),
 		OCIScratchBase:                 featureFlag("FF_KANIKO_OCI_SCRATCH_BASE", false),
 		PeekArchiveHeader:              featureFlag("FF_KANIKO_PEEK_ARCHIVE_HEADER", false),
@@ -142,7 +142,7 @@ func InitFeatureFlags() {
 		SkipRelabelRecompress:          featureFlag("FF_KANIKO_SKIP_RELABEL_RECOMPRESS", true),
 		SkipWriteWhiteouts:             featureFlag("FF_KANIKO_SKIP_WRITE_WHITEOUTS", true),
 		UnpackXz:                       featureFlag("FF_KANIKO_UNPACK_XZ", false),
-		UnpackZstd:                     featureFlag("FF_KANIKO_UNPACK_ZSTD", false),
+		UnpackZstd:                     featureFlag("FF_KANIKO_UNPACK_ZSTD", true),
 		UntarSkipRoot:                  featureFlag("FF_KANIKO_UNTAR_SKIP_ROOT", true),
 	}
 
