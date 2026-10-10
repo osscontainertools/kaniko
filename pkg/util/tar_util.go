@@ -297,6 +297,12 @@ func IsFileTarArchive(src string) bool {
 		}
 		defer zstdr.Close()
 		r = zstdr
+	case compression.Xz:
+		xzr, err := xz.NewReader(file)
+		if err != nil {
+			return false
+		}
+		r = xzr
 	default:
 		// left to UnpackLocalTarArchive, which reports the compression it cannot read
 		return true
