@@ -113,6 +113,9 @@ const (
 	kindTarGz
 	kindTarZst
 	kindTarXz
+	kindTarBz2
+	kindTarLzma
+	kindGzipPlain
 )
 
 // fileSpec is one context entry the harness writes before building.
@@ -211,7 +214,8 @@ func generate(s *source, bases []string) genResult {
 		ctx = append(ctx, fileSpec{name: symName, kind: kindSymlink, target: regulars[0]})
 	}
 	// A tar in the context, to exercise ADD auto-extraction. Sometimes compressed with
-	// gzip, zstd or xz, which ADD also auto-extracts through kaniko's decompression path.
+	// gzip, zstd, xz or bzip2, which ADD also auto-extracts through kaniko's decompression
+	// path. lzma is compressed but not a format ADD extracts, so it lands as a plain file.
 	tarName := ""
 	if s.chance(2) {
 		arc := srcPick(s, []fileSpec{
@@ -219,9 +223,23 @@ func generate(s *source, bases []string) genResult {
 			{name: "arc.tar.gz", kind: kindTarGz},
 			{name: "arc.tar.zst", kind: kindTarZst},
 			{name: "arc.tar.xz", kind: kindTarXz},
+			{name: "arc.tar.bz2", kind: kindTarBz2},
+			{name: "arc.tar.lzma", kind: kindTarLzma},
 		})
 		tarName = arc.name
 		ctx = append(ctx, arc)
+	}
+	// A source ADD has to classify without extracting it: shorter than the archive header
+	// peek, empty, or gzip around content that is not a tar.
+	notTarName := ""
+	if s.chance(3) {
+		nt := srcPick(s, []fileSpec{
+			{name: "tiny", content: "ab", mode: 0o644},
+			{name: "empty", content: "", mode: 0o644},
+			{name: "plain.gz", kind: kindGzipPlain},
+		})
+		notTarName = nt.name
+		ctx = append(ctx, nt)
 	}
 	// A hardlink into the context, to exercise how COPY treats hardlinked sources.
 	hlinkName := ""
@@ -273,6 +291,8 @@ func generate(s *source, bases []string) genResult {
 	// unchanged so --chown keeps drawing named and numeric owners uniformly.
 	userPool := []string{"0", "root", "0", "root", "0", "root", "1000", "65534", "bin", "daemon"}
 	modes := []string{"0644", "0600", "0755", "0700", "0777"}
+	// COPY and ADD --chmod also take symbolic notation, applied relative to the source mode
+	chmods := append([]string{"u=rwx,go=rx", "a+r,u+w", "go-w", "u+x"}, modes...)
 	stopsignals := []string{"SIGTERM", "SIGKILL", "9", "SIGQUIT"}
 
 	var b strings.Builder
@@ -429,7 +449,7 @@ func generate(s *source, bases []string) genResult {
 					opts += fmt.Sprintf(" --chown=%s:%s", srcPick(s, ug), srcPick(s, ug))
 				}
 				if s.chance(2) {
-					opts += fmt.Sprintf(" --chmod=%s", srcPick(s, modes))
+					opts += fmt.Sprintf(" --chmod=%s", srcPick(s, chmods))
 				}
 				fmt.Fprintf(&b, "COPY%s %s /dest/%s\n", opts, f, f)
 			case 3:
@@ -437,10 +457,15 @@ func generate(s *source, bases []string) genResult {
 				f := srcPick(s, regulars)
 				fmt.Fprintf(&b, "ADD %s /added/%s\n", f, f)
 			case 4:
-				// ADD a tar, which docker and kaniko auto-extract.
-				if tarName != "" {
-					fmt.Fprintf(&b, "ADD %s /extract%d/\n", tarName, i)
-				} else {
+				// ADD a tar, which docker and kaniko auto-extract unless --unpack=false, or a
+				// source that has to be added whole whatever --unpack says.
+				unpack := srcPick(s, []string{"", " --unpack=true", " --unpack=false"})
+				switch {
+				case notTarName != "" && s.chance(2):
+					fmt.Fprintf(&b, "ADD%s %s /extract%d/\n", unpack, notTarName, i)
+				case tarName != "":
+					fmt.Fprintf(&b, "ADD%s %s /extract%d/\n", unpack, tarName, i)
+				default:
 					fmt.Fprintf(&b, "ENV FUZZ_KEY_%d=value%d\n", i, i)
 				}
 			case 5:
@@ -587,8 +612,14 @@ func generate(s *source, bases []string) genResult {
 				// RUN --mount=type=bind: a context file is mounted into the RUN but is
 				// ephemeral, so it must not appear in the layer. Both tools support it
 				// (kaniko via FF_KANIKO_RUN_MOUNT_BIND), a good test of mount-vs-layer.
+				// With rw the RUN may write into the mount, and the write must stay out of the
+				// layer and out of the context.
 				f := srcPick(s, regulars)
-				fmt.Fprintf(&b, "RUN --mount=type=bind,source=%s,target=/mnt/%s cat /mnt/%s > /mnt-out%d\n", f, f, f, i)
+				if s.chance(2) {
+					fmt.Fprintf(&b, "RUN --mount=type=bind,source=%s,target=/mnt/%s,rw echo w%d >> /mnt/%s && cat /mnt/%s > /mnt-out%d\n", f, f, i, f, f, i)
+				} else {
+					fmt.Fprintf(&b, "RUN --mount=type=bind,source=%s,target=/mnt/%s cat /mnt/%s > /mnt-out%d\n", f, f, f, i)
+				}
 			case 30:
 				// umask and explicit-mode RUN. Created file and dir modes must reflect the
 				// umask, and chmod must set special bits (setuid/setgid/sticky) that survive
@@ -604,14 +635,20 @@ func generate(s *source, bases []string) genResult {
 				// ADD a remote URL, exercising kaniko's download path (DownloadFileToDest).
 				// Both tools fetch the campaign's local file server; a --chown/--chmod
 				// sometimes overrides the default 0600 both apply to a downloaded file.
+				// A downloaded archive is kept whole unless --unpack=true extracts it.
 				opt := ""
 				if s.chance(2) {
 					opt = fmt.Sprintf(" --chown=%s:%s", srcPick(s, ug), srcPick(s, ug))
 				}
 				if s.chance(2) {
-					opt += fmt.Sprintf(" --chmod=%s", srcPick(s, modes))
+					opt += fmt.Sprintf(" --chmod=%s", srcPick(s, chmods))
 				}
-				fmt.Fprintf(&b, "ADD%s %s /urlget%d/addfile\n", opt, addURL, i)
+				if s.chance(2) {
+					opt += srcPick(s, []string{"", " --unpack=true", " --unpack=false"})
+					fmt.Fprintf(&b, "ADD%s %s /urlget%d/\n", opt, addArcURL, i)
+				} else {
+					fmt.Fprintf(&b, "ADD%s %s /urlget%d/addfile\n", opt, addURL, i)
+				}
 			case 32:
 				// RUN --mount=type=cache: an ephemeral cache mount (swapDir), whose content
 				// must not appear in the layer. Write into it and read back to a real file, so
@@ -625,6 +662,9 @@ func generate(s *source, bases []string) genResult {
 				if s.chance(3) {
 					opt += fmt.Sprintf(",id=cacheid%d", i)
 				}
+				if s.chance(3) {
+					opt += ",sharing=" + srcPick(s, []string{"shared", "private", "locked"})
+				}
 				fmt.Fprintf(&b, "RUN --mount=type=cache,target=/cache%d%s echo cache-data-%d > /cache%d/f && cat /cache%d/f > /cout%d\n", i, opt, i, i, i, i)
 			case 33:
 				// RUN --mount=type=secret: consume a build secret through an ephemeral mount
@@ -632,11 +672,17 @@ func generate(s *source, bases []string) genResult {
 				// asserts the value is absent from every layer and the config. Both tools get
 				// the same secret so the length matches; the file and env delivery forms take
 				// different handler branches.
+				// An optional secret nobody passes is skipped, and mode/uid shape the mounted file.
 				usesSecret = true
-				if s.chance(2) {
+				switch s.intn(4) {
+				case 0:
 					fmt.Fprintf(&b, "RUN --mount=type=secret,id=%s,env=SEC%d printf '%%s' \"$SEC%d\" | wc -c > /seclen%d\n", secretID, i, i, i)
-				} else {
+				case 1:
 					fmt.Fprintf(&b, "RUN --mount=type=secret,id=%s,target=/sec%d wc -c < /sec%d > /seclen%d\n", secretID, i, i, i)
+				case 2:
+					fmt.Fprintf(&b, "RUN --mount=type=secret,id=%s,target=/sec%d,mode=%s,uid=%s stat -c '%%a %%u' /sec%d > /secstat%d\n", secretID, i, srcPick(s, []string{"0400", "0440", "0600"}), srcPick(s, uids), i, i)
+				case 3:
+					fmt.Fprintf(&b, "RUN --mount=type=secret,id=absent%d,required=false test ! -e /run/secrets/absent%d && echo none > /secabsent%d\n", i, i, i)
 				}
 			case 35:
 				// COPY/ADD modifiers the vendored buildkit parser accepts but kaniko never
@@ -852,6 +898,7 @@ func generate(s *source, bases []string) genResult {
 		"FF_KANIKO_OCI_WARMER",                // warmer cache format, OCI layout or legacy tarball
 		"FF_KANIKO_DEFER_CACHE_PUSH",          // upload cache layers in the background, awaited before exit
 		"FF_KANIKO_LAYER_HINTS",               // log layer hints, image unaffected
+		"FF_KANIKO_PEEK_ARCHIVE_HEADER",       // detect ADD archive compression from the header only
 	} {
 		switch s.intn(4) {
 		case 0:

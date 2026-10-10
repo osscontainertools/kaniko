@@ -167,6 +167,38 @@ var knownBuildFailures = []knownDivergence{
 			return strings.Contains(out, "getting user group from chown")
 		},
 	},
+	{
+		name: "mounted-file-under-two-symlinks",
+		why:  "mz1172: with FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS a file bind-mounted under a path the base reaches through two symlinks is renamed itself, and the rename of a mount point fails with device or resource busy",
+		flag: "FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS",
+		match: func(out string) bool {
+			return strings.Contains(out, "cannot move the mounted path") && strings.Contains(out, "device or resource busy")
+		},
+	},
+	{
+		name: "workdir-named-user-no-passwd-db",
+		why:  "mz1173: WORKDIR after USER with a name fails on a scratch base, the same lookup as mz897 reached from WORKDIR",
+		flag: "",
+		match: func(out string) bool {
+			return strings.Contains(out, "is not a uid and does not exist on the system")
+		},
+	},
+	{
+		name: "run-self-referential-symlink",
+		why:  "mz1174: a RUN that leaves a symlink pointing at itself fails the snapshot, ResolvePaths follows every changed link and aborts on the loop",
+		flag: "",
+		match: func(out string) bool {
+			return strings.Contains(out, "failed to take snapshot: EvalSymlinks: too many links")
+		},
+	},
+	{
+		name: "add-gzip-around-non-tar",
+		why:  "ADD of a gzip file whose content is not a tar is extracted as a tar and fails, docker adds it as a file. Present in v1.28.5, not filed yet",
+		flag: "",
+		match: func(out string) bool {
+			return strings.Contains(out, "unpacking local tar: unexpected EOF")
+		},
+	},
 }
 
 // knownCrashes recognize a kaniko crash or assertion that is already filed and would
