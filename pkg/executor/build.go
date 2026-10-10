@@ -697,7 +697,11 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				attribute.Int("kaniko.stage", s.index),
 			}
 			if opts.Cache {
-				attrs = append(attrs, attribute.Bool("kaniko.cache.hit", isCacheCommand))
+				// a replayed command is a caching variant, and those inherit BaseCommand's
+				// false ShouldCacheOutput, so isCacheCommand is what proves them eligible
+				attrs = append(attrs,
+					attribute.Bool("kaniko.cache.hit", isCacheCommand),
+					attribute.Bool("kaniko.cache.eligible", isCacheCommand || command.ShouldCacheOutput()))
 				if ck, herr := compositeKey.Hash(); herr == nil {
 					attrs = append(attrs, attribute.String("kaniko.cache.key", ck))
 				}

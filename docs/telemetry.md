@@ -152,6 +152,7 @@ Never put a tenant, customer or account identifier here. A multi-tenant collecto
 | `kaniko.instruction.line` | source line in the Dockerfile |
 | `kaniko.stage` | stage index (integer) |
 | `kaniko.cache.hit` | `true` when the command was replayed from cache (only with `--cache`, absent when caching is off) |
+| `kaniko.cache.eligible` | `true` when the command takes part in the layer cache, following `--cache-run-layers` and `--cache-copy-layers` (only with `--cache`) |
 | `kaniko.cache.key` | cache key for the command (only with `--cache`) |
 
 ## Phases
