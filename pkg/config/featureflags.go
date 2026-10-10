@@ -103,8 +103,8 @@ func InitFeatureFlags() {
 	disabledFeatureFlags = nil
 
 	FF = FeatureFlags{
-		AddUnpack:                      featureFlag("FF_KANIKO_ADD_UNPACK", false),
 		AddChecksum:                    featureFlag("FF_KANIKO_ADD_CHECKSUM", true),
+		AddUnpack:                      featureFlag("FF_KANIKO_ADD_UNPACK", true),
 		CacheHashBlake3:                featureFlag("FF_KANIKO_CACHE_HASH_BLAKE3", true),
 		CacheLookahead:                 featureFlag("FF_KANIKO_CACHE_LOOKAHEAD", true),
 		CacheProbeAfterMiss:            featureFlag("FF_KANIKO_CACHE_PROBE_AFTER_MISS", false),

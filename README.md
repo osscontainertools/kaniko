@@ -1180,7 +1180,6 @@ delay of 1 second. Defaults to `0`.
 Opting into the Preview profile gives you early access to upcoming performance improvements, bugfixes and features. While these flags are tested and ready to use, implementation details may still change.
 
 ```sh
-FF_KANIKO_ADD_UNPACK=true
 FF_KANIKO_RUN_VIA_TINI=true
 ```
 
@@ -1481,8 +1480,8 @@ Will be deprecated in `v1.30.0`.
 
 `ADD --unpack=<bool>` overrides whether a tar archive is extracted. A local archive is extracted and a URL download is not, so `--unpack=false` adds a local archive as a file and `--unpack=true` extracts a download. A source that turns out not to be an archive is added as a file either way. With this flag off kaniko parses the modifier and ignores it, so both sources keep their default treatment.
 Set this flag to `true` to honor `--unpack`.
-Defaults to `false`.
-Becomes default in `v1.29.0`.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 ### Assertion Overrides
 
