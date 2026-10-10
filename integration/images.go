@@ -547,6 +547,8 @@ var expectedWarnings = map[string]string{
 	"Dockerfile_test_issue_mz775": "feature flags explicitly disabled, please create an issue for your use-case: FF_KANIKO_CACHE_LOOKAHEAD",
 	// mz1007: the test disables FF_KANIKO_SHARED_BASE_CACHE, which the flag registry warns about.
 	"Dockerfile_test_issue_mz1007": "feature flags explicitly disabled, please create an issue for your use-case: FF_KANIKO_SHARED_BASE_CACHE",
+	// mz1160: the test disables FF_KANIKO_NATIVE_COPY, which the flag registry warns about.
+	"Dockerfile_test_issue_mz1160_3": "feature flags explicitly disabled, please create an issue for your use-case: FF_KANIKO_NATIVE_COPY",
 	// mz991: the repro needs a MAINTAINER, which warns twice, once from the buildkit
 	// linter and once from kaniko skipping the command. Both lines say "is deprecated".
 	"Dockerfile_test_issue_mz991": "is deprecated",
