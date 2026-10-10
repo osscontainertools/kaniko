@@ -34,6 +34,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/sirupsen/logrus"
+	"github.com/ulikunitz/xz"
 )
 
 // Tar knows how to write files to a tar file.
@@ -225,6 +226,15 @@ func UnpackLocalTarArchive(path, dest string) ([]string, error) {
 		case compression.Bzip2:
 			bzr := bzip2.NewReader(file)
 			return UnTar(bzr, dest)
+		case compression.Xz:
+			if !config.FF.UnpackXz {
+				return nil, fmt.Errorf("unsupported compression algorithm: %d", compressionLevel)
+			}
+			xzr, err := xz.NewReader(file)
+			if err != nil {
+				return nil, err
+			}
+			return UnTar(xzr, dest)
 		case compression.Zstd:
 			if !config.FF.UnpackZstd {
 				return nil, fmt.Errorf("unsupported compression algorithm: %d", compressionLevel)

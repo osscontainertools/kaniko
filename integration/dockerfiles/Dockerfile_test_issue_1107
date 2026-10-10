@@ -1,8 +1,9 @@
 # 1107: ADD extracts a local tar archive, but the unpacker only handled gzip and bzip2 and
 # fell through to logrus.Fatalf on the rest, killing the build with "unsupported compression
-# algorithm". zstd is algorithm 4.
+# algorithm". xz is algorithm 3, zstd is 4.
 FROM busybox
 ADD context/tars/file.tar /plain/
 ADD context/tars/file.tar.gz /gzip/
 ADD context/tars/file.bz2 /bzip2/
 ADD context/tars/file.tar.zst /zstd/
+ADD context/tars/file.tar.xz /xz/

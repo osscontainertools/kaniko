@@ -91,6 +91,10 @@ func zstdBytes(in []byte) ([]byte, error) {
 	return compressBytes(in, "zstd", "-q", "-c")
 }
 
+func xzBytes(in []byte) ([]byte, error) {
+	return compressBytes(in, "xz", "-c")
+}
+
 func compressBytes(in []byte, name string, args ...string) ([]byte, error) {
 	cmd := exec.Command(name, args...)
 	cmd.Stdin = bytes.NewReader(in)
@@ -103,7 +107,7 @@ func compressBytes(in []byte, name string, args ...string) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-var tarFixtureNames = []string{"file.tar", "file.tar.gz", "file.bz2", "file.tar.zst", "sys.tar.gz"}
+var tarFixtureNames = []string{"file.tar", "file.tar.gz", "file.bz2", "file.tar.xz", "file.tar.zst", "sys.tar.gz"}
 
 func tarFixtureDir() string {
 	_, ex, _, _ := runtime.Caller(0)
@@ -160,11 +164,23 @@ func generateTarFixtures() error {
 		return err
 	}
 
+	xzed, err := buildTar([]tarEntry{
+		{name: "./", typeflag: tar.TypeDir, mode: 0o755},
+		{name: "./xzCompressedFile", typeflag: tar.TypeReg, mode: 0o644, content: "xz\n"},
+	})
+	if err != nil {
+		return err
+	}
+
 	gzippedGz, err := gzipBytes(gzipped)
 	if err != nil {
 		return err
 	}
 	zstdedZst, err := zstdBytes(zstded)
+	if err != nil {
+		return err
+	}
+	xzedXz, err := xzBytes(xzed)
 	if err != nil {
 		return err
 	}
@@ -181,6 +197,7 @@ func generateTarFixtures() error {
 		"file.tar":     plain,
 		"file.tar.gz":  gzippedGz,
 		"file.bz2":     bzippedBz,
+		"file.tar.xz":  xzedXz,
 		"file.tar.zst": zstdedZst,
 		"sys.tar.gz":   sysGz,
 	}
