@@ -71,7 +71,6 @@ var (
 	quotedHeredocPath = regexp.MustCompile(`\bhq[0-9]+/`)
 	copyParentsPath   = regexp.MustCompile(`\bparents[0-9]+/`)
 	copyExcludePath   = regexp.MustCompile(`\bexcl[0-9]+/`)
-	addURLPath        = regexp.MustCompile(`\burlget[0-9]+/`)
 )
 
 // dockerKnownDivergences are the classes observed on the docker oracle. The cache
@@ -99,14 +98,6 @@ var dockerKnownDivergences = []knownDivergence{
 		flag: "",
 		match: func(row string) bool {
 			return copyExcludePath.MatchString(row)
-		},
-	},
-	{
-		name: "add-url-owner-under-user",
-		why:  "mz1112: FF_KANIKO_COPY_AS_ROOT aligns ownership with the spec but does not reach the ADD-from-URL path, so under a non-root USER the download is owned by that user while a COPY in the same stage is root. Owning brought-in files by USER is kaniko's deliberate default, the gap is the flag's coverage. Only the ownership row is suppressed, any other ADD-url divergence still reports",
-		flag: "FF_KANIKO_COPY_AS_ROOT",
-		match: func(row string) bool {
-			return addURLPath.MatchString(row) && strings.Contains(row, "Uid")
 		},
 	},
 	{
@@ -166,16 +157,6 @@ var knownBuildFailures = []knownDivergence{
 			// drawn on the debian base reports the second one
 			return strings.Contains(out, "syntax error: unexpected \"(\"") ||
 				strings.Contains(out, "Syntax error: \"(\" unexpected")
-		},
-	},
-	{
-		name: "mounted-path-removal-busy",
-		why:  "mz1111: a RUN that deletes a path the runtime bind-mounted into aborts, because unlinking a mount needs privileges kaniko does not have. FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS widens this from the mounted path to the base image symlink name that now resolves into it (mz1073). docker has no mount and builds",
-		flag: "FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS",
-		match: func(out string) bool {
-			// the pinned file is the only lib.so in play, and the name in the error is
-			// whichever alias the build reached it through, not the path that was mounted
-			return strings.Contains(out, "Resource busy") && strings.Contains(out, "lib.so")
 		},
 	},
 	{
