@@ -273,7 +273,13 @@ func fileIsCompressedTar(src string) (bool, compression.Compression) {
 		return false, -1
 	}
 	defer r.Close()
-	buf, err := io.ReadAll(r)
+	var buf []byte
+	if config.FF.PeekArchiveHeader {
+		// compression.Detect inspects at most 8 bytes, for the zstd skippable frame
+		buf, err = io.ReadAll(io.LimitReader(r, 8))
+	} else {
+		buf, err = io.ReadAll(r)
+	}
 	if err != nil {
 		return false, -1
 	}
