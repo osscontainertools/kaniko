@@ -42,12 +42,12 @@ func (f *fakeSnapShotter) Init() error {
 	return nil
 }
 
-func (f *fakeSnapShotter) TakeSnapshotFS() (string, int, error) {
-	return f.tarPath, 0, nil
+func (f *fakeSnapShotter) TakeSnapshotFS() (string, []string, []string, error) {
+	return f.tarPath, nil, nil, nil
 }
 
-func (f *fakeSnapShotter) TakeSnapshot(_ []string, _ bool) (string, int, error) {
-	return f.tarPath, 0, nil
+func (f *fakeSnapShotter) TakeSnapshot(_ []string, _ bool) (string, []string, []string, error) {
+	return f.tarPath, nil, nil, nil
 }
 
 type MockDockerCommand struct {

@@ -22,6 +22,7 @@ Sent by default:
 - the full Dockerfile source and the build plan
 - the text of every instruction
 - the `.dockerignore` the build applied
+- layer hints, including the paths they name
 - cache keys
 - the values of explicitly set `FF_KANIKO_*` flags
 - timings per phase and per command, layer sizes and digests, and registry connection statistics
@@ -157,6 +158,8 @@ Never put a tenant, customer or account identifier here. A multi-tenant collecto
 | `kaniko.cache.key` | cache key for the command (only with `--cache`) |
 | `kaniko.layer.size` | compressed size in bytes of the layer the command added |
 | `kaniko.layer.digest` | digest of that layer, as in the image manifest |
+
+Each [layer hint](layer-hints.md) is a `kaniko.hint` event on the command span, with `kaniko.hint.rule` and `kaniko.hint.message`.
 
 ## Phases
 

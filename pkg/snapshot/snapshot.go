@@ -59,16 +59,16 @@ func (s *Snapshotter) Init() error {
 
 // TakeSnapshot takes a snapshot of the specified files, avoiding directories in the ignorelist, and creates
 // a tarball of the changed files. Returns the tarball path and the number of files snapshotted.
-func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string, int, error) {
+func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string, []string, []string, error) {
 	assert.Assert("snapshot.takesnapshot.layeredmap-set", s.l != nil, "Snapshotter.TakeSnapshot: layered map must be set")
 	assert.Assert("snapshot.takesnapshot.directory-set", s.directory != "", "Snapshotter.TakeSnapshot: directory must be non-empty")
 	err := os.MkdirAll(config.KanikoLayersDir, 0o755)
 	if err != nil {
-		return "", 0, err
+		return "", nil, nil, err
 	}
 	f, err := os.CreateTemp(config.KanikoLayersDir, "")
 	if err != nil {
-		return "", 0, err
+		return "", nil, nil, err
 	}
 	defer f.Close()
 
@@ -76,7 +76,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 
 	filesToAdd, err := filesystem.ResolvePaths(files, s.ignorelist)
 	if err != nil {
-		return "", 0, err
+		return "", nil, nil, err
 	}
 
 	logrus.Info("Taking snapshot of files...")
@@ -87,7 +87,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 	// Add files to current layer.
 	for _, file := range filesToAdd {
 		if err := s.l.Add(file); err != nil {
-			return "", 0, fmt.Errorf("unable to add file %s to layered map: %w", file, err)
+			return "", nil, nil, fmt.Errorf("unable to add file %s to layered map: %w", file, err)
 		}
 	}
 
@@ -98,14 +98,14 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 			return true, nil
 		})
 		if err != nil {
-			return "", 0, err
+			return "", nil, nil, err
 		}
 
 		logrus.Debugf("Deleting in layer: %v", deletedFiles)
 		// Whiteout files in current layer.
 		for file := range deletedFiles {
 			if err := s.l.AddDelete(file); err != nil {
-				return "", 0, fmt.Errorf("unable to whiteout file %s in layered map: %w", file, err)
+				return "", nil, nil, fmt.Errorf("unable to whiteout file %s in layered map: %w", file, err)
 			}
 		}
 
@@ -116,24 +116,24 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 	t := util.NewTar(f)
 	defer t.Close()
 	if err := writeToTar(t, filesToAdd, filesToWhiteout); err != nil {
-		return "", 0, err
+		return "", nil, nil, err
 	}
-	return f.Name(), len(filesToAdd) + len(filesToWhiteout), nil
+	return f.Name(), filesToAdd, filesToWhiteout, nil
 }
 
 // TakeSnapshotFS takes a snapshot of the filesystem, avoiding directories in the ignorelist, and creates
-// a tarball of the changed files. Returns the tarball path and the number of files snapshotted.
-func (s *Snapshotter) TakeSnapshotFS() (string, int, error) {
+// a tarball of the changed files. Returns the tarball path and the files added and whited out.
+func (s *Snapshotter) TakeSnapshotFS() (string, []string, []string, error) {
 	assert.Assert("snapshot.takesnapshotfs.layeredmap-set", s.l != nil, "Snapshotter.TakeSnapshotFS: layered map must be set")
 	assert.Assert("snapshot.takesnapshotfs.directory-set", s.directory != "", "Snapshotter.TakeSnapshotFS: directory must be non-empty")
 	err := os.MkdirAll(config.KanikoLayersDir, 0o755)
 	if err != nil {
-		return "", 0, err
+		return "", nil, nil, err
 	}
 
 	f, err := os.CreateTemp(s.getSnashotPathPrefix(), "")
 	if err != nil {
-		return "", 0, err
+		return "", nil, nil, err
 	}
 	defer f.Close()
 	t := util.NewTar(f)
@@ -141,13 +141,13 @@ func (s *Snapshotter) TakeSnapshotFS() (string, int, error) {
 
 	filesToAdd, filesToWhiteOut, err := s.scanFullFilesystem()
 	if err != nil {
-		return "", 0, err
+		return "", nil, nil, err
 	}
 
 	if err := writeToTar(t, filesToAdd, filesToWhiteOut); err != nil {
-		return "", 0, err
+		return "", nil, nil, err
 	}
-	return f.Name(), len(filesToAdd) + len(filesToWhiteOut), nil
+	return f.Name(), filesToAdd, filesToWhiteOut, nil
 }
 
 func (s *Snapshotter) getSnashotPathPrefix() string {

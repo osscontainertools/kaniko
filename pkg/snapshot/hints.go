@@ -1,0 +1,145 @@
+/*
+Copyright 2026 OSS Container Tools
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package snapshot
+
+import (
+	"maps"
+	"os"
+	"slices"
+	"strings"
+
+	units "github.com/docker/go-units"
+	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/hint"
+)
+
+type HintSource int
+
+const (
+	SourceUnknown HintSource = iota
+	SourceContext
+	SourceStage
+	SourceImage
+	SourceRun
+	sourceCount
+)
+
+type advice [sourceCount]string
+
+var (
+	cacheAdvice = advice{
+		SourceUnknown: "use RUN --mount=type=cache or remove it in the same RUN",
+		SourceContext: "exclude it in .dockerignore",
+		SourceStage:   "remove it in that stage or copy a narrower path",
+		SourceImage:   "copy a narrower path",
+		SourceRun:     "use RUN --mount=type=cache or remove it in the same RUN",
+	}
+	gitAdvice = advice{
+		SourceUnknown: "exclude it in .dockerignore for COPY, use ADD <git url>, or git clone --depth 1 and remove it in the same RUN",
+		SourceContext: "exclude it in .dockerignore",
+		SourceStage:   "remove it in that stage or copy a narrower path",
+		SourceImage:   "copy a narrower path",
+		SourceRun:     "use ADD <git url>, or git clone --depth 1 and remove it in the same RUN",
+	}
+	vcsAdvice = advice{
+		SourceUnknown: "exclude it in .dockerignore for COPY or remove it in the same RUN",
+		SourceContext: "exclude it in .dockerignore",
+		SourceStage:   "remove it in that stage or copy a narrower path",
+		SourceImage:   "copy a narrower path",
+		SourceRun:     "remove it in the same RUN",
+	}
+)
+
+// anchored rules match from the filesystem root, the others under any directory.
+type pathRule struct {
+	rule     hint.Rule
+	dir      string
+	anchored bool
+	advice   advice
+}
+
+var pathRules = []pathRule{
+	{hint.SnapshotCacheDir, "/.cache/pip/", false, cacheAdvice},
+	{hint.SnapshotCacheDir, "/.cache/go-build/", false, cacheAdvice},
+	{hint.SnapshotCacheDir, "/.cache/yarn/", false, cacheAdvice},
+	{hint.SnapshotCacheDir, "/.npm/", false, cacheAdvice},
+	{hint.SnapshotCacheDir, "/.m2/repository/", false, cacheAdvice},
+	{hint.SnapshotCacheDir, "/.gradle/caches/", false, cacheAdvice},
+	{hint.SnapshotCacheDir, "/.cargo/registry/", false, cacheAdvice},
+	{hint.SnapshotCacheDir, "/usr/local/cargo/registry/", true, cacheAdvice},
+	{hint.SnapshotCacheDir, "/var/cache/apt/archives/", true, cacheAdvice},
+	{hint.SnapshotCacheDir, "/var/lib/apt/lists/", true, cacheAdvice},
+	{hint.SnapshotCacheDir, "/var/cache/apk/", true, cacheAdvice},
+	{hint.SnapshotVCSDir, "/.git/", false, gitAdvice},
+	{hint.SnapshotVCSDir, "/.hg/", false, vcsAdvice},
+	{hint.SnapshotVCSDir, "/.svn/", false, vcsAdvice},
+}
+
+type dirUsage struct {
+	rule  *pathRule
+	bytes int64
+	files int
+}
+
+func ReportHints(files []string, source HintSource, from string) {
+	if !config.FF.LayerHints {
+		return
+	}
+	origin := ""
+	switch source {
+	case SourceStage:
+		origin = "copied from stage " + from + ", "
+	case SourceImage:
+		origin = "copied from image " + from + ", "
+	}
+	usage := map[string]dirUsage{}
+	for _, file := range files {
+		for i := range pathRules {
+			dir := matchDir(file, &pathRules[i])
+			if dir != "" {
+				fi, err := os.Lstat(file)
+				if err == nil && fi.Mode().IsRegular() {
+					u := usage[dir]
+					u.rule = &pathRules[i]
+					u.bytes += fi.Size()
+					u.files++
+					usage[dir] = u
+				}
+			}
+		}
+	}
+	for _, dir := range slices.Sorted(maps.Keys(usage)) {
+		u := usage[dir]
+		if u.bytes > 0 {
+			hint.Report(u.rule.rule, "%s in %d files under %s, %s%s", units.HumanSize(float64(u.bytes)), u.files, dir, origin, u.rule.advice[source])
+		}
+	}
+}
+
+func matchDir(file string, r *pathRule) string {
+	if r.anchored {
+		if strings.HasPrefix(file, r.dir) {
+			return strings.TrimSuffix(r.dir, "/")
+		}
+		return ""
+	}
+	i := strings.Index(file, r.dir)
+	if i < 0 {
+		return ""
+	}
+	return file[:i+len(r.dir)-1]
+}
