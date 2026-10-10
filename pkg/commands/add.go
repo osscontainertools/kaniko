@@ -19,6 +19,7 @@ package commands
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -92,6 +93,23 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		}
 	}
 
+	// a local archive is unpacked and a download is not, --unpack overrides both
+	unpackLocal, unpackRemote := true, false
+	if kConfig.FF.AddUnpack && a.cmd.Unpack != nil {
+		unpackLocal, unpackRemote = *a.cmd.Unpack, *a.cmd.Unpack
+	}
+
+	// an archive is downloaded outside the rootfs, only its contents belong in the image
+	staging := ""
+	if unpackRemote {
+		var err error
+		staging, err = os.MkdirTemp(kConfig.KanikoDir, "add-unpack-")
+		if err != nil {
+			return fmt.Errorf("creating staging dir for remote sources: %w", err)
+		}
+		defer os.RemoveAll(staging)
+	}
+
 	var unresolvedSrcs []string
 	// If any of the sources are local tar archives:
 	// 	1. Unpack them to the specified destination
@@ -105,12 +123,52 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 			if err != nil {
 				return err
 			}
+			download := urlDest
+			if unpackRemote {
+				download = filepath.Join(staging, filepath.Base(urlDest))
+			}
 			logrus.Infof("Adding remote URL %s to %s", src, urlDest)
-			if err := util.DownloadFileToDest(src, urlDest, owner, chmod.Apply(0o600), checksum); err != nil {
+			if err := util.DownloadFileToDest(src, download, owner, chmod.Apply(0o600), checksum); err != nil {
 				return fmt.Errorf("downloading remote source file: %w", err)
 			}
-			a.snapshotFiles = append(a.snapshotFiles, urlDest)
-		} else if util.IsFileLocalTarArchive(fullPath) {
+
+			switch {
+			case !unpackRemote:
+				a.snapshotFiles = append(a.snapshotFiles, urlDest)
+			case util.IsFileTarArchive(download):
+				tarDest, err := util.DestinationFilepath("", dest, config.WorkingDir)
+				if err != nil {
+					return fmt.Errorf("determining dest for tar: %w", err)
+				}
+				logrus.Infof("Unpacking remote archive %s to %s", src, tarDest)
+				extractedFiles, err := util.UnpackLocalTarArchive(download, tarDest)
+				if err != nil {
+					return fmt.Errorf("unpacking remote archive: %w", err)
+				}
+				logrus.Debugf("Added %v from remote archive %s", extractedFiles, src)
+				a.snapshotFiles = append(a.snapshotFiles, extractedFiles...)
+			default:
+				// docker places a download that turns out not to be an archive, --unpack is not an assertion
+				// an existing parent is left alone, MkdirAllWithPermissions would replace a symlink with a directory
+				parent := filepath.Dir(urlDest)
+				_, err := os.Lstat(parent)
+				if os.IsNotExist(err) {
+					dirOwner := util.Owner{}
+					if owner != nil {
+						dirOwner = *owner
+					}
+					if err := util.MkdirAllWithPermissions(parent, 0o755, dirOwner); err != nil {
+						return err
+					}
+				} else if err != nil {
+					return err
+				}
+				if err := util.MoveDir(download, urlDest); err != nil {
+					return fmt.Errorf("placing remote source file: %w", err)
+				}
+				a.snapshotFiles = append(a.snapshotFiles, urlDest)
+			}
+		} else if unpackLocal && util.IsFileLocalTarArchive(fullPath) {
 			if kConfig.FF.ConfineCopySource {
 				resolved, err := filepath.EvalSymlinks(fullPath)
 				if err != nil {

@@ -267,6 +267,50 @@ func IsFileLocalTarArchive(src string) bool {
 	return compressed || uncompressed
 }
 
+// IsFileTarArchive returns true if the file is a tar archive once decompressed,
+// where IsFileLocalTarArchive takes any compressed file for one
+func IsFileTarArchive(src string) bool {
+	compressed, compressionLevel := fileIsCompressedTar(src)
+	if !compressed {
+		return fileIsUncompressedTar(src)
+	}
+	file, err := FSys.Open(src)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+	var r io.Reader
+	switch compressionLevel {
+	case compression.Gzip:
+		gzr, err := gzip.NewReader(file)
+		if err != nil {
+			return false
+		}
+		defer gzr.Close()
+		r = gzr
+	case compression.Bzip2:
+		r = bzip2.NewReader(file)
+	case compression.Zstd:
+		zstdr, err := zstd.NewReader(file)
+		if err != nil {
+			return false
+		}
+		defer zstdr.Close()
+		r = zstdr
+	case compression.Xz:
+		xzr, err := xz.NewReader(file)
+		if err != nil {
+			return false
+		}
+		r = xzr
+	default:
+		// left to UnpackLocalTarArchive, which reports the compression it cannot read
+		return true
+	}
+	_, err = tar.NewReader(r).Next()
+	return err == nil
+}
+
 func fileIsCompressedTar(src string) (bool, compression.Compression) {
 	r, err := FSys.Open(src)
 	if err != nil {
