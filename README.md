@@ -178,6 +178,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_CONFINE_COPY_SOURCE`](#flag-ff_kaniko_confine_copy_source)
       - [Flag `FF_KANIKO_LAYER_HINTS`](#flag-ff_kaniko_layer_hints)
       - [Flag `FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES`](#flag-ff_kaniko_scoped_registry_certificates)
+      - [Flag `FF_KANIKO_PEEK_ARCHIVE_HEADER`](#flag-ff_kaniko_peek_archive_header)
     - [Assertion Overrides](#assertion-overrides)
     - [Layer Hints](#layer-hints)
     - [Telemetry](#telemetry)
@@ -1203,6 +1204,7 @@ FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=true
 FF_KANIKO_LAYER_HINTS=true
 FF_KANIKO_NATIVE_COPY=true
 FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=true
+FF_KANIKO_PEEK_ARCHIVE_HEADER=true
 FF_KANIKO_PLATFORM_CACHE_KEY=true
 FF_KANIKO_POOL_REGISTRY_CONNECTIONS=true
 FF_KANIKO_PRECOMPILE_DOCKERIGNORE=true
@@ -1609,6 +1611,13 @@ A CA passed with `--registry-certificate` is trusted for every registry that has
 Set this flag to `true` to trust each CA only for its own registry. A certificate file without a valid certificate then fails the build.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_PEEK_ARCHIVE_HEADER`
+
+To detect whether an `ADD` source is a compressed archive, kaniko reads the entire file into memory, at least twice per `ADD`. A multi-GB archive can push the build past its memory limit.
+Set this flag to `true` to read only the first 512 bytes.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 ### Assertion Overrides
 

@@ -53,6 +53,7 @@ type FeatureFlags struct {
 	OCIScratchBase                 bool
 	OCIWarmer                      bool
 	PathScopedRegistryAuth         bool
+	PeekArchiveHeader              bool
 	PlatformCacheKey               bool
 	PoolRegistryConnections        bool
 	PrecompileDockerignore         bool
@@ -140,6 +141,7 @@ func InitFeatureFlags() {
 		OCIScratchBase:                 featureFlag("FF_KANIKO_OCI_SCRATCH_BASE", false),
 		OCIWarmer:                      featureFlag("FF_KANIKO_OCI_WARMER", true),
 		PathScopedRegistryAuth:         featureFlag("FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH", false),
+		PeekArchiveHeader:              featureFlag("FF_KANIKO_PEEK_ARCHIVE_HEADER", false),
 		PlatformCacheKey:               featureFlag("FF_KANIKO_PLATFORM_CACHE_KEY", false),
 		PoolRegistryConnections:        featureFlag("FF_KANIKO_POOL_REGISTRY_CONNECTIONS", false),
 		PrecompileDockerignore:         featureFlag("FF_KANIKO_PRECOMPILE_DOCKERIGNORE", false),

@@ -273,7 +273,13 @@ func fileIsCompressedTar(src string) (bool, compression.Compression) {
 		return false, -1
 	}
 	defer r.Close()
-	buf, err := io.ReadAll(r)
+	var buf []byte
+	if config.FF.PeekArchiveHeader {
+		// compression.Detect only matches magic numbers, the longest prefix it inspects is 8 bytes
+		buf, err = io.ReadAll(io.LimitReader(r, 512))
+	} else {
+		buf, err = io.ReadAll(r)
+	}
 	if err != nil {
 		return false, -1
 	}
