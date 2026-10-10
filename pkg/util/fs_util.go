@@ -234,14 +234,11 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 		base := filepath.Base(path)
 
 		if strings.HasPrefix(base, archive.WhiteoutPrefix) {
-			dir := filepath.Dir(path)
-			if config.FF.SecurejoinExtraction {
-				securePath, err := securejoin.SecureJoin(root, cleanedName)
-				if err != nil {
-					return nil, fmt.Errorf("resolving whiteout path for %q: %w", hdr.Name, err)
-				}
-				dir = filepath.Dir(securePath)
+			securePath, err := securejoin.SecureJoin(root, cleanedName)
+			if err != nil {
+				return nil, fmt.Errorf("resolving whiteout path for %q: %w", hdr.Name, err)
 			}
+			dir := filepath.Dir(securePath)
 
 			name := strings.TrimPrefix(base, archive.WhiteoutPrefix)
 			path := filepath.Join(dir, name)
@@ -328,7 +325,7 @@ func childDirInIgnoreList(path string) bool {
 }
 
 func removeAllSkipIgnored(path string) (skip bool, err error) {
-	if !config.FF.PreserveMountedPaths || !childDirInIgnoreList(path) {
+	if !childDirInIgnoreList(path) {
 		return false, os.RemoveAll(path)
 	}
 	logrus.Debugf("Not removing %s, as it contains an ignored path", path)
@@ -389,23 +386,19 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 	}
 
 	var path string
-	if config.FF.SecurejoinExtraction {
-		// cg330: SecureJoin the parent only, then append the basename lexically. Joining
-		// the full name would resolve the final component when it is a symlink we
-		// mean to overwrite, writing through it and creating loops like
-		// bin/sh -> dash -> dash.
-		secureDir, err := securejoin.SecureJoin(dest, filepath.Dir(cleanedName))
-		if err != nil {
-			if !errors.Is(err, syscall.ELOOP) {
-				return fmt.Errorf("resolving path for %q: %w", hdr.Name, err)
-			}
-			logrus.Warnf("Skipping %q: parent path cannot be securely resolved (symlink loop)", hdr.Name)
-			return nil
+	// cg330: SecureJoin the parent only, then append the basename lexically. Joining
+	// the full name would resolve the final component when it is a symlink we
+	// mean to overwrite, writing through it and creating loops like
+	// bin/sh -> dash -> dash.
+	secureDir, err := securejoin.SecureJoin(dest, filepath.Dir(cleanedName))
+	if err != nil {
+		if !errors.Is(err, syscall.ELOOP) {
+			return fmt.Errorf("resolving path for %q: %w", hdr.Name, err)
 		}
-		path = filepath.Join(secureDir, filepath.Base(cleanedName))
-	} else {
-		path = filepath.Join(dest, cleanedName)
+		logrus.Warnf("Skipping %q: parent path cannot be securely resolved (symlink loop)", hdr.Name)
+		return nil
 	}
+	path = filepath.Join(secureDir, filepath.Base(cleanedName))
 	base := filepath.Base(path)
 	dir := filepath.Dir(path)
 	mode := hdr.FileInfo().Mode()
@@ -477,12 +470,10 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		}
 	case tar.TypeDir:
 		logrus.Tracef("Creating dir %s", path)
-		if config.FF.SecurejoinExtraction {
-			fi, lerr := os.Lstat(path)
-			if lerr == nil && fi.Mode()&os.ModeSymlink != 0 {
-				if err := os.Remove(path); err != nil {
-					return fmt.Errorf("error removing symlink %s to make way for new directory: %w", path, err)
-				}
+		fi, lerr := os.Lstat(path)
+		if lerr == nil && fi.Mode()&os.ModeSymlink != 0 {
+			if err := os.Remove(path); err != nil {
+				return fmt.Errorf("error removing symlink %s to make way for new directory: %w", path, err)
 			}
 		}
 		if err := MkdirAllWithPermissions(path, mode, owner); err != nil {
@@ -524,15 +515,11 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 			return fmt.Errorf("hardlink target %q is not allowed: references parent directory", hdr.Linkname)
 		}
 		var link string
-		if config.FF.SecurejoinExtraction {
-			resolved, err := securejoin.SecureJoin(dest, hdr.Linkname)
-			if err != nil {
-				return fmt.Errorf("invalid hardlink target %q: %w", hdr.Linkname, err)
-			}
-			link = resolved
-		} else {
-			link = filepath.Clean(filepath.Join(dest, hdr.Linkname))
+		resolved, err := securejoin.SecureJoin(dest, hdr.Linkname)
+		if err != nil {
+			return fmt.Errorf("invalid hardlink target %q: %w", hdr.Linkname, err)
 		}
+		link = resolved
 		if err := os.Link(link, path); err != nil {
 			return err
 		}
@@ -895,7 +882,7 @@ func copyDirInner(files []string, src, dest string, context FileContext, owner *
 			}
 			// This loop already skipped matches
 			assert.Assert("util.copydir.symlink-not-excluded", !exclude, "CopySymlink refused to copy %s to %s", fullPath, destPath)
-		} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok && config.FF.PreserveHardlinks {
+		} else if linkDst, ok := checkCopyHardlink(fi, destPath, hardlinksSeen); ok {
 			// #2594: inode already copied — create a hardlink instead of duplicating content.
 			logrus.Tracef("Creating hardlink %s -> %s", destPath, linkDst)
 			linkOwner := DetermineTargetFileOwnership(fi, owner)
