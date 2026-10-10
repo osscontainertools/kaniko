@@ -40,6 +40,12 @@ var (
 	sources = map[v1.Hash][]name.Repository{}
 )
 
+func Reset() {
+	mu.Lock()
+	defer mu.Unlock()
+	sources = map[v1.Hash][]name.Repository{}
+}
+
 func RecordImage(img v1.Image, repo name.Repository) {
 	record(img, repo, false)
 }
