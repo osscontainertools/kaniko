@@ -72,6 +72,8 @@ var (
 	NewLayerCache                = newLayerCacheImpl
 )
 
+var deferredCachePushes errgroup.Group
+
 type snapShotter interface {
 	Init() error
 	TakeSnapshotFS() (string, int, error)
@@ -606,7 +608,10 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		}
 	}
 
-	cacheGroup := errgroup.Group{}
+	cacheGroup := &errgroup.Group{}
+	if config.FF.DeferCachePush {
+		cacheGroup = &deferredCachePushes
+	}
 	endCmd := func() {}
 	// stop on the way out too: an unended span is never exported
 	defer func() { endCmd() }()
@@ -791,11 +796,22 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	}
 	endCmd()
 
-	if err := cacheGroup.Wait(); err != nil {
-		logrus.Warnf("Error uploading layer to cache: %s", err)
+	if !config.FF.DeferCachePush {
+		err := cacheGroup.Wait()
+		if err != nil {
+			logrus.Warnf("Error uploading layer to cache: %s", err)
+		}
 	}
 
 	return nil
+}
+
+func WaitCachePushes() {
+	err := deferredCachePushes.Wait()
+	if err != nil {
+		logrus.Warnf("Error uploading layer to cache: %s", err)
+	}
+	deferredCachePushes = errgroup.Group{}
 }
 
 func takeSnapshot(files []string, shdDelete bool, opts *config.KanikoOptions, snapshotter snapShotter) (string, int, error) {

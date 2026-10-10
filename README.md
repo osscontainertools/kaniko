@@ -172,6 +172,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES`](#flag-ff_kaniko_deprecate_layerless_cache_entries)
       - [Flag `FF_KANIKO_ADD_CHECKSUM`](#flag-ff_kaniko_add_checksum)
       - [Flag `FF_KANIKO_POOL_REGISTRY_CONNECTIONS`](#flag-ff_kaniko_pool_registry_connections)
+      - [Flag `FF_KANIKO_DEFER_CACHE_PUSH`](#flag-ff_kaniko_defer_cache_push)
     - [Assertion Overrides](#assertion-overrides)
     - [Telemetry](#telemetry)
     - [Debug Image](#debug-image)
@@ -1559,6 +1560,12 @@ With this flag off a build opens a new connection for every registry operation a
 Set this flag to `true` to share one connection pool per registry.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_DEFER_CACHE_PUSH`
+
+Every stage waits for its cache layers to finish uploading before the next stage starts. Set this flag to `true` to keep uploading cache layers in the background while the build continues. They are awaited before the image is pushed.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 ### Assertion Overrides
 

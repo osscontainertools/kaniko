@@ -272,6 +272,7 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 			}
 		}()
 	}
+	defer executor.WaitCachePushes()
 	tracing.Init(context.Background(), opts)
 	for i, target := range targets {
 		if i > 0 {
@@ -296,6 +297,7 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 		if err != nil {
 			return fmt.Errorf("error building image: %w", err)
 		}
+		executor.WaitCachePushes()
 		// mz992: a dryrun renders the plan and returns no image, there is nothing to push.
 		if !opts.Dryrun {
 			pushTimer := timing.Start("Total Push Time")
