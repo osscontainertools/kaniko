@@ -464,9 +464,8 @@ func (r *RunCommand) ProvidesFilesToSnapshot() bool {
 // CacheCommand returns true since this command should be cached
 func (r *RunCommand) CacheCommand(img v1.Image) DockerCommand {
 	return &CachingRunCommand{
-		img:         img,
+		caching:     caching{img: img},
 		cmd:         r.cmd,
-		extractFn:   util.ExtractFile,
 		fileContext: r.fileContext,
 	}
 }
@@ -486,11 +485,8 @@ func (r *RunCommand) ShouldCacheOutput() bool {
 type CachingRunCommand struct {
 	BaseCommand
 	caching
-	img            v1.Image
-	extractedFiles []string
-	cmd            *instructions.RunCommand
-	extractFn      util.ExtractFunction
-	fileContext    util.FileContext
+	cmd         *instructions.RunCommand
+	fileContext util.FileContext
 }
 
 func (cr *CachingRunCommand) IsArgsEnvsRequiredInCache() bool {
@@ -501,48 +497,8 @@ func (cr *CachingRunCommand) CacheKey(replacementEnvs []string) (string, error) 
 	return runCacheKey(cr.cmd), nil
 }
 
-func (cr *CachingRunCommand) ExecuteCommand(_ *v1.Config, _ *dockerfile.BuildArgs) error {
-	logrus.Infof("Found cached layer, extracting to filesystem")
-	var err error
-
-	if cr.img == nil {
-		return fmt.Errorf("command image is nil %v", cr.String())
-	}
-
-	layers, err := cr.img.Layers()
-	if err != nil {
-		return fmt.Errorf("retrieving image layers: %w", err)
-	}
-
-	if len(layers) != 1 {
-		return fmt.Errorf("expected %d layers but got %d", 1, len(layers))
-	}
-
-	cr.layer = layers[0]
-
-	cr.extractedFiles, err = util.GetFSFromLayers(
-		kConfig.RootDir,
-		layers,
-		util.ExtractFunc(cr.extractFn),
-		util.IncludeWhiteout(),
-	)
-	if err != nil {
-		return fmt.Errorf("extracting fs from image: %w", err)
-	}
-
-	return nil
-}
-
 func (cr *CachingRunCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
 	return runCmdFilesUsedFromContext(config, buildArgs, cr.cmd, cr.fileContext)
-}
-
-func (cr *CachingRunCommand) FilesToSnapshot() []string {
-	f := cr.extractedFiles
-	logrus.Debugf("%d files extracted by caching run command", len(f))
-	logrus.Tracef("Extracted files: %s", f)
-
-	return f
 }
 
 func (cr *CachingRunCommand) String() string {

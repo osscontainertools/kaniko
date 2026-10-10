@@ -18,15 +18,35 @@ package commands
 
 import (
 	"testing"
+
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 )
 
-func Test_caching(t *testing.T) {
-	c := caching{layer: fakeLayer{}}
-
-	actual := c.Layer().(fakeLayer)
-	expected := fakeLayer{}
-	actualLen, expectedLen := len(actual.TarContent), len(expected.TarContent)
-	if actualLen != expectedLen {
-		t.Errorf("expected layer tar content to be %v but was %v", expectedLen, actualLen)
+func Test_caching_CachedLayer(t *testing.T) {
+	one := fakeLayer{TarContent: []byte("meow")}
+	for _, tc := range []struct {
+		description string
+		c           caching
+		expectLayer bool
+		expectErr   bool
+	}{
+		{"no image", caching{}, false, true},
+		{"one layer", caching{img: fakeImage{ImageLayers: []v1.Layer{one}}}, true, false},
+		{"two layers", caching{img: fakeImage{ImageLayers: []v1.Layer{one, one}}}, false, true},
+		{"no layers", caching{img: fakeImage{}}, false, true},
+		{"no layers, empty allowed", caching{img: fakeImage{}, allowEmpty: true}, false, false},
+	} {
+		t.Run(tc.description, func(t *testing.T) {
+			layer, err := tc.c.CachedLayer()
+			if tc.expectErr && err == nil {
+				t.Error("expected an error but got none")
+			}
+			if !tc.expectErr && err != nil {
+				t.Errorf("expected no error but got %v", err)
+			}
+			if tc.expectLayer != (layer != nil) {
+				t.Errorf("expected layer %v but got %v", tc.expectLayer, layer)
+			}
+		})
 	}
 }

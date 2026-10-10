@@ -24,7 +24,6 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/assert"
-	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
@@ -99,9 +98,8 @@ func (w *WorkdirCommand) CacheKey(replacementEnvs []string) (string, error) {
 // CacheCommand returns true since this command should be cached
 func (w *WorkdirCommand) CacheCommand(img v1.Image) DockerCommand {
 	return &CachingWorkdirCommand{
-		img:       img,
-		cmd:       w.cmd,
-		extractFn: util.ExtractFile,
+		caching: caching{img: img, allowEmpty: true},
+		cmd:     w.cmd,
 	}
 }
 
@@ -120,64 +118,19 @@ func (w *WorkdirCommand) ShouldCacheOutput() bool {
 type CachingWorkdirCommand struct {
 	BaseCommand
 	caching
-	img            v1.Image
-	extractedFiles []string
-	cmd            *instructions.WorkdirCommand
-	extractFn      util.ExtractFunction
+	cmd *instructions.WorkdirCommand
 }
 
 func (wr *CachingWorkdirCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
-	var err error
 	logrus.Info("Cmd: workdir")
-	workdirPath := wr.cmd.Path
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
-	resolvedWorkingDir, err := util.ResolveEnvironmentReplacement(workdirPath, replacementEnvs, true)
+	resolvedWorkingDir, err := util.ResolveEnvironmentReplacement(wr.cmd.Path, replacementEnvs, true)
 	if err != nil {
 		return err
 	}
 	config.WorkingDir = ToAbsPath(resolvedWorkingDir, config.WorkingDir)
 	logrus.Infof("Changed working directory to %s", config.WorkingDir)
-
-	logrus.Infof("Found cached layer, extracting to filesystem")
-
-	if wr.img == nil {
-		return fmt.Errorf("command image is nil %v", wr.String())
-	}
-
-	layers, err := wr.img.Layers()
-	if err != nil {
-		return fmt.Errorf("retrieving image layers: %w", err)
-	}
-
-	if len(layers) > 1 {
-		return fmt.Errorf("expected %d layers but got %d", 1, len(layers))
-	} else if len(layers) == 0 {
-		// an empty image in cache indicates that no directory was created by WORKDIR
-		return nil
-	}
-
-	wr.layer = layers[0]
-
-	wr.extractedFiles, err = util.GetFSFromLayers(
-		kConfig.RootDir,
-		layers,
-		util.ExtractFunc(wr.extractFn),
-		util.IncludeWhiteout(),
-	)
-	if err != nil {
-		return fmt.Errorf("extracting fs from image: %w", err)
-	}
-
 	return nil
-}
-
-// FilesToSnapshot returns the workingdir, which should have been created if it didn't already exist
-func (wr *CachingWorkdirCommand) FilesToSnapshot() []string {
-	f := wr.extractedFiles
-	logrus.Debugf("%d files extracted by caching run command", len(f))
-	logrus.Tracef("Extracted files: %s", f)
-
-	return f
 }
 
 // String returns some information about the command for the image config history

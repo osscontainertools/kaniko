@@ -17,13 +17,11 @@ limitations under the License.
 package commands
 
 import (
-	"archive/tar"
 	"errors"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -135,154 +133,6 @@ func readDirectory(dirName string) ([]fs.FileInfo, error) {
 		testDir = append(testDir, info)
 	}
 	return testDir, err
-}
-
-func Test_CachingCopyCommand_ExecuteCommand(t *testing.T) {
-	tempDir := setupTestTemp(t)
-
-	tarContent, err := prepareTarFixture(t, []string{"foo.txt"})
-	if err != nil {
-		t.Errorf("couldn't prepare tar fixture %v", err)
-	}
-
-	config := &v1.Config{}
-	buildArgs := &dockerfile.BuildArgs{}
-
-	type testCase struct {
-		description    string
-		expectLayer    bool
-		expectErr      bool
-		count          *int
-		expectedCount  int
-		command        *CachingCopyCommand
-		extractedFiles []string
-		contextFiles   []string
-	}
-	testCases := []testCase{
-		func() testCase {
-			err = os.WriteFile(filepath.Join(tempDir, "foo.txt"), []byte("meow"), 0o644)
-			if err != nil {
-				t.Errorf("couldn't write tempfile %v", err)
-				t.FailNow()
-			}
-
-			c := &CachingCopyCommand{
-				img: fakeImage{
-					ImageLayers: []v1.Layer{
-						fakeLayer{TarContent: tarContent},
-					},
-				},
-				fileContext: util.FileContext{Root: tempDir},
-				cmd: &instructions.CopyCommand{
-					SourcesAndDest: instructions.SourcesAndDest{SourcePaths: []string{"foo.txt"}, DestPath: ""},
-				},
-			}
-			count := 0
-			tc := testCase{
-				description:    "with valid image and valid layer",
-				count:          &count,
-				expectedCount:  1,
-				expectLayer:    true,
-				extractedFiles: []string{"/foo.txt"},
-				contextFiles:   []string{"foo.txt"},
-			}
-			c.extractFn = func(_ string, _ *tar.Header, _ string, _ io.Reader) error {
-				*tc.count++
-				return nil
-			}
-			tc.command = c
-			return tc
-		}(),
-		func() testCase {
-			c := &CachingCopyCommand{}
-			tc := testCase{
-				description: "with no image",
-				expectErr:   true,
-			}
-			c.extractFn = func(_ string, _ *tar.Header, _ string, _ io.Reader) error {
-				return nil
-			}
-			tc.command = c
-			return tc
-		}(),
-		func() testCase {
-			c := &CachingCopyCommand{
-				img: fakeImage{},
-			}
-			c.extractFn = func(_ string, _ *tar.Header, _ string, _ io.Reader) error {
-				return nil
-			}
-			return testCase{
-				description: "with image containing no layers",
-				expectErr:   true,
-				command:     c,
-			}
-		}(),
-		func() testCase {
-			c := &CachingCopyCommand{
-				img: fakeImage{
-					ImageLayers: []v1.Layer{
-						fakeLayer{},
-					},
-				},
-			}
-			c.extractFn = func(_ string, _ *tar.Header, _ string, _ io.Reader) error {
-				return nil
-			}
-			tc := testCase{
-				description: "with image one layer which has no tar content",
-				expectErr:   false, // this one probably should fail but doesn't because of how ExecuteCommand and util.GetFSFromLayers are implemented - cvgw- 2019-11-25
-				expectLayer: true,
-			}
-			tc.command = c
-			return tc
-		}(),
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.description, func(t *testing.T) {
-			c := tc.command
-			err := c.ExecuteCommand(config, buildArgs)
-			if !tc.expectErr && err != nil {
-				t.Errorf("Expected err to be nil but was %v", err)
-			} else if tc.expectErr && err == nil {
-				t.Error("Expected err but was nil")
-			}
-
-			if tc.count != nil {
-				if *tc.count != tc.expectedCount {
-					t.Errorf("Expected extractFn to be called %v times but was called %v times", tc.expectedCount, *tc.count)
-				}
-				for _, file := range tc.extractedFiles {
-					match := false
-					cFiles := c.FilesToSnapshot()
-					if slices.Contains(cFiles, file) {
-						match = true
-					}
-					if !match {
-						t.Errorf("Expected extracted files to include %v but did not %v", file, cFiles)
-					}
-				}
-
-				cmdFiles, err := c.FilesUsedFromContext(
-					config, buildArgs,
-				)
-				if err != nil {
-					t.Errorf("failed to get files used from context from command %v", err)
-				}
-
-				if len(cmdFiles) != len(tc.contextFiles) {
-					t.Errorf("expected files used from context to equal %v but was %v", tc.contextFiles, cmdFiles)
-				}
-			}
-
-			if c.layer == nil && tc.expectLayer {
-				t.Error("expected the command to have a layer set but instead was nil")
-			} else if c.layer != nil && !tc.expectLayer {
-				t.Error("expected the command to have no layer set but instead found a layer")
-			}
-		})
-	}
 }
 
 func TestCopyExecuteCmd(t *testing.T) {
