@@ -55,7 +55,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		return fmt.Errorf("getting permissions from chmod: %w", err)
 	}
 
-	uid, gid, err := util.GetActiveUserGroup(config.User, a.cmd.Chown, replacementEnvs)
+	owner, err := util.GetActiveUserGroup(config.User, a.cmd.Chown, replacementEnvs)
 	if err != nil {
 		return fmt.Errorf("getting user group from chown: %w", err)
 	}
@@ -99,7 +99,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				return err
 			}
 			logrus.Infof("Adding remote URL %s to %s", src, urlDest)
-			if err := util.DownloadFileToDest(src, urlDest, uid, gid, chmod.Apply(0o600), checksum); err != nil {
+			if err := util.DownloadFileToDest(src, urlDest, owner, chmod.Apply(0o600), checksum); err != nil {
 				return fmt.Errorf("downloading remote source file: %w", err)
 			}
 			a.snapshotFiles = append(a.snapshotFiles, urlDest)
