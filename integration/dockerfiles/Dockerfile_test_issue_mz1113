@@ -1,0 +1,14 @@
+# mz1113: with the runtime pinning both a base image symlink and the directory it points at, there
+# is no free name for the link, and on v1.28.5 the build aborts with "cannot restore symlink
+# /opt/driver -> /opt/real: both paths contain an ignored path".
+# This is ubuntu:24.04 under the NVIDIA runtime, where /lib is a symlink to usr/lib and the hook
+# mounts files under both names.
+ARG IMAGE_REPO
+FROM busybox AS base
+# one layer, so tar orders opt/driver ahead of opt/real and the content arrives after the link.
+# /opt/real/other.so is a name the harness mounts over, so the mount shadows it
+RUN mkdir -p /opt/real && echo base > /opt/real/b && echo shadowed > /opt/real/other.so && ln -s /opt/real /opt/driver
+
+FROM ${IMAGE_REPO}test-issue-mz1113-base:latest
+RUN echo mz1113 > /opt/driver/data && cat /opt/real/data
+RUN cat /opt/driver/b

@@ -1,14 +1,12 @@
 # mz1073: preserving the mount is not enough, a path the base image ships as a symlink and the
-# path it points at have to stay two names for one directory. Since v1.28.1 kaniko keeps the
-# pinned directory and drops the symlink, so the base image files behind it become unreachable.
-# The harness mounts a file into each pinned path below, so the swap fires once per pair.
+# path it points at have to stay two names for one directory, or the base image files behind the
+# symlink become unreachable and every RUN fails.
+# The harness mounts a file into each pinned path below, so one pair is relocated per mount.
 ARG IMAGE_REPO
 FROM busybox AS base
 # the symlink has to land in a later layer than its target's content, or the tar orders
 # opt/driver ahead of opt/real and the target does not exist yet when kaniko unpacks it.
-# /opt/real/sub/lib.so is a name the harness mounts over, so the content moving across it
-# has to leave that name alone.
-RUN mkdir -p /opt/real/sub /opt/other /opt/driver/link /opt/elsewhere /opt/deep/inner && echo sub > /opt/real/sub/b && echo base > /opt/real/sub/lib.so && echo other > /opt/other/c && echo far > /opt/elsewhere/d && ln -s /opt/deep /opt/link2
+RUN mkdir -p /opt/real/sub /opt/other /opt/driver/link /opt/elsewhere /opt/deep/inner && echo sub > /opt/real/sub/b && echo other > /opt/other/c && echo far > /opt/elsewhere/d && ln -s /opt/deep /opt/link2
 RUN rm -rf /opt/driver/link && ln -s /opt/other /opt/driver/link
 # /opt/via names its target through /opt/link2, so the symlink lands on /opt/deep/inner
 RUN ln -s /opt/other /opt/real/link && ln -s /opt/elsewhere /opt/real/far && ln -s /opt/link2/inner /opt/via
