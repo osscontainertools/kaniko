@@ -43,11 +43,14 @@ const (
 var chaosFlags = []string{
 	"FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE", "FF_KANIKO_CACHE_LOOKAHEAD",
 	"FF_KANIKO_CACHE_PROBE_AFTER_MISS", "FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS",
-	"FF_KANIKO_CLEAN_KANIKO_DIR", "FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS",
-	"FF_KANIKO_CROSS_REPO_MOUNT", "FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE",
+	"FF_KANIKO_CLEAN_KANIKO_DIR", "FF_KANIKO_CONFINE_COPY_SOURCE",
+	"FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS",
+	"FF_KANIKO_CROSS_REPO_MOUNT", "FF_KANIKO_DEFER_CACHE_PUSH",
+	"FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE",
 	"FF_KANIKO_DISABLE_HTTP2", "FF_KANIKO_EXPAND_HEREDOC",
 	"FF_KANIKO_HASH_DIR_FRAMING", "FF_KANIKO_IGNORE_CACHED_MANIFEST",
-	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", "FF_KANIKO_NO_PROPAGATE_ANNOTATIONS",
+	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", "FF_KANIKO_LAYER_HINTS",
+	"FF_KANIKO_NO_PROPAGATE_ANNOTATIONS",
 	"FF_KANIKO_OCI_SCRATCH_BASE", "FF_KANIKO_OCI_WARMER",
 	"FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH", "FF_KANIKO_PRECOMPILE_DOCKERIGNORE",
 	"FF_KANIKO_PRESERVE_HARDLINKS", "FF_KANIKO_PRESERVE_MOUNTED_PATHS",
@@ -58,6 +61,7 @@ var chaosFlags = []string{
 	"FF_KANIKO_SCOPED_DOCKERIGNORE", "FF_KANIKO_SECUREJOIN_EXTRACTION",
 	"FF_KANIKO_SHARED_BASE_CACHE", "FF_KANIKO_SKIP_CACHED_STAGES",
 	"FF_KANIKO_SKIP_RELABEL_RECOMPRESS", "FF_KANIKO_SKIP_WRITE_WHITEOUTS",
+	"FF_KANIKO_UNPACK_XZ", "FF_KANIKO_UNPACK_ZSTD",
 	"FF_KANIKO_UNTAR_SKIP_ROOT", "FF_KANIKO_VOLUME_SKIP_MKDIR",
 	"FF_KANIKO_WARMER_CACHE_LOCK",
 }
@@ -107,6 +111,8 @@ const (
 	kindHardlink
 	kindTar
 	kindTarGz
+	kindTarZst
+	kindTarXz
 )
 
 // fileSpec is one context entry the harness writes before building.
@@ -204,17 +210,18 @@ func generate(s *source, bases []string) genResult {
 		symName = "linkS"
 		ctx = append(ctx, fileSpec{name: symName, kind: kindSymlink, target: regulars[0]})
 	}
-	// A tar in the context, to exercise ADD auto-extraction. Sometimes gzip-compressed
-	// (.tar.gz), which ADD also auto-extracts through kaniko's decompression path.
+	// A tar in the context, to exercise ADD auto-extraction. Sometimes compressed with
+	// gzip, zstd or xz, which ADD also auto-extracts through kaniko's decompression path.
 	tarName := ""
 	if s.chance(2) {
-		if s.chance(2) {
-			tarName = "arc.tar.gz"
-			ctx = append(ctx, fileSpec{name: tarName, kind: kindTarGz})
-		} else {
-			tarName = "arc.tar"
-			ctx = append(ctx, fileSpec{name: tarName, kind: kindTar})
-		}
+		arc := srcPick(s, []fileSpec{
+			{name: "arc.tar", kind: kindTar},
+			{name: "arc.tar.gz", kind: kindTarGz},
+			{name: "arc.tar.zst", kind: kindTarZst},
+			{name: "arc.tar.xz", kind: kindTarXz},
+		})
+		tarName = arc.name
+		ctx = append(ctx, arc)
 	}
 	// A hardlink into the context, to exercise how COPY treats hardlinked sources.
 	hlinkName := ""
@@ -843,6 +850,8 @@ func generate(s *source, bases []string) genResult {
 		"FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH", // scope the registry token to the repository path, transport-only
 		"FF_KANIKO_WARMER_CACHE_LOCK",         // lock the warmer cache dir, concurrency-only
 		"FF_KANIKO_OCI_WARMER",                // warmer cache format, OCI layout or legacy tarball
+		"FF_KANIKO_DEFER_CACHE_PUSH",          // upload cache layers in the background, awaited before exit
+		"FF_KANIKO_LAYER_HINTS",               // log layer hints, image unaffected
 	} {
 		switch s.intn(4) {
 		case 0:
