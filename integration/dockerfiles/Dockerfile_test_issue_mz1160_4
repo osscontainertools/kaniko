@@ -1,0 +1,7 @@
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
+
+# mz1160: on v1.28.5 ADD unpacks a local tar archive through a symlinked source.
+# testdata/link.tar links to /kaniko/archive.tar, so ADD extracts a tar from the kaniko directory.
+RUN tar -cf /kaniko/archive.tar /etc/hostname
+ADD testdata/link.tar /out/

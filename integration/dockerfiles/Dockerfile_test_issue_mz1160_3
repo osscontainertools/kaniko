@@ -1,0 +1,8 @@
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS planted
+
+# mz1160: on v1.28.5 a COPY --from=<stage> source can name the kaniko directory.
+# A stage's files are saved from the live root, which also holds kaniko,
+# so "/kaniko/executor" is kaniko itself. Only the native copy skips the kaniko directory.
+FROM ${IMAGE_REPO}busybox
+COPY --from=planted /kaniko/executor /copied
