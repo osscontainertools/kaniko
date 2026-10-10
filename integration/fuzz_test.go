@@ -37,6 +37,9 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/klauspost/compress/zstd"
+	"github.com/ulikunitz/xz"
 )
 
 type severity int
@@ -1173,12 +1176,8 @@ func writeContext(dir string, gen genResult) error {
 			if err := os.Link(filepath.Join(dir, f.target), p); err != nil {
 				return err
 			}
-		case kindTar:
-			if err := writeTarFixture(p, false); err != nil {
-				return err
-			}
-		case kindTarGz:
-			if err := writeTarFixture(p, true); err != nil {
+		case kindTar, kindTarGz, kindTarZst, kindTarXz:
+			if err := writeTarFixture(p, f.kind); err != nil {
 				return err
 			}
 		default:
@@ -1202,17 +1201,32 @@ func writeContext(dir string, gen genResult) error {
 	return nil
 }
 
-// writeTarFixture writes a small deterministic tar so ADD can auto-extract it. When gz is
-// set the tar is gzip-wrapped (.tar.gz), exercising kaniko's compressed-archive extraction.
-func writeTarFixture(path string, gz bool) error {
+// writeTarFixture writes a small deterministic tar so ADD can auto-extract it, wrapped in
+// the compression the kind names, exercising kaniko's compressed-archive extraction.
+func writeTarFixture(path string, kind fileKind) error {
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	var w io.Writer = f
-	if gz {
+	switch kind {
+	case kindTarGz:
 		zw := gzip.NewWriter(f)
+		defer zw.Close()
+		w = zw
+	case kindTarZst:
+		zw, err := zstd.NewWriter(f)
+		if err != nil {
+			return err
+		}
+		defer zw.Close()
+		w = zw
+	case kindTarXz:
+		zw, err := xz.NewWriter(f)
+		if err != nil {
+			return err
+		}
 		defer zw.Close()
 		w = zw
 	}
