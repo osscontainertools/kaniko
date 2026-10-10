@@ -1181,7 +1181,6 @@ Opting into the Preview profile gives you early access to upcoming performance i
 
 ```sh
 FF_KANIKO_ADD_UNPACK=true
-FF_KANIKO_PEEK_ARCHIVE_HEADER=true
 FF_KANIKO_RUN_VIA_TINI=true
 ```
 
@@ -1475,8 +1474,8 @@ Will be deprecated in `v1.30.0`.
 
 To detect whether an `ADD` source is a compressed archive, kaniko reads the entire file into memory, at least twice per `ADD`. A multi-GB archive can push the build past its memory limit.
 Set this flag to `true` to read only the first 8 bytes.
-Defaults to `false`.
-Becomes default in `v1.29.0`.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_ADD_UNPACK`
 
