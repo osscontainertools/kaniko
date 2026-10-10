@@ -1617,7 +1617,7 @@ Will be deprecated in `v1.30.0`.
 To detect whether an `ADD` source is a compressed archive, kaniko reads the entire file into memory, at least twice per `ADD`. A multi-GB archive can push the build past its memory limit.
 Set this flag to `true` to read only the first 8 bytes.
 Defaults to `false`.
-Becomes default in `v1.30.0`.
+Becomes default in `v1.29.0`.
 
 ### Assertion Overrides
 
