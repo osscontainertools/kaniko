@@ -160,7 +160,7 @@ jobs:
           cache-to: type=gha,mode=max
           target: ${{ matrix.target }}
           sbom: true
-          # keep labels and annotations in sync
+          provenance: mode=max
           labels: |
             org.opencontainers.image.created=${{ steps.build-time.outputs.now }}
             org.opencontainers.image.authors=${{ github.actor }}
@@ -171,6 +171,7 @@ jobs:
             org.opencontainers.image.vendor=${{ github.repository_owner }}
             org.opencontainers.image.licenses=Apache-2.0
             org.opencontainers.image.title=${{ steps.context.outputs.image_name }}:${{ matrix.release-tag }}
+            org.opencontainers.image.description=Build container images in Kubernetes
             org.opencontainers.image.version=${{ steps.context.outputs.is_release == 'true' && github.ref_name || github.sha }}
           annotations: |
             index,manifest:org.opencontainers.image.created=${{ steps.build-time.outputs.now }}
@@ -182,6 +183,7 @@ jobs:
             index,manifest:org.opencontainers.image.vendor=${{ github.repository_owner }}
             index,manifest:org.opencontainers.image.licenses=Apache-2.0
             index,manifest:org.opencontainers.image.title=${{ steps.context.outputs.image_name }}:${{ matrix.release-tag }}
+            index,manifest:org.opencontainers.image.description=Build container images in Kubernetes
             index,manifest:org.opencontainers.image.version=${{ steps.context.outputs.is_release == 'true' && github.ref_name || github.sha }}
 
       # Sign images if not a PR.
