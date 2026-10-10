@@ -68,6 +68,7 @@ type FeatureFlags struct {
 	RunMountBind                   bool
 	RunViaTini                     bool
 	ScopedDockerignore             bool
+	ScopedRegistryCertificates     bool
 	SecurejoinExtraction           bool
 	SharedBaseCache                bool
 	SkipCachedStages               bool
@@ -154,6 +155,7 @@ func InitFeatureFlags() {
 		RunMountBind:                   featureFlag("FF_KANIKO_RUN_MOUNT_BIND", true),
 		RunViaTini:                     featureFlag("FF_KANIKO_RUN_VIA_TINI", false),
 		ScopedDockerignore:             featureFlag("FF_KANIKO_SCOPED_DOCKERIGNORE", false),
+		ScopedRegistryCertificates:     featureFlag("FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES", true),
 		SecurejoinExtraction:           featureFlag("FF_KANIKO_SECUREJOIN_EXTRACTION", true),
 		SharedBaseCache:                featureFlag("FF_KANIKO_SHARED_BASE_CACHE", false),
 		SkipCachedStages:               featureFlag("FF_KANIKO_SKIP_CACHED_STAGES", false),

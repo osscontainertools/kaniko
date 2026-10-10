@@ -1,0 +1,9 @@
+FROM scratch
+
+# mz881: a --registry-certificate CA is trusted for every registry that has one.
+# Broken since v0.23.0.
+#
+# localhost:5000 gets the TLS registry CA, 127.0.0.2:5001 gets only public roots.
+# All custom CAs land in one shared pool, so the push to 127.0.0.2:5001 verifies
+# against the CA meant for localhost:5000 and succeeds. It must fail.
+LABEL mz881=true
