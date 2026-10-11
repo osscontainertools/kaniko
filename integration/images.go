@@ -1114,7 +1114,6 @@ var extraDockerRunFlags = map[string]func(contextDir string) []string{
 	"Dockerfile_test_issue_mz1172": func(ctx string) []string {
 		return []string{"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/z/lib.so:ro"}
 	},
-	// the mount lands on a name the base image ships a file at
 	"Dockerfile_test_issue_mz1177": func(ctx string) []string {
 		return []string{"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/z/lib.so:ro"}
 	},
