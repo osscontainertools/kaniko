@@ -1185,7 +1185,6 @@ delay of 1 second. Defaults to `0`.
 Opting into the Preview profile gives you early access to upcoming performance improvements, bugfixes and features. While these flags are tested and ready to use, implementation details may still change.
 
 ```sh
-FF_KANIKO_IMAGE_STAGES=true
 FF_KANIKO_RUN_VIA_TINI=true
 ```
 
@@ -1494,8 +1493,8 @@ Will be deprecated in `v1.30.0`.
 
 A stage whose commands are all cache hits is already an image. Kaniko still unpacks every one of its cached layers onto the root filesystem and deletes them again when the stage ends, although nothing reads them.
 Set this flag to `true` to download the image and use it as is, skipping the unpack to the root filesystem.
-Defaults to `false`.
-Becomes default in `v1.29.0`.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_COPY_LINK`
 
