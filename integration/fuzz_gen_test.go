@@ -430,7 +430,7 @@ func generate(s *source, bases []string) genResult {
 
 		ninstr := 2 + s.intn(6)
 		for i := 0; i < ninstr; i++ {
-			c := s.intn(37)
+			c := s.intn(38)
 			// An empty base has no shell, so RUN-based instructions cannot execute at build
 			// time; remap them to a context COPY, which scratch supports. Metadata and other
 			// file instructions are already scratch-safe (ADD url downloads into the empty fs).
@@ -779,6 +779,62 @@ func generate(s *source, bases []string) genResult {
 				} else {
 					f := srcPick(s, regulars)
 					fmt.Fprintf(&b, "COPY %s /dest/%s\n", f, f)
+				}
+			case 37:
+				// COPY --link builds its layer on an empty filesystem and keys it apart from
+				// the chain (mz1133), so whatever an earlier instruction left at the
+				// destination must not change the layer, only the merged image.
+				f := srcPick(s, regulars)
+				opt := ""
+				if s.chance(3) {
+					opt += fmt.Sprintf(" --chown=%s:%s", srcPick(s, ug), srcPick(s, ug))
+				}
+				if s.chance(3) {
+					opt += fmt.Sprintf(" --chmod=%s", srcPick(s, chmods))
+				}
+				switch s.intn(6) {
+				case 0:
+					// mz1178: a directory at a destination named without a trailing slash
+					fmt.Fprintf(&b, "COPY %s /lkdir%d/app/keep\n", srcPick(s, regulars), i)
+					fmt.Fprintf(&b, "COPY --link%s %s /lkdir%d/app\n", opt, f, i)
+				case 1:
+					fmt.Fprintf(&b, "COPY %s /lk%d/app/keep\n", srcPick(s, regulars), i)
+					fmt.Fprintf(&b, "COPY --link%s %s /lk%d/app/\n", opt, f, i)
+				case 2:
+					fmt.Fprintf(&b, "COPY %s /lk%d/x\n", srcPick(s, regulars), i)
+					fmt.Fprintf(&b, "COPY --link%s %s /lk%d/x\n", opt, f, i)
+				case 3:
+					// a symlink at the destination or at its parent is replaced, not written through
+					if scratch {
+						fmt.Fprintf(&b, "COPY --link%s %s /lk%d/p\n", opt, f, i)
+					} else {
+						fmt.Fprintf(&b, "RUN mkdir -p /lk%d/t && ln -s t /lk%d/p\n", i, i)
+						fmt.Fprintf(&b, "COPY --link%s %s /lk%d/p%s\n", opt, f, i, srcPick(s, []string{"", "/"}))
+					}
+				case 4:
+					// earlier stages, the current one excluded
+					from := len(namedStages)
+					if !last {
+						from--
+					}
+					switch {
+					case dirName != "" && s.chance(2):
+						fmt.Fprintf(&b, "COPY --link%s %s /lk%d/\n", opt, dirName, i)
+					case from > 0 && s.chance(2):
+						fmt.Fprintf(&b, "COPY --link%s --from=stage%d /stage/artifact /lk%d/a\n", opt, namedStages[s.intn(from)], i)
+					default:
+						fmt.Fprintf(&b, "COPY --link%s --from=%s /etc/hostname /lk%d/host\n", opt, srcPick(s, bases), i)
+					}
+				case 5:
+					// The same line in several stages shares one layer key over different
+					// lower filesystems, so a reused layer has to stay right on each of them.
+					switch {
+					case !scratch && s.chance(3):
+						fmt.Fprintf(&b, "RUN mkdir -p /lkt && ln -sfn /lkt /lks\n")
+					case s.chance(2):
+						fmt.Fprintf(&b, "COPY %s /lks/%s\n", srcPick(s, regulars), regulars[0])
+					}
+					fmt.Fprintf(&b, "COPY --link %s /lks/\n", regulars[0])
 				}
 			}
 		}
