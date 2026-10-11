@@ -431,11 +431,10 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 		}
 		if workdirCmd, ok := command.(*commands.WorkdirCommand); ok {
 			// only safe because the WORKDIR cache key does not read the working dir
-			workingDir, err := workdirCmd.WorkingDir(cfg, args)
+			err := workdirCmd.ApplyMetadata(&cfg, args)
 			if err != nil {
 				return "", ci, v1.Config{}, err
 			}
-			cfg.WorkingDir = workingDir
 		}
 		if opts.Cache && keyValid {
 			// mz334: cross-stage copies key off the inferred pointer first, the
