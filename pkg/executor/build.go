@@ -430,8 +430,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 			continue
 		}
 		if workdirCmd, ok := command.(*commands.WorkdirCommand); ok {
-			// WORKDIR also creates the directory, so only its config change applies here.
-			// Its own cache key does not read the working dir, so it can apply before the lookup.
+			// applies before the lookup, the WORKDIR cache key does not read the working dir
 			workingDir, err := workdirCmd.WorkingDir(cfg, args)
 			if err != nil {
 				return "", ci, v1.Config{}, err
