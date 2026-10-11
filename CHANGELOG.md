@@ -1,3 +1,120 @@
+# v1.28.6 Release 2026-10-11
+
+## Community Update
+@donbowman made their first contribution in https://github.com/osscontainertools/kaniko/pull/1136 and brought `linux/arm/v7` to the published images, so kaniko now runs on 32-bit ARM devices.
+
+Also many thanks to @7schroet and @peterlustig78 for reporting issues fixed in this release.
+
+Follow along on https://osscontainertools.org, where we post news and write about how kaniko is built, most recently on why we use feature flags: https://osscontainertools.org/blog/featureflags/
+
+## What's Changed
+### Security
+* go stdlib v1.26.8: CVE-2026-56857 CVE-2026-56866 CVE-2026-78659 CVE-2026-78660 CVE-2026-78663 CVE-2026-78667 CVE-2026-78669 CVE-2026-94439 CVE-2026-94440 CVE-2026-94448 CVE-2026-97030 CVE-2026-97031 CVE-2026-97032
+* golang.org/x/crypto v0.55.0: CVE-2026-56855 CVE-2026-78662
+* golang.org/x/net v0.58.0: CVE-2026-78659 CVE-2026-78660 CVE-2026-78663 CVE-2026-78669 CVE-2026-97032
+* `FF_KANIKO_CONFINE_COPY_SOURCE=true` block `COPY` and `ADD` from the kaniko directory: https://github.com/osscontainertools/kaniko/pull/1160
+* `FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES=true` scope `--registry-certificate` CAs to their registry: https://github.com/osscontainertools/kaniko/pull/1162
+
+### Bugfixes
+* add 32-bit platform support: by @donbowman in https://github.com/osscontainertools/kaniko/pull/1136 https://github.com/osscontainertools/kaniko/pull/1137 https://github.com/osscontainertools/kaniko/pull/1140
+* a bind-mount over a base image symlink fails with `Resource busy`: https://github.com/osscontainertools/kaniko/pull/1114 https://github.com/osscontainertools/kaniko/pull/1179 https://github.com/osscontainertools/kaniko/pull/1188
+* `ADD` from a URL ignores `FF_KANIKO_COPY_AS_ROOT`: https://github.com/osscontainertools/kaniko/pull/1146
+
+### Standardization
+* `FF_KANIKO_UNPACK_ZSTD=false` extract zstd archives in `ADD`: https://github.com/osscontainertools/kaniko/pull/1150
+* `FF_KANIKO_UNPACK_XZ=false` extract xz archives in `ADD`: https://github.com/osscontainertools/kaniko/pull/1151
+* `FF_KANIKO_ADD_UNPACK=false` honour `ADD --unpack`: https://github.com/osscontainertools/kaniko/pull/1148
+* `FF_KANIKO_COPY_LINK=false` honour `COPY --link`: https://github.com/osscontainertools/kaniko/pull/1134 https://github.com/osscontainertools/kaniko/pull/1202 https://github.com/osscontainertools/kaniko/pull/1203
+
+### Performance
+* mount relabeled cache layers instead of uploading them: https://github.com/osscontainertools/kaniko/pull/1125
+* `FF_KANIKO_DEFER_CACHE_PUSH=false` push cache layers in the background: https://github.com/osscontainertools/kaniko/pull/1163
+* `FF_KANIKO_PEEK_ARCHIVE_HEADER=false` `ADD` detect compression from the header alone: https://github.com/osscontainertools/kaniko/pull/1171
+* `FF_KANIKO_IMAGE_STAGES=false` skip unpacking the rootfs for fully cached stages: https://github.com/osscontainertools/kaniko/pull/1144
+
+### Usability
+* `FF_KANIKO_LAYER_HINTS=false` kaniko now hints at common mistakes: https://github.com/osscontainertools/kaniko/pull/1121
+
+### Telemetry
+* report the `.dockerignore`: https://github.com/osscontainertools/kaniko/pull/1117
+* report `kaniko.cache.eligible`: https://github.com/osscontainertools/kaniko/pull/1147
+* `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true` now also redacts `RUN`, `ENV` and `ARG`: https://github.com/osscontainertools/kaniko/pull/1119
+* report layer size and digest: https://github.com/osscontainertools/kaniko/pull/1120
+
+### Maintenance
+* build(deps): bump alpine in /deploy from 3.24.1 to 3.24.2: https://github.com/osscontainertools/kaniko/pull/1115
+* build(deps): bump debian in /deploy: https://github.com/osscontainertools/kaniko/pull/1116 https://github.com/osscontainertools/kaniko/pull/1164
+* build(deps): bump google.golang.org/api from 0.298.0 to 0.301.0: https://github.com/osscontainertools/kaniko/pull/1124 https://github.com/osscontainertools/kaniko/pull/1156 https://github.com/osscontainertools/kaniko/pull/1194
+* build(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager from 0.4.7 to 0.4.16: https://github.com/osscontainertools/kaniko/pull/1123 https://github.com/osscontainertools/kaniko/pull/1132 https://github.com/osscontainertools/kaniko/pull/1142 https://github.com/osscontainertools/kaniko/pull/1153 https://github.com/osscontainertools/kaniko/pull/1166 https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.113.1 to 1.114.3: https://github.com/osscontainertools/kaniko/pull/1123 https://github.com/osscontainertools/kaniko/pull/1132 https://github.com/osscontainertools/kaniko/pull/1153 https://github.com/osscontainertools/kaniko/pull/1166 https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump github.com/aws/aws-sdk-go-v2 from 1.47.0 to 1.47.3: https://github.com/osscontainertools/kaniko/pull/1132 https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.33.5 to 1.33.9: https://github.com/osscontainertools/kaniko/pull/1132 https://github.com/osscontainertools/kaniko/pull/1166 https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump busybox in /deploy: https://github.com/osscontainertools/kaniko/pull/1131
+* build(deps): bump github.com/docker/cli from 29.8.1 to 29.9.0: https://github.com/osscontainertools/kaniko/pull/1141 https://github.com/osscontainertools/kaniko/pull/1189
+* build(deps): bump go.opentelemetry.io/otel from 1.46.0 to 1.47.0: https://github.com/osscontainertools/kaniko/pull/1155
+* build(deps): bump github.com/Azure/azure-sdk-for-go/sdk/storage/azblob from 1.8.1 to 1.8.2: https://github.com/osscontainertools/kaniko/pull/1153
+* build(deps): bump github.com/go-git/go-billy/v5 from 5.9.1 to 5.9.2: https://github.com/osscontainertools/kaniko/pull/1153
+* build(deps): bump github.com/moby/buildkit from 0.33.0 to 0.34.0: https://github.com/osscontainertools/kaniko/pull/1153 https://github.com/osscontainertools/kaniko/pull/1199
+* build(deps): bump github.com/moby/moby/api from 1.56.0 to 1.56.1: https://github.com/osscontainertools/kaniko/pull/1153
+* build(deps): bump go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp from 1.46.0 to 1.47.0: https://github.com/osscontainertools/kaniko/pull/1157
+* build(deps): bump github.com/go-git/go-git/v5 from 5.19.2 to 5.19.3: https://github.com/osscontainertools/kaniko/pull/1159
+* build(deps): bump step-security/harden-runner from 2.21.1 to 2.22.1: https://github.com/osscontainertools/kaniko/pull/1161 https://github.com/osscontainertools/kaniko/pull/1170
+* build(deps): bump golang.org/x/sync from 0.23.0 to 0.24.0: https://github.com/osscontainertools/kaniko/pull/1165
+* build(deps): bump github.com/klauspost/compress from 1.19.2 to 1.20.1: https://github.com/osscontainertools/kaniko/pull/1168
+* build(deps): bump golang.org/x/sys from 0.48.0 to 0.49.0: https://github.com/osscontainertools/kaniko/pull/1167
+* build(deps): bump go from 1.26.8 to 1.26.9: https://github.com/osscontainertools/kaniko/pull/1180
+* build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.30.0 to 2.31.0: https://github.com/osscontainertools/kaniko/pull/1186
+* build(deps): bump github.com/Azure/azure-sdk-for-go/sdk/azcore from 1.23.2 to 1.23.3: https://github.com/osscontainertools/kaniko/pull/1183
+* build(deps): bump github.com/Azure/azure-sdk-for-go/sdk/internal from 1.12.0 to 1.13.0: https://github.com/osscontainertools/kaniko/pull/1183
+* build(deps): bump github.com/aws/smithy-go from 1.28.1 to 1.28.5: https://github.com/osscontainertools/kaniko/pull/1183 https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump github.com/cloudflare/circl from 1.6.3 to 1.6.5: https://github.com/osscontainertools/kaniko/pull/1183
+* build(deps): bump github.com/google/s2a-go from 0.1.10 to 0.1.11: https://github.com/osscontainertools/kaniko/pull/1183
+* build(deps): bump github.com/googleapis/enterprise-certificate-proxy from 0.3.22 to 0.3.23: https://github.com/osscontainertools/kaniko/pull/1183
+* build(deps): bump github.com/moby/sys/userns from 0.2.0 to 0.2.1: https://github.com/osscontainertools/kaniko/pull/1183
+* build(deps): bump github.com/skeema/knownhosts from 1.3.1 to 1.3.3: https://github.com/osscontainertools/kaniko/pull/1183
+* build(deps): bump github.com/zeebo/assert from 1.3.0 to 1.3.1: https://github.com/osscontainertools/kaniko/pull/1183
+* build(deps): bump go.opentelemetry.io/proto/otlp from 1.11.0 to 1.11.1: https://github.com/osscontainertools/kaniko/pull/1183
+* build(deps): bump github.com/AzureAD/microsoft-authentication-library-for-go from 1.8.0 to 1.10.1: https://github.com/osscontainertools/kaniko/pull/1185
+* build(deps): bump github.com/kevinburke/ssh_config from 1.2.0 to 1.6.0: https://github.com/osscontainertools/kaniko/pull/1187
+* build(deps): bump github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream from 1.7.20 to 1.7.22: https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump github.com/aws/aws-sdk-go-v2/credentials from 1.20.7 to 1.20.9: https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump github.com/aws/aws-sdk-go-v2/feature/ec2/imds from 1.20.1 to 1.20.3: https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump github.com/aws/aws-sdk-go-v2/internal/configsources from 1.5.4 to 1.5.6: https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 from 2.8.4 to 2.8.6: https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump github.com/aws/aws-sdk-go-v2/internal/v4a from 1.5.4 to 1.5.6: https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding from 1.13.19 to 1.13.21: https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/internal/checksum from 1.11.5 to 1.11.7: https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/internal/presigned-url from 1.14.4 to 1.14.6: https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/internal/s3shared from 1.20.4 to 1.20.6: https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/signin from 1.10.2 to 1.10.4: https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/sso from 1.38.2 to 1.38.4: https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/ssooidc from 1.43.2 to 1.43.4: https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/sts from 1.51.2 to 1.51.4: https://github.com/osscontainertools/kaniko/pull/1190
+* build(deps): bump github.com/Microsoft/go-winio from 0.6.3-0.20251027160822-ad3df93bed29 to 0.6.3: https://github.com/osscontainertools/kaniko/pull/1191
+* build(deps): bump github.com/containerd/log from 0.1.0 to 0.2.0: https://github.com/osscontainertools/kaniko/pull/1193
+* build(deps): bump cloud.google.com/go/auth from 0.24.0 to 0.24.1: https://github.com/osscontainertools/kaniko/pull/1189
+* build(deps): bump github.com/docker/docker-credential-helpers from 0.9.9 to 0.9.10: https://github.com/osscontainertools/kaniko/pull/1189
+* build(deps): bump golang.org/x/crypto from 0.57.0 to 0.58.0: https://github.com/osscontainertools/kaniko/pull/1189
+* build(deps): bump golang.org/x/net from 0.59.0 to 0.61.0: https://github.com/osscontainertools/kaniko/pull/1189
+* build(deps): bump golang.org/x/text from 0.42.0 to 0.43.0: https://github.com/osscontainertools/kaniko/pull/1189
+* build(deps): bump go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp from 0.71.0 to 0.72.0: https://github.com/osscontainertools/kaniko/pull/1196
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/ecr from 1.55.3 to 1.66.3: https://github.com/osscontainertools/kaniko/pull/1195 https://github.com/osscontainertools/kaniko/pull/1204
+* build(deps): bump github.com/osscontainertools/docker-credential-acr from 0.9.1 to 0.9.2: https://github.com/osscontainertools/kaniko/pull/1197
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/ecrpublic from 1.38.10 to 1.47.3: https://github.com/osscontainertools/kaniko/pull/1192 https://github.com/osscontainertools/kaniko/pull/1204
+* build(deps): bump github.com/sergi/go-diff from 1.3.2-0.20230802210424-5b0b94c5c0d3 to 1.4.0: https://github.com/osscontainertools/kaniko/pull/1200
+
+### Fork Related
+* update docs: https://github.com/osscontainertools/kaniko/pull/1118 https://github.com/osscontainertools/kaniko/pull/1127 https://github.com/osscontainertools/kaniko/pull/1135
+* fix MOUNT and UPLOAD in the `--dryrun` plan: https://github.com/osscontainertools/kaniko/pull/1129
+* add OCI labels and an SBOM to kaniko images: https://github.com/osscontainertools/kaniko/pull/1169
+* fix the k3s version pin in CI: https://github.com/osscontainertools/kaniko/pull/1182
+* bump indirect dependencies with dependabot: https://github.com/osscontainertools/kaniko/pull/1181
+
+### Refactorings
+* hoist cached layer extraction into build: https://github.com/osscontainertools/kaniko/pull/1143
+* replace the -1 owner sentinel with nil: https://github.com/osscontainertools/kaniko/pull/1139
+
+
 # v1.28.5 Release 2026-09-20
 
 ## Community Update
