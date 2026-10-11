@@ -71,6 +71,7 @@ var (
 	quotedHeredocPath = regexp.MustCompile(`\bhq[0-9]+/`)
 	copyParentsPath   = regexp.MustCompile(`\bparents[0-9]+/`)
 	copyExcludePath   = regexp.MustCompile(`\bexcl[0-9]+/`)
+	copyLinkIntoDir   = regexp.MustCompile(`\blkdir[0-9]+/`)
 	// the downloaded archive lands in the bare dir, the plain download as urlgetN/addfile
 	urlUnpackOwner = regexp.MustCompile(`\burlget[0-9]+/(inside/\S*)?\s+(Uid|Gid) `)
 )
@@ -100,6 +101,14 @@ var dockerKnownDivergences = []knownDivergence{
 		flag: "",
 		match: func(row string) bool {
 			return urlUnpackOwner.MatchString(row)
+		},
+	},
+	{
+		name: "copy-link-into-existing-dir",
+		why:  "mz1178: COPY --link to a destination without a trailing slash copies into a directory an earlier layer made, where buildkit replaces the directory with the file",
+		flag: "FF_KANIKO_COPY_LINK",
+		match: func(row string) bool {
+			return copyLinkIntoDir.MatchString(row)
 		},
 	},
 	{
@@ -214,6 +223,14 @@ var knownCrashes = []knownDivergence{
 		flag: "FF_KANIKO_CACHE_LOOKAHEAD",
 		match: func(crash string) bool {
 			return strings.Contains(crash, "executor.build.cache-lookahead")
+		},
+	},
+	{
+		name: "copy-link-key-pass-mismatch",
+		why:  "mz1201: with FF_KANIKO_COPY_LINK and --cache a COPY --link after WORKDIR gets a different layer key in the optimize and the build pass, and the executor.compositekey.pass-match assertion fires",
+		flag: "FF_KANIKO_COPY_LINK",
+		match: func(crash string) bool {
+			return strings.Contains(crash, "executor.compositekey.pass-match") && strings.Contains(crash, "COPY --link")
 		},
 	},
 }
