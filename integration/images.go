@@ -297,6 +297,7 @@ var executorImages = map[string]string{
 var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz822":                {"--cache=true", "--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz1133_cache":         {"--cache-copy-layers=true"},
+	"Dockerfile_test_issue_mz1201":               {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz824":                {"--cache=true"},
 	"Dockerfile_test_issue_519":                  {"--target=final_stage,nosquash1,nosquash2"},
 	"Dockerfile_test_issue_mz849":                {"--image-format=docker"},
@@ -700,6 +701,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz896":        {},
 		"Dockerfile_test_issue_mz960":        {},
 		"Dockerfile_test_issue_mz1133_cache": {},
+		"Dockerfile_test_issue_mz1201":       {},
 	}
 	d.TestOCICacheDockerfiles = map[string]struct{}{
 		"Dockerfile_test_cache_oci":         {},

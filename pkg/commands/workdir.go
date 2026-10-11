@@ -53,16 +53,24 @@ func ToAbsPath(path string, workdir string) string {
 // For testing
 var mkdirAllWithPermissions = util.MkdirAllWithPermissions
 
+func (w *WorkdirCommand) WorkingDir(config v1.Config, buildArgs *dockerfile.BuildArgs) (string, error) {
+	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
+	resolvedWorkingDir, err := util.ResolveEnvironmentReplacement(w.cmd.Path, replacementEnvs, true)
+	if err != nil {
+		return "", err
+	}
+	return ToAbsPath(resolvedWorkingDir, config.WorkingDir), nil
+}
+
 func (w *WorkdirCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
 	logrus.Info("Cmd: workdir")
-	workdirPath := w.cmd.Path
-	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
-	resolvedWorkingDir, err := util.ResolveEnvironmentReplacement(workdirPath, replacementEnvs, true)
+	workingDir, err := w.WorkingDir(*config, buildArgs)
 	if err != nil {
 		return err
 	}
-	config.WorkingDir = ToAbsPath(resolvedWorkingDir, config.WorkingDir)
+	config.WorkingDir = workingDir
 	logrus.Infof("Changed working directory to %s", config.WorkingDir)
+	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 
 	// Only create and snapshot the dir if it didn't exist already
 	w.snapshotFiles = []string{}
