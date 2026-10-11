@@ -137,6 +137,11 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 			download := urlDest
 			if unpackRemote {
 				download = filepath.Join(staging, filepath.Base(urlDest))
+			} else if kConfig.FF.CopyLink && a.cmd.Link {
+				err = materializeLinkDest(urlDest)
+				if err != nil {
+					return fmt.Errorf("materializing link destination: %w", err)
+				}
 			}
 			logrus.Infof("Adding remote URL %s to %s", src, urlDest)
 			if err := util.DownloadFileToDest(src, download, owner, chmod.Apply(0o600), checksum); err != nil {
@@ -151,6 +156,12 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				if err != nil {
 					return fmt.Errorf("determining dest for tar: %w", err)
 				}
+				if kConfig.FF.CopyLink && a.cmd.Link {
+					err = materializeLinkDest(tarDest)
+					if err != nil {
+						return fmt.Errorf("materializing link destination: %w", err)
+					}
+				}
 				logrus.Infof("Unpacking remote archive %s to %s", src, tarDest)
 				extractedFiles, err := util.UnpackLocalTarArchive(download, tarDest)
 				if err != nil {
@@ -161,6 +172,12 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 			default:
 				// docker places a download that turns out not to be an archive, --unpack is not an assertion
 				// an existing parent is left alone, MkdirAllWithPermissions would replace a symlink with a directory
+				if kConfig.FF.CopyLink && a.cmd.Link {
+					err = materializeLinkDest(urlDest)
+					if err != nil {
+						return fmt.Errorf("materializing link destination: %w", err)
+					}
+				}
 				parent := filepath.Dir(urlDest)
 				_, err := os.Lstat(parent)
 				if os.IsNotExist(err) {
@@ -193,6 +210,12 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 			tarDest, err := util.DestinationFilepath("", dest, config.WorkingDir)
 			if err != nil {
 				return fmt.Errorf("determining dest for tar: %w", err)
+			}
+			if kConfig.FF.CopyLink && a.cmd.Link {
+				err = materializeLinkDest(tarDest)
+				if err != nil {
+					return fmt.Errorf("materializing link destination: %w", err)
+				}
 			}
 			logrus.Infof("Unpacking local tar archive %s to %s", src, tarDest)
 			extractedFiles, err := util.UnpackLocalTarArchive(fullPath, tarDest)
