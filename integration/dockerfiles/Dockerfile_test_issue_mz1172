@@ -1,10 +1,13 @@
 # mz1172: a file the runtime mounts directly under a base image symlink whose target already exists
 # fails since main@05bf52aa9 with "rename /z/lib.so /a/lib.so: device or resource busy".
+# mz1177: where the base ships a file at the mounted name, it fails since main@05bf52aa9 with
+# "cannot move the mounted path /y/lib.so to /c/lib.so: the base image ships a file there".
 ARG IMAGE_REPO
 FROM busybox AS base
-# one layer, so tar orders a ahead of z and the target exists when the link arrives
-RUN mkdir /a && echo base > /a/b && ln -s /a /z
+# one layer, so tar orders a and c ahead of z and y and the targets exist when the links arrive
+RUN mkdir /a /c && echo base > /a/b && echo base > /c/lib.so && ln -s /a /z && ln -s /c /y
 
 FROM ${IMAGE_REPO}test-issue-mz1172-base:latest
 RUN echo mz1172 > /z/data && cat /a/data
 RUN cat /z/b
+RUN echo mz1177 > /y/data && cat /c/data
