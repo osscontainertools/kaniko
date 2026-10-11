@@ -17,9 +17,11 @@ limitations under the License.
 package util
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/sirupsen/logrus"
@@ -45,7 +47,7 @@ func relocateMountedPaths(dest, path, linkname string) (bool, error) {
 		return false, nil
 	}
 	logrus.Debugf("Moving the mounts under %s to %s, %s is the name the base image ships as a symlink", path, target, path)
-	if err := moveMounts(path, target); err != nil {
+	if err := moveMounts(path, target, true); err != nil {
 		return false, err
 	}
 	if err := InitIgnoreList(); err != nil {
@@ -56,7 +58,7 @@ func relocateMountedPaths(dest, path, linkname string) (bool, error) {
 
 // everything the ignore list does not pin is already gone from src, so what is left to move is the
 // mounts and the directories holding them
-func moveMounts(src, dst string) error {
+func moveMounts(src, dst string, swap bool) error {
 	srcInfo, err := os.Lstat(src)
 	if err != nil {
 		return err
@@ -68,7 +70,11 @@ func moveMounts(src, dst string) error {
 			return err
 		}
 		for _, entry := range entries {
-			err := moveMounts(filepath.Join(src, entry.Name()), filepath.Join(dst, entry.Name()))
+			err := moveMounts(filepath.Join(src, entry.Name()), filepath.Join(dst, entry.Name()), true)
+			if swap && errors.Is(err, syscall.EBUSY) {
+				// the entry is a mount itself, so src moves whole and what dst holds moves into it
+				return swapMounts(src, dst, dstInfo)
+			}
 			if err != nil {
 				return err
 			}
@@ -85,4 +91,25 @@ func moveMounts(src, dst string) error {
 		return fmt.Errorf("cannot move the mounted path %s to %s: %w", src, dst, err)
 	}
 	return nil
+}
+
+func swapMounts(src, dst string, dstInfo os.FileInfo) error {
+	aside, err := os.MkdirTemp(filepath.Dir(dst), ".kaniko-")
+	if err != nil {
+		return err
+	}
+	if err := os.Rename(dst, aside); err != nil {
+		return fmt.Errorf("cannot move %s aside for the mounted path %s: %w", dst, src, err)
+	}
+	if err := os.Rename(src, dst); err != nil {
+		return fmt.Errorf("cannot move the mounted path %s to %s: %w", src, dst, err)
+	}
+	stat := dstInfo.Sys().(*syscall.Stat_t)
+	if err := os.Lchown(dst, int(stat.Uid), int(stat.Gid)); err != nil {
+		return err
+	}
+	if err := os.Chmod(dst, dstInfo.Mode()); err != nil {
+		return err
+	}
+	return moveMounts(aside, dst, false)
 }
