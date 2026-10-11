@@ -429,6 +429,15 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 		if command == nil {
 			continue
 		}
+		if workdirCmd, ok := command.(*commands.WorkdirCommand); ok {
+			// WORKDIR also creates the directory, so only its config change applies here.
+			// Its own cache key does not read the working dir, so it can apply before the lookup.
+			workingDir, err := workdirCmd.WorkingDir(cfg, args)
+			if err != nil {
+				return "", ci, v1.Config{}, err
+			}
+			cfg.WorkingDir = workingDir
+		}
 		if opts.Cache && keyValid {
 			// mz334: cross-stage copies key off the inferred pointer first, the
 			// source files do not exist during precompute or after elimination.
@@ -543,15 +552,16 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 					if !config.FF.CacheProbeAfterMiss {
 						stopCache = true
 					}
-				} else {
-					ci.cacheHits[i] = true
-					if cacheCmd := command.CacheCommand(img); cacheCmd != nil {
-						if sawCacheMiss {
-							logrus.Debugf("Applying cached layer for cmd %s after an earlier miss in the same stage (FF_KANIKO_CACHE_PROBE_AFTER_MISS)", command.String())
-						}
-						logrus.Infof("Using caching version of cmd: %s", command.String())
-						s.cmds[i] = cacheCmd
+					continue
+				}
+
+				ci.cacheHits[i] = true
+				if cacheCmd := command.CacheCommand(img); cacheCmd != nil {
+					if sawCacheMiss {
+						logrus.Debugf("Applying cached layer for cmd %s after an earlier miss in the same stage (FF_KANIKO_CACHE_PROBE_AFTER_MISS)", command.String())
 					}
+					logrus.Infof("Using caching version of cmd: %s", command.String())
+					s.cmds[i] = cacheCmd
 				}
 			}
 		}
@@ -561,13 +571,6 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 			if err := command.ExecuteCommand(&cfg, args); err != nil {
 				return "", ci, v1.Config{}, err
 			}
-		} else if workdirCmd, ok := command.(*commands.WorkdirCommand); ok {
-			// WORKDIR also creates the directory, so only its config change applies here
-			workingDir, err := workdirCmd.WorkingDir(cfg, args)
-			if err != nil {
-				return "", ci, v1.Config{}, err
-			}
-			cfg.WorkingDir = workingDir
 		}
 	}
 
