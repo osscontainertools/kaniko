@@ -21,9 +21,9 @@ RUN test "$(cat /old)" = "$(cat /keep/foo)"
 RUN test ! -L /xlink && test "$(cat /xlink/file)" = built && test ! -e /xreal/file
 RUN mkdir -p /treal /ureal /xureal /preal && ln -s /treal /tlink && ln -s /ureal /ulink && ln -s /xureal /xulink && ln -s /preal /plink
 ADD --link context/tars/file.tar /tlink/
-ADD --link https://raw.githubusercontent.com/osscontainertools/kaniko/main/README.md /ulink/
+ADD --link https://raw.githubusercontent.com/osscontainertools/kaniko/e89c20ae932296e04f44c838b5580d39b00e19d8/README.md /ulink/
 ADD --link --unpack=true https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz /xulink/
-ADD --link --unpack=true https://raw.githubusercontent.com/osscontainertools/kaniko/main/README.md /plink/
+ADD --link --unpack=true https://raw.githubusercontent.com/osscontainertools/kaniko/e89c20ae932296e04f44c838b5580d39b00e19d8/README.md /plink/
 RUN test ! -L /tlink && test ! -L /ulink && test ! -L /xulink && test ! -L /plink && test -z "$(find /treal /ureal /xureal /preal -mindepth 1)"
 RUN adduser -D -u 1234 app
 USER app
