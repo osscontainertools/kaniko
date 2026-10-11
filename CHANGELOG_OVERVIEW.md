@@ -1,12 +1,12 @@
 ## What's changed since Google's v1.24.0
 ### Security
-* go stdlib v1.24.3: CVE-2025-0913 CVE-2025-4673 CVE-2025-4674 CVE-2025-22874 CVE-2025-47906 CVE-2025-47907 CVE-2025-47912 CVE-2025-58183 CVE-2025-58185 CVE-2025-58186 CVE-2025-58187 CVE-2025-58188 CVE-2025-58189 CVE-2025-61723 CVE-2025-61724 CVE-2025-61725 CVE-2025-61729 CVE-2025-61727 CVE-2025-61726 CVE-2025-61728 CVE-2025-61730 CVE-2025-68121 CVE-2026-27137 CVE-2026-25679 CVE-2026-27142 CVE-2026-27138 CVE-2026-27139 CVE-2026-32280 CVE-2026-33810 CVE-2026-32281 CVE-2026-32283 CVE-2026-32282 CVE-2026-32289 CVE-2026-32288 CVE-2026-33811 CVE-2026-33814 CVE-2026-39820 CVE-2026-39836 CVE-2026-42499 CVE-2026-39823 CVE-2026-39825 CVE-2026-39826 CVE-2026-42504 CVE-2026-27145 CVE-2026-42507 CVE-2026-39822 CVE-2026-42505 CVE-2026-33818 CVE-2026-46600 CVE-2026-56853 CVE-2026-56858 CVE-2026-56859 CVE-2026-56860 CVE-2026-56862
+* go stdlib v1.24.3: CVE-2025-0913 CVE-2025-4673 CVE-2025-4674 CVE-2025-22874 CVE-2025-47906 CVE-2025-47907 CVE-2025-47912 CVE-2025-58183 CVE-2025-58185 CVE-2025-58186 CVE-2025-58187 CVE-2025-58188 CVE-2025-58189 CVE-2025-61723 CVE-2025-61724 CVE-2025-61725 CVE-2025-61729 CVE-2025-61727 CVE-2025-61726 CVE-2025-61728 CVE-2025-61730 CVE-2025-68121 CVE-2026-27137 CVE-2026-25679 CVE-2026-27142 CVE-2026-27138 CVE-2026-27139 CVE-2026-32280 CVE-2026-33810 CVE-2026-32281 CVE-2026-32283 CVE-2026-32282 CVE-2026-32289 CVE-2026-32288 CVE-2026-33811 CVE-2026-33814 CVE-2026-39820 CVE-2026-39836 CVE-2026-42499 CVE-2026-39823 CVE-2026-39825 CVE-2026-39826 CVE-2026-42504 CVE-2026-27145 CVE-2026-42507 CVE-2026-39822 CVE-2026-42505 CVE-2026-33818 CVE-2026-46600 CVE-2026-56853 CVE-2026-56858 CVE-2026-56859 CVE-2026-56860 CVE-2026-56862 CVE-2026-56857 CVE-2026-56866 CVE-2026-78659 CVE-2026-78660 CVE-2026-78663 CVE-2026-78667 CVE-2026-78669 CVE-2026-94439 CVE-2026-94440 CVE-2026-94448 CVE-2026-97030 CVE-2026-97031 CVE-2026-97032
 * containerd v1.7.27: GHSA-m6hq-p25p-ffr2 GHSA-pwhc-rpq9-4c8w
 * containerd-v2 v2.1.1: GHSA-m6hq-p25p-ffr2 GHSA-pwhc-rpq9-4c8w
 * selinux v1.12.0: GHSA-cgrx-mc8f-2prm
 * remove binary artifacts: by @tlk in https://github.com/mzihlmann/kaniko/pull/54
-* golang.org/x/crypto 0.44.0: CVE-2025-47914 CVE-2025-58181 CVE-2026-39827 CVE-2026-39828 CVE-2026-39829 CVE-2026-39830 CVE-2026-39831 CVE-2026-39832 CVE-2026-39833 CVE-2026-39834 CVE-2026-39835 CVE-2026-42508 CVE-2026-46595 CVE-2026-46597 CVE-2026-46598 CVE-2026-56854
-* golang.org/x/net 0.40.0: CVE-2026-25680 CVE-2026-25681 CVE-2026-27136 CVE-2026-39821 CVE-2026-42502 CVE-2026-42506
+* golang.org/x/crypto 0.44.0: CVE-2025-47914 CVE-2025-58181 CVE-2026-39827 CVE-2026-39828 CVE-2026-39829 CVE-2026-39830 CVE-2026-39831 CVE-2026-39832 CVE-2026-39833 CVE-2026-39834 CVE-2026-39835 CVE-2026-42508 CVE-2026-46595 CVE-2026-46597 CVE-2026-46598 CVE-2026-56854 CVE-2026-56855 CVE-2026-78662
+* golang.org/x/net 0.40.0: CVE-2026-25680 CVE-2026-25681 CVE-2026-27136 CVE-2026-39821 CVE-2026-42502 CVE-2026-42506 CVE-2026-78659 CVE-2026-78660 CVE-2026-78663 CVE-2026-78669 CVE-2026-97032
 * golang.org/x/text 0.25.0: CVE-2026-56852
 * github.com/docker/cli v29.4.1: CVE-2025-15558
 * github.com/go-git/go-billy/v5 v5.8.0: CVE-2026-44973 CVE-2026-44740
@@ -21,6 +21,8 @@
 * 🔗 `FF_KANIKO_SECUREJOIN_EXTRACTION=true` symlink-based path traversal during tar extraction prevented with SecureJoin: by @8none1 in https://github.com/osscontainertools/kaniko/pull/828
 * generate integration tar fixtures on the fly instead of storing opaque binaries: https://github.com/osscontainertools/kaniko/pull/844
 * prevent Azure token disclosure to lookalike `azurecr.io` hostnames: https://github.com/osscontainertools/kaniko/pull/1004
+* `FF_KANIKO_CONFINE_COPY_SOURCE=true` block `COPY` and `ADD` from the kaniko directory: https://github.com/osscontainertools/kaniko/pull/1160
+* `FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES=true` scope `--registry-certificate` CAs to their registry: https://github.com/osscontainertools/kaniko/pull/1162
 
 ### Bugfixes
 * cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3
@@ -44,7 +46,7 @@
 * push ignores a credential configured for the exact destination repository: by @WoozyMasta in https://github.com/osscontainertools/kaniko/pull/1014 https://github.com/osscontainertools/kaniko/pull/1046
 * `COPY` of a tree that spans a mount point hardlinks unrelated files together: https://github.com/osscontainertools/kaniko/pull/979
 * `COPY` of a directory containing a fifo hangs the build: https://github.com/osscontainertools/kaniko/pull/948
-* `FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS=false` a bind-mount over a base image symlink breaks every `RUN`: https://github.com/osscontainertools/kaniko/pull/1080
+* `FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS=false` a bind-mount over a base image symlink breaks every `RUN`: https://github.com/osscontainertools/kaniko/pull/1080 https://github.com/osscontainertools/kaniko/pull/1114 https://github.com/osscontainertools/kaniko/pull/1179 https://github.com/osscontainertools/kaniko/pull/1188
 
 ### Standardization
 * sticky bit gets lost on COPY: https://github.com/mzihlmann/kaniko/pull/45
@@ -81,6 +83,10 @@
 * `FF_KANIKO_COPY_SKIP_SPECIAL_FILES=false` skip sockets and device files during `COPY`, matching Docker: https://github.com/osscontainertools/kaniko/pull/948
 * `FF_KANIKO_ADD_CHECKSUM=false` verify the digest `ADD --checksum` states: https://github.com/osscontainertools/kaniko/pull/1027
 * `FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT=false` `--reproducible` keeps the requested compression and format: https://github.com/osscontainertools/kaniko/pull/1047
+* `FF_KANIKO_UNPACK_ZSTD=false` extract zstd archives in `ADD`: https://github.com/osscontainertools/kaniko/pull/1150
+* `FF_KANIKO_UNPACK_XZ=false` extract xz archives in `ADD`: https://github.com/osscontainertools/kaniko/pull/1151
+* `FF_KANIKO_ADD_UNPACK=false` honour `ADD --unpack`: https://github.com/osscontainertools/kaniko/pull/1148
+* `FF_KANIKO_COPY_LINK=false` honour `COPY --link`: https://github.com/osscontainertools/kaniko/pull/1134
 
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
@@ -114,6 +120,9 @@
 * `FF_KANIKO_CACHE_HASH_BLAKE3=false` hash cache-key inputs with blake3 instead of md5: by @BobDu in https://github.com/osscontainertools/kaniko/pull/1042
 * `FF_KANIKO_POOL_REGISTRY_CONNECTIONS=false` share one connection pool per registry: https://github.com/osscontainertools/kaniko/pull/972
 * `CopyDir` repeats stat and utimensat calls for every file: https://github.com/osscontainertools/kaniko/pull/1049
+* `FF_KANIKO_DEFER_CACHE_PUSH=false` push cache layers in the background: https://github.com/osscontainertools/kaniko/pull/1163
+* `FF_KANIKO_PEEK_ARCHIVE_HEADER=false` `ADD` detect compression from the header alone: https://github.com/osscontainertools/kaniko/pull/1171
+* `FF_KANIKO_IMAGE_STAGES=false` skip unpacking the rootfs for fully cached stages: https://github.com/osscontainertools/kaniko/pull/1144
 
 ### Usability
 * if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
@@ -145,6 +154,8 @@
 * `--image-format=docker|oci` pins the output manifest media type instead of inheriting it from the base image: https://github.com/osscontainertools/kaniko/pull/850
 * `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=false` match an `auths` entry by repository namespace: by @WoozyMasta in https://github.com/osscontainertools/kaniko/pull/1002
 * experimental support for bakefile via `kaniko bake`: https://github.com/osscontainertools/kaniko/pull/773
+* add 32-bit platform support: by @donbowman in https://github.com/osscontainertools/kaniko/pull/1136 https://github.com/osscontainertools/kaniko/pull/1137 https://github.com/osscontainertools/kaniko/pull/1140
+* `FF_KANIKO_LAYER_HINTS=false` kaniko now hints at common mistakes: https://github.com/osscontainertools/kaniko/pull/1121
 
 ### Telemetry
 * opt-in OpenTelemetry tracing via `KANIKO_TELEMETRY_ENDPOINT`, one trace per build: by @babs in https://github.com/osscontainertools/kaniko/pull/902 https://github.com/osscontainertools/kaniko/pull/951 https://github.com/osscontainertools/kaniko/pull/913 https://github.com/osscontainertools/kaniko/pull/931 https://github.com/osscontainertools/kaniko/pull/1019
@@ -155,6 +166,10 @@
 * `KANIKO_TELEMETRY_TOKEN_EXCHANGE_ENDPOINT` exchanges a CI identity token for a collector token: https://github.com/osscontainertools/kaniko/pull/1071
 * read CI attributes from github and gitlab predefined variables: https://github.com/osscontainertools/kaniko/pull/1072
 * `kaniko.build_id` derives from the CI job instead of the Dockerfile: https://github.com/osscontainertools/kaniko/pull/1072
+* report the `.dockerignore`: https://github.com/osscontainertools/kaniko/pull/1117
+* report `kaniko.cache.eligible`: https://github.com/osscontainertools/kaniko/pull/1147
+* `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true` now also redacts `RUN`, `ENV` and `ARG`: https://github.com/osscontainertools/kaniko/pull/1119
+* report layer size and digest: https://github.com/osscontainertools/kaniko/pull/1120
 
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
