@@ -178,22 +178,6 @@ var knownBuildFailures = []knownDivergence{
 		},
 	},
 	{
-		name: "mounted-file-under-two-symlinks",
-		why:  "mz1172: with FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS a file bind-mounted under a path the base reaches through two symlinks is renamed itself, and the rename of a mount point fails with device or resource busy",
-		flag: "FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS",
-		match: func(out string) bool {
-			return strings.Contains(out, "cannot move the mounted path") && strings.Contains(out, "device or resource busy")
-		},
-	},
-	{
-		name: "mounted-file-over-base-file",
-		why:  "mz1177: with FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS a file mounted where the base, reached through a symlink, ships a file of its own fails the unpack",
-		flag: "FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS",
-		match: func(out string) bool {
-			return strings.Contains(out, "cannot move the mounted path") && strings.Contains(out, "the base image ships a file there")
-		},
-	},
-	{
 		name: "workdir-named-user-no-passwd-db",
 		why:  "mz1173: WORKDIR after USER with a name fails on a scratch base, the same lookup as mz897 reached from WORKDIR",
 		flag: "",
