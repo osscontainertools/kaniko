@@ -181,9 +181,6 @@ func buildRequiredImages() error {
 		name:    "Building mz1172 base image",
 		command: []string{"docker", "build", "--push", "-t", config.mz1172BaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz1172", "--target", "base", "."},
 	}, {
-		name:    "Building mz1177 base image",
-		command: []string{"docker", "build", "--push", "-t", config.mz1177BaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz1177", "--target", "base", "."},
-	}, {
 		name: "Building single manifest base image",
 		command: append(append([]string{"docker", "build", "--push"}, dockerV2Flags...),
 			"-t", config.singleManifestBaseImage, "-f", dockerfilesPath+"/Dockerfile_test_issue_2567",
@@ -1870,7 +1867,6 @@ func initIntegrationTestConfig() *integrationTestConfig {
 	c.mz1073BaseImage = c.imageRepo + "test-issue-mz1073-base:latest"
 	c.mz1113BaseImage = c.imageRepo + "test-issue-mz1113-base:latest"
 	c.mz1172BaseImage = c.imageRepo + "test-issue-mz1172-base:latest"
-	c.mz1177BaseImage = c.imageRepo + "test-issue-mz1177-base:latest"
 	c.singleManifestBaseImage = c.imageRepo + "single-manifest-base:latest"
 	return &c
 }
