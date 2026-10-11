@@ -58,7 +58,17 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 
 	var owner *util.Owner
 	if kConfig.FF.CopyLink && a.cmd.Link {
-		owner, err = util.GetNumericUserGroup(a.cmd.Chown, replacementEnvs)
+		chown := a.cmd.Chown
+		if chown == "" {
+			chown = config.User
+			if kConfig.FF.CopyAsRoot {
+				chown = "0:0"
+			}
+		}
+		owner, err = util.GetNumericUserGroup(chown, replacementEnvs)
+		if err != nil && a.cmd.Chown == "" {
+			return fmt.Errorf("ADD --link needs a numeric USER or --chown, got USER %q: %w", config.User, err)
+		}
 		if err != nil {
 			return fmt.Errorf("getting user group from chown: %w", err)
 		}
