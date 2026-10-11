@@ -16,6 +16,7 @@ var Tests = types.GoldenTests{
 			Args: []string{"--no-push", "--cache", "--cache-copy-layers"},
 			Env: map[string]string{
 				"FF_KANIKO_CACHE_LOOKAHEAD":             "1",
+				"FF_KANIKO_IMAGE_STAGES":                "0",
 				"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "0",
 				"FF_KANIKO_PLATFORM_CACHE_KEY":          "0",
 				"FF_KANIKO_RESOLVE_CACHE_KEY":           "0",

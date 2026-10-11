@@ -9,6 +9,7 @@ var Tests = types.GoldenTests{
 		{
 			Args: []string{"--no-push"},
 			Env: map[string]string{
+				"FF_KANIKO_IMAGE_STAGES":      "0",
 				"FF_KANIKO_SHARED_BASE_CACHE": "0",
 			},
 			// TODO: clean after first-stage is unnecesary
@@ -17,6 +18,7 @@ var Tests = types.GoldenTests{
 		{
 			Args: []string{"--no-push", "--target=fifth-stage"},
 			Env: map[string]string{
+				"FF_KANIKO_IMAGE_STAGES":      "0",
 				"FF_KANIKO_SHARED_BASE_CACHE": "0",
 			},
 			Plan: "normal",
@@ -25,6 +27,7 @@ var Tests = types.GoldenTests{
 			Args: []string{"--destination=registry"},
 			Env: map[string]string{
 				"FF_KANIKO_CROSS_REPO_MOUNT":  "0",
+				"FF_KANIKO_IMAGE_STAGES":      "0",
 				"FF_KANIKO_SHARED_BASE_CACHE": "0",
 			},
 			Plan: "push",
@@ -32,6 +35,7 @@ var Tests = types.GoldenTests{
 		{
 			Args: []string{"--no-push", "--target=fourth-stage"},
 			Env: map[string]string{
+				"FF_KANIKO_IMAGE_STAGES":      "0",
 				"FF_KANIKO_SHARED_BASE_CACHE": "0",
 			},
 			Plan: "fourth",
