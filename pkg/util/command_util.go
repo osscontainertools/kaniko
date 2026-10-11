@@ -418,6 +418,32 @@ func GetUserGroup(chownStr string, env []string) (*Owner, error) {
 	return &Owner{UID: uid32, GID: gid32}, nil
 }
 
+func GetNumericUserGroup(chownStr string, env []string) (*Owner, error) {
+	if chownStr == "" {
+		return nil, nil
+	}
+
+	chown, err := ResolveEnvironmentReplacement(chownStr, env, false)
+	if err != nil {
+		return nil, err
+	}
+
+	userStr, groupStr, hasGroup := strings.Cut(chown, ":")
+	uid32, err := getUID(userStr)
+	if err != nil {
+		return nil, fmt.Errorf("user %q is not numeric: %w", userStr, err)
+	}
+	gid32 := uid32
+	if hasGroup {
+		gid32, err = getGID(groupStr)
+		if err != nil {
+			return nil, fmt.Errorf("group %q is not numeric: %w", groupStr, err)
+		}
+	}
+
+	return &Owner{UID: uid32, GID: gid32}, nil
+}
+
 func GetChmod(chmodStr string, env []string) (chmod mode.Set, useDefault bool, err error) {
 	if chmodStr == "" {
 		return mode.Set{}, true, nil

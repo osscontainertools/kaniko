@@ -1,0 +1,31 @@
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS builder
+RUN mkdir -p /out && printf built > /out/file
+
+FROM ${IMAGE_REPO}busybox
+
+# mz1133: a --link copy writes to the destination as written, not through the
+# symlinks the layers below put there, whether the source is the build context
+# or another stage. Each case below was checked against docker first.
+RUN mkdir -p /real /keep /xreal && ln -s /real /link && ln -s /xreal /xlink
+RUN echo base > /keep/base && printf target > /target && ln -s /target /aslink && printf old > /old
+COPY --link context/foo /link/foo
+COPY --link context/foo /keep/foo
+COPY --link context/foo /aslink
+COPY --link context/foo /old
+COPY --link --from=builder /out/file /xlink/file
+RUN test ! -L /link && test -f /link/foo && test ! -e /real/foo
+RUN test -f /keep/base && test -f /keep/foo
+RUN test ! -L /aslink && test "$(cat /target)" = target
+RUN test "$(cat /old)" = "$(cat /keep/foo)"
+RUN test ! -L /xlink && test "$(cat /xlink/file)" = built && test ! -e /xreal/file
+RUN mkdir -p /treal /ureal /xureal /preal && ln -s /treal /tlink && ln -s /ureal /ulink && ln -s /xureal /xulink && ln -s /preal /plink
+ADD --link context/tars/file.tar /tlink/
+ADD --link https://raw.githubusercontent.com/osscontainertools/kaniko/e89c20ae932296e04f44c838b5580d39b00e19d8/README.md /ulink/
+ADD --link --unpack=true https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz /xulink/
+ADD --link --unpack=true https://raw.githubusercontent.com/osscontainertools/kaniko/e89c20ae932296e04f44c838b5580d39b00e19d8/README.md /plink/
+RUN test ! -L /tlink && test ! -L /ulink && test ! -L /xulink && test ! -L /plink && test -z "$(find /treal /ureal /xureal /preal -mindepth 1)"
+RUN adduser -D -u 1234 app
+USER app
+COPY --link context/foo /linkuser/foo
+COPY --link --chown=1234:4321 context/foo /linkchown/foo

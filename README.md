@@ -181,6 +181,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_PEEK_ARCHIVE_HEADER`](#flag-ff_kaniko_peek_archive_header)
       - [Flag `FF_KANIKO_ADD_UNPACK`](#flag-ff_kaniko_add_unpack)
       - [Flag `FF_KANIKO_IMAGE_STAGES`](#flag-ff_kaniko_image_stages)
+      - [Flag `FF_KANIKO_COPY_LINK`](#flag-ff_kaniko_copy_link)
     - [Assertion Overrides](#assertion-overrides)
     - [Layer Hints](#layer-hints)
     - [Telemetry](#telemetry)
@@ -1235,6 +1236,7 @@ In a few places, Kaniko keeps its historical, non-compliant behaviour instead of
 FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS=true
 FF_KANIKO_COPY_AS_ROOT=true
 FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=true
+FF_KANIKO_COPY_LINK=true
 FF_KANIKO_EXPAND_HEREDOC=true
 FF_KANIKO_RUN_HONOR_GROUP=true
 FF_KANIKO_UNPACK_XZ=true
@@ -1636,6 +1638,18 @@ A stage whose commands are all cache hits is already an image. Kaniko still unpa
 Set this flag to `true` to download the image and use it as is, skipping the unpack to the root filesystem.
 Defaults to `false`.
 Becomes default in `v1.29.0`.
+
+#### Flag `FF_KANIKO_COPY_LINK`
+
+```dockerfile
+COPY --link ./dist /app
+```
+
+Kaniko parses `--link` and drops it, building the layer as if it were not there. buildkit caches the layer on its own, so a base image bump or an edit above it does not rebuild it, and writes to the destination as written rather than through a symlink the layers below put there.
+The layer is owned by root regardless of `USER`, and `--chown` takes numeric ids only.
+Set this flag to `true` to honour `--link` on `COPY` and `ADD`.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 ### Assertion Overrides
 

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -53,9 +54,21 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 	if c.cmd.From != "" {
 		c.fileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoInterStageDepsDir, c.cmd.From)}
-		owner, err = getUserGroup(c.cmd.Chown, replacementEnvs)
+		if kConfig.FF.CopyLink && c.cmd.Link {
+			owner, err = util.GetNumericUserGroup(c.cmd.Chown, replacementEnvs)
+		} else {
+			owner, err = getUserGroup(c.cmd.Chown, replacementEnvs)
+		}
 		if err != nil {
 			return fmt.Errorf("getting user group from chown: %w", err)
+		}
+	} else if kConfig.FF.CopyLink && c.cmd.Link {
+		owner, err = util.GetNumericUserGroup(c.cmd.Chown, replacementEnvs)
+		if err != nil {
+			return fmt.Errorf("getting user group from chown: %w", err)
+		}
+		if owner == nil {
+			owner = &util.Owner{}
 		}
 	} else {
 		user := config.User
@@ -104,11 +117,18 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 			return fmt.Errorf("find destination path: %w", err)
 		}
 
-		// If the destination dir is a symlink we need to resolve the path and use
-		// that instead of the symlink path
-		destPath, err = resolveIfSymlink(destPath)
-		if err != nil {
-			return fmt.Errorf("resolving dest symlink: %w", err)
+		if kConfig.FF.CopyLink && c.cmd.Link {
+			err = materializeLinkDest(destPath)
+			if err != nil {
+				return fmt.Errorf("materializing link destination: %w", err)
+			}
+		} else {
+			// If the destination dir is a symlink we need to resolve the path and use
+			// that instead of the symlink path
+			destPath, err = resolveIfSymlink(destPath)
+			if err != nil {
+				return fmt.Errorf("resolving dest symlink: %w", err)
+			}
 		}
 
 		if fi.IsDir() {
@@ -245,6 +265,22 @@ func (c *CopyCommand) From() string {
 	return c.cmd.From
 }
 
+func (c *CopyCommand) HasIndependentCacheKey() bool {
+	if !kConfig.FF.CopyLink || !c.cmd.Link {
+		return false
+	}
+	if !kConfig.FF.ResolveCacheKey {
+		return !namesVariables(c.cmd.String(), c.cmd.SourceContents)
+	}
+	return true
+}
+
+func namesVariables(instruction string, contents []instructions.SourceContent) bool {
+	return strings.Contains(instruction, "$") || slices.ContainsFunc(contents, func(src instructions.SourceContent) bool {
+		return src.Expand && strings.Contains(src.Data, "$")
+	})
+}
+
 func (c *CopyCommand) ShouldCacheOutput() bool {
 	return c.shdCache
 }
@@ -286,6 +322,49 @@ func (cr *CachingCopyCommand) CacheKey(replacementEnvs []string) (string, error)
 
 func (cr *CachingCopyCommand) From() string {
 	return cr.cmd.From
+}
+
+func (cr *CachingCopyCommand) HasIndependentCacheKey() bool {
+	if !kConfig.FF.CopyLink || !cr.cmd.Link {
+		return false
+	}
+	if !kConfig.FF.ResolveCacheKey {
+		return !namesVariables(cr.cmd.String(), cr.cmd.SourceContents)
+	}
+	return true
+}
+
+// materializeLinkDest drops the symlinks along destPath. A --link copy writes
+// to the literal path, not through what the layers below put there.
+func materializeLinkDest(destPath string) error {
+	if !filepath.IsAbs(destPath) {
+		return errors.New("dest path must be abs")
+	}
+
+	names := strings.Trim(destPath, "/")
+
+	// shallowest first. lstat on a deeper path resolves through an ancestor
+	// symlink, so the remove below would land wherever that symlink points.
+	p := "/"
+	for name := range strings.SplitSeq(names, "/") {
+		p = filepath.Join(p, name)
+		fi, err := os.Lstat(p)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("lstat %s: %w", p, err)
+		}
+		if util.IsSymlink(fi) {
+			logrus.Debugf("Removing symlink %s for a --link copy", p)
+			err = os.Remove(p)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func resolveIfSymlink(destPath string) (string, error) {

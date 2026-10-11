@@ -64,6 +64,10 @@ type DockerCommand interface {
 	// True if need add ARGs and EVNs to composite cache string with resolved command
 	// need only for RUN instruction
 	IsArgsEnvsRequiredInCache() bool
+
+	// True if the output layer is keyed on this command and its sources rather
+	// than on the commands before it, so the key survives a change further up.
+	HasIndependentCacheKey() bool
 }
 
 // Implement to derive the cache key from command with build args and env interpolated
