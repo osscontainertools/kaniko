@@ -141,8 +141,8 @@ github.com/GoogleCloudPlatform/docker-credential-gcr/v2/credhelper
 github.com/GoogleCloudPlatform/docker-credential-gcr/v2/store
 github.com/GoogleCloudPlatform/docker-credential-gcr/v2/util
 github.com/GoogleCloudPlatform/docker-credential-gcr/v2/util/cmd
-# github.com/Microsoft/go-winio v0.6.3-0.20251027160822-ad3df93bed29
-## explicit; go 1.23.0
+# github.com/Microsoft/go-winio v0.6.3
+## explicit; go 1.26.0
 github.com/Microsoft/go-winio
 github.com/Microsoft/go-winio/internal/fs
 github.com/Microsoft/go-winio/internal/socket
