@@ -1,0 +1,15 @@
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS builder
+# mz1201: COPY --link after WORKDIR panics with --cache.
+# Panics since main@718fecf01 with FF_KANIKO_COPY_LINK.
+# The --link key is seeded with the WORKDIR. Optimize only applied
+# metadata-only commands to its config, so it missed WORKDIR /w and
+# computed a different key than the build.
+WORKDIR /w
+COPY --link context/foo /abs/
+COPY --link context/foo rel/
+
+FROM builder
+# the precomputed config of builder carries the WORKDIR into this stage
+COPY --link context/foo rel2/
+RUN test -f /abs/foo && test -f /w/rel/foo && test -f /w/rel2/foo
