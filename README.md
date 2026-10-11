@@ -1646,6 +1646,7 @@ COPY --link ./dist /app
 ```
 
 Kaniko parses `--link` and drops it, building the layer as if it were not there. buildkit caches the layer on its own, so a base image bump or an edit above it does not rebuild it, and writes to the destination as written rather than through a symlink the layers below put there.
+The layer is owned by root regardless of `USER`, and `--chown` takes numeric ids only.
 Set this flag to `true` to honour `--link` on `COPY` and `ADD`.
 Defaults to `false`.
 Becomes default in `v1.29.0`.

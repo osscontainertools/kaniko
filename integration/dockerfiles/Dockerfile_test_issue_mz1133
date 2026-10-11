@@ -19,3 +19,7 @@ RUN test -f /keep/base && test -f /keep/foo
 RUN test ! -L /aslink && test "$(cat /target)" = target
 RUN test "$(cat /old)" = "$(cat /keep/foo)"
 RUN test ! -L /xlink && test "$(cat /xlink/file)" = built && test ! -e /xreal/file
+RUN adduser -D -u 1234 app
+USER app
+COPY --link context/foo /linkuser/foo
+COPY --link --chown=1234:4321 context/foo /linkchown/foo

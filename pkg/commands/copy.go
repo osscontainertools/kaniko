@@ -54,9 +54,21 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 	if c.cmd.From != "" {
 		c.fileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoInterStageDepsDir, c.cmd.From)}
-		owner, err = getUserGroup(c.cmd.Chown, replacementEnvs)
+		if kConfig.FF.CopyLink && c.cmd.Link {
+			owner, err = util.GetNumericUserGroup(c.cmd.Chown, replacementEnvs)
+		} else {
+			owner, err = getUserGroup(c.cmd.Chown, replacementEnvs)
+		}
 		if err != nil {
 			return fmt.Errorf("getting user group from chown: %w", err)
+		}
+	} else if kConfig.FF.CopyLink && c.cmd.Link {
+		owner, err = util.GetNumericUserGroup(c.cmd.Chown, replacementEnvs)
+		if err != nil {
+			return fmt.Errorf("getting user group from chown: %w", err)
+		}
+		if owner == nil {
+			owner = &util.Owner{}
 		}
 	} else {
 		user := config.User

@@ -56,16 +56,27 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		return fmt.Errorf("getting permissions from chmod: %w", err)
 	}
 
-	user := config.User
-	if kConfig.FF.CopyAsRoot {
-		// According to spec: https://docs.docker.com/reference/dockerfile/#add---chown
-		//   Without this flag, files are created with UID and GID of 0.
-		// But this is a breaking change so we keep it optional for now
-		user = "0:0"
-	}
-	owner, err := util.GetActiveUserGroup(user, a.cmd.Chown, replacementEnvs)
-	if err != nil {
-		return fmt.Errorf("getting user group from chown: %w", err)
+	var owner *util.Owner
+	if kConfig.FF.CopyLink && a.cmd.Link {
+		owner, err = util.GetNumericUserGroup(a.cmd.Chown, replacementEnvs)
+		if err != nil {
+			return fmt.Errorf("getting user group from chown: %w", err)
+		}
+		if owner == nil {
+			owner = &util.Owner{}
+		}
+	} else {
+		user := config.User
+		if kConfig.FF.CopyAsRoot {
+			// According to spec: https://docs.docker.com/reference/dockerfile/#add---chown
+			//   Without this flag, files are created with UID and GID of 0.
+			// But this is a breaking change so we keep it optional for now
+			user = "0:0"
+		}
+		owner, err = util.GetActiveUserGroup(user, a.cmd.Chown, replacementEnvs)
+		if err != nil {
+			return fmt.Errorf("getting user group from chown: %w", err)
+		}
 	}
 
 	srcs, dest, err := util.ResolveEnvAndWildcards(a.cmd.SourcesAndDest, a.fileContext, replacementEnvs)

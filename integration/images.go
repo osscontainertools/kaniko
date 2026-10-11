@@ -180,6 +180,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_stopsignal":     {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
 	"Dockerfile_test_healthcheck":    {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
 	"Dockerfile_test_issue_mz1160_3": {"FF_KANIKO_NATIVE_COPY=0"},
+	"Dockerfile_test_issue_mz1133":   {"FF_KANIKO_COPY_AS_ROOT=0"},
 	"Dockerfile_test_issue_mz881":    {"KANIKO_127_0_0_2:5001_USER=kanikotest", "KANIKO_127_0_0_2:5001_PASSWORD=kanikotest"},
 }
 
