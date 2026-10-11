@@ -1,3 +1,28 @@
+# v0.9.2 Release 2026-10-11
+
+## What's Changed
+### Security
+* go stdlib v1.26.8: CVE-2026-56866 CVE-2026-78659 CVE-2026-78660 CVE-2026-78663 CVE-2026-78669 CVE-2026-94439 CVE-2026-94440 CVE-2026-97031 CVE-2026-97032
+* golang.org/x/net v0.58.0: CVE-2026-78659 CVE-2026-78660 CVE-2026-78663 CVE-2026-78669 CVE-2026-97032
+* golang.org/x/crypto v0.55.0: CVE-2026-56855 CVE-2026-78662
+
+### Maintenance
+* build(deps): bump github.com/Azure/azure-sdk-for-go/sdk/azcore from 1.23.1 to 1.23.3: https://github.com/osscontainertools/docker-credential-acr/pull/20 https://github.com/osscontainertools/docker-credential-acr/pull/22
+* build(deps): bump step-security/harden-runner from 2.21.1 to 2.22.1: https://github.com/osscontainertools/docker-credential-acr/pull/21 https://github.com/osscontainertools/docker-credential-acr/pull/23
+* build(deps): bump go from 1.26.8 to 1.26.9: https://github.com/osscontainertools/docker-credential-acr/pull/24
+* build(deps): bump golang.org/x/sync from 0.22.0 to 0.24.0: https://github.com/osscontainertools/docker-credential-acr/pull/27
+* build(deps): bump github.com/docker/cli from 29.7.2 to 29.8.2: https://github.com/osscontainertools/docker-credential-acr/pull/28
+* build(deps): bump github.com/klauspost/compress from 1.19.2 to 1.20.1: https://github.com/osscontainertools/docker-credential-acr/pull/29
+* build(deps): bump golang.org/x/net from 0.58.0 to 0.61.0: https://github.com/osscontainertools/docker-credential-acr/pull/35 https://github.com/osscontainertools/docker-credential-acr/pull/37
+* build(deps): bump github.com/sirupsen/logrus from 1.9.4 to 1.10.2: https://github.com/osscontainertools/docker-credential-acr/pull/34
+* build(deps): bump github.com/AzureAD/microsoft-authentication-library-for-go from 1.8.0 to 1.10.1: https://github.com/osscontainertools/docker-credential-acr/pull/36
+* build(deps): bump golang.org/x/sys from 0.47.0 to 0.49.0: https://github.com/osscontainertools/docker-credential-acr/pull/30
+
+### Fork Related
+* let dependabot bump indirect dependencies: https://github.com/osscontainertools/docker-credential-acr/pull/26
+* lower the go directive to 1.26.0 and pin the toolchain to go 1.26.9: https://github.com/osscontainertools/docker-credential-acr/pull/32
+
+
 # v0.9.1 Release 2026-09-19
 
 ## What's Changed
