@@ -19,6 +19,10 @@ var env = map[string]string{
 	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "1",
 	"FF_KANIKO_ROLLING_CACHE_KEY":           "1",
 	"FF_KANIKO_COPY_LINK":                   "1",
+	"FF_KANIKO_PLATFORM_CACHE_KEY":          "0",
+	"FF_KANIKO_RESOLVE_CACHE_KEY":           "0",
+	"FF_KANIKO_SHARED_BASE_CACHE":           "0",
+	"FF_KANIKO_SKIP_CACHED_STAGES":          "0",
 }
 
 var unlinkedEnv = map[string]string{
@@ -26,6 +30,10 @@ var unlinkedEnv = map[string]string{
 	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "1",
 	"FF_KANIKO_ROLLING_CACHE_KEY":           "1",
 	"FF_KANIKO_COPY_LINK":                   "0",
+	"FF_KANIKO_PLATFORM_CACHE_KEY":          "0",
+	"FF_KANIKO_RESOLVE_CACHE_KEY":           "0",
+	"FF_KANIKO_SHARED_BASE_CACHE":           "0",
+	"FF_KANIKO_SKIP_CACHED_STAGES":          "0",
 }
 
 var Tests = types.GoldenTests{
