@@ -248,7 +248,13 @@ func (a *AddCommand) ShouldCacheOutput() bool {
 }
 
 func (a *AddCommand) HasIndependentCacheKey() bool {
-	return kConfig.FF.CopyLink && a.cmd.Link
+	if !kConfig.FF.CopyLink || !a.cmd.Link {
+		return false
+	}
+	if !kConfig.FF.ResolveCacheKey {
+		return !namesVariables(a.cmd.String(), a.cmd.SourceContents)
+	}
+	return true
 }
 
 // CacheCommand returns true since this command should be cached
@@ -287,7 +293,13 @@ func (ca *CachingAddCommand) CacheKey(replacementEnvs []string) (string, error) 
 }
 
 func (ca *CachingAddCommand) HasIndependentCacheKey() bool {
-	return kConfig.FF.CopyLink && ca.cmd.Link
+	if !kConfig.FF.CopyLink || !ca.cmd.Link {
+		return false
+	}
+	if !kConfig.FF.ResolveCacheKey {
+		return !namesVariables(ca.cmd.String(), ca.cmd.SourceContents)
+	}
+	return true
 }
 
 func addCmdFilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd *instructions.AddCommand,

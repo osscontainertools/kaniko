@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -253,7 +254,19 @@ func (c *CopyCommand) From() string {
 }
 
 func (c *CopyCommand) HasIndependentCacheKey() bool {
-	return kConfig.FF.CopyLink && c.cmd.Link
+	if !kConfig.FF.CopyLink || !c.cmd.Link {
+		return false
+	}
+	if !kConfig.FF.ResolveCacheKey {
+		return !namesVariables(c.cmd.String(), c.cmd.SourceContents)
+	}
+	return true
+}
+
+func namesVariables(instruction string, contents []instructions.SourceContent) bool {
+	return strings.Contains(instruction, "$") || slices.ContainsFunc(contents, func(src instructions.SourceContent) bool {
+		return src.Expand && strings.Contains(src.Data, "$")
+	})
 }
 
 func (c *CopyCommand) ShouldCacheOutput() bool {
@@ -300,7 +313,13 @@ func (cr *CachingCopyCommand) From() string {
 }
 
 func (cr *CachingCopyCommand) HasIndependentCacheKey() bool {
-	return kConfig.FF.CopyLink && cr.cmd.Link
+	if !kConfig.FF.CopyLink || !cr.cmd.Link {
+		return false
+	}
+	if !kConfig.FF.ResolveCacheKey {
+		return !namesVariables(cr.cmd.String(), cr.cmd.SourceContents)
+	}
+	return true
 }
 
 // materializeLinkDest drops the symlinks along destPath. A --link copy writes
