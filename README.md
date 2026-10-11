@@ -1649,7 +1649,7 @@ Kaniko parses `--link` and drops it, building the layer as if it were not there.
 The layer is owned by root regardless of `USER`, and `--chown` takes numeric ids only.
 Set this flag to `true` to honour `--link` on `COPY` and `ADD`.
 Defaults to `false`.
-Becomes default in `v1.29.0`.
+Becomes default in `v1.30.0`.
 
 ### Assertion Overrides
 
