@@ -29,6 +29,7 @@ type integrationTestConfig struct {
 	nvidiaOperatorBaseImage string
 	mz1073BaseImage         string
 	mz1113BaseImage         string
+	mz1172BaseImage         string
 	singleManifestBaseImage string
 	dockerMajorVersion      int
 	dockerfilesPattern      string

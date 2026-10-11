@@ -1106,6 +1106,10 @@ var extraDockerRunFlags = map[string]func(contextDir string) []string{
 		lib := filepath.Join(ctx, "testdata/Dockerfile.trivial")
 		return []string{"-v", lib + ":/opt/driver/nvidia/lib.so:ro", "-v", lib + ":/opt/real/other.so:ro"}
 	},
+	// the mount is a direct child of the pinned name, so no directory above it can carry it
+	"Dockerfile_test_issue_mz1172": func(ctx string) []string {
+		return []string{"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/z/lib.so:ro"}
+	},
 	// Mount any existing directory read-only over the shared-base store so storing
 	// the base fails and both stages must degrade to a registry fetch, not panic.
 	"Dockerfile_test_issue_mz936": func(ctx string) []string {

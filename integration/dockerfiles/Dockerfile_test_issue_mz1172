@@ -1,0 +1,10 @@
+# mz1172: a file the runtime mounts directly under a base image symlink whose target already exists
+# fails since main@05bf52aa9 with "rename /z/lib.so /a/lib.so: device or resource busy".
+ARG IMAGE_REPO
+FROM busybox AS base
+# one layer, so tar orders a ahead of z and the target exists when the link arrives
+RUN mkdir /a && echo base > /a/b && ln -s /a /z
+
+FROM ${IMAGE_REPO}test-issue-mz1172-base:latest
+RUN echo mz1172 > /z/data && cat /a/data
+RUN cat /z/b
