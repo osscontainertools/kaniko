@@ -25,6 +25,7 @@ import (
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 // A mount can be neither unlinked nor renamed, but a directory holding one can be renamed and the
@@ -73,7 +74,18 @@ func moveMounts(src, dst string, swap bool) error {
 			err := moveMounts(filepath.Join(src, entry.Name()), filepath.Join(dst, entry.Name()), true)
 			if swap && errors.Is(err, syscall.EBUSY) {
 				// the entry is a mount itself, so src moves whole and what dst holds moves into it
-				return swapMounts(src, dst, dstInfo)
+				err := unix.Renameat2(unix.AT_FDCWD, src, unix.AT_FDCWD, dst, unix.RENAME_EXCHANGE)
+				if err != nil {
+					return fmt.Errorf("cannot exchange the mounted path %s with %s: %w", src, dst, err)
+				}
+				stat := dstInfo.Sys().(*syscall.Stat_t)
+				if err := os.Lchown(dst, int(stat.Uid), int(stat.Gid)); err != nil {
+					return err
+				}
+				if err := os.Chmod(dst, dstInfo.Mode()); err != nil {
+					return err
+				}
+				return moveMounts(src, dst, false)
 			}
 			if err != nil {
 				return err
@@ -91,25 +103,4 @@ func moveMounts(src, dst string, swap bool) error {
 		return fmt.Errorf("cannot move the mounted path %s to %s: %w", src, dst, err)
 	}
 	return nil
-}
-
-func swapMounts(src, dst string, dstInfo os.FileInfo) error {
-	aside, err := os.MkdirTemp(filepath.Dir(dst), ".kaniko-")
-	if err != nil {
-		return err
-	}
-	if err := os.Rename(dst, aside); err != nil {
-		return fmt.Errorf("cannot move %s aside for the mounted path %s: %w", dst, src, err)
-	}
-	if err := os.Rename(src, dst); err != nil {
-		return fmt.Errorf("cannot move the mounted path %s to %s: %w", src, dst, err)
-	}
-	stat := dstInfo.Sys().(*syscall.Stat_t)
-	if err := os.Lchown(dst, int(stat.Uid), int(stat.Gid)); err != nil {
-		return err
-	}
-	if err := os.Chmod(dst, dstInfo.Mode()); err != nil {
-		return err
-	}
-	return moveMounts(aside, dst, false)
 }
