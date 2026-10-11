@@ -57,9 +57,10 @@ func relocateMountedPaths(dest, path, linkname string) (bool, error) {
 	return true, nil
 }
 
-// everything the ignore list does not pin is already gone from src, so what is left to move is the
-// mounts and the directories holding them
-func moveMounts(src, dst string, swap bool) error {
+// with mounted, everything the ignore list does not pin is already gone from src, so what is left to
+// move is the mounts and the directories holding them. without it, src is what the base image ships
+// and dst holds the mounts, which shadow it
+func moveMounts(src, dst string, mounted bool) error {
 	srcInfo, err := os.Lstat(src)
 	if err != nil {
 		return err
@@ -71,9 +72,10 @@ func moveMounts(src, dst string, swap bool) error {
 			return err
 		}
 		for _, entry := range entries {
-			err := moveMounts(filepath.Join(src, entry.Name()), filepath.Join(dst, entry.Name()), true)
-			if swap && errors.Is(err, syscall.EBUSY) {
-				// the entry is a mount itself, so src moves whole and what dst holds moves into it
+			err := moveMounts(filepath.Join(src, entry.Name()), filepath.Join(dst, entry.Name()), mounted)
+			if mounted && (errors.Is(err, syscall.EBUSY) || errors.Is(err, os.ErrExist)) {
+				// the entry is a mount itself or the base image ships a file at its name, so src moves
+				// whole and what dst holds moves into it
 				err := unix.Renameat2(unix.AT_FDCWD, src, unix.AT_FDCWD, dst, unix.RENAME_EXCHANGE)
 				if err != nil {
 					return fmt.Errorf("cannot exchange the mounted path %s with %s: %w", src, dst, err)
@@ -93,8 +95,11 @@ func moveMounts(src, dst string, swap bool) error {
 		}
 		return os.Remove(src)
 	}
+	if err == nil && !mounted {
+		return os.RemoveAll(src)
+	}
 	if err == nil {
-		return fmt.Errorf("cannot move the mounted path %s to %s: the base image ships a file there", src, dst)
+		return fmt.Errorf("cannot move the mounted path %s to %s: the base image ships a file there: %w", src, dst, os.ErrExist)
 	}
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
