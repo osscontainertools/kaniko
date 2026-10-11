@@ -1,0 +1,8 @@
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
+
+# mz1133: a --link copy cannot resolve a named USER, that would read
+# /etc/passwd from the layers below, which the --link cache key does not cover.
+RUN adduser -D -u 1234 app
+USER app
+COPY --link context/foo /linknamed/foo

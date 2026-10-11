@@ -71,6 +71,9 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 			}
 		}
 		owner, err = util.GetNumericUserGroup(chown, replacementEnvs)
+		if err != nil && c.cmd.Chown == "" {
+			return fmt.Errorf("COPY --link needs a numeric USER or --chown, got USER %q: %w", config.User, err)
+		}
 		if err != nil {
 			return fmt.Errorf("getting user group from chown: %w", err)
 		}
