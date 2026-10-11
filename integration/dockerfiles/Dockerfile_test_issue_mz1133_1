@@ -1,0 +1,13 @@
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
+
+# mz1133: without FF_KANIKO_COPY_AS_ROOT a --link copy is owned by USER, like
+# any other COPY. Docker always uses 0:0, so this only runs under kaniko.
+USER 1234:4321
+COPY --link context/foo /linkuser/foo
+ADD --link context/foo /addlinkuser/foo
+COPY --link --chown=5678 context/foo /linkchown/foo
+USER 0
+RUN test "$(stat -c %u:%g /linkuser/foo)" = 1234:4321
+RUN test "$(stat -c %u:%g /addlinkuser/foo)" = 1234:4321
+RUN test "$(stat -c %u:%g /linkchown/foo)" = 5678:5678
