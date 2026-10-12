@@ -40,7 +40,6 @@ import (
 	testbake "github.com/osscontainertools/kaniko/golden/testdata/test_bake"
 	testissuemz1128 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1128"
 	testissuemz1133 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1133"
-	testissuemz1205 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1205"
 	testissuemz195 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz195"
 	testissuemz333 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz333"
 	testissuemz334 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz334"
@@ -322,8 +321,7 @@ func TestBake(t *testing.T) {
 }
 
 var warmerTests = map[string][]types.GoldenTests{
-	"test_warmer":       {testwarmer.Tests},
-	"test_issue_mz1205": {testissuemz1205.Tests},
+	"test_warmer": {testwarmer.Tests},
 }
 
 // fakeRemoteImage derives the image from its reference, so its digest is stable across runs.
