@@ -235,6 +235,28 @@ var knownCrashes = []knownDivergence{
 	},
 }
 
+// knownWarmerGaps recognize an image the executor pulls and the warmer does not warm that
+// is already understood, matched against a warmerPlanOracle row. Remove an entry once its
+// fix is on main so the fuzzer guards the regression.
+var knownWarmerGaps = []knownDivergence{
+	{
+		name: "warmer-build-arg-over-default",
+		why:  "mz1207: in the warmer an ARG default wins over an explicit --build-arg, so FROM $SBASE warms the default base while the executor pulls the overridden one",
+		flag: "FF_KANIKO_WARMER_BUILD_ARGS",
+		match: func(row string) bool {
+			return strings.HasPrefix(row, "FROM base not warmed (build-arg base): ")
+		},
+	},
+	{
+		name: "warmer-skips-copy-from-images",
+		why:  "the warmer only warms FROM bases, an image named by COPY --from or RUN --mount from= is pulled by the executor at build time. Not filed yet",
+		flag: "",
+		match: func(row string) bool {
+			return strings.HasPrefix(row, "COPY --from image not warmed: ")
+		},
+	},
+}
+
 // knownCrashName returns the class name if the crash line matches a known filed crash,
 // else "". Used to count-not-report crashes that are already understood.
 func knownCrashName(crash string) string {
@@ -265,6 +287,7 @@ func allKnownClasses() []knownDivergence {
 	classes := append([]knownDivergence{}, dockerKnownDivergences...)
 	classes = append(classes, knownBuildFailures...)
 	classes = append(classes, knownCrashes...)
+	classes = append(classes, knownWarmerGaps...)
 	// Structural classes, counted by the oracle rather than matched on diff text.
 	return append(classes, knownDivergence{name: mz876CrossStage, why: "cross-stage snapshot nondeterminism (mz876), load-dependent", flag: ""})
 }
