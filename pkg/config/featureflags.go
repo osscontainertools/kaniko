@@ -83,7 +83,6 @@ type FeatureFlags struct {
 	UntarSkipRoot                  bool
 	VolumeSkipMkdir                bool
 	WarmerCacheLock                bool
-	WarmerSkipScratch              bool
 }
 
 var FF FeatureFlags
@@ -175,7 +174,6 @@ func InitFeatureFlags() {
 		UntarSkipRoot:                  featureFlag("FF_KANIKO_UNTAR_SKIP_ROOT", false),
 		VolumeSkipMkdir:                featureFlag("FF_KANIKO_VOLUME_SKIP_MKDIR", true),
 		WarmerCacheLock:                featureFlag("FF_KANIKO_WARMER_CACHE_LOCK", true),
-		WarmerSkipScratch:              featureFlag("FF_KANIKO_WARMER_SKIP_SCRATCH", false),
 	}
 
 	fields := reflect.TypeFor[FeatureFlags]().NumField()

@@ -32,6 +32,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/image/remote"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -484,7 +485,7 @@ outer:
 		if err != nil {
 			return nil, fmt.Errorf("resolving base name %s: %w", s.BaseName, err)
 		}
-		if config.FF.WarmerSkipScratch && resolvedBaseName == "scratch" {
+		if resolvedBaseName == constants.NoBaseImage {
 			continue
 		}
 		// skip stage references ie.
