@@ -1,0 +1,4 @@
+FROM scratch
+  CACHE MISS: sha256:fba211c81130ea874a7014cf4fdb04d79e7d97b6853c0e95bf4233d8a1c79ed8
+  FETCH scratch
+  SAVE /cache/sha256:fba211c81130ea874a7014cf4fdb04d79e7d97b6853c0e95bf4233d8a1c79ed8

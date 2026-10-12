@@ -130,7 +130,7 @@ func RenderPlan(w io.Writer, images []string, opts *config.WarmerOptions) (retEr
 			printf("  SAVE %s\n", path.Join(opts.CacheDir, digest.String()))
 		}
 	}
-	if retErr == nil && len(images) == errs {
+	if retErr == nil && len(images) > 0 && len(images) == errs {
 		return errors.New("failed to warm any of the given images")
 	}
 	return retErr
