@@ -31,6 +31,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -778,7 +779,14 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	// layer served from cache). Gated behind FUZZ_WARMER because it adds a warmer run
 	// plus two cache-dir builds per case.
 	if os.Getenv("FUZZ_WARMER") == "1" {
-		if f := warmerOracle(label, dir, gen.dockerfile, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
+		if dockerCls.known == nil {
+			dockerCls.known = map[string]int{}
+		}
+		if f := warmerPlanOracle(label, dir, gen, covDir, dockerCls.known, fail, crashOr); f != nil {
+			mergeKnown(f, dockerCls.known)
+			return f
+		}
+		if f := warmerOracle(label, dir, gen.dockerfile, gen.buildArgs, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
 			mergeKnown(f, dockerCls.known)
 			return f
 		}
@@ -972,9 +980,8 @@ func determinismOracle(label, dir, fresh string, flags, envFlags []string, fail 
 // one, identical flags otherwise, and checks the two images match. The warmer only
 // pre-fetches base layers, so the output must be invariant to it. Returns a finding on
 // any divergence, else nil. It removes the extra images and cache dirs it creates.
-func warmerOracle(label, dir, dockerfile string, flags, envFlags []string, covDir string, fail func(severity, string, string) *finding, crashOr func(string) *finding) *finding {
-	bases := basesInDockerfile(dockerfile)
-	if len(bases) == 0 {
+func warmerOracle(label, dir, dockerfile string, buildArgs, flags, envFlags []string, covDir string, fail func(severity, string, string) *finding, crashOr func(string) *finding) *finding {
+	if len(basesInDockerfile(dockerfile)) == 0 && !strings.Contains(dockerfile, "FROM $") {
 		// Every FROM resolves to an earlier stage, so there is no external base to warm.
 		return nil
 	}
@@ -989,7 +996,7 @@ func warmerOracle(label, dir, dockerfile string, flags, envFlags []string, covDi
 	}
 	defer os.RemoveAll(coldCache)
 
-	if out, werr := warmFuzzCache(warmCache, bases, covDir, envFlags); werr != nil {
+	if out, werr := warmFuzzCache(warmCache, dir, buildArgs, covDir, envFlags); werr != nil {
 		// docker and the fresh build already succeeded, so a warmer that cannot cache
 		// the base it was given is itself the finding.
 		return fail(sevWarmerDiff, "warmer failed to populate cache", out)
@@ -1092,27 +1099,114 @@ func basesInDockerfile(dockerfile string) []string {
 	return out
 }
 
-// warmFuzzCache runs the kaniko warmer to populate cacheDir with the given base
-// images. covDir, if set, collects the warmer binary's coverage. --force overwrites
-// any stale entry so a reused cache dir cannot mask a warmer bug.
+// warmFuzzCache runs the kaniko warmer to populate cacheDir from the case's Dockerfile,
+// the way a user warms for a build. covDir, if set, collects the warmer binary's
+// coverage. --force overwrites any stale entry so a reused cache dir cannot mask a warmer
+// bug.
+func warmFuzzCache(cacheDir, contextDir string, buildArgs []string, covDir string, envFlags []string) (string, error) {
+	return runFuzzWarmer(contextDir, cacheDir, []string{"--force"}, buildArgs, covDir, envFlags)
+}
+
+// runFuzzWarmer runs the warmer on the Dockerfile in contextDir with the case's build args.
+// cacheDir, if set, is bind-mounted at /cache.
 //
-// The case's envFlags go to the warmer as well as to the executor. FF_KANIKO_OCI_WARMER
-// picks the on-disk cache format in the warmer and the read path in the executor, so the
-// two have to be given the same value or the warm build just misses a cache it cannot read.
-func warmFuzzCache(cacheDir string, bases []string, covDir string, envFlags []string) (string, error) {
-	flags := []string{"run", "--rm", "--net=host", "-v", cacheDir + ":/cache"}
+// The warmer gets the executor's env, KanikoEnv plus the case's envFlags.
+// FF_KANIKO_OCI_WARMER picks the on-disk cache format in the warmer and the read path in the
+// executor, so the two have to be given the same value or the warm build just misses a cache
+// it cannot read.
+func runFuzzWarmer(contextDir, cacheDir string, extra, buildArgs []string, covDir string, envFlags []string) (string, error) {
+	flags := []string{"run", "--rm", "--net=host", "-v", contextDir + ":/workspace:ro"}
+	if cacheDir != "" {
+		flags = append(flags, "-v", cacheDir+":/cache")
+	}
+	for _, e := range KanikoEnv {
+		flags = append(flags, "-e", e)
+	}
 	for _, e := range envFlags {
 		flags = append(flags, "-e", e)
 	}
 	if covDir != "" {
 		flags = append(flags, "-v", covDir+":/covdata", "-e", "GOCOVERDIR=/covdata")
 	}
-	flags = append(flags, WarmerImage, "--cache-dir=/cache", "--force")
-	for _, b := range bases {
-		flags = append(flags, "-i", b)
+	flags = append(flags, WarmerImage, "--cache-dir=/cache", "--dockerfile="+path.Join(buildContextPath, "Dockerfile"))
+	for _, a := range buildArgs {
+		flags = append(flags, "--build-arg", a)
 	}
+	flags = append(flags, extra...)
 	out, err := runFuzzBounded(exec.Command("docker", flags...))
 	return string(out), err
+}
+
+// warmerPlanOracle renders the case's plan with the executor and with the warmer, both
+// --dryrun so nothing is pulled, and requires every image the executor would pull to be
+// one the warmer warms. The warmer may warm more, an unused stage only costs a download.
+// Each image the warmer misses is a row; rows matching knownWarmerGaps are counted into
+// known, any other row is a finding.
+func warmerPlanOracle(label, dir string, gen genResult, covDir string, known map[string]int, fail func(severity, string, string) *finding, crashOr func(string) *finding) *finding {
+	img := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-warmplan")
+	eOut, eErr := runFuzzKanikoEnv(dir, img, append([]string{"--dryrun"}, gen.kanikoFlags...), covDir, gen.envFlags)
+	crash := crashOr(eOut)
+	if crash != nil {
+		return crash
+	}
+	if eErr != nil {
+		// The dryrun oracle owns a failing executor dryrun.
+		return nil
+	}
+	wOut, wErr := runFuzzWarmer(dir, "", []string{"--dryrun"}, gen.buildArgs, covDir, gen.envFlags)
+	crash = crashOr(wOut)
+	if crash != nil {
+		return crash
+	}
+	if wErr != nil {
+		return fail(sevWarmerDiff, "warmer --dryrun failed on a case the executor plans", wOut)
+	}
+
+	warmed := map[string]bool{}
+	for line := range strings.SplitSeq(wOut, "\n") {
+		if ref, ok := strings.CutPrefix(line, "FROM "); ok {
+			warmed[ref] = true
+		}
+	}
+	buildArgBase := len(gen.buildArgs) > 0 && strings.Contains(gen.dockerfile, "FROM $")
+	var rows []string
+	for line := range strings.SplitSeq(eOut, "\n") {
+		f := strings.Fields(line)
+		if len(f) >= 2 && (f[0] == "STREAM" || f[0] == "FETCH") && !warmed[f[1]] {
+			switch {
+			case !strings.HasPrefix(line, " "):
+				// Top-level STREAM/FETCH are the images a COPY --from or RUN --mount names.
+				rows = append(rows, "COPY --from image not warmed: "+f[1])
+			case f[1] == "scratch":
+				// The executor plan renders STREAM scratch although nothing is pulled.
+			case buildArgBase:
+				rows = append(rows, "FROM base not warmed (build-arg base): "+f[1])
+			default:
+				rows = append(rows, "FROM base not warmed: "+f[1])
+			}
+		}
+	}
+	slices.Sort(rows)
+	rows = slices.Compact(rows)
+
+	var novel []string
+	for _, row := range rows {
+		matched := false
+		for _, kd := range knownWarmerGaps {
+			if kd.match(row) {
+				known[kd.name]++
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			novel = append(novel, row)
+		}
+	}
+	if len(novel) > 0 {
+		return fail(sevWarmerDiff, "warmer misses an image the executor pulls", strings.Join(novel, "\n")+"\n\n=== executor plan ===\n"+eOut+"\n=== warmer plan ===\n"+wOut)
+	}
+	return nil
 }
 
 // runFuzzCase generates the case for one seed, evaluates it, records the coverage
