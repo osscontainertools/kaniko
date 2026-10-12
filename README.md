@@ -689,6 +689,8 @@ The location of the local cache is provided via the `--cache-dir` flag,
 defaulting to `/cache` as with the cache warmer. See the `examples` directory
 for how to use with kubernetes clusters and persistent cache volumes.
 
+`--dryrun` prints which images are already cached and which would be fetched, without writing to the cache. `KANIKO_PRINT_PLAN=1` prints the same plan before warming.
+
 ### Pushing to Different Registries
 
 For registry-specific setup instructions (Docker Hub, GCR, ECR, ACR, JFrog,
