@@ -5,6 +5,8 @@ FROM ${BASE} AS base
 
 FROM base AS derived
 
+FROM Base AS upper
+
 FROM ${ALPINE}
 
 FROM debian:bookworm
