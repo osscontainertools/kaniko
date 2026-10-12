@@ -248,13 +248,34 @@ var knownWarmerGaps = []knownDivergence{
 		},
 	},
 	{
-		name: "warmer-skips-copy-from-images",
-		why:  "the warmer only warms FROM bases, an image named by COPY --from or RUN --mount from= is pulled by the executor at build time. Not filed yet",
+		name: "copy-from-images-bypass-cache",
+		why:  "mz1212: the executor fetches COPY --from images from the registry, never from --cache-dir, and the warmer does not warm them",
 		flag: "",
 		match: func(row string) bool {
 			return strings.HasPrefix(row, "COPY --from image not warmed: ")
 		},
 	},
+}
+
+// legacyWarmerMediaType names the class where the legacy tarball warmer
+// (FF_KANIKO_OCI_WARMER=0) stores an OCI base as docker v2. With FF_KANIKO_IGNORE_CACHED_MANIFEST
+// the warmed build carries docker media types and the cold build OCI ones. Without it the OCI
+// sidecar manifest meets docker layers, and the image.consistent-media-type assertion fires or
+// the registry rejects the pushed manifest as invalid.
+// Remove with the tarball warmer in v1.29.0.
+const legacyWarmerMediaType = "legacy-warmer-dockerv2-rewrite"
+
+// onlyDockerToOCIMediaTypes reports whether every diffoci row is a descriptor whose media
+// type is docker v2 on the first input and OCI on the second.
+func onlyDockerToOCIMediaTypes(diff string) bool {
+	rows := diffRows(diff)
+	for _, row := range rows {
+		f := strings.Fields(row)
+		if len(f) < 4 || f[0] != "Desc" || !strings.Contains(f[2], "vnd.docker.") || !strings.Contains(f[3], "vnd.oci.") {
+			return false
+		}
+	}
+	return len(rows) > 0
 }
 
 // knownCrashName returns the class name if the crash line matches a known filed crash,
@@ -288,6 +309,7 @@ func allKnownClasses() []knownDivergence {
 	classes = append(classes, knownBuildFailures...)
 	classes = append(classes, knownCrashes...)
 	classes = append(classes, knownWarmerGaps...)
+	classes = append(classes, knownDivergence{name: legacyWarmerMediaType, why: "the legacy tarball warmer stores bases as docker v2, documented on FF_KANIKO_OCI_WARMER", flag: "FF_KANIKO_OCI_WARMER"})
 	// Structural classes, counted by the oracle rather than matched on diff text.
 	return append(classes, knownDivergence{name: mz876CrossStage, why: "cross-stage snapshot nondeterminism (mz876), load-dependent", flag: ""})
 }

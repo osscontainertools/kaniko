@@ -786,9 +786,32 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 			mergeKnown(f, dockerCls.known)
 			return f
 		}
-		if f := warmerOracle(label, dir, gen.dockerfile, gen.buildArgs, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
-			mergeKnown(f, dockerCls.known)
-			return f
+		wf := warmerOracle(label, dir, gen.dockerfile, gen.buildArgs, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr)
+		if wf != nil {
+			differ := wf.sev == sevWarmerDiff && strings.Contains(wf.summary, "builds differ")
+			legacy := slices.Contains(gen.envFlags, "FF_KANIKO_OCI_WARMER=0")
+			class := ""
+			switch {
+			case differ && legacy && onlyDockerToOCIMediaTypes(wf.detail):
+				class = legacyWarmerMediaType
+			case wf.sev == sevCrash && legacy && strings.Contains(wf.summary, "[image.consistent-media-type]"),
+				wf.sev == sevWarmerDiff && legacy && strings.Contains(wf.detail, "MANIFEST_INVALID"):
+				// The same tarball entry with the OCI sidecar manifest in use: Manifest() is OCI,
+				// MediaType() and the new layers are docker, so the appended manifest mixes both.
+				// The assertion catches it, or the registry rejects it on push.
+				class = legacyWarmerMediaType
+			case differ && isCrossStage(gen.dockerfile):
+				// Warm and cold are two independent builds, so a cross-stage diff is the mz876
+				// class the determinism oracle counts too.
+				class = mz876CrossStage
+			}
+			if class != "" {
+				kf := &finding{seed: seed, sev: sevClean, known: map[string]int{class: 1}}
+				mergeKnown(kf, dockerCls.known)
+				return kf
+			}
+			mergeKnown(wf, dockerCls.known)
+			return wf
 		}
 	}
 
