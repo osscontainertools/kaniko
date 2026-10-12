@@ -170,6 +170,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_UNPACK_XZ`](#flag-ff_kaniko_unpack_xz)
       - [Flag `FF_KANIKO_UNPACK_ZSTD`](#flag-ff_kaniko_unpack_zstd)
       - [Flag `FF_KANIKO_UNTAR_SKIP_ROOT`](#flag-ff_kaniko_untar_skip_root)
+      - [Flag `FF_KANIKO_WARMER_BUILD_ARGS`](#flag-ff_kaniko_warmer_build_args)
     - [Assertion Overrides](#assertion-overrides)
     - [Layer Hints](#layer-hints)
     - [Telemetry](#telemetry)
@@ -1188,6 +1189,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_LINK=true
 FF_KANIKO_DEFER_CACHE_PUSH=true
+FF_KANIKO_WARMER_BUILD_ARGS=true
 ```
 
 ##### BuildKit compatibility
@@ -1517,6 +1519,13 @@ When `ADD` extracts a local tar archive into a directory, kaniko applies the arc
 Set this flag to `true` to skip the root `.` entry when untarring.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_WARMER_BUILD_ARGS`
+
+In warmer an `ARG` default wins over an explicit `--build-arg`, and `--build-arg BASE` without a value is not read from the environment.
+Set this flag to `true` to resolve `--build-arg` like the executor does.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 ### Assertion Overrides
 

@@ -318,10 +318,16 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 	}
 
 	args := opts.BuildArgs
+	if config.FF.WarmerBuildArgs {
+		args = nil
+	}
 	for _, marg := range metaArgs {
 		for _, arg := range marg.Args {
 			args = append(args, fmt.Sprintf("%s=%s", arg.Key, arg.ValueString()))
 		}
+	}
+	if config.FF.WarmerBuildArgs {
+		args = append(args, opts.BuildArgs...)
 	}
 outer:
 	for i, s := range stages {
