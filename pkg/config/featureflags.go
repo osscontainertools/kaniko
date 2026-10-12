@@ -95,6 +95,7 @@ var (
 	disabledFeatureFlags  []string
 )
 
+// featureFlag reads a feature flag from the environment and records its status.
 func featureFlag(name string, def bool) bool {
 	value := EnvBoolDefault(name, def)
 	_, explicit := os.LookupEnv(name)
@@ -112,6 +113,7 @@ func featureFlag(name string, def bool) bool {
 	return value
 }
 
+// InitFeatureFlags loads feature flag settings from the environment.
 func InitFeatureFlags() {
 	knownFeatureFlags = nil
 	activeFeatureFlags = nil

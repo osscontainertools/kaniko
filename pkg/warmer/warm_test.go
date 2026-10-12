@@ -90,6 +90,7 @@ LABEL maintainer="alexezio"
 	}
 }
 
+// TestParseDockerfile_SkipScratchFeatureFlag checks scratch filtering in both flag states.
 func TestParseDockerfile_SkipScratchFeatureFlag(t *testing.T) {
 	dockerfile := `FROM scratch
 FROM alpine:latest
@@ -128,6 +129,7 @@ FROM alpine:latest
 	}
 }
 
+// TestWarmCache_ScratchOnlyDockerfile verifies that skipping scratch is a successful no-op.
 func TestWarmCache_ScratchOnlyDockerfile(t *testing.T) {
 	dockerfilePath := t.TempDir() + "/Dockerfile"
 	if err := os.WriteFile(dockerfilePath, []byte("FROM scratch\n"), 0o600); err != nil {

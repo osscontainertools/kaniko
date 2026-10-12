@@ -444,6 +444,7 @@ func (w *OciWarmer) Write(cacheRef name.Reference, img v1.Image) error {
 	return nil
 }
 
+// ParseDockerfile returns the unique external base images referenced by a Dockerfile.
 func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 	var err error
 	var d []uint8
