@@ -148,6 +148,21 @@ func TestWarmCache_ScratchOnlyDockerfile(t *testing.T) {
 	}
 }
 
+// TestWarmCache_AllImagesFail verifies that warming fails when every requested image is invalid.
+func TestWarmCache_AllImagesFail(t *testing.T) {
+	previous := config.FF.OCIWarmer
+	config.FF.OCIWarmer = true
+	t.Cleanup(func() { config.FF.OCIWarmer = previous })
+
+	err := WarmCache(&config.WarmerOptions{
+		Images:       []string{"not a valid image reference"},
+		CacheOptions: config.CacheOptions{CacheDir: t.TempDir()},
+	})
+	if err == nil || err.Error() != "failed to warm any of the given images" {
+		t.Fatalf("WarmCache() error = %v, want all-images-failed error", err)
+	}
+}
+
 func TestParseDockerfile_ArgsDockerfile(t *testing.T) {
 	dockerfile := `ARG NGINX_VERSION=1.29.1
 FROM nginx:$NGINX_VERSION-alpine-slim
