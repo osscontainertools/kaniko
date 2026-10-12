@@ -221,6 +221,7 @@ type WarmerOptions struct {
 	Force          bool
 	DockerfilePath string
 	BuildArgs      multiArg
+	Dryrun         bool
 }
 
 func EnvBool(key string) bool {

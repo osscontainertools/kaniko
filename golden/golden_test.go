@@ -36,6 +36,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	ggcrtypes "github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
+	warmercmd "github.com/osscontainertools/kaniko/cmd/warmer/cmd"
 	testbake "github.com/osscontainertools/kaniko/golden/testdata/test_bake"
 	testissuemz1128 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1128"
 	testissuemz1133 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1133"
@@ -52,11 +53,13 @@ import (
 	testissuemz936 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz936"
 	testissuemz989 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz989"
 	testunittests "github.com/osscontainertools/kaniko/golden/testdata/test_unittests"
+	testwarmer "github.com/osscontainertools/kaniko/golden/testdata/test_warmer"
 	"github.com/osscontainertools/kaniko/golden/types"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/executor"
 	"github.com/osscontainertools/kaniko/pkg/mounts"
+	"github.com/osscontainertools/kaniko/pkg/warmer"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -309,6 +312,71 @@ func TestBake(t *testing.T) {
 								output += renderPlan(t, &opts, test)
 							}
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), output)
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
+var warmerTests = map[string][]types.GoldenTests{
+	"test_warmer": {testwarmer.Tests},
+}
+
+// fakeRemoteImage derives the image from its reference, so its digest is stable across runs.
+func fakeRemoteImage(image string, _ config.RegistryOptions, _ string) (v1.Image, error) {
+	cf := &v1.ConfigFile{}
+	cf.Config.Labels = map[string]string{"ref": image}
+	return mutate.ConfigFile(empty.Image, cf)
+}
+
+func TestWarmer(t *testing.T) {
+	logrus.SetLevel(logrus.ErrorLevel)
+
+	for testName, testSuites := range warmerTests {
+		t.Run(testName, func(t *testing.T) {
+			testDir := filepath.Join("testdata", testName)
+			for _, testSuite := range testSuites {
+				t.Run(testSuite.Name, func(t *testing.T) {
+					for _, test := range testSuite.Tests {
+						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
+							t.Cleanup(config.InitFeatureFlags)
+							for k, v := range test.Env {
+								t.Setenv(k, v)
+							}
+							// Feature flags resolve once at startup; re-resolve so
+							// this subtest's env takes effect, and restore afterwards.
+							config.InitFeatureFlags()
+
+							origRemote, origLocal := warmer.RemoteSource, warmer.LocalSource
+							warmer.RemoteSource = fakeRemoteImage
+							warmer.LocalSource = func(_ *config.CacheOptions, key string) (v1.Image, error) {
+								if !slices.Contains(test.CachedKeys, key) {
+									return nil, cache.NotFoundErr{}
+								}
+								return empty.Image, nil
+							}
+							t.Cleanup(func() { warmer.RemoteSource, warmer.LocalSource = origRemote, origLocal })
+
+							opts := config.WarmerOptions{}
+							exec := &cobra.Command{Use: "warmer"}
+							warmercmd.AddWarmerFlags(exec, &opts)
+							args := []string{
+								"--dryrun",
+								"--dockerfile=" + filepath.Join(testDir, testSuite.Dockerfile),
+							}
+							err := exec.ParseFlags(append(args, test.Args...))
+							if err != nil {
+								t.Fatal(err)
+							}
+
+							var buf bytes.Buffer
+							warmer.Out = &buf
+							if err := warmer.WarmCache(&opts); err != nil {
+								t.Error(err)
+							}
+							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), buf.String())
 						})
 					}
 				})

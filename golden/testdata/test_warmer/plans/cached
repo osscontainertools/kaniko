@@ -1,0 +1,10 @@
+FROM debian:bookworm
+  CACHE HIT: sha256:bb29a696e6cf59b7403f78467ee6afea1fb6d8011e683ab55bcd4a1301186f63
+FROM alpine:3.20
+  CACHE MISS: sha256:7fca115a07326c8c4cead7b6ccf971fdd90df752f4fc4f903d93fb38c5786af7
+  FETCH alpine:3.20
+  SAVE /cache/sha256:7fca115a07326c8c4cead7b6ccf971fdd90df752f4fc4f903d93fb38c5786af7
+FROM scratch
+  CACHE MISS: sha256:fba211c81130ea874a7014cf4fdb04d79e7d97b6853c0e95bf4233d8a1c79ed8
+  FETCH scratch
+  SAVE /cache/sha256:fba211c81130ea874a7014cf4fdb04d79e7d97b6853c0e95bf4233d8a1c79ed8

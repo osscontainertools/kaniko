@@ -38,6 +38,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// for testing
+var (
+	Out          io.Writer        = os.Stdout
+	RemoteSource FetchRemoteImage = remote.RetrieveRemoteImage
+	LocalSource  FetchLocalSource = cache.LocalSource
+)
+
 // WarmCache populates the cache
 func WarmCache(opts *config.WarmerOptions) error {
 	var dockerfileImages []string
@@ -57,6 +64,16 @@ func WarmCache(opts *config.WarmerOptions) error {
 
 	logrus.Debugf("%s\n", cacheDir)
 	logrus.Debugf("%s\n", images)
+
+	if opts.Dryrun || config.EnvBool("KANIKO_PRINT_PLAN") {
+		err := RenderPlan(Out, images, opts)
+		if err != nil {
+			return err
+		}
+		if opts.Dryrun {
+			return nil
+		}
+	}
 
 	errs := 0
 	if config.FF.OCIWarmer {
@@ -84,6 +101,41 @@ func WarmCache(opts *config.WarmerOptions) error {
 	return nil
 }
 
+func RenderPlan(w io.Writer, images []string, opts *config.WarmerOptions) (retErr error) {
+	printf := func(format string, args ...any) {
+		if retErr == nil {
+			_, retErr = fmt.Fprintf(w, format, args...)
+		}
+	}
+
+	cw := &Warmer{
+		Remote: RemoteSource,
+		Local:  LocalSource,
+	}
+	errs := 0
+	for _, img := range images {
+		printf("FROM %s\n", img)
+		_, _, digest, err := cw.Resolve(img, opts)
+		switch {
+		case cache.IsAlreadyCached(err):
+			printf("  CACHE HIT: %s\n", digest)
+		case err != nil:
+			logrus.Warnf("Error while trying to warm image: %v %v", img, err)
+			errs++
+		default:
+			if !opts.Force {
+				printf("  CACHE MISS: %s\n", digest)
+			}
+			printf("  FETCH %s\n", img)
+			printf("  SAVE %s\n", path.Join(opts.CacheDir, digest.String()))
+		}
+	}
+	if retErr == nil && len(images) == errs {
+		return errors.New("failed to warm any of the given images")
+	}
+	return retErr
+}
+
 // Download image in temporary files then move files to final destination
 func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	f, err := os.CreateTemp(cacheDir, "warmingImage.*")
@@ -102,8 +154,8 @@ func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	defer mtfsFile.Close()
 
 	cw := &Warmer{
-		Remote:         remote.RetrieveRemoteImage,
-		Local:          cache.LocalSource,
+		Remote:         RemoteSource,
+		Local:          LocalSource,
 		TarWriter:      f,
 		ManifestWriter: mtfsFile,
 	}
@@ -165,8 +217,8 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	defer os.RemoveAll(tmp)
 
 	cw := &OciWarmer{
-		Remote: remote.RetrieveRemoteImage,
-		Local:  cache.LocalSource,
+		Remote: RemoteSource,
+		Local:  LocalSource,
 		TmpDir: tmp,
 	}
 
@@ -248,7 +300,8 @@ func (w *Warmer) Resolve(image string, opts *config.WarmerOptions) (name.Referen
 			cacheKey := d.DigestStr()
 			_, err := w.Local(&opts.CacheOptions, cacheKey)
 			if err == nil || cache.IsExpired(err) {
-				return nil, nil, v1.Hash{}, cache.AlreadyCachedErr{}
+				digest, _ := v1.NewHash(cacheKey)
+				return nil, nil, digest, cache.AlreadyCachedErr{}
 			} else {
 				// mz320: But in case it is a cache miss, not all hope is lost.
 				// It could have also been the digest for an image-index.
@@ -283,7 +336,7 @@ func (w *Warmer) Resolve(image string, opts *config.WarmerOptions) (name.Referen
 			_, err = w.Local(&opts.CacheOptions, cacheKey)
 		}
 		if err == nil || cache.IsExpired(err) {
-			return nil, nil, v1.Hash{}, cache.AlreadyCachedErr{}
+			return nil, nil, digest, cache.AlreadyCachedErr{}
 		}
 	}
 
@@ -331,7 +384,8 @@ func (w *OciWarmer) Resolve(image string, opts *config.WarmerOptions) (name.Refe
 			cacheKey := d.DigestStr()
 			_, err := w.Local(&opts.CacheOptions, cacheKey)
 			if err == nil || cache.IsExpired(err) {
-				return nil, nil, v1.Hash{}, cache.AlreadyCachedErr{}
+				digest, _ := v1.NewHash(cacheKey)
+				return nil, nil, digest, cache.AlreadyCachedErr{}
 			} else {
 				// mz320: But in case it is a cache miss, not all hope is lost.
 				// It could have also been the digest for an image-index.
@@ -366,7 +420,7 @@ func (w *OciWarmer) Resolve(image string, opts *config.WarmerOptions) (name.Refe
 			_, err = w.Local(&opts.CacheOptions, cacheKey)
 		}
 		if err == nil || cache.IsExpired(err) {
-			return nil, nil, v1.Hash{}, cache.AlreadyCachedErr{}
+			return nil, nil, digest, cache.AlreadyCachedErr{}
 		}
 	}
 
