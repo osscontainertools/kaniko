@@ -32,6 +32,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/image/remote"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -94,7 +95,7 @@ func WarmCache(opts *config.WarmerOptions) error {
 		}
 	}
 
-	if len(images) == errs {
+	if len(images) > 0 && len(images) == errs {
 		return errors.New("failed to warm any of the given images")
 	}
 
@@ -130,7 +131,7 @@ func RenderPlan(w io.Writer, images []string, opts *config.WarmerOptions) (retEr
 			printf("  SAVE %s\n", path.Join(opts.CacheDir, digest.String()))
 		}
 	}
-	if retErr == nil && len(images) == errs {
+	if retErr == nil && len(images) > 0 && len(images) == errs {
 		return errors.New("failed to warm any of the given images")
 	}
 	return retErr
@@ -483,6 +484,9 @@ outer:
 		resolvedBaseName, err := util.ResolveEnvironmentReplacement(s.BaseName, args, false)
 		if err != nil {
 			return nil, fmt.Errorf("resolving base name %s: %w", s.BaseName, err)
+		}
+		if resolvedBaseName == constants.NoBaseImage {
+			continue
 		}
 		// skip stage references ie.
 		// FROM base AS target
