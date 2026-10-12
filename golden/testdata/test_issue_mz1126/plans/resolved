@@ -1,0 +1,4 @@
+FROM alpine:3.20
+  CACHE MISS: sha256:7fca115a07326c8c4cead7b6ccf971fdd90df752f4fc4f903d93fb38c5786af7
+  FETCH alpine:3.20
+  SAVE /cache/sha256:7fca115a07326c8c4cead7b6ccf971fdd90df752f4fc4f903d93fb38c5786af7
