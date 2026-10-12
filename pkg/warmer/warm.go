@@ -94,7 +94,7 @@ func WarmCache(opts *config.WarmerOptions) error {
 		}
 	}
 
-	if len(images) == errs {
+	if len(images) > 0 && len(images) == errs {
 		return errors.New("failed to warm any of the given images")
 	}
 
@@ -483,6 +483,9 @@ outer:
 		resolvedBaseName, err := util.ResolveEnvironmentReplacement(s.BaseName, args, false)
 		if err != nil {
 			return nil, fmt.Errorf("resolving base name %s: %w", s.BaseName, err)
+		}
+		if config.FF.WarmerSkipScratch && resolvedBaseName == "scratch" {
+			continue
 		}
 		// skip stage references ie.
 		// FROM base AS target

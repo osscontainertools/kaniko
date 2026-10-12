@@ -152,6 +152,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_CACHE_HASH_BLAKE3`](#flag-ff_kaniko_cache_hash_blake3)
       - [Flag `FF_KANIKO_CACHE_PROBE_AFTER_MISS`](#flag-ff_kaniko_cache_probe_after_miss)
       - [Flag `FF_KANIKO_WARMER_CACHE_LOCK`](#flag-ff_kaniko_warmer_cache_lock)
+      - [Flag `FF_KANIKO_WARMER_SKIP_SCRATCH`](#flag-ff_kaniko_warmer_skip_scratch)
       - [Flag `FF_KANIKO_PRESERVE_MOUNTED_PATHS`](#flag-ff_kaniko_preserve_mounted_paths)
       - [Flag `FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS`](#flag-ff_kaniko_preserve_mounted_symlinks)
       - [Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`](#flag-ff_kaniko_reproducible_preserve_base_layers)
@@ -1432,6 +1433,11 @@ Multiple warmer processes sharing a cache volume can race when warming the same 
 Set this flag to `true` to coordinate concurrent warmers and avoid redundant downloads. Corrupt or wrong-format cache entries are detected and replaced, making [`FF_KANIKO_OCI_WARMER`](#flag-ff_kaniko_oci_warmer) toggles transparent.
 Defaults to `true`.
 Will be deprecated in `v1.29.0`.
+
+#### Flag `FF_KANIKO_WARMER_SKIP_SCRATCH`
+
+When the warmer parses a Dockerfile, it normally treats each external `FROM` image as a cache candidate. Set this flag to `true` to skip `FROM scratch`, which is a special empty base and does not need to be fetched from a registry. This only affects images discovered from the Dockerfile; explicit `--image` arguments are unchanged.
+Defaults to `false`.
 
 #### Flag `FF_KANIKO_PRESERVE_MOUNTED_PATHS`
 

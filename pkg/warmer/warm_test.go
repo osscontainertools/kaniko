@@ -90,6 +90,62 @@ LABEL maintainer="alexezio"
 	}
 }
 
+func TestParseDockerfile_SkipScratchFeatureFlag(t *testing.T) {
+	dockerfile := `FROM scratch
+FROM alpine:latest
+`
+	dockerfilePath := t.TempDir() + "/Dockerfile"
+	if err := os.WriteFile(dockerfilePath, []byte(dockerfile), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	previous := config.FF.WarmerSkipScratch
+	t.Cleanup(func() { config.FF.WarmerSkipScratch = previous })
+
+	for _, test := range []struct {
+		name     string
+		enabled  bool
+		expected []string
+	}{
+		{name: "disabled", expected: []string{"scratch", "alpine:latest"}},
+		{name: "enabled", enabled: true, expected: []string{"alpine:latest"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config.FF.WarmerSkipScratch = test.enabled
+			baseNames, err := ParseDockerfile(&config.WarmerOptions{DockerfilePath: dockerfilePath})
+			if err != nil {
+				t.Fatalf("ParseDockerfile() error = %v", err)
+			}
+			if len(baseNames) != len(test.expected) {
+				t.Fatalf("ParseDockerfile() returned %v, want %v", baseNames, test.expected)
+			}
+			for i := range test.expected {
+				if baseNames[i] != test.expected[i] {
+					t.Fatalf("ParseDockerfile() returned %v, want %v", baseNames, test.expected)
+				}
+			}
+		})
+	}
+}
+
+func TestWarmCache_ScratchOnlyDockerfile(t *testing.T) {
+	dockerfilePath := t.TempDir() + "/Dockerfile"
+	if err := os.WriteFile(dockerfilePath, []byte("FROM scratch\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	previous := config.FF.WarmerSkipScratch
+	config.FF.WarmerSkipScratch = true
+	t.Cleanup(func() { config.FF.WarmerSkipScratch = previous })
+
+	if err := WarmCache(&config.WarmerOptions{
+		DockerfilePath: dockerfilePath,
+		CacheOptions:   config.CacheOptions{CacheDir: t.TempDir()},
+	}); err != nil {
+		t.Fatalf("WarmCache() error = %v, want nil", err)
+	}
+}
+
 func TestParseDockerfile_ArgsDockerfile(t *testing.T) {
 	dockerfile := `ARG NGINX_VERSION=1.29.1
 FROM nginx:$NGINX_VERSION-alpine-slim
