@@ -12,7 +12,7 @@ var Tests = types.GoldenTests{
 		},
 		{
 			Args: []string{"--build-arg=BASE=ubuntu:24.04"},
-			// TODO: the Dockerfile default of BASE overrides --build-arg
+			Env:  map[string]string{"FF_KANIKO_WARMER_BUILD_ARGS": "1"},
 			Plan: "build_arg",
 		},
 		{
