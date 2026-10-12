@@ -473,6 +473,21 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 		return nil, fmt.Errorf("parsing dockerfile: %w", err)
 	}
 
+	var prevArgs []string
+	for i, marg := range metaArgs {
+		for j, arg := range marg.Args {
+			if arg.Value != nil {
+				val, err := util.ResolveEnvironmentReplacement(*arg.Value, append(prevArgs, opts.BuildArgs...), false)
+				if err != nil {
+					return nil, fmt.Errorf("expanding meta ARGs: %w", err)
+				}
+				prevArgs = append(prevArgs, arg.Key+"="+val)
+				arg.Value = &val
+				metaArgs[i].Args[j] = arg
+			}
+		}
+	}
+
 	args := opts.BuildArgs
 	for _, marg := range metaArgs {
 		for _, arg := range marg.Args {
