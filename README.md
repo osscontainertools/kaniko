@@ -170,6 +170,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_IMAGE_STAGES`](#flag-ff_kaniko_image_stages)
       - [Flag `FF_KANIKO_COPY_LINK`](#flag-ff_kaniko_copy_link)
       - [Flag `FF_KANIKO_CACHE_IMAGE_INDEX`](#flag-ff_kaniko_cache_image_index)
+      - [Flag `FF_KANIKO_WARMER_PREDEFINED_ARGS`](#flag-ff_kaniko_warmer_predefined_args)
     - [Assertion Overrides](#assertion-overrides)
     - [Layer Hints](#layer-hints)
     - [Telemetry](#telemetry)
@@ -1513,6 +1514,13 @@ Becomes default in `v1.30.0`.
 
 The warmer does not cache image indexes. A base image pinned to an index digest still needs the registry, so air-gapped builds fail even with a warm cache.
 Set this flag to `true` on the warmer and the executor to cache the index too.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
+
+#### Flag `FF_KANIKO_WARMER_PREDEFINED_ARGS`
+
+In warmer the predefined platform args such as `TARGETARCH` resolve to empty in `FROM`.
+Set this flag to `true` to resolve them from `--customPlatform` and the host.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
 

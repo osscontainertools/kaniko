@@ -26,6 +26,7 @@ import (
 	"path"
 	"regexp"
 
+	"github.com/containerd/platforms"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -318,9 +319,30 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 	}
 
 	args := opts.BuildArgs
+	if config.FF.WarmerPredefinedArgs {
+		build := platforms.Normalize(platforms.DefaultSpec())
+		target, err := platforms.Parse(opts.CustomPlatform)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse target platform %q: %w", opts.CustomPlatform, err)
+		}
+		args = append([]string{
+			"BUILDPLATFORM=" + platforms.Format(build),
+			"BUILDOS=" + build.OS,
+			"BUILDOSVERSION=" + build.OSVersion,
+			"BUILDARCH=" + build.Architecture,
+			"BUILDVARIANT=" + build.Variant,
+			"TARGETPLATFORM=" + opts.CustomPlatform,
+			"TARGETOS=" + target.OS,
+			"TARGETOSVERSION=" + target.OSVersion,
+			"TARGETARCH=" + target.Architecture,
+			"TARGETVARIANT=" + target.Variant,
+		}, args...)
+	}
 	for _, marg := range metaArgs {
 		for _, arg := range marg.Args {
-			args = append(args, fmt.Sprintf("%s=%s", arg.Key, arg.ValueString()))
+			if !config.FF.WarmerPredefinedArgs || arg.Value != nil {
+				args = append(args, fmt.Sprintf("%s=%s", arg.Key, arg.ValueString()))
+			}
 		}
 	}
 outer:
