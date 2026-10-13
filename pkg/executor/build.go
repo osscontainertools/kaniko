@@ -1506,13 +1506,12 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 
 	t := timing.Start("Parsing Dockerfile")
 	stages, metaArgs, err := dockerfile.ParseStages(opts)
+	t.End()
 	if err != nil {
-		t.End()
 		return nil, err
 	}
 
 	kanikoStages, err := dockerfile.MakeKanikoStages(opts, stages, metaArgs)
-	t.End()
 	if err != nil {
 		return nil, err
 	}
