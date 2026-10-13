@@ -89,17 +89,18 @@ var noSpanCategories = map[string]bool{
 }
 
 var networkCategories = map[string]bool{
-	"Retrieving Source Image":    true,
-	"Fetching Extra Stages":      true,
-	"Downloading base image":     true,
-	"Pushing cached layer":       true,
-	"Pushing cache pointer":      true,
-	"Resolving cache pointer":    true,
-	"Pushing image":              true,
-	"Awaiting cache uploads":     true,
-	"Total Push Time":            true,
-	"Checking push permissions":  true,
-	"Exchanging telemetry token": true,
+	"Retrieving Source Image":      true,
+	"Fetching Extra Stages":        true,
+	"Downloading base image":       true,
+	"Pushing cached layer":         true,
+	"Pushing cache pointer":        true,
+	"Resolving cache pointer":      true,
+	"Pushing image":                true,
+	"Awaiting cache uploads":       true,
+	"Total Push Time":              true,
+	"Checking push permissions":    true,
+	"Exchanging telemetry token":   true,
+	"Looking up cached base image": true,
 }
 
 var containerCategories = map[string]bool{
