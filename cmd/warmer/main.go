@@ -21,13 +21,18 @@ import (
 	"path/filepath"
 
 	"github.com/osscontainertools/kaniko/cmd/warmer/cmd"
+	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/creds"
+	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
 func main() {
 	helper, ok := creds.Helpers[filepath.Base(os.Args[0])]
 	if ok {
 		os.Exit(helper())
+	}
+	if config.FF.NativeInit {
+		util.RunAsInit()
 	}
 	if err := cmd.RootCmd.Execute(); err != nil {
 		os.Exit(1)
