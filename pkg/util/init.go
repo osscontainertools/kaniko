@@ -23,24 +23,18 @@ import (
 	"syscall"
 )
 
-// RunAsInit returns immediately unless kaniko is PID 1. As PID 1 it re-execs kaniko as its
-// only child and stays behind as init: it reaps every orphan, forwards termination signals,
-// and exits with the child's status. It never returns there.
-func RunAsInit() {
-	if os.Getpid() != 1 {
-		return
-	}
+// RunAsInit re-execs kaniko as its only child and acts as init: it reaps every orphan,
+// forwards termination signals, and returns the child's exit code once it exits.
+func RunAsInit() (int, error) {
 	sigs := make(chan os.Signal, 16)
 	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	exe, err := os.Executable()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "resolving kaniko executable: %v\n", err)
-		os.Exit(1)
+		return 0, fmt.Errorf("resolving kaniko executable: %w", err)
 	}
-	child, err := os.StartProcess(exe, os.Args,&os.ProcAttr{Files: []*os.File{os.Stdin, os.Stdout, os.Stderr}})
+	child, err := os.StartProcess(exe, os.Args, &os.ProcAttr{Files: []*os.File{os.Stdin, os.Stdout, os.Stderr}})
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "starting kaniko as child of init: %v\n", err)
-		os.Exit(1)
+		return 0, fmt.Errorf("starting kaniko as child of init: %w", err)
 	}
 	go func() {
 		for sig := range sigs {
@@ -54,14 +48,13 @@ func RunAsInit() {
 		var status syscall.WaitStatus
 		pid, err := syscall.Wait4(-1, &status, 0, nil)
 		if err != nil && err != syscall.EINTR {
-			fmt.Fprintf(os.Stderr, "waiting for kaniko: %v\n", err)
-			os.Exit(1)
+			return 0, fmt.Errorf("waiting for kaniko: %w", err)
 		}
 		if pid == child.Pid {
 			if status.Signaled() {
-				os.Exit(128 + int(status.Signal()))
+				return 128 + int(status.Signal()), nil
 			}
-			os.Exit(status.ExitStatus())
+			return status.ExitStatus(), nil
 		}
 	}
 }
