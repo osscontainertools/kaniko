@@ -305,22 +305,26 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 			}
 			// the kernel only honours a shebang on a file it executes
 			if strings.HasPrefix(cmd, "#!") {
-				staging, err := os.MkdirTemp(kConfig.KanikoDir, "heredoc-")
+				f, err := os.CreateTemp(kConfig.KanikoDir, "heredoc-")
 				if err != nil {
-					return fmt.Errorf("creating staging dir for heredoc: %w", err)
+					return fmt.Errorf("creating heredoc script: %w", err)
 				}
-				defer os.RemoveAll(staging)
-				// MkdirTemp creates 0700, the script runs as USER
-				err = os.Chmod(staging, 0o755)
+				defer os.Remove(f.Name())
+				_, err = f.WriteString(cmd)
 				if err != nil {
-					return fmt.Errorf("opening staging dir for heredoc: %w", err)
+					f.Close()
+					return fmt.Errorf("writing heredoc script: %w", err)
 				}
-				script := filepath.Join(staging, cmdRun.Files[0].Name)
-				err = os.WriteFile(script, []byte(cmd), 0o755)
+				err = f.Close()
 				if err != nil {
 					return fmt.Errorf("writing heredoc script: %w", err)
 				}
-				cmd = script
+				// CreateTemp creates 0600, the script runs as USER
+				err = os.Chmod(f.Name(), 0o755)
+				if err != nil {
+					return fmt.Errorf("making heredoc script executable: %w", err)
+				}
+				cmd = f.Name()
 			}
 		} else {
 			if len(cmdRun.Files) == 1 && cmd == "<<"+cmdRun.Files[0].Name {
@@ -471,10 +475,6 @@ func runCacheKey(cmd *instructions.RunCommand) string {
 	fmt.Fprintf(&key, "%d:%s", len(s), s)
 	for _, f := range cmd.Files {
 		fmt.Fprintf(&key, "%d:%s%d:%s", len(f.Data), f.Data, len(f.Name), f.Name)
-	}
-	// the body ran through a second shell expansion before, so those layers can differ
-	if kConfig.FF.RunHeredocScript && cmd.PrependShell && len(cmd.Files) == 1 && parser.MustParseHeredoc(strings.Join(cmd.CmdLine, " ")) != nil {
-		key.WriteString("heredoc-script")
 	}
 	return key.String()
 }
