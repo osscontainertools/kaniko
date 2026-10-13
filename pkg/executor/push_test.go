@@ -171,7 +171,7 @@ func TestOCILayoutPath(t *testing.T) {
 		OCILayoutPath: tmpDir,
 	}
 
-	if err := DoPush(image, &opts); err != nil {
+	if err := DoPush(image, &opts, nil); err != nil {
 		t.Fatalf("could not push image: %s", err)
 	}
 
@@ -209,7 +209,7 @@ func TestImageNameDigestFile(t *testing.T) {
 
 	defer os.Remove("tmpFile")
 
-	if err := DoPush(image, &opts); err != nil {
+	if err := DoPush(image, &opts, nil); err != nil {
 		t.Fatalf("could not push image: %s", err)
 	}
 
@@ -268,7 +268,7 @@ func TestDoPushWithOpts(t *testing.T) {
 			}
 			defer os.Remove("image.tar")
 
-			err = DoPush(image, &tc.opts)
+			err = DoPush(image, &tc.opts, nil)
 			if err != nil {
 				if !tc.expectedErr {
 					t.Errorf("unexpected error with opts: could not push image: %s", err)
@@ -301,7 +301,7 @@ func TestImageNameTagDigestFile(t *testing.T) {
 
 	defer os.Remove("tmpFile")
 
-	if err := DoPush(image, &opts); err != nil {
+	if err := DoPush(image, &opts, nil); err != nil {
 		t.Fatalf("could not push image: %s", err)
 	}
 
