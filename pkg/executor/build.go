@@ -342,6 +342,11 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 		}
 		return compositeKey, fmt.Errorf("shortcut key not found")
 	} else if files != nil {
+		if len(files) > 0 {
+			t := timing.Start("Hashing context files")
+			t.SetAttributes(attribute.Int("kaniko.files", len(files)))
+			defer t.End()
+		}
 		for _, f := range files {
 			if err := compositeKey.AddPath(f, fileContext); err != nil {
 				return compositeKey, err
@@ -374,7 +379,9 @@ func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (
 	if err != nil {
 		return nil, err
 	}
+	t := timing.Start("Resolving cache pointer")
 	ptrImg, err := layerCache.RetrieveLayer(inferredCk)
+	t.End()
 	if err != nil {
 		logrus.Debugf("Failed to retrieve pointer: %s", err)
 		logrus.Debugf("Key missing was: %s", inferredKey.Key())
@@ -785,7 +792,9 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			}
 			if layer != nil && (!config.FF.ImageStages || unpacked) {
 				logrus.Infof("Extracting cached layer to filesystem")
+				t := timing.Start("Extracting cached layer")
 				_, err = util.GetFSFromLayers(config.RootDir, []v1.Layer{layer}, util.ExtractFunc(util.ExtractFile), util.IncludeWhiteout())
+				t.End()
 				if err != nil {
 					return false, fmt.Errorf("extracting fs from image: %w", err)
 				}
@@ -984,7 +993,10 @@ func saveSnapshotToLayer(tarPath string, imageMediaType types.MediaType, opts *c
 		return nil, nil
 	}
 
+	// tarball.LayerFromFile compresses and digests the whole layer before it returns
+	t := timing.Start("Compressing layer")
 	layer, err := tarball.LayerFromFile(tarPath, getLayerOptionsForImage(imageMediaType, opts)...)
+	t.End()
 	if err != nil {
 		return nil, err
 	}
