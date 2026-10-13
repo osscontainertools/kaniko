@@ -1109,6 +1109,13 @@ func convertLayerMediaType(layer v1.Layer, image v1.Image, opts *config.KanikoOp
 	}
 	targetMediaType, recompress := layerConversion(layerMediaType, imageMediaType, opts)
 	if targetMediaType != layerMediaType {
+		// tarball.LayerFromOpener reads and digests the whole blob before it returns
+		t := timing.Start("Converting layer media type")
+		defer t.End()
+		t.SetAttributes(
+			attribute.String("kaniko.layer.media_type.from", string(layerMediaType)),
+			attribute.String("kaniko.layer.media_type.to", string(targetMediaType)),
+			attribute.Bool("kaniko.layer.recompress", recompress))
 		layerOpts := getLayerOptionFromOpts(opts)
 		if targetMediaType == types.OCILayerZStd {
 			layerOpts = append(layerOpts, tarball.WithCompression("zstd"))
