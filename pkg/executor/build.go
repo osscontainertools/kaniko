@@ -1504,6 +1504,9 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	stageFinalCacheKeys := make(map[int]string)
 
+	_, endPlanning := timing.Scope("Planning")
+	defer endPlanning()
+
 	t := timing.Start("Parsing Dockerfile")
 	stages, metaArgs, err := dockerfile.ParseStages(opts)
 	t.End()
@@ -1775,6 +1778,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		})
 	}
 
+	endPlanning()
 	var pushImage v1.Image
 	for _, stage := range kanikoStages {
 		endStage()
