@@ -297,13 +297,32 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 
 		cmd := strings.Join(cmdRun.CmdLine, " ")
 
-		if runsHeredocAsScript(cmdRun) {
+		// Heredocs
+		if kConfig.FF.RunHeredocScript && len(cmdRun.Files) == 1 && parser.MustParseHeredoc(cmd) != nil {
 			cmd = cmdRun.Files[0].Data
 			if cmdRun.Files[0].Chomp {
 				cmd = parser.ChompHeredocContent(cmd)
 			}
+			// the kernel only honours a shebang on a file it executes
+			if strings.HasPrefix(cmd, "#!") {
+				staging, err := os.MkdirTemp(kConfig.KanikoDir, "heredoc-")
+				if err != nil {
+					return fmt.Errorf("creating staging dir for heredoc: %w", err)
+				}
+				defer os.RemoveAll(staging)
+				// MkdirTemp creates 0700, the script runs as USER
+				err = os.Chmod(staging, 0o755)
+				if err != nil {
+					return fmt.Errorf("opening staging dir for heredoc: %w", err)
+				}
+				script := filepath.Join(staging, cmdRun.Files[0].Name)
+				err = os.WriteFile(script, []byte(cmd), 0o755)
+				if err != nil {
+					return fmt.Errorf("writing heredoc script: %w", err)
+				}
+				cmd = script
+			}
 		} else {
-			// Heredocs
 			if len(cmdRun.Files) == 1 && cmd == "<<"+cmdRun.Files[0].Name {
 				// 1713: if we encounter a line like 'RUN <<EOF',
 				// we implicitly want the file body to be executed as a script
@@ -454,17 +473,10 @@ func runCacheKey(cmd *instructions.RunCommand) string {
 		fmt.Fprintf(&key, "%d:%s%d:%s", len(f.Data), f.Data, len(f.Name), f.Name)
 	}
 	// the body ran through a second shell expansion before, so those layers can differ
-	if runsHeredocAsScript(cmd) {
+	if kConfig.FF.RunHeredocScript && cmd.PrependShell && len(cmd.Files) == 1 && parser.MustParseHeredoc(strings.Join(cmd.CmdLine, " ")) != nil {
 		key.WriteString("heredoc-script")
 	}
 	return key.String()
-}
-
-// runsHeredocAsScript reports whether the body of a lone 'RUN <<EOF' heredoc
-// is handed to the shell as the script itself.
-func runsHeredocAsScript(cmd *instructions.RunCommand) bool {
-	return kConfig.FF.RunHeredocScript && cmd.PrependShell && len(cmd.Files) == 1 &&
-		parser.MustParseHeredoc(strings.Join(cmd.CmdLine, " ")) != nil
 }
 
 func (c *RunCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
