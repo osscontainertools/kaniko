@@ -1879,7 +1879,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				return nil, err
 			}
 			if opts.Reproducible {
-				canonTimer := timing.Start("Canonicalizing image")
+				reproducibleTimer := timing.Start("Making image reproducible")
 				outMediaType := types.DockerManifestSchema2
 				if config.FF.ReproduciblePreserveFormat {
 					outMediaType, err = sourceImage.MediaType()
@@ -1901,8 +1901,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				}
 				// ggcr workaround: mutate.Canonical and mutate.Append stack the layers onto empty.Image, so the manifest and config come back dockerv2 even when the layer options wrote OCI layers.
 				sourceImage, err = image_util.WithMediaType(sourceImage, outMediaType)
-				canonTimer.SetAttributes(attribute.String("kaniko.image.media_type", string(outMediaType)))
-				canonTimer.End()
+				reproducibleTimer.SetAttributes(attribute.String("kaniko.image.media_type", string(outMediaType)))
+				reproducibleTimer.End()
 				if err != nil {
 					return nil, err
 				}
