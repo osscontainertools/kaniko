@@ -49,6 +49,7 @@ type FeatureFlags struct {
 	InferCrossStageCacheKey        bool
 	LayerHints                     bool
 	NativeCopy                     bool
+	NativeInit                     bool
 	OCIScratchBase                 bool
 	PathScopedRegistryAuth         bool
 	PeekArchiveHeader              bool
@@ -131,6 +132,7 @@ func InitFeatureFlags() {
 		InferCrossStageCacheKey:        featureFlag("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", true),
 		LayerHints:                     featureFlag("FF_KANIKO_LAYER_HINTS", true),
 		NativeCopy:                     featureFlag("FF_KANIKO_NATIVE_COPY", true),
+		NativeInit:                     featureFlag("FF_KANIKO_NATIVE_INIT", false),
 		OCIScratchBase:                 featureFlag("FF_KANIKO_OCI_SCRATCH_BASE", false),
 		PathScopedRegistryAuth:         featureFlag("FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH", true),
 		PeekArchiveHeader:              featureFlag("FF_KANIKO_PEEK_ARCHIVE_HEADER", true),
