@@ -36,6 +36,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 var (
@@ -86,7 +87,10 @@ func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, b
 	// Finally, check if local caching is enabled
 	// If so, look in the local cache before trying the remote registry
 	if opts.Cache && opts.CacheDir != "" {
+		t := timing.Start("Looking up cached base image")
 		cachedImage, err := cachedImage(opts, currentBaseName)
+		t.SetAttributes(attribute.Bool("kaniko.cache.hit", err == nil && cachedImage != nil))
+		t.End()
 		if err != nil {
 			switch {
 			case cache.IsNotFound(err):
