@@ -230,22 +230,28 @@ func runBuild(opts *config.KanikoOptions) error {
 }
 
 func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) error {
+	setupStart := time.Now()
 	if err := setupBuild(); err != nil {
 		return err
 	}
+	setupEnd := time.Now()
 	if !checkContained() {
 		if !force {
 			return errors.New("kaniko should only be run inside of a container, run with the --force flag if you are sure you want to continue")
 		}
 		logrus.Warn("Kaniko is being run outside of a container. This can have dangerous effects on your system")
 	}
+	var checks [][2]time.Time
 	// mz992: a dryrun only renders the plan, it never pushes a layer or a cache entry.
 	if !opts.Dryrun {
 		for _, target := range targets {
 			topts := *opts
 			ApplyTarget(&topts, target)
 			if !topts.NoPush || topts.CacheRepo != "" {
-				if err := executor.CheckPushPermissions(&topts); err != nil {
+				checkStart := time.Now()
+				err := executor.CheckPushPermissions(&topts)
+				checks = append(checks, [2]time.Time{checkStart, time.Now()})
+				if err != nil {
 					logrus.Warnf("make sure you entered the correct tag name, that you are authenticated correctly, and try again.")
 					// mz280: remind users that DOCKER_AUTH_CONFIG gets prioritized by docker-cli
 					// https://github.com/docker/cli/pull/6171
@@ -273,7 +279,11 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 		}()
 	}
 	defer executor.WaitCachePushes()
-	tracing.Init(context.Background(), opts)
+	tracing.Init(context.Background(), opts, setupStart)
+	timing.Record("Setting up build", setupStart, setupEnd)
+	for _, c := range checks {
+		timing.Record("Checking push permissions", c[0], c[1])
+	}
 	for i, target := range targets {
 		if i > 0 {
 			// Saved stages are keyed by stage index, so without this the next target
