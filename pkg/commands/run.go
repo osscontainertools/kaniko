@@ -341,7 +341,7 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 	logrus.Infof("Cmd: %s", newCommand[0])
 	logrus.Infof("Args: %s", newCommand[1:])
 
-	if kConfig.FF.RunViaTini && !kConfig.FF.NativeInit {
+	if kConfig.FF.RunViaTini && os.Getenv(util.NativeInitEnv) == "" {
 		newCommand = append([]string{kConfig.TiniExec, "-s", "--"}, newCommand...)
 	}
 

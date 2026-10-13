@@ -23,6 +23,9 @@ import (
 	"syscall"
 )
 
+// NativeInitEnv is set on the kaniko child of RunAsInit.
+const NativeInitEnv = "KANIKO_NATIVE_INIT_CHILD"
+
 // RunAsInit re-execs kaniko as its only child and acts as init: it reaps every orphan,
 // forwards termination signals, and returns the child's exit code once it exits.
 func RunAsInit() (int, error) {
@@ -32,7 +35,10 @@ func RunAsInit() (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("resolving kaniko executable: %w", err)
 	}
-	child, err := os.StartProcess(exe, os.Args, &os.ProcAttr{Files: []*os.File{os.Stdin, os.Stdout, os.Stderr}})
+	child, err := os.StartProcess(exe, os.Args, &os.ProcAttr{
+		Env:   append(os.Environ(), NativeInitEnv+"=1"),
+		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
+	})
 	if err != nil {
 		return 0, fmt.Errorf("starting kaniko as child of init: %w", err)
 	}
