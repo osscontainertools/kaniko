@@ -384,18 +384,10 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 	cmd.Env = append(env, secretEnvs...)
 
 	logrus.Infof("Running: %s", cmd.Args)
-	if kConfig.FF.NativeInit {
-		err = util.StartRunGroup(cmd)
-	} else {
-		err = cmd.Start()
-	}
-	if err != nil {
+	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("starting command: %w", err)
 	}
 	assert.Assert("run.process-set", cmd.Process != nil, "cmd.Process must be set after a successful Start()")
-	if kConfig.FF.NativeInit {
-		defer util.ReleaseRunGroup(cmd.Process.Pid)
-	}
 
 	pgid, err := syscall.Getpgid(cmd.Process.Pid)
 	if err != nil {

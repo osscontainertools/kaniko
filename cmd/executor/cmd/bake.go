@@ -22,7 +22,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/logging"
-	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/spf13/cobra"
 )
 
@@ -116,9 +115,6 @@ and inherits are not supported.`,
 			return err
 		}
 		config.LogFeatureFlags()
-		if config.FF.NativeInit {
-			util.StartInit()
-		}
 		opts.CompressionLevelSet = cmd.Flags().Changed("compression-level")
 		if opts.CompressionLevelSet {
 			err := validateCompressionLevel(opts.Compression, opts.CompressionLevel)

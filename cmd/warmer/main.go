@@ -20,9 +20,14 @@ import (
 	"os"
 
 	"github.com/osscontainertools/kaniko/cmd/warmer/cmd"
+	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
 func main() {
+	if config.FF.NativeInit {
+		util.RunAsInit()
+	}
 	if err := cmd.RootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}

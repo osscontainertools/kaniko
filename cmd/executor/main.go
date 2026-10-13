@@ -21,9 +21,14 @@ import (
 
 	"github.com/google/slowjam/pkg/stacklog"
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
+	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
 func main() {
+	if config.FF.NativeInit {
+		util.RunAsInit()
+	}
 	s := stacklog.MustStartFromEnv("STACKLOG_PATH")
 	defer s.Stop()
 
