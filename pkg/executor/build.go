@@ -1932,6 +1932,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				if config.FF.ReproduciblePreserveFormat {
 					outMediaType, err = sourceImage.MediaType()
 					if err != nil {
+						reproducibleTimer.End()
 						return nil, err
 					}
 					sourceImage, err = mutate.Canonical(sourceImage, getLayerOptionsForImage(outMediaType, opts)...)
@@ -1939,11 +1940,13 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 					sourceImage, err = mutate.Canonical(sourceImage)
 				}
 				if err != nil {
+					reproducibleTimer.End()
 					return nil, err
 				}
 				if config.FF.ReproduciblePreserveBaseLayers {
 					sourceImage, err = image_util.ReplaceBase(sourceImage, baseImage, outMediaType)
 					if err != nil {
+						reproducibleTimer.End()
 						return nil, err
 					}
 				}
