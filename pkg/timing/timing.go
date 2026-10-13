@@ -107,6 +107,7 @@ var containerCategories = map[string]bool{
 	"Stage":                          true,
 	"Command":                        true,
 	"Total Build Time":               true,
+	"Planning":                       true,
 	"Calculating stage dependencies": true,
 	"Optimizing stage":               true,
 	"Rendering plan":                 true,

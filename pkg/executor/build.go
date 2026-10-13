@@ -1507,6 +1507,9 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	started := time.Now()
 	stageFinalCacheKeys := make(map[int]string)
 
+	_, endPlanning := timing.Scope("Planning")
+	defer endPlanning()
+
 	t := timing.Start("Parsing Dockerfile")
 	stages, metaArgs, err := dockerfile.ParseStages(opts)
 	t.End()
@@ -1778,6 +1781,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		})
 	}
 
+	endPlanning()
 	var pushImage v1.Image
 	var pushIndex v1.ImageIndex
 	// the stage whose remote base sits at the bottom of each stage's chain of local bases
