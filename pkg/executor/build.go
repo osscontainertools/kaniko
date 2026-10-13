@@ -1712,7 +1712,9 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	if opts.PreserveContext {
 		if len(kanikoStages) > 1 || opts.PreCleanup || opts.Cleanup {
 			logrus.Info("Creating snapshot of build context")
+			t := timing.Start("Snapshotting context")
 			tarball, _, _, err = snapshotter.TakeSnapshotFS()
+			t.End()
 			if err != nil {
 				return nil, err
 			}
@@ -1740,7 +1742,9 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				if tarball == "" {
 					return errors.New("context snapshot is missing")
 				}
+				t := timing.Start("Restoring context")
 				_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
+				t.End()
 				if err != nil {
 					return fmt.Errorf("failed to unpack context snapshot: %w", err)
 				}
@@ -1865,6 +1869,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				return nil, err
 			}
 			if opts.Reproducible {
+				// mutate.Canonical is lazy, the layers get rewritten when WithMediaType reads the manifest
+				canonTimer := timing.Start("Canonicalizing image")
 				outMediaType := types.DockerManifestSchema2
 				if config.FF.ReproduciblePreserveFormat {
 					outMediaType, err = sourceImage.MediaType()
@@ -1886,6 +1892,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				}
 				// ggcr workaround: mutate.Canonical and mutate.Append stack the layers onto empty.Image, so the manifest and config come back dockerv2 even when the layer options wrote OCI layers.
 				sourceImage, err = image_util.WithMediaType(sourceImage, outMediaType)
+				canonTimer.SetAttributes(attribute.String("kaniko.image.media_type", string(outMediaType)))
+				canonTimer.End()
 				if err != nil {
 					return nil, err
 				}
@@ -1922,19 +1930,24 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return nil, fmt.Errorf("to create workspace for stage %d: %w",
 				stage.Index, err)
 		}
+		saveTimer := timing.Start("Saving files for later stages")
+		saveTimer.SetAttributes(attribute.Int("kaniko.files", len(files)))
 		if config.FF.NativeCopy {
 			logrus.Infof("Saving files for later use: %v", files)
 			if err := util.CopyPaths(config.RootDir, dstDir, files); err != nil {
+				saveTimer.End()
 				return nil, fmt.Errorf("could not save files: %w", err)
 			}
 		} else {
 			for _, p := range files {
 				logrus.Infof("Saving file %s for later use", p)
 				if err := util.CopyFileOrSymlink(p, dstDir, config.RootDir); err != nil {
+					saveTimer.End()
 					return nil, fmt.Errorf("could not save file: %w", err)
 				}
 			}
 		}
+		saveTimer.End()
 
 		// Delete the filesystem
 		if !config.FF.ImageStages || needsRootFS {
