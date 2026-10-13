@@ -299,7 +299,6 @@ func DoPush(out *Output, opts *config.KanikoOptions, parent trace.Span) error {
 	}
 
 	endPush := func() {}
-	// stop on the way out too: an unended span is never exported
 	defer func() { endPush() }()
 	// continue pushing unless an error occurs
 	for _, destRef := range destRefs {
