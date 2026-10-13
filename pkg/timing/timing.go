@@ -93,6 +93,7 @@ var networkCategories = map[string]bool{
 	"Downloading base image":  true,
 	"Pushing cached layer":    true,
 	"Pushing cache pointer":   true,
+	"Resolving cache pointer": true,
 	"Total Push Time":         true,
 }
 
