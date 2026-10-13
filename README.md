@@ -159,6 +159,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT`](#flag-ff_kaniko_reproducible_preserve_format)
       - [Flag `FF_KANIKO_RESOLVE_CACHE_KEY`](#flag-ff_kaniko_resolve_cache_key)
       - [Flag `FF_KANIKO_ROLLING_CACHE_KEY`](#flag-ff_kaniko_rolling_cache_key)
+      - [Flag `FF_KANIKO_RUN_HEREDOC_SCRIPT`](#flag-ff_kaniko_run_heredoc_script)
       - [Flag `FF_KANIKO_RUN_HONOR_GROUP`](#flag-ff_kaniko_run_honor_group)
       - [Flag `FF_KANIKO_RUN_VIA_TINI`](#flag-ff_kaniko_run_via_tini)
       - [Flag `FF_KANIKO_SCOPED_DOCKERIGNORE`](#flag-ff_kaniko_scoped_dockerignore)
@@ -1190,6 +1191,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_LINK=true
 FF_KANIKO_DEFER_CACHE_PUSH=true
+FF_KANIKO_RUN_HEREDOC_SCRIPT=true
 FF_KANIKO_WARMER_BUILD_ARGS=true
 FF_KANIKO_WARMER_PREDEFINED_ARGS=true
 ```
@@ -1445,6 +1447,19 @@ This flag switches to a rolling hash, think git, where `state = SHA256(state || 
 Set this flag to `true` to enable the rolling cache key.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_RUN_HEREDOC_SCRIPT`
+
+```dockerfile
+RUN <<EOF
+echo $(echo "a (b)")
+EOF
+```
+
+Kaniko runs the body of a lone `RUN <<EOF` through the shell twice, so `$(...)` and `$VAR` are expanded before the script runs and the example fails with a syntax error. `RUN <<"EOF"` and `RUN <<-EOF` run nothing at all.
+Set this flag to `true` to run the body as the script itself.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_RUN_HONOR_GROUP`
 
