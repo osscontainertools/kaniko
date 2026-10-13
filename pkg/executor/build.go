@@ -396,15 +396,10 @@ func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (
 
 func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, args *dockerfile.BuildArgs, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string, hasContext bool) (string, *stageCacheInfo, v1.Config, error) {
 	span, closeOptimize := timing.Scope("Optimizing stage")
-	lookups, hits := 0, 0
-	defer func() {
-		span.SetAttributes(
-			attribute.Int("kaniko.stage", s.index),
-			attribute.Bool("kaniko.cache.lookahead", !hasContext),
-			attribute.Int("kaniko.cache.lookups", lookups),
-			attribute.Int("kaniko.cache.hits", hits))
-		closeOptimize()
-	}()
+	defer closeOptimize()
+	span.SetAttributes(
+		attribute.Int("kaniko.stage", s.index),
+		attribute.Bool("kaniko.cache.lookahead", !hasContext))
 	keyValid := compositeKeyPtr != nil
 	if hasContext {
 		assert.Assert("executor.optimize.keyValid", keyValid, "optimize: key must be valid")
@@ -544,7 +539,6 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 			// an earlier miss, its source stage may be eliminated. An independently
 			// keyed layer holds nothing from below, so no earlier miss reaches it.
 			if command.ShouldCacheOutput() && (!stopCache || independentKey || (precomputed && config.FF.SkipCachedStages)) {
-				lookups++
 				img, err := layerCache.RetrieveLayer(ck)
 				if err != nil {
 					logrus.Debugf("Failed to retrieve layer: %s", err)
@@ -565,7 +559,6 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 				}
 
 				ci.cacheHits[i] = true
-				hits++
 				if cacheCmd := command.CacheCommand(img); cacheCmd != nil {
 					if sawCacheMiss {
 						logrus.Debugf("Applying cached layer for cmd %s after an earlier miss in the same stage (FF_KANIKO_CACHE_PROBE_AFTER_MISS)", command.String())
