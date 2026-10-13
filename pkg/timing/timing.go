@@ -127,8 +127,6 @@ func StartChild(parent trace.Span, category string) trace.Span {
 	return start(parent, category)
 }
 
-// Record emits a span for category that ran from begin to end, for work done
-// before the tracer existed.
 func Record(category string, begin, end time.Time) {
 	span := start(nil, category, trace.WithTimestamp(begin))
 	span.End(trace.WithTimestamp(end))
