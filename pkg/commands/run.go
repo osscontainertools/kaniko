@@ -29,6 +29,7 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
@@ -296,17 +297,24 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 
 		cmd := strings.Join(cmdRun.CmdLine, " ")
 
-		// Heredocs
-		if len(cmdRun.Files) == 1 && cmd == "<<"+cmdRun.Files[0].Name {
-			// 1713: if we encounter a line like 'RUN <<EOF',
-			// we implicitly want the file body to be executed as a script
-			cmd += " sh"
+		if runsHeredocAsScript(cmdRun) {
+			cmd = cmdRun.Files[0].Data
+			if cmdRun.Files[0].Chomp {
+				cmd = parser.ChompHeredocContent(cmd)
+			}
+		} else {
+			// Heredocs
+			if len(cmdRun.Files) == 1 && cmd == "<<"+cmdRun.Files[0].Name {
+				// 1713: if we encounter a line like 'RUN <<EOF',
+				// we implicitly want the file body to be executed as a script
+				cmd += " sh"
+			}
+			var cmdSb245 strings.Builder
+			for _, h := range cmdRun.Files {
+				cmdSb245.WriteString("\n" + h.Data + h.Name)
+			}
+			cmd += cmdSb245.String()
 		}
-		var cmdSb245 strings.Builder
-		for _, h := range cmdRun.Files {
-			cmdSb245.WriteString("\n" + h.Data + h.Name)
-		}
-		cmd += cmdSb245.String()
 
 		newCommand = append(shell, cmd)
 	} else {
@@ -445,7 +453,18 @@ func runCacheKey(cmd *instructions.RunCommand) string {
 	for _, f := range cmd.Files {
 		fmt.Fprintf(&key, "%d:%s%d:%s", len(f.Data), f.Data, len(f.Name), f.Name)
 	}
+	// the body ran through a second shell expansion before, so those layers can differ
+	if runsHeredocAsScript(cmd) {
+		key.WriteString("heredoc-script")
+	}
 	return key.String()
+}
+
+// runsHeredocAsScript reports whether the body of a lone 'RUN <<EOF' heredoc
+// is handed to the shell as the script itself.
+func runsHeredocAsScript(cmd *instructions.RunCommand) bool {
+	return kConfig.FF.RunHeredocScript && cmd.PrependShell && len(cmd.Files) == 1 &&
+		parser.MustParseHeredoc(strings.Join(cmd.CmdLine, " ")) != nil
 }
 
 func (c *RunCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {

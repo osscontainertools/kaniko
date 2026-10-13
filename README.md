@@ -170,6 +170,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_IMAGE_STAGES`](#flag-ff_kaniko_image_stages)
       - [Flag `FF_KANIKO_COPY_LINK`](#flag-ff_kaniko_copy_link)
       - [Flag `FF_KANIKO_CACHE_IMAGE_INDEX`](#flag-ff_kaniko_cache_image_index)
+      - [Flag `FF_KANIKO_RUN_HEREDOC_SCRIPT`](#flag-ff_kaniko_run_heredoc_script)
     - [Assertion Overrides](#assertion-overrides)
     - [Layer Hints](#layer-hints)
     - [Telemetry](#telemetry)
@@ -1188,6 +1189,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_LINK=true
 FF_KANIKO_DEFER_CACHE_PUSH=true
+FF_KANIKO_RUN_HEREDOC_SCRIPT=true
 ```
 
 ##### BuildKit compatibility
@@ -1513,6 +1515,19 @@ Becomes default in `v1.30.0`.
 
 The warmer does not cache image indexes. A base image pinned to an index digest still needs the registry, so air-gapped builds fail even with a warm cache.
 Set this flag to `true` on the warmer and the executor to cache the index too.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
+
+#### Flag `FF_KANIKO_RUN_HEREDOC_SCRIPT`
+
+```dockerfile
+RUN <<EOF
+echo $(echo "a (b)")
+EOF
+```
+
+Kaniko runs the body of a lone `RUN <<EOF` through the shell twice, so `$(...)` and `$VAR` are expanded before the script runs and the example fails with a syntax error. `RUN <<"EOF"` and `RUN <<-EOF` run nothing at all.
+Set this flag to `true` to run the body as the script itself.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
 
