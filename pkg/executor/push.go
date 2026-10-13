@@ -46,6 +46,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/version"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -177,7 +178,7 @@ func writeDigestFile(path string, digestByteArray []byte) error {
 // DoPush is responsible for pushing image to the destinations specified in opts.
 // A dummy destination would be set when --no-push is set to true and --tar-path
 // is not empty with empty --destinations.
-func DoPush(image v1.Image, opts *config.KanikoOptions) error {
+func DoPush(image v1.Image, opts *config.KanikoOptions, parent trace.Span) error {
 	assert.Assert("executor.push.image-nonnull", image != nil, "DoPush called with nil image")
 
 	var digestByteArray []byte
@@ -188,8 +189,10 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 	}
 
 	if opts.DigestFile != "" || opts.ImageNameDigestFile != "" || opts.ImageNameTagDigestFile != "" {
+		t := timing.StartChild(parent, "Computing image digest")
 		var err error
 		digestByteArray, err = getDigest(image)
+		t.End()
 		if err != nil {
 			return fmt.Errorf("error fetching digest: %w", err)
 		}
@@ -203,11 +206,15 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 	}
 
 	if opts.OCILayoutPath != "" {
+		t := timing.StartChild(parent, "Writing OCI layout")
 		path, err := layout.Write(opts.OCILayoutPath, empty.Index)
 		if err != nil {
+			t.End()
 			return fmt.Errorf("writing empty layout: %w", err)
 		}
-		if err := path.AppendImage(image); err != nil {
+		err = path.AppendImage(image)
+		t.End()
+		if err != nil {
 			return fmt.Errorf("appending image: %w", err)
 		}
 	}
@@ -256,7 +263,9 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		for _, destRef := range destRefs {
 			tagToImage[destRef] = image
 		}
+		t := timing.StartChild(parent, "Writing image tarball")
 		err := tarball.MultiWriteToFile(opts.TarPath, tagToImage)
+		t.End()
 		if err != nil {
 			return fmt.Errorf("writing tarball to file failed: %w", err)
 		}
@@ -267,8 +276,15 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		return nil
 	}
 
+	endPush := func() {}
+	// stop on the way out too: an unended span is never exported
+	defer func() { endPush() }()
 	// continue pushing unless an error occurs
 	for _, destRef := range destRefs {
+		endPush()
+		pushSpan := timing.StartChild(parent, "Pushing image")
+		pushSpan.SetAttributes(attribute.String("kaniko.push.destination", destRef.String()))
+		endPush = func() { pushSpan.End() }
 		registryName := destRef.Registry.Name()
 		if opts.Insecure || opts.InsecureRegistries.Contains(registryName) {
 			newReg, err := name.NewRegistry(registryName, name.WeakValidation, name.Insecure)
@@ -361,6 +377,7 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 			return fmt.Errorf("failed to push to destination %s: %w", destRef, err)
 		}
 	}
+	endPush()
 	return writeImageOutputs(image, destRefs)
 }
 
@@ -455,7 +472,7 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 		cacheOpts.OCILayoutPath = strings.TrimPrefix(cache, "oci:")
 		cacheOpts.NoPush = true
 	}
-	return DoPush(empty, &cacheOpts)
+	return DoPush(empty, &cacheOpts, t)
 }
 
 const cachePointerLabel = "kaniko.cache.pointer-target"
@@ -490,7 +507,7 @@ func pushCachePointer(opts *config.KanikoOptions, inferredKey, contentKey string
 		cacheOpts.OCILayoutPath = strings.TrimPrefix(dest, "oci:")
 		cacheOpts.NoPush = true
 	}
-	return DoPush(img, &cacheOpts)
+	return DoPush(img, &cacheOpts, t)
 }
 
 // resolveCachePointer checks whether img is a pointer entry pushed by pushCachePointer
