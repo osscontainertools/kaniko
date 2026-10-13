@@ -89,7 +89,9 @@ func tracesEndpoint(endpoint string) string {
 	return u.JoinPath("/v1/traces").String()
 }
 
-func Init(ctx context.Context, opts *config.KanikoOptions) {
+// Init starts the root span at start, which precedes Init by the work that has to
+// run first: the Dockerfile it reads may only exist once the context is fetched.
+func Init(ctx context.Context, opts *config.KanikoOptions, start time.Time) {
 	endpoint := os.Getenv(EndpointEnv)
 	if endpoint == "" {
 		return
@@ -126,7 +128,7 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 	)
 
 	tracer := tp.Tracer("github.com/osscontainertools/kaniko")
-	sctx, span := tracer.Start(ctx, "build")
+	sctx, span := tracer.Start(ctx, "build", trace.WithTimestamp(start))
 	span.SetAttributes(attribute.String("kaniko.telemetry.auth", auth))
 	raw, set := os.LookupEnv(OmitDockerfileEnv)
 	if set {
