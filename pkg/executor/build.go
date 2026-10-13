@@ -1009,7 +1009,6 @@ func saveSnapshotToLayer(tarPath string, imageMediaType types.MediaType, opts *c
 		return nil, nil
 	}
 
-	// tarball.LayerFromFile compresses and digests the whole layer before it returns
 	t := timing.Start("Compressing layer")
 	layer, err := tarball.LayerFromFile(tarPath, getLayerOptionsForImage(imageMediaType, opts)...)
 	t.End()
@@ -1137,7 +1136,6 @@ func convertLayerMediaType(layer v1.Layer, image v1.Image, opts *config.KanikoOp
 	}
 	targetMediaType, recompress := layerConversion(layerMediaType, imageMediaType, opts)
 	if targetMediaType != layerMediaType {
-		// tarball.LayerFromOpener reads and digests the whole blob before it returns
 		t := timing.Start("Converting layer media type")
 		defer t.End()
 		t.SetAttributes(
@@ -1914,7 +1912,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				return nil, err
 			}
 			if opts.Reproducible {
-				// mutate.Canonical is lazy, the layers get rewritten when WithMediaType reads the manifest
 				canonTimer := timing.Start("Canonicalizing image")
 				outMediaType := types.DockerManifestSchema2
 				if config.FF.ReproduciblePreserveFormat {

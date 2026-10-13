@@ -89,8 +89,6 @@ func tracesEndpoint(endpoint string) string {
 	return u.JoinPath("/v1/traces").String()
 }
 
-// Init starts the root span at start, which precedes Init by the work that has to
-// run first: the Dockerfile it reads may only exist once the context is fetched.
 func Init(ctx context.Context, opts *config.KanikoOptions, start time.Time) {
 	endpoint := os.Getenv(EndpointEnv)
 	if endpoint == "" {
