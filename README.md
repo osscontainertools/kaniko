@@ -1526,7 +1526,7 @@ echo $(echo "a (b)")
 EOF
 ```
 
-Kaniko runs the body of a lone `RUN <<EOF` through the shell twice, so `$(...)` and `$VAR` are expanded before the script runs and the example fails with a syntax error. `RUN <<"EOF"` and `RUN <<-EOF` run nothing at all.
+Kaniko runs the body of a lone `RUN <<EOF` through the shell twice, so `$(...)` and `$VAR` are expanded before the script runs and the example fails with a syntax error. `RUN <<"EOF"` and `RUN <<-EOF` run nothing at all, and a `#!` line is ignored.
 Set this flag to `true` to run the body as the script itself.
 Defaults to `false`.
 Becomes default in `v1.30.0`.

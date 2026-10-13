@@ -3,6 +3,7 @@ ARG IMAGE_REPO
 # Fails since v1.25.4 with a syntax error on the parentheses below.
 # The outer shell expands $(...) while reading the heredoc and hands the output to sh as code.
 # Quoted and chomped delimiters never match the script check and run nothing.
+# A shebang is ignored and the body always runs under sh.
 FROM ${IMAGE_REPO}busybox
 RUN <<EOF
 if true; then
@@ -16,4 +17,9 @@ EOF
 RUN <<-EOF
 	echo $(echo "a (b)") > /chomped
 	EOF
-RUN cat /unquoted /quoted /chomped
+USER nobody
+RUN <<EOF
+#!/bin/awk -f
+BEGIN { print "awk" > "/tmp/shebang" }
+EOF
+RUN cat /unquoted /quoted /chomped /tmp/shebang
