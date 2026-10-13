@@ -59,6 +59,9 @@ var RootCmd = &cobra.Command{
 			return err
 		}
 		config.LogFeatureFlags()
+		if config.FF.NativeInit {
+			util.StartInit()
+		}
 
 		// Allow setting --registry-maps using an environment variable.
 		// some users use warmer with --regisry-mirror before v1.21.0
