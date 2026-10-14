@@ -87,10 +87,10 @@ func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, b
 	// Finally, check if local caching is enabled
 	// If so, look in the local cache before trying the remote registry
 	if opts.Cache && opts.CacheDir != "" {
-		t := timing.Start("Looking up cached base image")
+		lookupSpan, endLookup := timing.Scope("Looking up cached base image")
 		cachedImage, err := cachedImage(opts, currentBaseName)
-		t.SetAttributes(attribute.Bool("kaniko.cache.hit", err == nil && cachedImage != nil))
-		t.End()
+		lookupSpan.SetAttributes(attribute.Bool("kaniko.cache.hit", err == nil && cachedImage != nil))
+		endLookup()
 		if err != nil {
 			switch {
 			case cache.IsNotFound(err):
