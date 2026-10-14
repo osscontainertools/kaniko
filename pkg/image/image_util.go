@@ -106,8 +106,6 @@ func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, b
 	}
 
 	// Otherwise, initialize image as usual
-	t := timing.Start("Retrieving Source Image")
-	defer t.End()
 	return RetrieveRemoteImage(currentBaseName, opts.RegistryOptions, opts.CustomPlatform)
 }
 
