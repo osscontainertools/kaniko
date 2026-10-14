@@ -28,29 +28,21 @@ ENV CGO_ENABLED=0
 # Add .docker config dir
 RUN mkdir -p /kaniko/.docker
 
-#  dependencies https://github.com/golang/go/issues/48332
-
-# The versions of these tools and their transitive dependencies are controlled via go.mod.
-# To update the version of any tool installed here, run
-#
-#   go get <tool>@<commit-sha-or-tag>
-#   go mod vendor
-#
-# Then submit a PR with the changes to `go.mod`, `go.sum`, and `vendor`.
-
-# Get credential helpers
-# The acr helper binary is named docker-credential-acr upstream, keep the old name so
-# existing credHelpers entries for "acr-env" keep resolving.
-COPY go.mod go.sum ./
-RUN go build -ldflags "-w -s" -o out/ github.com/GoogleCloudPlatform/docker-credential-gcr/v2 \
-    && go build -ldflags "-w -s" -o out/ github.com/awslabs/amazon-ecr-credential-helper/ecr-login/cli/docker-credential-ecr-login \
-    && go build -ldflags "-w -s" -o out/docker-credential-acr-env github.com/osscontainertools/docker-credential-acr \
-    && rm -rf /root/.cache /go/pkg
-
 COPY . .
 ARG COVER=""
 RUN make COVER="$COVER" out/executor out/warmer \
     && rm -rf /root/.cache
+
+# The credential helpers are hardlinks to the kaniko binary, see pkg/creds/helpers.go.
+# Symlinks would let a COPY onto a helper path overwrite the binary, and a hardlink
+# only shares the file when it is copied in the same layer as the binary.
+RUN mkdir -p /dist/executor /dist/warmer \
+    && cp out/executor /dist/executor/ \
+    && cp out/warmer /dist/warmer/ \
+    && for helper in docker-credential-gcr docker-credential-ecr-login docker-credential-acr-env; do \
+        ln /dist/executor/executor /dist/executor/$helper \
+        && ln /dist/warmer/warmer /dist/warmer/$helper; \
+    done
 
 # Generate latest ca-certificates
 ARG BUILDPLATFORM
@@ -74,10 +66,6 @@ ENV PATH=/usr/local/bin:/kaniko
 ENV SSL_CERT_DIR=/kaniko/ssl/certs
 
 FROM kaniko-base-slim AS kaniko-base
-
-COPY --from=builder --chown=0:0 /src/out/docker-credential-gcr /kaniko/docker-credential-gcr
-COPY --from=builder --chown=0:0 /src/out/docker-credential-ecr-login /kaniko/docker-credential-ecr-login
-COPY --from=builder --chown=0:0 /src/out/docker-credential-acr-env /kaniko/docker-credential-acr-env
 
 COPY --from=builder /kaniko/.docker /kaniko/.docker
 
@@ -118,13 +106,13 @@ FROM kaniko-base-${TARGETARCH} AS kaniko-base-2
 
 FROM kaniko-base AS kaniko-warmer
 
-COPY --from=builder /src/out/warmer /kaniko/warmer
+COPY --from=builder /dist/warmer/ /kaniko/
 
 ENTRYPOINT ["/kaniko/warmer"]
 
 FROM kaniko-base-2 AS kaniko-executor
 
-COPY --from=builder /src/out/executor /kaniko/executor
+COPY --from=builder /dist/executor/ /kaniko/
 
 ENTRYPOINT ["/kaniko/executor"]
 
