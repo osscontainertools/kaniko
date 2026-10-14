@@ -307,9 +307,13 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 		if err != nil {
 			return fmt.Errorf("error building image: %w", err)
 		}
-		waitTimer := timing.Start("Awaiting cache uploads")
-		executor.WaitCachePushes()
-		waitTimer.End()
+		if config.FF.DeferCachePush {
+			waitTimer := timing.Start("Awaiting cache uploads")
+			executor.WaitCachePushes()
+			waitTimer.End()
+		} else {
+			executor.WaitCachePushes()
+		}
 		// mz992: a dryrun renders the plan and returns no image, there is nothing to push.
 		if !opts.Dryrun {
 			pushTimer := timing.Start("Total Push Time")

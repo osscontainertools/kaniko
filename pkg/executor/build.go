@@ -379,9 +379,15 @@ func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (
 	if err != nil {
 		return nil, err
 	}
-	t := timing.Start("Resolving cache pointer")
-	ptrImg, err := layerCache.RetrieveLayer(inferredCk)
-	t.End()
+	var ptrImg v1.Image
+	memo, ok := layerCache.(*memoizedLayerCache)
+	if ok && memo.has(inferredCk) {
+		ptrImg, err = layerCache.RetrieveLayer(inferredCk)
+	} else {
+		t := timing.Start("Resolving cache pointer")
+		ptrImg, err = layerCache.RetrieveLayer(inferredCk)
+		t.End()
+	}
 	if err != nil {
 		logrus.Debugf("Failed to retrieve pointer: %s", err)
 		logrus.Debugf("Key missing was: %s", inferredKey.Key())
@@ -395,11 +401,6 @@ func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (
 }
 
 func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, args *dockerfile.BuildArgs, opts *config.KanikoOptions, fileContext util.FileContext, layerCache cache.LayerCache, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string, hasContext bool) (string, *stageCacheInfo, v1.Config, error) {
-	span, closeOptimize := timing.Scope("Optimizing stage")
-	defer closeOptimize()
-	span.SetAttributes(
-		attribute.Int("kaniko.stage", s.index),
-		attribute.Bool("kaniko.cache.lookahead", !hasContext))
 	keyValid := compositeKeyPtr != nil
 	if hasContext {
 		assert.Assert("executor.optimize.keyValid", keyValid, "optimize: key must be valid")
@@ -1228,8 +1229,6 @@ func saveLayerToImage(image v1.Image, layer v1.Layer, createdBy string, opts *co
 }
 
 func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptions) (map[int][]string, error) {
-	_, closeDeps := timing.Scope("Calculating stage dependencies")
-	defer closeDeps()
 	images := make(map[int]v1.Image)
 	depGraph := map[int][]string{}
 	for _, s := range stages {
@@ -1308,8 +1307,6 @@ type pushedLayer struct {
 }
 
 func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string, layerCache *memoizedLayerCache, externalImageDigests map[string]string, sharedRemote map[string]bool) (retErr error) {
-	_, closeRender := timing.Scope("Rendering plan")
-	defer closeRender()
 	printf := func(format string, args ...any) {
 		if retErr == nil {
 			_, retErr = fmt.Fprintf(w, format, args...)
