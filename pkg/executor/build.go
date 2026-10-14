@@ -2069,8 +2069,8 @@ func deduplicatePaths(paths []string) []string {
 }
 
 func resolveExtraStageDigests(stages []config.KanikoStage, opts *config.KanikoOptions) (map[string]string, map[string]v1.Image, error) {
-	t := timing.Start("Resolving Extra Stage Digests")
-	defer t.End()
+	_, endResolve := timing.Scope("Resolving Extra Stage Digests")
+	defer endResolve()
 
 	externalImageDigests := make(map[string]string)
 	images := make(map[string]v1.Image)
@@ -2114,8 +2114,8 @@ func resolveExtraStageDigests(stages []config.KanikoStage, opts *config.KanikoOp
 }
 
 func downloadExtraStages(images map[string]v1.Image, externalImageDigests map[string]string, sharedRemote map[string]bool) error {
-	t := timing.Start("Fetching Extra Stages")
-	defer t.End()
+	_, endFetch := timing.Scope("Fetching Extra Stages")
+	defer endFetch()
 
 	for name, sourceImage := range images {
 		digest := externalImageDigests[name]
