@@ -23,11 +23,8 @@ import (
 	"syscall"
 )
 
-// NativeInitEnv is set on the kaniko child of RunAsInit.
 const NativeInitEnv = "KANIKO_NATIVE_INIT_CHILD"
 
-// RunAsInit re-execs kaniko as its only child and acts as init: it reaps every orphan,
-// forwards termination signals, and returns the child's exit code once it exits.
 func RunAsInit() (int, error) {
 	sigs := make(chan os.Signal, 16)
 	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
