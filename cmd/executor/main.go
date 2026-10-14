@@ -26,9 +26,9 @@ import (
 )
 
 func main() {
-	code, ok := creds.RunHelper(filepath.Base(os.Args[0]))
+	helper, ok := creds.Helpers[filepath.Base(os.Args[0])]
 	if ok {
-		os.Exit(code)
+		os.Exit(helper())
 	}
 	s := stacklog.MustStartFromEnv("STACKLOG_PATH")
 	defer s.Stop()
