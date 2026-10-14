@@ -102,16 +102,12 @@ var networkCategories = map[string]bool{
 }
 
 var containerCategories = map[string]bool{
-	"Stage":                          true,
-	"Command":                        true,
-	"Total Build Time":               true,
-	"Planning":                       true,
-	"Calculating stage dependencies": true,
-	"Optimizing stage":               true,
-	"Rendering plan":                 true,
-	"Looking up cached base image":   true,
-	"Resolving Extra Stage Digests":  true,
-	"Fetching Extra Stages":          true,
+	"Stage":                         true,
+	"Command":                       true,
+	"Total Build Time":              true,
+	"Planning":                      true,
+	"Resolving Extra Stage Digests": true,
+	"Fetching Extra Stages":         true,
 }
 
 func phaseFor(category string) string {
