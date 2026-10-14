@@ -18,11 +18,18 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
+	"github.com/osscontainertools/kaniko/pkg/creds"
 )
 
 func main() {
+	code, ok := creds.RunHelper(filepath.Base(os.Args[0]))
+	if ok {
+		os.Exit(code)
+	}
+
 	if err := cmd.RootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
