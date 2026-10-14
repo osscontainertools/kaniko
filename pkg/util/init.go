@@ -23,8 +23,6 @@ import (
 	"syscall"
 )
 
-const NativeInitEnv = "KANIKO_NATIVE_INIT_CHILD"
-
 func RunAsInit() (int, error) {
 	sigs := make(chan os.Signal, 16)
 	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
@@ -32,10 +30,7 @@ func RunAsInit() (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("resolving kaniko executable: %w", err)
 	}
-	child, err := os.StartProcess(exe, os.Args, &os.ProcAttr{
-		Env:   append(os.Environ(), NativeInitEnv+"=1"),
-		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
-	})
+	child, err := os.StartProcess(exe, os.Args, &os.ProcAttr{Files: []*os.File{os.Stdin, os.Stdout, os.Stderr}})
 	if err != nil {
 		return 0, fmt.Errorf("starting kaniko as child of init: %w", err)
 	}
