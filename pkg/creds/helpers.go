@@ -30,9 +30,7 @@ import (
 	acr "github.com/osscontainertools/docker-credential-acr/cmd"
 )
 
-// RunHelper runs the docker credential helper called name, mirroring the
-// upstream main packages. The helper binaries in the image are symlinks to
-// the kaniko binary, which dispatches here on argv[0].
+// The names must match the hardlinks created in deploy/Dockerfile.
 func RunHelper(name string) (int, bool) {
 	switch name {
 	case "docker-credential-gcr":
