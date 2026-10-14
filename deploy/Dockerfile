@@ -33,9 +33,8 @@ ARG COVER=""
 RUN make COVER="$COVER" out/executor out/warmer \
     && rm -rf /root/.cache
 
-# The credential helpers are hardlinks to the kaniko binary, see pkg/creds/helpers.go.
-# Symlinks would let a COPY onto a helper path overwrite the binary, and a hardlink
-# only shares the file when it is copied in the same layer as the binary.
+# The helper names must match the argv[0] dispatch in pkg/creds/helpers.go.
+# A hardlink only shares the file when it is copied in the same layer as the binary.
 RUN mkdir -p /dist/executor /dist/warmer \
     && cp out/executor /dist/executor/ \
     && cp out/warmer /dist/warmer/ \
