@@ -27,6 +27,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/creds"
 	"github.com/osscontainertools/kaniko/pkg/mounts"
+	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
@@ -76,6 +77,8 @@ func RetrieveRemoteImageAndIndex(image string, opts config.RegistryOptions, cust
 		logrus.Infof("Returning cached image manifest")
 		return cached.image, cached.index, nil
 	}
+	t := timing.Start("Retrieving Source Image")
+	defer t.End()
 
 	ref, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
