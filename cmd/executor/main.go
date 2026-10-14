@@ -25,9 +25,9 @@ import (
 )
 
 func main() {
-	code, ok := creds.RunHelper(filepath.Base(os.Args[0]))
+	helper, ok := creds.Helpers[filepath.Base(os.Args[0])]
 	if ok {
-		os.Exit(code)
+		os.Exit(helper())
 	}
 
 	if err := cmd.RootCmd.Execute(); err != nil {
