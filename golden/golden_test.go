@@ -351,7 +351,7 @@ func TestWarmer(t *testing.T) {
 
 							origRemote, origLocal := warmer.RemoteSource, warmer.LocalSource
 							warmer.RemoteSource = fakeRemoteImage
-							warmer.LocalSource = func(_ *config.CacheOptions, key string) (v1.Image, error) {
+							warmer.LocalSource = func(_ *config.CacheOptions, key, _ string) (v1.Image, error) {
 								if !slices.Contains(test.CachedKeys, key) {
 									return nil, cache.NotFoundErr{}
 								}

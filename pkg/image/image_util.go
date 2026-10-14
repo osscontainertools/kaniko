@@ -145,15 +145,14 @@ func cachedImage(opts *config.KanikoOptions, image string) (v1.Image, error) {
 	var oldErr error
 	if d, ok := ref.(name.Digest); ok {
 		cacheKey := d.DigestStr()
-		img, err := cache.LocalSource(&opts.CacheOptions, cacheKey)
+		img, err := cache.LocalSourceForPlatform(&opts.CacheOptions, cacheKey, opts.CustomPlatform)
 		if err == nil {
 			return img, nil
 		} else if cache.IsNotFound(err) {
 			// mz320: But in case it is a cache miss, not all hope is lost.
 			// It could have also been the digest for an image index.
-			// The thin wrapper that only points to the image-manifests for different archs.
-			// Unfortunately we can't tell a priori and we only store the image manifests as keys.
-			// Therefore we don't return and instead try a remote lookup again.
+			// A warmer-created platform alias would have resolved it above; otherwise
+			// try a remote lookup to resolve the index to its platform image.
 			oldKey = cacheKey
 			oldErr = err
 		} else {
@@ -176,5 +175,5 @@ func cachedImage(opts *config.KanikoOptions, image string) (v1.Image, error) {
 		// so we can short-circuit with the previous error here.
 		return nil, oldErr
 	}
-	return cache.LocalSource(&opts.CacheOptions, cacheKey)
+	return cache.LocalSourceForPlatform(&opts.CacheOptions, cacheKey, opts.CustomPlatform)
 }
