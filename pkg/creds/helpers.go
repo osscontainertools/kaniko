@@ -30,7 +30,6 @@ import (
 	acr "github.com/osscontainertools/docker-credential-acr/cmd"
 )
 
-// Helpers maps argv[0] to the credential helper's main.
 // The names must match the hardlinks created in deploy/Dockerfile.
 var Helpers = map[string]func() int{
 	"docker-credential-gcr":       gcrMain,
