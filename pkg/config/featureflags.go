@@ -50,6 +50,7 @@ type FeatureFlags struct {
 	IgnoreCachedManifest           bool
 	ImageStages                    bool
 	InferCrossStageCacheKey        bool
+	IsolateCachePush               bool
 	LayerHints                     bool
 	NativeCopy                     bool
 	NoPropagateAnnotations         bool
@@ -141,6 +142,7 @@ func InitFeatureFlags() {
 		IgnoreCachedManifest:           featureFlag("FF_KANIKO_IGNORE_CACHED_MANIFEST", false),
 		ImageStages:                    featureFlag("FF_KANIKO_IMAGE_STAGES", false),
 		InferCrossStageCacheKey:        featureFlag("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", false),
+		IsolateCachePush:               featureFlag("FF_KANIKO_ISOLATE_CACHE_PUSH", false),
 		LayerHints:                     featureFlag("FF_KANIKO_LAYER_HINTS", false),
 		NativeCopy:                     featureFlag("FF_KANIKO_NATIVE_COPY", false),
 		NoPropagateAnnotations:         featureFlag("FF_KANIKO_NO_PROPAGATE_ANNOTATIONS", true),
