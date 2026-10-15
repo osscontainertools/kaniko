@@ -1,0 +1,3 @@
+/scripts/test.sh text eol=lf
+/hack/boilerplate.sh text eol=lf
+/hack/gofmt.sh text eol=lf

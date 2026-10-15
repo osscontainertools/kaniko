@@ -164,6 +164,9 @@ func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	cacheRef, image, digest, err := cw.Resolve(img, opts)
 	if err != nil {
 		if cache.IsAlreadyCached(err) {
+			if err := storeIndexDigestAlias(opts, img, digest); err != nil {
+				return err
+			}
 			logrus.Infof("Image already in cache: %v", img)
 			return nil
 		}
@@ -183,6 +186,9 @@ func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 
 		_, lookupErr := cw.Local(&opts.CacheOptions, digest.String(), opts.CustomPlatform)
 		if lookupErr == nil || cache.IsExpired(lookupErr) {
+			if err := storeIndexDigestAlias(opts, img, digest); err != nil {
+				return err
+			}
 			logrus.Infof("Image %v became available in cache while waiting for lock; keeping existing copy", img)
 			return nil
 		}
@@ -204,10 +210,8 @@ func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to rename manifest file: %w", err)
 	}
-	if indexDigest := indexDigestForCacheRef(cacheRef, digest); indexDigest != "" {
-		if err := cache.StoreDigestAlias(&opts.CacheOptions, indexDigest, digest.String(), opts.CustomPlatform); err != nil {
-			return fmt.Errorf("failed to store image-index digest alias: %w", err)
-		}
+	if err := storeIndexDigestAliasForReference(opts, cacheRef, digest); err != nil {
+		return err
 	}
 
 	logrus.Debugf("Wrote %s to cache", img)
@@ -231,6 +235,9 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	cacheRef, image, digest, err := cw.Resolve(img, opts)
 	if err != nil {
 		if cache.IsAlreadyCached(err) {
+			if err := storeIndexDigestAlias(opts, img, digest); err != nil {
+				return err
+			}
 			logrus.Infof("Image already in cache: %v", img)
 			return nil
 		}
@@ -249,6 +256,9 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 
 		_, lookupErr := cw.Local(&opts.CacheOptions, digest.String(), opts.CustomPlatform)
 		if lookupErr == nil || cache.IsExpired(lookupErr) {
+			if err := storeIndexDigestAlias(opts, img, digest); err != nil {
+				return err
+			}
 			logrus.Infof("Image %v became available in cache while waiting for lock; keeping existing copy", img)
 			return nil
 		}
@@ -267,10 +277,8 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	if err != nil {
 		return err
 	}
-	if indexDigest := indexDigestForCacheRef(cacheRef, digest); indexDigest != "" {
-		if err := cache.StoreDigestAlias(&opts.CacheOptions, indexDigest, digest.String(), opts.CustomPlatform); err != nil {
-			return fmt.Errorf("failed to store image-index digest alias: %w", err)
-		}
+	if err := storeIndexDigestAliasForReference(opts, cacheRef, digest); err != nil {
+		return err
 	}
 
 	logrus.Debugf("Wrote %s to cache", img)
@@ -360,6 +368,23 @@ func indexDigestForCacheRef(cacheRef name.Reference, imageDigest v1.Hash) string
 		return ""
 	}
 	return indexRef.DigestStr()
+}
+
+func storeIndexDigestAlias(opts *config.WarmerOptions, image string, imageDigest v1.Hash) error {
+	cacheRef, err := name.ParseReference(image, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("failed to parse image reference for cache alias: %w", err)
+	}
+	return storeIndexDigestAliasForReference(opts, cacheRef, imageDigest)
+}
+
+func storeIndexDigestAliasForReference(opts *config.WarmerOptions, cacheRef name.Reference, imageDigest v1.Hash) error {
+	if indexDigest := indexDigestForCacheRef(cacheRef, imageDigest); indexDigest != "" {
+		if err := cache.StoreDigestAlias(&opts.CacheOptions, indexDigest, imageDigest.String(), opts.CustomPlatform); err != nil {
+			return fmt.Errorf("failed to store image-index digest alias: %w", err)
+		}
+	}
+	return nil
 }
 
 // Write streams the image as a Docker tarball to TarWriter and its raw

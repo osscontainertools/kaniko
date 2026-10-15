@@ -1,39 +1,35 @@
 package cache
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
-	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/osscontainertools/kaniko/pkg/config"
 )
 
 func TestLocalSourceForPlatformFollowsIndexDigestAlias(t *testing.T) {
+	oldOCIWarmer := config.FF.OCIWarmer
+	config.FF.OCIWarmer = true
+	t.Cleanup(func() {
+		config.FF.OCIWarmer = oldOCIWarmer
+	})
+
 	cacheDir := t.TempDir()
 	imageDigest, err := empty.Image.Digest()
 	if err != nil {
 		t.Fatal(err)
 	}
 	imagePath := filepath.Join(cacheDir, imageDigest.String())
-	imageFile, err := os.Create(imagePath)
+	imageLayout, err := layout.Write(imagePath, empty.Index)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ref, err := name.NewTag("example.com/test:latest")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := tarball.Write(ref, empty.Image, imageFile); err != nil {
-		_ = imageFile.Close()
-		t.Fatal(err)
-	}
-	if err := imageFile.Close(); err != nil {
+	if err := imageLayout.AppendImage(empty.Image); err != nil {
 		t.Fatal(err)
 	}
 
