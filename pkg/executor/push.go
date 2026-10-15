@@ -224,20 +224,9 @@ func DoPush(out *Output, opts *config.KanikoOptions, parent trace.Span) error {
 	}
 
 	if opts.OCILayoutPath != "" {
-		t := timing.StartChild(parent, "Writing OCI layout")
-		path, err := layout.Write(opts.OCILayoutPath, empty.Index)
+		err := writeOCILayout(image, out.Index, opts.OCILayoutPath, parent)
 		if err != nil {
-			t.End()
-			return fmt.Errorf("writing empty layout: %w", err)
-		}
-		if out.Index != nil {
-			err = path.AppendIndex(out.Index)
-		} else {
-			err = path.AppendImage(image)
-		}
-		t.End()
-		if err != nil {
-			return fmt.Errorf("appending image: %w", err)
+			return err
 		}
 	}
 
@@ -298,6 +287,14 @@ func DoPush(out *Output, opts *config.KanikoOptions, parent trace.Span) error {
 		return nil
 	}
 
+	err := pushToRegistries(image, out.Index, destRefs, opts, parent)
+	if err != nil {
+		return err
+	}
+	return writeImageOutputs(image, destRefs)
+}
+
+func pushToRegistries(image v1.Image, index v1.ImageIndex, destRefs []name.Tag, opts *config.KanikoOptions, parent trace.Span) error {
 	endPush := func() {}
 	defer func() { endPush() }()
 	// continue pushing unless an error occurs
@@ -350,13 +347,13 @@ func DoPush(out *Output, opts *config.KanikoOptions, parent trace.Span) error {
 
 		logrus.Infof("Pushing image to %s", destRef.String())
 		target := remote.Taggable(image)
-		if out.Index != nil {
-			target = out.Index
+		if index != nil {
+			target = index
 		}
 		pushTarget := target
 		switch {
-		case config.FF.CrossRepoMount && out.Index != nil:
-			pushTarget = mounts.MountableIndex(out.Index, destRef.RegistryStr())
+		case config.FF.CrossRepoMount && index != nil:
+			pushTarget = mounts.MountableIndex(index, destRef.RegistryStr())
 		case config.FF.CrossRepoMount:
 			pushTarget = mounts.MountableImage(image, destRef.RegistryStr())
 		}
@@ -406,7 +403,40 @@ func DoPush(out *Output, opts *config.KanikoOptions, parent trace.Span) error {
 		}
 	}
 	endPush()
-	return writeImageOutputs(image, destRefs)
+	return nil
+}
+
+func writeOCILayout(image v1.Image, index v1.ImageIndex, layoutPath string, parent trace.Span) error {
+	t := timing.StartChild(parent, "Writing OCI layout")
+	defer t.End()
+	path, err := layout.Write(layoutPath, empty.Index)
+	if err != nil {
+		return fmt.Errorf("writing empty layout: %w", err)
+	}
+	if index != nil {
+		err = path.AppendIndex(index)
+	} else {
+		err = path.AppendImage(image)
+	}
+	if err != nil {
+		return fmt.Errorf("appending image: %w", err)
+	}
+	return nil
+}
+
+func pushCacheImage(image v1.Image, dest string, opts *config.KanikoOptions, parent trace.Span) error {
+	if isOCILayout(dest) {
+		return writeOCILayout(image, nil, strings.TrimPrefix(dest, "oci:"), parent)
+	}
+	if opts.NoPushCache {
+		logrus.Info("Skipping push to cache due to --no-push-cache flag")
+		return nil
+	}
+	destRef, err := name.NewTag(dest, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("getting tag for destination: %w", err)
+	}
+	return pushToRegistries(image, nil, []name.Tag{destRef}, opts, parent)
 }
 
 func writeImageOutputs(image v1.Image, destRefs []name.Tag) error {
@@ -490,6 +520,9 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 	if err != nil {
 		return fmt.Errorf("appending layer onto empty image: %w", err)
 	}
+	if config.FF.IsolateCachePush {
+		return pushCacheImage(empty, cache, opts, t)
+	}
 	cacheOpts := *opts
 	cacheOpts.TarPath = ""              // tarPath doesn't make sense for Docker layers
 	cacheOpts.NoPush = opts.NoPushCache // we do not want to push cache if --no-push-cache is set.
@@ -525,6 +558,9 @@ func pushCachePointer(opts *config.KanikoOptions, inferredKey, contentKey string
 		return fmt.Errorf("building pointer image: %w", err)
 	}
 
+	if config.FF.IsolateCachePush {
+		return pushCacheImage(img, dest, opts, t)
+	}
 	cacheOpts := *opts
 	cacheOpts.TarPath = ""
 	cacheOpts.NoPush = opts.NoPushCache

@@ -47,6 +47,7 @@ type FeatureFlags struct {
 	HashDirFraming                 bool
 	ImageStages                    bool
 	InferCrossStageCacheKey        bool
+	IsolateCachePush               bool
 	LayerHints                     bool
 	NativeCopy                     bool
 	NativeInit                     bool
@@ -130,6 +131,7 @@ func InitFeatureFlags() {
 		HashDirFraming:                 featureFlag("FF_KANIKO_HASH_DIR_FRAMING", true),
 		ImageStages:                    featureFlag("FF_KANIKO_IMAGE_STAGES", true),
 		InferCrossStageCacheKey:        featureFlag("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", true),
+		IsolateCachePush:               featureFlag("FF_KANIKO_ISOLATE_CACHE_PUSH", false),
 		LayerHints:                     featureFlag("FF_KANIKO_LAYER_HINTS", true),
 		NativeCopy:                     featureFlag("FF_KANIKO_NATIVE_COPY", true),
 		NativeInit:                     featureFlag("FF_KANIKO_NATIVE_INIT", false),
