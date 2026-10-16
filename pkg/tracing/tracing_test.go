@@ -28,7 +28,7 @@ func TestBuildAttrs(t *testing.T) {
 	opts := &config.KanikoOptions{DockerfilePath: "/workspace/Dockerfile"}
 
 	got := map[string]string{}
-	for _, kv := range buildAttrs(noEnv, opts, []byte("FROM scratch")) {
+	for _, kv := range buildAttrs(opts, []byte("FROM scratch")) {
 		got[string(kv.Key)] = kv.Value.AsString()
 	}
 
@@ -52,24 +52,25 @@ func TestBuildAttrs(t *testing.T) {
 }
 
 func TestBuildID(t *testing.T) {
+	// our own CI runs these tests on GitHub Actions
+	t.Setenv("GITHUB_ACTIONS", "")
+	t.Setenv("GITLAB_CI", "")
+	t.Setenv(BuildIDEnv, "")
 	content := []byte("FROM scratch\nRUN true\n")
 	// Content-addressed: same content+target => same id, regardless of path.
-	if buildID(noEnv, "/a/Dockerfile", "", content) != buildID(noEnv, "/b/Dockerfile", "", content) {
+	if buildID("/a/Dockerfile", "", content) != buildID("/b/Dockerfile", "", content) {
 		t.Error("build_id must depend on content, not path, when content is available")
 	}
 	// Different content => different id.
-	if buildID(noEnv, "/a/Dockerfile", "", content) == buildID(noEnv, "/a/Dockerfile", "", []byte("FROM busybox\n")) {
+	if buildID("/a/Dockerfile", "", content) == buildID("/a/Dockerfile", "", []byte("FROM busybox\n")) {
 		t.Error("build_id must change with content")
 	}
 	// Fallback: no content => path-based, distinct from the content id.
-	if buildID(noEnv, "/a/Dockerfile", "", nil) == buildID(noEnv, "/a/Dockerfile", "", content) {
+	if buildID("/a/Dockerfile", "", nil) == buildID("/a/Dockerfile", "", content) {
 		t.Error("path fallback must differ from the content-based id")
 	}
 	// A readable-but-empty Dockerfile is content-addressed, not path-based.
-	if buildID(noEnv, "/a/Dockerfile", "", []byte{}) != buildID(noEnv, "/b/Dockerfile", "", []byte{}) {
+	if buildID("/a/Dockerfile", "", []byte{}) != buildID("/b/Dockerfile", "", []byte{}) {
 		t.Error("empty readable Dockerfile must be content-addressed")
 	}
 }
-
-// noEnv is a build running outside CI, with nothing set.
-func noEnv(string) string { return "" }
