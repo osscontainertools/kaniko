@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/sirupsen/logrus"
 )
 
@@ -76,6 +77,19 @@ func ResolveSource(ci CI, git Source) Source {
 		return git
 	}
 	return ci.Checkout
+}
+
+// distribution/distribution spells Docker Hub docker.io, go-containerregistry index.docker.io
+func QualifiedReference(ref string) string {
+	parsed, err := name.ParseReference(ref, name.WeakValidation)
+	if err != nil {
+		return ref
+	}
+	qualified := parsed.Name()
+	if parsed.Context().RegistryStr() == name.DefaultRegistry {
+		qualified = "docker.io" + strings.TrimPrefix(qualified, name.DefaultRegistry)
+	}
+	return qualified
 }
 
 func Annotations(src Source, created time.Time) map[string]string {

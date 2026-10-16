@@ -1828,11 +1828,22 @@ func checkAnnotations(t *testing.T, dockerfile, image string) {
 func compareAnnotations(t *testing.T, level string, want, got map[string]string) {
 	t.Helper()
 	for key, value := range want {
-		if value == "{git.revision}" {
+		switch value {
+		case "{git.revision}":
 			value = gitRevision(".")
 			if value == "" {
 				t.Fatal("cannot determine the commit of this checkout")
 			}
+		case "{base.digest}":
+			img, err := getImage(got["org.opencontainers.image.base.name"])
+			if err != nil {
+				t.Fatal(err)
+			}
+			digest, err := img.Digest()
+			if err != nil {
+				t.Fatal(err)
+			}
+			value = digest.String()
 		}
 		actual, set := got[key]
 		switch value {
