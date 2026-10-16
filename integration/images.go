@@ -365,6 +365,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1227_annotation":    {"--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
 	"Dockerfile_test_issue_mz1227_detached":      {"--predefined-annotations"},
 	"Dockerfile_test_issue_mz1227_merged_result": {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1227_squash":        {"--predefined-annotations"},
 }
 
 var expectErr = map[string]int{
@@ -539,13 +540,16 @@ var imageChecks = map[string]func(*testing.T, string){
 }
 
 // The annotations a pushed image carries, on the index if the tag resolves to one and on
-// the image manifests. "" asserts the key is unset, {present} that it is set and
-// {git.revision} is the commit of this checkout. Keys not listed are not checked.
+// the image manifests. "" asserts the key is unset, {present} that it is set,
+// {git.revision} is the commit of this checkout and {base.digest} the digest of the image
+// named by org.opencontainers.image.base.name. Keys not listed are not checked.
 var expectedAnnotations = map[string]struct{ Index, Manifest map[string]string }{
 	"Dockerfile_test_issue_mz1227": {Manifest: map[string]string{
-		"org.opencontainers.image.created":  "{present}",
-		"org.opencontainers.image.revision": "{git.revision}",
-		"org.opencontainers.image.version":  "",
+		"org.opencontainers.image.created":     "{present}",
+		"org.opencontainers.image.revision":    "{git.revision}",
+		"org.opencontainers.image.version":     "",
+		"org.opencontainers.image.base.name":   "docker.io/library/alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
+		"org.opencontainers.image.base.digest": "{base.digest}",
 	}},
 	"Dockerfile_test_issue_mz1227_ci": {Manifest: map[string]string{
 		"org.opencontainers.image.source":   "https://gitlab.example.com/group/project",
@@ -564,11 +568,17 @@ var expectedAnnotations = map[string]struct{ Index, Manifest map[string]string }
 		"org.opencontainers.image.version":  "",
 	}},
 	"Dockerfile_test_issue_mz1227_reproducible": {Manifest: map[string]string{
-		"org.opencontainers.image.created":  "",
-		"org.opencontainers.image.revision": "",
+		"org.opencontainers.image.created":     "",
+		"org.opencontainers.image.revision":    "",
+		"org.opencontainers.image.base.name":   "docker.io/library/alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
+		"org.opencontainers.image.base.digest": "{base.digest}",
 	}},
 	"Dockerfile_test_issue_mz1227_annotation": {Manifest: map[string]string{
 		"org.opencontainers.image.revision": "override",
+	}},
+	"Dockerfile_test_issue_mz1227_squash": {Manifest: map[string]string{
+		"org.opencontainers.image.base.name":   "docker.io/library/alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
+		"org.opencontainers.image.base.digest": "{base.digest}",
 	}},
 }
 
@@ -784,6 +794,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz1227_annotation":    {},
 		"Dockerfile_test_issue_mz1227_detached":      {},
 		"Dockerfile_test_issue_mz1227_merged_result": {},
+		"Dockerfile_test_issue_mz1227_squash":        {},
 	}
 	return &d
 }

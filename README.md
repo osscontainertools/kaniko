@@ -1187,10 +1187,12 @@ Set `--predefined-annotations` to annotate the image manifest with the OCI pre-d
 | `org.opencontainers.image.revision` | the commit |
 | `org.opencontainers.image.version` | the git tag, when building a tag |
 | `org.opencontainers.image.created` | the build time |
+| `org.opencontainers.image.base.name` | the fully qualified reference of the base image of the pushed stage |
+| `org.opencontainers.image.base.digest` | the digest of that base image |
 
 The repository, commit and tag come from the GitLab or GitHub Actions environment, checked against the git checkout of the context. If the checkout is at a different commit, for example after a manual checkout in the job or in a submodule, a warning is logged and the commit and `origin` remote of the checkout are used instead. Outside CI they come from the checkout. The version is only set from CI.
 
-With `--reproducible` no keys are set. `--annotation` takes precedence over every key.
+With `--reproducible` only the `base.*` keys are set. `--annotation` takes precedence over every key.
 
 ### Feature Flags
 

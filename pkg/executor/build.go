@@ -1745,7 +1745,13 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 
 	var pushImage v1.Image
+	// the stage whose remote base sits at the bottom of each stage's chain of local bases
+	remoteBase := make([]config.KanikoStage, lastStage.Index+1)
 	for _, stage := range kanikoStages {
+		remoteBase[stage.Index] = stage
+		if stage.BaseImageStoredLocally {
+			remoteBase[stage.Index] = remoteBase[stage.BaseImageIndex]
+		}
 		endStage()
 		stageSpan, closeStage := timing.Scope("Stage")
 		stageSpan.SetAttributes(
@@ -1896,6 +1902,11 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			if opts.PredefinedAnnotations {
 				if !opts.Reproducible {
 					maps.Copy(annotations, buildenv.Annotations(opts.ContextSource, created))
+				}
+				base := remoteBase[stage.Index]
+				if base.BaseName != constants.NoBaseImage {
+					annotations[buildenv.AnnotationBaseImageName] = buildenv.QualifiedReference(base.BaseName)
+					annotations[buildenv.AnnotationBaseImageDigest] = base.BaseImageDigest
 				}
 			}
 			maps.Copy(annotations, opts.Annotations)
