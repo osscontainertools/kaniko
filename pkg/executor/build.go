@@ -47,6 +47,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/assert"
+	"github.com/osscontainertools/kaniko/pkg/buildenv"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/commands"
 	"github.com/osscontainertools/kaniko/pkg/config"
@@ -1853,7 +1854,8 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		logrus.Debugf("Mapping stage idx %v to cachekey %v", stage.Index, finalCacheKey)
 
 		if stage.Push {
-			sourceImage, err = mutate.CreatedAt(sourceImage, v1.Time{Time: time.Now()})
+			created := time.Now()
+			sourceImage, err = mutate.CreatedAt(sourceImage, v1.Time{Time: created})
 			if err != nil {
 				return nil, err
 			}
@@ -1883,9 +1885,6 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 					return nil, err
 				}
 			}
-			if len(opts.Annotations) > 0 {
-				sourceImage = mutate.Annotations(sourceImage, opts.Annotations).(v1.Image)
-			}
 			if !sb.mixedBase {
 				err = image_util.AssertConsistentMediaType(sourceImage)
 				if err != nil {
@@ -1893,6 +1892,16 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				}
 			}
 			pushImage = sourceImage
+			annotations := map[string]string{}
+			if opts.PredefinedAnnotations {
+				if !opts.Reproducible {
+					maps.Copy(annotations, buildenv.Annotations(opts.ContextSource, created))
+				}
+			}
+			maps.Copy(annotations, opts.Annotations)
+			if len(annotations) > 0 {
+				pushImage = mutate.Annotations(sourceImage, annotations).(v1.Image)
+			}
 		}
 		if stage.Final {
 			// Final stage must be last, so by definition after Push stage.

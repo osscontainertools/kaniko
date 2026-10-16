@@ -47,13 +47,13 @@ func ciAttrs() []attribute.KeyValue {
 	for _, kv := range []attribute.KeyValue{
 		repoKey.String(ci.RepositoryPath),
 		pipelineKey.String(ci.PipelineID),
-		gitSHAKey.String(ci.Revision),
+		gitSHAKey.String(ci.Checkout.Revision),
 		gitRefKey.String(ci.Ref),
 
 		semconv.VCSRepositoryURLFullKey.String(ci.RepositoryURL),
 		semconv.VCSRepositoryNameKey.String(ci.RepositoryName),
 		semconv.VCSRefHeadNameKey.String(ci.Ref),
-		semconv.VCSRefHeadRevisionKey.String(ci.Revision),
+		semconv.VCSRefHeadRevisionKey.String(ci.Checkout.Revision),
 		semconv.VCSChangeIDKey.String(ci.ChangeID),
 
 		semconv.CICDPipelineNameKey.String(ci.PipelineName),

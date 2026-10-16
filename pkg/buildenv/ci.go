@@ -26,7 +26,6 @@ type CI struct {
 	RepositoryPath string
 	RepositoryURL  string
 	RepositoryName string
-	Revision       string
 	Ref            string
 	ChangeID       string
 	PipelineName   string
@@ -38,6 +37,9 @@ type CI struct {
 	RunAttempt     string
 	// Identity is what makes two runs the same build.
 	Identity []string
+	// Checkout is what the job expects the build context to be, which a git checkout
+	// can contradict. The other fields describe the job and hold regardless.
+	Checkout Source
 }
 
 type forge struct {
@@ -60,12 +62,17 @@ func DetectCI() CI {
 }
 
 func gitlab() CI {
+	// a merge request pipeline runs in the parent project, but only a detached one builds the fork's
+	// commit, merged results and merge trains build a merge commit in the parent project
+	source := os.Getenv("CI_PROJECT_URL")
+	if os.Getenv("CI_MERGE_REQUEST_EVENT_TYPE") == "detached" {
+		source = os.Getenv("CI_MERGE_REQUEST_SOURCE_PROJECT_URL")
+	}
 	return CI{
 		Forge:          "gitlab",
 		RepositoryPath: os.Getenv("CI_PROJECT_PATH"),
 		RepositoryURL:  os.Getenv("CI_PROJECT_URL"),
 		RepositoryName: os.Getenv("CI_PROJECT_NAME"),
-		Revision:       os.Getenv("CI_COMMIT_SHA"),
 		Ref:            os.Getenv("CI_COMMIT_REF_NAME"),
 		ChangeID:       os.Getenv("CI_MERGE_REQUEST_IID"),
 		// CI_PIPELINE_NAME is only set when workflow:name is, so it is usually absent.
@@ -76,6 +83,7 @@ func gitlab() CI {
 		JobID:        os.Getenv("CI_JOB_ID"),
 		JobURL:       os.Getenv("CI_JOB_URL"),
 		Identity:     []string{os.Getenv("CI_PROJECT_PATH"), os.Getenv("CI_JOB_NAME")},
+		Checkout:     Source{URL: source, Revision: os.Getenv("CI_COMMIT_SHA"), Version: os.Getenv("CI_COMMIT_TAG")},
 	}
 }
 
@@ -86,12 +94,15 @@ func github() CI {
 	if ref == "" {
 		ref = os.Getenv("GITHUB_REF_NAME")
 	}
+	tag := ""
+	if os.Getenv("GITHUB_REF_TYPE") == "tag" {
+		tag = os.Getenv("GITHUB_REF_NAME")
+	}
 	return CI{
 		Forge:          "github",
 		RepositoryPath: os.Getenv("GITHUB_REPOSITORY"),
 		RepositoryURL:  repoURL(),
 		RepositoryName: repoName(),
-		Revision:       os.Getenv("GITHUB_SHA"),
 		Ref:            ref,
 		ChangeID:       pullRequestID(),
 		PipelineName:   os.Getenv("GITHUB_WORKFLOW"),
@@ -102,6 +113,7 @@ func github() CI {
 		// attempts are one run.
 		RunAttempt: os.Getenv("GITHUB_RUN_ATTEMPT"),
 		Identity:   githubIdentity(),
+		Checkout:   Source{URL: repoURL(), Revision: os.Getenv("GITHUB_SHA"), Version: tag},
 	}
 }
 
