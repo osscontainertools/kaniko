@@ -1236,7 +1236,7 @@ func TestWarmerTwice(t *testing.T) {
 	}
 	dockerfiles := map[string]bool{
 		"debian:trixie-slim": true,
-		"debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56": true,  // image-index requires remote lookup
+		"debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56": false, // image-index can skip lookup
 		"debian:12.10@sha256:6bc30d909583f38600edd6609e29eb3fb284ab8affce8d0389f332fc91c2dd91": false, // image-manifest can skip lookup
 	}
 	for dockerfile, remoteLookup := range dockerfiles {
