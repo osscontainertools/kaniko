@@ -172,6 +172,11 @@ func init() {
 	InitFeatureFlags()
 }
 
+// ActiveFeatureFlags returns the names of the feature flags that are on.
+func ActiveFeatureFlags() []string {
+	return slices.Clone(activeFeatureFlags)
+}
+
 func LogFeatureFlags() {
 	if len(activeFeatureFlags) > 0 {
 		logrus.Infof("active feature flags: %s", strings.Join(activeFeatureFlags, ", "))
