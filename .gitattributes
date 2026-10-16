@@ -1,3 +1,0 @@
-*.sh text eol=lf
-*.bash text eol=lf
-golden/testdata/**/plans/* text eol=lf
