@@ -45,7 +45,7 @@ type Source struct {
 	Version  string
 }
 
-func GitSource(dir string) Source {
+func GitSource(dir, cloneURL string) Source {
 	gitDir, err := findGitDir(dir)
 	if err != nil {
 		logrus.Debugf("Not reading the source of the build context from git: %v", err)
@@ -62,7 +62,11 @@ func GitSource(dir string) Source {
 		logrus.Warnf("Not reading the source of the build context from git, resolving HEAD: %v", err)
 		return Source{}
 	}
-	return Source{URL: withoutCredentials(originURL(commonDir)), Revision: head}
+	url := cloneURL
+	if url == "" {
+		url = originURL(commonDir)
+	}
+	return Source{URL: withoutCredentials(url), Revision: head}
 }
 
 // The CI environment describes the pipeline, which is only the build context if the

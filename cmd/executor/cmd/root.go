@@ -145,11 +145,17 @@ func setupBuild() error {
 	if err := cacheFlagsValid(); err != nil {
 		return fmt.Errorf("cache flags invalid: %w", err)
 	}
+	srcContext := opts.SrcContext
 	if err := resolveSourceContext(); err != nil {
 		return fmt.Errorf("error resolving source context: %w", err)
 	}
 	if opts.PredefinedAnnotations {
-		opts.ContextSource = buildenv.ResolveSource(buildenv.DetectCI(), buildenv.GitSource(opts.SrcContext))
+		dir, cloneURL := opts.SrcContext, ""
+		gitContext, isGit := strings.CutPrefix(srcContext, constants.GitBuildContextPrefix)
+		if isGit {
+			dir, cloneURL = config.BuildContextDir, buildcontext.GitURL(gitContext)
+		}
+		opts.ContextSource = buildenv.ResolveSource(buildenv.DetectCI(), buildenv.GitSource(dir, cloneURL))
 	}
 	if err := resolveDockerfilePath(); err != nil {
 		return fmt.Errorf("error resolving dockerfile path: %w", err)
