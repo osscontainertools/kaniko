@@ -111,7 +111,7 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 	if cerr != nil {
 		logrus.Debugf("tracing: Dockerfile not readable, kaniko.dockerfile.content omitted: %v", cerr)
 	}
-	res, err := buildResource(ctx, os.Getenv, opts, content)
+	res, err := buildResource(ctx, opts, content)
 	if err != nil {
 		logrus.Debugf("tracing: partial resource, continuing: %v", err)
 	}
@@ -199,24 +199,24 @@ func SetPlan(plan string) {
 // buildResource is what every span carries. WithFromEnv comes last so
 // OTEL_RESOURCE_ATTRIBUTES overrides both what kaniko knows and what it read
 // off the CI system.
-func buildResource(ctx context.Context, env getenv, opts *config.KanikoOptions, content []byte) (*resource.Resource, error) {
+func buildResource(ctx context.Context, opts *config.KanikoOptions, content []byte) (*resource.Resource, error) {
 	return resource.New(ctx,
-		resource.WithAttributes(buildAttrs(env, opts, content)...),
-		resource.WithAttributes(ciAttrs(env)...),
+		resource.WithAttributes(buildAttrs(opts, content)...),
+		resource.WithAttributes(ciAttrs()...),
 		resource.WithFromEnv(),
 	)
 }
 
 // buildAttrs holds what kaniko knows; the CI system contributes the rest
 // through ciAttrs. build_id groups runs of the same build.
-func buildAttrs(env getenv, opts *config.KanikoOptions, dockerfile []byte) []attribute.KeyValue {
+func buildAttrs(opts *config.KanikoOptions, dockerfile []byte) []attribute.KeyValue {
 	target := strings.Join(opts.Target, ",")
 	attrs := []attribute.KeyValue{
 		semconv.ServiceName("kaniko"),
 		attribute.String("kaniko.version", version.Version()),
 		attribute.String("kaniko.dockerfile", opts.DockerfilePath),
 		attribute.String("kaniko.target", target),
-		attribute.String("kaniko.build_id", buildID(env, opts.DockerfilePath, target, dockerfile)),
+		attribute.String("kaniko.build_id", buildID(opts.DockerfilePath, target, dockerfile)),
 	}
 	for _, e := range os.Environ() {
 		if !strings.HasPrefix(e, "FF_KANIKO_") {
@@ -234,12 +234,12 @@ func buildAttrs(env getenv, opts *config.KanikoOptions, dockerfile []byte) []att
 // there is one: it survives edits to the Dockerfile, which the content hash
 // does not. Content-addressed otherwise, the path fallback being near-constant
 // across a fleet (everything mounts /workspace/Dockerfile).
-func buildID(env getenv, path, target string, content []byte) string {
-	id := env(BuildIDEnv)
+func buildID(path, target string, content []byte) string {
+	id := os.Getenv(BuildIDEnv)
 	if id != "" {
 		return id
 	}
-	id = ciBuildID(env, path, target)
+	id = ciBuildID(path, target)
 	if id != "" {
 		return id
 	}
