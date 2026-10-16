@@ -547,6 +547,10 @@ var warmerOutputChecks = map[string]func(string, []byte) error{
 		if !strings.Contains(string(out), s) {
 			return fmt.Errorf("output must contain %s", s)
 		}
+		s = "Retrieving image debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56 from registry"
+		if strings.Contains(string(out), s) {
+			return fmt.Errorf("output must not contain %s", s)
+		}
 		return nil
 	},
 }

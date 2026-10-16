@@ -1285,6 +1285,42 @@ func TestWarmerTwice(t *testing.T) {
 	}
 }
 
+func TestWarmerIndexAcrossPlatforms(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	image := "debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56"
+	warm := func(platform string) string {
+		dockerRunFlags := []string{"run", "--net=host", "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())}
+		dockerRunFlags = addAuthFlags(dockerRunFlags)
+		for _, envVariable := range WarmerEnv {
+			dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
+		}
+		dockerRunFlags = append(dockerRunFlags,
+			"-v", tmpDir+":/cache",
+			WarmerImage,
+			"--cache-dir=/cache",
+			"--customPlatform="+platform,
+			"-i", image)
+		out, err := RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
+		t.Logf("Warm %s output:\n%s", platform, out)
+		if err != nil {
+			t.Fatalf("Unable to warm %s: %s", platform, err)
+		}
+		return string(out)
+	}
+
+	warm("linux/arm64")
+	out := warm("linux/amd64")
+	s := fmt.Sprintf("Resolved sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56 to sha256:%s through cached image index", debian1210Digest)
+	if !strings.Contains(out, s) {
+		t.Fatalf("output must contain %s", s)
+	}
+	s = "Image already in cache: " + image
+	if strings.Contains(out, s) {
+		t.Fatalf("output must not contain %s", s)
+	}
+}
+
 func verifyBuildWith(t *testing.T, cache, dockerfile string) {
 	args, ok := additionalKanikoFlagsMap[dockerfile]
 	if !ok {
