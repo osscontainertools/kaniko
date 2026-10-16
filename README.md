@@ -124,6 +124,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--ignore-path`](#flag---ignore-path)
       - [Flag `--image-fs-extract-retry`](#flag---image-fs-extract-retry)
       - [Flag `--image-download-retry`](#flag---image-download-retry)
+      - [Flag `--predefined-annotations`](#flag---predefined-annotations)
     - [Feature Flags](#feature-flags)
       - [Profiles](#profiles)
       - [Flag `FF_KANIKO_COPY_AS_ROOT`](#flag-ff_kaniko_copy_as_root)
@@ -1188,6 +1189,21 @@ image filesystem. Defaults to `0`.
 Set this flag to the number of retries that should happen when downloading the
 remote image. Consecutive retries occur with exponential backoff and an initial
 delay of 1 second. Defaults to `0`.
+
+#### Flag `--predefined-annotations`
+
+Set `--predefined-annotations` to annotate the image manifest with the OCI pre-defined annotation keys kaniko can determine. Defaults to `false`.
+
+| key | value |
+| --- | --- |
+| `org.opencontainers.image.source`, `org.opencontainers.image.url` | the repository URL |
+| `org.opencontainers.image.revision` | the commit |
+| `org.opencontainers.image.version` | the git tag, when building a tag |
+| `org.opencontainers.image.created` | the build time |
+
+The repository, commit and tag come from the GitLab or GitHub Actions environment, checked against the git checkout of the context. If the checkout is at a different commit, for example after a manual checkout in the job or in a submodule, a warning is logged and the commit and `origin` remote of the checkout are used instead. Outside CI they come from the checkout. The version is only set from CI.
+
+With `--reproducible` no keys are set. `--annotation` takes precedence over every key.
 
 ### Feature Flags
 
