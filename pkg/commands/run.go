@@ -33,6 +33,7 @@ import (
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
+	"github.com/osscontainertools/kaniko/pkg/metrics"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
@@ -384,6 +385,7 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 	cmd.Env = append(env, secretEnvs...)
 
 	logrus.Infof("Running: %s", cmd.Args)
+	childStart := metrics.Now()
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("starting command: %w", err)
 	}
@@ -393,7 +395,10 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 	if err != nil {
 		return fmt.Errorf("getting group id for process: %w", err)
 	}
-	if err := cmd.Wait(); err != nil {
+	err = cmd.Wait()
+	// a non-zero exit still has its process state, and is worth recording
+	metrics.ObserveChild(childStart, cmd.ProcessState)
+	if err != nil {
 		return fmt.Errorf("waiting for process to exit: %w", err)
 	}
 
