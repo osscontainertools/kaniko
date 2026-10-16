@@ -325,10 +325,11 @@ var warmerTests = map[string][]types.GoldenTests{
 }
 
 // fakeRemoteImage derives the image from its reference, so its digest is stable across runs.
-func fakeRemoteImage(image string, _ config.RegistryOptions, _ string) (v1.Image, error) {
+func fakeRemoteImage(image string, _ config.RegistryOptions, _ string) (v1.Image, []byte, error) {
 	cf := &v1.ConfigFile{}
 	cf.Config.Labels = map[string]string{"ref": image}
-	return mutate.ConfigFile(empty.Image, cf)
+	img, err := mutate.ConfigFile(empty.Image, cf)
+	return img, nil, err
 }
 
 func TestWarmer(t *testing.T) {

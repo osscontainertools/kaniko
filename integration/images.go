@@ -224,6 +224,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_LAYER_HINTS=1",
 	"FF_KANIKO_PEEK_ARCHIVE_HEADER=1",
 	"FF_KANIKO_IMAGE_STAGES=1",
+	"FF_KANIKO_CACHE_IMAGE_INDEX=1",
 	"KANIKO_PRINT_PLAN=1",
 	"KANIKO_TELEMETRY_ENDPOINT",
 	"KANIKO_TELEMETRY_TOKEN_EXCHANGE_ENDPOINT",
@@ -241,7 +242,9 @@ var KanikoEnv = []string{
 	"GITHUB_JOB",
 }
 
-var WarmerEnv = []string{}
+var WarmerEnv = []string{
+	"FF_KANIKO_CACHE_IMAGE_INDEX=1",
+}
 
 // For these images kaniko emits dockerv2, so the oracle has to emit dockerv2 too.
 // oci-mediatypes=false pins the manifest format.

@@ -17,8 +17,7 @@ limitations under the License.
 package cache
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -203,17 +202,7 @@ func Destination(opts *config.KanikoOptions, cacheKey string) (string, error) {
 }
 
 // LocalSource retrieves a source image from a local cache given cacheKey
-func LocalSource(opts *config.CacheOptions, cacheKey string) (v1.Image, error) {
-	return LocalSourceForPlatform(opts, cacheKey, "")
-}
-
-// LocalSourceForPlatform retrieves a source image from a local cache given
-// cacheKey, following a platform-specific index digest alias when present.
-func LocalSourceForPlatform(opts *config.CacheOptions, cacheKey, platform string) (v1.Image, error) {
-	return localSource(opts, cacheKey, platform, true)
-}
-
-func localSource(opts *config.CacheOptions, cacheKey, platform string, followAlias bool) (v1.Image, error) {
+func LocalSource(opts *config.CacheOptions, cacheKey, platform string) (v1.Image, error) {
 	cache := opts.CacheDir
 	if cache == "" {
 		return nil, nil
@@ -222,18 +211,16 @@ func localSource(opts *config.CacheOptions, cacheKey, platform string, followAli
 	path := path.Join(cache, cacheKey)
 
 	fi, err := os.Stat(path)
-	if err != nil {
-		if followAlias && os.IsNotExist(err) {
-			aliasPath := digestAliasPath(cache, cacheKey, platform)
-			alias, aliasErr := os.ReadFile(aliasPath)
-			if aliasErr == nil {
-				targetKey := strings.TrimSpace(string(alias))
-				if _, hashErr := v1.NewHash(targetKey); hashErr != nil {
-					return nil, fmt.Errorf("invalid image digest in cache alias %s: %w", aliasPath, hashErr)
-				}
-				return localSource(opts, targetKey, platform, false)
-			}
+	if err != nil && config.FF.CacheImageIndex {
+		child, ok := indexChild(cache, cacheKey, platform)
+		if ok {
+			logrus.Infof("Resolved %s to %s through cached image index", cacheKey, child)
+			cacheKey = child
+			path = filepath.Join(cache, child)
+			fi, err = os.Stat(path)
 		}
+	}
+	if err != nil {
 		msg := fmt.Sprintf("No file found for cache key %v %v", cacheKey, err)
 		logrus.Debug(msg)
 		return nil, NotFoundErr{msg: msg}
@@ -255,37 +242,55 @@ func localSource(opts *config.CacheOptions, cacheKey, platform string, followAli
 	}
 }
 
-// StoreDigestAlias records that an image-index digest resolves to imageDigest
-// for the requested platform.
-func StoreDigestAlias(opts *config.CacheOptions, indexDigest, imageDigest, platform string) error {
-	if opts.CacheDir == "" {
-		return errors.New("cache directory is empty")
-	}
-	if _, err := v1.NewHash(indexDigest); err != nil {
-		return fmt.Errorf("invalid index digest: %w", err)
-	}
-	if _, err := v1.NewHash(imageDigest); err != nil {
-		return fmt.Errorf("invalid image digest: %w", err)
-	}
-	file, err := os.CreateTemp(opts.CacheDir, "warmingIndex.*")
+func StoreIndex(cacheDir string, index []byte) error {
+	digest, _, err :=v1.SHA256(bytes.NewReader(index))
 	if err != nil {
 		return err
 	}
-	tmpPath := file.Name()
-	defer os.Remove(tmpPath)
-	if _, err := fmt.Fprintln(file, imageDigest); err != nil {
-		_ = file.Close()
+	f, err := os.CreateTemp(cacheDir, "warmingIndex.*")
+	if err != nil {
 		return err
 	}
-	if err := file.Close(); err != nil {
+	defer os.Remove(f.Name())
+	_, err = f.Write(index)
+	if err != nil {
+		f.Close()
 		return err
 	}
-	return os.Rename(tmpPath, digestAliasPath(opts.CacheDir, indexDigest, platform))
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+	return os.Rename(f.Name(), path.Join(cacheDir, digest.String()+".index"))
 }
 
-func digestAliasPath(cacheDir, indexDigest, platform string) string {
-	platformHash := sha256.Sum256([]byte(platform))
-	return filepath.Join(cacheDir, indexDigest+".index."+hex.EncodeToString(platformHash[:]))
+func indexChild(cacheDir, cacheKey, platform string) (string, bool) {
+	raw, err := os.ReadFile(path.Join(cacheDir, cacheKey+".index"))
+	if err != nil {
+		return "", false
+	}
+	digest, _, err := v1.SHA256(bytes.NewReader(raw))
+	if err != nil || digest.String() != cacheKey {
+		return "", false
+	}
+	index, err := v1.ParseIndexManifest(bytes.NewReader(raw))
+	if err != nil {
+		return "", false
+	}
+	required, err := v1.ParsePlatform(platform)
+	if err != nil {
+		return "", false
+	}
+	for _, m := range index.Manifests {
+		given := v1.Platform{OS: "linux", Architecture: "amd64"}
+		if m.Platform != nil {
+			given = *m.Platform
+		}
+		if given.Satisfies(*required) {
+			return m.Digest.String(), true
+		}
+	}
+	return "", false
 }
 
 // cachedImage represents a v1.Tarball that is cached locally in a CAS.

@@ -42,8 +42,8 @@ import (
 // for testing
 var (
 	Out          io.Writer        = os.Stdout
-	RemoteSource FetchRemoteImage = remote.RetrieveRemoteImage
-	LocalSource  FetchLocalSource = cache.LocalSourceForPlatform
+	RemoteSource FetchRemoteImage = remote.RetrieveRemoteImageAndIndex
+	LocalSource  FetchLocalSource = cache.LocalSource
 )
 
 // WarmCache populates the cache
@@ -116,7 +116,7 @@ func RenderPlan(w io.Writer, images []string, opts *config.WarmerOptions) (retEr
 	errs := 0
 	for _, img := range images {
 		printf("FROM %s\n", img)
-		_, _, digest, err := cw.Resolve(img, opts)
+		_, _, _, digest, err := cw.Resolve(img, opts)
 		switch {
 		case cache.IsAlreadyCached(err):
 			printf("  CACHE HIT: %s\n", digest)
@@ -161,12 +161,15 @@ func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 		ManifestWriter: mtfsFile,
 	}
 
-	cacheRef, image, digest, err := cw.Resolve(img, opts)
+	cacheRef, image, index, digest, err := cw.Resolve(img, opts)
+	if config.FF.CacheImageIndex && index != nil {
+		storeErr := cache.StoreIndex(cacheDir, index)
+		if storeErr != nil {
+			return fmt.Errorf("failed to store image index: %w", storeErr)
+		}
+	}
 	if err != nil {
 		if cache.IsAlreadyCached(err) {
-			if err := storeIndexDigestAlias(opts, img, digest); err != nil {
-				return err
-			}
 			logrus.Infof("Image already in cache: %v", img)
 			return nil
 		}
@@ -186,9 +189,6 @@ func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 
 		_, lookupErr := cw.Local(&opts.CacheOptions, digest.String(), opts.CustomPlatform)
 		if lookupErr == nil || cache.IsExpired(lookupErr) {
-			if err := storeIndexDigestAlias(opts, img, digest); err != nil {
-				return err
-			}
 			logrus.Infof("Image %v became available in cache while waiting for lock; keeping existing copy", img)
 			return nil
 		}
@@ -210,9 +210,6 @@ func warmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to rename manifest file: %w", err)
 	}
-	if err := storeIndexDigestAliasForReference(opts, cacheRef, digest); err != nil {
-		return err
-	}
 
 	logrus.Debugf("Wrote %s to cache", img)
 	return nil
@@ -232,12 +229,15 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 		TmpDir: tmp,
 	}
 
-	cacheRef, image, digest, err := cw.Resolve(img, opts)
+	cacheRef, image, index, digest, err := cw.Resolve(img, opts)
+	if config.FF.CacheImageIndex && index != nil {
+		storeErr := cache.StoreIndex(cacheDir, index)
+		if storeErr != nil {
+			return fmt.Errorf("failed to store image index: %w", storeErr)
+		}
+	}
 	if err != nil {
 		if cache.IsAlreadyCached(err) {
-			if err := storeIndexDigestAlias(opts, img, digest); err != nil {
-				return err
-			}
 			logrus.Infof("Image already in cache: %v", img)
 			return nil
 		}
@@ -256,9 +256,6 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 
 		_, lookupErr := cw.Local(&opts.CacheOptions, digest.String(), opts.CustomPlatform)
 		if lookupErr == nil || cache.IsExpired(lookupErr) {
-			if err := storeIndexDigestAlias(opts, img, digest); err != nil {
-				return err
-			}
 			logrus.Infof("Image %v became available in cache while waiting for lock; keeping existing copy", img)
 			return nil
 		}
@@ -277,18 +274,15 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	if err != nil {
 		return err
 	}
-	if err := storeIndexDigestAliasForReference(opts, cacheRef, digest); err != nil {
-		return err
-	}
 
 	logrus.Debugf("Wrote %s to cache", img)
 	return nil
 }
 
 // FetchRemoteImage retrieves a Docker image manifest from a remote source.
-// github.com/GoogleContainerTools/kaniko/image/remote.RetrieveRemoteImage can be used as
+// github.com/GoogleContainerTools/kaniko/image/remote.RetrieveRemoteImageAndIndex can be used as
 // this type.
-type FetchRemoteImage func(image string, opts config.RegistryOptions, customPlatform string) (v1.Image, error)
+type FetchRemoteImage func(image string, opts config.RegistryOptions, customPlatform string) (v1.Image, []byte, error)
 
 // FetchLocalSource retrieves a Docker image manifest from a local source.
 // github.com/GoogleContainerTools/kaniko/cache.LocalSource can be used as
@@ -305,10 +299,10 @@ type Warmer struct {
 
 // Resolve fetches the image manifest and resolves its digest, short-circuiting
 // with AlreadyCachedErr if the local cache already holds it.
-func (w *Warmer) Resolve(image string, opts *config.WarmerOptions) (name.Reference, v1.Image, v1.Hash, error) {
+func (w *Warmer) Resolve(image string, opts *config.WarmerOptions) (name.Reference, v1.Image, []byte, v1.Hash, error) {
 	cacheRef, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
-		return nil, nil, v1.Hash{}, fmt.Errorf("failed to verify image name: %s: %w", image, err)
+		return nil, nil, nil, v1.Hash{}, fmt.Errorf("failed to verify image name: %s: %w", image, err)
 	}
 
 	// mz320: If we have a digest reference, we can try a cache lookup directly.
@@ -320,12 +314,12 @@ func (w *Warmer) Resolve(image string, opts *config.WarmerOptions) (name.Referen
 			_, err := w.Local(&opts.CacheOptions, cacheKey, opts.CustomPlatform)
 			if err == nil || cache.IsExpired(err) {
 				digest, _ := v1.NewHash(cacheKey)
-				return nil, nil, digest, cache.AlreadyCachedErr{}
+				return nil, nil, nil, digest, cache.AlreadyCachedErr{}
 			} else {
 				// mz320: But in case it is a cache miss, not all hope is lost.
 				// It could have also been the digest for an image-index.
 				// The thin wrapper that only points to the image-manifests for different archs.
-				// Unfortunately we can't tell a-priori and we only store the image manifests as keys.
+				// Unless the index itself is cached, we can't tell a-priori.
 				// Therefore we don't return and instead try a remote lookup again.
 				oldKey = cacheKey
 				oldErr = err
@@ -333,14 +327,14 @@ func (w *Warmer) Resolve(image string, opts *config.WarmerOptions) (name.Referen
 		}
 	}
 
-	img, err := w.Remote(image, opts.RegistryOptions, opts.CustomPlatform)
+	img, index, err := w.Remote(image, opts.RegistryOptions, opts.CustomPlatform)
 	if err != nil || img == nil {
-		return nil, nil, v1.Hash{}, fmt.Errorf("failed to retrieve image: %s: %w", image, err)
+		return nil, nil, nil, v1.Hash{}, fmt.Errorf("failed to retrieve image: %s: %w", image, err)
 	}
 
 	digest, err := img.Digest()
 	if err != nil {
-		return nil, nil, v1.Hash{}, fmt.Errorf("failed to retrieve digest: %s: %w", image, err)
+		return nil, nil, nil, v1.Hash{}, fmt.Errorf("failed to retrieve digest: %s: %w", image, err)
 	}
 
 	if !opts.Force {
@@ -355,36 +349,11 @@ func (w *Warmer) Resolve(image string, opts *config.WarmerOptions) (name.Referen
 			_, err = w.Local(&opts.CacheOptions, cacheKey, opts.CustomPlatform)
 		}
 		if err == nil || cache.IsExpired(err) {
-			return nil, nil, digest, cache.AlreadyCachedErr{}
+			return nil, nil, index, digest, cache.AlreadyCachedErr{}
 		}
 	}
 
-	return cacheRef, img, digest, nil
-}
-
-func indexDigestForCacheRef(cacheRef name.Reference, imageDigest v1.Hash) string {
-	indexRef, ok := cacheRef.(name.Digest)
-	if !ok || indexRef.DigestStr() == imageDigest.String() {
-		return ""
-	}
-	return indexRef.DigestStr()
-}
-
-func storeIndexDigestAlias(opts *config.WarmerOptions, image string, imageDigest v1.Hash) error {
-	cacheRef, err := name.ParseReference(image, name.WeakValidation)
-	if err != nil {
-		return fmt.Errorf("failed to parse image reference for cache alias: %w", err)
-	}
-	return storeIndexDigestAliasForReference(opts, cacheRef, imageDigest)
-}
-
-func storeIndexDigestAliasForReference(opts *config.WarmerOptions, cacheRef name.Reference, imageDigest v1.Hash) error {
-	if indexDigest := indexDigestForCacheRef(cacheRef, imageDigest); indexDigest != "" {
-		if err := cache.StoreDigestAlias(&opts.CacheOptions, indexDigest, imageDigest.String(), opts.CustomPlatform); err != nil {
-			return fmt.Errorf("failed to store image-index digest alias: %w", err)
-		}
-	}
-	return nil
+	return cacheRef, img, index, digest, nil
 }
 
 // Write streams the image as a Docker tarball to TarWriter and its raw
@@ -414,10 +383,10 @@ type OciWarmer struct {
 
 // Resolve fetches the image manifest and resolves its digest, short-circuiting
 // with AlreadyCachedErr if the local cache already holds it.
-func (w *OciWarmer) Resolve(image string, opts *config.WarmerOptions) (name.Reference, v1.Image, v1.Hash, error) {
+func (w *OciWarmer) Resolve(image string, opts *config.WarmerOptions) (name.Reference, v1.Image, []byte, v1.Hash, error) {
 	cacheRef, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
-		return nil, nil, v1.Hash{}, fmt.Errorf("failed to verify image name: %s: %w", image, err)
+		return nil, nil, nil, v1.Hash{}, fmt.Errorf("failed to verify image name: %s: %w", image, err)
 	}
 
 	// mz320: If we have a digest reference, we can try a cache lookup directly.
@@ -429,12 +398,12 @@ func (w *OciWarmer) Resolve(image string, opts *config.WarmerOptions) (name.Refe
 			_, err := w.Local(&opts.CacheOptions, cacheKey, opts.CustomPlatform)
 			if err == nil || cache.IsExpired(err) {
 				digest, _ := v1.NewHash(cacheKey)
-				return nil, nil, digest, cache.AlreadyCachedErr{}
+				return nil, nil, nil, digest, cache.AlreadyCachedErr{}
 			} else {
 				// mz320: But in case it is a cache miss, not all hope is lost.
 				// It could have also been the digest for an image-index.
 				// The thin wrapper that only points to the image-manifests for different archs.
-				// Unfortunately we can't tell a-priori and we only store the image manifests as keys.
+				// Unless the index itself is cached, we can't tell a-priori.
 				// Therefore we don't return and instead try a remote lookup again.
 				oldKey = cacheKey
 				oldErr = err
@@ -442,14 +411,14 @@ func (w *OciWarmer) Resolve(image string, opts *config.WarmerOptions) (name.Refe
 		}
 	}
 
-	img, err := w.Remote(image, opts.RegistryOptions, opts.CustomPlatform)
+	img, index, err := w.Remote(image, opts.RegistryOptions, opts.CustomPlatform)
 	if err != nil || img == nil {
-		return nil, nil, v1.Hash{}, fmt.Errorf("failed to retrieve image: %s: %w", image, err)
+		return nil, nil, nil, v1.Hash{}, fmt.Errorf("failed to retrieve image: %s: %w", image, err)
 	}
 
 	digest, err := img.Digest()
 	if err != nil {
-		return nil, nil, v1.Hash{}, fmt.Errorf("failed to retrieve digest: %s: %w", image, err)
+		return nil, nil, nil, v1.Hash{}, fmt.Errorf("failed to retrieve digest: %s: %w", image, err)
 	}
 
 	if !opts.Force {
@@ -464,11 +433,11 @@ func (w *OciWarmer) Resolve(image string, opts *config.WarmerOptions) (name.Refe
 			_, err = w.Local(&opts.CacheOptions, cacheKey, opts.CustomPlatform)
 		}
 		if err == nil || cache.IsExpired(err) {
-			return nil, nil, digest, cache.AlreadyCachedErr{}
+			return nil, nil, index, digest, cache.AlreadyCachedErr{}
 		}
 	}
 
-	return cacheRef, img, digest, nil
+	return cacheRef, img, index, digest, nil
 }
 
 // Write materializes the image as an ocilayout under TmpDir.

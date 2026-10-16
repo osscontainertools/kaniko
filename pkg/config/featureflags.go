@@ -32,6 +32,7 @@ type FeatureFlags struct {
 	BuildkitArgEnvPrecedence       bool
 	CacheHashBlake3                bool
 	CacheLookahead                 bool
+	CacheImageIndex                bool
 	CacheProbeAfterMiss            bool
 	ChownOnImplicitDirs            bool
 	CleanKanikoDir                 bool
@@ -123,6 +124,7 @@ func InitFeatureFlags() {
 		BuildkitArgEnvPrecedence:       featureFlag("FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE", true),
 		CacheHashBlake3:                featureFlag("FF_KANIKO_CACHE_HASH_BLAKE3", false),
 		CacheLookahead:                 featureFlag("FF_KANIKO_CACHE_LOOKAHEAD", false),
+		CacheImageIndex:                featureFlag("FF_KANIKO_CACHE_IMAGE_INDEX", false),
 		CacheProbeAfterMiss:            featureFlag("FF_KANIKO_CACHE_PROBE_AFTER_MISS", false),
 		ChownOnImplicitDirs:            featureFlag("FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS", false),
 		CleanKanikoDir:                 featureFlag("FF_KANIKO_CLEAN_KANIKO_DIR", true),
