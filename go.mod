@@ -1,6 +1,6 @@
 module github.com/osscontainertools/kaniko
 
-go 1.26.9
+go 1.27.2
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.2
