@@ -1198,7 +1198,7 @@ Set `--predefined-annotations` to annotate the image manifest with the OCI pre-d
 | --- | --- |
 | `org.opencontainers.image.source`, `org.opencontainers.image.url` | the repository URL |
 | `org.opencontainers.image.revision` | the commit |
-| `org.opencontainers.image.version` | the git tag, when building a tag |
+| `org.opencontainers.image.version` | the git tag, when CI builds a tag |
 | `org.opencontainers.image.created` | the build time |
 | `org.opencontainers.image.base.name` | the fully qualified reference of the base image of the pushed stage |
 | `org.opencontainers.image.base.digest` | the digest of that base image |
