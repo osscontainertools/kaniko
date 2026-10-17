@@ -1,6 +1,7 @@
 STREAM debian:10.13 /kaniko/deps/debian:10.13
 FROM debian:12.10 AS base
-  STREAM debian:12.10
+  FETCH debian:12.10
+  UNPACK debian:12.10
 COPY . .
 SAVE STAGE /kaniko/stages/0
 SAVE FILES [context/b* context/foo] /kaniko/deps/0

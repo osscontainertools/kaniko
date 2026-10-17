@@ -13,24 +13,7 @@ var Tests = types.GoldenTests{
 	Dockerfile: "Dockerfile",
 	Tests: []types.GoldenTest{
 		{
-			Args: []string{"--no-push", "--cache", "--cache-copy-layers"},
-			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD":             "1",
-				"FF_KANIKO_IMAGE_STAGES":                "0",
-				"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "0",
-				"FF_KANIKO_SHARED_BASE_CACHE":           "0",
-			},
-			CachedKeys: commonKey,
-			Plan:       "unpacked",
-		},
-		{
-			Args: []string{"--no-push", "--cache", "--cache-copy-layers"},
-			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD":             "1",
-				"FF_KANIKO_IMAGE_STAGES":                "1",
-				"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "0",
-				"FF_KANIKO_SHARED_BASE_CACHE":           "0",
-			},
+			Args:       []string{"--no-push", "--cache", "--cache-copy-layers"},
 			CachedKeys: commonKey,
 			Plan:       "image-stage",
 		},
