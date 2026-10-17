@@ -170,6 +170,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_IMAGE_STAGES`](#flag-ff_kaniko_image_stages)
       - [Flag `FF_KANIKO_COPY_LINK`](#flag-ff_kaniko_copy_link)
       - [Flag `FF_KANIKO_CACHE_IMAGE_INDEX`](#flag-ff_kaniko_cache_image_index)
+      - [Flag `FF_KANIKO_NATIVE_INIT`](#flag-ff_kaniko_native_init)
     - [Assertion Overrides](#assertion-overrides)
     - [Layer Hints](#layer-hints)
     - [Telemetry](#telemetry)
@@ -1188,6 +1189,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_LINK=true
 FF_KANIKO_DEFER_CACHE_PUSH=true
+FF_KANIKO_NATIVE_INIT=true
 ```
 
 ##### BuildKit compatibility
@@ -1220,6 +1222,8 @@ Kaniko usually runs as PID1 in the container, but kaniko currently does not impl
 Set this flag to `true` to run any `RUN` commands via `tini` init system as subreaper, to properly handle zombie processes.
 Note that for this feature to work the tini binary must be available as `/kaniko/tini`.
 Defaults to `false`.
+Superseded by [`FF_KANIKO_NATIVE_INIT`](#flag-ff_kaniko_native_init).
+Will be deprecated together with `/kaniko/tini` in `v1.31.0`.
 
 #### Flag `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS`
 
@@ -1513,6 +1517,13 @@ Becomes default in `v1.30.0`.
 
 The warmer does not cache image indexes. A base image pinned to an index digest still needs the registry, so air-gapped builds fail even with a warm cache.
 Set this flag to `true` on the warmer and the executor to cache the index too.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
+
+#### Flag `FF_KANIKO_NATIVE_INIT`
+
+Kaniko usually runs as PID 1 but does not reap zombie processes or forward signals to `RUN` commands.
+Set this flag to `true` to have kaniko handle both itself, without `/kaniko/tini`.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
 
