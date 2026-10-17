@@ -223,6 +223,12 @@ func LocalSource(opts *config.CacheOptions, cacheKey, platform string) (v1.Image
 		logrus.Debug(msg)
 		return nil, NotFoundErr{msg: msg}
 	}
+	// a regular file is a tarball written by the retired tarball warmer
+	if !fi.IsDir() {
+		msg := fmt.Sprintf("Ignoring legacy tarball for cache key %v", cacheKey)
+		logrus.Info(msg)
+		return nil, NotFoundErr{msg: msg}
+	}
 
 	// A stale cache is a bad cache
 	expiry := fi.ModTime().Add(opts.CacheTTL)
