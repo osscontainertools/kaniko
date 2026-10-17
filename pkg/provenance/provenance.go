@@ -110,7 +110,6 @@ func PURL(ref name.Reference, platform string) string {
 	return "pkg:docker/" + path + "@" + ref.Identifier() + "?platform=" + url.QueryEscape(platform)
 }
 
-// Digest turns sha256:abc into the in-toto digest set {"sha256": "abc"}.
 func Digest(digest string) map[string]string {
 	algorithm, hex, found := strings.Cut(digest, ":")
 	if !found {
@@ -146,8 +145,8 @@ func Attestation(statement Statement) (v1.Image, error) {
 	})
 }
 
-// Index always is an OCI index, a Docker manifest list has no descriptor
-// annotations to link the attestation to its image.
+// Index is always OCI, a Docker manifest list has no descriptor annotations to
+// link the attestation to its image.
 func Index(image, attestation v1.Image, annotations map[string]string) (v1.ImageIndex, error) {
 	cf, err := image.ConfigFile()
 	if err != nil {

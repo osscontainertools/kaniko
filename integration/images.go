@@ -621,8 +621,7 @@ var expectedAnnotations = map[string]struct{ Index, Manifest map[string]string }
 	},
 }
 
-// The media type of the image a --provenance build wraps in its OCI index.
-var expectedProvenance = map[string]ggcrtypes.MediaType{
+var provenanceImageMediaType = map[string]ggcrtypes.MediaType{
 	"Dockerfile_test_issue_mz1230":              ggcrtypes.DockerManifestSchema2,
 	"Dockerfile_test_issue_mz1230_reproducible": ggcrtypes.DockerManifestSchema2,
 	"Dockerfile_test_issue_mz1230_oci":          ggcrtypes.OCIManifestSchema1,
