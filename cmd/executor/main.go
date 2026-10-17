@@ -19,14 +19,10 @@ package main
 import (
 	"os"
 
-	"github.com/google/slowjam/pkg/stacklog"
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
 )
 
 func main() {
-	s := stacklog.MustStartFromEnv("STACKLOG_PATH")
-	defer s.Stop()
-
 	if err := cmd.RootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
