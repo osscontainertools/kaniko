@@ -97,7 +97,7 @@ type Metadata struct {
 }
 
 // PURL names an image in the form Docker Scout reads for base image detection:
-// pkg:docker/alpine@3.20?digest=sha256%3A...&platform=linux%2Famd64
+// pkg:docker/alpine@3.20?digest=sha256:...&platform=linux%2Famd64
 // It parses the reference itself, go-containerregistry drops the tag of a pinned one.
 func PURL(ref, platform string) (string, error) {
 	base, pinned, isPinned := strings.Cut(ref, "@")
@@ -117,11 +117,11 @@ func PURL(ref, platform string) (string, error) {
 	if tagged || !isPinned {
 		purl += "@" + url.PathEscape(tag.TagStr())
 	}
-	qualifiers := url.Values{"platform": {platform}}
+	qualifiers := "platform=" + url.PathEscape(platform)
 	if isPinned {
-		qualifiers.Set("digest", pinned)
+		qualifiers = "digest=" + url.PathEscape(pinned) + "&" + qualifiers
 	}
-	return purl + "?" + qualifiers.Encode(), nil
+	return purl + "?" + qualifiers, nil
 }
 
 func Digest(digest string) map[string]string {

@@ -17,6 +17,7 @@ limitations under the License.
 package executor
 
 import (
+	"bytes"
 	"maps"
 	"os"
 	"path/filepath"
@@ -27,6 +28,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
+	"github.com/osscontainertools/kaniko/pkg/image/remote"
 	"github.com/osscontainertools/kaniko/pkg/provenance"
 	"github.com/osscontainertools/kaniko/pkg/version"
 )
@@ -70,7 +72,25 @@ func provenanceStatement(image v1.Image, opts *config.KanikoOptions, stages []co
 		if err != nil {
 			return provenance.Statement{}, err
 		}
-		dependencies = append(dependencies, provenance.ResourceDescriptor{URI: purl, Digest: provenance.Digest(images[image])})
+		// the digest the reference resolved to, the index of a multi-platform image
+		digest := images[image]
+		_, pinned, isPinned := strings.Cut(image, "@")
+		if isPinned {
+			digest = pinned
+		} else {
+			_, index, err := remote.RetrieveRemoteImageAndIndex(image, opts.RegistryOptions, opts.CustomPlatform)
+			if err != nil {
+				return provenance.Statement{}, err
+			}
+			if index != nil {
+				hash, _, err := v1.SHA256(bytes.NewReader(index))
+				if err != nil {
+					return provenance.Statement{}, err
+				}
+				digest = hash.String()
+			}
+		}
+		dependencies = append(dependencies, provenance.ResourceDescriptor{URI: purl, Digest: provenance.Digest(digest)})
 	}
 
 	dockerfile, err := filepath.Rel(opts.SrcContext, opts.DockerfilePath)

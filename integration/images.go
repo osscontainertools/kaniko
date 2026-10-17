@@ -642,7 +642,7 @@ type attestation struct {
 
 var mz1230Dependencies = []provenance.ResourceDescriptor{
 	{URI: "git+https://gitlab.example.com/group/project@v1.2.3", Digest: map[string]string{"gitCommit": "{git.revision}"}},
-	{URI: "pkg:docker/alpine?digest=sha256%3A5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a&platform=linux%2Famd64", Digest: map[string]string{"sha256": "5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a"}},
+	{URI: "pkg:docker/alpine?digest=sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a&platform=linux%2Famd64", Digest: map[string]string{"sha256": "5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a"}},
 }
 
 var expectedAttestations = map[string]attestation{
