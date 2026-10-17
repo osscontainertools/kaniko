@@ -23,7 +23,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/sirupsen/logrus"
@@ -96,9 +95,8 @@ func QualifiedReference(ref string) string {
 	return qualified
 }
 
-func Annotations(src Source, created time.Time) map[string]string {
+func Annotations(src Source) map[string]string {
 	out := map[string]string{}
-	out[AnnotationCreated] = created.UTC().Format(time.RFC3339)
 	if src.URL != "" {
 		out[AnnotationSource] = src.URL
 		out[AnnotationURL] = src.URL
