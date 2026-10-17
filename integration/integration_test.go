@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"math"
 	"os"
 	"os/exec"
@@ -353,6 +354,7 @@ func TestKanikoOnly(t *testing.T) {
 				testutil.CheckDeepEqual(t, manifestMediaTypes(t, base), manifestMediaTypes(t, kanikoImage))
 			}
 			checkAnnotations(t, dockerfile, GetKanikoImage(config.imageRepo, dockerfile))
+			checkProvenance(t, dockerfile, GetKanikoImage(config.imageRepo, dockerfile))
 		})
 	}
 }
@@ -1800,11 +1802,13 @@ func checkAnnotations(t *testing.T, dockerfile, image string) {
 		}
 		compareAnnotations(t, "index", want.Index, manifest.Annotations)
 		for _, m := range manifest.Manifests {
-			img, err := idx.Image(m.Digest)
-			if err != nil {
-				t.Fatal(err)
+			if m.Annotations["vnd.docker.reference.type"] != "attestation-manifest" {
+				img, err := idx.Image(m.Digest)
+				if err != nil {
+					t.Fatal(err)
+				}
+				images = append(images, img)
 			}
-			images = append(images, img)
 		}
 	} else {
 		if want.Index != nil {
@@ -1823,6 +1827,89 @@ func checkAnnotations(t *testing.T, dockerfile, image string) {
 		}
 		compareAnnotations(t, "manifest", want.Manifest, manifest.Annotations)
 	}
+}
+
+// checkProvenance asserts BuildKit's layout: one image and one attestation linked to it,
+// whose statement names the image, the base image digest and the commit of this checkout.
+func checkProvenance(t *testing.T, dockerfile, image string) {
+	t.Helper()
+	builderID, ok := expectedProvenance[dockerfile]
+	if !ok {
+		return
+	}
+	ref, err := name.ParseReference(image, name.WeakValidation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := remote.Index(ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := idx.IndexManifest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(manifest.Manifests) != 2 {
+		t.Fatalf("index holds %d manifests, want the image and its attestation", len(manifest.Manifests))
+	}
+	img, att := manifest.Manifests[0], manifest.Manifests[1]
+	testutil.CheckDeepEqual(t, ggcrtypes.OCIImageIndex, manifest.MediaType)
+	testutil.CheckDeepEqual(t, ggcrtypes.OCIManifestSchema1, img.MediaType)
+	testutil.CheckDeepEqual(t, "attestation-manifest", att.Annotations["vnd.docker.reference.type"])
+	testutil.CheckDeepEqual(t, img.Digest.String(), att.Annotations["vnd.docker.reference.digest"])
+	testutil.CheckDeepEqual(t, &v1.Platform{OS: "unknown", Architecture: "unknown"}, att.Platform)
+
+	attestation, err := idx.Image(att.Digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	layers, err := attestation.Layers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(layers) != 1 {
+		t.Fatalf("attestation holds %d layers, want one statement", len(layers))
+	}
+	rc, err := layers[0].Uncompressed()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rc.Close()
+	var statement struct {
+		Type          string `json:"_type"`
+		PredicateType string `json:"predicateType"`
+		Subject       []struct {
+			Digest map[string]string `json:"digest"`
+		} `json:"subject"`
+		Predicate struct {
+			BuildDefinition struct {
+				ResolvedDependencies []struct {
+					URI    string            `json:"uri"`
+					Digest map[string]string `json:"digest"`
+				} `json:"resolvedDependencies"`
+			} `json:"buildDefinition"`
+			RunDetails struct {
+				Builder struct {
+					ID string `json:"id"`
+				} `json:"builder"`
+			} `json:"runDetails"`
+		} `json:"predicate"`
+	}
+	if err := json.NewDecoder(rc).Decode(&statement); err != nil {
+		t.Fatal(err)
+	}
+	testutil.CheckDeepEqual(t, "https://in-toto.io/Statement/v1", statement.Type)
+	testutil.CheckDeepEqual(t, "https://slsa.dev/provenance/v1", statement.PredicateType)
+	for _, subject := range statement.Subject {
+		testutil.CheckDeepEqual(t, img.Digest.Hex, subject.Digest["sha256"])
+	}
+	testutil.CheckDeepEqual(t, builderID, statement.Predicate.RunDetails.Builder.ID)
+	digests := map[string]string{}
+	for _, dep := range statement.Predicate.BuildDefinition.ResolvedDependencies {
+		maps.Copy(digests, dep.Digest)
+	}
+	testutil.CheckDeepEqual(t, "5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a", digests["sha256"])
+	testutil.CheckDeepEqual(t, gitRevision("."), digests["gitCommit"])
 }
 
 func compareAnnotations(t *testing.T, level string, want, got map[string]string) {
