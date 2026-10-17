@@ -1185,7 +1185,8 @@ delay of 1 second. Defaults to `0`.
 Opting into the Preview profile gives you early access to upcoming performance improvements, bugfixes and features. While these flags are tested and ready to use, implementation details may still change.
 
 ```sh
-FF_KANIKO_RUN_VIA_TINI=true
+FF_KANIKO_CACHE_IMAGE_INDEX=true
+FF_KANIKO_COPY_LINK=true
 ```
 
 ##### BuildKit compatibility
