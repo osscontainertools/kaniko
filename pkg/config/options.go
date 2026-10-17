@@ -61,7 +61,7 @@ type KanikoOptions struct {
 	Labels                       multiArg
 	Annotations                  keyValueArg
 	PredefinedAnnotations        bool
-	Provenance                   string
+	Provenance                   bool
 	ContextSource                buildenv.Source
 	CI                           buildenv.CI
 	Git                          KanikoGitOptions

@@ -38,7 +38,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/executor"
 	"github.com/osscontainertools/kaniko/pkg/logging"
-	"github.com/osscontainertools/kaniko/pkg/provenance"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/tracing"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -150,7 +149,7 @@ func setupBuild() error {
 	if err := resolveSourceContext(); err != nil {
 		return fmt.Errorf("error resolving source context: %w", err)
 	}
-	if opts.PredefinedAnnotations || opts.Provenance != "" {
+	if opts.PredefinedAnnotations || opts.Provenance {
 		dir, cloneURL := opts.SrcContext, ""
 		gitContext, isGit := strings.CutPrefix(srcContext, constants.GitBuildContextPrefix)
 		if isGit {
@@ -194,9 +193,6 @@ func validateOutputFlags(opts *config.KanikoOptions) error {
 	}
 	if opts.TarPath != "" && opts.Compression == config.ZStd {
 		return errors.New("--compression=zstd cannot be used with --tar-path, the Docker schema2 tarball has no zstd layer media type, use --oci-layout-path for zstd layers")
-	}
-	if opts.Provenance != "" && opts.Provenance != provenance.ModeMin {
-		return fmt.Errorf("--provenance=%s is not supported, use --provenance=%s", opts.Provenance, provenance.ModeMin)
 	}
 	return nil
 }
@@ -376,7 +372,7 @@ func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	opts.Annotations = make(map[string]string)
 	cmd.Flags().VarP(&opts.Annotations, "annotation", "", "Set metadata annotations for the image in key=value format. Set it repeatedly for multiple annotations.")
 	cmd.Flags().BoolVarP(&opts.PredefinedAnnotations, "predefined-annotations", "", false, "Set the OCI pre-defined annotations kaniko can determine.")
-	cmd.Flags().StringVarP(&opts.Provenance, "provenance", "", "", "Attach a SLSA provenance attestation and push an OCI index. Supported: min.")
+	cmd.Flags().BoolVarP(&opts.Provenance, "provenance", "", false, "Attach a SLSA provenance attestation and push an OCI index.")
 	cmd.Flags().BoolVarP(&opts.PreserveContext, "preserve-context", "", config.EnvBool("KANIKO_PRESERVE_CONTEXT"), "Preserve build context across build stages by taking a snapshot of the full filesystem before build and restore it after we switch stages. Restores in the end too if passed together with 'cleanup'")
 	cmd.Flags().BoolVarP(&opts.Materialize, "materialize", "", false, "Guarantee that the final state of the file system corresponds to what was specified as the build target, even if we have 100% cache hitrate and wouldn't need to unpack any layers")
 	opts.Secrets = make(config.SecretOptions)

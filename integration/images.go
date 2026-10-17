@@ -371,11 +371,11 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1227_detached":      {"--predefined-annotations"},
 	"Dockerfile_test_issue_mz1227_merged_result": {"--predefined-annotations"},
 	"Dockerfile_test_issue_mz1227_squash":        {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1230":               {"--provenance=min", "--predefined-annotations", "--index-file=/index/index.json"},
+	"Dockerfile_test_issue_mz1230":               {"--provenance", "--predefined-annotations", "--index-file=/index/index.json"},
 	"Dockerfile_test_issue_mz1230_no_index":      {"--index-file=/index/index.json"},
-	"Dockerfile_test_issue_mz1230_tar":           {"--provenance=min", "--tar-path=/index/image.tar", "--index-file=/index/index.json"},
-	"Dockerfile_test_issue_mz1230_reproducible":  {"--provenance=min", "--predefined-annotations", "--reproducible"},
-	"Dockerfile_test_issue_mz1230_oci":           {"--provenance=min", "--image-format=oci", "--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
+	"Dockerfile_test_issue_mz1230_tar":           {"--provenance", "--tar-path=/index/image.tar", "--index-file=/index/index.json"},
+	"Dockerfile_test_issue_mz1230_reproducible":  {"--provenance", "--predefined-annotations", "--reproducible"},
+	"Dockerfile_test_issue_mz1230_oci":           {"--provenance", "--image-format=oci", "--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
 }
 
 var expectErr = map[string]int{
