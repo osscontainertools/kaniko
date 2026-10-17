@@ -277,9 +277,13 @@ func indexChild(cacheDir, cacheKey, platform string) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	required, err := v1.ParsePlatform(platform)
-	if err != nil {
-		return "", false
+	required := &v1.Platform{OS: "linux", Architecture: "amd64"}
+	if platform != "" {
+		var err error
+		required, err = v1.ParsePlatform(platform)
+		if err != nil {
+			return "", false
+		}
 	}
 	for _, m := range index.Manifests {
 		given := v1.Platform{OS: "linux", Architecture: "amd64"}
