@@ -141,18 +141,7 @@ type Output struct {
 	Index v1.ImageIndex
 }
 
-func (o *Output) Digest() (v1.Hash, error) {
-	if o.Index != nil {
-		return o.Index.Digest()
-	}
-	return o.Image.Digest()
-}
-
-type digester interface {
-	Digest() (v1.Hash, error)
-}
-
-func getDigest(image digester) ([]byte, error) {
+func getDigest(image v1.Image) ([]byte, error) {
 	digest, err := image.Digest()
 	if err != nil {
 		return nil, err
@@ -206,7 +195,7 @@ func DoPush(out *Output, opts *config.KanikoOptions) error {
 
 	if opts.DigestFile != "" || opts.ImageNameDigestFile != "" || opts.ImageNameTagDigestFile != "" {
 		var err error
-		digestByteArray, err = getDigest(out)
+		digestByteArray, err = getDigest(image)
 		if err != nil {
 			return fmt.Errorf("error fetching digest: %w", err)
 		}
@@ -216,6 +205,28 @@ func DoPush(out *Output, opts *config.KanikoOptions) error {
 		err := writeDigestFile(opts.DigestFile, digestByteArray)
 		if err != nil {
 			return fmt.Errorf("writing digest to file failed: %w", err)
+		}
+	}
+
+	if opts.IndexFile != "" {
+		index := out.Index
+		if index == nil {
+			cf, err := image.ConfigFile()
+			if err != nil {
+				return fmt.Errorf("reading image config: %w", err)
+			}
+			index = mutate.AppendManifests(mutate.IndexMediaType(empty.Index, types.OCIImageIndex), mutate.IndexAddendum{
+				Add:        image,
+				Descriptor: v1.Descriptor{Platform: cf.Platform()},
+			})
+		}
+		raw, err := index.RawManifest()
+		if err != nil {
+			return fmt.Errorf("serializing index: %w", err)
+		}
+		err = writeDigestFile(opts.IndexFile, raw)
+		if err != nil {
+			return fmt.Errorf("writing index to file failed: %w", err)
 		}
 	}
 
@@ -345,7 +356,10 @@ func DoPush(out *Output, opts *config.KanikoOptions) error {
 		}
 
 		retryFunc := func() error {
-			dig, err := out.Digest()
+			dig, err := image.Digest()
+			if out.Index != nil {
+				dig, err = out.Index.Digest()
+			}
 			if err != nil {
 				return err
 			}
@@ -396,10 +410,10 @@ func DoPush(out *Output, opts *config.KanikoOptions) error {
 			return fmt.Errorf("failed to push to destination %s: %w", destRef, err)
 		}
 	}
-	return writeImageOutputs(out, destRefs)
+	return writeImageOutputs(image, destRefs)
 }
 
-func writeImageOutputs(image digester, destRefs []name.Tag) error {
+func writeImageOutputs(image v1.Image, destRefs []name.Tag) error {
 	dir := os.Getenv("BUILDER_OUTPUT")
 	if dir == "" {
 		return nil
@@ -483,6 +497,7 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 	cacheOpts := *opts
 	cacheOpts.TarPath = ""              // tarPath doesn't make sense for Docker layers
 	cacheOpts.NoPush = opts.NoPushCache // we do not want to push cache if --no-push-cache is set.
+	cacheOpts.IndexFile = ""
 	cacheOpts.Destinations = []string{cache}
 	cacheOpts.InsecureRegistries = opts.InsecureRegistries
 	cacheOpts.SkipTLSVerifyRegistries = opts.SkipTLSVerifyRegistries
@@ -517,6 +532,7 @@ func pushCachePointer(opts *config.KanikoOptions, inferredKey, contentKey string
 
 	cacheOpts := *opts
 	cacheOpts.TarPath = ""
+	cacheOpts.IndexFile = ""
 	cacheOpts.NoPush = opts.NoPushCache
 	cacheOpts.Destinations = []string{dest}
 	cacheOpts.InsecureRegistries = opts.InsecureRegistries

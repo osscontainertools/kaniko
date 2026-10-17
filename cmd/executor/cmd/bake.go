@@ -71,6 +71,7 @@ func ConfigureFromBakefile(opts *config.KanikoOptions, path string, selection, s
 			{"--digest-file", opts.DigestFile},
 			{"--image-name-with-digest-file", opts.ImageNameDigestFile},
 			{"--image-name-tag-with-digest-file", opts.ImageNameTagDigestFile},
+			{"--index-file", opts.IndexFile},
 			{"--tar-path", opts.TarPath},
 			{"--oci-layout-path", opts.OCILayoutPath},
 		} {

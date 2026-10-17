@@ -356,6 +356,7 @@ func TestKanikoOnly(t *testing.T) {
 			}
 			checkAnnotations(t, dockerfile, GetKanikoImage(config.imageRepo, dockerfile))
 			checkProvenance(t, dockerfile, GetKanikoImage(config.imageRepo, dockerfile))
+			checkIndexFile(t, dockerfile, GetKanikoImage(config.imageRepo, dockerfile))
 		})
 	}
 }
@@ -1827,6 +1828,37 @@ func checkAnnotations(t *testing.T, dockerfile, image string) {
 			t.Fatal(err)
 		}
 		compareAnnotations(t, "manifest", want.Manifest, manifest.Annotations)
+	}
+}
+
+func checkIndexFile(t *testing.T, dockerfile, image string) {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(indexFileDir(dockerfile), "index.json"))
+	if errors.Is(err, os.ErrNotExist) {
+		return
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref, err := name.ParseReference(image, name.WeakValidation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	desc, err := remote.Get(ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if desc.MediaType.IsIndex() {
+		testutil.CheckDeepEqual(t, string(desc.Manifest), string(raw))
+	} else {
+		var index v1.IndexManifest
+		if err := json.Unmarshal(raw, &index); err != nil {
+			t.Fatal(err)
+		}
+		if len(index.Manifests) != 1 {
+			t.Fatalf("index file holds %d manifests, want the image", len(index.Manifests))
+		}
+		testutil.CheckDeepEqual(t, desc.Digest, index.Manifests[0].Digest)
 	}
 }
 

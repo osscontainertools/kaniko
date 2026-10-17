@@ -81,6 +81,7 @@ type KanikoOptions struct {
 	DigestFile                   string
 	ImageNameDigestFile          string
 	ImageNameTagDigestFile       string
+	IndexFile                    string
 	OCILayoutPath                string
 	Compression                  Compression
 	ImageFormat                  ImageFormat

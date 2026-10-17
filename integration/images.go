@@ -369,7 +369,8 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1227_detached":      {"--predefined-annotations"},
 	"Dockerfile_test_issue_mz1227_merged_result": {"--predefined-annotations"},
 	"Dockerfile_test_issue_mz1227_squash":        {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1230":               {"--provenance=min", "--predefined-annotations"},
+	"Dockerfile_test_issue_mz1230":               {"--provenance=min", "--predefined-annotations", "--index-file=/index/index.json"},
+	"Dockerfile_test_issue_mz1230_no_index":      {"--index-file=/index/index.json"},
 	"Dockerfile_test_issue_mz1230_reproducible":  {"--provenance=min", "--predefined-annotations", "--reproducible"},
 	"Dockerfile_test_issue_mz1230_oci":           {"--provenance=min", "--image-format=oci", "--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
 }
@@ -838,6 +839,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz1230":               {},
 		"Dockerfile_test_issue_mz1230_reproducible":  {},
 		"Dockerfile_test_issue_mz1230_oci":           {},
+		"Dockerfile_test_issue_mz1230_no_index":      {},
 	}
 	return &d
 }
@@ -1256,9 +1258,25 @@ var extraDockerRunFlags = map[string]func(contextDir string) []string{
 	"Dockerfile_test_issue_mz1227_merged_result": func(ctx string) []string {
 		return append(append(gitCheckout(ctx), gitlabEnv(gitRevision(ctx))...), forkMergeRequestEnv("merged_result")...)
 	},
-	"Dockerfile_test_issue_mz1230":              gitlabJob,
+	"Dockerfile_test_issue_mz1230": func(ctx string) []string {
+		return append(gitlabJob(ctx), indexFileMount("Dockerfile_test_issue_mz1230")...)
+	},
 	"Dockerfile_test_issue_mz1230_reproducible": gitlabJob,
 	"Dockerfile_test_issue_mz1230_oci":          gitlabJob,
+	"Dockerfile_test_issue_mz1230_no_index": func(_ string) []string {
+		return indexFileMount("Dockerfile_test_issue_mz1230_no_index")
+	},
+}
+
+func indexFileDir(dockerfile string) string {
+	return filepath.Join(os.TempDir(), "kaniko-index-"+dockerfile)
+}
+
+func indexFileMount(dockerfile string) []string {
+	dir := indexFileDir(dockerfile)
+	_ = os.RemoveAll(dir)
+	_ = os.MkdirAll(dir, 0o777)
+	return []string{"-v", dir + ":/index"}
 }
 
 func gitlabJob(ctx string) []string {
