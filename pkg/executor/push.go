@@ -46,7 +46,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/version"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/afero"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -84,7 +83,6 @@ func (w *withUserAgent) RoundTrip(r *http.Request) (*http.Response, error) {
 
 // for testing
 var (
-	newOsFs                   = afero.NewOsFs()
 	checkRemotePushPermission = remote.CheckPushPermission
 )
 
@@ -371,7 +369,7 @@ func writeImageOutputs(image v1.Image, destRefs []name.Tag) error {
 	if dir == "" {
 		return nil
 	}
-	f, err := newOsFs.Create(filepath.Join(dir, "images"))
+	f, err := os.Create(filepath.Join(dir, "images"))
 	if err != nil {
 		return err
 	}
