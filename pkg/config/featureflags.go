@@ -17,6 +17,8 @@ limitations under the License.
 package config
 
 import (
+	"fmt"
+	"maps"
 	"os"
 	"reflect"
 	"slices"
@@ -75,15 +77,85 @@ type FeatureFlags struct {
 
 var FF FeatureFlags
 
+// README.md "Profiles" section lists the same flags.
+var profiles = map[string][]string{
+	"preview": {
+		"FF_KANIKO_ADD_CHECKSUM",
+		"FF_KANIKO_ADD_UNPACK",
+		"FF_KANIKO_CACHE_HASH_BLAKE3",
+		"FF_KANIKO_CACHE_LOOKAHEAD",
+		"FF_KANIKO_COPY_SKIP_SPECIAL_FILES",
+		"FF_KANIKO_CROSS_REPO_MOUNT",
+		"FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES",
+		"FF_KANIKO_EXPAND_HEREDOC",
+		"FF_KANIKO_HASH_DIR_FRAMING",
+		"FF_KANIKO_IMAGE_STAGES",
+		"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY",
+		"FF_KANIKO_LAYER_HINTS",
+		"FF_KANIKO_NATIVE_COPY",
+		"FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH",
+		"FF_KANIKO_PEEK_ARCHIVE_HEADER",
+		"FF_KANIKO_PLATFORM_CACHE_KEY",
+		"FF_KANIKO_POOL_REGISTRY_CONNECTIONS",
+		"FF_KANIKO_PRECOMPILE_DOCKERIGNORE",
+		"FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS",
+		"FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS",
+		"FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT",
+		"FF_KANIKO_RESOLVE_CACHE_KEY",
+		"FF_KANIKO_ROLLING_CACHE_KEY",
+		"FF_KANIKO_RUN_HONOR_GROUP",
+		"FF_KANIKO_RUN_VIA_TINI",
+		"FF_KANIKO_SHARED_BASE_CACHE",
+		"FF_KANIKO_SKIP_CACHED_STAGES",
+		"FF_KANIKO_SKIP_RELABEL_RECOMPRESS",
+		"FF_KANIKO_SKIP_WRITE_WHITEOUTS",
+		"FF_KANIKO_UNPACK_ZSTD",
+		"FF_KANIKO_UNTAR_SKIP_ROOT",
+	},
+	"buildkit": {
+		"FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS",
+		"FF_KANIKO_COPY_AS_ROOT",
+		"FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS",
+		"FF_KANIKO_COPY_LINK",
+		"FF_KANIKO_EXPAND_HEREDOC",
+		"FF_KANIKO_RUN_HONOR_GROUP",
+		"FF_KANIKO_UNPACK_XZ",
+		"FF_KANIKO_UNTAR_SKIP_ROOT",
+	},
+}
+
 var (
+	activeProfiles        []string
 	knownFeatureFlags     []string
 	activeFeatureFlags    []string
 	redundantFeatureFlags []string
 	disabledFeatureFlags  []string
 )
 
+// ApplyProfiles re-initializes the feature flags with the named profiles enabled.
+// Explicit FF_KANIKO_* env vars still win over a profile.
+func ApplyProfiles(names []string) error {
+	for _, name := range names {
+		if _, ok := profiles[name]; !ok {
+			return fmt.Errorf("unknown profile %q, valid profiles are: %s", name, strings.Join(slices.Sorted(maps.Keys(profiles)), ", "))
+		}
+	}
+	activeProfiles = names
+	InitFeatureFlags()
+	return nil
+}
+
+func inActiveProfile(name string) bool {
+	for _, p := range activeProfiles {
+		if slices.Contains(profiles[p], name) {
+			return true
+		}
+	}
+	return false
+}
+
 func featureFlag(name string, def bool) bool {
-	value := EnvBoolDefault(name, def)
+	value := EnvBoolDefault(name, def || inActiveProfile(name))
 	_, explicit := os.LookupEnv(name)
 	knownFeatureFlags = append(knownFeatureFlags, name)
 	if value {
@@ -156,6 +228,11 @@ func InitFeatureFlags() {
 	unique := len(slices.Compact(slices.Sorted(slices.Values(knownFeatureFlags))))
 	assert.Assert("config.featureflags.unique", unique == len(knownFeatureFlags), "FeatureFlags registered %d flags but only %d are unique; each flag name must be registered once", len(knownFeatureFlags), unique)
 	assert.Assert("config.featureflags.complete", fields == len(knownFeatureFlags), "FeatureFlags has %d fields but %d are initialized; every field must be set via featureFlag", fields, len(knownFeatureFlags))
+	for _, flags := range profiles {
+		for _, name := range flags {
+			assert.Assert("config.featureflags.profile", slices.Contains(knownFeatureFlags, name), "profile flag %s is not a registered feature flag", name)
+		}
+	}
 }
 
 func init() {
@@ -163,6 +240,9 @@ func init() {
 }
 
 func LogFeatureFlags() {
+	for _, p := range activeProfiles {
+		logrus.Infof("profile %q enables: %s", p, strings.Join(profiles[p], ", "))
+	}
 	if len(activeFeatureFlags) > 0 {
 		logrus.Infof("active feature flags: %s", strings.Join(activeFeatureFlags, ", "))
 	}
