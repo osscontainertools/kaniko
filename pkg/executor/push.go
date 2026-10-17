@@ -183,8 +183,8 @@ func writeDigestFile(path string, digestByteArray []byte) error {
 // A dummy destination would be set when --no-push is set to true and --tar-path
 // is not empty with empty --destinations.
 func DoPush(out *Output, opts *config.KanikoOptions) error {
-	assert.Assert("executor.push.image-nonnull", out.Image != nil, "DoPush called with nil image")
 	image := out.Image
+	assert.Assert("executor.push.image-nonnull", image != nil, "DoPush called with nil image")
 
 	var digestByteArray []byte
 	var builder strings.Builder
