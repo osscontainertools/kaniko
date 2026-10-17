@@ -324,6 +324,7 @@ func TestRun(t *testing.T) {
 			kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 
 			diffoci(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
+			checkAnnotations(t, dockerfile, kanikoImage)
 		})
 	}
 }
@@ -351,6 +352,7 @@ func TestKanikoOnly(t *testing.T) {
 				diffoci(t, base, kanikoImage, "--semantic")
 				testutil.CheckDeepEqual(t, manifestMediaTypes(t, base), manifestMediaTypes(t, kanikoImage))
 			}
+			checkAnnotations(t, dockerfile, GetKanikoImage(config.imageRepo, dockerfile))
 		})
 	}
 }
@@ -1770,6 +1772,95 @@ func manifestMediaTypes(t *testing.T, image string) []ggcrtypes.MediaType {
 		out = append(out, l.MediaType)
 	}
 	return out
+}
+
+func checkAnnotations(t *testing.T, dockerfile, image string) {
+	t.Helper()
+	want, ok := expectedAnnotations[dockerfile]
+	if !ok {
+		return
+	}
+	ref, err := name.ParseReference(image, name.WeakValidation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	desc, err := remote.Get(ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var images []v1.Image
+	if desc.MediaType.IsIndex() {
+		idx, err := desc.ImageIndex()
+		if err != nil {
+			t.Fatal(err)
+		}
+		manifest, err := idx.IndexManifest()
+		if err != nil {
+			t.Fatal(err)
+		}
+		compareAnnotations(t, "index", want.Index, manifest.Annotations)
+		for _, m := range manifest.Manifests {
+			img, err := idx.Image(m.Digest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			images = append(images, img)
+		}
+	} else {
+		if want.Index != nil {
+			t.Errorf("%s is %s, not an index", image, desc.MediaType)
+		}
+		img, err := desc.Image()
+		if err != nil {
+			t.Fatal(err)
+		}
+		images = append(images, img)
+	}
+	for _, img := range images {
+		manifest, err := img.Manifest()
+		if err != nil {
+			t.Fatal(err)
+		}
+		compareAnnotations(t, "manifest", want.Manifest, manifest.Annotations)
+	}
+}
+
+func compareAnnotations(t *testing.T, level string, want, got map[string]string) {
+	t.Helper()
+	for key, value := range want {
+		switch value {
+		case "{git.revision}":
+			value = gitRevision(".")
+			if value == "" {
+				t.Fatal("cannot determine the commit of this checkout")
+			}
+		case "{base.digest}":
+			img, err := getImage(got["org.opencontainers.image.base.name"])
+			if err != nil {
+				t.Fatal(err)
+			}
+			digest, err := img.Digest()
+			if err != nil {
+				t.Fatal(err)
+			}
+			value = digest.String()
+		}
+		actual, set := got[key]
+		switch value {
+		case "":
+			if set {
+				t.Errorf("%s annotation %s = %q, want unset", level, key, actual)
+			}
+		case "{present}":
+			if !set {
+				t.Errorf("%s annotation %s is unset", level, key)
+			}
+		default:
+			if actual != value {
+				t.Errorf("%s annotation %s = %q, want %q", level, key, actual, value)
+			}
+		}
+	}
 }
 
 var (

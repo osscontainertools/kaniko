@@ -33,6 +33,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/buildcontext"
+	"github.com/osscontainertools/kaniko/pkg/buildenv"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/executor"
@@ -144,8 +145,17 @@ func setupBuild() error {
 	if err := cacheFlagsValid(); err != nil {
 		return fmt.Errorf("cache flags invalid: %w", err)
 	}
+	srcContext := opts.SrcContext
 	if err := resolveSourceContext(); err != nil {
 		return fmt.Errorf("error resolving source context: %w", err)
+	}
+	if opts.PredefinedAnnotations {
+		dir, cloneURL := opts.SrcContext, ""
+		gitContext, isGit := strings.CutPrefix(srcContext, constants.GitBuildContextPrefix)
+		if isGit {
+			dir, cloneURL = config.BuildContextDir, buildcontext.GitURL(gitContext)
+		}
+		opts.ContextSource = buildenv.ResolveSource(buildenv.DetectCI(), buildenv.GitSource(dir, cloneURL))
 	}
 	if err := resolveDockerfilePath(); err != nil {
 		return fmt.Errorf("error resolving dockerfile path: %w", err)
@@ -359,6 +369,7 @@ func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().BoolVarP(&opts.SkipPushPermissionCheck, "skip-push-permission-check", "", false, "Skip check of the push permission")
 	opts.Annotations = make(map[string]string)
 	cmd.Flags().VarP(&opts.Annotations, "annotation", "", "Set metadata annotations for the image in key=value format. Set it repeatedly for multiple annotations.")
+	cmd.Flags().BoolVarP(&opts.PredefinedAnnotations, "predefined-annotations", "", false, "Set the OCI pre-defined annotations kaniko can determine.")
 	cmd.Flags().BoolVarP(&opts.PreserveContext, "preserve-context", "", config.EnvBool("KANIKO_PRESERVE_CONTEXT"), "Preserve build context across build stages by taking a snapshot of the full filesystem before build and restore it after we switch stages. Restores in the end too if passed together with 'cleanup'")
 	cmd.Flags().BoolVarP(&opts.Materialize, "materialize", "", false, "Guarantee that the final state of the file system corresponds to what was specified as the build target, even if we have 100% cache hitrate and wouldn't need to unpack any layers")
 	opts.Secrets = make(config.SecretOptions)
