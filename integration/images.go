@@ -34,6 +34,7 @@ import (
 	"time"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	ggcrtypes "github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/osscontainertools/kaniko/pkg/tracing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 )
@@ -370,6 +371,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1227_squash":        {"--predefined-annotations"},
 	"Dockerfile_test_issue_mz1230":               {"--provenance=min", "--predefined-annotations"},
 	"Dockerfile_test_issue_mz1230_reproducible":  {"--provenance=min", "--predefined-annotations", "--reproducible"},
+	"Dockerfile_test_issue_mz1230_oci":           {"--provenance=min", "--image-format=oci"},
 }
 
 var expectErr = map[string]int{
@@ -610,10 +612,11 @@ var expectedAnnotations = map[string]struct{ Index, Manifest map[string]string }
 	},
 }
 
-// The builder id the attestation of a --provenance build must name.
-var expectedProvenance = map[string]string{
-	"Dockerfile_test_issue_mz1230":              "https://gitlab.example.com/group/project/-/jobs/1",
-	"Dockerfile_test_issue_mz1230_reproducible": "https://gitlab.example.com/group/project/-/jobs/1",
+// The media type of the image a --provenance build wraps in its OCI index.
+var expectedProvenance = map[string]ggcrtypes.MediaType{
+	"Dockerfile_test_issue_mz1230":              ggcrtypes.DockerManifestSchema2,
+	"Dockerfile_test_issue_mz1230_reproducible": ggcrtypes.DockerManifestSchema2,
+	"Dockerfile_test_issue_mz1230_oci":          ggcrtypes.OCIManifestSchema1,
 }
 
 // Digest for debian:12.10 (see baseImageToCache)
@@ -831,6 +834,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz1227_squash":        {},
 		"Dockerfile_test_issue_mz1230":               {},
 		"Dockerfile_test_issue_mz1230_reproducible":  {},
+		"Dockerfile_test_issue_mz1230_oci":           {},
 	}
 	return &d
 }
@@ -1249,12 +1253,13 @@ var extraDockerRunFlags = map[string]func(contextDir string) []string{
 	"Dockerfile_test_issue_mz1227_merged_result": func(ctx string) []string {
 		return append(append(gitCheckout(ctx), gitlabEnv(gitRevision(ctx))...), forkMergeRequestEnv("merged_result")...)
 	},
-	"Dockerfile_test_issue_mz1230": func(ctx string) []string {
-		return append(append(gitCheckout(ctx), gitlabEnv(gitRevision(ctx))...), "-e", "CI_JOB_URL=https://gitlab.example.com/group/project/-/jobs/1")
-	},
-	"Dockerfile_test_issue_mz1230_reproducible": func(ctx string) []string {
-		return append(append(gitCheckout(ctx), gitlabEnv(gitRevision(ctx))...), "-e", "CI_JOB_URL=https://gitlab.example.com/group/project/-/jobs/1")
-	},
+	"Dockerfile_test_issue_mz1230":              gitlabJob,
+	"Dockerfile_test_issue_mz1230_reproducible": gitlabJob,
+	"Dockerfile_test_issue_mz1230_oci":          gitlabJob,
+}
+
+func gitlabJob(ctx string) []string {
+	return append(append(gitCheckout(ctx), gitlabEnv(gitRevision(ctx))...), "-e", "CI_JOB_URL=https://gitlab.example.com/group/project/-/jobs/1")
 }
 
 func forkMergeRequestEnv(eventType string) []string {
