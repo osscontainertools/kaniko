@@ -1202,7 +1202,7 @@ With `--provenance` they are also set on the index.
 
 #### Flag `--provenance`
 
-Set `--provenance=min` to attach a SLSA provenance attestation to the image. Inspect it with:
+Set `--provenance` to attach a SLSA provenance attestation to the image. Defaults to `false`. Inspect it with:
 
 ```bash
 docker buildx imagetools inspect registry.example.com/app:v1 --format '{{json .Provenance}}'

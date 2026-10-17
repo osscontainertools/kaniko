@@ -1917,7 +1917,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 			if len(annotations) > 0 {
 				pushImage = mutate.Annotations(sourceImage, annotations).(v1.Image)
 			}
-			if opts.Provenance != "" {
+			if opts.Provenance {
 				statement, err := provenanceStatement(pushImage, opts, kanikoStages, externalImageDigests, started, created)
 				if err != nil {
 					return nil, fmt.Errorf("creating provenance: %w", err)

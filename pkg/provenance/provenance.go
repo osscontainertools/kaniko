@@ -31,8 +31,6 @@ import (
 )
 
 const (
-	ModeMin = "min"
-
 	StatementType    = "https://in-toto.io/Statement/v1"
 	PredicateType    = "https://slsa.dev/provenance/v1"
 	BuildType        = "https://github.com/osscontainertools/kaniko/blob/main/docs/provenance.md"
