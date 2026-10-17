@@ -32,6 +32,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
@@ -334,37 +335,28 @@ func DoPush(out *Output, opts *config.KanikoOptions) error {
 		}
 
 		logrus.Infof("Pushing image to %s", destRef.String())
-		pushImage := image
-		if config.FF.CrossRepoMount {
-			pushImage = mounts.MountableImage(image, destRef.RegistryStr())
+		target := remote.Taggable(image)
+		if out.Index != nil {
+			target = out.Index
 		}
-
-		pushIndex := out.Index
-		if config.FF.CrossRepoMount && out.Index != nil {
-			pushIndex = mounts.MountableIndex(out.Index, destRef.RegistryStr())
+		pushTarget := target
+		switch {
+		case config.FF.CrossRepoMount && out.Index != nil:
+			pushTarget = mounts.MountableIndex(out.Index, destRef.RegistryStr())
+		case config.FF.CrossRepoMount:
+			pushTarget = mounts.MountableImage(image, destRef.RegistryStr())
 		}
 
 		retryFunc := func() error {
-			dig, err := image.Digest()
-			if out.Index != nil {
-				dig, err = out.Index.Digest()
-			}
+			dig, err := partial.Digest(target)
 			if err != nil {
 				return err
 			}
 			digest := destRef.Context().Digest(dig.String())
-			if out.Index != nil {
-				err = remote.WriteIndex(destRef, pushIndex, writeOpts...)
-			} else {
-				err = remote.Write(destRef, pushImage, writeOpts...)
-			}
+			err = remote.Push(destRef, pushTarget, writeOpts...)
 			if err != nil && config.FF.CrossRepoMount {
 				logrus.Debugf("Cross-repository mount failed; retrying plain blob upload: %v", err)
-				if out.Index != nil {
-					err = remote.WriteIndex(destRef, out.Index, writeOpts...)
-				} else {
-					err = remote.Write(destRef, image, writeOpts...)
-				}
+				err = remote.Push(destRef, target, writeOpts...)
 			}
 			if err != nil && (!config.FF.PoolRegistryConnections || util.DropPooledOnAuth(localRt, err)) {
 				rebuilt, rerr := writeOptions()
@@ -486,7 +478,6 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 	cacheOpts := *opts
 	cacheOpts.TarPath = ""              // tarPath doesn't make sense for Docker layers
 	cacheOpts.NoPush = opts.NoPushCache // we do not want to push cache if --no-push-cache is set.
-	cacheOpts.IndexFile = ""
 	cacheOpts.Destinations = []string{cache}
 	cacheOpts.InsecureRegistries = opts.InsecureRegistries
 	cacheOpts.SkipTLSVerifyRegistries = opts.SkipTLSVerifyRegistries
@@ -521,7 +512,6 @@ func pushCachePointer(opts *config.KanikoOptions, inferredKey, contentKey string
 
 	cacheOpts := *opts
 	cacheOpts.TarPath = ""
-	cacheOpts.IndexFile = ""
 	cacheOpts.NoPush = opts.NoPushCache
 	cacheOpts.Destinations = []string{dest}
 	cacheOpts.InsecureRegistries = opts.InsecureRegistries
