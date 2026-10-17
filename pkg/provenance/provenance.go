@@ -38,7 +38,7 @@ const (
 	BuildType        = "https://github.com/osscontainertools/kaniko/blob/main/docs/provenance.md"
 	DefaultBuilderID = "https://github.com/osscontainertools/kaniko"
 
-	// BuildKit's layout, which docker buildx imagetools and Docker Scout read
+	// the layout docker buildx imagetools and Docker Scout read
 	inTotoMediaType           = "application/vnd.in-toto+json"
 	annotationPredicateType   = "in-toto.io/predicate-type"
 	annotationReferenceType   = "vnd.docker.reference.type"
@@ -98,8 +98,8 @@ type Metadata struct {
 	FinishedOn   *time.Time `json:"finishedOn,omitempty"`
 }
 
-// PURL names an image the way BuildKit does, which is the form Docker Scout reads
-// for base image detection: pkg:docker/alpine@3.20?platform=linux%2Famd64
+// PURL names an image in the form Docker Scout reads for base image detection:
+// pkg:docker/alpine@3.20?platform=linux%2Famd64
 func PURL(ref name.Reference, platform string) string {
 	path := ref.Context().RepositoryStr()
 	if ref.Context().RegistryStr() == name.DefaultRegistry {

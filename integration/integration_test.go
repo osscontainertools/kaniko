@@ -1829,7 +1829,7 @@ func checkAnnotations(t *testing.T, dockerfile, image string) {
 	}
 }
 
-// checkProvenance asserts BuildKit's layout: one image and one attestation linked to it,
+// checkProvenance asserts one image and one attestation linked to it,
 // whose statement names the image, the base image digest and the commit of this checkout.
 func checkProvenance(t *testing.T, dockerfile, image string) {
 	t.Helper()
