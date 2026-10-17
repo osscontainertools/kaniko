@@ -257,6 +257,11 @@ func StoreIndex(cacheDir string, index []byte) error {
 		f.Close()
 		return err
 	}
+	err = f.Chmod(0o644)
+	if err != nil {
+		f.Close()
+		return err
+	}
 	err = f.Close()
 	if err != nil {
 		return err
