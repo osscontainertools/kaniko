@@ -108,7 +108,7 @@ func MountableIndex(idx v1.ImageIndex, registry string) v1.ImageIndex {
 	return &mountableIndex{index: idx, registry: registry}
 }
 
-// remote.WriteIndex reads the children through Image, so only that accessor is wrapped.
+// remote.Push reads the children through Image, so only that accessor is wrapped.
 type mountableIndex struct {
 	index
 
