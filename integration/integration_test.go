@@ -1236,7 +1236,7 @@ func TestWarmerTwice(t *testing.T) {
 	}
 	dockerfiles := map[string]bool{
 		"debian:trixie-slim": true,
-		"debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56": true,  // image-index requires remote lookup
+		"debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56": false, // image-index can skip lookup
 		"debian:12.10@sha256:6bc30d909583f38600edd6609e29eb3fb284ab8affce8d0389f332fc91c2dd91": false, // image-manifest can skip lookup
 	}
 	for dockerfile, remoteLookup := range dockerfiles {
@@ -1282,6 +1282,42 @@ func TestWarmerTwice(t *testing.T) {
 				t.Fatalf("output must not contain %s", s)
 			}
 		})
+	}
+}
+
+func TestWarmerIndexAcrossPlatforms(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	image := "debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56"
+	warm := func(platform string) string {
+		dockerRunFlags := []string{"run", "--net=host", "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())}
+		dockerRunFlags = addAuthFlags(dockerRunFlags)
+		for _, envVariable := range WarmerEnv {
+			dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
+		}
+		dockerRunFlags = append(dockerRunFlags,
+			"-v", tmpDir+":/cache",
+			WarmerImage,
+			"--cache-dir=/cache",
+			"--customPlatform="+platform,
+			"-i", image)
+		out, err := RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
+		t.Logf("Warm %s output:\n%s", platform, out)
+		if err != nil {
+			t.Fatalf("Unable to warm %s: %s", platform, err)
+		}
+		return string(out)
+	}
+
+	warm("linux/arm64")
+	out := warm("linux/amd64")
+	s := fmt.Sprintf("Resolved sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56 to sha256:%s through cached image index", debian1210Digest)
+	if !strings.Contains(out, s) {
+		t.Fatalf("output must contain %s", s)
+	}
+	s = "Image already in cache: " + image
+	if strings.Contains(out, s) {
+		t.Fatalf("output must not contain %s", s)
 	}
 }
 

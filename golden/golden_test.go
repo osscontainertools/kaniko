@@ -324,11 +324,16 @@ var warmerTests = map[string][]types.GoldenTests{
 	"test_warmer": {testwarmer.Tests},
 }
 
-// fakeRemoteImage derives the image from its reference, so its digest is stable across runs.
-func fakeRemoteImage(image string, _ config.RegistryOptions, _ string) (v1.Image, error) {
+// fakeRemoteImage derives the image and its index from its reference, so their digests are stable across runs.
+func fakeRemoteImage(image string, _ config.RegistryOptions, _ string) (v1.Image, []byte, error) {
 	cf := &v1.ConfigFile{}
 	cf.Config.Labels = map[string]string{"ref": image}
-	return mutate.ConfigFile(empty.Image, cf)
+	img, err := mutate.ConfigFile(empty.Image, cf)
+	if err != nil {
+		return nil, nil, err
+	}
+	index, err := mutate.Annotations(empty.Index, map[string]string{"ref": image}).(v1.ImageIndex).RawManifest()
+	return img, index, err
 }
 
 func TestWarmer(t *testing.T) {
@@ -351,7 +356,7 @@ func TestWarmer(t *testing.T) {
 
 							origRemote, origLocal := warmer.RemoteSource, warmer.LocalSource
 							warmer.RemoteSource = fakeRemoteImage
-							warmer.LocalSource = func(_ *config.CacheOptions, key string) (v1.Image, error) {
+							warmer.LocalSource = func(_ *config.CacheOptions, key, _ string) (v1.Image, error) {
 								if !slices.Contains(test.CachedKeys, key) {
 									return nil, cache.NotFoundErr{}
 								}

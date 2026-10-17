@@ -31,24 +31,49 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type resolvedImage struct {
+	image v1.Image
+	index []byte
+}
+
 var (
-	manifestCache   = make(map[string]v1.Image)
-	remoteImageFunc = remote.Image
+	manifestCache   = make(map[string]resolvedImage)
+	remoteImageFunc = getImage
 )
+
+func getImage(ref name.Reference, options ...remote.Option) (resolvedImage, error) {
+	desc, err := remote.Get(ref, options...)
+	if err != nil {
+		return resolvedImage{}, err
+	}
+	img, err := desc.Image()
+	if err != nil {
+		return resolvedImage{}, err
+	}
+	if desc.MediaType.IsIndex() {
+		return resolvedImage{image: img, index: desc.Manifest}, nil
+	}
+	return resolvedImage{image: img}, nil
+}
 
 // RetrieveRemoteImage retrieves the manifest for the specified image from the specified registry
 func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatform string) (v1.Image, error) {
+	img, _, err := RetrieveRemoteImageAndIndex(image, opts, customPlatform)
+	return img, err
+}
+
+func RetrieveRemoteImageAndIndex(image string, opts config.RegistryOptions, customPlatform string) (v1.Image, []byte, error) {
 	logrus.Infof("Retrieving image manifest %s", image)
 
-	cachedRemoteImage := manifestCache[image]
-	if cachedRemoteImage != nil {
+	cached, ok := manifestCache[image]
+	if ok {
 		logrus.Infof("Returning cached image manifest")
-		return cachedRemoteImage, nil
+		return cached.image, cached.index, nil
 	}
 
 	ref, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if newRegURLs, found := opts.RegistryMaps[ref.Context().RegistryStr()]; found {
@@ -59,7 +84,7 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 
 			remappedRepository, err := remapRepository(ref.Context(), regToMapTo, repositoryPrefix, insecurePull)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
 			remappedRef := setNewRepository(ref, remappedRepository)
@@ -67,7 +92,7 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 			logrus.Infof("Retrieving image %s from mapped registry %s", remappedRef, regToMapTo)
 			// outside retryFunc, otherwise every retry starts from an empty connection pool
 			tr, remoteOpts := remoteOptions(regToMapTo, opts, customPlatform)
-			retryFunc := func() (v1.Image, error) {
+			retryFunc := func() (resolvedImage, error) {
 				image, err := remoteImageFunc(remappedRef, remoteOpts...)
 				if err != nil && (!config.FF.PoolRegistryConnections || util.DropPooledOnAuth(tr, err)) {
 					tr, remoteOpts = remoteOptions(regToMapTo, opts, customPlatform)
@@ -75,7 +100,7 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 				return image, err
 			}
 
-			var remoteImage v1.Image
+			var remoteImage resolvedImage
 			if remoteImage, err = util.RetryWithResult(retryFunc, opts.ImageDownloadRetry, 1000); err != nil {
 				logrus.Warnf("Failed to retrieve image %s from remapped registry %s: %s. Will try with the next registry, or fallback to the original registry.", remappedRef, regToMapTo, err)
 				continue
@@ -85,15 +110,15 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 			if config.FF.CrossRepoMount {
 				// a registry-map implies that the original also holds the image,
 				// and we might push there, so record it as a possible mount reference too.
-				mounts.RecordImage(remoteImage, remappedRef.Context())
-				mounts.RecordGuess(remoteImage, ref.Context())
+				mounts.RecordImage(remoteImage.image, remappedRef.Context())
+				mounts.RecordGuess(remoteImage.image, ref.Context())
 			}
 
-			return remoteImage, nil
+			return remoteImage.image, remoteImage.index, nil
 		}
 
 		if len(newRegURLs) > 0 && opts.SkipDefaultRegistryFallback {
-			return nil, fmt.Errorf("image not found on any configured mapped registries for %s", ref)
+			return nil, nil, fmt.Errorf("image not found on any configured mapped registries for %s", ref)
 		}
 	}
 
@@ -101,7 +126,7 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 	if opts.InsecurePull || opts.InsecureRegistries.Contains(registryName) {
 		newReg, err := name.NewRegistry(registryName, name.WeakValidation, name.Insecure)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		ref = setNewRegistry(ref, newReg)
 	}
@@ -109,7 +134,7 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 	logrus.Infof("Retrieving image %s from registry %s", ref, registryName)
 
 	tr, remoteOpts := remoteOptions(registryName, opts, customPlatform)
-	retryFunc := func() (v1.Image, error) {
+	retryFunc := func() (resolvedImage, error) {
 		image, err := remoteImageFunc(ref, remoteOpts...)
 		if err != nil && (!config.FF.PoolRegistryConnections || util.DropPooledOnAuth(tr, err)) {
 			tr, remoteOpts = remoteOptions(registryName, opts, customPlatform)
@@ -117,15 +142,15 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 		return image, err
 	}
 
-	var remoteImage v1.Image
-	if remoteImage, err = util.RetryWithResult(retryFunc, opts.ImageDownloadRetry, 1000); remoteImage != nil {
+	var remoteImage resolvedImage
+	if remoteImage, err = util.RetryWithResult(retryFunc, opts.ImageDownloadRetry, 1000); remoteImage.image != nil {
 		manifestCache[image] = remoteImage
 		if config.FF.CrossRepoMount {
-			mounts.RecordImage(remoteImage, ref.Context())
+			mounts.RecordImage(remoteImage.image, ref.Context())
 		}
 	}
 
-	return remoteImage, err
+	return remoteImage.image, remoteImage.index, err
 }
 
 // remapRepository adds the {repositoryPrefix}/ to the original repo, and normalizes with an additional library/ if necessary

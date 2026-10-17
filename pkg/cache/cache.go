@@ -17,6 +17,7 @@ limitations under the License.
 package cache
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -201,15 +202,24 @@ func Destination(opts *config.KanikoOptions, cacheKey string) (string, error) {
 }
 
 // LocalSource retrieves a source image from a local cache given cacheKey
-func LocalSource(opts *config.CacheOptions, cacheKey string) (v1.Image, error) {
+func LocalSource(opts *config.CacheOptions, cacheKey, platform string) (v1.Image, error) {
 	cache := opts.CacheDir
 	if cache == "" {
 		return nil, nil
 	}
 
-	path := path.Join(cache, cacheKey)
+	imagePath := path.Join(cache, cacheKey)
 
-	fi, err := os.Stat(path)
+	fi, err := os.Stat(imagePath)
+	if err != nil && config.FF.CacheImageIndex {
+		child, ok := indexChild(cache, cacheKey, platform)
+		if ok {
+			logrus.Infof("Resolved %s to %s through cached image index", cacheKey, child)
+			cacheKey = child
+			imagePath = path.Join(cache, child)
+			fi, err = os.Stat(imagePath)
+		}
+	}
 	if err != nil {
 		msg := fmt.Sprintf("No file found for cache key %v %v", cacheKey, err)
 		logrus.Debug(msg)
@@ -226,10 +236,63 @@ func LocalSource(opts *config.CacheOptions, cacheKey string) (v1.Image, error) {
 
 	logrus.Infof("Found %s in local cache", cacheKey)
 	if config.FF.OCIWarmer {
-		return ociCachedImageFromPath(path)
+		return ociCachedImageFromPath(imagePath)
 	} else {
-		return cachedImageFromPath(path)
+		return cachedImageFromPath(imagePath)
 	}
+}
+
+func StoreIndex(cacheDir string, index []byte) error {
+	digest, _, err := v1.SHA256(bytes.NewReader(index))
+	if err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(cacheDir, "warmingIndex.*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(f.Name())
+	_, err = f.Write(index)
+	if err != nil {
+		f.Close()
+		return err
+	}
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+	return os.Rename(f.Name(), path.Join(cacheDir, digest.String()+".index"))
+}
+
+func indexChild(cacheDir, cacheKey, platform string) (string, bool) {
+	raw, err := os.ReadFile(path.Join(cacheDir, cacheKey+".index"))
+	if err != nil {
+		return "", false
+	}
+	digest, _, err := v1.SHA256(bytes.NewReader(raw))
+	if err != nil || digest.String() != cacheKey {
+		return "", false
+	}
+	index, err := v1.ParseIndexManifest(bytes.NewReader(raw))
+	if err != nil {
+		return "", false
+	}
+	required, err := v1.ParsePlatform(platform)
+	// Satisfies treats empty fields as wildcards, the registry lookup matches nothing
+	if err != nil || required.OS == "" || required.Architecture == "" {
+		return "", false
+	}
+	for _, m := range index.Manifests {
+		// a child without a platform counts as linux/amd64, the same assumption the registry lookup makes
+		given := v1.Platform{OS: "linux", Architecture: "amd64"}
+		if m.Platform != nil {
+			given = *m.Platform
+		}
+		if given.Satisfies(*required) {
+			return m.Digest.String(), true
+		}
+	}
+	return "", false
 }
 
 // cachedImage represents a v1.Tarball that is cached locally in a CAS.
