@@ -6,7 +6,7 @@ import "github.com/osscontainertools/kaniko/golden/types"
 // away, and nothing copies from them, so neither needs the root filesystem.
 // common gets there through a cache hit, meta through a metadata-only command.
 // the RUN in common, the only cache hit in the build
-var commonKey = []string{"1c016060d47d3e3e06f1495da9217e1c46134d7cfb263f4fdfd1c49201c6733c"}
+var commonKey = []string{"2f174f5173821b006024ced92778fbf0999c942ac7a65c6cd0de303ac59616de"}
 
 var Tests = types.GoldenTests{
 	Name:       "test_issue_mz1128",
@@ -18,9 +18,6 @@ var Tests = types.GoldenTests{
 				"FF_KANIKO_CACHE_LOOKAHEAD":             "1",
 				"FF_KANIKO_IMAGE_STAGES":                "0",
 				"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "0",
-				"FF_KANIKO_PLATFORM_CACHE_KEY":          "0",
-				"FF_KANIKO_RESOLVE_CACHE_KEY":           "0",
-				"FF_KANIKO_ROLLING_CACHE_KEY":           "0",
 				"FF_KANIKO_SHARED_BASE_CACHE":           "0",
 			},
 			CachedKeys: commonKey,
@@ -32,9 +29,6 @@ var Tests = types.GoldenTests{
 				"FF_KANIKO_CACHE_LOOKAHEAD":             "1",
 				"FF_KANIKO_IMAGE_STAGES":                "1",
 				"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "0",
-				"FF_KANIKO_PLATFORM_CACHE_KEY":          "0",
-				"FF_KANIKO_RESOLVE_CACHE_KEY":           "0",
-				"FF_KANIKO_ROLLING_CACHE_KEY":           "0",
 				"FF_KANIKO_SHARED_BASE_CACHE":           "0",
 			},
 			CachedKeys: commonKey,
