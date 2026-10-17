@@ -286,6 +286,15 @@ func indexChild(cacheDir, cacheKey, platform string) (string, bool) {
 		}
 	}
 	for _, m := range index.Manifests {
+		if !m.MediaType.IsImage() {
+			continue
+		}
+		if m.Annotations != nil && m.Annotations["vnd.docker.reference.type"] == "attestation-manifest" {
+			continue
+		}
+		if m.Platform != nil && (m.Platform.OS == "unknown" || m.Platform.Architecture == "unknown") {
+			continue
+		}
 		given := v1.Platform{OS: "linux", Architecture: "amd64"}
 		if m.Platform != nil {
 			given = *m.Platform
