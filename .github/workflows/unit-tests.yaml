@@ -40,7 +40,7 @@ jobs:
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.27.0'
+          go-version: '1.27.2'
 
       - run: make test
 
@@ -50,4 +50,4 @@ jobs:
         uses: dominikh/staticcheck-action@9716614d4101e79b4340dd97b10e54d68234e431 # v1.4.1
         with:
           install-go: false
-          version: '2026.1'
+          version: '2026.2.2'
