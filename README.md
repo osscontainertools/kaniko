@@ -1209,7 +1209,7 @@ The repository, commit and tag come from GitLab CI or GitHub Actions, and from t
 
 With `--reproducible` only the `base.*` keys are set. `--annotation` takes precedence over every key.
 
-With `--provenance` they are also set on the index.
+With `--provenance` the repository, commit and tag are also set on the index.
 
 #### Flag `--provenance`
 
@@ -1221,7 +1221,7 @@ docker buildx imagetools inspect registry.example.com/app:v1 --format '{{json .P
 
 The tag then points at an index holding the image and its attestation. `--digest-file` keeps the image digest, use `--index-file` to get the index.
 
-The attestation lists the base images, the commit and the CI job. Build arg values and secrets are not recorded.
+The attestation lists the base images, the commit and the CI job. Build arg values and secrets are not recorded. See [Provenance](docs/provenance.md) for every recorded field.
 
 #### Flag `--index-file`
 
