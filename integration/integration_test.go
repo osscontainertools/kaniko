@@ -1832,27 +1832,22 @@ func checkAnnotations(t *testing.T, dockerfile, image string) {
 
 func checkIndexFile(t *testing.T, dockerfile, image string) {
 	t.Helper()
-	written, ok := indexFileWritten[dockerfile]
-	if !ok {
+	if _, ok := indexFileDockerfiles[dockerfile]; !ok {
 		return
 	}
 	raw, err := os.ReadFile(filepath.Join(indexFileDir(dockerfile), "index.json"))
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
+	if err != nil {
 		t.Fatal(err)
 	}
-	want := ""
-	if written {
-		ref, err := name.ParseReference(image, name.WeakValidation)
-		if err != nil {
-			t.Fatal(err)
-		}
-		desc, err := remote.Get(ref)
-		if err != nil {
-			t.Fatal(err)
-		}
-		want = string(desc.Manifest)
+	ref, err := name.ParseReference(image, name.WeakValidation)
+	if err != nil {
+		t.Fatal(err)
 	}
-	testutil.CheckDeepEqual(t, want, string(raw))
+	desc, err := remote.Get(ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.CheckDeepEqual(t, string(desc.Manifest), string(raw))
 }
 
 func checkProvenance(t *testing.T, dockerfile, image string) {

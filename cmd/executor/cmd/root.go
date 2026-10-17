@@ -194,6 +194,12 @@ func validateOutputFlags(opts *config.KanikoOptions) error {
 	if opts.TarPath != "" && opts.Compression == config.ZStd {
 		return errors.New("--compression=zstd cannot be used with --tar-path, the Docker schema2 tarball has no zstd layer media type, use --oci-layout-path for zstd layers")
 	}
+	if opts.IndexFile != "" && !opts.Provenance {
+		return errors.New("--index-file requires --provenance, a build without it creates no index")
+	}
+	if opts.Provenance && opts.NoPush && opts.OCILayoutPath == "" && (opts.TarPath != "" || opts.IndexFile != "") {
+		return errors.New("--provenance with --no-push stores the attestation only in --oci-layout-path, a Docker tarball cannot hold it and --index-file would point at a manifest stored nowhere")
+	}
 	return nil
 }
 
