@@ -21,7 +21,6 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-containerregistry v0.22.1
-	github.com/google/slowjam v1.1.2
 	github.com/hashicorp/hcl v1.0.0
 	github.com/klauspost/compress v1.20.3
 	github.com/minio/highwayhash v1.0.4
