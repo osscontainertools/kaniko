@@ -169,6 +169,13 @@ var allTests = map[string][]types.GoldenTests{
 }
 var update bool
 
+// sync with the Preview profile in README.md
+var previewEnv = map[string]string{
+	"FF_KANIKO_CACHE_IMAGE_INDEX": "1",
+	"FF_KANIKO_COPY_LINK":         "1",
+	"FF_KANIKO_DEFER_CACHE_PUSH":  "1",
+}
+
 func TestMain(m *testing.M) {
 	flag.BoolVar(&update, "update", false, "Whether to update expected output instead of testing it")
 	flag.Parse()
@@ -228,6 +235,9 @@ func TestRun(t *testing.T) {
 					for _, test := range testSuite.Tests {
 						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
 							t.Cleanup(config.InitFeatureFlags)
+							for k, v := range previewEnv {
+								t.Setenv(k, v)
+							}
 							for k, v := range test.Env {
 								t.Setenv(k, v)
 							}
@@ -277,6 +287,9 @@ func TestBake(t *testing.T) {
 					for _, test := range testSuite.Tests {
 						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
 							t.Cleanup(config.InitFeatureFlags)
+							for k, v := range previewEnv {
+								t.Setenv(k, v)
+							}
 							for k, v := range test.Env {
 								t.Setenv(k, v)
 							}
@@ -347,6 +360,9 @@ func TestWarmer(t *testing.T) {
 					for _, test := range testSuite.Tests {
 						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
 							t.Cleanup(config.InitFeatureFlags)
+							for k, v := range previewEnv {
+								t.Setenv(k, v)
+							}
 							for k, v := range test.Env {
 								t.Setenv(k, v)
 							}

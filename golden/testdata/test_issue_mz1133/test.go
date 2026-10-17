@@ -14,10 +14,6 @@ var seeded = []string{
 	"57aca4e3f53788ebde7a424866d5695c9d329f7848908a7f6611880c7d9a518f",
 }
 
-var env = map[string]string{
-	"FF_KANIKO_COPY_LINK": "1",
-}
-
 var unlinkedEnv = map[string]string{
 	"FF_KANIKO_COPY_LINK": "0",
 }
@@ -29,7 +25,6 @@ var Tests = types.GoldenTests{
 		// the build the keys were taken from
 		{
 			Args:       []string{"--no-push", "--cache", "--cache-copy-layers", "--build-arg", "SALT=one"},
-			Env:        env,
 			CachedKeys: seeded,
 			Plan:       "salt_one",
 		},
@@ -37,7 +32,6 @@ var Tests = types.GoldenTests{
 		// --link copies are the only ones left hitting
 		{
 			Args:       []string{"--no-push", "--cache", "--cache-copy-layers", "--build-arg", "SALT=two"},
-			Env:        env,
 			CachedKeys: seeded,
 			Plan:       "salt_two",
 		},
