@@ -1218,7 +1218,6 @@ Kaniko usually runs as PID1 in the container, but kaniko currently does not impl
 Set this flag to `true` to run any `RUN` commands via `tini` init system as subreaper, to properly handle zombie processes.
 Note that for this feature to work the tini binary must be available as `/kaniko/tini`.
 Defaults to `false`.
-Becomes default in `v1.29.0`, once the `tini` binary ships for RISC-V.
 
 #### Flag `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS`
 
