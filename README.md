@@ -1187,6 +1187,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 ```sh
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_LINK=true
+FF_KANIKO_DEFER_CACHE_PUSH=true
 ```
 
 ##### BuildKit compatibility
