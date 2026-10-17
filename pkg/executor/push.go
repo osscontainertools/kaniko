@@ -136,8 +136,6 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 	return nil
 }
 
-// Output is what a build pushes. With an attestation the index holds the image and
-// is what the tag resolves to.
 type Output struct {
 	Image v1.Image
 	Index v1.ImageIndex

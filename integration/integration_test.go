@@ -1830,11 +1830,9 @@ func checkAnnotations(t *testing.T, dockerfile, image string) {
 	}
 }
 
-// checkProvenance asserts one image and one attestation linked to it,
-// whose statement names the image, the base image digest and the commit of this checkout.
 func checkProvenance(t *testing.T, dockerfile, image string) {
 	t.Helper()
-	mediaType, ok := expectedProvenance[dockerfile]
+	mediaType, ok := provenanceImageMediaType[dockerfile]
 	if !ok {
 		return
 	}
