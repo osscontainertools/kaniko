@@ -208,16 +208,16 @@ func LocalSource(opts *config.CacheOptions, cacheKey, platform string) (v1.Image
 		return nil, nil
 	}
 
-	path := path.Join(cache, cacheKey)
+	imagePath := path.Join(cache, cacheKey)
 
-	fi, err := os.Stat(path)
+	fi, err := os.Stat(imagePath)
 	if err != nil && config.FF.CacheImageIndex {
 		child, ok := indexChild(cache, cacheKey, platform)
 		if ok {
 			logrus.Infof("Resolved %s to %s through cached image index", cacheKey, child)
 			cacheKey = child
-			path = filepath.Join(cache, child)
-			fi, err = os.Stat(path)
+			imagePath = path.Join(cache, child)
+			fi, err = os.Stat(imagePath)
 		}
 	}
 	if err != nil {
@@ -236,14 +236,14 @@ func LocalSource(opts *config.CacheOptions, cacheKey, platform string) (v1.Image
 
 	logrus.Infof("Found %s in local cache", cacheKey)
 	if config.FF.OCIWarmer {
-		return ociCachedImageFromPath(path)
+		return ociCachedImageFromPath(imagePath)
 	} else {
-		return cachedImageFromPath(path)
+		return cachedImageFromPath(imagePath)
 	}
 }
 
 func StoreIndex(cacheDir string, index []byte) error {
-	digest, _, err :=v1.SHA256(bytes.NewReader(index))
+	digest, _, err := v1.SHA256(bytes.NewReader(index))
 	if err != nil {
 		return err
 	}
@@ -285,6 +285,7 @@ func indexChild(cacheDir, cacheKey, platform string) (string, bool) {
 			return "", false
 		}
 	}
+	var firstMatch string
 	for _, m := range index.Manifests {
 		if !m.MediaType.IsImage() {
 			continue
@@ -300,8 +301,17 @@ func indexChild(cacheDir, cacheKey, platform string) (string, bool) {
 			given = *m.Platform
 		}
 		if given.Satisfies(*required) {
-			return m.Digest.String(), true
+			childDigest := m.Digest.String()
+			if _, err := os.Stat(path.Join(cacheDir, childDigest)); err == nil {
+				return childDigest, true
+			}
+			if firstMatch == "" {
+				firstMatch = childDigest
+			}
 		}
+	}
+	if firstMatch != "" {
+		return firstMatch, true
 	}
 	return "", false
 }
