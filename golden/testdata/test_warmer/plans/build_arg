@@ -1,8 +1,12 @@
-FROM debian:bookworm
-  CACHE MISS: sha256:bb29a696e6cf59b7403f78467ee6afea1fb6d8011e683ab55bcd4a1301186f63
-  FETCH debian:bookworm
-  SAVE /cache/sha256:bb29a696e6cf59b7403f78467ee6afea1fb6d8011e683ab55bcd4a1301186f63
+FROM ubuntu:24.04
+  CACHE MISS: sha256:c47ab2666ada3d8d650aa9617d787bc39abdf68f5e56b259c16de854129a669a
+  FETCH ubuntu:24.04
+  SAVE /cache/sha256:c47ab2666ada3d8d650aa9617d787bc39abdf68f5e56b259c16de854129a669a
 FROM alpine:3.20
   CACHE MISS: sha256:7fca115a07326c8c4cead7b6ccf971fdd90df752f4fc4f903d93fb38c5786af7
   FETCH alpine:3.20
   SAVE /cache/sha256:7fca115a07326c8c4cead7b6ccf971fdd90df752f4fc4f903d93fb38c5786af7
+FROM debian:bookworm
+  CACHE MISS: sha256:bb29a696e6cf59b7403f78467ee6afea1fb6d8011e683ab55bcd4a1301186f63
+  FETCH debian:bookworm
+  SAVE /cache/sha256:bb29a696e6cf59b7403f78467ee6afea1fb6d8011e683ab55bcd4a1301186f63
