@@ -124,6 +124,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--ignore-path`](#flag---ignore-path)
       - [Flag `--image-fs-extract-retry`](#flag---image-fs-extract-retry)
       - [Flag `--image-download-retry`](#flag---image-download-retry)
+      - [Flag `--profile`](#flag---profile)
     - [Feature Flags](#feature-flags)
       - [Profiles](#profiles)
       - [Flag `FF_KANIKO_COPY_AS_ROOT`](#flag-ff_kaniko_copy_as_root)
@@ -1176,24 +1177,38 @@ Set this flag to the number of retries that should happen when downloading the
 remote image. Consecutive retries occur with exponential backoff and an initial
 delay of 1 second. Defaults to `0`.
 
+#### Flag `--profile`
+
+```sh
+--profile=preview --profile=buildkit
+KANIKO_PROFILE=preview,buildkit
+```
+
+Enables the feature flags of a [profile](#profiles). Set it repeatedly to combine profiles. Explicit `FF_KANIKO_*` environment variables override the profile, so `FF_KANIKO_ROLLING_CACHE_KEY=false` turns off a single flag of an enabled profile. The `preview` profile changes with every kaniko release. Pin individual flags if your builds must not change between kaniko versions.
+
 ### Feature Flags
 
 #### Profiles
+
+Enable a profile with [`--profile`](#flag---profile).
 
 ##### Preview
 
 Opting into the Preview profile gives you early access to upcoming performance improvements, bugfixes and features. While these flags are tested and ready to use, implementation details may still change.
 
+<!-- START profile preview generated, re-run `go run ./hack/profiles` to update -->
 ```sh
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_LINK=true
 FF_KANIKO_DEFER_CACHE_PUSH=true
 ```
+<!-- END profile preview -->
 
 ##### BuildKit compatibility
 
 In a few places, Kaniko keeps its historical, non-compliant behaviour instead of following the Dockerfile specification. Switching to the compliant implementation by default would require users with large codebases to update their Dockerfiles, making migration to our fork tedious. These flags enable the spec-compliant behaviour, matching BuildKit one-to-one. Our integration tests run this profile on top of Preview.
 
+<!-- START profile buildkit generated, re-run `go run ./hack/profiles` to update -->
 ```sh
 FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS=true
 FF_KANIKO_COPY_AS_ROOT=true
@@ -1201,6 +1216,7 @@ FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=true
 FF_KANIKO_COPY_LINK=true
 FF_KANIKO_UNPACK_XZ=true
 ```
+<!-- END profile buildkit -->
 
 #### Flag `FF_KANIKO_COPY_AS_ROOT`
 
