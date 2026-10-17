@@ -1238,7 +1238,7 @@ func gitCheckout(ctx string) []string {
 	if err != nil {
 		return nil
 	}
-	paths := strings.Fields(string(out))
+	paths := strings.Split(string(out), "\n")
 	dotGit := filepath.Join(paths[0], ".git")
 	flags := []string{"-v", dotGit + ":/.git:ro"}
 	if paths[1] != dotGit {
