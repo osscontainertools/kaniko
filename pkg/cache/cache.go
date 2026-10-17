@@ -257,11 +257,6 @@ func StoreIndex(cacheDir string, index []byte) error {
 		f.Close()
 		return err
 	}
-	err = f.Chmod(0o644)
-	if err != nil {
-		f.Close()
-		return err
-	}
 	err = f.Close()
 	if err != nil {
 		return err
@@ -282,41 +277,20 @@ func indexChild(cacheDir, cacheKey, platform string) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	required := &v1.Platform{OS: "linux", Architecture: "amd64"}
-	if platform != "" {
-		var err error
-		required, err = v1.ParsePlatform(platform)
-		if err != nil {
-			return "", false
-		}
+	required, err := v1.ParsePlatform(platform)
+	// Satisfies treats empty fields as wildcards, the registry lookup matches nothing
+	if err != nil || required.OS == "" || required.Architecture == "" {
+		return "", false
 	}
-	var firstMatch string
 	for _, m := range index.Manifests {
-		if !m.MediaType.IsImage() {
-			continue
-		}
-		if m.Annotations != nil && m.Annotations["vnd.docker.reference.type"] == "attestation-manifest" {
-			continue
-		}
-		if m.Platform != nil && (m.Platform.OS == "unknown" || m.Platform.Architecture == "unknown") {
-			continue
-		}
+		// a child without a platform counts as linux/amd64, the same assumption the registry lookup makes
 		given := v1.Platform{OS: "linux", Architecture: "amd64"}
 		if m.Platform != nil {
 			given = *m.Platform
 		}
 		if given.Satisfies(*required) {
-			childDigest := m.Digest.String()
-			if _, err := os.Stat(path.Join(cacheDir, childDigest)); err == nil {
-				return childDigest, true
-			}
-			if firstMatch == "" {
-				firstMatch = childDigest
-			}
+			return m.Digest.String(), true
 		}
-	}
-	if firstMatch != "" {
-		return firstMatch, true
 	}
 	return "", false
 }
