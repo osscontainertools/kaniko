@@ -12,14 +12,20 @@ var Tests = types.GoldenTests{
 		{
 			Args: []string{"--no-push", "--cache", "--build-arg", "A=one"},
 			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD": "1",
+				"FF_KANIKO_CACHE_LOOKAHEAD":    "1",
+				"FF_KANIKO_PLATFORM_CACHE_KEY": "0",
+				"FF_KANIKO_RESOLVE_CACHE_KEY":  "0",
+				"FF_KANIKO_ROLLING_CACHE_KEY":  "0",
 			},
 			Plan: "unresolved_one",
 		},
 		{
 			Args: []string{"--no-push", "--cache", "--build-arg", "A=two"},
 			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD": "1",
+				"FF_KANIKO_CACHE_LOOKAHEAD":    "1",
+				"FF_KANIKO_PLATFORM_CACHE_KEY": "0",
+				"FF_KANIKO_RESOLVE_CACHE_KEY":  "0",
+				"FF_KANIKO_ROLLING_CACHE_KEY":  "0",
 			},
 			Plan: "unresolved_two",
 		},
@@ -28,16 +34,18 @@ var Tests = types.GoldenTests{
 		{
 			Args: []string{"--no-push", "--cache", "--build-arg", "A=one"},
 			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD":   "1",
-				"FF_KANIKO_RESOLVE_CACHE_KEY": "1",
+				"FF_KANIKO_CACHE_LOOKAHEAD":    "1",
+				"FF_KANIKO_PLATFORM_CACHE_KEY": "0",
+				"FF_KANIKO_ROLLING_CACHE_KEY":  "0",
 			},
 			Plan: "resolved_one",
 		},
 		{
 			Args: []string{"--no-push", "--cache", "--build-arg", "A=two"},
 			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD":   "1",
-				"FF_KANIKO_RESOLVE_CACHE_KEY": "1",
+				"FF_KANIKO_CACHE_LOOKAHEAD":    "1",
+				"FF_KANIKO_PLATFORM_CACHE_KEY": "0",
+				"FF_KANIKO_ROLLING_CACHE_KEY":  "0",
 			},
 			Plan: "resolved_two",
 		},

@@ -59,7 +59,7 @@ func Test_CompositeCache_Hash(t *testing.T) {
 		t.Errorf("expected error to be nil but was %v", err)
 	}
 
-	expectedHash := "b4fd5a11af812a11a79d794007c842794cc668c8e7ebaba6d1e6d021b8e06c71"
+	expectedHash := "05a920567352795efa184ef281b472fb4db8747f6ebf30b72b1392c9d081410d"
 	if h != expectedHash {
 		t.Errorf("expected result to equal %v but was %v", expectedHash, h)
 	}
