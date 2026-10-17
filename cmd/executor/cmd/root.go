@@ -38,6 +38,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/executor"
 	"github.com/osscontainertools/kaniko/pkg/logging"
+	"github.com/osscontainertools/kaniko/pkg/provenance"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/tracing"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -116,6 +117,11 @@ func ValidateFlags(opts *config.KanikoOptions) {
 	if _, err := v1.ParsePlatform(opts.CustomPlatform); err != nil {
 		logrus.Fatalf("Invalid platform %q: %v", opts.CustomPlatform, err)
 	}
+
+	// BuildKit also writes an OCI image when it attaches an attestation
+	if opts.Provenance != "" && opts.ImageFormat == config.ImageFormatInherit {
+		opts.ImageFormat = config.ImageFormatOCI
+	}
 }
 
 func setupBuild() error {
@@ -149,13 +155,14 @@ func setupBuild() error {
 	if err := resolveSourceContext(); err != nil {
 		return fmt.Errorf("error resolving source context: %w", err)
 	}
-	if opts.PredefinedAnnotations {
+	if opts.PredefinedAnnotations || opts.Provenance != "" {
 		dir, cloneURL := opts.SrcContext, ""
 		gitContext, isGit := strings.CutPrefix(srcContext, constants.GitBuildContextPrefix)
 		if isGit {
 			dir, cloneURL = config.BuildContextDir, buildcontext.GitURL(gitContext)
 		}
-		opts.ContextSource = buildenv.ResolveSource(buildenv.DetectCI(), buildenv.GitSource(dir, cloneURL))
+		opts.CI = buildenv.DetectCI()
+		opts.ContextSource = buildenv.ResolveSource(opts.CI, buildenv.GitSource(dir, cloneURL))
 	}
 	if err := resolveDockerfilePath(); err != nil {
 		return fmt.Errorf("error resolving dockerfile path: %w", err)
@@ -192,6 +199,15 @@ func validateOutputFlags(opts *config.KanikoOptions) error {
 	}
 	if opts.TarPath != "" && opts.Compression == config.ZStd {
 		return errors.New("--compression=zstd cannot be used with --tar-path, the Docker schema2 tarball has no zstd layer media type, use --oci-layout-path for zstd layers")
+	}
+	if opts.Provenance != "" && opts.Provenance != provenance.ModeMin {
+		return fmt.Errorf("--provenance=%s is not supported, use --provenance=%s", opts.Provenance, provenance.ModeMin)
+	}
+	if opts.Provenance != "" && opts.ImageFormat == config.ImageFormatDocker {
+		return errors.New("--provenance cannot be used with --image-format=docker, the attestation is linked to its image in an OCI index")
+	}
+	if opts.Provenance != "" && opts.TarPath != "" {
+		return errors.New("--provenance cannot be used with --tar-path, a Docker tarball cannot hold an attestation, use --oci-layout-path")
 	}
 	return nil
 }
@@ -302,7 +318,7 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 			logrus.Infof("Building target %q [stage: %q]", target.ID, target.Stage)
 		}
 		_, endBuild := timing.Scope("Total Build Time")
-		image, err := executor.DoBuild(&topts)
+		out, err := executor.DoBuild(&topts)
 		endBuild()
 		if err != nil {
 			return fmt.Errorf("error building image: %w", err)
@@ -311,7 +327,7 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 		// mz992: a dryrun renders the plan and returns no image, there is nothing to push.
 		if !opts.Dryrun {
 			pushTimer := timing.Start("Total Push Time")
-			err := executor.DoPush(image, &topts)
+			err := executor.DoPush(out, &topts)
 			pushTimer.End()
 			if err != nil {
 				return fmt.Errorf("error pushing image: %w", err)
@@ -370,6 +386,7 @@ func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	opts.Annotations = make(map[string]string)
 	cmd.Flags().VarP(&opts.Annotations, "annotation", "", "Set metadata annotations for the image in key=value format. Set it repeatedly for multiple annotations.")
 	cmd.Flags().BoolVarP(&opts.PredefinedAnnotations, "predefined-annotations", "", false, "Set the OCI pre-defined annotations kaniko can determine.")
+	cmd.Flags().StringVarP(&opts.Provenance, "provenance", "", "", "Attach a SLSA provenance attestation and push an OCI index. Supported: min.")
 	cmd.Flags().BoolVarP(&opts.PreserveContext, "preserve-context", "", config.EnvBool("KANIKO_PRESERVE_CONTEXT"), "Preserve build context across build stages by taking a snapshot of the full filesystem before build and restore it after we switch stages. Restores in the end too if passed together with 'cleanup'")
 	cmd.Flags().BoolVarP(&opts.Materialize, "materialize", "", false, "Guarantee that the final state of the file system corresponds to what was specified as the build target, even if we have 100% cache hitrate and wouldn't need to unpack any layers")
 	opts.Secrets = make(config.SecretOptions)
