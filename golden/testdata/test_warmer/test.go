@@ -34,5 +34,11 @@ var Tests = types.GoldenTests{
 			CachedKeys: []string{"sha256:0000000000000000000000000000000000000000000000000000000000000001"},
 			Plan:       "digest",
 		},
+		{
+			Env:        map[string]string{"FF_KANIKO_CACHE_IMAGE_INDEX": "1"},
+			Args:       []string{},
+			CachedKeys: []string{"sha256:bb29a696e6cf59b7403f78467ee6afea1fb6d8011e683ab55bcd4a1301186f63"},
+			Plan:       "index",
+		},
 	},
 }

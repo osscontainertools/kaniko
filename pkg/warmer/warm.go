@@ -17,6 +17,7 @@ limitations under the License.
 package warmer
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -116,16 +117,27 @@ func RenderPlan(w io.Writer, images []string, opts *config.WarmerOptions) (retEr
 	errs := 0
 	for _, img := range images {
 		printf("FROM %s\n", img)
-		_, _, _, digest, err := cw.Resolve(img, opts)
+		_, _, index, digest, err := cw.Resolve(img, opts)
+		var indexPath string
+		if config.FF.CacheImageIndex && index != nil {
+			indexDigest, _, _ := v1.SHA256(bytes.NewReader(index))
+			indexPath = path.Join(opts.CacheDir, indexDigest.String()+".index")
+		}
 		switch {
 		case cache.IsAlreadyCached(err):
 			printf("  CACHE HIT: %s\n", digest)
+			if indexPath != "" {
+				printf("  SAVE %s\n", indexPath)
+			}
 		case err != nil:
 			logrus.Warnf("Error while trying to warm image: %v %v", img, err)
 			errs++
 		default:
 			if !opts.Force {
 				printf("  CACHE MISS: %s\n", digest)
+			}
+			if indexPath != "" {
+				printf("  SAVE %s\n", indexPath)
 			}
 			printf("  FETCH %s\n", img)
 			printf("  SAVE %s\n", path.Join(opts.CacheDir, digest.String()))
