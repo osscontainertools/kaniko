@@ -18,12 +18,18 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/google/slowjam/pkg/stacklog"
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
+	"github.com/osscontainertools/kaniko/pkg/creds"
 )
 
 func main() {
+	helper, ok := creds.Helpers[filepath.Base(os.Args[0])]
+	if ok {
+		os.Exit(helper())
+	}
 	s := stacklog.MustStartFromEnv("STACKLOG_PATH")
 	defer s.Stop()
 
