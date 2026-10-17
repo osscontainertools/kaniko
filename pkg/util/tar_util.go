@@ -235,9 +235,6 @@ func UnpackLocalTarArchive(path, dest string, chownOwner *Owner) ([]string, erro
 			}
 			return UnTar(xzr, dest, chownOwner)
 		case compression.Zstd:
-			if !config.FF.UnpackZstd {
-				return nil, fmt.Errorf("unsupported compression algorithm: %d", compressionLevel)
-			}
 			zstdr, err := zstd.NewReader(file)
 			if err != nil {
 				return nil, err
@@ -319,13 +316,8 @@ func fileIsCompressedTar(src string) (bool, compression.Compression) {
 		return false, -1
 	}
 	defer r.Close()
-	var buf []byte
-	if config.FF.PeekArchiveHeader {
-		// compression.Detect inspects at most 8 bytes, for the zstd skippable frame
-		buf, err = io.ReadAll(io.LimitReader(r, 8))
-	} else {
-		buf, err = io.ReadAll(r)
-	}
+	// compression.Detect inspects at most 8 bytes, for the zstd skippable frame
+	buf, err := io.ReadAll(io.LimitReader(r, 8))
 	if err != nil {
 		return false, -1
 	}
