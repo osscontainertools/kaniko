@@ -372,7 +372,8 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1227_squash":        {"--predefined-annotations"},
 	"Dockerfile_test_issue_mz1230":               {"--provenance", "--predefined-annotations", "--index-file=/index/index.json"},
 	"Dockerfile_test_issue_mz1230_no_index":      {"--index-file=/tmp/index.json"},
-	"Dockerfile_test_issue_mz1230_no_push_tar":   {"--provenance", "--no-push", "--tar-path=/tmp/image.tar"},
+	"Dockerfile_test_issue_mz1230_no_push_tar":   {"--provenance", "--no-push", "--tar-path=/tmp/image.tar", "--index-file=/tmp/index.json"},
+	"Dockerfile_test_issue_mz1230_tar_no_index":  {"--provenance", "--tar-path=/tmp/image.tar"},
 	"Dockerfile_test_issue_mz1230_tar":           {"--provenance", "--tar-path=/index/image.tar", "--index-file=/index/index.json"},
 	"Dockerfile_test_issue_mz1230_reproducible":  {"--provenance", "--predefined-annotations", "--reproducible"},
 	"Dockerfile_test_issue_mz1230_oci":           {"--provenance", "--image-format=oci", "--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
@@ -393,8 +394,9 @@ var expectErr = map[string]int{
 	"Dockerfile_test_issue_mz881":    1,
 	"Dockerfile_test_issue_mz1133_2": 1,
 
-	"Dockerfile_test_issue_mz1230_no_index":    1,
-	"Dockerfile_test_issue_mz1230_no_push_tar": 1,
+	"Dockerfile_test_issue_mz1230_no_index":     1,
+	"Dockerfile_test_issue_mz1230_no_push_tar":  1,
+	"Dockerfile_test_issue_mz1230_tar_no_index": 1,
 }
 
 var crossCompileArch = func() string {

@@ -2178,10 +2178,11 @@ func writeImageLayout(dir string, image v1.Image, ref string) error {
 
 func loadSharedBase(digest string) (v1.Image, error) {
 	path := filepath.Join(config.KanikoBaseStagesDir, digest)
-	img, err := loadFromOCILayout(path)
+	out, err := loadFromOCILayout(path)
 	if err != nil {
 		return nil, err
 	}
+	img := out.Image
 	d, err := img.Digest()
 	if err != nil {
 		return nil, err
