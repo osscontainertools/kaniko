@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -335,7 +336,7 @@ outer:
 		// skip stage references ie.
 		// FROM base AS target
 		for j := range i {
-			if stages[j].Name == resolvedBaseName {
+			if stages[j].Name == strings.ToLower(resolvedBaseName) {
 				continue outer
 			}
 		}
