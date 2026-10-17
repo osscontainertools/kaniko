@@ -41,7 +41,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/timing"
-	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 	mode "github.com/tonistiigi/dchapes-mode"
 	"golang.org/x/sys/unix"
@@ -123,8 +122,7 @@ func CheckSource(src string, context FileContext) error {
 type ExtractFunction func(string, *tar.Header, string, io.Reader) error
 
 type FSConfig struct {
-	includeWhiteout bool
-	extractFunc     ExtractFunction
+	extractFunc ExtractFunction
 }
 
 type FSOpt func(*FSConfig)
@@ -145,12 +143,6 @@ func AddToDefaultIgnoreList(entry IgnoreListEntry) {
 		Path:            filepath.Clean(entry.Path),
 		PrefixMatchOnly: entry.PrefixMatchOnly,
 	})
-}
-
-func IncludeWhiteout() FSOpt {
-	return func(opts *FSConfig) {
-		opts.includeWhiteout = true
-	}
 }
 
 func ExtractFunc(extractFunc ExtractFunction) FSOpt {
@@ -258,10 +250,8 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 			}
 
 			// mz774: whiteout deletion is already applied, the marker is not needed in the filesystem
-			if !cfg.includeWhiteout || config.FF.SkipWriteWhiteouts {
-				logrus.Trace("Not including whiteout files")
-				continue
-			}
+			logrus.Trace("Not including whiteout files")
+			continue
 		}
 
 		if err := cfg.extractFunc(root, hdr, cleanedName, tr); err != nil {
@@ -369,7 +359,7 @@ func UnTar(r io.Reader, dest string) ([]string, error) {
 			return nil, err
 		}
 		cleanedName := filepath.Clean(hdr.Name)
-		if cleanedName == "." && config.FF.UntarSkipRoot {
+		if cleanedName == "." {
 			continue
 		}
 		if err := ExtractFile(dest, hdr, cleanedName, tr); err != nil {
@@ -537,7 +527,7 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 			if err != nil {
 				return fmt.Errorf("error removing %s to make way for new symlink: %w", hdr.Name, err)
 			}
-			if skip && config.FF.PreserveMountedSymlinks {
+			if skip {
 				freed, err := relocateMountedPaths(dest, path, hdr.Linkname)
 				if err != nil {
 					return err
@@ -810,11 +800,9 @@ type timestampUpdate struct {
 // CopyDir copies the file or directory at src to dest
 // It returns a list of files it copied over
 func CopyDir(src, dest string, context FileContext, owner *Owner, chmod mode.Set, useDefaultChmod bool) ([]string, error) {
-	if config.FF.ConfineCopySource {
-		err := CheckSource(src, context)
-		if err != nil {
-			return nil, err
-		}
+	err := CheckSource(src, context)
+	if err != nil {
+		return nil, err
 	}
 	files, err := RelativeFiles("", src)
 	if err != nil {
@@ -901,7 +889,7 @@ func copyDirInner(files []string, src, dest string, context FileContext, owner *
 			// This loop already skipped matches
 			assert.Assert("util.copydir.fifo-not-excluded", !exclude, "CreateFifo refused to copy %s to %s", fullPath, destPath)
 			updates = append(updates, timestampUpdate{src: fi, dest: destPath})
-		} else if !fi.Mode().IsRegular() && config.FF.CopySkipSpecialFiles {
+		} else if !fi.Mode().IsRegular() {
 			logrus.Warnf("Ignoring special file %s, not copying to %s", fullPath, destPath)
 			continue
 		} else {
@@ -988,11 +976,9 @@ func checkCopyHardlink(fi os.FileInfo, dest string, seen map[hardlinkKey]string)
 // CopyTree copies the file, symlink or directory at src to dest. Everything is
 // copied in one pass, so hardlinks within the tree are preserved.
 func CopyTree(src, dest string, context FileContext, skipIgnoreList bool) error {
-	if config.FF.ConfineCopySource {
-		err := CheckSource(src, context)
-		if err != nil {
-			return err
-		}
+	err := CheckSource(src, context)
+	if err != nil {
+		return err
 	}
 	files, err := RelativeFiles("", src)
 	if err != nil {
@@ -1010,17 +996,7 @@ func MoveDir(src, dest string) error {
 
 	if errors.Is(err, syscall.EXDEV) {
 		// Cross-device move: copy + delete
-		if config.FF.NativeCopy {
-			err = CopyTree(src, dest, FileContext{AllowedPath: config.KanikoDir}, true)
-		} else {
-			opts := otiai10Cpy.Options{
-				PreserveTimes:     true,
-				PreserveOwner:     true,
-				PermissionControl: otiai10Cpy.PerservePermission,
-				FS:                FSys,
-			}
-			err = otiai10Cpy.Copy(src, dest, opts)
-		}
+		err = CopyTree(src, dest, FileContext{AllowedPath: config.KanikoDir}, true)
 		if err != nil {
 			return err
 		}
@@ -1038,11 +1014,9 @@ func MoveDir(src, dest string) error {
 
 // CopySymlink copies the symlink at src to dest.
 func CopySymlink(src, dest string, context FileContext, skipIgnoreList bool) (bool, error) {
-	if config.FF.ConfineCopySource {
-		err := CheckSource(src, context)
-		if err != nil {
-			return false, err
-		}
+	err := CheckSource(src, context)
+	if err != nil {
+		return false, err
 	}
 	return copySymlink(src, dest, context, skipIgnoreList)
 }
@@ -1076,11 +1050,9 @@ func copySymlink(src, dest string, context FileContext, skipIgnoreList bool) (bo
 // CopyFile copies the file at src to dest. fi is the Lstat of src, so a symlink
 // handed here would be written with its own mode and times rather than its target's.
 func CopyFile(src, dest string, fi os.FileInfo, context FileContext, owner *Owner, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool) (bool, error) {
-	if config.FF.ConfineCopySource {
-		err := CheckSource(src, context)
-		if err != nil {
-			return false, err
-		}
+	err := CheckSource(src, context)
+	if err != nil {
+		return false, err
 	}
 	return copyFile(src, dest, fi, context, owner, chmod, useDefaultChmod, skipIgnoreList)
 }
@@ -1156,13 +1128,11 @@ func NewFileContextFromDockerfile(dockerfilePath, buildcontext string) (FileCont
 		return fileContext, err
 	}
 	fileContext.ExcludedFiles = excludedFiles
-	if config.FF.PrecompileDockerignore {
-		matcher, err := patternmatcher.New(excludedFiles)
-		if err != nil {
-			return fileContext, err
-		}
-		fileContext.matcher = matcher
+	matcher, err := patternmatcher.New(excludedFiles)
+	if err != nil {
+		return fileContext, err
 	}
+	fileContext.matcher = matcher
 	return fileContext, nil
 }
 
@@ -1381,65 +1351,14 @@ func getSymlink(path string) error {
 	return nil
 }
 
-// For cross stage dependencies kaniko must persist the referenced path so that it can be used in
-// the dependent stage. For symlinks we copy the target path because copying the symlink would
-// result in a dead link
-func CopyFileOrSymlink(src string, destDir string, root string) error {
-	destFile := filepath.Join(destDir, src)
-	src = filepath.Join(root, src)
-	if config.FF.ConfineCopySource {
-		err := CheckSource(src, FileContext{AllowedPath: config.KanikoInterStageDepsDir})
-		if err != nil {
-			return err
-		}
-	}
-	fi, err := os.Lstat(src)
-	if err != nil {
-		return fmt.Errorf("getting file info: %w", err)
-	}
-	if IsSymlink(fi) {
-		link, err := os.Readlink(src)
-		if err != nil {
-			return fmt.Errorf("copying file or symlink: %w", err)
-		}
-		if err := createParentDirectory(destFile, nil); err != nil {
-			return err
-		}
-		return os.Symlink(link, destFile)
-	}
-	opts := otiai10Cpy.Options{
-		PreserveTimes: true,
-		Skip: func(_ os.FileInfo, src, _ string) (bool, error) {
-			return strings.HasSuffix(src, config.KanikoDir), nil
-		},
-		FS: FSys,
-	}
-	if err := otiai10Cpy.Copy(src, destFile, opts); err != nil {
-		return fmt.Errorf("copying file: %w", err)
-	}
-	if err := CopyOwnership(src, destDir, root); err != nil {
-		return fmt.Errorf("copying ownership: %w", err)
-	}
-	if err := os.Chmod(destFile, fi.Mode()); err != nil {
-		return fmt.Errorf("copying file mode: %w", err)
-	}
-	if err := CopyTimestamps(fi, destFile); err != nil {
-		return fmt.Errorf("copying file timestamps: %w", err)
-	}
-
-	return CopyCapabilities(src, destFile)
-}
-
 // CopyPaths persists paths from srcRoot to dstRoot for cross-stage COPY --from.
 // One pass over all paths, so hardlinks spanning them are linked, not duplicated.
 func CopyPaths(srcRoot, dstRoot string, paths []string) error {
 	var files []string
 	for _, p := range paths {
-		if config.FF.ConfineCopySource {
-			err := CheckSource(filepath.Join(srcRoot, p), FileContext{AllowedPath: config.KanikoInterStageDepsDir})
-			if err != nil {
-				return err
-			}
+		err := CheckSource(filepath.Join(srcRoot, p), FileContext{AllowedPath: config.KanikoInterStageDepsDir})
+		if err != nil {
+			return err
 		}
 		relative, err := RelativeFiles("", filepath.Join(srcRoot, p))
 		if err != nil {
@@ -1454,53 +1373,6 @@ func CopyPaths(srcRoot, dstRoot string, paths []string) error {
 	}
 	_, err := copyDirInner(files, srcRoot, dstRoot, FileContext{}, nil, mode.Set{}, true, true, false)
 	return err
-}
-
-// CopyOwnership copies the file or directory ownership recursively at src to dest
-func CopyOwnership(src string, destDir string, root string) error {
-	return fs.WalkDir(FSys, src, func(path string, info fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		fileInfo, err := info.Info()
-		if err != nil {
-			return err
-		}
-		if IsSymlink(fileInfo) {
-			return nil
-		}
-		relPath, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		destPath := filepath.Join(destDir, relPath)
-
-		if CheckCleanedPathAgainstIgnoreList(src) && CheckCleanedPathAgainstIgnoreList(destPath) {
-			if !isExist(destPath) {
-				logrus.Debugf("Path %s ignored, but not exists", destPath)
-				return nil
-			}
-			if info.IsDir() {
-				return filepath.SkipDir
-			}
-			logrus.Debugf("Not copying ownership for %s, as it's ignored", destPath)
-			return nil
-		}
-		if CheckIgnoreList(destDir) && CheckCleanedPathAgainstIgnoreList(path) {
-			if !isExist(path) {
-				logrus.Debugf("Path %s ignored, but not exists", path)
-				return nil
-			}
-			if info.IsDir() {
-				return filepath.SkipDir
-			}
-			logrus.Debugf("Not copying ownership for %s, as it's ignored", path)
-			return nil
-		}
-
-		stat := fileInfo.Sys().(*syscall.Stat_t)
-		return os.Chown(destPath, int(stat.Uid), int(stat.Gid))
-	})
 }
 
 // CopyCapabilities copies the file capabilities from src to dest

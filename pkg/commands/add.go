@@ -95,7 +95,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 	}
 
 	var checksum digest.Digest
-	if a.cmd.Checksum != "" && kConfig.FF.AddChecksum {
+	if a.cmd.Checksum != "" {
 		if len(srcs) > 1 {
 			return errors.New("checksum can't be specified for multiple sources")
 		}
@@ -116,7 +116,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 
 	// a local archive is unpacked and a download is not, --unpack overrides both
 	unpackLocal, unpackRemote := true, false
-	if kConfig.FF.AddUnpack && a.cmd.Unpack != nil {
+	if a.cmd.Unpack != nil {
 		unpackLocal, unpackRemote = *a.cmd.Unpack, *a.cmd.Unpack
 	}
 
@@ -207,15 +207,13 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				a.snapshotFiles = append(a.snapshotFiles, urlDest)
 			}
 		} else if unpackLocal && util.IsFileLocalTarArchive(fullPath) {
-			if kConfig.FF.ConfineCopySource {
-				resolved, err := filepath.EvalSymlinks(fullPath)
-				if err != nil {
-					return err
-				}
-				err = util.CheckSource(resolved, a.fileContext)
-				if err != nil {
-					return err
-				}
+			resolved, err := filepath.EvalSymlinks(fullPath)
+			if err != nil {
+				return err
+			}
+			err = util.CheckSource(resolved, a.fileContext)
+			if err != nil {
+				return err
 			}
 			tarDest, err := util.DestinationFilepath("", dest, config.WorkingDir)
 			if err != nil {
@@ -292,13 +290,7 @@ func (a *AddCommand) ShouldCacheOutput() bool {
 }
 
 func (a *AddCommand) HasIndependentCacheKey() bool {
-	if !kConfig.FF.CopyLink || !a.cmd.Link {
-		return false
-	}
-	if !kConfig.FF.ResolveCacheKey {
-		return !namesVariables(a.cmd.String(), a.cmd.SourceContents)
-	}
-	return true
+	return kConfig.FF.CopyLink && a.cmd.Link
 }
 
 // CacheCommand returns true since this command should be cached
@@ -337,13 +329,7 @@ func (ca *CachingAddCommand) CacheKey(replacementEnvs []string) (string, error) 
 }
 
 func (ca *CachingAddCommand) HasIndependentCacheKey() bool {
-	if !kConfig.FF.CopyLink || !ca.cmd.Link {
-		return false
-	}
-	if !kConfig.FF.ResolveCacheKey {
-		return !namesVariables(ca.cmd.String(), ca.cmd.SourceContents)
-	}
-	return true
+	return kConfig.FF.CopyLink && ca.cmd.Link
 }
 
 func addCmdFilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd *instructions.AddCommand,

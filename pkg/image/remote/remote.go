@@ -94,7 +94,7 @@ func RetrieveRemoteImageAndIndex(image string, opts config.RegistryOptions, cust
 			tr, remoteOpts := remoteOptions(regToMapTo, opts, customPlatform)
 			retryFunc := func() (resolvedImage, error) {
 				image, err := remoteImageFunc(remappedRef, remoteOpts...)
-				if err != nil && (!config.FF.PoolRegistryConnections || util.DropPooledOnAuth(tr, err)) {
+				if err != nil && util.DropPooledOnAuth(tr, err) {
 					tr, remoteOpts = remoteOptions(regToMapTo, opts, customPlatform)
 				}
 				return image, err
@@ -107,12 +107,10 @@ func RetrieveRemoteImageAndIndex(image string, opts config.RegistryOptions, cust
 			}
 
 			manifestCache[image] = remoteImage
-			if config.FF.CrossRepoMount {
-				// a registry-map implies that the original also holds the image,
-				// and we might push there, so record it as a possible mount reference too.
-				mounts.RecordImage(remoteImage.image, remappedRef.Context())
-				mounts.RecordGuess(remoteImage.image, ref.Context())
-			}
+			// a registry-map implies that the original also holds the image,
+			// and we might push there, so record it as a possible mount reference too.
+			mounts.RecordImage(remoteImage.image, remappedRef.Context())
+			mounts.RecordGuess(remoteImage.image, ref.Context())
 
 			return remoteImage.image, remoteImage.index, nil
 		}
@@ -136,7 +134,7 @@ func RetrieveRemoteImageAndIndex(image string, opts config.RegistryOptions, cust
 	tr, remoteOpts := remoteOptions(registryName, opts, customPlatform)
 	retryFunc := func() (resolvedImage, error) {
 		image, err := remoteImageFunc(ref, remoteOpts...)
-		if err != nil && (!config.FF.PoolRegistryConnections || util.DropPooledOnAuth(tr, err)) {
+		if err != nil && util.DropPooledOnAuth(tr, err) {
 			tr, remoteOpts = remoteOptions(registryName, opts, customPlatform)
 		}
 		return image, err
@@ -145,9 +143,7 @@ func RetrieveRemoteImageAndIndex(image string, opts config.RegistryOptions, cust
 	var remoteImage resolvedImage
 	if remoteImage, err = util.RetryWithResult(retryFunc, opts.ImageDownloadRetry, 1000); remoteImage.image != nil {
 		manifestCache[image] = remoteImage
-		if config.FF.CrossRepoMount {
-			mounts.RecordImage(remoteImage.image, ref.Context())
-		}
+		mounts.RecordImage(remoteImage.image, ref.Context())
 	}
 
 	return remoteImage.image, remoteImage.index, err
@@ -204,13 +200,11 @@ func remoteOptions(registryName string, opts config.RegistryOptions, customPlatf
 
 	remoteOpts := []remote.Option{remote.WithTransport(tr), remote.WithAuthFromKeychain(creds.GetKeychain(&opts)), remote.WithPlatform(*platform)}
 
-	if config.FF.PoolRegistryConnections {
-		reuse, err := util.ReusePuller(tr, remoteOpts...)
-		if err != nil {
-			logrus.Fatalf("Unable to setup puller for registry %q: %v", registryName, err)
-		}
-		remoteOpts = append(remoteOpts, reuse...)
+	reuse, err := util.ReusePuller(tr, remoteOpts...)
+	if err != nil {
+		logrus.Fatalf("Unable to setup puller for registry %q: %v", registryName, err)
 	}
+	remoteOpts = append(remoteOpts, reuse...)
 	return tr, remoteOpts
 }
 

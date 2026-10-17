@@ -295,10 +295,6 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 				return nil, fmt.Errorf("resolving pushAuth: %w", err)
 			}
 			out := []remote.Option{remote.WithAuth(pushAuth), remote.WithTransport(rt)}
-			if !config.FF.PoolRegistryConnections {
-				return out, nil
-			}
-
 			// the pooled pusher takes the keychain, not pushAuth: remote.Push writes
 			// every repository with the options the pusher was built from
 			reuse, err := util.ReusePusher(localRt, remote.WithAuthFromKeychain(keychain), remote.WithTransport(rt))
@@ -314,10 +310,7 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		}
 
 		logrus.Infof("Pushing image to %s", destRef.String())
-		pushImage := image
-		if config.FF.CrossRepoMount {
-			pushImage = mounts.MountableImage(image, destRef.RegistryStr())
-		}
+		pushImage := mounts.MountableImage(image, destRef.RegistryStr())
 
 		retryFunc := func() error {
 			dig, err := image.Digest()
@@ -326,11 +319,11 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 			}
 			digest := destRef.Context().Digest(dig.String())
 			err = remote.Write(destRef, pushImage, writeOpts...)
-			if err != nil && config.FF.CrossRepoMount {
+			if err != nil {
 				logrus.Debugf("Cross-repository mount failed; retrying plain blob upload: %v", err)
 				err = remote.Write(destRef, image, writeOpts...)
 			}
-			if err != nil && (!config.FF.PoolRegistryConnections || util.DropPooledOnAuth(localRt, err)) {
+			if err != nil && util.DropPooledOnAuth(localRt, err) {
 				rebuilt, rerr := writeOptions()
 				if rerr == nil {
 					writeOpts = rebuilt
@@ -353,9 +346,7 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 			}
 			logrus.Infof("Pushed %s", digest)
 			// pushLayerToCache funnels through here, so cache entries land here too.
-			if config.FF.CrossRepoMount {
-				mounts.RecordImage(image, destRef.Context())
-			}
+			mounts.RecordImage(image, destRef.Context())
 			return nil
 		}
 

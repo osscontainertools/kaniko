@@ -124,7 +124,7 @@ func (f *fakeLayerCache) RetrieveLayer(key string) (v1.Image, error) {
 		return nil, err
 	}
 	// The real registry cache records where it read from, and the plan reads that back.
-	if config.FF.CrossRepoMount && remoteCache {
+	if remoteCache {
 		mounts.RecordImage(img, tag.Context())
 	}
 	return img, nil

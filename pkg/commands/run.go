@@ -34,7 +34,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
-	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 )
 
@@ -256,19 +255,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					})
 				}
 
-				if kConfig.FF.NativeCopy {
-					err = util.CopyTree(src, target, fileContext, false)
-				} else {
-					err = otiai10Cpy.Copy(src, target, otiai10Cpy.Options{
-						PreserveTimes:     true,
-						PreserveOwner:     true,
-						PermissionControl: otiai10Cpy.PerservePermission,
-						FS:                util.FSys,
-						Skip: func(_ os.FileInfo, srcPath, _ string) (bool, error) {
-							return fileContext.ExcludesFile(srcPath), nil
-						},
-					})
-				}
+				err = util.CopyTree(src, target, fileContext, false)
 				if err != nil {
 					return fmt.Errorf("copying bind source %s to %s: %w", src, target, err)
 				}
@@ -360,12 +347,9 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 		return fmt.Errorf("resolving user %s: %w", userAndGroup[0], err)
 	}
 
-	credential := userStr
-	if kConfig.FF.RunHonorGroup {
-		credential, err = util.ResolveEnvironmentReplacement(u, replacementEnvs, false)
-		if err != nil {
-			return fmt.Errorf("resolving user %s: %w", u, err)
-		}
+	credential, err := util.ResolveEnvironmentReplacement(u, replacementEnvs, false)
+	if err != nil {
+		return fmt.Errorf("resolving user %s: %w", u, err)
 	}
 
 	// If specified, run the command as a specific user
