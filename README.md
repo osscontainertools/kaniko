@@ -1214,7 +1214,7 @@ The attestation lists the base images, the commit and the CI job. Build arg valu
 
 #### Flag `--index-file`
 
-Set `--index-file` to write the OCI index the tag points at to a file. Only builds with `--provenance` produce an index.
+Set `--index-file` to save the OCI index to a file. The file is only written when the build creates an index, which `--provenance` does.
 
 ```bash
 jq -r '.manifests[] | select(.annotations["vnd.docker.reference.type"] != "attestation-manifest") | .digest' index.json
