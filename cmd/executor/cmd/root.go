@@ -24,6 +24,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -68,6 +69,14 @@ func init() {
 
 func ValidateFlags(opts *config.KanikoOptions) {
 	checkNoDeprecatedFlags()
+
+	// the --no-push default reads it, but would silently push on a typo
+	if val, ok := os.LookupEnv("KANIKO_NO_PUSH"); ok {
+		_, err := strconv.ParseBool(val)
+		if err != nil {
+			logrus.Fatalf("invalid value %q for KANIKO_NO_PUSH environment variable", val)
+		}
+	}
 
 	// Allow setting --registry-mirror using an environment variable.
 	if val, ok := os.LookupEnv("KANIKO_REGISTRY_MIRROR"); ok {
