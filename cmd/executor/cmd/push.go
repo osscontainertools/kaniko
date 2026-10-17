@@ -66,12 +66,12 @@ docker-save format tarball (regular file) or at an OCI image layout (directory).
 			return fmt.Errorf("checking push permissions: %w", err)
 		}
 
-		image, err := executor.LoadImage(path)
+		out, err := executor.LoadImage(path)
 		if err != nil {
 			return fmt.Errorf("loading image: %w", err)
 		}
 
-		err = executor.DoPush(&executor.Output{Image: image}, pushOpts)
+		err = executor.DoPush(out, pushOpts)
 		if err != nil {
 			return fmt.Errorf("pushing image: %w", err)
 		}

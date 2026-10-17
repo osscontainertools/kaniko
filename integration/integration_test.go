@@ -1612,7 +1612,8 @@ func TestPushFromArtifact(t *testing.T) {
 	branch, _, url := getBranchCommitAndURL()
 	dockerfile := integrationPath + "/testdata/Dockerfile.trivial"
 
-	for _, outFlag := range []string{"tar-path", "oci-layout-path"} {
+	for _, artifactFlags := range [][]string{{"--tar-path"}, {"--oci-layout-path"}, {"--oci-layout-path", "--provenance"}} {
+		outFlag := strings.ReplaceAll(strings.Join(artifactFlags, ""), "--", "_")[1:]
 		t.Run(outFlag, func(t *testing.T) {
 			t.Parallel()
 
@@ -1658,19 +1659,40 @@ func TestPushFromArtifact(t *testing.T) {
 			)
 
 			// Two-step: build to an artifact (no push), then push from it.
-			runExecutor(
+			runExecutor(append([]string{
 				"-f", dockerfile,
 				"-c", KanikoGitRepo(url, "", branch),
 				"--no-push",
-				"--"+outFlag, "/out/image",
+				artifactFlags[0], "/out/image",
 				"--reproducible",
-			)
+			}, artifactFlags[1:]...)...)
 			runExecutor(
 				"push", "/out/image",
 				"-d", fromArtifactImage,
 			)
 
-			diffoci(t, directImage, fromArtifactImage)
+			pushedImage := fromArtifactImage
+			if slices.Contains(artifactFlags, "--provenance") {
+				ref, err := name.ParseReference(fromArtifactImage, name.WeakValidation)
+				if err != nil {
+					t.Fatal(err)
+				}
+				idx, err := remote.Index(ref)
+				if err != nil {
+					t.Fatal(err)
+				}
+				manifest, err := idx.IndexManifest()
+				if err != nil {
+					t.Fatal(err)
+				}
+				var types []string
+				for _, m := range manifest.Manifests {
+					types = append(types, m.Annotations["vnd.docker.reference.type"])
+				}
+				testutil.CheckDeepEqual(t, []string{"", "attestation-manifest"}, types)
+				pushedImage = ref.Context().Digest(manifest.Manifests[0].Digest.String()).String()
+			}
+			diffoci(t, directImage, pushedImage)
 		})
 	}
 }
@@ -1832,7 +1854,8 @@ func checkAnnotations(t *testing.T, dockerfile, image string) {
 
 func checkIndexFile(t *testing.T, dockerfile, image string) {
 	t.Helper()
-	if _, ok := indexFileDockerfiles[dockerfile]; !ok {
+	_, ok := indexFileDockerfiles[dockerfile]
+	if !ok {
 		return
 	}
 	raw, err := os.ReadFile(filepath.Join(indexFileDir(dockerfile), "index.json"))
@@ -1896,7 +1919,8 @@ func checkProvenance(t *testing.T, dockerfile, image string) {
 	}
 	defer rc.Close()
 	var statement provenance.Statement
-	if err := json.NewDecoder(rc).Decode(&statement); err != nil {
+	err = json.NewDecoder(rc).Decode(&statement)
+	if err != nil {
 		t.Fatal(err)
 	}
 	if statement.Type != "https://in-toto.io/Statement/v1" || statement.PredicateType != "https://slsa.dev/provenance/v1" {

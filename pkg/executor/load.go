@@ -17,15 +17,15 @@ limitations under the License.
 package executor
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
-	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 )
 
-func LoadImage(path string) (v1.Image, error) {
+func LoadImage(path string) (*Output, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
 		return nil, err
@@ -33,10 +33,14 @@ func LoadImage(path string) (v1.Image, error) {
 	if fi.IsDir() {
 		return loadFromOCILayout(path)
 	}
-	return tarball.ImageFromPath(path, nil)
+	img, err := tarball.ImageFromPath(path, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &Output{Image: img}, nil
 }
 
-func loadFromOCILayout(path string) (v1.Image, error) {
+func loadFromOCILayout(path string) (*Output, error) {
 	idx, err := layout.ImageIndexFromPath(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading OCI layout: %w", err)
@@ -48,5 +52,31 @@ func loadFromOCILayout(path string) (v1.Image, error) {
 	if len(manifest.Manifests) != 1 {
 		return nil, fmt.Errorf("OCI layout must contain exactly one image, found %d", len(manifest.Manifests))
 	}
-	return idx.Image(manifest.Manifests[0].Digest)
+	desc := manifest.Manifests[0]
+	if !desc.MediaType.IsIndex() {
+		img, err := idx.Image(desc.Digest)
+		if err != nil {
+			return nil, err
+		}
+		return &Output{Image: img}, nil
+	}
+	// a --provenance build: the index holds the image and its attestation
+	pushed, err := idx.ImageIndex(desc.Digest)
+	if err != nil {
+		return nil, err
+	}
+	children, err := pushed.IndexManifest()
+	if err != nil {
+		return nil, err
+	}
+	for _, child := range children.Manifests {
+		if child.Annotations["vnd.docker.reference.type"] != "attestation-manifest" {
+			img, err := pushed.Image(child.Digest)
+			if err != nil {
+				return nil, err
+			}
+			return &Output{Image: img, Index: pushed}, nil
+		}
+	}
+	return nil, errors.New("OCI layout index holds no image")
 }

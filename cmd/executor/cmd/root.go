@@ -197,6 +197,9 @@ func validateOutputFlags(opts *config.KanikoOptions) error {
 	if opts.IndexFile != "" && !opts.Provenance {
 		return errors.New("--index-file requires --provenance, a build without it creates no index")
 	}
+	if opts.Provenance && opts.TarPath != "" && opts.IndexFile == "" {
+		return errors.New("--tar-path with --provenance requires --index-file, a Docker tarball cannot hold the attestation")
+	}
 	if opts.Provenance && opts.NoPush && opts.OCILayoutPath == "" && (opts.TarPath != "" || opts.IndexFile != "") {
 		return errors.New("--provenance with --no-push stores the attestation only in --oci-layout-path, a Docker tarball cannot hold it and --index-file would point at a manifest stored nowhere")
 	}
