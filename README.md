@@ -1428,7 +1428,7 @@ Defaults to `true`.
 Will be deprecated in `v1.30.0`.
 
 > [!IMPORTANT]
-> The new resolver also stops offering an entry to repositories it does not cover. An entry for `registry.example.com/org-a` is currently sent for every repository on that host, ie. `registry.example.com/org-b` too. This is legacy behaviour intended to support URL-style entries that docker login used to write, but it was scoped too broadly and included entries without a scheme. We will continue to support URL-style entries, what breaks is implicit auth to sibling namespaces. A build that relies on that behaviour goes anonymous and fails with a `401` once this becomes the default.
+> The new resolver also stops offering an entry to repositories it does not cover. The legacy resolver sent an entry for `registry.example.com/org-a` to every repository on that host, ie. `registry.example.com/org-b` too. This was intended to support URL-style entries that docker login used to write, but it was scoped too broadly and included entries without a scheme. We continue to support URL-style entries, what breaks is implicit auth to sibling namespaces. A build that relies on that behaviour goes anonymous and fails with a `401`. Set `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=false` to restore the legacy resolver until `v1.30.0`.
 
 #### Flag `FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES`
 
