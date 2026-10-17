@@ -75,9 +75,6 @@ func (rc *RegistryCache) RetrieveLayer(ck string) (v1.Image, error) {
 
 	readOptions := func() ([]remote.Option, error) {
 		out := []remote.Option{remote.WithTransport(tr), remote.WithAuthFromKeychain(creds.GetKeychain(&rc.Opts.RegistryOptions))}
-		if !config.FF.PoolRegistryConnections {
-			return out, nil
-		}
 		reuse, err := util.ReusePuller(tr, out...)
 		if err != nil {
 			return nil, fmt.Errorf("making puller for registry %q: %w", registryName, err)
@@ -93,7 +90,7 @@ func (rc *RegistryCache) RetrieveLayer(ck string) (v1.Image, error) {
 	img, err := remote.Image(cacheRef, remoteOpts...)
 	// a cache read has no retry of its own and a miss silently rebuilds, so a
 	// rejected credential has to be dropped and retried here to be noticed
-	if err != nil && config.FF.PoolRegistryConnections && util.DropPooledOnAuth(tr, err) {
+	if err != nil && util.DropPooledOnAuth(tr, err) {
 		retryOpts, rerr := readOptions()
 		if rerr == nil {
 			img, err = remote.Image(cacheRef, retryOpts...)
@@ -106,9 +103,7 @@ func (rc *RegistryCache) RetrieveLayer(ck string) (v1.Image, error) {
 	if err = verifyImage(img, rc.Opts.CacheTTL, cache); err != nil {
 		return nil, err
 	}
-	if config.FF.CrossRepoMount {
-		mounts.RecordImage(img, cacheRef.Context())
-	}
+	mounts.RecordImage(img, cacheRef.Context())
 	return img, nil
 }
 

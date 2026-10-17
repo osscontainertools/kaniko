@@ -25,7 +25,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
@@ -39,9 +38,6 @@ func NewCompositeCache(initial ...string) *CompositeCache {
 }
 
 func ResumeCompositeCache(state string) *CompositeCache {
-	if !config.FF.RollingCacheKey {
-		return NewCompositeCache(state)
-	}
 	return &CompositeCache{state: state, keys: []string{state}}
 }
 
@@ -58,15 +54,13 @@ func (s CompositeCache) Clone() CompositeCache {
 
 // AddKey adds the specified key to the sequence.
 func (s *CompositeCache) AddKey(k ...string) {
-	if config.FF.RollingCacheKey {
-		for _, key := range k {
-			state := s.state
-			if state == "" {
-				state = emptyState
-			}
-			digest := sha256.Sum256([]byte(state + key))
-			s.state = hex.EncodeToString(digest[:])
+	for _, key := range k {
+		state := s.state
+		if state == "" {
+			state = emptyState
 		}
+		digest := sha256.Sum256([]byte(state + key))
+		s.state = hex.EncodeToString(digest[:])
 	}
 	s.keys = append(s.keys, k...)
 }
@@ -78,9 +72,6 @@ func (s *CompositeCache) Key() string {
 
 // State returns the representation that ResumeCompositeCache resumes from.
 func (s *CompositeCache) State() string {
-	if !config.FF.RollingCacheKey {
-		return s.Key()
-	}
 	if s.state == "" {
 		return emptyState
 	}
@@ -89,9 +80,6 @@ func (s *CompositeCache) State() string {
 
 // Hash returns the composite key in a string SHA256 format.
 func (s *CompositeCache) Hash() (string, error) {
-	if !config.FF.RollingCacheKey {
-		return util.SHA256(strings.NewReader(s.Key()))
-	}
 	if s.state == "" {
 		return emptyState, nil
 	}
@@ -163,11 +151,7 @@ func hashDir(p string, context util.FileContext) (bool, string, error) {
 		}
 
 		relPath := strings.TrimPrefix(absPath, absRoot)
-		if config.FF.HashDirFraming {
-			_, err = fmt.Fprintf(sha, "%d:%s%d:%s", len(relPath), relPath, len(fileHash), fileHash)
-		} else {
-			_, err = sha.Write([]byte(relPath + fileHash))
-		}
+		_, err = fmt.Fprintf(sha, "%d:%s%d:%s", len(relPath), relPath, len(fileHash), fileHash)
 		if err != nil {
 			return err
 		}

@@ -34,30 +34,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type CertPool interface {
-	value() *x509.CertPool
-	append(path string) error
-}
-
-type X509CertPool struct {
-	inner x509.CertPool
-}
-
-func (p *X509CertPool) value() *x509.CertPool {
-	return &p.inner
-}
-
-func (p *X509CertPool) append(path string) error {
-	pem, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	p.inner.AppendCertsFromPEM(pem)
-	return nil
-}
-
-var systemCertLoader CertPool
-
 var systemRoots *x509.CertPool
 
 type KeyPairLoader interface {
@@ -78,10 +54,7 @@ func init() {
 		logrus.Warn("Failed to load system cert pool. Loading empty one instead.")
 		systemCertPool = x509.NewCertPool()
 	}
-	systemRoots = systemCertPool.Clone()
-	systemCertLoader = &X509CertPool{
-		inner: *systemCertPool,
-	}
+	systemRoots = systemCertPool
 
 	systemKeyPairLoader = &X509KeyPairLoader{}
 }
@@ -99,39 +72,31 @@ var (
 )
 
 // MakeTransport returns a transport for registryName, wired up to count the
-// sockets and requests it makes. With FF_KANIKO_POOL_REGISTRY_CONNECTIONS
-// operations against the same registry share one transport, and therefore one
-// connection pool.
+// sockets and requests it makes. Operations against the same registry share
+// one transport, and therefore one connection pool.
 func MakeTransport(opts config.RegistryOptions, registryName string) (http.RoundTripper, error) {
-	pooled := config.FF.PoolRegistryConnections
+	// the whole options blob is the key, so a caller asking for skip-tls-verify
+	// never gets the transport built without it. RegistryOptions is strings,
+	// bools and maps of them, so marshalling cannot fail
+	encoded, _ := json.Marshal(opts)
+	key := registryName + "|" + string(encoded)
 
-	var key string
-	if pooled {
-		// the whole options blob is the key, so a caller asking for skip-tls-verify
-		// never gets the transport built without it. RegistryOptions is strings,
-		// bools and maps of them, so marshalling cannot fail
-		encoded, _ := json.Marshal(opts)
-		key = registryName + "|" + string(encoded)
-
-		transportMu.Lock()
-		defer transportMu.Unlock()
-		rt, ok := transportPool[key]
-		if ok {
-			return rt, nil
-		}
+	transportMu.Lock()
+	defer transportMu.Unlock()
+	rt, ok := transportPool[key]
+	if ok {
+		return rt, nil
 	}
 
 	tr, err := makeTransport(opts, registryName)
 	if err != nil {
 		return nil, err
 	}
-	rt := instrument(tr)
-	if pooled {
-		// go-containerregistry picks 50 for this workload in its own DefaultTransport,
-		// a clone of http.DefaultTransport inherits Go's default of 2
-		tr.MaxIdleConnsPerHost = 50
-		transportPool[key] = rt
-	}
+	rt = instrument(tr)
+	// go-containerregistry picks 50 for this workload in its own DefaultTransport,
+	// a clone of http.DefaultTransport inherits Go's default of 2
+	tr.MaxIdleConnsPerHost = 50
+	transportPool[key] = rt
 	return rt, nil
 }
 
@@ -148,7 +113,7 @@ func makeTransport(opts config.RegistryOptions, registryName string) (*http.Tran
 		tr.TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: true,
 		}
-	} else if certificatePath != "" && config.FF.ScopedRegistryCertificates {
+	} else if certificatePath != "" {
 		pem, err := os.ReadFile(certificatePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load certificate %s for %s: %w", certificatePath, registryName, err)
@@ -159,13 +124,6 @@ func makeTransport(opts config.RegistryOptions, registryName string) (*http.Tran
 		}
 		tr.TLSClientConfig = &tls.Config{
 			RootCAs: pool,
-		}
-	} else if certificatePath != "" {
-		if err := systemCertLoader.append(certificatePath); err != nil {
-			return nil, fmt.Errorf("failed to load certificate %s for %s: %w", certificatePath, registryName, err)
-		}
-		tr.TLSClientConfig = &tls.Config{
-			RootCAs: systemCertLoader.value(),
 		}
 	}
 

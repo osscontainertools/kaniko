@@ -54,11 +54,7 @@ func GetKeychain(opts *config.RegistryOptions) authn.Keychain {
 	}
 	prios = append(prios, helpers...)
 
-	var defaultKeychain authn.Keychain = authn.DefaultKeychain
-	if config.FF.PathScopedRegistryAuth {
-		defaultKeychain = PathScopedKeychain
-	}
-	keychains := []authn.Keychain{defaultKeychain}
+	keychains := []authn.Keychain{PathScopedKeychain}
 	for _, source := range helpers {
 		switch source {
 		case "":

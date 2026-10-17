@@ -27,50 +27,18 @@ import (
 )
 
 type FeatureFlags struct {
-	AddChecksum                    bool
-	AddUnpack                      bool
-	CacheHashBlake3                bool
-	CacheImageIndex                bool
-	CacheLookahead                 bool
-	CacheProbeAfterMiss            bool
-	ChownOnImplicitDirs            bool
-	ConfineCopySource              bool
-	CopyAsRoot                     bool
-	CopyChmodOnImplicitDirs        bool
-	CopyLink                       bool
-	CopySkipSpecialFiles           bool
-	CrossRepoMount                 bool
-	DeferCachePush                 bool
-	DeprecateLayerlessCacheEntries bool
-	DisableHTTP2                   bool
-	ExpandHeredoc                  bool
-	HashDirFraming                 bool
-	ImageStages                    bool
-	InferCrossStageCacheKey        bool
-	LayerHints                     bool
-	NativeCopy                     bool
-	OCIScratchBase                 bool
-	PathScopedRegistryAuth         bool
-	PeekArchiveHeader              bool
-	PlatformCacheKey               bool
-	PoolRegistryConnections        bool
-	PrecompileDockerignore         bool
-	PreserveMountedSymlinks        bool
-	ReproduciblePreserveBaseLayers bool
-	ReproduciblePreserveFormat     bool
-	ResolveCacheKey                bool
-	RollingCacheKey                bool
-	RunHonorGroup                  bool
-	RunViaTini                     bool
-	ScopedDockerignore             bool
-	ScopedRegistryCertificates     bool
-	SharedBaseCache                bool
-	SkipCachedStages               bool
-	SkipRelabelRecompress          bool
-	SkipWriteWhiteouts             bool
-	UnpackXz                       bool
-	UnpackZstd                     bool
-	UntarSkipRoot                  bool
+	CacheImageIndex         bool
+	CacheProbeAfterMiss     bool
+	ChownOnImplicitDirs     bool
+	CopyAsRoot              bool
+	CopyChmodOnImplicitDirs bool
+	CopyLink                bool
+	DeferCachePush          bool
+	DisableHTTP2            bool
+	OCIScratchBase          bool
+	RunViaTini              bool
+	ScopedDockerignore      bool
+	UnpackXz                bool
 }
 
 var FF FeatureFlags
@@ -106,50 +74,18 @@ func InitFeatureFlags() {
 	disabledFeatureFlags = nil
 
 	FF = FeatureFlags{
-		AddChecksum:                    featureFlag("FF_KANIKO_ADD_CHECKSUM", true),
-		AddUnpack:                      featureFlag("FF_KANIKO_ADD_UNPACK", true),
-		CacheHashBlake3:                featureFlag("FF_KANIKO_CACHE_HASH_BLAKE3", true),
-		CacheImageIndex:                featureFlag("FF_KANIKO_CACHE_IMAGE_INDEX", false),
-		CacheLookahead:                 featureFlag("FF_KANIKO_CACHE_LOOKAHEAD", true),
-		CacheProbeAfterMiss:            featureFlag("FF_KANIKO_CACHE_PROBE_AFTER_MISS", false),
-		ChownOnImplicitDirs:            featureFlag("FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS", false),
-		ConfineCopySource:              featureFlag("FF_KANIKO_CONFINE_COPY_SOURCE", true),
-		CopyAsRoot:                     featureFlag("FF_KANIKO_COPY_AS_ROOT", false),
-		CopyChmodOnImplicitDirs:        featureFlag("FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS", false),
-		CopyLink:                       featureFlag("FF_KANIKO_COPY_LINK", false),
-		CopySkipSpecialFiles:           featureFlag("FF_KANIKO_COPY_SKIP_SPECIAL_FILES", true),
-		CrossRepoMount:                 featureFlag("FF_KANIKO_CROSS_REPO_MOUNT", true),
-		DeferCachePush:                 featureFlag("FF_KANIKO_DEFER_CACHE_PUSH", false),
-		DeprecateLayerlessCacheEntries: featureFlag("FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES", true),
-		DisableHTTP2:                   featureFlag("FF_KANIKO_DISABLE_HTTP2", false),
-		ExpandHeredoc:                  featureFlag("FF_KANIKO_EXPAND_HEREDOC", true),
-		HashDirFraming:                 featureFlag("FF_KANIKO_HASH_DIR_FRAMING", true),
-		ImageStages:                    featureFlag("FF_KANIKO_IMAGE_STAGES", true),
-		InferCrossStageCacheKey:        featureFlag("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", true),
-		LayerHints:                     featureFlag("FF_KANIKO_LAYER_HINTS", true),
-		NativeCopy:                     featureFlag("FF_KANIKO_NATIVE_COPY", true),
-		OCIScratchBase:                 featureFlag("FF_KANIKO_OCI_SCRATCH_BASE", false),
-		PathScopedRegistryAuth:         featureFlag("FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH", true),
-		PeekArchiveHeader:              featureFlag("FF_KANIKO_PEEK_ARCHIVE_HEADER", true),
-		PlatformCacheKey:               featureFlag("FF_KANIKO_PLATFORM_CACHE_KEY", true),
-		PoolRegistryConnections:        featureFlag("FF_KANIKO_POOL_REGISTRY_CONNECTIONS", true),
-		PrecompileDockerignore:         featureFlag("FF_KANIKO_PRECOMPILE_DOCKERIGNORE", true),
-		PreserveMountedSymlinks:        featureFlag("FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS", true),
-		ReproduciblePreserveBaseLayers: featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS", true),
-		ReproduciblePreserveFormat:     featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT", true),
-		ResolveCacheKey:                featureFlag("FF_KANIKO_RESOLVE_CACHE_KEY", true),
-		RollingCacheKey:                featureFlag("FF_KANIKO_ROLLING_CACHE_KEY", true),
-		RunHonorGroup:                  featureFlag("FF_KANIKO_RUN_HONOR_GROUP", true),
-		RunViaTini:                     featureFlag("FF_KANIKO_RUN_VIA_TINI", false),
-		ScopedDockerignore:             featureFlag("FF_KANIKO_SCOPED_DOCKERIGNORE", false),
-		ScopedRegistryCertificates:     featureFlag("FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES", true),
-		SharedBaseCache:                featureFlag("FF_KANIKO_SHARED_BASE_CACHE", true),
-		SkipCachedStages:               featureFlag("FF_KANIKO_SKIP_CACHED_STAGES", true),
-		SkipRelabelRecompress:          featureFlag("FF_KANIKO_SKIP_RELABEL_RECOMPRESS", true),
-		SkipWriteWhiteouts:             featureFlag("FF_KANIKO_SKIP_WRITE_WHITEOUTS", true),
-		UnpackXz:                       featureFlag("FF_KANIKO_UNPACK_XZ", false),
-		UnpackZstd:                     featureFlag("FF_KANIKO_UNPACK_ZSTD", true),
-		UntarSkipRoot:                  featureFlag("FF_KANIKO_UNTAR_SKIP_ROOT", true),
+		CacheImageIndex:         featureFlag("FF_KANIKO_CACHE_IMAGE_INDEX", true),
+		CacheProbeAfterMiss:     featureFlag("FF_KANIKO_CACHE_PROBE_AFTER_MISS", false),
+		ChownOnImplicitDirs:     featureFlag("FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS", false),
+		CopyAsRoot:              featureFlag("FF_KANIKO_COPY_AS_ROOT", false),
+		CopyChmodOnImplicitDirs: featureFlag("FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS", false),
+		CopyLink:                featureFlag("FF_KANIKO_COPY_LINK", true),
+		DeferCachePush:          featureFlag("FF_KANIKO_DEFER_CACHE_PUSH", true),
+		DisableHTTP2:            featureFlag("FF_KANIKO_DISABLE_HTTP2", false),
+		OCIScratchBase:          featureFlag("FF_KANIKO_OCI_SCRATCH_BASE", false),
+		RunViaTini:              featureFlag("FF_KANIKO_RUN_VIA_TINI", false),
+		ScopedDockerignore:      featureFlag("FF_KANIKO_SCOPED_DOCKERIGNORE", false),
+		UnpackXz:                featureFlag("FF_KANIKO_UNPACK_XZ", false),
 	}
 
 	fields := reflect.TypeFor[FeatureFlags]().NumField()
