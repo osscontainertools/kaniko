@@ -77,8 +77,8 @@ type FeatureFlags struct {
 
 var FF FeatureFlags
 
-// README.md "Profiles" section lists the same flags.
-var profiles = map[string][]string{
+// README.md "Profiles" section is rendered from this by `go run ./hack/profiles`.
+var Profiles = map[string][]string{
 	"preview": {
 		"FF_KANIKO_ADD_CHECKSUM",
 		"FF_KANIKO_ADD_UNPACK",
@@ -136,8 +136,8 @@ var (
 // Explicit FF_KANIKO_* env vars still win over a profile.
 func ApplyProfiles(names []string) error {
 	for _, name := range names {
-		if _, ok := profiles[name]; !ok {
-			return fmt.Errorf("unknown profile %q, valid profiles are: %s", name, strings.Join(slices.Sorted(maps.Keys(profiles)), ", "))
+		if _, ok := Profiles[name]; !ok {
+			return fmt.Errorf("unknown profile %q, valid profiles are: %s", name, strings.Join(slices.Sorted(maps.Keys(Profiles)), ", "))
 		}
 	}
 	activeProfiles = names
@@ -147,7 +147,7 @@ func ApplyProfiles(names []string) error {
 
 func inActiveProfile(name string) bool {
 	for _, p := range activeProfiles {
-		if slices.Contains(profiles[p], name) {
+		if slices.Contains(Profiles[p], name) {
 			return true
 		}
 	}
@@ -228,7 +228,7 @@ func InitFeatureFlags() {
 	unique := len(slices.Compact(slices.Sorted(slices.Values(knownFeatureFlags))))
 	assert.Assert("config.featureflags.unique", unique == len(knownFeatureFlags), "FeatureFlags registered %d flags but only %d are unique; each flag name must be registered once", len(knownFeatureFlags), unique)
 	assert.Assert("config.featureflags.complete", fields == len(knownFeatureFlags), "FeatureFlags has %d fields but %d are initialized; every field must be set via featureFlag", fields, len(knownFeatureFlags))
-	for _, flags := range profiles {
+	for _, flags := range Profiles {
 		for _, name := range flags {
 			assert.Assert("config.featureflags.profile", slices.Contains(knownFeatureFlags, name), "profile flag %s is not a registered feature flag", name)
 		}
@@ -241,7 +241,7 @@ func init() {
 
 func LogFeatureFlags() {
 	for _, p := range activeProfiles {
-		logrus.Infof("profile %q enables: %s", p, strings.Join(profiles[p], ", "))
+		logrus.Infof("profile %q enables: %s", p, strings.Join(Profiles[p], ", "))
 	}
 	if len(activeFeatureFlags) > 0 {
 		logrus.Infof("active feature flags: %s", strings.Join(activeFeatureFlags, ", "))

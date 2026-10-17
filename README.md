@@ -1196,16 +1196,19 @@ Enable a profile with [`--profile`](#flag---profile).
 
 Opting into the Preview profile gives you early access to upcoming performance improvements, bugfixes and features. While these flags are tested and ready to use, implementation details may still change.
 
+<!-- START profile preview generated, re-run `go run ./hack/profiles` to update -->
 ```sh
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_LINK=true
 FF_KANIKO_DEFER_CACHE_PUSH=true
 ```
+<!-- END profile preview -->
 
 ##### BuildKit compatibility
 
 In a few places, Kaniko keeps its historical, non-compliant behaviour instead of following the Dockerfile specification. Switching to the compliant implementation by default would require users with large codebases to update their Dockerfiles, making migration to our fork tedious. These flags enable the spec-compliant behaviour, matching BuildKit one-to-one. Our integration tests run this profile on top of Preview.
 
+<!-- START profile buildkit generated, re-run `go run ./hack/profiles` to update -->
 ```sh
 FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS=true
 FF_KANIKO_COPY_AS_ROOT=true
@@ -1213,6 +1216,7 @@ FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=true
 FF_KANIKO_COPY_LINK=true
 FF_KANIKO_UNPACK_XZ=true
 ```
+<!-- END profile buildkit -->
 
 #### Flag `FF_KANIKO_ADD_CHECKSUM`
 
