@@ -1607,6 +1607,38 @@ func lastLayerSize(t *testing.T, image string) int64 {
 	return size
 }
 
+func TestProvenanceMatchesBuildKit(t *testing.T) {
+	t.Parallel()
+	testdata, err := filepath.Abs("testdata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerfile := "Dockerfile_test_issue_mz1230_buildkit"
+	dockerImage := GetDockerImage(config.imageRepo, dockerfile)
+	kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
+
+	RunCommand(exec.Command("docker", "build", "--provenance=mode=min,version=v1", "-f", filepath.Join(testdata, dockerfile), "-t", dockerImage, testdata), t)
+	RunCommand(exec.Command("docker", "push", dockerImage), t)
+
+	flags := []string{"run", "--rm", "--net=host", "-v", testdata + ":/workspace:ro"}
+	flags = addKanikoEnvFlags(flags, t.Name())
+	flags = addAuthFlags(flags)
+	flags = append(flags, ExecutorImage, "-f", "/workspace/"+dockerfile, "-c", "/workspace", "-d", kanikoImage, "--provenance")
+	RunCommand(exec.Command("docker", flags...), t)
+
+	images := func(image string) []provenance.ResourceDescriptor {
+		_, statement := readAttestation(t, image)
+		var out []provenance.ResourceDescriptor
+		for _, dep := range statement.Predicate.BuildDefinition.ResolvedDependencies {
+			if strings.HasPrefix(dep.URI, "pkg:docker/") {
+				out = append(out, dep)
+			}
+		}
+		return out
+	}
+	testutil.CheckDeepEqual(t, images(dockerImage), images(kanikoImage))
+}
+
 func TestPushFromArtifact(t *testing.T) {
 	t.Parallel()
 	branch, _, url := getBranchCommitAndURL()
@@ -1879,6 +1911,38 @@ func checkProvenance(t *testing.T, dockerfile, image string) {
 	if !ok {
 		return
 	}
+	img, statement := readAttestation(t, image)
+
+	got := attestation{
+		ImageMediaType: img.MediaType,
+		BuilderID:      statement.Predicate.RunDetails.Builder.ID,
+		Dependencies:   statement.Predicate.BuildDefinition.ResolvedDependencies,
+		Timestamps:     statement.Predicate.RunDetails.Metadata != nil && statement.Predicate.RunDetails.Metadata.StartedOn != nil,
+	}
+	for _, subject := range statement.Subject {
+		got.Subjects = append(got.Subjects, "sha256:"+subject.Digest["sha256"])
+	}
+
+	placeholders := strings.NewReplacer("{image.digest}", img.Digest.String(), "{git.revision}", gitRevision("."))
+	var subjects []string
+	for _, subject := range want.Subjects {
+		subjects = append(subjects, placeholders.Replace(subject))
+	}
+	want.Subjects = subjects
+	var dependencies []provenance.ResourceDescriptor
+	for _, dep := range want.Dependencies {
+		digest := map[string]string{}
+		for algorithm, value := range dep.Digest {
+			digest[algorithm] = placeholders.Replace(value)
+		}
+		dependencies = append(dependencies, provenance.ResourceDescriptor{URI: dep.URI, Name: dep.Name, Digest: digest})
+	}
+	want.Dependencies = dependencies
+	testutil.CheckDeepEqual(t, want, got)
+}
+
+func readAttestation(t *testing.T, image string) (v1.Descriptor, provenance.Statement) {
+	t.Helper()
 	ref, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
 		t.Fatal(err)
@@ -1926,33 +1990,7 @@ func checkProvenance(t *testing.T, dockerfile, image string) {
 	if statement.Type != "https://in-toto.io/Statement/v1" || statement.PredicateType != "https://slsa.dev/provenance/v1" {
 		t.Fatalf("attestation of %s is a %s with a %s predicate, want an in-toto v1 statement with a SLSA v1 predicate", image, statement.Type, statement.PredicateType)
 	}
-
-	got := attestation{
-		ImageMediaType: img.MediaType,
-		BuilderID:      statement.Predicate.RunDetails.Builder.ID,
-		Dependencies:   statement.Predicate.BuildDefinition.ResolvedDependencies,
-		Timestamps:     statement.Predicate.RunDetails.Metadata != nil && statement.Predicate.RunDetails.Metadata.StartedOn != nil,
-	}
-	for _, subject := range statement.Subject {
-		got.Subjects = append(got.Subjects, "sha256:"+subject.Digest["sha256"])
-	}
-
-	placeholders := strings.NewReplacer("{image.digest}", img.Digest.String(), "{git.revision}", gitRevision("."))
-	var subjects []string
-	for _, subject := range want.Subjects {
-		subjects = append(subjects, placeholders.Replace(subject))
-	}
-	want.Subjects = subjects
-	var dependencies []provenance.ResourceDescriptor
-	for _, dep := range want.Dependencies {
-		digest := map[string]string{}
-		for algorithm, value := range dep.Digest {
-			digest[algorithm] = placeholders.Replace(value)
-		}
-		dependencies = append(dependencies, provenance.ResourceDescriptor{URI: dep.URI, Name: dep.Name, Digest: digest})
-	}
-	want.Dependencies = dependencies
-	testutil.CheckDeepEqual(t, want, got)
+	return img, statement
 }
 
 func compareAnnotations(t *testing.T, level string, want, got map[string]string) {
