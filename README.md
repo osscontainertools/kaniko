@@ -125,6 +125,8 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--image-fs-extract-retry`](#flag---image-fs-extract-retry)
       - [Flag `--image-download-retry`](#flag---image-download-retry)
       - [Flag `--predefined-annotations`](#flag---predefined-annotations)
+      - [Flag `--provenance`](#flag---provenance)
+      - [Flag `--index-file`](#flag---index-file)
     - [Feature Flags](#feature-flags)
       - [Profiles](#profiles)
       - [Flag `FF_KANIKO_COPY_AS_ROOT`](#flag-ff_kaniko_copy_as_root)
@@ -1206,6 +1208,28 @@ Set `--predefined-annotations` to annotate the image manifest with the OCI pre-d
 The repository, commit and tag come from GitLab CI or GitHub Actions, and from the git checkout of the context outside CI.
 
 With `--reproducible` only the `base.*` keys are set. `--annotation` takes precedence over every key.
+
+With `--provenance` the repository, commit and tag are also set on the index.
+
+#### Flag `--provenance`
+
+Set `--provenance` to attach a SLSA provenance attestation to the image. Defaults to `false`. Inspect it with:
+
+```bash
+docker buildx imagetools inspect registry.example.com/app:v1 --format '{{json .Provenance}}'
+```
+
+The tag then points at an index holding the image and its attestation. `--digest-file` keeps the image digest, use `--index-file` to get the index.
+
+The attestation lists the base images, the commit and the CI job. Build arg values and secrets are not recorded. See [Provenance](docs/provenance.md) for every recorded field.
+
+#### Flag `--index-file`
+
+Set `--index-file` to save the OCI index to a file. It requires `--provenance`.
+
+```bash
+jq -r '.manifests[] | select(.annotations["vnd.docker.reference.type"] != "attestation-manifest") | .digest' index.json
+```
 
 ### Feature Flags
 

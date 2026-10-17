@@ -34,6 +34,8 @@ import (
 	"time"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	ggcrtypes "github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/osscontainertools/kaniko/pkg/provenance"
 	"github.com/osscontainertools/kaniko/pkg/tracing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 )
@@ -369,6 +371,13 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1227_detached":      {"--predefined-annotations"},
 	"Dockerfile_test_issue_mz1227_merged_result": {"--predefined-annotations"},
 	"Dockerfile_test_issue_mz1227_squash":        {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1230":               {"--provenance", "--predefined-annotations", "--index-file=/index/index.json"},
+	"Dockerfile_test_issue_mz1230_no_index":      {"--index-file=/tmp/index.json"},
+	"Dockerfile_test_issue_mz1230_no_push_tar":   {"--provenance", "--no-push", "--tar-path=/tmp/image.tar", "--index-file=/tmp/index.json"},
+	"Dockerfile_test_issue_mz1230_tar_no_index":  {"--provenance", "--tar-path=/tmp/image.tar"},
+	"Dockerfile_test_issue_mz1230_tar":           {"--provenance", "--tar-path=/index/image.tar", "--index-file=/index/index.json"},
+	"Dockerfile_test_issue_mz1230_reproducible":  {"--provenance", "--predefined-annotations", "--reproducible"},
+	"Dockerfile_test_issue_mz1230_oci":           {"--provenance", "--image-format=oci", "--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
 }
 
 var expectErr = map[string]int{
@@ -385,6 +394,10 @@ var expectErr = map[string]int{
 	"Dockerfile_test_issue_mz1160_4": 1,
 	"Dockerfile_test_issue_mz881":    1,
 	"Dockerfile_test_issue_mz1133_2": 1,
+
+	"Dockerfile_test_issue_mz1230_no_index":     1,
+	"Dockerfile_test_issue_mz1230_no_push_tar":  1,
+	"Dockerfile_test_issue_mz1230_tar_no_index": 1,
 }
 
 var crossCompileArch = func() string {
@@ -587,6 +600,73 @@ var expectedAnnotations = map[string]struct{ Index, Manifest map[string]string }
 		"org.opencontainers.image.base.name":   "docker.io/library/alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
 		"org.opencontainers.image.base.digest": "{base.digest}",
 	}},
+	"Dockerfile_test_issue_mz1230": {
+		Index: map[string]string{
+			"org.opencontainers.image.created":   "{present}",
+			"org.opencontainers.image.source":    "https://gitlab.example.com/group/project",
+			"org.opencontainers.image.revision":  "{git.revision}",
+			"org.opencontainers.image.base.name": "",
+		},
+		Manifest: map[string]string{
+			"org.opencontainers.image.created":   "{present}",
+			"org.opencontainers.image.revision":  "{git.revision}",
+			"org.opencontainers.image.base.name": "docker.io/library/alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
+		},
+	},
+	"Dockerfile_test_issue_mz1230_reproducible": {
+		Index: map[string]string{
+			"org.opencontainers.image.created":  "",
+			"org.opencontainers.image.revision": "{git.revision}",
+		},
+		Manifest: map[string]string{
+			"org.opencontainers.image.created":   "",
+			"org.opencontainers.image.revision":  "",
+			"org.opencontainers.image.base.name": "docker.io/library/alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
+		},
+	},
+	"Dockerfile_test_issue_mz1230_oci": {
+		Index:    map[string]string{"org.opencontainers.image.revision": "override"},
+		Manifest: map[string]string{"org.opencontainers.image.revision": "override"},
+	},
+}
+
+// {image.digest} is the digest of the image the attestation is linked to, {git.revision}
+// the commit of this checkout.
+type attestation struct {
+	ImageMediaType ggcrtypes.MediaType
+	Subjects       []string
+	BuilderID      string
+	Dependencies   []provenance.ResourceDescriptor
+	Timestamps     bool
+}
+
+var mz1230Dependencies = []provenance.ResourceDescriptor{
+	{URI: "git+https://gitlab.example.com/group/project@v1.2.3", Digest: map[string]string{"gitCommit": "{git.revision}"}},
+	{URI: "pkg:docker/alpine?digest=sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a&platform=linux%2Famd64", Digest: map[string]string{"sha256": "5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a"}},
+}
+
+var expectedAttestations = map[string]attestation{
+	"Dockerfile_test_issue_mz1230": {
+		ImageMediaType: ggcrtypes.DockerManifestSchema2,
+		Subjects:       []string{"{image.digest}"},
+		BuilderID:      "https://gitlab.example.com/group/project/-/jobs/1",
+		Dependencies:   mz1230Dependencies,
+		Timestamps:     true,
+	},
+	"Dockerfile_test_issue_mz1230_reproducible": {
+		ImageMediaType: ggcrtypes.DockerManifestSchema2,
+		Subjects:       []string{"{image.digest}"},
+		BuilderID:      "https://gitlab.example.com/group/project/-/jobs/1",
+		Dependencies:   mz1230Dependencies,
+		Timestamps:     false,
+	},
+	"Dockerfile_test_issue_mz1230_oci": {
+		ImageMediaType: ggcrtypes.OCIManifestSchema1,
+		Subjects:       []string{"{image.digest}"},
+		BuilderID:      "https://gitlab.example.com/group/project/-/jobs/1",
+		Dependencies:   mz1230Dependencies,
+		Timestamps:     true,
+	},
 }
 
 // Digest for debian:12.10 (see baseImageToCache)
@@ -803,6 +883,10 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz1227_detached":      {},
 		"Dockerfile_test_issue_mz1227_merged_result": {},
 		"Dockerfile_test_issue_mz1227_squash":        {},
+		"Dockerfile_test_issue_mz1230":               {},
+		"Dockerfile_test_issue_mz1230_reproducible":  {},
+		"Dockerfile_test_issue_mz1230_oci":           {},
+		"Dockerfile_test_issue_mz1230_tar":           {},
 	}
 	return &d
 }
@@ -1221,6 +1305,34 @@ var extraDockerRunFlags = map[string]func(contextDir string) []string{
 	"Dockerfile_test_issue_mz1227_merged_result": func(ctx string) []string {
 		return append(append(gitCheckout(ctx), gitlabEnv(gitRevision(ctx))...), forkMergeRequestEnv("merged_result")...)
 	},
+	"Dockerfile_test_issue_mz1230": func(ctx string) []string {
+		return append(gitlabJob(ctx), indexFileMount("Dockerfile_test_issue_mz1230")...)
+	},
+	"Dockerfile_test_issue_mz1230_reproducible": gitlabJob,
+	"Dockerfile_test_issue_mz1230_oci":          gitlabJob,
+	"Dockerfile_test_issue_mz1230_tar": func(_ string) []string {
+		return indexFileMount("Dockerfile_test_issue_mz1230_tar")
+	},
+}
+
+var indexFileDockerfiles = map[string]struct{}{
+	"Dockerfile_test_issue_mz1230":     {},
+	"Dockerfile_test_issue_mz1230_tar": {},
+}
+
+func indexFileDir(dockerfile string) string {
+	return filepath.Join(os.TempDir(), "kaniko-index-"+dockerfile)
+}
+
+func indexFileMount(dockerfile string) []string {
+	dir := indexFileDir(dockerfile)
+	_ = os.RemoveAll(dir)
+	_ = os.MkdirAll(dir, 0o777)
+	return []string{"-v", dir + ":/index"}
+}
+
+func gitlabJob(ctx string) []string {
+	return append(append(gitCheckout(ctx), gitlabEnv(gitRevision(ctx))...), "-e", "CI_JOB_URL=https://gitlab.example.com/group/project/-/jobs/1")
 }
 
 func forkMergeRequestEnv(eventType string) []string {

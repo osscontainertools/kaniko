@@ -32,6 +32,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
@@ -138,6 +139,11 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 	return nil
 }
 
+type Output struct {
+	Image v1.Image
+	Index v1.ImageIndex
+}
+
 func getDigest(image v1.Image) ([]byte, error) {
 	digest, err := image.Digest()
 	if err != nil {
@@ -179,7 +185,8 @@ func writeDigestFile(path string, digestByteArray []byte) error {
 // DoPush is responsible for pushing image to the destinations specified in opts.
 // A dummy destination would be set when --no-push is set to true and --tar-path
 // is not empty with empty --destinations.
-func DoPush(image v1.Image, opts *config.KanikoOptions) error {
+func DoPush(out *Output, opts *config.KanikoOptions) error {
+	image := out.Image
 	assert.Assert("executor.push.image-nonnull", image != nil, "DoPush called with nil image")
 
 	var digestByteArray []byte
@@ -204,12 +211,28 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		}
 	}
 
+	if opts.IndexFile != "" && out.Index != nil {
+		raw, err := out.Index.RawManifest()
+		if err != nil {
+			return fmt.Errorf("serializing index: %w", err)
+		}
+		err = writeDigestFile(opts.IndexFile, raw)
+		if err != nil {
+			return fmt.Errorf("writing index to file failed: %w", err)
+		}
+	}
+
 	if opts.OCILayoutPath != "" {
 		path, err := layout.Write(opts.OCILayoutPath, empty.Index)
 		if err != nil {
 			return fmt.Errorf("writing empty layout: %w", err)
 		}
-		if err := path.AppendImage(image); err != nil {
+		if out.Index != nil {
+			err = path.AppendIndex(out.Index)
+		} else {
+			err = path.AppendImage(image)
+		}
+		if err != nil {
 			return fmt.Errorf("appending image: %w", err)
 		}
 	}
@@ -314,21 +337,28 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		}
 
 		logrus.Infof("Pushing image to %s", destRef.String())
-		pushImage := image
-		if config.FF.CrossRepoMount {
-			pushImage = mounts.MountableImage(image, destRef.RegistryStr())
+		target := remote.Taggable(image)
+		if out.Index != nil {
+			target = out.Index
+		}
+		pushTarget := target
+		switch {
+		case config.FF.CrossRepoMount && out.Index != nil:
+			pushTarget = mounts.MountableIndex(out.Index, destRef.RegistryStr())
+		case config.FF.CrossRepoMount:
+			pushTarget = mounts.MountableImage(image, destRef.RegistryStr())
 		}
 
 		retryFunc := func() error {
-			dig, err := image.Digest()
+			dig, err := partial.Digest(target)
 			if err != nil {
 				return err
 			}
 			digest := destRef.Context().Digest(dig.String())
-			err = remote.Write(destRef, pushImage, writeOpts...)
+			err = remote.Push(destRef, pushTarget, writeOpts...)
 			if err != nil && config.FF.CrossRepoMount {
 				logrus.Debugf("Cross-repository mount failed; retrying plain blob upload: %v", err)
-				err = remote.Write(destRef, image, writeOpts...)
+				err = remote.Push(destRef, target, writeOpts...)
 			}
 			if err != nil && (!config.FF.PoolRegistryConnections || util.DropPooledOnAuth(localRt, err)) {
 				rebuilt, rerr := writeOptions()
@@ -457,7 +487,7 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 		cacheOpts.OCILayoutPath = strings.TrimPrefix(cache, "oci:")
 		cacheOpts.NoPush = true
 	}
-	return DoPush(empty, &cacheOpts)
+	return DoPush(&Output{Image: empty}, &cacheOpts)
 }
 
 const cachePointerLabel = "kaniko.cache.pointer-target"
@@ -492,7 +522,7 @@ func pushCachePointer(opts *config.KanikoOptions, inferredKey, contentKey string
 		cacheOpts.OCILayoutPath = strings.TrimPrefix(dest, "oci:")
 		cacheOpts.NoPush = true
 	}
-	return DoPush(img, &cacheOpts)
+	return DoPush(&Output{Image: img}, &cacheOpts)
 }
 
 // resolveCachePointer checks whether img is a pointer entry pushed by pushCachePointer

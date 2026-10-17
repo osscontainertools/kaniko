@@ -61,7 +61,9 @@ type KanikoOptions struct {
 	Labels                       multiArg
 	Annotations                  keyValueArg
 	PredefinedAnnotations        bool
+	Provenance                   bool
 	ContextSource                buildenv.Source
+	CI                           buildenv.CI
 	Git                          KanikoGitOptions
 	IgnorePaths                  multiArg
 	DockerfilePath               string
@@ -79,6 +81,7 @@ type KanikoOptions struct {
 	DigestFile                   string
 	ImageNameDigestFile          string
 	ImageNameTagDigestFile       string
+	IndexFile                    string
 	OCILayoutPath                string
 	Compression                  Compression
 	ImageFormat                  ImageFormat
