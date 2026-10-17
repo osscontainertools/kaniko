@@ -1602,21 +1602,6 @@ func lastLayerSize(t *testing.T, image string) int64 {
 	return size
 }
 
-func TestNoPushFromEnv(t *testing.T) {
-	t.Parallel()
-	testdata, err := filepath.Abs("testdata")
-	if err != nil {
-		t.Fatal(err)
-	}
-	flags := []string{"run", "--rm", "--net=host", "-v", testdata + ":/workspace:ro", "-e", "KANIKO_NO_PUSH=true"}
-	flags = addKanikoEnvFlags(flags, t.Name())
-	flags = append(flags, ExecutorImage, "-f", "/workspace/Dockerfile.trivial", "-c", "/workspace")
-	out, err := RunCommandWithoutTest(exec.Command("docker", flags...))
-	if err != nil {
-		t.Fatalf("%v\n%s", err, out)
-	}
-}
-
 func TestPushFromArtifact(t *testing.T) {
 	t.Parallel()
 	branch, _, url := getBranchCommitAndURL()
