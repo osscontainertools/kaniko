@@ -1201,7 +1201,7 @@ With `--provenance` the repository, commit, tag and build time keys are also set
 
 #### Flag `--provenance`
 
-Set `--provenance=min` to attach a SLSA provenance attestation, in the layout BuildKit uses.
+Set `--provenance=min` to attach a SLSA provenance attestation.
 
 ```bash
 docker buildx imagetools inspect registry.example.com/app:v1 --format '{{json .Provenance}}'
