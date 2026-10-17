@@ -168,7 +168,6 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_arg_secret":   {"SSH_PRIVATE_KEY=ThEPriv4t3Key"},
 	"Dockerfile_test_issue_519":    {"DOCKER_BUILDKIT=0"},
 	"Dockerfile_test_issue_cg188":  {"SECRET=blubb"},
-	"Dockerfile_test_issue_mz775":  {"FF_KANIKO_CACHE_LOOKAHEAD=0"},
 	"Dockerfile_test_issue_mz334":  {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
 	"Dockerfile_test_issue_mz960":  {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
 	"Dockerfile_test_issue_mz473":  {"KANIKO_DIR=/kaniko2"},
@@ -178,7 +177,6 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1007":   {"FF_KANIKO_SHARED_BASE_CACHE=0"},
 	"Dockerfile_test_stopsignal":     {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
 	"Dockerfile_test_healthcheck":    {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
-	"Dockerfile_test_issue_mz1160_3": {"FF_KANIKO_NATIVE_COPY=0"},
 	"Dockerfile_test_issue_mz1133_1": {"FF_KANIKO_COPY_AS_ROOT=0"},
 	"Dockerfile_test_issue_mz1133_2": {"FF_KANIKO_COPY_AS_ROOT=0"},
 	"Dockerfile_test_issue_mz881":    {"KANIKO_127_0_0_2:5001_USER=kanikotest", "KANIKO_127_0_0_2:5001_PASSWORD=kanikotest"},
@@ -557,12 +555,8 @@ var expectedWarnings = map[string]string{
 	"Dockerfile_test_issue_mz560": "Skipping copy targeting kaniko directory",
 	// mz936: the read-only store makes both stages degrade to a registry fetch, each warning.
 	"Dockerfile_test_issue_mz936": "shared-base:",
-	// mz775: the test disables FF_KANIKO_CACHE_LOOKAHEAD, which the flag registry warns about.
-	"Dockerfile_test_issue_mz775": "feature flags explicitly disabled, please create an issue for your use-case: FF_KANIKO_CACHE_LOOKAHEAD",
 	// mz1007: the test disables FF_KANIKO_SHARED_BASE_CACHE, which the flag registry warns about.
 	"Dockerfile_test_issue_mz1007": "feature flags explicitly disabled, please create an issue for your use-case: FF_KANIKO_SHARED_BASE_CACHE",
-	// mz1160: the test disables FF_KANIKO_NATIVE_COPY, which the flag registry warns about.
-	"Dockerfile_test_issue_mz1160_3": "feature flags explicitly disabled, please create an issue for your use-case: FF_KANIKO_NATIVE_COPY",
 	// mz991: the repro needs a MAINTAINER, which warns twice, once from the buildkit
 	// linter and once from kaniko skipping the command. Both lines say "is deprecated".
 	"Dockerfile_test_issue_mz991": "is deprecated",
