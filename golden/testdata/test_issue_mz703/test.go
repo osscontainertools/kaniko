@@ -9,14 +9,11 @@ var Tests = types.GoldenTests{
 		{
 			Args: []string{"--no-push", "--cache"},
 			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD":    "1",
-				"FF_KANIKO_PLATFORM_CACHE_KEY": "0",
-				"FF_KANIKO_RESOLVE_CACHE_KEY":  "0",
-				"FF_KANIKO_ROLLING_CACHE_KEY":  "0",
+				"FF_KANIKO_CACHE_LOOKAHEAD": "1",
 			},
 			CachedKeys: []string{
-				"ef4ba1bfa1a8010630d9a007fad694d95d88419c791f0053b5525169f21e3247",
-				"2f4043dde38e8a86a388c786d43c46606463533a2eca79177a7246698f9b62a7",
+				"e035ca8f4e103dcf7c33e3b9326f1b2cc1aadf83afa8c0fd120a294f57bdedd1",
+				"e613d59aa1b40471526654121565470c7c79e1489561c6eac9328415551d60ec",
 			},
 			Plan: "legacy_stop_after_miss",
 		},
@@ -25,13 +22,10 @@ var Tests = types.GoldenTests{
 			Env: map[string]string{
 				"FF_KANIKO_CACHE_LOOKAHEAD":        "1",
 				"FF_KANIKO_CACHE_PROBE_AFTER_MISS": "1",
-				"FF_KANIKO_PLATFORM_CACHE_KEY":     "0",
-				"FF_KANIKO_RESOLVE_CACHE_KEY":      "0",
-				"FF_KANIKO_ROLLING_CACHE_KEY":      "0",
 			},
 			CachedKeys: []string{
-				"ef4ba1bfa1a8010630d9a007fad694d95d88419c791f0053b5525169f21e3247",
-				"2f4043dde38e8a86a388c786d43c46606463533a2eca79177a7246698f9b62a7",
+				"e035ca8f4e103dcf7c33e3b9326f1b2cc1aadf83afa8c0fd120a294f57bdedd1",
+				"e613d59aa1b40471526654121565470c7c79e1489561c6eac9328415551d60ec",
 			},
 			Plan: "probe_after_miss",
 		},
