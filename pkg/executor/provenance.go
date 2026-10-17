@@ -24,7 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
@@ -40,11 +39,11 @@ func provenanceStatement(image v1.Image, opts *config.KanikoOptions, stages []co
 	}
 	subject := []provenance.ResourceDescriptor{}
 	for _, destination := range opts.Destinations {
-		ref, err := name.ParseReference(destination, name.WeakValidation)
+		purl, err := provenance.PURL(destination, opts.CustomPlatform)
 		if err != nil {
 			return provenance.Statement{}, err
 		}
-		subject = append(subject, provenance.ResourceDescriptor{Name: provenance.PURL(ref, opts.CustomPlatform), Digest: provenance.Digest(digest.String())})
+		subject = append(subject, provenance.ResourceDescriptor{Name: purl, Digest: provenance.Digest(digest.String())})
 	}
 	if len(subject) == 0 {
 		subject = append(subject, provenance.ResourceDescriptor{Digest: provenance.Digest(digest.String())})
@@ -67,11 +66,11 @@ func provenanceStatement(image v1.Image, opts *config.KanikoOptions, stages []co
 		dependencies = append(dependencies, provenance.ResourceDescriptor{URI: uri, Digest: map[string]string{"gitCommit": src.Revision}})
 	}
 	for _, image := range slices.Sorted(maps.Keys(images)) {
-		ref, err := name.ParseReference(image, name.WeakValidation)
+		purl, err := provenance.PURL(image, opts.CustomPlatform)
 		if err != nil {
 			return provenance.Statement{}, err
 		}
-		dependencies = append(dependencies, provenance.ResourceDescriptor{URI: provenance.PURL(ref, opts.CustomPlatform), Digest: provenance.Digest(images[image])})
+		dependencies = append(dependencies, provenance.ResourceDescriptor{URI: purl, Digest: provenance.Digest(images[image])})
 	}
 
 	dockerfile, err := filepath.Rel(opts.SrcContext, opts.DockerfilePath)

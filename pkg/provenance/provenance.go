@@ -97,15 +97,31 @@ type Metadata struct {
 }
 
 // PURL names an image in the form Docker Scout reads for base image detection:
-// pkg:docker/alpine@3.20?platform=linux%2Famd64
-func PURL(ref name.Reference, platform string) string {
-	path := ref.Context().RepositoryStr()
-	if ref.Context().RegistryStr() == name.DefaultRegistry {
+// pkg:docker/alpine@3.20?digest=sha256%3A...&platform=linux%2Famd64
+// It parses the reference itself, go-containerregistry drops the tag of a pinned one.
+func PURL(ref, platform string) (string, error) {
+	base, pinned, isPinned := strings.Cut(ref, "@")
+	tag, err := name.NewTag(base, name.WeakValidation)
+	if err != nil {
+		return "", err
+	}
+	path := tag.RepositoryStr()
+	if tag.RegistryStr() == name.DefaultRegistry {
 		path = strings.TrimPrefix(path, "library/")
 	} else {
-		path = ref.Context().RegistryStr() + "/" + path
+		path = tag.RegistryStr() + "/" + path
 	}
-	return "pkg:docker/" + path + "@" + ref.Identifier() + "?platform=" + url.QueryEscape(platform)
+	purl := "pkg:docker/" + path
+	// an untagged reference means latest, unless it is pinned by digest
+	tagged := strings.Contains(base[strings.LastIndex(base, "/")+1:], ":")
+	if tagged || !isPinned {
+		purl += "@" + url.PathEscape(tag.TagStr())
+	}
+	qualifiers := url.Values{"platform": {platform}}
+	if isPinned {
+		qualifiers.Set("digest", pinned)
+	}
+	return purl + "?" + qualifiers.Encode(), nil
 }
 
 func Digest(digest string) map[string]string {
