@@ -15,21 +15,11 @@ var seeded = []string{
 }
 
 var env = map[string]string{
-	"FF_KANIKO_CACHE_LOOKAHEAD":             "1",
-	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "1",
-	"FF_KANIKO_ROLLING_CACHE_KEY":           "1",
-	"FF_KANIKO_COPY_LINK":                   "1",
-	"FF_KANIKO_SHARED_BASE_CACHE":           "0",
-	"FF_KANIKO_SKIP_CACHED_STAGES":          "0",
+	"FF_KANIKO_COPY_LINK": "1",
 }
 
 var unlinkedEnv = map[string]string{
-	"FF_KANIKO_CACHE_LOOKAHEAD":             "1",
-	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY": "1",
-	"FF_KANIKO_ROLLING_CACHE_KEY":           "1",
-	"FF_KANIKO_COPY_LINK":                   "0",
-	"FF_KANIKO_SHARED_BASE_CACHE":           "0",
-	"FF_KANIKO_SKIP_CACHED_STAGES":          "0",
+	"FF_KANIKO_COPY_LINK": "0",
 }
 
 var Tests = types.GoldenTests{

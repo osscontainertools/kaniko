@@ -8,9 +8,6 @@ var Tests = types.GoldenTests{
 	Tests: []types.GoldenTest{
 		{
 			Args: []string{"--no-push", "--cache"},
-			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD": "1",
-			},
 			CachedKeys: []string{
 				"e035ca8f4e103dcf7c33e3b9326f1b2cc1aadf83afa8c0fd120a294f57bdedd1",
 				"e613d59aa1b40471526654121565470c7c79e1489561c6eac9328415551d60ec",
@@ -20,7 +17,6 @@ var Tests = types.GoldenTests{
 		{
 			Args: []string{"--no-push", "--cache"},
 			Env: map[string]string{
-				"FF_KANIKO_CACHE_LOOKAHEAD":        "1",
 				"FF_KANIKO_CACHE_PROBE_AFTER_MISS": "1",
 			},
 			CachedKeys: []string{
