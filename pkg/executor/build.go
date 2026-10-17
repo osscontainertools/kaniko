@@ -342,6 +342,11 @@ func populateCompositeKey(command commands.DockerCommand, files []string, compos
 		}
 		return compositeKey, fmt.Errorf("shortcut key not found")
 	} else if files != nil {
+		if len(files) > 0 {
+			t := timing.Start("Hashing context files")
+			t.SetAttributes(attribute.Int("kaniko.files", len(files)))
+			defer t.End()
+		}
 		for _, f := range files {
 			if err := compositeKey.AddPath(f, fileContext); err != nil {
 				return compositeKey, err
@@ -374,7 +379,15 @@ func redirectCacheKey(inferredKey CompositeCache, layerCache cache.LayerCache) (
 	if err != nil {
 		return nil, err
 	}
-	ptrImg, err := layerCache.RetrieveLayer(inferredCk)
+	var ptrImg v1.Image
+	memo, ok := layerCache.(*memoizedLayerCache)
+	if ok && memo.has(inferredCk) {
+		ptrImg, err = layerCache.RetrieveLayer(inferredCk)
+	} else {
+		t := timing.Start("Resolving cache pointer")
+		ptrImg, err = layerCache.RetrieveLayer(inferredCk)
+		t.End()
+	}
 	if err != nil {
 		logrus.Debugf("Failed to retrieve pointer: %s", err)
 		logrus.Debugf("Key missing was: %s", inferredKey.Key())
@@ -785,7 +798,9 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			}
 			if layer != nil && (!config.FF.ImageStages || unpacked) {
 				logrus.Infof("Extracting cached layer to filesystem")
+				t := timing.Start("Extracting cached layer")
 				_, err = util.GetFSFromLayers(config.RootDir, []v1.Layer{layer}, util.ExtractFunc(util.ExtractFile), util.IncludeWhiteout())
+				t.End()
 				if err != nil {
 					return false, fmt.Errorf("extracting fs from image: %w", err)
 				}
@@ -984,7 +999,9 @@ func saveSnapshotToLayer(tarPath string, imageMediaType types.MediaType, opts *c
 		return nil, nil
 	}
 
+	t := timing.Start("Compressing layer")
 	layer, err := tarball.LayerFromFile(tarPath, getLayerOptionsForImage(imageMediaType, opts)...)
+	t.End()
 	if err != nil {
 		return nil, err
 	}
@@ -1109,6 +1126,12 @@ func convertLayerMediaType(layer v1.Layer, image v1.Image, opts *config.KanikoOp
 	}
 	targetMediaType, recompress := layerConversion(layerMediaType, imageMediaType, opts)
 	if targetMediaType != layerMediaType {
+		t := timing.Start("Converting layer media type")
+		defer t.End()
+		t.SetAttributes(
+			attribute.String("kaniko.layer.media_type.from", string(layerMediaType)),
+			attribute.String("kaniko.layer.media_type.to", string(targetMediaType)),
+			attribute.Bool("kaniko.layer.recompress", recompress))
 		layerOpts := getLayerOptionFromOpts(opts)
 		if targetMediaType == types.OCILayerZStd {
 			layerOpts = append(layerOpts, tarball.WithCompression("zstd"))
@@ -1478,7 +1501,12 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	stageFinalCacheKeys := make(map[int]string)
 
+	_, endPlanning := timing.Scope("Planning")
+	defer endPlanning()
+
+	t := timing.Start("Parsing Dockerfile")
 	stages, metaArgs, err := dockerfile.ParseStages(opts)
+	t.End()
 	if err != nil {
 		return nil, err
 	}
@@ -1705,7 +1733,9 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	if opts.PreserveContext {
 		if len(kanikoStages) > 1 || opts.PreCleanup || opts.Cleanup {
 			logrus.Info("Creating snapshot of build context")
+			t := timing.Start("Snapshotting context")
 			tarball, _, _, err = snapshotter.TakeSnapshotFS()
+			t.End()
 			if err != nil {
 				return nil, err
 			}
@@ -1733,7 +1763,9 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				if tarball == "" {
 					return errors.New("context snapshot is missing")
 				}
+				t := timing.Start("Restoring context")
 				_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
+				t.End()
 				if err != nil {
 					return fmt.Errorf("failed to unpack context snapshot: %w", err)
 				}
@@ -1743,6 +1775,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		})
 	}
 
+	endPlanning()
 	var pushImage v1.Image
 	for _, stage := range kanikoStages {
 		endStage()
@@ -1858,10 +1891,12 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 				return nil, err
 			}
 			if opts.Reproducible {
+				reproducibleTimer := timing.Start("Making image reproducible")
 				outMediaType := types.DockerManifestSchema2
 				if config.FF.ReproduciblePreserveFormat {
 					outMediaType, err = sourceImage.MediaType()
 					if err != nil {
+						reproducibleTimer.End()
 						return nil, err
 					}
 					sourceImage, err = mutate.Canonical(sourceImage, getLayerOptionsForImage(outMediaType, opts)...)
@@ -1869,16 +1904,20 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 					sourceImage, err = mutate.Canonical(sourceImage)
 				}
 				if err != nil {
+					reproducibleTimer.End()
 					return nil, err
 				}
 				if config.FF.ReproduciblePreserveBaseLayers {
 					sourceImage, err = image_util.ReplaceBase(sourceImage, baseImage, outMediaType)
 					if err != nil {
+						reproducibleTimer.End()
 						return nil, err
 					}
 				}
 				// ggcr workaround: mutate.Canonical and mutate.Append stack the layers onto empty.Image, so the manifest and config come back dockerv2 even when the layer options wrote OCI layers.
 				sourceImage, err = image_util.WithMediaType(sourceImage, outMediaType)
+				reproducibleTimer.SetAttributes(attribute.String("kaniko.image.media_type", string(outMediaType)))
+				reproducibleTimer.End()
 				if err != nil {
 					return nil, err
 				}
@@ -1915,19 +1954,24 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			return nil, fmt.Errorf("to create workspace for stage %d: %w",
 				stage.Index, err)
 		}
+		saveTimer := timing.Start("Saving files for later stages")
+		saveTimer.SetAttributes(attribute.Int("kaniko.files", len(files)))
 		if config.FF.NativeCopy {
 			logrus.Infof("Saving files for later use: %v", files)
 			if err := util.CopyPaths(config.RootDir, dstDir, files); err != nil {
+				saveTimer.End()
 				return nil, fmt.Errorf("could not save files: %w", err)
 			}
 		} else {
 			for _, p := range files {
 				logrus.Infof("Saving file %s for later use", p)
 				if err := util.CopyFileOrSymlink(p, dstDir, config.RootDir); err != nil {
+					saveTimer.End()
 					return nil, fmt.Errorf("could not save file: %w", err)
 				}
 			}
 		}
+		saveTimer.End()
 
 		// Delete the filesystem
 		if !config.FF.ImageStages || needsRootFS {
@@ -2022,8 +2066,8 @@ func deduplicatePaths(paths []string) []string {
 }
 
 func resolveExtraStageDigests(stages []config.KanikoStage, opts *config.KanikoOptions) (map[string]string, map[string]v1.Image, error) {
-	t := timing.Start("Resolving Extra Stage Digests")
-	defer t.End()
+	_, endResolve := timing.Scope("Resolving Extra Stage Digests")
+	defer endResolve()
 
 	externalImageDigests := make(map[string]string)
 	images := make(map[string]v1.Image)
@@ -2067,8 +2111,8 @@ func resolveExtraStageDigests(stages []config.KanikoStage, opts *config.KanikoOp
 }
 
 func downloadExtraStages(images map[string]v1.Image, externalImageDigests map[string]string, sharedRemote map[string]bool) error {
-	t := timing.Start("Fetching Extra Stages")
-	defer t.End()
+	_, endFetch := timing.Scope("Fetching Extra Stages")
+	defer endFetch()
 
 	for name, sourceImage := range images {
 		digest := externalImageDigests[name]
