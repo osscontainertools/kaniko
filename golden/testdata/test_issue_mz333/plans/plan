@@ -5,5 +5,4 @@ SAVE FILES [blubb] /kaniko/deps/0
 CLEAN
 
 FROM scratch AS final
-  STREAM scratch
 COPY --from=base blubb .
