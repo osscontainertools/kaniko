@@ -1208,19 +1208,19 @@ The repository, commit and tag come from GitLab CI or GitHub Actions, and from t
 
 With `--reproducible` only the `base.*` keys are set. `--annotation` takes precedence over every key.
 
-With `--provenance` the repository, commit, tag and build time keys are also set on the index. They stay on the index with `--reproducible`, except the build time. `--annotation` values are set on the index too.
+With `--provenance` they are also set on the index.
 
 #### Flag `--provenance`
 
-Set `--provenance=min` to attach a SLSA provenance attestation.
+Set `--provenance=min` to attach a SLSA provenance attestation to the image. Inspect it with:
 
 ```bash
 docker buildx imagetools inspect registry.example.com/app:v1 --format '{{json .Provenance}}'
 ```
 
-The tag then resolves to an OCI index holding the image and an attestation manifest linked to it. The index is always OCI, the image inside follows `--image-format`. `--tar-path` is rejected. `--digest-file`, `--image-name-with-digest-file` and `--image-name-tag-with-digest-file` get the index digest, `--oci-layout-path` gets the index.
+The tag then points at an index holding the image and its attestation, and `--digest-file` gets the index digest. It cannot be combined with `--tar-path`.
 
-The attestation records the base images and `COPY --from` images with their digests, the commit of the context, the CI job, the kaniko version and the `FF_KANIKO_*` flags that are set. Build arg values, secrets and registry credentials are not recorded. With `--reproducible` the timestamps and the invocation id are left out. The attestation is not signed.
+The attestation lists the base images, the commit and the CI job. Build arg values and secrets are not recorded.
 
 ### Feature Flags
 
