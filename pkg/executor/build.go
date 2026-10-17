@@ -1932,6 +1932,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 						delete(indexAnnotations, buildenv.AnnotationCreated)
 					}
 				}
+				maps.Copy(indexAnnotations, opts.Annotations)
 				pushIndex, err = provenance.Index(pushImage, attestation, indexAnnotations)
 				if err != nil {
 					return nil, fmt.Errorf("creating index: %w", err)

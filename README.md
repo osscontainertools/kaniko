@@ -1197,7 +1197,7 @@ The repository, commit and tag come from GitLab CI or GitHub Actions, and from t
 
 With `--reproducible` only the `base.*` keys are set. `--annotation` takes precedence over every key.
 
-With `--provenance` the repository, commit, tag and build time keys are also set on the index. They stay on the index with `--reproducible`, except the build time.
+With `--provenance` the repository, commit, tag and build time keys are also set on the index. They stay on the index with `--reproducible`, except the build time. `--annotation` values are set on the index too.
 
 #### Flag `--provenance`
 

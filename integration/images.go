@@ -371,7 +371,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1227_squash":        {"--predefined-annotations"},
 	"Dockerfile_test_issue_mz1230":               {"--provenance=min", "--predefined-annotations"},
 	"Dockerfile_test_issue_mz1230_reproducible":  {"--provenance=min", "--predefined-annotations", "--reproducible"},
-	"Dockerfile_test_issue_mz1230_oci":           {"--provenance=min", "--image-format=oci"},
+	"Dockerfile_test_issue_mz1230_oci":           {"--provenance=min", "--image-format=oci", "--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
 }
 
 var expectErr = map[string]int{
@@ -609,6 +609,10 @@ var expectedAnnotations = map[string]struct{ Index, Manifest map[string]string }
 			"org.opencontainers.image.revision":  "",
 			"org.opencontainers.image.base.name": "docker.io/library/alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
 		},
+	},
+	"Dockerfile_test_issue_mz1230_oci": {
+		Index:    map[string]string{"org.opencontainers.image.revision": "override"},
+		Manifest: map[string]string{"org.opencontainers.image.revision": "override"},
 	},
 }
 
