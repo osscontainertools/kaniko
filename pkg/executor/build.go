@@ -1904,7 +1904,8 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 			annotations := map[string]string{}
 			if opts.PredefinedAnnotations {
 				if !opts.Reproducible {
-					maps.Copy(annotations, buildenv.Annotations(opts.ContextSource, created))
+					maps.Copy(annotations, buildenv.Annotations(opts.ContextSource))
+					annotations[buildenv.AnnotationCreated] = created.UTC().Format(time.RFC3339)
 				}
 				base := remoteBase[stage.Index]
 				if base.BaseName != constants.NoBaseImage {
@@ -1927,9 +1928,9 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 				}
 				indexAnnotations := map[string]string{}
 				if opts.PredefinedAnnotations {
-					maps.Copy(indexAnnotations, buildenv.Annotations(opts.ContextSource, created))
-					if opts.Reproducible {
-						delete(indexAnnotations, buildenv.AnnotationCreated)
+					maps.Copy(indexAnnotations, buildenv.Annotations(opts.ContextSource))
+					if !opts.Reproducible {
+						indexAnnotations[buildenv.AnnotationCreated] = created.UTC().Format(time.RFC3339)
 					}
 				}
 				maps.Copy(indexAnnotations, opts.Annotations)
