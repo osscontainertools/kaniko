@@ -32,9 +32,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/validate"
 	"github.com/osscontainertools/kaniko/pkg/config"
-	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/testutil"
-	"github.com/spf13/afero"
 )
 
 func mustTag(t *testing.T, s string) name.Tag {
@@ -56,21 +54,18 @@ func TestWriteImageOutputs(t *testing.T) {
 	}
 
 	for _, c := range []struct {
-		desc, env string
-		tags      []name.Tag
-		want      string
+		desc string
+		tags []name.Tag
+		want string
 	}{{
 		desc: "env unset, no output",
-		env:  "",
 	}, {
 		desc: "env set, one tag",
-		env:  "/foo",
 		tags: []name.Tag{mustTag(t, "gcr.io/foo/bar:latest")},
 		want: fmt.Sprintf(`{"name":"gcr.io/foo/bar:latest","digest":%q}
 `, d),
 	}, {
 		desc: "env set, two tags",
-		env:  "/foo",
 		tags: []name.Tag{
 			mustTag(t, "gcr.io/foo/bar:latest"),
 			mustTag(t, "gcr.io/baz/qux:latest"),
@@ -80,12 +75,12 @@ func TestWriteImageOutputs(t *testing.T) {
 `, d, d),
 	}} {
 		t.Run(c.desc, func(t *testing.T) {
-			newOsFs = afero.NewMemMapFs()
-			if c.want == "" {
-				newOsFs = afero.NewReadOnlyFs(newOsFs) // No files should be written.
+			env := ""
+			if c.want != "" {
+				env = t.TempDir()
 			}
 
-			os.Setenv("BUILDER_OUTPUT", c.env)
+			t.Setenv("BUILDER_OUTPUT", env)
 			if err := writeImageOutputs(img, c.tags); err != nil {
 				t.Fatalf("writeImageOutputs: %v", err)
 			}
@@ -94,7 +89,7 @@ func TestWriteImageOutputs(t *testing.T) {
 				return
 			}
 
-			b, err := afero.ReadFile(newOsFs, filepath.Join(c.env, "images"))
+			b, err := os.ReadFile(filepath.Join(env, "images"))
 			if err != nil {
 				t.Fatalf("ReadFile: %v", err)
 			}
@@ -329,16 +324,12 @@ func TestCheckPushPermissions(t *testing.T) {
 		cacheRepo                       string
 		checkPushPermsExpectedCallCount int
 		destinations                    []string
-		existingConfig                  bool
 		noPush                          bool
 		noPushCache                     bool
 	}{
-		{description: "a gcr image without config", destinations: []string{"gcr.io/test-image"}, checkPushPermsExpectedCallCount: 1},
-		{description: "a gcr image with config", destinations: []string{"gcr.io/test-image"}, existingConfig: true, checkPushPermsExpectedCallCount: 1},
-		{description: "a pkg.dev image without config", destinations: []string{"us-docker.pkg.dev/test-image"}, checkPushPermsExpectedCallCount: 1},
-		{description: "a pkg.dev image with config", destinations: []string{"us-docker.pkg.dev/test-image"}, existingConfig: true, checkPushPermsExpectedCallCount: 1},
-		{description: "localhost registry without config", destinations: []string{"localhost:5000/test-image"}, checkPushPermsExpectedCallCount: 1},
-		{description: "localhost registry with config", destinations: []string{"localhost:5000/test-image"}, existingConfig: true, checkPushPermsExpectedCallCount: 1},
+		{description: "a gcr image", destinations: []string{"gcr.io/test-image"}, checkPushPermsExpectedCallCount: 1},
+		{description: "a pkg.dev image", destinations: []string{"us-docker.pkg.dev/test-image"}, checkPushPermsExpectedCallCount: 1},
+		{description: "localhost registry", destinations: []string{"localhost:5000/test-image"}, checkPushPermsExpectedCallCount: 1},
 		{description: "any other registry", destinations: []string{"notgcr.io/test-image"}, checkPushPermsExpectedCallCount: 1},
 		{
 			description: "multiple destinations pushed to different registry",
@@ -391,16 +382,11 @@ func TestCheckPushPermissions(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
 			resetCalledCount()
-			newOsFs = afero.NewMemMapFs()
 			opts := config.KanikoOptions{
 				CacheRepo:    test.cacheRepo,
 				Destinations: test.destinations,
 				NoPush:       test.noPush,
 				NoPushCache:  test.noPushCache,
-			}
-			if test.existingConfig {
-				afero.WriteFile(newOsFs, util.DockerConfLocation(), []byte(""), os.FileMode(0o644))
-				defer newOsFs.Remove(util.DockerConfLocation())
 			}
 			CheckPushPermissions(&opts)
 			if checkPushPermsCallCount != test.checkPushPermsExpectedCallCount {
@@ -416,7 +402,6 @@ func TestSkipPushPermission(t *testing.T) {
 		cacheRepo                       string
 		checkPushPermsExpectedCallCount int
 		destinations                    []string
-		existingConfig                  bool
 		noPush                          bool
 		noPushCache                     bool
 		skipPushPermission              bool
@@ -429,17 +414,12 @@ func TestSkipPushPermission(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
 			resetCalledCount()
-			newOsFs = afero.NewMemMapFs()
 			opts := config.KanikoOptions{
 				CacheRepo:               test.cacheRepo,
 				Destinations:            test.destinations,
 				NoPush:                  test.noPush,
 				NoPushCache:             test.noPushCache,
 				SkipPushPermissionCheck: test.skipPushPermission,
-			}
-			if test.existingConfig {
-				afero.WriteFile(newOsFs, util.DockerConfLocation(), []byte(""), os.FileMode(0o644))
-				defer newOsFs.Remove(util.DockerConfLocation())
 			}
 			CheckPushPermissions(&opts)
 			if checkPushPermsCallCount != test.checkPushPermsExpectedCallCount {
