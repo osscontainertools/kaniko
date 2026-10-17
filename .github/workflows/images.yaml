@@ -168,7 +168,7 @@ jobs:
           labels: |
             org.opencontainers.image.created=${{ steps.build-time.outputs.created }}
             org.opencontainers.image.authors=${{ github.repository_owner }}
-            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}/#readme
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -180,7 +180,7 @@ jobs:
           annotations: |
             index,manifest:org.opencontainers.image.created=${{ steps.build-time.outputs.created }}
             index,manifest:org.opencontainers.image.authors=${{ github.repository_owner }}
-            index,manifest:org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+            index,manifest:org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
             index,manifest:org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}/#readme
             index,manifest:org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             index,manifest:org.opencontainers.image.revision=${{ github.sha }}
