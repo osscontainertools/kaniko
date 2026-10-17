@@ -1218,7 +1218,7 @@ Set `--provenance=min` to attach a SLSA provenance attestation, in the layout Bu
 docker buildx imagetools inspect registry.example.com/app:v1 --format '{{json .Provenance}}'
 ```
 
-The tag then resolves to an OCI index holding the image and an attestation manifest linked to it. The image is written as OCI, `--image-format=docker` and `--tar-path` are rejected. `--digest-file`, `--image-name-with-digest-file` and `--image-name-tag-with-digest-file` get the index digest, `--oci-layout-path` gets the index.
+The tag then resolves to an OCI index holding the image and an attestation manifest linked to it. The index is always OCI, the image inside follows `--image-format`. `--tar-path` is rejected. `--digest-file`, `--image-name-with-digest-file` and `--image-name-tag-with-digest-file` get the index digest, `--oci-layout-path` gets the index.
 
 The attestation records the base images and `COPY --from` images with their digests, the commit of the context, the CI job, the kaniko version and the `FF_KANIKO_*` flags that are set. Build arg values, secrets and registry credentials are not recorded. With `--reproducible` the timestamps and the invocation id are left out. The attestation is not signed.
 

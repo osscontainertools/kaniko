@@ -117,11 +117,6 @@ func ValidateFlags(opts *config.KanikoOptions) {
 	if _, err := v1.ParsePlatform(opts.CustomPlatform); err != nil {
 		logrus.Fatalf("Invalid platform %q: %v", opts.CustomPlatform, err)
 	}
-
-	// BuildKit also writes an OCI image when it attaches an attestation
-	if opts.Provenance != "" && opts.ImageFormat == config.ImageFormatInherit {
-		opts.ImageFormat = config.ImageFormatOCI
-	}
 }
 
 func setupBuild() error {
@@ -202,9 +197,6 @@ func validateOutputFlags(opts *config.KanikoOptions) error {
 	}
 	if opts.Provenance != "" && opts.Provenance != provenance.ModeMin {
 		return fmt.Errorf("--provenance=%s is not supported, use --provenance=%s", opts.Provenance, provenance.ModeMin)
-	}
-	if opts.Provenance != "" && opts.ImageFormat == config.ImageFormatDocker {
-		return errors.New("--provenance cannot be used with --image-format=docker, the attestation is linked to its image in an OCI index")
 	}
 	if opts.Provenance != "" && opts.TarPath != "" {
 		return errors.New("--provenance cannot be used with --tar-path, a Docker tarball cannot hold an attestation, use --oci-layout-path")

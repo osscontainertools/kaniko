@@ -1833,7 +1833,7 @@ func checkAnnotations(t *testing.T, dockerfile, image string) {
 // whose statement names the image, the base image digest and the commit of this checkout.
 func checkProvenance(t *testing.T, dockerfile, image string) {
 	t.Helper()
-	builderID, ok := expectedProvenance[dockerfile]
+	mediaType, ok := expectedProvenance[dockerfile]
 	if !ok {
 		return
 	}
@@ -1854,7 +1854,7 @@ func checkProvenance(t *testing.T, dockerfile, image string) {
 	}
 	img, att := manifest.Manifests[0], manifest.Manifests[1]
 	testutil.CheckDeepEqual(t, ggcrtypes.OCIImageIndex, manifest.MediaType)
-	testutil.CheckDeepEqual(t, ggcrtypes.OCIManifestSchema1, img.MediaType)
+	testutil.CheckDeepEqual(t, mediaType, img.MediaType)
 	testutil.CheckDeepEqual(t, "attestation-manifest", att.Annotations["vnd.docker.reference.type"])
 	testutil.CheckDeepEqual(t, img.Digest.String(), att.Annotations["vnd.docker.reference.digest"])
 	testutil.CheckDeepEqual(t, &v1.Platform{OS: "unknown", Architecture: "unknown"}, att.Platform)
@@ -1903,7 +1903,7 @@ func checkProvenance(t *testing.T, dockerfile, image string) {
 	for _, subject := range statement.Subject {
 		testutil.CheckDeepEqual(t, img.Digest.Hex, subject.Digest["sha256"])
 	}
-	testutil.CheckDeepEqual(t, builderID, statement.Predicate.RunDetails.Builder.ID)
+	testutil.CheckDeepEqual(t, "https://gitlab.example.com/group/project/-/jobs/1", statement.Predicate.RunDetails.Builder.ID)
 	digests := map[string]string{}
 	for _, dep := range statement.Predicate.BuildDefinition.ResolvedDependencies {
 		maps.Copy(digests, dep.Digest)
