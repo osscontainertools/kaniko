@@ -198,9 +198,6 @@ func validateOutputFlags(opts *config.KanikoOptions) error {
 	if opts.Provenance != "" && opts.Provenance != provenance.ModeMin {
 		return fmt.Errorf("--provenance=%s is not supported, use --provenance=%s", opts.Provenance, provenance.ModeMin)
 	}
-	if opts.Provenance != "" && opts.TarPath != "" {
-		return errors.New("--provenance cannot be used with --tar-path, a Docker tarball cannot hold an attestation, use --oci-layout-path")
-	}
 	return nil
 }
 
