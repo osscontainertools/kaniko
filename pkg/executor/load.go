@@ -60,7 +60,6 @@ func loadFromOCILayout(path string) (*Output, error) {
 		}
 		return &Output{Image: img}, nil
 	}
-	// a --provenance build: the index holds the image and its attestation
 	pushed, err := idx.ImageIndex(desc.Digest)
 	if err != nil {
 		return nil, err

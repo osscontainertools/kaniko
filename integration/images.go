@@ -625,8 +625,8 @@ var expectedAnnotations = map[string]struct{ Index, Manifest map[string]string }
 	},
 }
 
-// What the attestation of a pushed image records. {image.digest} is the digest of the image
-// the attestation is linked to, {git.revision} the commit of this checkout.
+// {image.digest} is the digest of the image the attestation is linked to, {git.revision}
+// the commit of this checkout.
 type attestation struct {
 	ImageMediaType ggcrtypes.MediaType
 	Subjects       []string
