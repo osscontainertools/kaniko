@@ -48,6 +48,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	ggcrtypes "github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/osscontainertools/kaniko/pkg/provenance"
 	"github.com/osscontainertools/kaniko/testutil"
 )
 
@@ -1875,26 +1876,7 @@ func checkProvenance(t *testing.T, dockerfile, image string) {
 		t.Fatal(err)
 	}
 	defer rc.Close()
-	var statement struct {
-		Type          string `json:"_type"`
-		PredicateType string `json:"predicateType"`
-		Subject       []struct {
-			Digest map[string]string `json:"digest"`
-		} `json:"subject"`
-		Predicate struct {
-			BuildDefinition struct {
-				ResolvedDependencies []struct {
-					URI    string            `json:"uri"`
-					Digest map[string]string `json:"digest"`
-				} `json:"resolvedDependencies"`
-			} `json:"buildDefinition"`
-			RunDetails struct {
-				Builder struct {
-					ID string `json:"id"`
-				} `json:"builder"`
-			} `json:"runDetails"`
-		} `json:"predicate"`
-	}
+	var statement provenance.Statement
 	if err := json.NewDecoder(rc).Decode(&statement); err != nil {
 		t.Fatal(err)
 	}
