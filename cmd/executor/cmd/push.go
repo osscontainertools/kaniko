@@ -71,7 +71,7 @@ docker-save format tarball (regular file) or at an OCI image layout (directory).
 			return fmt.Errorf("loading image: %w", err)
 		}
 
-		err = executor.DoPush(image, pushOpts)
+		err = executor.DoPush(&executor.Output{Image: image}, pushOpts)
 		if err != nil {
 			return fmt.Errorf("pushing image: %w", err)
 		}

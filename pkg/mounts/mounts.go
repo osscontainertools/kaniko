@@ -104,6 +104,27 @@ func MountableImage(img v1.Image, registry string) v1.Image {
 	return &mountableImage{Image: img, registry: registry}
 }
 
+func MountableIndex(idx v1.ImageIndex, registry string) v1.ImageIndex {
+	return &mountableIndex{index: idx, registry: registry}
+}
+
+// remote.WriteIndex reads the children through Image, so only that accessor is wrapped.
+type mountableIndex struct {
+	index
+
+	registry string
+}
+
+type index = v1.ImageIndex
+
+func (m *mountableIndex) Image(h v1.Hash) (v1.Image, error) {
+	img, err := m.index.Image(h)
+	if err != nil {
+		return nil, err
+	}
+	return MountableImage(img, m.registry), nil
+}
+
 type mountableImage struct {
 	v1.Image
 

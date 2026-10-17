@@ -136,7 +136,25 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 	return nil
 }
 
-func getDigest(image v1.Image) ([]byte, error) {
+// Output is what a build pushes. With an attestation the index holds the image and
+// is what the tag resolves to.
+type Output struct {
+	Image v1.Image
+	Index v1.ImageIndex
+}
+
+func (o *Output) Digest() (v1.Hash, error) {
+	if o.Index != nil {
+		return o.Index.Digest()
+	}
+	return o.Image.Digest()
+}
+
+type digester interface {
+	Digest() (v1.Hash, error)
+}
+
+func getDigest(image digester) ([]byte, error) {
 	digest, err := image.Digest()
 	if err != nil {
 		return nil, err
@@ -177,8 +195,9 @@ func writeDigestFile(path string, digestByteArray []byte) error {
 // DoPush is responsible for pushing image to the destinations specified in opts.
 // A dummy destination would be set when --no-push is set to true and --tar-path
 // is not empty with empty --destinations.
-func DoPush(image v1.Image, opts *config.KanikoOptions) error {
-	assert.Assert("executor.push.image-nonnull", image != nil, "DoPush called with nil image")
+func DoPush(out *Output, opts *config.KanikoOptions) error {
+	assert.Assert("executor.push.image-nonnull", out.Image != nil, "DoPush called with nil image")
+	image := out.Image
 
 	var digestByteArray []byte
 	var builder strings.Builder
@@ -189,7 +208,7 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 
 	if opts.DigestFile != "" || opts.ImageNameDigestFile != "" || opts.ImageNameTagDigestFile != "" {
 		var err error
-		digestByteArray, err = getDigest(image)
+		digestByteArray, err = getDigest(out)
 		if err != nil {
 			return fmt.Errorf("error fetching digest: %w", err)
 		}
@@ -207,7 +226,12 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 		if err != nil {
 			return fmt.Errorf("writing empty layout: %w", err)
 		}
-		if err := path.AppendImage(image); err != nil {
+		if out.Index != nil {
+			err = path.AppendIndex(out.Index)
+		} else {
+			err = path.AppendImage(image)
+		}
+		if err != nil {
 			return fmt.Errorf("appending image: %w", err)
 		}
 	}
@@ -317,16 +341,29 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 			pushImage = mounts.MountableImage(image, destRef.RegistryStr())
 		}
 
+		pushIndex := out.Index
+		if config.FF.CrossRepoMount && out.Index != nil {
+			pushIndex = mounts.MountableIndex(out.Index, destRef.RegistryStr())
+		}
+
 		retryFunc := func() error {
-			dig, err := image.Digest()
+			dig, err := out.Digest()
 			if err != nil {
 				return err
 			}
 			digest := destRef.Context().Digest(dig.String())
-			err = remote.Write(destRef, pushImage, writeOpts...)
+			if out.Index != nil {
+				err = remote.WriteIndex(destRef, pushIndex, writeOpts...)
+			} else {
+				err = remote.Write(destRef, pushImage, writeOpts...)
+			}
 			if err != nil && config.FF.CrossRepoMount {
 				logrus.Debugf("Cross-repository mount failed; retrying plain blob upload: %v", err)
-				err = remote.Write(destRef, image, writeOpts...)
+				if out.Index != nil {
+					err = remote.WriteIndex(destRef, out.Index, writeOpts...)
+				} else {
+					err = remote.Write(destRef, image, writeOpts...)
+				}
 			}
 			if err != nil && (!config.FF.PoolRegistryConnections || util.DropPooledOnAuth(localRt, err)) {
 				rebuilt, rerr := writeOptions()
@@ -361,10 +398,10 @@ func DoPush(image v1.Image, opts *config.KanikoOptions) error {
 			return fmt.Errorf("failed to push to destination %s: %w", destRef, err)
 		}
 	}
-	return writeImageOutputs(image, destRefs)
+	return writeImageOutputs(out, destRefs)
 }
 
-func writeImageOutputs(image v1.Image, destRefs []name.Tag) error {
+func writeImageOutputs(image digester, destRefs []name.Tag) error {
 	dir := os.Getenv("BUILDER_OUTPUT")
 	if dir == "" {
 		return nil
@@ -455,7 +492,7 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 		cacheOpts.OCILayoutPath = strings.TrimPrefix(cache, "oci:")
 		cacheOpts.NoPush = true
 	}
-	return DoPush(empty, &cacheOpts)
+	return DoPush(&Output{Image: empty}, &cacheOpts)
 }
 
 const cachePointerLabel = "kaniko.cache.pointer-target"
@@ -490,7 +527,7 @@ func pushCachePointer(opts *config.KanikoOptions, inferredKey, contentKey string
 		cacheOpts.OCILayoutPath = strings.TrimPrefix(dest, "oci:")
 		cacheOpts.NoPush = true
 	}
-	return DoPush(img, &cacheOpts)
+	return DoPush(&Output{Image: img}, &cacheOpts)
 }
 
 // resolveCachePointer checks whether img is a pointer entry pushed by pushCachePointer

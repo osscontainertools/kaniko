@@ -56,6 +56,7 @@ import (
 	image_util "github.com/osscontainertools/kaniko/pkg/image"
 	"github.com/osscontainertools/kaniko/pkg/image/remote"
 	"github.com/osscontainertools/kaniko/pkg/mounts"
+	"github.com/osscontainertools/kaniko/pkg/provenance"
 	"github.com/osscontainertools/kaniko/pkg/snapshot"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/tracing"
@@ -1476,7 +1477,8 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 }
 
 // DoBuild executes building the Dockerfile
-func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
+func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
+	started := time.Now()
 	stageFinalCacheKeys := make(map[int]string)
 
 	stages, metaArgs, err := dockerfile.ParseStages(opts)
@@ -1745,6 +1747,7 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 	}
 
 	var pushImage v1.Image
+	var pushIndex v1.ImageIndex
 	// the stage whose remote base sits at the bottom of each stage's chain of local bases
 	remoteBase := make([]config.KanikoStage, lastStage.Index+1)
 	for _, stage := range kanikoStages {
@@ -1913,11 +1916,32 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 			if len(annotations) > 0 {
 				pushImage = mutate.Annotations(sourceImage, annotations).(v1.Image)
 			}
+			if opts.Provenance != "" {
+				statement, err := provenanceStatement(pushImage, opts, kanikoStages, externalImageDigests, started, created)
+				if err != nil {
+					return nil, fmt.Errorf("creating provenance: %w", err)
+				}
+				attestation, err := provenance.Attestation(statement)
+				if err != nil {
+					return nil, fmt.Errorf("creating attestation: %w", err)
+				}
+				indexAnnotations := map[string]string{}
+				if opts.PredefinedAnnotations {
+					maps.Copy(indexAnnotations, buildenv.Annotations(opts.ContextSource, created))
+					if opts.Reproducible {
+						delete(indexAnnotations, buildenv.AnnotationCreated)
+					}
+				}
+				pushIndex, err = provenance.Index(pushImage, attestation, indexAnnotations)
+				if err != nil {
+					return nil, fmt.Errorf("creating index: %w", err)
+				}
+			}
 		}
 		if stage.Final {
 			// Final stage must be last, so by definition after Push stage.
 			assert.Assert("executor.build.push-image-nonnull", pushImage != nil, "pushImage is nil")
-			return pushImage, nil
+			return &Output{Image: pushImage, Index: pushIndex}, nil
 		}
 		if stage.SaveStage {
 			if err := saveStage(strconv.Itoa(stage.Index), sourceImage); err != nil {

@@ -61,7 +61,9 @@ type KanikoOptions struct {
 	Labels                       multiArg
 	Annotations                  keyValueArg
 	PredefinedAnnotations        bool
+	Provenance                   string
 	ContextSource                buildenv.Source
+	CI                           buildenv.CI
 	Git                          KanikoGitOptions
 	IgnorePaths                  multiArg
 	DockerfilePath               string
