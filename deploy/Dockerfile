@@ -52,11 +52,6 @@ ARG COVER=""
 RUN make COVER="$COVER" out/executor out/warmer \
     && rm -rf /root/.cache
 
-# Generate latest ca-certificates
-ARG BUILDPLATFORM
-FROM --platform=$BUILDPLATFORM debian:trixie-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS certs
-RUN apt update && apt install -y ca-certificates
-
 # use musl busybox since it's staticly compiled on all platforms
 FROM busybox:musl@sha256:ea2b9914a16a4ac1981994af97b318f7c7d4db76b580c56177f08bf76f4a0be8 AS busybox
 RUN mkdir -p /kaniko && chmod 777 /kaniko
@@ -66,7 +61,7 @@ FROM scratch AS kaniko-base-slim
 # Create kaniko directory with world write permission to allow non root run
 COPY --from=busybox /kaniko /kaniko
 
-COPY --from=certs /etc/ssl/certs/ca-certificates.crt /kaniko/ssl/certs/
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /kaniko/ssl/certs/
 COPY files/nsswitch.conf /etc/nsswitch.conf
 ENV HOME=/root
 ENV USER=root
@@ -134,7 +129,7 @@ RUN apk add --no-cache ca-certificates git
 
 COPY --from=builder /src/out/executor /kaniko/executor
 COPY --from=builder /kaniko/.docker /kaniko/.docker
-COPY --from=certs /etc/ssl/certs/ca-certificates.crt /kaniko/ssl/certs/
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /kaniko/ssl/certs/
 
 # mz446: there is no tini binary release on riscv64
 ARG TARGETARCH
