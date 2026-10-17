@@ -1208,13 +1208,13 @@ Set `--provenance=min` to attach a SLSA provenance attestation to the image. Ins
 docker buildx imagetools inspect registry.example.com/app:v1 --format '{{json .Provenance}}'
 ```
 
-The tag then points at an index holding the image and its attestation. `--digest-file` keeps the image digest, use `--index-file` to get the index. It cannot be combined with `--tar-path`.
+The tag then points at an index holding the image and its attestation. `--digest-file` keeps the image digest, use `--index-file` to get the index.
 
 The attestation lists the base images, the commit and the CI job. Build arg values and secrets are not recorded.
 
 #### Flag `--index-file`
 
-Set `--index-file` to write the OCI index of the pushed image to a file. With `--provenance` it is the index the tag points at, otherwise an index holding just the image.
+Set `--index-file` to write the OCI index the tag points at to a file. Only builds with `--provenance` produce an index.
 
 ```bash
 jq -r '.manifests[] | select(.annotations["vnd.docker.reference.type"] != "attestation-manifest") | .digest' index.json

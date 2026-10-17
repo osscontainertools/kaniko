@@ -208,19 +208,8 @@ func DoPush(out *Output, opts *config.KanikoOptions) error {
 		}
 	}
 
-	if opts.IndexFile != "" {
-		index := out.Index
-		if index == nil {
-			cf, err := image.ConfigFile()
-			if err != nil {
-				return fmt.Errorf("reading image config: %w", err)
-			}
-			index = mutate.AppendManifests(mutate.IndexMediaType(empty.Index, types.OCIImageIndex), mutate.IndexAddendum{
-				Add:        image,
-				Descriptor: v1.Descriptor{Platform: cf.Platform()},
-			})
-		}
-		raw, err := index.RawManifest()
+	if opts.IndexFile != "" && out.Index != nil {
+		raw, err := out.Index.RawManifest()
 		if err != nil {
 			return fmt.Errorf("serializing index: %w", err)
 		}

@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"maps"
 	"math"
 	"os"
 	"os/exec"
@@ -1833,38 +1832,32 @@ func checkAnnotations(t *testing.T, dockerfile, image string) {
 
 func checkIndexFile(t *testing.T, dockerfile, image string) {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(indexFileDir(dockerfile), "index.json"))
-	if errors.Is(err, os.ErrNotExist) {
+	written, ok := indexFileWritten[dockerfile]
+	if !ok {
 		return
 	}
-	if err != nil {
+	raw, err := os.ReadFile(filepath.Join(indexFileDir(dockerfile), "index.json"))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		t.Fatal(err)
 	}
-	ref, err := name.ParseReference(image, name.WeakValidation)
-	if err != nil {
-		t.Fatal(err)
-	}
-	desc, err := remote.Get(ref)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if desc.MediaType.IsIndex() {
-		testutil.CheckDeepEqual(t, string(desc.Manifest), string(raw))
-	} else {
-		var index v1.IndexManifest
-		if err := json.Unmarshal(raw, &index); err != nil {
+	want := ""
+	if written {
+		ref, err := name.ParseReference(image, name.WeakValidation)
+		if err != nil {
 			t.Fatal(err)
 		}
-		if len(index.Manifests) != 1 {
-			t.Fatalf("index file holds %d manifests, want the image", len(index.Manifests))
+		desc, err := remote.Get(ref)
+		if err != nil {
+			t.Fatal(err)
 		}
-		testutil.CheckDeepEqual(t, desc.Digest, index.Manifests[0].Digest)
+		want = string(desc.Manifest)
 	}
+	testutil.CheckDeepEqual(t, want, string(raw))
 }
 
 func checkProvenance(t *testing.T, dockerfile, image string) {
 	t.Helper()
-	mediaType, ok := provenanceImageMediaType[dockerfile]
+	want, ok := expectedAttestations[dockerfile]
 	if !ok {
 		return
 	}
@@ -1880,21 +1873,22 @@ func checkProvenance(t *testing.T, dockerfile, image string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(manifest.Manifests) != 2 {
-		t.Fatalf("index holds %d manifests, want the image and its attestation", len(manifest.Manifests))
+	if manifest.MediaType != ggcrtypes.OCIImageIndex || len(manifest.Manifests) != 2 {
+		t.Fatalf("%s is a %s of %d manifests, want an OCI index of the image and its attestation", image, manifest.MediaType, len(manifest.Manifests))
 	}
 	img, att := manifest.Manifests[0], manifest.Manifests[1]
-	testutil.CheckDeepEqual(t, ggcrtypes.OCIImageIndex, manifest.MediaType)
-	testutil.CheckDeepEqual(t, mediaType, img.MediaType)
-	testutil.CheckDeepEqual(t, "attestation-manifest", att.Annotations["vnd.docker.reference.type"])
-	testutil.CheckDeepEqual(t, img.Digest.String(), att.Annotations["vnd.docker.reference.digest"])
-	testutil.CheckDeepEqual(t, &v1.Platform{OS: "unknown", Architecture: "unknown"}, att.Platform)
+	linked := att.Annotations["vnd.docker.reference.type"] == "attestation-manifest" &&
+		att.Annotations["vnd.docker.reference.digest"] == img.Digest.String() &&
+		att.Platform != nil && att.Platform.OS == "unknown" && att.Platform.Architecture == "unknown"
+	if !linked {
+		t.Fatalf("second manifest of %s is not an attestation of the first", image)
+	}
 
-	attestation, err := idx.Image(att.Digest)
+	attestationImage, err := idx.Image(att.Digest)
 	if err != nil {
 		t.Fatal(err)
 	}
-	layers, err := attestation.Layers()
+	layers, err := attestationImage.Layers()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1910,18 +1904,36 @@ func checkProvenance(t *testing.T, dockerfile, image string) {
 	if err := json.NewDecoder(rc).Decode(&statement); err != nil {
 		t.Fatal(err)
 	}
-	testutil.CheckDeepEqual(t, "https://in-toto.io/Statement/v1", statement.Type)
-	testutil.CheckDeepEqual(t, "https://slsa.dev/provenance/v1", statement.PredicateType)
+	if statement.Type != "https://in-toto.io/Statement/v1" || statement.PredicateType != "https://slsa.dev/provenance/v1" {
+		t.Fatalf("attestation of %s is a %s with a %s predicate, want an in-toto v1 statement with a SLSA v1 predicate", image, statement.Type, statement.PredicateType)
+	}
+
+	got := attestation{
+		ImageMediaType: img.MediaType,
+		BuilderID:      statement.Predicate.RunDetails.Builder.ID,
+		Dependencies:   statement.Predicate.BuildDefinition.ResolvedDependencies,
+		Timestamps:     statement.Predicate.RunDetails.Metadata != nil && statement.Predicate.RunDetails.Metadata.StartedOn != nil,
+	}
 	for _, subject := range statement.Subject {
-		testutil.CheckDeepEqual(t, img.Digest.Hex, subject.Digest["sha256"])
+		got.Subjects = append(got.Subjects, "sha256:"+subject.Digest["sha256"])
 	}
-	testutil.CheckDeepEqual(t, "https://gitlab.example.com/group/project/-/jobs/1", statement.Predicate.RunDetails.Builder.ID)
-	digests := map[string]string{}
-	for _, dep := range statement.Predicate.BuildDefinition.ResolvedDependencies {
-		maps.Copy(digests, dep.Digest)
+
+	placeholders := strings.NewReplacer("{image.digest}", img.Digest.String(), "{git.revision}", gitRevision("."))
+	var subjects []string
+	for _, subject := range want.Subjects {
+		subjects = append(subjects, placeholders.Replace(subject))
 	}
-	testutil.CheckDeepEqual(t, "5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a", digests["sha256"])
-	testutil.CheckDeepEqual(t, gitRevision("."), digests["gitCommit"])
+	want.Subjects = subjects
+	var dependencies []provenance.ResourceDescriptor
+	for _, dep := range want.Dependencies {
+		digest := map[string]string{}
+		for algorithm, value := range dep.Digest {
+			digest[algorithm] = placeholders.Replace(value)
+		}
+		dependencies = append(dependencies, provenance.ResourceDescriptor{URI: dep.URI, Name: dep.Name, Digest: digest})
+	}
+	want.Dependencies = dependencies
+	testutil.CheckDeepEqual(t, want, got)
 }
 
 func compareAnnotations(t *testing.T, level string, want, got map[string]string) {

@@ -35,6 +35,7 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	ggcrtypes "github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/osscontainertools/kaniko/pkg/provenance"
 	"github.com/osscontainertools/kaniko/pkg/tracing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 )
@@ -371,6 +372,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1227_squash":        {"--predefined-annotations"},
 	"Dockerfile_test_issue_mz1230":               {"--provenance=min", "--predefined-annotations", "--index-file=/index/index.json"},
 	"Dockerfile_test_issue_mz1230_no_index":      {"--index-file=/index/index.json"},
+	"Dockerfile_test_issue_mz1230_tar":           {"--provenance=min", "--tar-path=/index/image.tar", "--index-file=/index/index.json"},
 	"Dockerfile_test_issue_mz1230_reproducible":  {"--provenance=min", "--predefined-annotations", "--reproducible"},
 	"Dockerfile_test_issue_mz1230_oci":           {"--provenance=min", "--image-format=oci", "--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
 }
@@ -617,10 +619,43 @@ var expectedAnnotations = map[string]struct{ Index, Manifest map[string]string }
 	},
 }
 
-var provenanceImageMediaType = map[string]ggcrtypes.MediaType{
-	"Dockerfile_test_issue_mz1230":              ggcrtypes.DockerManifestSchema2,
-	"Dockerfile_test_issue_mz1230_reproducible": ggcrtypes.DockerManifestSchema2,
-	"Dockerfile_test_issue_mz1230_oci":          ggcrtypes.OCIManifestSchema1,
+// What the attestation of a pushed image records. {image.digest} is the digest of the image
+// the attestation is linked to, {git.revision} the commit of this checkout.
+type attestation struct {
+	ImageMediaType ggcrtypes.MediaType
+	Subjects       []string
+	BuilderID      string
+	Dependencies   []provenance.ResourceDescriptor
+	Timestamps     bool
+}
+
+var mz1230Dependencies = []provenance.ResourceDescriptor{
+	{URI: "git+https://gitlab.example.com/group/project@v1.2.3", Digest: map[string]string{"gitCommit": "{git.revision}"}},
+	{URI: "pkg:docker/alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a?platform=linux%2Famd64", Digest: map[string]string{"sha256": "5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a"}},
+}
+
+var expectedAttestations = map[string]attestation{
+	"Dockerfile_test_issue_mz1230": {
+		ImageMediaType: ggcrtypes.DockerManifestSchema2,
+		Subjects:       []string{"{image.digest}"},
+		BuilderID:      "https://gitlab.example.com/group/project/-/jobs/1",
+		Dependencies:   mz1230Dependencies,
+		Timestamps:     true,
+	},
+	"Dockerfile_test_issue_mz1230_reproducible": {
+		ImageMediaType: ggcrtypes.DockerManifestSchema2,
+		Subjects:       []string{"{image.digest}"},
+		BuilderID:      "https://gitlab.example.com/group/project/-/jobs/1",
+		Dependencies:   mz1230Dependencies,
+		Timestamps:     false,
+	},
+	"Dockerfile_test_issue_mz1230_oci": {
+		ImageMediaType: ggcrtypes.OCIManifestSchema1,
+		Subjects:       []string{"{image.digest}"},
+		BuilderID:      "https://gitlab.example.com/group/project/-/jobs/1",
+		Dependencies:   mz1230Dependencies,
+		Timestamps:     true,
+	},
 }
 
 // Digest for debian:12.10 (see baseImageToCache)
@@ -840,6 +875,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz1230_reproducible":  {},
 		"Dockerfile_test_issue_mz1230_oci":           {},
 		"Dockerfile_test_issue_mz1230_no_index":      {},
+		"Dockerfile_test_issue_mz1230_tar":           {},
 	}
 	return &d
 }
@@ -1266,6 +1302,16 @@ var extraDockerRunFlags = map[string]func(contextDir string) []string{
 	"Dockerfile_test_issue_mz1230_no_index": func(_ string) []string {
 		return indexFileMount("Dockerfile_test_issue_mz1230_no_index")
 	},
+	"Dockerfile_test_issue_mz1230_tar": func(_ string) []string {
+		return indexFileMount("Dockerfile_test_issue_mz1230_tar")
+	},
+}
+
+// Whether --index-file must hold the index the tag resolves to, or must not be written.
+var indexFileWritten = map[string]bool{
+	"Dockerfile_test_issue_mz1230":          true,
+	"Dockerfile_test_issue_mz1230_no_index": false,
+	"Dockerfile_test_issue_mz1230_tar":      true,
 }
 
 func indexFileDir(dockerfile string) string {
