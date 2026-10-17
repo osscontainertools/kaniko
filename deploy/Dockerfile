@@ -52,10 +52,8 @@ ARG COVER=""
 RUN make COVER="$COVER" out/executor out/warmer \
     && rm -rf /root/.cache
 
-# Generate latest ca-certificates
 ARG BUILDPLATFORM
-FROM --platform=$BUILDPLATFORM debian:trixie-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS certs
-RUN apt update && apt install -y ca-certificates
+FROM --platform=$BUILDPLATFORM golang:1.26.9@sha256:d7722066f0b60ceccb6c0643cbed1f5f9e15506ac237146c95333504d7805d89 AS certs
 
 # use musl busybox since it's staticly compiled on all platforms
 FROM busybox:musl@sha256:ea2b9914a16a4ac1981994af97b318f7c7d4db76b580c56177f08bf76f4a0be8 AS busybox
