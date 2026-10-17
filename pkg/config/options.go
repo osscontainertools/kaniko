@@ -60,6 +60,7 @@ type KanikoOptions struct {
 	Annotations                  keyValueArg
 	Git                          KanikoGitOptions
 	IgnorePaths                  multiArg
+	Profiles                     multiArg
 	DockerfilePath               string
 	SrcContext                   string
 	SnapshotMode                 string

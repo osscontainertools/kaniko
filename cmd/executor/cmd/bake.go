@@ -114,6 +114,9 @@ and inherits are not supported.`,
 		if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {
 			return err
 		}
+		if err := applyProfiles(opts); err != nil {
+			return err
+		}
 		config.LogFeatureFlags()
 		opts.CompressionLevelSet = cmd.Flags().Changed("compression-level")
 		if opts.CompressionLevelSet {
