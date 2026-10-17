@@ -58,6 +58,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/executor"
+	kremote "github.com/osscontainertools/kaniko/pkg/image/remote"
 	"github.com/osscontainertools/kaniko/pkg/mounts"
 	"github.com/osscontainertools/kaniko/pkg/warmer"
 	"github.com/sirupsen/logrus"
@@ -245,6 +246,7 @@ func TestRun(t *testing.T) {
 							// this subtest's env takes effect, and restore afterwards.
 							config.InitFeatureFlags()
 							mounts.Reset()
+							kremote.ResetManifestCache()
 
 							opts := config.KanikoOptions{}
 							exec := &cobra.Command{
@@ -297,6 +299,7 @@ func TestBake(t *testing.T) {
 							// this subtest's env takes effect, and restore afterwards.
 							config.InitFeatureFlags()
 							mounts.Reset()
+							kremote.ResetManifestCache()
 
 							opts := config.KanikoOptions{}
 							var set []string

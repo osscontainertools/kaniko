@@ -13,5 +13,5 @@ FROM first-stage AS fifth-stage
   UNPACK /kaniko/stages/0
 COPY --from=third-stage test test
 PUSH [registry]
-  UPLOAD sha256:cf05a52c02353f0b2b6f9be0549ac916c3fb1dc8d4bacd405eac7f28562ec9f2
+  MOUNT sha256:cf05a52c02353f0b2b6f9be0549ac916c3fb1dc8d4bacd405eac7f28562ec9f2 FROM index.docker.io/library/debian
   UPLOAD COPY --from=third-stage test test

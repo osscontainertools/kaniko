@@ -41,6 +41,12 @@ var (
 	remoteImageFunc = getImage
 )
 
+// ResetManifestCache forgets every resolved image, so the next lookup records
+// its mount source again after a mounts.Reset.
+func ResetManifestCache() {
+	manifestCache = make(map[string]resolvedImage)
+}
+
 func getImage(ref name.Reference, options ...remote.Option) (resolvedImage, error) {
 	desc, err := remote.Get(ref, options...)
 	if err != nil {
