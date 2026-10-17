@@ -43,13 +43,8 @@ func main() {
 			fmt.Fprintf(os.Stderr, "%s has no markers for profile %s\n", readme, name)
 			os.Exit(1)
 		}
-		var b strings.Builder
-		b.WriteString(start + "```sh\n")
-		for _, flag := range flags {
-			b.WriteString(flag + "=true\n")
-		}
-		b.WriteString("```\n" + end)
-		out = block.ReplaceAllLiteralString(out, b.String())
+		rendered := start + "```sh\n" + strings.Join(flags, "=true\n") + "=true\n```\n" + end
+		out = block.ReplaceAllLiteralString(out, rendered)
 	}
 	err = os.WriteFile(readme, []byte(out), 0o644)
 	if err != nil {
