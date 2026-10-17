@@ -224,19 +224,6 @@ DOCKERFILE_PATTERN="Dockerfile_test_add*" make integration-test-run
 This will only run dockerfiles that match the pattern `Dockerfile_test_add*`
 
 
-
-### Profiling
-
-If your builds are taking long, you can analyze kaniko
-function calls using [Slow Jam](https://github.com/google/slowjam). To start
-profiling,
-
-1. Add an environment variable `STACKLOG_PATH` to your
-   [pod definition](https://github.com/osscontainertools/kaniko/blob/main/examples/pod-build-profile.yaml#L15).
-2. If you are using the kaniko `debug` image, you can copy the file in the
-   `pre-stop` container lifecycle hook.
-
-
 ## Creating a PR
 
 When you have changes you would like to propose to kaniko, you will need to:
