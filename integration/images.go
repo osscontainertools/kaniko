@@ -368,6 +368,8 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1227_detached":      {"--predefined-annotations"},
 	"Dockerfile_test_issue_mz1227_merged_result": {"--predefined-annotations"},
 	"Dockerfile_test_issue_mz1227_squash":        {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1230":               {"--provenance=min", "--predefined-annotations"},
+	"Dockerfile_test_issue_mz1230_reproducible":  {"--provenance=min", "--predefined-annotations", "--reproducible"},
 }
 
 var expectErr = map[string]int{
@@ -582,6 +584,36 @@ var expectedAnnotations = map[string]struct{ Index, Manifest map[string]string }
 		"org.opencontainers.image.base.name":   "docker.io/library/alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
 		"org.opencontainers.image.base.digest": "{base.digest}",
 	}},
+	"Dockerfile_test_issue_mz1230": {
+		Index: map[string]string{
+			"org.opencontainers.image.created":   "{present}",
+			"org.opencontainers.image.source":    "https://gitlab.example.com/group/project",
+			"org.opencontainers.image.revision":  "{git.revision}",
+			"org.opencontainers.image.base.name": "",
+		},
+		Manifest: map[string]string{
+			"org.opencontainers.image.created":   "{present}",
+			"org.opencontainers.image.revision":  "{git.revision}",
+			"org.opencontainers.image.base.name": "docker.io/library/alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
+		},
+	},
+	"Dockerfile_test_issue_mz1230_reproducible": {
+		Index: map[string]string{
+			"org.opencontainers.image.created":  "",
+			"org.opencontainers.image.revision": "{git.revision}",
+		},
+		Manifest: map[string]string{
+			"org.opencontainers.image.created":   "",
+			"org.opencontainers.image.revision":  "",
+			"org.opencontainers.image.base.name": "docker.io/library/alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
+		},
+	},
+}
+
+// The builder id the attestation of a --provenance build must name.
+var expectedProvenance = map[string]string{
+	"Dockerfile_test_issue_mz1230":              "https://gitlab.example.com/group/project/-/jobs/1",
+	"Dockerfile_test_issue_mz1230_reproducible": "https://gitlab.example.com/group/project/-/jobs/1",
 }
 
 // Digest for debian:12.10 (see baseImageToCache)
@@ -797,6 +829,8 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz1227_detached":      {},
 		"Dockerfile_test_issue_mz1227_merged_result": {},
 		"Dockerfile_test_issue_mz1227_squash":        {},
+		"Dockerfile_test_issue_mz1230":               {},
+		"Dockerfile_test_issue_mz1230_reproducible":  {},
 	}
 	return &d
 }
@@ -1214,6 +1248,12 @@ var extraDockerRunFlags = map[string]func(contextDir string) []string{
 	},
 	"Dockerfile_test_issue_mz1227_merged_result": func(ctx string) []string {
 		return append(append(gitCheckout(ctx), gitlabEnv(gitRevision(ctx))...), forkMergeRequestEnv("merged_result")...)
+	},
+	"Dockerfile_test_issue_mz1230": func(ctx string) []string {
+		return append(append(gitCheckout(ctx), gitlabEnv(gitRevision(ctx))...), "-e", "CI_JOB_URL=https://gitlab.example.com/group/project/-/jobs/1")
+	},
+	"Dockerfile_test_issue_mz1230_reproducible": func(ctx string) []string {
+		return append(append(gitCheckout(ctx), gitlabEnv(gitRevision(ctx))...), "-e", "CI_JOB_URL=https://gitlab.example.com/group/project/-/jobs/1")
 	},
 }
 
