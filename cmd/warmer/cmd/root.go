@@ -84,6 +84,14 @@ var RootCmd = &cobra.Command{
 			}
 		}
 
+		if config.FF.WarmerBuildArgs {
+			for i, arg := range opts.BuildArgs {
+				if !strings.Contains(arg, "=") {
+					opts.BuildArgs[i] = fmt.Sprintf("%s=%s", arg, os.Getenv(arg))
+				}
+			}
+		}
+
 		if len(opts.Images) == 0 && opts.DockerfilePath == "" {
 			return errors.New("you must select at least one image to cache or a dockerfilepath to parse")
 		}
