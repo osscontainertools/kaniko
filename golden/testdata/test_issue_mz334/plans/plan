@@ -1,6 +1,8 @@
 FROM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d AS first
-  STREAM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+  FETCH busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+  UNPACK busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
 RUN touch /blubb
+  CACHE MISS: 3c8511b0336f6b6e23af2df0a22a040c8ce0db5fd79d5476395bf55b47f760c6
 SAVE STAGE /kaniko/stages/0
 SAVE FILES [/blubb] /kaniko/deps/0
 CLEAN
@@ -8,17 +10,20 @@ CLEAN
 FROM first AS second
   UNPACK /kaniko/stages/0
 RUN touch /bla
+  CACHE MISS: 0ec71de61bfde2d75e8bcea855bbc8c9eeb7aa46fccbd83d90f69ec00f74af4d
 SAVE STAGE /kaniko/stages/1
 CLEAN
 
 FROM second AS third
   UNPACK /kaniko/stages/1
 RUN touch /bli
+  CACHE MISS: 3a267e9eab738aef490c14130100de22f72cb59f27d1944ea7a156b04243d00c
 SAVE FILES [/bli] /kaniko/deps/2
 CLEAN
 
 FROM second AS final
   UNPACK /kaniko/stages/1
 COPY --from=first /blubb /blubb
+  CACHE REDIRECT MISS: 08cbb69fc33c0f8e866dca205f31f87d7b64e3a558ff4025b90c422ded171f1d
 COPY --from=third /bli /bli
 RUN ls -lah /blubb

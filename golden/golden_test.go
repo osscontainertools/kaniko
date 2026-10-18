@@ -58,6 +58,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/executor"
+	kremote "github.com/osscontainertools/kaniko/pkg/image/remote"
 	"github.com/osscontainertools/kaniko/pkg/mounts"
 	"github.com/osscontainertools/kaniko/pkg/warmer"
 	"github.com/sirupsen/logrus"
@@ -169,6 +170,13 @@ var allTests = map[string][]types.GoldenTests{
 }
 var update bool
 
+// sync with the Preview profile in README.md
+var previewEnv = map[string]string{
+	"FF_KANIKO_CACHE_IMAGE_INDEX": "1",
+	"FF_KANIKO_COPY_LINK":         "1",
+	"FF_KANIKO_DEFER_CACHE_PUSH":  "1",
+}
+
 func TestMain(m *testing.M) {
 	flag.BoolVar(&update, "update", false, "Whether to update expected output instead of testing it")
 	flag.Parse()
@@ -228,6 +236,9 @@ func TestRun(t *testing.T) {
 					for _, test := range testSuite.Tests {
 						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
 							t.Cleanup(config.InitFeatureFlags)
+							for k, v := range previewEnv {
+								t.Setenv(k, v)
+							}
 							for k, v := range test.Env {
 								t.Setenv(k, v)
 							}
@@ -235,6 +246,7 @@ func TestRun(t *testing.T) {
 							// this subtest's env takes effect, and restore afterwards.
 							config.InitFeatureFlags()
 							mounts.Reset()
+							kremote.ResetManifestCache()
 
 							opts := config.KanikoOptions{}
 							exec := &cobra.Command{
@@ -277,6 +289,9 @@ func TestBake(t *testing.T) {
 					for _, test := range testSuite.Tests {
 						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
 							t.Cleanup(config.InitFeatureFlags)
+							for k, v := range previewEnv {
+								t.Setenv(k, v)
+							}
 							for k, v := range test.Env {
 								t.Setenv(k, v)
 							}
@@ -284,6 +299,7 @@ func TestBake(t *testing.T) {
 							// this subtest's env takes effect, and restore afterwards.
 							config.InitFeatureFlags()
 							mounts.Reset()
+							kremote.ResetManifestCache()
 
 							opts := config.KanikoOptions{}
 							var set []string
@@ -347,6 +363,9 @@ func TestWarmer(t *testing.T) {
 					for _, test := range testSuite.Tests {
 						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
 							t.Cleanup(config.InitFeatureFlags)
+							for k, v := range previewEnv {
+								t.Setenv(k, v)
+							}
 							for k, v := range test.Env {
 								t.Setenv(k, v)
 							}

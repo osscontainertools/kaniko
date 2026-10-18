@@ -1,5 +1,6 @@
 FROM alpine AS base
-  STREAM alpine
+  FETCH alpine
+  UNPACK alpine
 RUN install
 SAVE STAGE /kaniko/stages/0
 CLEAN
