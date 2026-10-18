@@ -1184,7 +1184,7 @@ delay of 1 second. Defaults to `0`.
 KANIKO_PROFILE=preview,buildkit
 ```
 
-Enables the feature flags of a [profile](#profiles). Set it repeatedly to combine profiles. Explicit `FF_KANIKO_*` environment variables override the profile, so `FF_KANIKO_ROLLING_CACHE_KEY=false` turns off a single flag of an enabled profile. The `preview` profile changes with every kaniko release. Pin individual flags if your builds must not change between kaniko versions.
+Enables the feature flags of a [profile](#profiles). Set it repeatedly to combine profiles. Explicit `FF_KANIKO_*` environment variables override the profile, so `FF_KANIKO_COPY_LINK=false` turns off a single flag of an enabled profile. The `preview` profile changes with every kaniko release. Pin individual flags if your builds must not change between kaniko versions.
 
 ### Feature Flags
 
