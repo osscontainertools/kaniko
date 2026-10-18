@@ -1327,7 +1327,7 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 			if sharedRemote[s.BaseImageDigest] {
 				printf("  FETCH %s\n", s.BaseName)
 				printf("  UNPACK %s\n", s.BaseName)
-			} else {
+			} else if s.BaseName != constants.NoBaseImage {
 				printf("  STREAM %s\n", s.BaseName)
 			}
 			base := image_util.EmptyBaseImage

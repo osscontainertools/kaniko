@@ -8,7 +8,6 @@ SAVE FILES [context/b* context/foo] /kaniko/deps/0
 CLEAN
 
 FROM scratch AS second
-  STREAM scratch
 ENV foopath context/foo
 COPY --from=0 $foopath context/b* /foo/
 SAVE FILES [/foo] /kaniko/deps/1
