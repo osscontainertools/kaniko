@@ -117,16 +117,6 @@ func ValidateFlags(opts *config.KanikoOptions) {
 	}
 }
 
-func applyProfiles(opts *config.KanikoOptions) error {
-	profiles := []string(opts.Profiles)
-	if len(profiles) == 0 {
-		if val, ok := os.LookupEnv("KANIKO_PROFILE"); ok && val != "" {
-			profiles = strings.Split(val, ",")
-		}
-	}
-	return config.ApplyProfiles(profiles)
-}
-
 func setupBuild() error {
 	ValidateFlags(opts)
 
@@ -204,7 +194,8 @@ var RootCmd = &cobra.Command{
 			if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {
 				return err
 			}
-			if err := applyProfiles(opts); err != nil {
+			err := config.ApplyProfiles(opts.Profiles)
+			if err != nil {
 				return err
 			}
 			config.LogFeatureFlags()
@@ -341,7 +332,7 @@ func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().StringVarP(&opts.SnapshotMode, "snapshot-mode", "", "full", "Change the file attributes inspected during snapshotting")
 	cmd.Flags().StringVarP(&opts.CustomPlatform, "custom-platform", "", "", "Specify the build platform if different from the current host")
 	cmd.Flags().VarP(&opts.BuildArgs, "build-arg", "", "This flag allows you to pass in ARG values at build time. Set it repeatedly for multiple values.")
-	cmd.Flags().VarP(&opts.Profiles, "profile", "", "Enable a feature flag profile (preview, buildkit). Set it repeatedly for multiple profiles. Defaults to the comma-separated KANIKO_PROFILE environment variable.")
+	cmd.Flags().VarP(&opts.Profiles, "profile", "", "Enable a feature flag profile (preview, buildkit). Set it repeatedly for multiple profiles.")
 	cmd.Flags().IntVar(&opts.ImageFSExtractRetry, "image-fs-extract-retry", 0, "Number of retries for image FS extraction")
 	cmd.Flags().StringVarP(&opts.KanikoDir, "kaniko-dir", "", "", "Path to the kaniko directory, this takes precedence over the KANIKO_DIR environment variable.")
 	cmd.Flags().StringVarP(&opts.TarPath, "tar-path", "", "", "Path to save the image in as a tarball instead of pushing")

@@ -114,7 +114,8 @@ and inherits are not supported.`,
 		if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {
 			return err
 		}
-		if err := applyProfiles(opts); err != nil {
+		err := config.ApplyProfiles(opts.Profiles)
+		if err != nil {
 			return err
 		}
 		config.LogFeatureFlags()
