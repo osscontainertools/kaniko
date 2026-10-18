@@ -41,29 +41,25 @@ const (
 // registry), RUN_VIA_TINI and COPY_AS_ROOT (the harness needs them for RUN/COPY) are left
 // out so the chaos build runs far enough to cover something.
 var chaosFlags = []string{
-	"FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE", "FF_KANIKO_CACHE_LOOKAHEAD",
+	"FF_KANIKO_CACHE_LOOKAHEAD",
 	"FF_KANIKO_CACHE_PROBE_AFTER_MISS", "FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS",
-	"FF_KANIKO_CLEAN_KANIKO_DIR", "FF_KANIKO_CONFINE_COPY_SOURCE",
+	"FF_KANIKO_CONFINE_COPY_SOURCE",
 	"FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS",
 	"FF_KANIKO_CROSS_REPO_MOUNT", "FF_KANIKO_DEFER_CACHE_PUSH",
-	"FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE",
 	"FF_KANIKO_DISABLE_HTTP2", "FF_KANIKO_EXPAND_HEREDOC",
-	"FF_KANIKO_HASH_DIR_FRAMING", "FF_KANIKO_IGNORE_CACHED_MANIFEST",
+	"FF_KANIKO_HASH_DIR_FRAMING",
 	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", "FF_KANIKO_LAYER_HINTS",
-	"FF_KANIKO_NO_PROPAGATE_ANNOTATIONS",
-	"FF_KANIKO_OCI_SCRATCH_BASE", "FF_KANIKO_OCI_WARMER",
+	"FF_KANIKO_OCI_SCRATCH_BASE",
 	"FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH", "FF_KANIKO_PRECOMPILE_DOCKERIGNORE",
-	"FF_KANIKO_PRESERVE_HARDLINKS", "FF_KANIKO_PRESERVE_MOUNTED_PATHS",
 	"FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS",
-	"FF_KANIKO_RELATIVE_LINK_TARGETS", "FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS",
+	"FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS",
 	"FF_KANIKO_RESOLVE_CACHE_KEY", "FF_KANIKO_ROLLING_CACHE_KEY",
-	"FF_KANIKO_RUN_HONOR_GROUP", "FF_KANIKO_RUN_MOUNT_BIND",
-	"FF_KANIKO_SCOPED_DOCKERIGNORE", "FF_KANIKO_SECUREJOIN_EXTRACTION",
+	"FF_KANIKO_RUN_HONOR_GROUP",
+	"FF_KANIKO_SCOPED_DOCKERIGNORE",
 	"FF_KANIKO_SHARED_BASE_CACHE", "FF_KANIKO_SKIP_CACHED_STAGES",
 	"FF_KANIKO_SKIP_RELABEL_RECOMPRESS", "FF_KANIKO_SKIP_WRITE_WHITEOUTS",
 	"FF_KANIKO_UNPACK_XZ", "FF_KANIKO_UNPACK_ZSTD",
-	"FF_KANIKO_UNTAR_SKIP_ROOT", "FF_KANIKO_VOLUME_SKIP_MKDIR",
-	"FF_KANIKO_WARMER_CACHE_LOCK",
+	"FF_KANIKO_UNTAR_SKIP_ROOT",
 }
 
 // fixedFuzzEpoch is a constant mtime used for generated context files and touch
@@ -610,8 +606,8 @@ func generate(s *source, bases []string) genResult {
 				}
 			case 29:
 				// RUN --mount=type=bind: a context file is mounted into the RUN but is
-				// ephemeral, so it must not appear in the layer. Both tools support it
-				// (kaniko via FF_KANIKO_RUN_MOUNT_BIND), a good test of mount-vs-layer.
+				// ephemeral, so it must not appear in the layer. Both tools support it,
+				// a good test of mount-vs-layer.
 				// With rw the RUN may write into the mount, and the write must stay out of the
 				// layer and out of the context.
 				f := srcPick(s, regulars)
@@ -940,9 +936,7 @@ func generate(s *source, bases []string) genResult {
 	var envFlags []string
 	for _, ff := range []string{
 		"FF_KANIKO_CACHE_PROBE_AFTER_MISS",    // after a miss, keep probing later layers
-		"FF_KANIKO_IGNORE_CACHED_MANIFEST",    // do not short-circuit on a cached manifest
 		"FF_KANIKO_ROLLING_CACHE_KEY",         // recursive-hash composite cache key (mz873)
-		"FF_KANIKO_CLEAN_KANIKO_DIR",          // wipe /kaniko after build, image unaffected
 		"FF_KANIKO_SKIP_RELABEL_RECOMPRESS",   // relabel a converted layer without recompress; digest-asserted equal
 		"FF_KANIKO_DISABLE_HTTP2",             // registry transport over HTTP/1.1, image unaffected
 		"FF_KANIKO_POOL_REGISTRY_CONNECTIONS", // one connection pool per registry (mz961), transport-only
@@ -950,8 +944,6 @@ func generate(s *source, bases []string) genResult {
 		"FF_KANIKO_SKIP_CACHED_STAGES",        // squash fully cached stages after lookahead (mz334), final image unaffected
 		"FF_KANIKO_CROSS_REPO_MOUNT",          // mount a blob the registry already holds instead of uploading it (mz989)
 		"FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH", // scope the registry token to the repository path, transport-only
-		"FF_KANIKO_WARMER_CACHE_LOCK",         // lock the warmer cache dir, concurrency-only
-		"FF_KANIKO_OCI_WARMER",                // warmer cache format, OCI layout or legacy tarball
 		"FF_KANIKO_DEFER_CACHE_PUSH",          // upload cache layers in the background, awaited before exit
 		"FF_KANIKO_LAYER_HINTS",               // log layer hints, image unaffected
 		"FF_KANIKO_PEEK_ARCHIVE_HEADER",       // detect ADD archive compression from the header only
