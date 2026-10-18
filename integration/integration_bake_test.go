@@ -66,6 +66,7 @@ func TestBake(t *testing.T) {
 			kanikoFlags = addCoverageFlags(kanikoFlags)
 			kanikoFlags = addKanikoEnvFlags(kanikoFlags, t.Name())
 			kanikoFlags = append(kanikoFlags, ExecutorImage, "bake", "/ctx/kaniko-bake.hcl", "-c", "/ctx")
+			kanikoFlags = append(kanikoFlags, KanikoFlags...)
 			dockerFlags := []string{"buildx", "bake", "-f", "docker-bake.hcl"}
 			var dockerTargets []string
 			for _, target := range targets {

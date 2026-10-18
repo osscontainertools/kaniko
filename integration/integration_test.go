@@ -449,6 +449,7 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 		"-f", dockerfile,
 		"-d", kanikoImage,
 		"-c", KanikoGitRepo(url, commit, branch))
+	dockerRunFlags = append(dockerRunFlags, KanikoFlags...)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -525,6 +526,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 		"-c", KanikoGitRepo(url, "", branch),
 		"--context-sub-path", filepath.Join(integrationPath, dockerfilesPath),
 	)
+	dockerRunFlags = append(dockerRunFlags, KanikoFlags...)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -568,6 +570,7 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 		"--registry-mirror", "doesnotexist.example.com",
 		"--registry-mirror", "us-mirror.gcr.io",
 		"-c", KanikoGitRepo(url, "", branch))
+	dockerRunFlags = append(dockerRunFlags, KanikoFlags...)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -611,6 +614,7 @@ func TestBuildViaRegistryMap(t *testing.T) {
 		"--registry-map", "index.docker.io=doesnotexist.example.com",
 		"--registry-map", "index.docker.io=us-mirror.gcr.io",
 		"-c", KanikoGitRepo(url, "", branch))
+	dockerRunFlags = append(dockerRunFlags, KanikoFlags...)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -639,6 +643,7 @@ func TestBuildSkipFallback(t *testing.T) {
 		"--registry-mirror", "doesnotexist.example.com",
 		"--skip-default-registry-fallback",
 		"-c", KanikoGitRepo(url, "", branch))
+	dockerRunFlags = append(dockerRunFlags, KanikoFlags...)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -679,6 +684,7 @@ func TestKanikoDir(t *testing.T) {
 		"-f", dockerfile,
 		"-d", kanikoImage,
 		"-c", KanikoGitRepo(url, "", branch))
+	dockerRunFlags = append(dockerRunFlags, KanikoFlags...)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 	kanikoCmd.Env = append(kanikoCmd.Env, "KANIKO_DIR=/not-kaniko")
@@ -726,6 +732,7 @@ func TestBuildWithLabels(t *testing.T) {
 		"--label", testLabel,
 		"-c", KanikoGitRepo(url, "", branch),
 	)
+	dockerRunFlags = append(dockerRunFlags, KanikoFlags...)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -767,6 +774,7 @@ func TestBuildWithHTTPError(t *testing.T) {
 		"-d", kanikoImage,
 		"-c", KanikoGitRepo(url, "", branch),
 	)
+	dockerRunFlags = append(dockerRunFlags, KanikoFlags...)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -1398,6 +1406,7 @@ func TestPlatformScopedCacheKey(t *testing.T) {
 			"-f", dockerfile, "-c", buildContextPath,
 			"--no-push", "--cache=true", "--cache-repo", cacheRepo,
 			"--custom-platform=linux/"+arch, "--build-arg", "BASE="+config.singleManifestBaseImage)
+		dockerRunFlags = append(dockerRunFlags, KanikoFlags...)
 		out, err := RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
 		if err != nil {
 			t.Fatalf("build for linux/%s failed: %v\n%s", arch, err, out)
@@ -1498,6 +1507,7 @@ func TestExitCodePropagation(t *testing.T) {
 			"-f", "./Dockerfile_exit_code_propagation",
 			"--no-push",
 		)
+		dockerFlags = append(dockerFlags, KanikoFlags...)
 
 		dockerCmdWithKaniko := exec.Command("docker", dockerFlags...)
 
@@ -1553,6 +1563,7 @@ func TestBuildWithAnnotations(t *testing.T) {
 		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
 		"-c", KanikoGitRepo(url, "", branch),
 	)
+	dockerRunFlags = append(dockerRunFlags, KanikoFlags...)
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 	out, err = RunCommandWithoutTest(kanikoCmd)
 	if err != nil {
@@ -1638,6 +1649,7 @@ func TestPushFromArtifact(t *testing.T) {
 				flags = addCoverageFlags(flags)
 				flags = append(flags, ExecutorImage)
 				flags = append(flags, executorArgs...)
+				flags = append(flags, KanikoFlags...)
 				cmd := exec.Command("docker", flags...)
 				if out, err := RunCommandWithoutTest(cmd); err != nil {
 					t.Fatalf("%v: %v\n%s", cmd.Args, err, string(out))
@@ -2186,6 +2198,7 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 			"-c", buildContextPath,
 		)
 		dockerRunFlags = append(dockerRunFlags, args...)
+		dockerRunFlags = append(dockerRunFlags, KanikoFlags...)
 		return RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
 	}
 

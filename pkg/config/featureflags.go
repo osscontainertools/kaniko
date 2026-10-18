@@ -77,7 +77,7 @@ type FeatureFlags struct {
 
 var FF FeatureFlags
 
-// sync with the Profiles section in README.md and KanikoEnv in integration/images.go
+// sync with the Profiles section in README.md
 var Profiles = map[string][]string{
 	"preview": {
 		"FF_KANIKO_CACHE_IMAGE_INDEX",

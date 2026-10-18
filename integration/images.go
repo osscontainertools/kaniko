@@ -175,53 +175,16 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1065": {"KANIKO_DIR=/tmpdir/kaniko2"},
 	// mz970: layout layers carry no reference, so a stored base cannot be mounted
 	"Dockerfile_test_issue_mz1007":   {"FF_KANIKO_SHARED_BASE_CACHE=0"},
-	"Dockerfile_test_stopsignal":     {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
-	"Dockerfile_test_healthcheck":    {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
 	"Dockerfile_test_issue_mz1133_1": {"FF_KANIKO_COPY_AS_ROOT=0"},
 	"Dockerfile_test_issue_mz1133_2": {"FF_KANIKO_COPY_AS_ROOT=0"},
 	"Dockerfile_test_issue_mz881":    {"KANIKO_127_0_0_2:5001_USER=kanikotest", "KANIKO_127_0_0_2:5001_PASSWORD=kanikotest"},
 }
 
+// Flags to run every kaniko build with, appended after the other arguments so
+// they also land behind a subcommand
+var KanikoFlags = []string{"--profile=preview", "--profile=buildkit"}
+
 var KanikoEnv = []string{
-	"FF_KANIKO_ADD_CHECKSUM=1",
-	"FF_KANIKO_ADD_UNPACK=1",
-	"FF_KANIKO_CACHE_HASH_BLAKE3=1",
-	"FF_KANIKO_CACHE_IMAGE_INDEX=1",
-	"FF_KANIKO_CACHE_LOOKAHEAD=1",
-	"FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS=1",
-	"FF_KANIKO_COPY_AS_ROOT=1",
-	"FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=1",
-	"FF_KANIKO_COPY_LINK=1",
-	"FF_KANIKO_COPY_SKIP_SPECIAL_FILES=1",
-	"FF_KANIKO_CROSS_REPO_MOUNT=1",
-	"FF_KANIKO_DEFER_CACHE_PUSH=1",
-	"FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES=1",
-	"FF_KANIKO_EXPAND_HEREDOC=1",
-	"FF_KANIKO_HASH_DIR_FRAMING=1",
-	"FF_KANIKO_IMAGE_STAGES=1",
-	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=1",
-	"FF_KANIKO_LAYER_HINTS=1",
-	"FF_KANIKO_NATIVE_COPY=1",
-	"FF_KANIKO_OCI_SCRATCH_BASE=1",
-	"FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=1",
-	"FF_KANIKO_PEEK_ARCHIVE_HEADER=1",
-	"FF_KANIKO_PLATFORM_CACHE_KEY=1",
-	"FF_KANIKO_POOL_REGISTRY_CONNECTIONS=1",
-	"FF_KANIKO_PRECOMPILE_DOCKERIGNORE=1",
-	"FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS=1",
-	"FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=1",
-	"FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT=1",
-	"FF_KANIKO_RESOLVE_CACHE_KEY=1",
-	"FF_KANIKO_ROLLING_CACHE_KEY=1",
-	"FF_KANIKO_RUN_HONOR_GROUP=1",
-	"FF_KANIKO_RUN_VIA_TINI=1",
-	"FF_KANIKO_SCOPED_DOCKERIGNORE=1",
-	"FF_KANIKO_SHARED_BASE_CACHE=1",
-	"FF_KANIKO_SKIP_RELABEL_RECOMPRESS=1",
-	"FF_KANIKO_SKIP_WRITE_WHITEOUTS=1",
-	"FF_KANIKO_UNPACK_XZ=1",
-	"FF_KANIKO_UNPACK_ZSTD=1",
-	"FF_KANIKO_UNTAR_SKIP_ROOT=1",
 	"KANIKO_PRINT_PLAN=1",
 	"KANIKO_TELEMETRY_ENDPOINT",
 	"KANIKO_TELEMETRY_TOKEN_EXCHANGE_ENDPOINT",
@@ -897,6 +860,7 @@ func (d *DockerFileBuilder) buildCachedImage(t *testing.T, config *integrationTe
 		cacheFlag,
 		"--cache-repo", cacheRepo,
 		"--cache-dir", cacheDir)
+	dockerRunFlags = append(dockerRunFlags, KanikoFlags...)
 	dockerRunFlags = append(dockerRunFlags, args...)
 	dockerRunFlags = append(dockerRunFlags, buildArgs...)
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
@@ -948,6 +912,7 @@ func (d *DockerFileBuilder) buildCachedImageInContext(t *testing.T, config *inte
 		"--cache-copy-layers",
 		"--cache-repo", cacheRepo,
 		"--cache-dir", cacheDir)
+	dockerRunFlags = append(dockerRunFlags, KanikoFlags...)
 
 	out, err := RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
 	t.Logf("%s", out)
@@ -1010,6 +975,7 @@ func (d *DockerFileBuilder) buildWarmerImage(t *testing.T, config *integrationTe
 		"--cache-run-layers=false",
 		"--no-push-cache",
 	)
+	dockerRunFlags = append(dockerRunFlags, KanikoFlags...)
 	dockerRunFlags = append(dockerRunFlags, args...)
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -1072,6 +1038,7 @@ func (d *DockerFileBuilder) buildRelativePathsImage(t *testing.T, imageRepo, doc
 		"-f", dockerfile,
 		"-d", kanikoImage,
 		"-c", buildContextPath)
+	dockerRunFlags = append(dockerRunFlags, KanikoFlags...)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -1201,6 +1168,7 @@ func buildKanikoImage(
 		"-f", kanikoDockerfilePath,
 		"-d", kanikoImage,
 	)
+	dockerRunFlags = append(dockerRunFlags, KanikoFlags...)
 	dockerRunFlags = append(dockerRunFlags, additionalFlags...)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
