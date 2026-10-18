@@ -289,8 +289,8 @@ RUN rm -rf /opt/driver && ln -s /opt/real /opt/driver
 `, false)
 
 	// Mint a base carrying OCI manifest annotations, so a generated FROM against it
-	// exercises how base-image annotations are handled and propagated (build.go, mz507
-	// FF_KANIKO_NO_PROPAGATE_ANNOTATIONS). crane mutate adds the annotations onto the OCI
+	// exercises how base-image annotations are handled and propagated (build.go, mz507).
+	// crane mutate adds the annotations onto the OCI
 	// base's manifest without rebuilding layers.
 	annotBase := strings.ToLower(config.imageRepo + annotBaseTag)
 	if _, err := runFuzzBounded(exec.Command("crane", "manifest", annotBase)); err != nil {
@@ -789,24 +789,10 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		wf := warmerOracle(label, dir, gen.dockerfile, gen.buildArgs, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr)
 		if wf != nil {
 			differ := wf.sev == sevWarmerDiff && strings.Contains(wf.summary, "builds differ")
-			legacy := slices.Contains(gen.envFlags, "FF_KANIKO_OCI_WARMER=0")
-			class := ""
-			switch {
-			case differ && legacy && onlyDockerToOCIMediaTypes(wf.detail):
-				class = legacyWarmerMediaType
-			case wf.sev == sevCrash && legacy && strings.Contains(wf.summary, "[image.consistent-media-type]"),
-				wf.sev == sevWarmerDiff && legacy && strings.Contains(wf.detail, "MANIFEST_INVALID"):
-				// The same tarball entry with the OCI sidecar manifest in use: Manifest() is OCI,
-				// MediaType() and the new layers are docker, so the appended manifest mixes both.
-				// The assertion catches it, or the registry rejects it on push.
-				class = legacyWarmerMediaType
-			case differ && isCrossStage(gen.dockerfile):
+			if differ && isCrossStage(gen.dockerfile) {
 				// Warm and cold are two independent builds, so a cross-stage diff is the mz876
 				// class the determinism oracle counts too.
-				class = mz876CrossStage
-			}
-			if class != "" {
-				kf := &finding{seed: seed, sev: sevClean, known: map[string]int{class: 1}}
+				kf := &finding{seed: seed, sev: sevClean, known: map[string]int{mz876CrossStage: 1}}
 				mergeKnown(kf, dockerCls.known)
 				return kf
 			}
@@ -1134,9 +1120,6 @@ func warmFuzzCache(cacheDir, contextDir string, buildArgs []string, covDir strin
 // cacheDir, if set, is bind-mounted at /cache.
 //
 // The warmer gets the executor's env, KanikoEnv plus the case's envFlags.
-// FF_KANIKO_OCI_WARMER picks the on-disk cache format in the warmer and the read path in the
-// executor, so the two have to be given the same value or the warm build just misses a cache
-// it cannot read.
 func runFuzzWarmer(contextDir, cacheDir string, extra, buildArgs []string, covDir string, envFlags []string) (string, error) {
 	flags := []string{"run", "--rm", "--net=host", "-v", contextDir + ":/workspace:ro"}
 	if cacheDir != "" {
