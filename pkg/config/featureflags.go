@@ -17,6 +17,8 @@ limitations under the License.
 package config
 
 import (
+	"fmt"
+	"maps"
 	"os"
 	"reflect"
 	"slices"
@@ -75,15 +77,54 @@ type FeatureFlags struct {
 
 var FF FeatureFlags
 
+// sync with the Profiles section in README.md
+var Profiles = map[string][]string{
+	"preview": {
+		"FF_KANIKO_CACHE_IMAGE_INDEX",
+		"FF_KANIKO_COPY_LINK",
+		"FF_KANIKO_DEFER_CACHE_PUSH",
+	},
+	"buildkit": {
+		"FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS",
+		"FF_KANIKO_COPY_AS_ROOT",
+		"FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS",
+		"FF_KANIKO_COPY_LINK",
+		"FF_KANIKO_UNPACK_XZ",
+	},
+}
+
 var (
+	activeProfiles        []string
 	knownFeatureFlags     []string
 	activeFeatureFlags    []string
 	redundantFeatureFlags []string
 	disabledFeatureFlags  []string
 )
 
+// ApplyProfiles re-initializes the feature flags with the named profiles enabled.
+// Explicit FF_KANIKO_* env vars still win over a profile.
+func ApplyProfiles(names []string) error {
+	for _, name := range names {
+		if _, ok := Profiles[name]; !ok {
+			return fmt.Errorf("unknown profile %q, valid profiles are: %s", name, strings.Join(slices.Sorted(maps.Keys(Profiles)), ", "))
+		}
+	}
+	activeProfiles = names
+	InitFeatureFlags()
+	return nil
+}
+
+func inActiveProfile(name string) bool {
+	for _, p := range activeProfiles {
+		if slices.Contains(Profiles[p], name) {
+			return true
+		}
+	}
+	return false
+}
+
 func featureFlag(name string, def bool) bool {
-	value := EnvBoolDefault(name, def)
+	value := EnvBoolDefault(name, def || inActiveProfile(name))
 	_, explicit := os.LookupEnv(name)
 	knownFeatureFlags = append(knownFeatureFlags, name)
 	if value {
@@ -156,6 +197,11 @@ func InitFeatureFlags() {
 	unique := len(slices.Compact(slices.Sorted(slices.Values(knownFeatureFlags))))
 	assert.Assert("config.featureflags.unique", unique == len(knownFeatureFlags), "FeatureFlags registered %d flags but only %d are unique; each flag name must be registered once", len(knownFeatureFlags), unique)
 	assert.Assert("config.featureflags.complete", fields == len(knownFeatureFlags), "FeatureFlags has %d fields but %d are initialized; every field must be set via featureFlag", fields, len(knownFeatureFlags))
+	for _, flags := range Profiles {
+		for _, name := range flags {
+			assert.Assert("config.featureflags.profile", slices.Contains(knownFeatureFlags, name), "profile flag %s is not a registered feature flag", name)
+		}
+	}
 }
 
 func init() {
@@ -163,6 +209,9 @@ func init() {
 }
 
 func LogFeatureFlags() {
+	for _, p := range activeProfiles {
+		logrus.Infof("profile %q enables: %s", p, strings.Join(Profiles[p], ", "))
+	}
 	if len(activeFeatureFlags) > 0 {
 		logrus.Infof("active feature flags: %s", strings.Join(activeFeatureFlags, ", "))
 	}
