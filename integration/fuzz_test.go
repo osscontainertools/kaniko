@@ -2237,7 +2237,8 @@ func registryMirrorOracle(seed int64, label, dir, dirImage, dockerfile string, f
 // mz873 (a colliding layer served across builds). A cache-lookahead assertion crash during
 // the shared-cache build is mz872; crashOr catches it. Needs a case that declares >=2 args.
 // RESOLVE_CACHE_KEY is forced off so the arg-referencing command string stays literal and
-// the composite keys actually collide.
+// the composite keys actually collide. ROLLING_CACHE_KEY is forced on because its off path is
+// the known mz873 collision.
 func sharedCacheOracle(seed int64, label, dir, dockerfile string, argNames, flags, envFlags []string, covDir string, fail func(severity, string, string) *finding, crashOr func(string) *finding) *finding {
 	if len(argNames) < 2 {
 		return nil
@@ -2256,7 +2257,7 @@ func sharedCacheOracle(seed int64, label, dir, dockerfile string, argNames, flag
 		}
 	}
 	base = append([]string{"--cache=true", "--cache-copy-layers=true"}, base...)
-	env := append(append([]string{}, envFlags...), "FF_KANIKO_RESOLVE_CACHE_KEY=0")
+	env := append(append([]string{}, envFlags...), "FF_KANIKO_RESOLVE_CACHE_KEY=0", "FF_KANIKO_ROLLING_CACHE_KEY=1")
 
 	sharedRepo := strings.ToLower(config.imageRepo + "fuzzshared-" + label)
 	cleanRepo := strings.ToLower(config.imageRepo + "fuzzshared-clean-" + label)
