@@ -13,7 +13,9 @@
 # limitations under the License.
 
 ARG BUILDPLATFORM
-FROM --platform=$BUILDPLATFORM golang:1.27.2@sha256:820153096fda4de6ac1b7194d12e416b7dd8f4e9a33d17e0345b111b945162d8 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.2@sha256:820153096fda4de6ac1b7194d12e416b7dd8f4e9a33d17e0345b111b945162d8 AS golang
+
+FROM golang AS builder
 WORKDIR /src
 
 # This arg is passed by docker buildx & contains the target CPU architecture (e.g., amd64, arm64, etc.)
@@ -196,8 +198,7 @@ ENTRYPOINT ["/kaniko/executor"]
 
 ### SOURCE STAGES ###
 
-# Keep in sync with the builder image, its ca-certificates is the one we ship.
-FROM --platform=$BUILDPLATFORM golang:1.27.2@sha256:820153096fda4de6ac1b7194d12e416b7dd8f4e9a33d17e0345b111b945162d8 AS ca-certificates-source
+FROM golang AS ca-certificates-source
 WORKDIR /sources/ca-certificates
 RUN snapshot=$(sed -n 's|^# \(http://snapshot.debian.org/archive/debian/[0-9TZ]*\)$|\1|p' /etc/apt/sources.list.d/debian.sources | head -n1) \
     && printf 'Types: deb-src\nURIs: %s\nSuites: trixie trixie-updates\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.pgp\nCheck-Valid-Until: no\n' "$snapshot" \
@@ -237,6 +238,37 @@ ADD --checksum=sha256:34f9ea6ff8636f2c9241153b9114eefa9e65674a45318ae1ef95bb5f31
     https://busybox.net/downloads/busybox-1.38.0.tar.bz2 /busybox/
 ADD --checksum=sha256:d87d0cbb3690ae2c5d8cc218349fd8278b93855dd625deaf7ae50e320aad247c \
     https://github.com/alpinelinux/aports/raw/48b16204aeeda5bc1f87e49c6b8e23d9abb07c73/main/musl/getconf.c /busybox/
+
+# The glibc the tini release binaries link statically. Ubuntu xenial, native on
+# amd64 and from cross-toolchain-base on the other platforms.
+FROM scratch AS glibc-source-amd64
+ADD --checksum=sha256:422c3e17758e3378474bed63e2ed140364045c671f913fa99928a6eeff64adb6 \
+    https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu10/glibc_2.23-0ubuntu10.dsc /glibc/
+ADD --checksum=sha256:bf6c528eeebefcacc295270068b79330c1fb2b22458ff66285b4175d23442c96 \
+    https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu10/glibc_2.23.orig.tar.xz /glibc/
+ADD --checksum=sha256:4918baa16af87741a50aa349ebe12294f856d73bd052d8558f5385c0607fc05e \
+    https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu10/glibc_2.23-0ubuntu10.debian.tar.xz /glibc/
+FROM scratch AS glibc-source-cross
+ADD --checksum=sha256:647f33e229b3d838ff72b3dcb80242d2c6c61ff93aa9798009962b9a21992260 \
+    https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu3/glibc_2.23-0ubuntu3.dsc /glibc/
+ADD --checksum=sha256:bf6c528eeebefcacc295270068b79330c1fb2b22458ff66285b4175d23442c96 \
+    https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu3/glibc_2.23.orig.tar.xz /glibc/
+ADD --checksum=sha256:5e01dd448c8d78e850661ca88f5009f19011b00c6a7031f7578fe09c330a41d3 \
+    https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu3/glibc_2.23-0ubuntu3.debian.tar.xz /glibc/
+ADD --checksum=sha256:11265ed751cb009555bf546809fc4168f731ff1f95da5e4534737adb84e33364 \
+    https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/cross-toolchain-base/10ubuntu1/cross-toolchain-base_10ubuntu1.dsc /glibc/
+ADD --checksum=sha256:4ad675289604ff38a49f625e026acba11e87bcba1c4128db9b71f8688f89e056 \
+    https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/cross-toolchain-base/10ubuntu1/cross-toolchain-base_10ubuntu1.tar.xz /glibc/
+FROM glibc-source-cross AS glibc-source-arm
+FROM glibc-source-cross AS glibc-source-arm64
+FROM glibc-source-cross AS glibc-source-s390x
+FROM glibc-source-cross AS glibc-source-ppc64le
+FROM scratch AS glibc-source-riscv64
+FROM glibc-source-${TARGETARCH} AS glibc-source
+
+# Keep in sync with the busybox image, the musl its docker-library builder linked
+# from alpine:3.23 at build time.
+FROM scratch AS musl-source
 ADD --checksum=sha256:a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4 \
     https://distfiles.alpinelinux.org/distfiles/v3.23/musl-1.2.5.tar.gz /musl/
 ADD --checksum=sha256:05d8ce8d147c04bc2a23fe122516c7ee6ce68b947475c5b2621917452ad63d2a \
@@ -247,5 +279,7 @@ FROM scratch AS kaniko-sources
 COPY . /kaniko/
 COPY --from=ca-certificates-source /sources/ /
 COPY --from=busybox-source / /
+COPY --from=musl-source / /
+COPY --from=glibc-source / /
 ADD --checksum=sha256:0fd35a7030052acd9f58948d1d900fe1e432ee37103c5561554408bdac6bbf0d \
     https://github.com/krallin/tini/archive/refs/tags/v0.19.0.tar.gz /tini/tini-0.19.0.tar.gz
