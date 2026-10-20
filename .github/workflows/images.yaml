@@ -190,6 +190,39 @@ jobs:
             index,manifest:org.opencontainers.image.description=Build container images in Kubernetes
             index,manifest:org.opencontainers.image.version=${{ steps.context.outputs.is_release == 'true' && github.ref_name || github.sha }}
 
+      - if: steps.context.outputs.should_push == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        id: sources
+        env:
+          SOURCE_DATE_EPOCH: ${{ steps.build-time.outputs.epoch }}
+        with:
+          context: .
+          file: ./deploy/Dockerfile
+          platforms: ${{ steps.platforms.outputs.platforms }}
+          outputs: type=image,name=${{ steps.context.outputs.image_name }},push-by-digest=true,push=true,rewrite-timestamp=true
+          cache-from: type=gha
+          target: kaniko-sources
+          sbom: false
+          provenance: false
+
+      - if: steps.context.outputs.should_push == 'true'
+        uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b # v0.7
+
+      - if: steps.context.outputs.should_push == 'true'
+        name: Attach sources
+        id: attach-sources
+        run: |
+          image=${{ steps.context.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }}
+          sources=${{ steps.context.outputs.image_name }}@${{ steps.sources.outputs.digest }}
+          jq -n --argjson index "$(crane manifest "$image")" --argjson sources "$(crane manifest "$sources")" '
+            $index | .manifests += [
+              .manifests[] | select(.platform.os != "unknown") as $m
+              | $sources.manifests[] | select(.platform == $m.platform)
+              | {mediaType, digest, size, platform: {architecture: "unknown", os: "unknown"},
+                 annotations: {"vnd.docker.reference.type": "source", "vnd.docker.reference.digest": $m.digest}}
+            ]' | crane edit manifest ${{ steps.context.outputs.image_name }}:${{ matrix.tag }}
+          echo "digest=$(crane digest ${{ steps.context.outputs.image_name }}:${{ matrix.tag }})" >> $GITHUB_OUTPUT
+
       # Sign images if not a PR.
       - if: steps.context.outputs.should_push == 'true'
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
@@ -197,28 +230,25 @@ jobs:
       - if: steps.context.outputs.should_push == 'true'
         run: |
           cosign sign --yes \
-              ${{ steps.context.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }}
+              ${{ steps.context.outputs.image_name }}@${{ steps.attach-sources.outputs.digest }}
 
       # If a tag push, use crane to add more tags.
-      - if: steps.context.outputs.is_release == 'true'
-        uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b # v0.7
-
       - if: steps.context.outputs.is_release == 'true'
         name: Apply release tags
         run: |
           tag=${GITHUB_REF/refs\/tags\//}
 
           # Tag :latest, :debug, :slim
-          crane cp ${{ steps.context.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }} \
+          crane cp ${{ steps.context.outputs.image_name }}@${{ steps.attach-sources.outputs.digest }} \
               ${{ steps.context.outputs.image_name }}:${{ matrix.release-tag }}
 
           if [[ "${{ matrix.release-tag }}" == "latest" ]]; then
             # Tag :latest images as :v1.X.Y
-            crane cp ${{ steps.context.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }} \
+            crane cp ${{ steps.context.outputs.image_name }}@${{ steps.attach-sources.outputs.digest }} \
                 ${{ steps.context.outputs.image_name }}:${tag}
           else
             # Or tag :v1.X.Y-debug and :v1.X.Y-slim
-            crane cp ${{ steps.context.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }} \
+            crane cp ${{ steps.context.outputs.image_name }}@${{ steps.attach-sources.outputs.digest }} \
                 ${{ steps.context.outputs.image_name }}:${tag}-${{ matrix.release-tag }}
           fi
 
@@ -235,14 +265,14 @@ jobs:
           tag=${GITHUB_REF/refs\/tags\//}
 
           # Tag :latest, :debug, :slim
-          crane cp ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
+          crane cp ghcr.io/${{ github.repository }}@${{ steps.attach-sources.outputs.digest }} \
               ${{ env.DOCKER_REPO }}:${{ matrix.release-tag }}
 
           if [[ "${{ matrix.release-tag }}" == "latest" ]]; then
-            crane cp ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
+            crane cp ghcr.io/${{ github.repository }}@${{ steps.attach-sources.outputs.digest }} \
                 ${{ env.DOCKER_REPO }}:${tag}
           else
-            crane cp ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
+            crane cp ghcr.io/${{ github.repository }}@${{ steps.attach-sources.outputs.digest }} \
                 ${{ env.DOCKER_REPO }}:${tag}-${{ matrix.release-tag }}
           fi
 
@@ -250,5 +280,5 @@ jobs:
         name: Sign Docker Hub images
         run: |
           cosign sign --yes \
-              --sign-container-identity ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
-              ${{ env.DOCKER_REPO }}@${{ steps.build-and-push.outputs.digest }}
+              --sign-container-identity ghcr.io/${{ github.repository }}@${{ steps.attach-sources.outputs.digest }} \
+              ${{ env.DOCKER_REPO }}@${{ steps.attach-sources.outputs.digest }}
