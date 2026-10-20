@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.20
 # Copyright 2018 Google, Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -52,6 +51,11 @@ COPY . .
 ARG COVER=""
 RUN make COVER="$COVER" out/executor out/warmer \
     && rm -rf /root/.cache
+RUN mkdir -p /licenses/go \
+    && cp LICENSE /licenses/ \
+    && cp /usr/local/go/LICENSE /licenses/go/ \
+    && find vendor -type f \( -name 'LICEN[CS]E*' -o -name 'NOTICE*' -o -name 'COPYING*' \) -exec cp --parents {} /licenses/ \; \
+    && hardlink /licenses
 
 # use musl busybox since it's staticly compiled on all platforms
 FROM busybox:musl@sha256:ea2b9914a16a4ac1981994af97b318f7c7d4db76b580c56177f08bf76f4a0be8 AS busybox
@@ -64,9 +68,7 @@ COPY --from=busybox /kaniko /kaniko
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /kaniko/ssl/certs/
 COPY files/nsswitch.conf /etc/nsswitch.conf
-COPY LICENSE /kaniko/licenses/
-COPY --from=builder /usr/local/go/LICENSE /kaniko/licenses/go/
-COPY --parents vendor/**/LICEN[CS]E* vendor/**/NOTICE* vendor/**/COPYING* /kaniko/licenses/
+COPY --from=builder /licenses /kaniko/licenses
 ENV HOME=/root
 ENV USER=root
 ENV PATH=/usr/local/bin:/kaniko
