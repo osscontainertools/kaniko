@@ -63,6 +63,9 @@ COPY --from=busybox /kaniko /kaniko
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /kaniko/ssl/certs/
 COPY files/nsswitch.conf /etc/nsswitch.conf
+COPY LICENSE /kaniko/licenses/
+COPY --from=builder /usr/local/go/LICENSE /kaniko/licenses/go/
+COPY --parents vendor/**/LICEN[CS]E* vendor/**/NOTICE* vendor/**/COPYING* /kaniko/licenses/
 ENV HOME=/root
 ENV USER=root
 ENV PATH=/usr/local/bin:/kaniko
@@ -130,6 +133,7 @@ RUN apk add --no-cache ca-certificates git
 COPY --from=builder /src/out/executor /kaniko/executor
 COPY --from=builder /kaniko/.docker /kaniko/.docker
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /kaniko/ssl/certs/
+COPY --from=kaniko-base-slim /kaniko/licenses /kaniko/licenses
 
 # mz446: there is no tini binary release on riscv64
 ARG TARGETARCH
