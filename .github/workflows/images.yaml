@@ -163,7 +163,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           target: ${{ matrix.target }}
-          sbom: true
+          attests: type=sbom,"SELECT_CATALOGERS=image,file,+sbom-cataloger,-binary-classifier-cataloger"
           provenance: mode=max
           labels: |
             org.opencontainers.image.created=${{ steps.build-time.outputs.created }}
