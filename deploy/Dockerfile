@@ -89,8 +89,7 @@ ENV DOCKER_CREDENTIAL_GCR_CONFIG=/kaniko/.config/gcloud/docker_credential_gcr_co
 WORKDIR /workspace
 
 # mz446: there is no tini binary release on riscv64
-# The release binaries link glibc statically, natively on amd64 and from
-# cross-toolchain-base on the other platforms, see deploy/sources/tini-*.spdx.json.
+# Keep in sync with deploy/sources/tini-*.spdx.json.
 FROM kaniko-base AS kaniko-base-amd64
 ADD --checksum=sha256:c5b0666b4cb676901f90dfcb37106783c5fe2077b04590973b885950611b30ee \
     --chown=0:0 --chmod=555 \
