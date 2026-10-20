@@ -53,7 +53,7 @@
       "externalRefs": [{
         "referenceCategory": "PACKAGE-MANAGER",
         "referenceType": "purl",
-        "referenceLocator": "pkg:apk/alpine/musl@1.2.5-r23?distro=alpine-3.23.6&checksum=sha256:a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4&download_url=https://distfiles.alpinelinux.org/distfiles/v3.23/musl-1.2.5.tar.gz&vcs_url=git+https://gitlab.alpinelinux.org/alpine/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8"
+        "referenceLocator": "pkg:generic/musl@1.2.5-r23?distro=alpine-3.23.6&checksum=sha256:a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4&download_url=https://distfiles.alpinelinux.org/distfiles/v3.23/musl-1.2.5.tar.gz&vcs_url=git+https://gitlab.alpinelinux.org/alpine/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8"
       }]
     },
     {

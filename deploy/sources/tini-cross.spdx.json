@@ -38,7 +38,7 @@
       "externalRefs": [{
         "referenceCategory": "PACKAGE-MANAGER",
         "referenceType": "purl",
-        "referenceLocator": "pkg:deb/ubuntu/glibc@2.23-0ubuntu3?arch=source&distro=ubuntu-16.04&checksum=sha256:647f33e229b3d838ff72b3dcb80242d2c6c61ff93aa9798009962b9a21992260&download_url=https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu3/glibc_2.23-0ubuntu3.dsc"
+        "referenceLocator": "pkg:generic/glibc@2.23-0ubuntu3?arch=source&distro=ubuntu-16.04&checksum=sha256:647f33e229b3d838ff72b3dcb80242d2c6c61ff93aa9798009962b9a21992260&download_url=https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu3/glibc_2.23-0ubuntu3.dsc"
       }]
     },
     {
@@ -54,7 +54,7 @@
       "externalRefs": [{
         "referenceCategory": "PACKAGE-MANAGER",
         "referenceType": "purl",
-        "referenceLocator": "pkg:deb/ubuntu/cross-toolchain-base@10ubuntu1?arch=source&distro=ubuntu-16.04&checksum=sha256:11265ed751cb009555bf546809fc4168f731ff1f95da5e4534737adb84e33364&download_url=https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/cross-toolchain-base/10ubuntu1/cross-toolchain-base_10ubuntu1.dsc"
+        "referenceLocator": "pkg:generic/cross-toolchain-base@10ubuntu1?arch=source&distro=ubuntu-16.04&checksum=sha256:11265ed751cb009555bf546809fc4168f731ff1f95da5e4534737adb84e33364&download_url=https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/cross-toolchain-base/10ubuntu1/cross-toolchain-base_10ubuntu1.dsc"
       }]
     }
   ],

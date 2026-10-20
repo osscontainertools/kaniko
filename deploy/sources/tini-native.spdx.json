@@ -38,7 +38,7 @@
       "externalRefs": [{
         "referenceCategory": "PACKAGE-MANAGER",
         "referenceType": "purl",
-        "referenceLocator": "pkg:deb/ubuntu/glibc@2.23-0ubuntu10?arch=source&distro=ubuntu-16.04&checksum=sha256:422c3e17758e3378474bed63e2ed140364045c671f913fa99928a6eeff64adb6&download_url=https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu10/glibc_2.23-0ubuntu10.dsc"
+        "referenceLocator": "pkg:generic/glibc@2.23-0ubuntu10?arch=source&distro=ubuntu-16.04&checksum=sha256:422c3e17758e3378474bed63e2ed140364045c671f913fa99928a6eeff64adb6&download_url=https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu10/glibc_2.23-0ubuntu10.dsc"
       }]
     }
   ],
