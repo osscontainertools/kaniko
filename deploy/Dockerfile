@@ -55,7 +55,7 @@ RUN mkdir -p /licenses/go \
     && cp LICENSE /licenses/ \
     && cp /usr/local/go/LICENSE /licenses/go/ \
     && find vendor -type f \( -name 'LICEN[CS]E*' -o -name 'NOTICE*' -o -name 'COPYING*' \) -exec cp --parents {} /licenses/ \; \
-    && hardlink /licenses
+    && hardlink -t /licenses
 
 # use musl busybox since it's staticly compiled on all platforms
 FROM busybox:musl@sha256:ea2b9914a16a4ac1981994af97b318f7c7d4db76b580c56177f08bf76f4a0be8 AS busybox
