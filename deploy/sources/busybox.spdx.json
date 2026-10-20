@@ -1,0 +1,83 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "busybox",
+  "documentNamespace": "https://github.com/osscontainertools/kaniko/deploy/sources/busybox.spdx.json",
+  "creationInfo": {
+    "created": "2026-10-20T00:00:00Z",
+    "creators": ["Organization: OSS Container Tools"]
+  },
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-busybox",
+      "name": "busybox",
+      "versionInfo": "1.38.0",
+      "downloadLocation": "https://busybox.net/downloads/busybox-1.38.0.tar.bz2",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "34f9ea6ff8636f2c9241153b9114eefa9e65674a45318ae1ef95bb5f31c53bb2"}],
+      "licenseConcluded": "GPL-2.0-only",
+      "licenseDeclared": "GPL-2.0-only",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:generic/busybox@1.38.0?checksum=sha256:34f9ea6ff8636f2c9241153b9114eefa9e65674a45318ae1ef95bb5f31c53bb2&download_url=https://busybox.net/downloads/busybox-1.38.0.tar.bz2"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-docker-library-busybox",
+      "name": "docker-library-busybox",
+      "versionInfo": "fd0ca34e75d3f1aba2da4955a0f8e049aba8f7fe",
+      "downloadLocation": "git+https://github.com/docker-library/busybox@fd0ca34e75d3f1aba2da4955a0f8e049aba8f7fe",
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/docker-library/busybox@fd0ca34e75d3f1aba2da4955a0f8e049aba8f7fe"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl",
+      "name": "musl",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://distfiles.alpinelinux.org/distfiles/v3.23/musl-1.2.5.tar.gz",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:apk/alpine/musl@1.2.5-r23?distro=alpine-3.23.6&checksum=sha256:a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4&download_url=https://distfiles.alpinelinux.org/distfiles/v3.23/musl-1.2.5.tar.gz&vcs_url=git+https://gitlab.alpinelinux.org/alpine/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-getconf",
+      "name": "getconf",
+      "versionInfo": "48b16204aeeda5bc1f87e49c6b8e23d9abb07c73",
+      "downloadLocation": "https://github.com/alpinelinux/aports/raw/48b16204aeeda5bc1f87e49c6b8e23d9abb07c73/main/musl/getconf.c",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "d87d0cbb3690ae2c5d8cc218349fd8278b93855dd625deaf7ae50e320aad247c"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:generic/getconf@48b16204aeeda5bc1f87e49c6b8e23d9abb07c73?checksum=sha256:d87d0cbb3690ae2c5d8cc218349fd8278b93855dd625deaf7ae50e320aad247c&download_url=https://github.com/alpinelinux/aports/raw/48b16204aeeda5bc1f87e49c6b8e23d9abb07c73/main/musl/getconf.c"
+      }]
+    }
+  ],
+  "relationships": [
+    {"spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES", "relatedSpdxElement": "SPDXRef-busybox"},
+    {"spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES", "relatedSpdxElement": "SPDXRef-getconf"},
+    {"spdxElementId": "SPDXRef-docker-library-busybox", "relationshipType": "BUILD_DEPENDENCY_OF", "relatedSpdxElement": "SPDXRef-busybox"},
+    {"spdxElementId": "SPDXRef-busybox", "relationshipType": "STATIC_LINK", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-getconf", "relationshipType": "STATIC_LINK", "relatedSpdxElement": "SPDXRef-musl"}
+  ]
+}

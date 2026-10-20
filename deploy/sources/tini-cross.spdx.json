@@ -1,0 +1,66 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "tini",
+  "documentNamespace": "https://github.com/osscontainertools/kaniko/deploy/sources/tini-cross.spdx.json",
+  "creationInfo": {
+    "created": "2026-10-20T00:00:00Z",
+    "creators": ["Organization: OSS Container Tools"]
+  },
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-tini",
+      "name": "tini",
+      "versionInfo": "0.19.0",
+      "downloadLocation": "https://github.com/krallin/tini/archive/refs/tags/v0.19.0.tar.gz",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "0fd35a7030052acd9f58948d1d900fe1e432ee37103c5561554408bdac6bbf0d"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/krallin/tini@v0.19.0?checksum=sha256:0fd35a7030052acd9f58948d1d900fe1e432ee37103c5561554408bdac6bbf0d&download_url=https://github.com/krallin/tini/archive/refs/tags/v0.19.0.tar.gz"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-glibc",
+      "name": "glibc",
+      "versionInfo": "2.23-0ubuntu3",
+      "downloadLocation": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu3/glibc_2.23-0ubuntu3.dsc",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "647f33e229b3d838ff72b3dcb80242d2c6c61ff93aa9798009962b9a21992260"}],
+      "licenseConcluded": "LGPL-2.1-or-later",
+      "licenseDeclared": "LGPL-2.1-or-later",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:deb/ubuntu/glibc@2.23-0ubuntu3?arch=source&distro=ubuntu-16.04&checksum=sha256:647f33e229b3d838ff72b3dcb80242d2c6c61ff93aa9798009962b9a21992260&download_url=https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu3/glibc_2.23-0ubuntu3.dsc"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-cross-toolchain-base",
+      "name": "cross-toolchain-base",
+      "versionInfo": "10ubuntu1",
+      "downloadLocation": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/cross-toolchain-base/10ubuntu1/cross-toolchain-base_10ubuntu1.dsc",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "11265ed751cb009555bf546809fc4168f731ff1f95da5e4534737adb84e33364"}],
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:deb/ubuntu/cross-toolchain-base@10ubuntu1?arch=source&distro=ubuntu-16.04&checksum=sha256:11265ed751cb009555bf546809fc4168f731ff1f95da5e4534737adb84e33364&download_url=https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/cross-toolchain-base/10ubuntu1/cross-toolchain-base_10ubuntu1.dsc"
+      }]
+    }
+  ],
+  "relationships": [
+    {"spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES", "relatedSpdxElement": "SPDXRef-tini"},
+    {"spdxElementId": "SPDXRef-tini", "relationshipType": "STATIC_LINK", "relatedSpdxElement": "SPDXRef-glibc"},
+    {"spdxElementId": "SPDXRef-cross-toolchain-base", "relationshipType": "BUILD_DEPENDENCY_OF", "relatedSpdxElement": "SPDXRef-glibc"}
+  ]
+}
