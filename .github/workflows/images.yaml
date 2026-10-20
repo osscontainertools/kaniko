@@ -163,7 +163,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           target: ${{ matrix.target }}
-          attests: type=sbom,"SELECT_CATALOGERS=image,file,+sbom-cataloger,-binary-classifier-cataloger"
+          # build-push-action strips one level of CSV quoting before buildx parses its own.
+          attests: '"type=sbom,""SELECT_CATALOGERS=image,file,+sbom-cataloger,-binary-classifier-cataloger"""'
           provenance: mode=max
           labels: |
             org.opencontainers.image.created=${{ steps.build-time.outputs.created }}
