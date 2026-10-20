@@ -277,6 +277,7 @@ ADD --checksum=sha256:05d8ce8d147c04bc2a23fe122516c7ee6ce68b947475c5b2621917452a
 
 FROM scratch AS kaniko-sources
 COPY . /kaniko/
+COPY --from=golang /usr/local/go/src /go/src
 COPY --from=ca-certificates-source /sources/ /
 COPY --from=busybox-source / /
 COPY --from=musl-source / /
