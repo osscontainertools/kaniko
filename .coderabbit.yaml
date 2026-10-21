@@ -1,0 +1,7 @@
+reviews:
+  path_instructions:
+    - path: "deploy/Dockerfile"
+      instructions: |
+        DOCKER_CREDENTIAL_GCR_CONFIG is a filesystem path, not a credential.
+        Do not report this setting as a hardcoded secret unless an actual
+        credential value or credential file is embedded.
