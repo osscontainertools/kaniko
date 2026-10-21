@@ -93,6 +93,9 @@ The phases are fixed names. A phase has a timing when it has a `count`; the ones
 | `snapshot.resolve` | resolving paths, ignore list and layered map updates |
 | `snapshot.add` | adding the listed files of a command, hashing them; items: files |
 | `snapshot.tar` | writing the layer tar; items: entries without whiteouts |
+| `snapshot.hash_cache_hit` | FF_KANIKO_STAT_HASH_CACHE; no timing; items: hashes served from the cache, nothing read |
+| `snapshot.hash_cache_miss` | FF_KANIKO_STAT_HASH_CACHE; no timing; items: hashes computed by reading the file |
+| `snapshot.hash_cache_skip_racy` | FF_KANIKO_STAT_HASH_CACHE; no timing; items: misses left out of the cache because ctime or mtime was too recent. Part of `snapshot.hash_cache_miss` |
 | `layer.extract` | one layer into a directory; bytes: tar content, items: entries |
 | `layer.compress` | tarball.LayerFromFile: gzip and digest, then diffID; bytes: compressed size |
 | `layer.convert` | re-encoding a cached layer for the image's media type; bytes: compressed size |
