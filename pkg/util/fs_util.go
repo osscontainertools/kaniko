@@ -29,6 +29,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -1603,10 +1605,13 @@ type walkFSResult struct {
 // returned as deleted files map.
 // It timesout after 90 mins which can be configured via setting an environment variable
 // SNAPSHOT_TIMEOUT in the kaniko pod definition.
+// With workers > 0 changeFunc runs on that many goroutines after the walk
+// (FF_KANIKO_PARALLEL_HASH), and must be safe for concurrent use.
 func WalkFS(
 	dir string,
 	existingPaths map[string]struct{},
 	changeFunc func(string) (bool, error),
+	workers int,
 ) ([]string, map[string]struct{}, error) {
 	timeOutStr := os.Getenv(snapshotTimeout)
 	if timeOutStr == "" {
@@ -1622,7 +1627,7 @@ func WalkFS(
 	ch := make(chan walkFSResult, 1)
 
 	go func() {
-		filesAdded, existingPaths, err := gowalkDir(dir, existingPaths, changeFunc)
+		filesAdded, existingPaths, err := gowalkDir(dir, existingPaths, changeFunc, workers)
 		ch <- walkFSResult{filesAdded, existingPaths, err}
 	}()
 
@@ -1638,9 +1643,10 @@ func WalkFS(
 	}
 }
 
-func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(string) (bool, error)) ([]string, map[string]struct{}, error) {
+func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(string) (bool, error), workers int) ([]string, map[string]struct{}, error) {
 	foundPaths := make([]string, 0)
 	deletedFiles := existingPaths // Make a reference.
+	paths := make([]string, 0)
 
 	callback := func(path string, info fs.DirEntry, err error) error {
 		logrus.Tracef("Analyzing path '%s'", path)
@@ -1659,7 +1665,9 @@ func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(st
 		// File is existing on disk, remove it from deleted files.
 		delete(deletedFiles, path)
 
-		if isChanged, err := changeFunc(path); err != nil {
+		if workers > 0 {
+			paths = append(paths, path)
+		} else if isChanged, err := changeFunc(path); err != nil {
 			return err
 		} else if isChanged {
 			foundPaths = append(foundPaths, path)
@@ -1673,7 +1681,54 @@ func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(st
 		return nil, nil, err
 	}
 
+	if workers > 0 {
+		changed, err := runChangeFunc(paths, changeFunc, workers)
+		if err != nil {
+			return nil, nil, err
+		}
+		for i, path := range paths {
+			if changed[i] {
+				foundPaths = append(foundPaths, path)
+			}
+		}
+	}
+
 	return foundPaths, deletedFiles, nil
+}
+
+// runChangeFunc calls changeFunc on every path with workers goroutines. It
+// returns, per index, whether the path changed, or the first error any worker
+// hit. After an error no further path is started.
+func runChangeFunc(paths []string, changeFunc func(string) (bool, error), workers int) ([]bool, error) {
+	changed := make([]bool, len(paths))
+	var (
+		next     atomic.Int64
+		failed   atomic.Bool
+		errOnce  sync.Once
+		firstErr error
+		wg       sync.WaitGroup
+	)
+	for range min(workers, len(paths)) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				i := next.Add(1) - 1
+				if i >= int64(len(paths)) || failed.Load() {
+					return
+				}
+				isChanged, err := changeFunc(paths[i])
+				if err != nil {
+					errOnce.Do(func() { firstErr = err })
+					failed.Store(true)
+					return
+				}
+				changed[i] = isChanged
+			}
+		}()
+	}
+	wg.Wait()
+	return changed, firstErr
 }
 
 // GetFSInfoMap given a directory gets a map of FileInfo for all files

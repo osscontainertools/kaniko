@@ -107,7 +107,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 		assert.Assert("snapshot.takesnapshot.synced", s.synced, "Snapshotter.TakeSnapshot: layered map must be synced with the filesystem before detecting deletes")
 		_, deletedFiles, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), func(_ string) (bool, error) {
 			return true, nil
-		})
+		}, 0)
 		if err != nil {
 			return "", nil, nil, err
 		}
@@ -201,7 +201,7 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 
 	logrus.Debugf("Current image filesystem: %v", s.l.currentImage)
 
-	changedPaths, deletedPaths, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), s.l.CheckFileChange)
+	changedPaths, deletedPaths, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), s.l.CheckFileChange, 0)
 	if err != nil {
 		return nil, nil, err
 	}
