@@ -24,7 +24,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0
 	github.com/klauspost/compress v1.20.3
 	github.com/minio/highwayhash v1.0.4
-	github.com/moby/buildkit v0.34.0
+	github.com/moby/buildkit v0.34.1
 	github.com/moby/go-archive v0.3.3
 	github.com/moby/moby/api v1.56.1
 	github.com/moby/patternmatcher v0.6.1
