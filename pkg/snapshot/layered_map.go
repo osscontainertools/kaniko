@@ -19,6 +19,7 @@ package snapshot
 import (
 	"fmt"
 	"maps"
+	"sync"
 
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/timing"
@@ -33,6 +34,11 @@ type LayeredMap struct {
 
 	layerHashCache map[string]string
 	hasher         func(string) (string, error)
+
+	// layerHashMu guards the writes of CheckFileChange to layerHashCache, which
+	// a parallel walk (FF_KANIKO_PARALLEL_HASH) makes from several goroutines.
+	// Everything else runs on the build goroutine, before or after the walk.
+	layerHashMu sync.Mutex
 }
 
 // NewLayeredMap creates a new layered map which keeps track of adds and deletes.
@@ -158,8 +164,12 @@ func (l *LayeredMap) CheckFileChange(s string) (bool, error) {
 
 	// Save hash to not recompute it when
 	// adding the file.
+	l.layerHashMu.Lock()
 	l.layerHashCache[s] = newV
+	l.layerHashMu.Unlock()
 
+	// currentImage is only read during a walk: Snapshot() brought it up to
+	// date before, Add and AddDelete change the layers after.
 	oldV, ok := l.get(s)
 	if ok && newV == oldV {
 		// File hash did not change => Unchanged.
