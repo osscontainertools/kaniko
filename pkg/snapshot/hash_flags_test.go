@@ -22,12 +22,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -36,19 +38,37 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// hashFlags is one setting of FF_KANIKO_PARALLEL_HASH.
-type hashFlags struct{ parallel bool }
+// hashFlags is one combination of FF_KANIKO_STAT_HASH_CACHE and FF_KANIKO_PARALLEL_HASH.
+type hashFlags struct{ stat, parallel bool }
 
-func (f hashFlags) String() string { return fmt.Sprintf("parallel=%v", f.parallel) }
+func (f hashFlags) String() string { return fmt.Sprintf("stat=%v,parallel=%v", f.stat, f.parallel) }
 
-var allHashFlags = []hashFlags{{false}, {true}}
+var allHashFlags = []hashFlags{{false, false}, {true, false}, {false, true}, {true, true}}
 
-// set turns the flags on as given and returns the restore function. The
-// parallel walk is chosen on every scan.
+// set turns the flags on as given and returns the restore function. The stat
+// cache is read when the hasher is built, the parallel walk on every scan.
 func (f hashFlags) set() func() {
-	parallel := config.FF.ParallelHash
-	config.FF.ParallelHash = f.parallel
-	return func() { config.FF.ParallelHash = parallel }
+	stat, parallel := config.FF.StatHashCache, config.FF.ParallelHash
+	config.FF.StatHashCache, config.FF.ParallelHash = f.stat, f.parallel
+	return func() { config.FF.StatHashCache, config.FF.ParallelHash = stat, parallel }
+}
+
+func newHasher(stat bool) func(string) (string, error) {
+	defer hashFlags{stat: stat}.set()()
+	return util.Hasher()
+}
+
+// openCountingFS counts the regular files opened through util.FSys.
+type openCountingFS struct {
+	fs.FS
+	regular atomic.Int64
+}
+
+func (c *openCountingFS) Open(name string) (fs.File, error) {
+	if fi, err := os.Lstat(name); err == nil && fi.Mode().IsRegular() {
+		c.regular.Add(1)
+	}
+	return c.FS.Open(name)
 }
 
 // tarEntries describes each tar entry without atime and ctime, which reading
@@ -111,7 +131,7 @@ func TestScanUnchangedByHashFlags(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	// same size, mtime put back: only the content tells
+	// same size, mtime put back: only ctime tells
 	rewrite := func(rel, content string) {
 		p := filepath.Join(root, rel)
 		fi, err := os.Lstat(p)
@@ -137,15 +157,22 @@ func TestScanUnchangedByHashFlags(t *testing.T) {
 
 	snapshotters := map[hashFlags]*Snapshotter{}
 	for _, f := range allHashFlags {
-		snapshotters[f] = NewSnapshotter(NewLayeredMap(util.Hasher()), root)
+		snapshotters[f] = NewSnapshotter(NewLayeredMap(newHasher(f.stat)), root)
 	}
+	orig := util.FSys
+	counting := &openCountingFS{FS: orig}
+	util.FSys = counting
+	t.Cleanup(func() { util.FSys = orig })
 
+	opens := map[hashFlags]int64{}
 	each := func(step string, fn func(s *Snapshotter) (string, []string, []string, error)) {
 		t.Helper()
 		var want []string
 		for _, f := range allHashFlags {
 			restore := f.set()
+			counting.regular.Store(0)
 			tarPath, added, whiteouts, err := fn(snapshotters[f])
+			opens[f] = counting.regular.Load()
 			restore()
 			if err != nil {
 				t.Fatalf("%s %v: %v", step, f, err)
@@ -166,8 +193,14 @@ func TestScanUnchangedByHashFlags(t *testing.T) {
 	scan := func(s *Snapshotter) (string, []string, []string, error) { return s.TakeSnapshotFS() }
 
 	each("init", func(s *Snapshotter) (string, []string, []string, error) { return "", nil, nil, s.Init() })
-	each("unchanged", scan)
+	time.Sleep(util.StatHashCacheRacyWindow + 500*time.Millisecond)
+	each("unchanged, priming the cache", scan)
+	each("unchanged, cached", scan)
+	if opens[hashFlags{true, false}] != 0 || opens[hashFlags{true, true}] != 0 || opens[hashFlags{false, false}] < 160 {
+		t.Fatalf("regular files opened per flags: %v; the cache is not in use", opens)
+	}
 
+	// changes to files whose hash is cached
 	rewrite("d0/f02", "FILE 0 02")
 	if err := os.Chmod(filepath.Join(root, "d0/f03"), 0o600); err != nil {
 		t.Fatal(err)
@@ -203,11 +236,18 @@ func TestScanUnchangedByHashFlags(t *testing.T) {
 	}
 	each("changed", scan)
 
-	each("unchanged again", scan)
+	// changes right after a snapshot, while the files are too recent to cache
+	time.Sleep(util.StatHashCacheRacyWindow + 500*time.Millisecond)
+	each("unchanged, cached again", scan)
 	rewrite("d2/f08", "FILE 2 08")
-	each("rewritten", scan)
+	each("racy, first write", scan)
+	rewrite("d2/f08", "file 2 08")
+	each("racy, second write", scan)
+	rewrite("d2/f08", "FiLe 2 08")
+	each("racy, third write", scan)
 
-	// a listed snapshot, as for COPY, after a rename over a file
+	// a listed snapshot, as for COPY, after a rename over a cached file
+	time.Sleep(util.StatHashCacheRacyWindow + 500*time.Millisecond)
 	each("unchanged before COPY", scan)
 	write("d0/src", "FILE 0 09")
 	src := filepath.Join(root, "d0/src")
@@ -237,57 +277,59 @@ func TestCheckFileChangeConcurrent(t *testing.T) {
 		}
 		paths = append(paths, p)
 	}
-	build := func() *LayeredMap {
-		l := NewLayeredMap(util.Hasher())
-		l.Snapshot()
+	for _, stat := range []bool{false, true} {
+		build := func() *LayeredMap {
+			l := NewLayeredMap(newHasher(stat))
+			l.Snapshot()
+			for i, p := range paths {
+				if i%2 == 0 {
+					if err := l.Add(p); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			l.Snapshot()
+			return l
+		}
+		ref, l := build(), build()
 		for i, p := range paths {
-			if i%2 == 0 {
-				if err := l.Add(p); err != nil {
+			if i%5 == 0 {
+				if err := os.WriteFile(p, fmt.Appendf(nil, "changed %d", i), 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}
 		}
-		l.Snapshot()
-		return l
-	}
-	ref, l := build(), build()
-	for i, p := range paths {
-		if i%5 == 0 {
-			if err := os.WriteFile(p, fmt.Appendf(nil, "changed %d", i), 0o644); err != nil {
+		want := map[string]bool{}
+		for _, p := range paths {
+			changed, err := ref.CheckFileChange(p)
+			if err != nil {
 				t.Fatal(err)
 			}
+			want[p] = changed
 		}
-	}
-	want := map[string]bool{}
-	for _, p := range paths {
-		changed, err := ref.CheckFileChange(p)
-		if err != nil {
-			t.Fatal(err)
-		}
-		want[p] = changed
-	}
 
-	var wg sync.WaitGroup
-	for g := range 8 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for i := range paths {
-				p := paths[(i+g*37)%len(paths)]
-				changed, err := l.CheckFileChange(p)
-				if err != nil || changed != want[p] {
-					t.Errorf("%s changed %v %v, want %v", p, changed, err, want[p])
+		var wg sync.WaitGroup
+		for g := range 8 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for i := range paths {
+					p := paths[(i+g*37)%len(paths)]
+					changed, err := l.CheckFileChange(p)
+					if err != nil || changed != want[p] {
+						t.Errorf("stat %v: %s changed %v %v, want %v", stat, p, changed, err, want[p])
+					}
 				}
+			}()
+		}
+		wg.Wait()
+		if len(l.layerHashCache) != len(paths) {
+			t.Fatalf("%d hashes kept, want %d", len(l.layerHashCache), len(paths))
+		}
+		for _, p := range paths {
+			if l.layerHashCache[p] != ref.layerHashCache[p] {
+				t.Errorf("stat %v: hash of %s differs", stat, p)
 			}
-		}()
-	}
-	wg.Wait()
-	if len(l.layerHashCache) != len(paths) {
-		t.Fatalf("%d hashes kept, want %d", len(l.layerHashCache), len(paths))
-	}
-	for _, p := range paths {
-		if l.layerHashCache[p] != ref.layerHashCache[p] {
-			t.Errorf("hash of %s differs", p)
 		}
 	}
 }

@@ -73,6 +73,12 @@ var (
 	SnapshotAdd      = newStat("snapshot.add")       // adding the listed files of a command, hashing them; items: files
 	SnapshotTar      = newStat("snapshot.tar")       // writing the layer tar; items: entries without whiteouts
 
+	// Stat cache of the full hasher, FF_KANIKO_STAT_HASH_CACHE. Regular files
+	// hashed without error only: hit + miss of them, skip_racy is part of miss.
+	SnapshotHashCacheHit      = newStat("snapshot.hash_cache_hit")       // no timing; items: hashes served from the cache, nothing read
+	SnapshotHashCacheMiss     = newStat("snapshot.hash_cache_miss")      // no timing; items: hashes computed by reading the file
+	SnapshotHashCacheSkipRacy = newStat("snapshot.hash_cache_skip_racy") // no timing; items: misses left out of the cache, ctime or mtime too recent
+
 	// Layers.
 	LayerExtract  = newStat("layer.extract")  // one layer into a directory; bytes: tar content, items: entries
 	LayerCompress = newStat("layer.compress") // tarball.LayerFromFile: gzip and digest, then diffID; bytes: compressed size

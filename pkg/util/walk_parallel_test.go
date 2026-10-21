@@ -97,13 +97,6 @@ func existingFor(order []string, root string) map[string]struct{} {
 	return existing
 }
 
-func mustWrite(t *testing.T, p, content string) {
-	t.Helper()
-	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-}
-
 // jitter shuffles the order in which the workers finish.
 func jitter() {
 	if rand.IntN(32) == 0 {
@@ -157,30 +150,32 @@ func TestWalkParallelMatchesSequential(t *testing.T) {
 	}
 	sameResult(t, "WalkFS", exp(WalkFS), exp(WalkFSParallel))
 
-	// changed by content, as a layered map sees it
-	hasher := Hasher()
-	old := map[string]string{}
-	for _, p := range order {
-		old[p], _ = hasher(p)
-	}
-	for i, p := range order {
-		if fi, _ := os.Lstat(p); i%11 == 0 && fi.Mode().IsRegular() {
-			mustWrite(t, p, fmt.Sprintf("changed %d", i))
+	// changed by content, as a layered map sees it, with both hashers
+	for _, statCache := range []bool{false, true} {
+		hasher := hasherWith(statCache)
+		old := map[string]string{}
+		for _, p := range order {
+			old[p], _ = hasher(p)
 		}
-	}
-	byHash := func(p string) (bool, error) {
-		h, err := hasher(p)
-		if err != nil {
-			return false, err
+		for i, p := range order {
+			if fi, _ := os.Lstat(p); i%11 == 0 && fi.Mode().IsRegular() {
+				mustWrite(t, p, fmt.Sprintf("changed %d", i))
+			}
 		}
-		return h != old[p], nil
+		byHash := func(p string) (bool, error) {
+			h, err := hasher(p)
+			if err != nil {
+				return false, err
+			}
+			return h != old[p], nil
+		}
+		seq := runWalk(gowalkDir, root, existing, byHash)
+		par := runWalk(gowalkDirParallel, root, existing, byHash)
+		if len(seq.found) == 0 {
+			t.Fatal("no change found")
+		}
+		sameResult(t, fmt.Sprintf("hash, stat cache %v", statCache), seq, par)
 	}
-	seq := runWalk(gowalkDir, root, existing, byHash)
-	par := runWalk(gowalkDirParallel, root, existing, byHash)
-	if len(seq.found) == 0 {
-		t.Fatal("no change found")
-	}
-	sameResult(t, "hash", seq, par)
 }
 
 func TestWalkParallelChangeFuncErrors(t *testing.T) {
@@ -313,17 +308,19 @@ func TestWalkParallelReadErrors(t *testing.T) {
 	// an unreadable file fails the hash in both
 	badFile := filepath.Join(root, "d2", "s4", "f17")
 	FSys = failOpenFS{FS: orig, bad: badFile}
-	hasher := Hasher()
-	changeFunc := func(p string) (bool, error) {
-		_, err := hasher(p)
-		return true, err
+	for _, statCache := range []bool{false, true} {
+		hasher := hasherWith(statCache)
+		changeFunc := func(p string) (bool, error) {
+			_, err := hasher(p)
+			return true, err
+		}
+		seq := runWalk(gowalkDir, root, existing, changeFunc)
+		par := runWalk(gowalkDirParallel, root, existing, changeFunc)
+		if !errors.Is(seq.err, syscall.EACCES) {
+			t.Fatalf("unreadable file, stat cache %v: sequential %v", statCache, seq.err)
+		}
+		sameResult(t, fmt.Sprintf("unreadable file, stat cache %v", statCache), seq, par)
 	}
-	seq := runWalk(gowalkDir, root, existing, changeFunc)
-	par := runWalk(gowalkDirParallel, root, existing, changeFunc)
-	if !errors.Is(seq.err, syscall.EACCES) {
-		t.Fatalf("unreadable file: sequential %v", seq.err)
-	}
-	sameResult(t, "unreadable file", seq, par)
 }
 
 // TestWalkParallelVanishedFile removes a listed file just before its hash, as a
@@ -334,26 +331,28 @@ func TestWalkParallelVanishedFile(t *testing.T) {
 	order := walkOrder(t, root)
 	existing := existingFor(order, root)
 	victim := filepath.Join(root, "d4", "s1", "f33")
-	hasher := Hasher()
-	changeFunc := func(p string) (bool, error) {
-		if p == victim {
-			if err := os.Remove(p); err != nil {
-				return false, err
+	for _, statCache := range []bool{false, true} {
+		hasher := hasherWith(statCache)
+		changeFunc := func(p string) (bool, error) {
+			if p == victim {
+				if err := os.Remove(p); err != nil {
+					return false, err
+				}
 			}
+			jitter()
+			_, err := hasher(p)
+			return true, err
 		}
-		jitter()
-		_, err := hasher(p)
-		return true, err
+		var results []walkResult
+		for _, walk := range []walkFunc{gowalkDir, gowalkDirParallel} {
+			mustWrite(t, victim, "victim")
+			results = append(results, runWalk(walk, root, existing, changeFunc))
+		}
+		if !errors.Is(results[0].err, os.ErrNotExist) {
+			t.Fatalf("stat cache %v: sequential %v", statCache, results[0].err)
+		}
+		sameResult(t, fmt.Sprintf("vanished, stat cache %v", statCache), results[0], results[1])
 	}
-	var results []walkResult
-	for _, walk := range []walkFunc{gowalkDir, gowalkDirParallel} {
-		mustWrite(t, victim, "victim")
-		results = append(results, runWalk(walk, root, existing, changeFunc))
-	}
-	if !errors.Is(results[0].err, os.ErrNotExist) {
-		t.Fatalf("sequential %v", results[0].err)
-	}
-	sameResult(t, "vanished", results[0], results[1])
 }
 
 func TestHashWorkers(t *testing.T) {
