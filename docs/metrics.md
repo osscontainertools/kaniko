@@ -16,7 +16,7 @@ docker run --rm \
   -v "$PWD/out:/metrics" \
   -e KANIKO_METRICS_FILE=/metrics/run.json \
   -v "$PWD/ctx:/workspace" \
-  gcr.io/kaniko-project/executor:latest --context=/workspace --no-push
+  ghcr.io/osscontainertools/kaniko:latest --context=/workspace --no-push
 ```
 
 - Put the files on a **bind mount outside the build rootfs**. The mount point is added to the ignore list like any other, so the report is never part of a layer. The container's own filesystem is gone when kaniko exits.

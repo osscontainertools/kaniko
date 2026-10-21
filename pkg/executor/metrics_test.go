@@ -55,9 +55,10 @@ COPY --from=first copied/bam.txt output/bam.txt`, ran)
 		t.Fatal(err)
 	}
 	opts := &config.KanikoOptions{
-		DockerfilePath: filepath.Join(testDir, "workspace", "Dockerfile"),
-		SrcContext:     filepath.Join(testDir, "workspace"),
-		SnapshotMode:   constants.SnapshotModeFull,
+		DockerfilePath:  filepath.Join(testDir, "workspace", "Dockerfile"),
+		SrcContext:      filepath.Join(testDir, "workspace"),
+		SnapshotMode:    constants.SnapshotModeFull,
+		PreserveContext: true,
 	}
 	_, err := DoBuild(opts)
 	testutil.CheckNoError(t, err)
@@ -119,4 +120,16 @@ COPY --from=first copied/bam.txt output/bam.txt`, ran)
 	}
 	testutil.CheckDeepEqual(t, true, len(out.Snapshots) >= 3)
 	t.Logf("snapshots: %v", kindsSeen)
+	// the snapshot of the build context, taken because a later stage needs it, counts its files
+	var context *metrics.Record
+	for i, s := range out.Snapshots {
+		if s.Kind == "context" {
+			context = &out.Snapshots[i]
+		}
+	}
+	if context == nil {
+		t.Errorf("no snapshot of the context among %v", kindsSeen)
+	} else if context.Values["files_added"] < 1 || context.Values["tar_bytes"] < 1 {
+		t.Errorf("context snapshot counts no files: %+v", context.Values)
+	}
 }

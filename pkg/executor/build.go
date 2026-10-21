@@ -1812,12 +1812,13 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 			logrus.Info("Creating snapshot of build context")
 			t := timing.Start("Snapshotting context")
 			snapMetrics := metrics.BeginSnapshot("context")
-			tarball, _, _, err = snapshotter.TakeSnapshotFS()
+			var added, whiteouts []string
+			tarball, added, whiteouts, err = snapshotter.TakeSnapshotFS()
 			t.End()
 			if err != nil {
 				return nil, err
 			}
-			snapMetrics.EndSnapshot(tarball, 0, 0)
+			snapMetrics.EndSnapshot(tarball, len(added), len(whiteouts))
 		} else {
 			logrus.Info("Skipping context snapshot as no-one requires it")
 		}
