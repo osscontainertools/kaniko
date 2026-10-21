@@ -1611,6 +1611,26 @@ func WalkFS(
 	existingPaths map[string]struct{},
 	changeFunc func(string) (bool, error),
 ) ([]string, map[string]struct{}, error) {
+	return walkFS(dir, existingPaths, changeFunc, gowalkDir)
+}
+
+// WalkFSParallel is WalkFS with changeFunc run on a pool of goroutines
+// (FF_KANIKO_PARALLEL_HASH), which changeFunc must be safe for. The results,
+// errors included, are those of WalkFS. See gowalkDirParallel.
+func WalkFSParallel(
+	dir string,
+	existingPaths map[string]struct{},
+	changeFunc func(string) (bool, error),
+) ([]string, map[string]struct{}, error) {
+	return walkFS(dir, existingPaths, changeFunc, gowalkDirParallel)
+}
+
+func walkFS(
+	dir string,
+	existingPaths map[string]struct{},
+	changeFunc func(string) (bool, error),
+	walk func(string, map[string]struct{}, func(string) (bool, error)) ([]string, map[string]struct{}, error),
+) ([]string, map[string]struct{}, error) {
 	timeOutStr := os.Getenv(snapshotTimeout)
 	if timeOutStr == "" {
 		logrus.Tracef("Environment '%s' not set. Using default snapshot timeout '%s'", snapshotTimeout, defaultTimeout)
@@ -1625,7 +1645,7 @@ func WalkFS(
 	ch := make(chan walkFSResult, 1)
 
 	go func() {
-		filesAdded, existingPaths, err := gowalkDir(dir, existingPaths, changeFunc)
+		filesAdded, existingPaths, err := walk(dir, existingPaths, changeFunc)
 		ch <- walkFSResult{filesAdded, existingPaths, err}
 	}()
 

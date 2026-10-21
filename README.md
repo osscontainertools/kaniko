@@ -150,6 +150,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_LAYER_HINTS`](#flag-ff_kaniko_layer_hints)
       - [Flag `FF_KANIKO_NATIVE_COPY`](#flag-ff_kaniko_native_copy)
       - [Flag `FF_KANIKO_OCI_SCRATCH_BASE`](#flag-ff_kaniko_oci_scratch_base)
+      - [Flag `FF_KANIKO_PARALLEL_HASH`](#flag-ff_kaniko_parallel_hash)
       - [Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`](#flag-ff_kaniko_path_scoped_registry_auth)
       - [Flag `FF_KANIKO_PEEK_ARCHIVE_HEADER`](#flag-ff_kaniko_peek_archive_header)
       - [Flag `FF_KANIKO_PLATFORM_CACHE_KEY`](#flag-ff_kaniko_platform_cache_key)
@@ -1382,6 +1383,12 @@ Will be deprecated in `v1.30.0`.
 When a Dockerfile uses `FROM scratch`, kaniko uses an empty Docker-format image as the build base, which means the output image is produced in Docker manifest schema v2 format.
 Set this flag to `true` to use an empty OCI-format image instead, causing `FROM scratch` builds to produce output in OCI manifest schema v1 format. Defaults to `false`.
 Currently no plans to activate.
+
+#### Flag `FF_KANIKO_PARALLEL_HASH`
+
+The snapshot after a `RUN` walks the root filesystem and hashes every file on a single goroutine.
+Set this flag to `true` to hash on up to 8 goroutines, as many as `GOMAXPROCS`, which follows the CPU limit of the container. The walk itself, and the files and whiteouts of the layer, stay as they are.
+Defaults to `false`.
 
 #### Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`
 
