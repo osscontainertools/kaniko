@@ -45,7 +45,10 @@ const (
 	securityCapabilityXattr = "security.capability"
 )
 
-// Hasher returns a hash function, used in snapshotting to determine if a file has changed
+// Hasher returns a hash function, used in snapshotting to determine if a file has changed.
+// With FF_KANIKO_STAT_HASH_CACHE it remembers the hash of each regular file under
+// its stat key and only reads the files whose key changed, see statHashCache.
+// The flag is read once, here.
 func Hasher() func(string) (string, error) {
 	pool := sync.Pool{
 		New: func() any {
@@ -54,47 +57,59 @@ func Hasher() func(string) (string, error) {
 		},
 	}
 	key := make([]byte, highwayhash.Size)
+	if config.FF.StatHashCache {
+		return newStatHashCache(func(p string, fi os.FileInfo) (string, error) {
+			return hashFileInfo(p, fi, key, &pool)
+		}, time.Now, StatHashCacheRacyWindow).Hash
+	}
 	hasher := func(p string) (string, error) {
-		h, _ := highwayhash.New(key)
 		fi, err := os.Lstat(p)
 		if err != nil {
 			return "", err
 		}
-		h.Write([]byte(fi.Mode().String()))
-		h.Write([]byte(fi.ModTime().String()))
-
-		h.Write([]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Uid), 36)))
-		h.Write([]byte(","))
-		h.Write([]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Gid), 36)))
-
-		var read int64
-		if fi.Mode().IsRegular() {
-			capability, _ := Lgetxattr(p, "security.capability")
-			if capability != nil {
-				h.Write(capability)
-			}
-			f, err := FSys.Open(p)
-			if err != nil {
-				return "", err
-			}
-			defer f.Close()
-			buf := pool.Get().(*[]byte)
-			defer pool.Put(buf)
-			if read, err = io.CopyBuffer(h, f, *buf); err != nil {
-				return "", err
-			}
-		} else if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
-			linkPath, err := os.Readlink(p)
-			if err != nil {
-				return "", err
-			}
-			h.Write([]byte(linkPath))
-		}
-
-		metrics.SnapshotHash.Add(read, 1)
-		return hex.EncodeToString(h.Sum(nil)), nil
+		return hashFileInfo(p, fi, key, &pool)
 	}
 	return hasher
+}
+
+// hashFileInfo is the hash of Hasher for p, whose Lstat is fi: mode, mtime,
+// uid and gid from fi, then the security.capability xattr and the content of a
+// regular file, or the target of a symlink.
+func hashFileInfo(p string, fi os.FileInfo, key []byte, pool *sync.Pool) (string, error) {
+	h, _ := highwayhash.New(key)
+	h.Write([]byte(fi.Mode().String()))
+	h.Write([]byte(fi.ModTime().String()))
+
+	h.Write([]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Uid), 36)))
+	h.Write([]byte(","))
+	h.Write([]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Gid), 36)))
+
+	var read int64
+	if fi.Mode().IsRegular() {
+		capability, _ := Lgetxattr(p, "security.capability")
+		if capability != nil {
+			h.Write(capability)
+		}
+		f, err := FSys.Open(p)
+		if err != nil {
+			return "", err
+		}
+		defer f.Close()
+		buf := pool.Get().(*[]byte)
+		defer pool.Put(buf)
+		if read, err = io.CopyBuffer(h, f, *buf); err != nil {
+			return "", err
+		}
+	} else if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
+		linkPath, err := os.Readlink(p)
+		if err != nil {
+			return "", err
+		}
+		h.Write([]byte(linkPath))
+	}
+
+	metrics.SnapshotHash.Add(read, 1)
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 var blake3Pool = sync.Pool{New: func() any { return blake3.New() }}

@@ -169,6 +169,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_SKIP_CACHED_STAGES`](#flag-ff_kaniko_skip_cached_stages)
       - [Flag `FF_KANIKO_SKIP_RELABEL_RECOMPRESS`](#flag-ff_kaniko_skip_relabel_recompress)
       - [Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`](#flag-ff_kaniko_skip_write_whiteouts)
+      - [Flag `FF_KANIKO_STAT_HASH_CACHE`](#flag-ff_kaniko_stat_hash_cache)
       - [Flag `FF_KANIKO_UNPACK_XZ`](#flag-ff_kaniko_unpack_xz)
       - [Flag `FF_KANIKO_UNPACK_ZSTD`](#flag-ff_kaniko_unpack_zstd)
       - [Flag `FF_KANIKO_UNTAR_SKIP_ROOT`](#flag-ff_kaniko_untar_skip_root)
@@ -1525,6 +1526,13 @@ Will be deprecated in `v1.30.0`.
 When kaniko extracts a cached layer it applies the layer's whiteouts by deleting the target files, but it also writes the `.wh.<name>` marker files onto the working filesystem. With `--cache-copy-layers` a later cross-stage `COPY --from=<stage>` copies such a marker verbatim and commits it as a real whiteout, so a cache-hit build deletes a file that the cache-miss build kept.
 Set this flag to `true` to skip writing the marker files, the deletion alone already applies the whiteout. Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_STAT_HASH_CACHE`
+
+With `--snapshot-mode=full`, every snapshot after a `RUN` reads and hashes the content of every file in the root filesystem, although most of them did not change.
+Set this flag to `true` to remember the hash of each regular file together with its `lstat` (device, inode, size, mtime, ctime, mode, owner) and to read only the files whose `lstat` changed. Any write, `chmod`, `chown`, `touch` or xattr change moves the ctime of a file, which user space cannot set back. Files changed less than 2 seconds before they are hashed are not remembered, as two writes within one timestamp tick can leave ctime unchanged.
+Not for filesystems that do not keep ctime, or whose files change behind the kernel's back (network filesystems).
+Defaults to `false`.
 
 #### Flag `FF_KANIKO_UNPACK_XZ`
 
