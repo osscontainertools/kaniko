@@ -1781,11 +1781,12 @@ func DoBuild(opts *config.KanikoOptions) (image v1.Image, retErr error) {
 		if len(kanikoStages) > 1 || opts.PreCleanup || opts.Cleanup {
 			logrus.Info("Creating snapshot of build context")
 			snapMetrics := metrics.BeginSnapshot("context")
-			tarball, _, _, err = snapshotter.TakeSnapshotFS()
+			var added, whiteouts []string
+			tarball, added, whiteouts, err = snapshotter.TakeSnapshotFS()
 			if err != nil {
 				return nil, err
 			}
-			snapMetrics.EndSnapshot(tarball, 0, 0)
+			snapMetrics.EndSnapshot(tarball, len(added), len(whiteouts))
 		} else {
 			logrus.Info("Skipping context snapshot as no-one requires it")
 		}
