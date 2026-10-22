@@ -24,7 +24,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -76,15 +75,6 @@ func ValidateFlags(opts *config.KanikoOptions) {
 		if err != nil {
 			logrus.Fatalf("failed to set registry mirror %s", val)
 		}
-	}
-
-	// Allow setting --no-push using an environment variable.
-	if val, ok := os.LookupEnv("KANIKO_NO_PUSH"); ok {
-		valBoolean, err := strconv.ParseBool(val)
-		if err != nil {
-			logrus.Fatalf("invalid value %q for KANIKO_NO_PUSH environment variable", val)
-		}
-		opts.NoPush = valBoolean
 	}
 
 	// Allow setting --registry-maps using an environment variable.
@@ -333,7 +323,7 @@ func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().StringVarP(&opts.TarPath, "tar-path", "", "", "Path to save the image in as a tarball instead of pushing")
 	cmd.Flags().BoolVarP(&opts.SingleSnapshot, "single-snapshot", "", false, "Take a single snapshot at the end of the build.")
 	cmd.Flags().BoolVarP(&opts.Reproducible, "reproducible", "", false, "Strip timestamps out of the image to make it reproducible")
-	cmd.Flags().BoolVarP(&opts.NoPush, "no-push", "", false, "Do not push the image to the registry")
+	cmd.Flags().BoolVarP(&opts.NoPush, "no-push", "", config.EnvBool("KANIKO_NO_PUSH"), "Do not push the image to the registry")
 	cmd.Flags().BoolVarP(&opts.NoPushCache, "no-push-cache", "", false, "Do not push the cache layers to the registry")
 	cmd.Flags().StringVarP(&opts.CacheRepo, "cache-repo", "", "", "Specify a repository to use as a cache, otherwise one will be inferred from the destination provided; when prefixed with 'oci:' the repository will be written in OCI image layout format at the path provided")
 	cmd.Flags().StringVarP(&opts.CacheDir, "cache-dir", "", "/cache", "Specify a local directory to use as a cache.")
