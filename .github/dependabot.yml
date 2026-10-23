@@ -5,6 +5,8 @@ updates:
     directory: /
     schedule:
       interval: daily
+    cooldown:
+      default-days: 0
     allow:
       - dependency-type: all
     groups:
@@ -16,6 +18,8 @@ updates:
     directory: /
     schedule:
       interval: daily
+    cooldown:
+      default-days: 0
     groups:
       actions:
         update-types:
@@ -26,3 +30,5 @@ updates:
     directory: /deploy
     schedule:
       interval: daily
+    cooldown:
+      default-days: 0
