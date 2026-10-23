@@ -1207,6 +1207,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 
 ```sh
 FF_KANIKO_CACHE_IMAGE_INDEX=true
+FF_KANIKO_COPY_KEEP_DEST_OWNER=true
 FF_KANIKO_COPY_LINK=true
 FF_KANIKO_DEFER_CACHE_PUSH=true
 FF_KANIKO_WARMER_BUILD_ARGS=true
@@ -1221,7 +1222,6 @@ In a few places, Kaniko keeps its historical, non-compliant behaviour instead of
 FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS=true
 FF_KANIKO_COPY_AS_ROOT=true
 FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=true
-FF_KANIKO_COPY_KEEP_DEST_OWNER=true
 FF_KANIKO_COPY_LINK=true
 FF_KANIKO_UNPACK_XZ=true
 ```
@@ -1305,7 +1305,7 @@ COPY --chown=1000:1000 dist /app/
 Kaniko gives `/app` the `--chown` owner, even though it existed before the `COPY`. buildkit only chowns what the `COPY` creates and leaves `/app` owned by root.
 Set this flag to `true` to keep the owner of a destination directory that already exists. `COPY --link` is not affected.
 Defaults to `false`.
-Currently no plans to activate.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_COPY_LINK`
 
