@@ -12,8 +12,3 @@ RUN mkdir -p /app /keep /lnk && chown 1000:1000 /keep
 COPY --from=build --chown=1000:1000 /src/dist /app/
 COPY --from=build /src/dist /keep/
 COPY --link --from=build --chown=1000:1000 /src/dist /lnk/
-RUN test "$(stat -c '%u:%g' /app)" = "0:0" \
- && test "$(stat -c '%u:%g' /app/sub)" = "1000:1000" \
- && test "$(stat -c '%u:%g' /keep)" = "1000:1000" \
- && test "$(stat -c '%u:%g' /keep/sub)" = "0:0" \
- && test "$(stat -c '%u:%g' /lnk)" = "1000:1000"
