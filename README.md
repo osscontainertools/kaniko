@@ -1608,6 +1608,10 @@ See [Telemetry attributes](docs/telemetry.md) for the full list of exported span
 
 Standard OpenTelemetry environment variables apply for the rest: `OTEL_EXPORTER_OTLP_HEADERS` for authenticating to the collector, and `OTEL_RESOURCE_ATTRIBUTES` for fleet labels of your own. `KANIKO_TELEMETRY_TOKEN_EXCHANGE_ENDPOINT` authenticates without a stored token, see [Authenticating to the collector](docs/telemetry.md#authenticating-to-the-collector).
 
+### Build metrics
+
+`KANIKO_METRICS_FILE=<path>` makes kaniko write a JSON report of the build when it exits: the time and the bytes and files of every phase (walking and hashing the filesystem, writing and compressing the layer tar, extracting, cache, push), per stage, command and snapshot, plus what the process used. `KANIKO_PPROF_DIR=<dir>` writes CPU and heap profiles. With both unset nothing changes. See [Build metrics](docs/metrics.md).
+
 ### Debug Image
 
 The kaniko executor image is based on scratch and doesn't contain a shell. We

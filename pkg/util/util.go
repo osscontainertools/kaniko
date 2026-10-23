@@ -33,6 +33,7 @@ import (
 
 	"github.com/minio/highwayhash"
 	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/metrics"
 	"github.com/sirupsen/logrus"
 	"github.com/zeebo/blake3"
 	"golang.org/x/sys/unix"
@@ -66,6 +67,7 @@ func Hasher() func(string) (string, error) {
 		h.Write([]byte(","))
 		h.Write([]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Gid), 36)))
 
+		var read int64
 		if fi.Mode().IsRegular() {
 			capability, _ := Lgetxattr(p, "security.capability")
 			if capability != nil {
@@ -78,7 +80,7 @@ func Hasher() func(string) (string, error) {
 			defer f.Close()
 			buf := pool.Get().(*[]byte)
 			defer pool.Put(buf)
-			if _, err := io.CopyBuffer(h, f, *buf); err != nil {
+			if read, err = io.CopyBuffer(h, f, *buf); err != nil {
 				return "", err
 			}
 		} else if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
@@ -89,6 +91,7 @@ func Hasher() func(string) (string, error) {
 			h.Write([]byte(linkPath))
 		}
 
+		metrics.SnapshotHash.Add(read, 1)
 		return hex.EncodeToString(h.Sum(nil)), nil
 	}
 	return hasher
@@ -117,13 +120,14 @@ func CacheHasher() func(string) (string, error) {
 		h.Write([]byte(","))
 		h.Write([]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Gid), 36)))
 
+		var read int64
 		if fi.Mode().IsRegular() {
 			f, err := FSys.Open(p)
 			if err != nil {
 				return "", err
 			}
 			defer f.Close()
-			if _, err := io.Copy(h, f); err != nil {
+			if read, err = io.Copy(h, f); err != nil {
 				return "", err
 			}
 		} else if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
@@ -134,6 +138,7 @@ func CacheHasher() func(string) (string, error) {
 			h.Write([]byte(linkPath))
 		}
 
+		metrics.CacheKeyHash.Add(read, 1)
 		return hex.EncodeToString(h.Sum(nil)), nil
 	}
 	return hasher
@@ -149,6 +154,7 @@ func MtimeHasher() func(string) (string, error) {
 			return "", err
 		}
 		h.Write([]byte(fi.ModTime().String()))
+		metrics.SnapshotHash.Add(0, 1)
 		return hex.EncodeToString(h.Sum(nil)), nil
 	}
 	return hasher
@@ -178,6 +184,7 @@ func RedoHasher() func(string) (string, error) {
 		h.Write([]byte(","))
 		h.Write([]byte(strconv.FormatUint(uint64(fi.Sys().(*syscall.Stat_t).Gid), 36)))
 
+		metrics.SnapshotHash.Add(0, 1)
 		return hex.EncodeToString(h.Sum(nil)), nil
 	}
 	return hasher
