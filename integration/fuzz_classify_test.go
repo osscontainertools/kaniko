@@ -74,6 +74,8 @@ var (
 	copyLinkIntoDir   = regexp.MustCompile(`\blkdir[0-9]+/`)
 	// the downloaded archive lands in the bare dir, the plain download as urlgetN/addfile
 	urlUnpackOwner = regexp.MustCompile(`\burlget[0-9]+/(inside/\S*)?\s+(Uid|Gid) `)
+	// only the pre-existing destination itself, what the COPY creates below it still reports
+	existingDestOwner = regexp.MustCompile(`\bex[0-9]+/\s+(Uid|Gid) `)
 )
 
 // dockerKnownDivergences are the classes observed on the docker oracle. The cache
@@ -101,6 +103,14 @@ var dockerKnownDivergences = []knownDivergence{
 		flag: "",
 		match: func(row string) bool {
 			return urlUnpackOwner.MatchString(row)
+		},
+	},
+	{
+		name: "copy-chown-existing-dest",
+		why:  "mz1254: COPY --chown of a directory source chowns a destination directory that already exists, where buildkit leaves it untouched. MkdirAllWithPermissions chowns the path whether or not it created it",
+		flag: "",
+		match: func(row string) bool {
+			return existingDestOwner.MatchString(row)
 		},
 	},
 	{
