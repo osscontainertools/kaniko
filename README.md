@@ -137,6 +137,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_CONFINE_COPY_SOURCE`](#flag-ff_kaniko_confine_copy_source)
       - [Flag `FF_KANIKO_COPY_AS_ROOT`](#flag-ff_kaniko_copy_as_root)
       - [Flag `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS`](#flag-ff_kaniko_copy_chmod_on_implicit_dirs)
+      - [Flag `FF_KANIKO_COPY_KEEP_EXISTING_DIR_OWNER`](#flag-ff_kaniko_copy_keep_existing_dir_owner)
       - [Flag `FF_KANIKO_COPY_LINK`](#flag-ff_kaniko_copy_link)
       - [Flag `FF_KANIKO_COPY_SKIP_SPECIAL_FILES`](#flag-ff_kaniko_copy_skip_special_files)
       - [Flag `FF_KANIKO_CROSS_REPO_MOUNT`](#flag-ff_kaniko_cross_repo_mount)
@@ -1220,6 +1221,7 @@ In a few places, Kaniko keeps its historical, non-compliant behaviour instead of
 FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS=true
 FF_KANIKO_COPY_AS_ROOT=true
 FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=true
+FF_KANIKO_COPY_KEEP_EXISTING_DIR_OWNER=true
 FF_KANIKO_COPY_LINK=true
 FF_KANIKO_UNPACK_XZ=true
 ```
@@ -1291,6 +1293,18 @@ Currently no plans to activate.
 
 When files are copied into a non-existing directory, both kaniko and buildkit will create the directory and all required parent directories implicitly. If chmod option is given, buildkit will apply the chmod not only on the copied files & folders, but on all implicit parent dirs too. Kaniko will use regular folder permissions (0755) on parent directories instead and only apply the chmod on the explicitly created files & folders.
 Set this flag to `true` to implement COPY chmod like buildkit. Defaults to `false`.
+Currently no plans to activate.
+
+#### Flag `FF_KANIKO_COPY_KEEP_EXISTING_DIR_OWNER`
+
+```dockerfile
+RUN mkdir /app
+COPY --chown=1000:1000 dist /app/
+```
+
+Kaniko gives `/app` the `--chown` owner, even though it existed before the `COPY`. buildkit only chowns what the `COPY` creates and leaves `/app` owned by root.
+Set this flag to `true` to keep the owner of a destination directory that already exists. `COPY --link` is not affected.
+Defaults to `false`.
 Currently no plans to activate.
 
 #### Flag `FF_KANIKO_COPY_LINK`
