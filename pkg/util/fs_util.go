@@ -872,6 +872,11 @@ func copyDirInner(files []string, src, dest string, context FileContext, owner *
 				if err = os.Chmod(destPath, chmod.Apply(fi.Mode())); err != nil {
 					return nil, err
 				}
+			} else if config.FF.CopySubdirMode {
+				err = os.Chmod(destPath, fi.Mode())
+				if err != nil {
+					return nil, err
+				}
 			}
 			updates = append(updates, timestampUpdate{src: fi, dest: destPath})
 		} else if IsSymlink(fi) {
