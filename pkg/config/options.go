@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/osscontainertools/kaniko/pkg/buildenv"
 )
 
 // CacheOptions are base image cache options that are set by command line arguments
@@ -58,6 +60,8 @@ type KanikoOptions struct {
 	BuildArgs                    multiArg
 	Labels                       multiArg
 	Annotations                  keyValueArg
+	PredefinedAnnotations        bool
+	ContextSource                buildenv.Source
 	Git                          KanikoGitOptions
 	IgnorePaths                  multiArg
 	DockerfilePath               string

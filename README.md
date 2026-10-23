@@ -124,6 +124,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--ignore-path`](#flag---ignore-path)
       - [Flag `--image-fs-extract-retry`](#flag---image-fs-extract-retry)
       - [Flag `--image-download-retry`](#flag---image-download-retry)
+      - [Flag `--predefined-annotations`](#flag---predefined-annotations)
     - [Feature Flags](#feature-flags)
       - [Profiles](#profiles)
       - [Flag `FF_KANIKO_ADD_CHECKSUM`](#flag-ff_kaniko_add_checksum)
@@ -1177,6 +1178,23 @@ image filesystem. Defaults to `0`.
 Set this flag to the number of retries that should happen when downloading the
 remote image. Consecutive retries occur with exponential backoff and an initial
 delay of 1 second. Defaults to `0`.
+
+#### Flag `--predefined-annotations`
+
+Set `--predefined-annotations` to annotate the image manifest with the OCI pre-defined annotation keys kaniko can determine. Defaults to `false`.
+
+| key | value |
+| --- | --- |
+| `org.opencontainers.image.source`, `org.opencontainers.image.url` | the repository URL |
+| `org.opencontainers.image.revision` | the commit |
+| `org.opencontainers.image.version` | the git tag, when CI builds a tag |
+| `org.opencontainers.image.created` | the build time |
+| `org.opencontainers.image.base.name` | the fully qualified reference of the base image of the pushed stage |
+| `org.opencontainers.image.base.digest` | the digest of that base image |
+
+The repository, commit and tag come from GitLab CI or GitHub Actions, and from the git checkout of the context outside CI.
+
+With `--reproducible` only the `base.*` keys are set. `--annotation` takes precedence over every key.
 
 ### Feature Flags
 

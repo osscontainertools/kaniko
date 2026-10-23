@@ -56,7 +56,7 @@ type Git struct {
 func (g *Git) UnpackTarFromBuildContext() (string, error) {
 	directory := kConfig.BuildContextDir
 	parts := strings.Split(g.context, "#")
-	url := getGitPullMethod() + "://" + parts[0]
+	url := GitURL(g.context)
 	options := git.CloneOptions{
 		URL:               url,
 		Auth:              getGitAuth(),
@@ -209,6 +209,11 @@ func getGitAuth() transport.AuthMethod {
 		}
 	}
 	return nil
+}
+
+func GitURL(context string) string {
+	repo, _, _ := strings.Cut(context, "#")
+	return getGitPullMethod() + "://" + repo
 }
 
 func getGitPullMethod() string {

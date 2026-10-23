@@ -360,6 +360,14 @@ var additionalKanikoFlagsMap = map[string][]string{
 		"--registry-certificate=127.0.0.2:5001=/kaniko/ssl/certs/ca-certificates.crt",
 		"--destination=127.0.0.2:5001/kaniko/mz881:latest",
 	},
+	"Dockerfile_test_issue_mz1227":               {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1227_ci":            {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1227_mismatch":      {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1227_reproducible":  {"--predefined-annotations", "--reproducible"},
+	"Dockerfile_test_issue_mz1227_annotation":    {"--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
+	"Dockerfile_test_issue_mz1227_detached":      {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1227_merged_result": {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1227_squash":        {"--predefined-annotations"},
 }
 
 var expectErr = map[string]int{
@@ -533,6 +541,49 @@ var imageChecks = map[string]func(*testing.T, string){
 	},
 }
 
+// The annotations a pushed image carries, on the index if the tag resolves to one and on
+// the image manifests. "" asserts the key is unset, {present} that it is set,
+// {git.revision} is the commit of this checkout and {base.digest} the digest of the image
+// named by org.opencontainers.image.base.name. Keys not listed are not checked.
+var expectedAnnotations = map[string]struct{ Index, Manifest map[string]string }{
+	"Dockerfile_test_issue_mz1227": {Manifest: map[string]string{
+		"org.opencontainers.image.created":     "{present}",
+		"org.opencontainers.image.revision":    "{git.revision}",
+		"org.opencontainers.image.version":     "",
+		"org.opencontainers.image.base.name":   "docker.io/library/alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
+		"org.opencontainers.image.base.digest": "{base.digest}",
+	}},
+	"Dockerfile_test_issue_mz1227_ci": {Manifest: map[string]string{
+		"org.opencontainers.image.source":   "https://gitlab.example.com/group/project",
+		"org.opencontainers.image.url":      "https://gitlab.example.com/group/project",
+		"org.opencontainers.image.revision": "{git.revision}",
+		"org.opencontainers.image.version":  "v1.2.3",
+	}},
+	"Dockerfile_test_issue_mz1227_detached": {Manifest: map[string]string{
+		"org.opencontainers.image.source": "https://gitlab.example.com/fork/project",
+	}},
+	"Dockerfile_test_issue_mz1227_merged_result": {Manifest: map[string]string{
+		"org.opencontainers.image.source": "https://gitlab.example.com/group/project",
+	}},
+	"Dockerfile_test_issue_mz1227_mismatch": {Manifest: map[string]string{
+		"org.opencontainers.image.revision": "{git.revision}",
+		"org.opencontainers.image.version":  "",
+	}},
+	"Dockerfile_test_issue_mz1227_reproducible": {Manifest: map[string]string{
+		"org.opencontainers.image.created":     "",
+		"org.opencontainers.image.revision":    "",
+		"org.opencontainers.image.base.name":   "docker.io/library/alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
+		"org.opencontainers.image.base.digest": "{base.digest}",
+	}},
+	"Dockerfile_test_issue_mz1227_annotation": {Manifest: map[string]string{
+		"org.opencontainers.image.revision": "override",
+	}},
+	"Dockerfile_test_issue_mz1227_squash": {Manifest: map[string]string{
+		"org.opencontainers.image.base.name":   "docker.io/library/alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
+		"org.opencontainers.image.base.digest": "{base.digest}",
+	}},
+}
+
 // Digest for debian:12.10 (see baseImageToCache)
 const debian1210Digest = "6bc30d909583f38600edd6609e29eb3fb284ab8affce8d0389f332fc91c2dd91"
 
@@ -553,6 +604,7 @@ var warmerOutputChecks = map[string]func(string, []byte) error{
 // expectedWarnings maps a Dockerfile name to a warning substring that must appear in its output.
 // Dockerfiles listed here are required to emit that warning; all others must emit no warnings.
 var expectedWarnings = map[string]string{
+	"Dockerfile_test_issue_mz1227_mismatch": "not at the pipeline's commit",
 	// mz640: COPY to /kaniko (ignored path) must warn rather than silently skip.
 	"Dockerfile_test_issue_mz560": "Skipping copy targeting kaniko directory",
 	// mz936: the read-only store makes both stages degrade to a registry fetch, each warning.
@@ -736,6 +788,15 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz992":    {},
 		"Dockerfile_test_issue_mz1066":   {},
 		"Dockerfile_test_issue_mz1133_1": {},
+		// docker sets none of these annotations
+		"Dockerfile_test_issue_mz1227":               {},
+		"Dockerfile_test_issue_mz1227_ci":            {},
+		"Dockerfile_test_issue_mz1227_mismatch":      {},
+		"Dockerfile_test_issue_mz1227_reproducible":  {},
+		"Dockerfile_test_issue_mz1227_annotation":    {},
+		"Dockerfile_test_issue_mz1227_detached":      {},
+		"Dockerfile_test_issue_mz1227_merged_result": {},
+		"Dockerfile_test_issue_mz1227_squash":        {},
 	}
 	return &d
 }
@@ -1139,6 +1200,62 @@ var extraDockerRunFlags = map[string]func(contextDir string) []string{
 	"Dockerfile_test_issue_mz881": func(_ string) []string {
 		return []string{"-v", os.Getenv("TLS_REGISTRY_CERT") + ":/mz881/registry-ca.crt:ro"}
 	},
+	"Dockerfile_test_issue_mz1227": gitCheckout,
+	"Dockerfile_test_issue_mz1227_ci": func(ctx string) []string {
+		return append(gitCheckout(ctx), gitlabEnv(gitRevision(ctx))...)
+	},
+	"Dockerfile_test_issue_mz1227_mismatch": func(ctx string) []string {
+		return append(gitCheckout(ctx), gitlabEnv("0000000000000000000000000000000000000000")...)
+	},
+	"Dockerfile_test_issue_mz1227_reproducible": gitCheckout,
+	"Dockerfile_test_issue_mz1227_annotation":   gitCheckout,
+	"Dockerfile_test_issue_mz1227_detached": func(ctx string) []string {
+		return append(append(gitCheckout(ctx), gitlabEnv(gitRevision(ctx))...), forkMergeRequestEnv("detached")...)
+	},
+	"Dockerfile_test_issue_mz1227_merged_result": func(ctx string) []string {
+		return append(append(gitCheckout(ctx), gitlabEnv(gitRevision(ctx))...), forkMergeRequestEnv("merged_result")...)
+	},
+}
+
+func forkMergeRequestEnv(eventType string) []string {
+	return []string{
+		"-e", "CI_MERGE_REQUEST_EVENT_TYPE=" + eventType,
+		"-e", "CI_MERGE_REQUEST_SOURCE_PROJECT_URL=https://gitlab.example.com/fork/project",
+	}
+}
+
+// The context is mounted without the checkout around it. kaniko looks for .git upwards
+// from the context, so it finds this one at the root. A worktree's .git file points at an
+// absolute path, which is mounted where it is.
+func gitCheckout(ctx string) []string {
+	out, err := exec.Command("git", "-C", ctx, "rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir").Output()
+	if err != nil {
+		return nil
+	}
+	paths := strings.Split(string(out), "\n")
+	dotGit := filepath.Join(paths[0], ".git")
+	flags := []string{"-v", dotGit + ":/.git:ro"}
+	if paths[1] != dotGit {
+		flags = append(flags, "-v", paths[1]+":"+paths[1]+":ro")
+	}
+	return flags
+}
+
+func gitRevision(dir string) string {
+	out, err := exec.Command("git", "-C", dir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func gitlabEnv(sha string) []string {
+	return []string{
+		"-e", "GITLAB_CI=true",
+		"-e", "CI_COMMIT_SHA=" + sha,
+		"-e", "CI_PROJECT_URL=https://gitlab.example.com/group/project",
+		"-e", "CI_COMMIT_TAG=v1.2.3",
+	}
 }
 
 func buildKanikoImage(
