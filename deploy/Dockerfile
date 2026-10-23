@@ -51,10 +51,29 @@ COPY . .
 ARG COVER=""
 RUN make COVER="$COVER" out/executor out/warmer \
     && rm -rf /root/.cache
+RUN mkdir -p /licenses/go \
+    && cp LICENSE /licenses/ \
+    && cp /usr/local/go/LICENSE /licenses/go/ \
+    && find vendor -type f \( -name 'LICEN[CS]E*' -o -name 'NOTICE*' -o -name 'COPYING*' \) -exec cp --parents {} /licenses/ \; \
+    && hardlink -t /licenses
 
 # use musl busybox since it's staticly compiled on all platforms
 FROM busybox:musl@sha256:ea2b9914a16a4ac1981994af97b318f7c7d4db76b580c56177f08bf76f4a0be8 AS busybox
 RUN mkdir -p /kaniko && chmod 777 /kaniko
+
+FROM scratch AS busybox-licenses
+ADD --checksum=sha256:bbfc9843646d483c334664f651c208b9839626891d8f17604db2146962f43548 \
+    https://raw.githubusercontent.com/mirror/busybox/371fe9f71d445d18be28c82a2a6d82115c8af19d/LICENSE /busybox/
+ADD --checksum=sha256:f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af \
+    https://raw.githubusercontent.com/kraj/musl/v1.2.5/COPYRIGHT /musl/
+
+FROM scratch AS tini-licenses
+ADD --checksum=sha256:e5f46bca81266bdd511cf08018d66866870531794569c04f9b45f50dd23c28b0 \
+    https://raw.githubusercontent.com/krallin/tini/v0.19.0/LICENSE /tini/
+ADD --checksum=sha256:dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551 \
+    https://raw.githubusercontent.com/bminor/glibc/glibc-2.23/COPYING.LIB /glibc/
+ADD --checksum=sha256:61abdd6930c9c599062d89e916b3e7968783879b6be0ee1c6229dd6169def431 \
+    https://raw.githubusercontent.com/bminor/glibc/glibc-2.23/LICENSES /glibc/
 
 FROM scratch AS kaniko-base-slim
 
@@ -63,6 +82,7 @@ COPY --from=busybox /kaniko /kaniko
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /kaniko/ssl/certs/
 COPY files/nsswitch.conf /etc/nsswitch.conf
+COPY --from=builder /licenses /kaniko/licenses
 ENV HOME=/root
 ENV USER=root
 ENV PATH=/usr/local/bin:/kaniko
@@ -86,26 +106,31 @@ ADD --checksum=sha256:c5b0666b4cb676901f90dfcb37106783c5fe2077b04590973b88595061
     --chown=0:0 --chmod=555 \
     https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-amd64 \
     /kaniko/tini
+COPY --from=tini-licenses / /kaniko/licenses/
 FROM kaniko-base AS kaniko-base-arm
 ADD --checksum=sha256:d33a3731dce1e7db7754ed92edf97236ca7c7b786455abe3b286cda82205a4ae \
     --chown=0:0 --chmod=555 \
     https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-armhf \
     /kaniko/tini
+COPY --from=tini-licenses / /kaniko/licenses/
 FROM kaniko-base AS kaniko-base-arm64
 ADD --checksum=sha256:eae1d3aa50c48fb23b8cbdf4e369d0910dfc538566bfd09df89a774aa84a48b9 \
     --chown=0:0 --chmod=555 \
     https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-arm64 \
     /kaniko/tini
+COPY --from=tini-licenses / /kaniko/licenses/
 FROM kaniko-base AS kaniko-base-s390x
 ADD --checksum=sha256:95657aec2459ff06123e0674565da625c50704b1db86373cd91afc3c0dcce997 \
     --chown=0:0 --chmod=555 \
     https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-s390x \
     /kaniko/tini
+COPY --from=tini-licenses / /kaniko/licenses/
 FROM kaniko-base AS kaniko-base-ppc64le
 ADD --checksum=sha256:b913a6d5be168a14cfe5f27238a181a12aece281e30a57e5d31a148bc5dfb687 \
     --chown=0:0 --chmod=555 \
     https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-ppc64le \
     /kaniko/tini
+COPY --from=tini-licenses / /kaniko/licenses/
 FROM kaniko-base AS kaniko-base-riscv64
 FROM kaniko-base-${TARGETARCH} AS kaniko-base-2
 
@@ -130,6 +155,7 @@ RUN apk add --no-cache ca-certificates git
 COPY --from=builder /src/out/executor /kaniko/executor
 COPY --from=builder /kaniko/.docker /kaniko/.docker
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /kaniko/ssl/certs/
+COPY --from=kaniko-base-2 /kaniko/licenses /kaniko/licenses
 
 # mz446: there is no tini binary release on riscv64
 ARG TARGETARCH
@@ -154,6 +180,7 @@ ENV PATH=/usr/local/bin:/kaniko:/busybox
 COPY --from=builder /src/out/warmer /kaniko/warmer
 
 COPY --from=busybox /bin /busybox
+COPY --from=busybox-licenses / /kaniko/licenses/
 # Declare /busybox as a volume to get it automatically in the path to ignore
 VOLUME /busybox
 
@@ -167,6 +194,7 @@ ENV PATH=/usr/local/bin:/kaniko:/busybox2
 COPY --from=builder /src/out/warmer /kaniko/warmer
 
 COPY --from=busybox /bin /busybox2
+COPY --from=busybox-licenses / /kaniko/licenses/
 # Declare /busybox as a volume to get it automatically in the path to ignore
 VOLUME /busybox2
 
