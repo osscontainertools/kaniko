@@ -60,6 +60,7 @@ type FeatureFlags struct {
 	ReproduciblePreserveFormat     bool
 	ResolveCacheKey                bool
 	RollingCacheKey                bool
+	RunHeredocScript               bool
 	RunHonorGroup                  bool
 	RunViaTini                     bool
 	ScopedDockerignore             bool
@@ -141,6 +142,7 @@ func InitFeatureFlags() {
 		ReproduciblePreserveFormat:     featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT", true),
 		ResolveCacheKey:                featureFlag("FF_KANIKO_RESOLVE_CACHE_KEY", true),
 		RollingCacheKey:                featureFlag("FF_KANIKO_ROLLING_CACHE_KEY", true),
+		RunHeredocScript:               featureFlag("FF_KANIKO_RUN_HEREDOC_SCRIPT", false),
 		RunHonorGroup:                  featureFlag("FF_KANIKO_RUN_HONOR_GROUP", true),
 		RunViaTini:                     featureFlag("FF_KANIKO_RUN_VIA_TINI", false),
 		ScopedDockerignore:             featureFlag("FF_KANIKO_SCOPED_DOCKERIGNORE", false),

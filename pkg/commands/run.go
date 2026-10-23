@@ -29,6 +29,7 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
@@ -297,16 +298,46 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 		cmd := strings.Join(cmdRun.CmdLine, " ")
 
 		// Heredocs
-		if len(cmdRun.Files) == 1 && cmd == "<<"+cmdRun.Files[0].Name {
-			// 1713: if we encounter a line like 'RUN <<EOF',
-			// we implicitly want the file body to be executed as a script
-			cmd += " sh"
+		if kConfig.FF.RunHeredocScript && len(cmdRun.Files) == 1 && parser.MustParseHeredoc(cmd) != nil {
+			cmd = cmdRun.Files[0].Data
+			if cmdRun.Files[0].Chomp {
+				cmd = parser.ChompHeredocContent(cmd)
+			}
+			// the kernel only honours a shebang on a file it executes
+			if strings.HasPrefix(cmd, "#!") {
+				f, err := os.CreateTemp(kConfig.KanikoDir, "heredoc-")
+				if err != nil {
+					return fmt.Errorf("creating heredoc script: %w", err)
+				}
+				defer os.Remove(f.Name())
+				_, err = f.WriteString(cmd)
+				if err != nil {
+					f.Close()
+					return fmt.Errorf("writing heredoc script: %w", err)
+				}
+				err = f.Close()
+				if err != nil {
+					return fmt.Errorf("writing heredoc script: %w", err)
+				}
+				// CreateTemp creates 0600, the script runs as USER
+				err = os.Chmod(f.Name(), 0o755)
+				if err != nil {
+					return fmt.Errorf("making heredoc script executable: %w", err)
+				}
+				cmd = f.Name()
+			}
+		} else {
+			if len(cmdRun.Files) == 1 && cmd == "<<"+cmdRun.Files[0].Name {
+				// 1713: if we encounter a line like 'RUN <<EOF',
+				// we implicitly want the file body to be executed as a script
+				cmd += " sh"
+			}
+			var cmdSb245 strings.Builder
+			for _, h := range cmdRun.Files {
+				cmdSb245.WriteString("\n" + h.Data + h.Name)
+			}
+			cmd += cmdSb245.String()
 		}
-		var cmdSb245 strings.Builder
-		for _, h := range cmdRun.Files {
-			cmdSb245.WriteString("\n" + h.Data + h.Name)
-		}
-		cmd += cmdSb245.String()
 
 		newCommand = append(shell, cmd)
 	} else {
