@@ -144,7 +144,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 
 		if fi.IsDir() {
 			var existing os.FileInfo
-			if kConfig.FF.CopyKeepExistingDirOwner && !(kConfig.FF.CopyLink && c.cmd.Link) {
+			if kConfig.FF.CopyKeepDestOwner && !(kConfig.FF.CopyLink && c.cmd.Link) {
 				dfi, err := os.Lstat(destPath)
 				if err == nil && dfi.IsDir() {
 					existing = dfi

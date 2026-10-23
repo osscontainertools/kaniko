@@ -37,7 +37,7 @@ type FeatureFlags struct {
 	ConfineCopySource              bool
 	CopyAsRoot                     bool
 	CopyChmodOnImplicitDirs        bool
-	CopyKeepExistingDirOwner       bool
+	CopyKeepDestOwner              bool
 	CopyLink                       bool
 	CopySkipSpecialFiles           bool
 	CrossRepoMount                 bool
@@ -119,7 +119,7 @@ func InitFeatureFlags() {
 		ConfineCopySource:              featureFlag("FF_KANIKO_CONFINE_COPY_SOURCE", true),
 		CopyAsRoot:                     featureFlag("FF_KANIKO_COPY_AS_ROOT", false),
 		CopyChmodOnImplicitDirs:        featureFlag("FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS", false),
-		CopyKeepExistingDirOwner:       featureFlag("FF_KANIKO_COPY_KEEP_EXISTING_DIR_OWNER", false),
+		CopyKeepDestOwner:              featureFlag("FF_KANIKO_COPY_KEEP_DEST_OWNER", false),
 		CopyLink:                       featureFlag("FF_KANIKO_COPY_LINK", false),
 		CopySkipSpecialFiles:           featureFlag("FF_KANIKO_COPY_SKIP_SPECIAL_FILES", true),
 		CrossRepoMount:                 featureFlag("FF_KANIKO_CROSS_REPO_MOUNT", true),
