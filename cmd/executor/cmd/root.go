@@ -37,6 +37,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/executor"
 	"github.com/osscontainertools/kaniko/pkg/logging"
+	"github.com/osscontainertools/kaniko/pkg/metrics"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/tracing"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -136,7 +137,7 @@ func setupBuild() error {
 		return fmt.Errorf("cache flags invalid: %w", err)
 	}
 	srcContext := opts.SrcContext
-	if err := resolveSourceContext(); err != nil {
+	if err := metrics.ContextFetch.Time(resolveSourceContext); err != nil {
 		return fmt.Errorf("error resolving source context: %w", err)
 	}
 	if opts.PredefinedAnnotations {
@@ -233,6 +234,9 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 	if err := setupBuild(); err != nil {
 		return err
 	}
+	if metrics.Enabled() {
+		metrics.SetMeta("options", metricsOptions(opts))
+	}
 	if !checkContained() {
 		if !force {
 			return errors.New("kaniko should only be run inside of a container, run with the --force flag if you are sure you want to continue")
@@ -245,7 +249,10 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 			topts := *opts
 			ApplyTarget(&topts, target)
 			if !topts.NoPush || topts.CacheRepo != "" {
-				if err := executor.CheckPushPermissions(&topts); err != nil {
+				checkStart := metrics.Now()
+				err := executor.CheckPushPermissions(&topts)
+				metrics.PushPermissionCheck.Since(checkStart)
+				if err != nil {
 					logrus.Warnf("make sure you entered the correct tag name, that you are authenticated correctly, and try again.")
 					// mz280: remind users that DOCKER_AUTH_CONFIG gets prioritized by docker-cli
 					// https://github.com/docker/cli/pull/6171
@@ -292,17 +299,23 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 			logrus.Infof("Building target %q [stage: %q]", target.ID, target.Stage)
 		}
 		_, endBuild := timing.Scope("Total Build Time")
+		buildStart := metrics.Now()
 		image, err := executor.DoBuild(&topts)
 		endBuild()
+		metrics.BuildTotal.Since(buildStart)
 		if err != nil {
 			return fmt.Errorf("error building image: %w", err)
 		}
+		waitStart := metrics.Now()
 		executor.WaitCachePushes()
+		metrics.CacheWait.Since(waitStart)
 		// mz992: a dryrun renders the plan and returns no image, there is nothing to push.
 		if !opts.Dryrun {
 			pushTimer := timing.Start("Total Push Time")
+			pushStart := metrics.Now()
 			err := executor.DoPush(image, &topts)
 			pushTimer.End()
+			metrics.PushTotal.Since(pushStart)
 			if err != nil {
 				return fmt.Errorf("error pushing image: %w", err)
 			}
@@ -658,6 +671,7 @@ func exitWithCode(err error, exitCode int) {
 	fmt.Fprintln(os.Stderr, err)
 	util.LogRegistryConnections()
 	tracing.Shutdown(err)
+	metrics.Finish(err, exitCode)
 	os.Exit(exitCode)
 }
 

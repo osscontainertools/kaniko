@@ -50,6 +50,7 @@ type FeatureFlags struct {
 	LayerHints                     bool
 	NativeCopy                     bool
 	OCIScratchBase                 bool
+	ParallelHash                   bool
 	PathScopedRegistryAuth         bool
 	PeekArchiveHeader              bool
 	PlatformCacheKey               bool
@@ -131,6 +132,7 @@ func InitFeatureFlags() {
 		LayerHints:                     featureFlag("FF_KANIKO_LAYER_HINTS", true),
 		NativeCopy:                     featureFlag("FF_KANIKO_NATIVE_COPY", true),
 		OCIScratchBase:                 featureFlag("FF_KANIKO_OCI_SCRATCH_BASE", false),
+		ParallelHash:                   featureFlag("FF_KANIKO_PARALLEL_HASH", false),
 		PathScopedRegistryAuth:         featureFlag("FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH", true),
 		PeekArchiveHeader:              featureFlag("FF_KANIKO_PEEK_ARCHIVE_HEADER", true),
 		PlatformCacheKey:               featureFlag("FF_KANIKO_PLATFORM_CACHE_KEY", true),
@@ -164,6 +166,11 @@ func InitFeatureFlags() {
 
 func init() {
 	InitFeatureFlags()
+}
+
+// ActiveFeatureFlags returns the names of the feature flags that are on.
+func ActiveFeatureFlags() []string {
+	return slices.Clone(activeFeatureFlags)
 }
 
 func LogFeatureFlags() {

@@ -27,6 +27,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/filesystem"
+	"github.com/osscontainertools/kaniko/pkg/metrics"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
@@ -53,6 +54,7 @@ func (s *Snapshotter) Init() error {
 	assert.Assert("snapshot.init.layeredmap-set", s.l != nil, "Snapshotter.Init: layered map must be set")
 	assert.Assert("snapshot.init.directory-set", s.directory != "", "Snapshotter.Init: directory must be non-empty")
 	logrus.Info("Initializing snapshotter ...")
+	defer metrics.BeginSnapshot("init").EndSnapshot("", 0, 0)
 	_, _, err := s.scanFullFilesystem()
 	return err
 }
@@ -74,10 +76,12 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 
 	s.l.Snapshot()
 
+	resolveStart := metrics.Now()
 	filesToAdd, err := filesystem.ResolvePaths(files, s.ignorelist)
 	if err != nil {
 		return "", nil, nil, err
 	}
+	metrics.SnapshotResolve.Since(resolveStart)
 
 	logrus.Info("Taking snapshot of files...")
 
@@ -85,11 +89,13 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 	logrus.Debugf("Adding to layer: %v", filesToAdd)
 
 	// Add files to current layer.
+	addStart := metrics.Now()
 	for _, file := range filesToAdd {
 		if err := s.l.Add(file); err != nil {
 			return "", nil, nil, fmt.Errorf("unable to add file %s to layered map: %w", file, err)
 		}
 	}
+	metrics.SnapshotAdd.Observe(addStart, 0, int64(len(filesToAdd)))
 
 	// Get whiteout paths
 	var filesToWhiteout []string
@@ -159,11 +165,13 @@ func (s *Snapshotter) getSnashotPathPrefix() string {
 
 func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 	logrus.Info("Taking snapshot of full filesystem...")
+	scanStart := metrics.Now()
 
 	// Some of the operations that follow (e.g. hashing) depend on the file system being synced,
 	// for example the hashing function that determines if files are equal uses the mtime of the files,
 	// which can lag if sync is not called. Unfortunately there can still be lag if too much data needs
 	// to be flushed or the disk does its own caching/buffering.
+	syncStart := metrics.Now()
 	if runtime.GOOS == "linux" {
 		dir, err := util.FSys.Open(s.directory)
 		if err != nil {
@@ -184,16 +192,23 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 		// fallback to full page cache sync
 		syscall.Sync()
 	}
+	metrics.SnapshotSyncfs.Since(syncStart)
 
 	s.l.Snapshot()
 
 	logrus.Debugf("Current image filesystem: %v", s.l.currentImage)
 
-	changedPaths, deletedPaths, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), s.l.CheckFileChange)
+	walkFS := util.WalkFS
+	if config.FF.ParallelHash {
+		// CheckFileChange and the hashers are safe for concurrent use
+		walkFS = util.WalkFSParallel
+	}
+	changedPaths, deletedPaths, err := walkFS(s.directory, s.l.GetCurrentPaths(), s.l.CheckFileChange)
 	if err != nil {
 		return nil, nil, err
 	}
 	timer := timing.Start("Resolving Paths")
+	resolveStart := metrics.Now()
 
 	filesToAdd := []string{}
 	resolvedFiles, err := filesystem.ResolvePaths(changedPaths, s.ignorelist)
@@ -227,10 +242,12 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 
 	filesToWhiteout := removeObsoleteWhiteouts(deletedPaths)
 	timer.End()
+	metrics.SnapshotResolve.Since(resolveStart)
 
 	sort.Strings(filesToAdd)
 	sort.Strings(filesToWhiteout)
 
+	metrics.SnapshotScanFull.Observe(scanStart, 0, int64(len(changedPaths)))
 	return filesToAdd, filesToWhiteout, nil
 }
 
@@ -253,6 +270,7 @@ func removeObsoleteWhiteouts(deletedFiles map[string]struct{}) (filesToWhiteout 
 func writeToTar(t util.Tar, files, whiteouts []string) error {
 	timer := timing.Start("Writing tar file")
 	defer timer.End()
+	start := metrics.Now()
 
 	// Now create the tar.
 	addedPaths := make(map[string]bool)
@@ -287,6 +305,8 @@ func writeToTar(t util.Tar, files, whiteouts []string) error {
 		}
 		addedPaths[path] = true
 	}
+	// addedPaths holds the root, which is never written
+	metrics.SnapshotTar.Observe(start, 0, int64(len(addedPaths)-1))
 	return nil
 }
 

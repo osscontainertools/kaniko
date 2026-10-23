@@ -40,6 +40,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/metrics"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
@@ -208,6 +209,7 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 		logrus.Tracef("Extracting layer %d", i)
 	}
 
+	start := metrics.Now()
 	r, err := l.Uncompressed()
 	if err != nil {
 		return nil, err
@@ -215,6 +217,7 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 	defer r.Close()
 
 	extractedFiles := []string{}
+	var extractedBytes int64
 	tr := tar.NewReader(r)
 	for {
 		hdr, err := tr.Next()
@@ -269,7 +272,9 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 		}
 
 		extractedFiles = append(extractedFiles, filepath.Join(root, cleanedName))
+		extractedBytes += hdr.Size
 	}
+	metrics.LayerExtract.Observe(start, extractedBytes, int64(len(extractedFiles)))
 	return extractedFiles, nil
 }
 
@@ -277,6 +282,7 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 func DeleteFilesystem() error {
 	t := timing.Start("FS Cleaning")
 	defer t.End()
+	defer metrics.FSDelete.Since(metrics.Now())
 	logrus.Info("Deleting filesystem...")
 	return fs.WalkDir(FSys, config.RootDir, func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
@@ -1605,6 +1611,26 @@ func WalkFS(
 	existingPaths map[string]struct{},
 	changeFunc func(string) (bool, error),
 ) ([]string, map[string]struct{}, error) {
+	return walkFS(dir, existingPaths, changeFunc, gowalkDir)
+}
+
+// WalkFSParallel is WalkFS with changeFunc run on a pool of goroutines
+// (FF_KANIKO_PARALLEL_HASH), which changeFunc must be safe for. The results,
+// errors included, are those of WalkFS. See gowalkDirParallel.
+func WalkFSParallel(
+	dir string,
+	existingPaths map[string]struct{},
+	changeFunc func(string) (bool, error),
+) ([]string, map[string]struct{}, error) {
+	return walkFS(dir, existingPaths, changeFunc, gowalkDirParallel)
+}
+
+func walkFS(
+	dir string,
+	existingPaths map[string]struct{},
+	changeFunc func(string) (bool, error),
+	walk func(string, map[string]struct{}, func(string) (bool, error)) ([]string, map[string]struct{}, error),
+) ([]string, map[string]struct{}, error) {
 	timeOutStr := os.Getenv(snapshotTimeout)
 	if timeOutStr == "" {
 		logrus.Tracef("Environment '%s' not set. Using default snapshot timeout '%s'", snapshotTimeout, defaultTimeout)
@@ -1619,7 +1645,7 @@ func WalkFS(
 	ch := make(chan walkFSResult, 1)
 
 	go func() {
-		filesAdded, existingPaths, err := gowalkDir(dir, existingPaths, changeFunc)
+		filesAdded, existingPaths, err := walk(dir, existingPaths, changeFunc)
 		ch <- walkFSResult{filesAdded, existingPaths, err}
 	}()
 
@@ -1638,6 +1664,8 @@ func WalkFS(
 func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(string) (bool, error)) ([]string, map[string]struct{}, error) {
 	foundPaths := make([]string, 0)
 	deletedFiles := existingPaths // Make a reference.
+	start := metrics.Now()
+	var visited int64
 
 	callback := func(path string, info fs.DirEntry, err error) error {
 		logrus.Tracef("Analyzing path '%s'", path)
@@ -1652,6 +1680,7 @@ func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(st
 			}
 			return nil
 		}
+		visited++
 
 		// File is existing on disk, remove it from deleted files.
 		delete(deletedFiles, path)
@@ -1669,6 +1698,7 @@ func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(st
 	if err != nil {
 		return nil, nil, err
 	}
+	metrics.SnapshotWalk.Observe(start, 0, visited)
 
 	return foundPaths, deletedFiles, nil
 }
@@ -1678,6 +1708,8 @@ func GetFSInfoMap(dir string, existing map[string]os.FileInfo) (map[string]os.Fi
 	fileMap := map[string]os.FileInfo{}
 	foundPaths := []string{}
 	timer := timing.Start("Walking filesystem with Stat")
+	start := metrics.Now()
+	var visited int64
 	callback := func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -1689,6 +1721,7 @@ func GetFSInfoMap(dir string, existing map[string]os.FileInfo) (map[string]os.Fi
 			}
 			return nil
 		}
+		visited++
 		if fi, err := os.Lstat(path); err == nil {
 			if fiPrevious, ok := existing[path]; ok {
 				// check if file changed
@@ -1709,6 +1742,7 @@ func GetFSInfoMap(dir string, existing map[string]os.FileInfo) (map[string]os.Fi
 		return nil, nil, err
 	}
 	timer.End()
+	metrics.SnapshotWalkStat.Observe(start, 0, visited)
 	return fileMap, foundPaths, nil
 }
 
