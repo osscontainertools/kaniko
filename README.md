@@ -139,6 +139,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS`](#flag-ff_kaniko_copy_chmod_on_implicit_dirs)
       - [Flag `FF_KANIKO_COPY_LINK`](#flag-ff_kaniko_copy_link)
       - [Flag `FF_KANIKO_COPY_SKIP_SPECIAL_FILES`](#flag-ff_kaniko_copy_skip_special_files)
+      - [Flag `FF_KANIKO_COPY_SUBDIR_MODE`](#flag-ff_kaniko_copy_subdir_mode)
       - [Flag `FF_KANIKO_CROSS_REPO_MOUNT`](#flag-ff_kaniko_cross_repo_mount)
       - [Flag `FF_KANIKO_DEFER_CACHE_PUSH`](#flag-ff_kaniko_defer_cache_push)
       - [Flag `FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES`](#flag-ff_kaniko_deprecate_layerless_cache_entries)
@@ -1207,6 +1208,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 ```sh
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_LINK=true
+FF_KANIKO_COPY_SUBDIR_MODE=true
 FF_KANIKO_DEFER_CACHE_PUSH=true
 FF_KANIKO_WARMER_BUILD_ARGS=true
 FF_KANIKO_WARMER_PREDEFINED_ARGS=true
@@ -1310,6 +1312,18 @@ Becomes default in `v1.30.0`.
 `COPY` reads each source file to copy it, which is wrong for anything that is not a regular file. A socket fails the build with `ENXIO`, and a block or character device is read as if it were a file, baking its contents into the image in place of the device node.
 Set this flag to `true` to skip both with a warning instead. Fifos are always recreated with `mkfifo` regardless of this flag, since opening one hung the build outright. Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_COPY_SUBDIR_MODE`
+
+```dockerfile
+RUN mkdir -p /app/sub && chmod 0700 /app/sub
+COPY dist /app/
+```
+
+When `dist/sub` lands on a directory that already exists, kaniko gives `/app/sub` the new owner but keeps its old mode. buildkit gives it the mode of `dist/sub`.
+Set this flag to `true` to apply the source mode to existing subdirectories.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_CROSS_REPO_MOUNT`
 

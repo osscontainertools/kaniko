@@ -39,6 +39,7 @@ type FeatureFlags struct {
 	CopyChmodOnImplicitDirs        bool
 	CopyLink                       bool
 	CopySkipSpecialFiles           bool
+	CopySubdirMode                 bool
 	CrossRepoMount                 bool
 	DeferCachePush                 bool
 	DeprecateLayerlessCacheEntries bool
@@ -120,6 +121,7 @@ func InitFeatureFlags() {
 		CopyChmodOnImplicitDirs:        featureFlag("FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS", false),
 		CopyLink:                       featureFlag("FF_KANIKO_COPY_LINK", false),
 		CopySkipSpecialFiles:           featureFlag("FF_KANIKO_COPY_SKIP_SPECIAL_FILES", true),
+		CopySubdirMode:                 featureFlag("FF_KANIKO_COPY_SUBDIR_MODE", false),
 		CrossRepoMount:                 featureFlag("FF_KANIKO_CROSS_REPO_MOUNT", true),
 		DeferCachePush:                 featureFlag("FF_KANIKO_DEFER_CACHE_PUSH", false),
 		DeprecateLayerlessCacheEntries: featureFlag("FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES", true),
