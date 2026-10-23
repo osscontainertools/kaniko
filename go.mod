@@ -13,7 +13,7 @@ require (
 	github.com/containerd/platforms v1.0.0-rc.5
 	github.com/cyphar/filepath-securejoin v0.7.0
 	github.com/docker/cli v29.9.2+incompatible
-	github.com/docker/docker-credential-helpers v0.9.10
+	github.com/docker/docker-credential-helpers v0.9.12
 	github.com/docker/go-units v0.5.0
 	github.com/ePirat/docker-credential-gitlabci v1.0.0
 	github.com/go-git/go-billy/v5 v5.9.2
