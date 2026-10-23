@@ -49,6 +49,7 @@ RUN mkdir -p /dist/executor /dist/warmer \
     done
 
 # use musl busybox since it's staticly compiled on all platforms
+# Keep in sync with deploy/sources/busybox.spdx.json.
 FROM busybox:musl@sha256:ea2b9914a16a4ac1981994af97b318f7c7d4db76b580c56177f08bf76f4a0be8 AS busybox
 RUN mkdir -p /kaniko && chmod 777 /kaniko
 
@@ -88,36 +89,42 @@ ENV DOCKER_CREDENTIAL_GCR_CONFIG=/kaniko/.config/gcloud/docker_credential_gcr_co
 WORKDIR /workspace
 
 # mz446: there is no tini binary release on riscv64
+# Keep in sync with deploy/sources/tini-*.spdx.json.
 FROM kaniko-base AS kaniko-base-amd64
 ADD --checksum=sha256:c5b0666b4cb676901f90dfcb37106783c5fe2077b04590973b885950611b30ee \
     --chown=0:0 --chmod=555 \
     https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-amd64 \
     /kaniko/tini
 COPY --from=tini-licenses / /kaniko/licenses/
+COPY deploy/sources/tini-native.spdx.json /kaniko/sbom/tini.spdx.json
 FROM kaniko-base AS kaniko-base-arm
 ADD --checksum=sha256:d33a3731dce1e7db7754ed92edf97236ca7c7b786455abe3b286cda82205a4ae \
     --chown=0:0 --chmod=555 \
     https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-armhf \
     /kaniko/tini
 COPY --from=tini-licenses / /kaniko/licenses/
+COPY deploy/sources/tini-cross.spdx.json /kaniko/sbom/tini.spdx.json
 FROM kaniko-base AS kaniko-base-arm64
 ADD --checksum=sha256:eae1d3aa50c48fb23b8cbdf4e369d0910dfc538566bfd09df89a774aa84a48b9 \
     --chown=0:0 --chmod=555 \
     https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-arm64 \
     /kaniko/tini
 COPY --from=tini-licenses / /kaniko/licenses/
+COPY deploy/sources/tini-cross.spdx.json /kaniko/sbom/tini.spdx.json
 FROM kaniko-base AS kaniko-base-s390x
 ADD --checksum=sha256:95657aec2459ff06123e0674565da625c50704b1db86373cd91afc3c0dcce997 \
     --chown=0:0 --chmod=555 \
     https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-s390x \
     /kaniko/tini
 COPY --from=tini-licenses / /kaniko/licenses/
+COPY deploy/sources/tini-cross.spdx.json /kaniko/sbom/tini.spdx.json
 FROM kaniko-base AS kaniko-base-ppc64le
 ADD --checksum=sha256:b913a6d5be168a14cfe5f27238a181a12aece281e30a57e5d31a148bc5dfb687 \
     --chown=0:0 --chmod=555 \
     https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-ppc64le \
     /kaniko/tini
 COPY --from=tini-licenses / /kaniko/licenses/
+COPY deploy/sources/tini-cross.spdx.json /kaniko/sbom/tini.spdx.json
 FROM kaniko-base AS kaniko-base-riscv64
 FROM kaniko-base-${TARGETARCH} AS kaniko-base-2
 
@@ -147,7 +154,7 @@ COPY --from=kaniko-base-2 /kaniko/licenses /kaniko/licenses
 # mz446: there is no tini binary release on riscv64
 ARG TARGETARCH
 RUN --mount=from=kaniko-base-2,source=/kaniko,target=/mnt/kaniko \
-    [ "$TARGETARCH" = "riscv64" ] || cp /mnt/kaniko/tini /kaniko/tini
+    [ "$TARGETARCH" = "riscv64" ] || cp -r /mnt/kaniko/tini /mnt/kaniko/sbom /kaniko/
 
 # mz595: pre-existing alpine files would result in invalid build outputs.
 # with these flags we wipe the filesystem before build, circumventing this issue.
@@ -168,6 +175,7 @@ COPY --from=builder /src/out/warmer /kaniko/warmer
 
 COPY --from=busybox /bin /busybox
 COPY --from=busybox-licenses / /kaniko/licenses/
+COPY deploy/sources/busybox.spdx.json /kaniko/sbom/busybox.spdx.json
 # Declare /busybox as a volume to get it automatically in the path to ignore
 VOLUME /busybox
 
@@ -182,6 +190,7 @@ COPY --from=builder /src/out/warmer /kaniko/warmer
 
 COPY --from=busybox /bin /busybox2
 COPY --from=busybox-licenses / /kaniko/licenses/
+COPY deploy/sources/busybox.spdx.json /kaniko/sbom/busybox.spdx.json
 # Declare /busybox as a volume to get it automatically in the path to ignore
 VOLUME /busybox2
 
