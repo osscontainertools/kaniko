@@ -17,11 +17,13 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
 	"github.com/osscontainertools/kaniko/pkg/creds"
+	"github.com/osscontainertools/kaniko/pkg/metrics"
 )
 
 func main() {
@@ -30,7 +32,24 @@ func main() {
 		os.Exit(helper())
 	}
 
+	cmd.StartMetrics()
+	defer finishMetricsOnPanic()
+
 	if err := cmd.RootCmd.Execute(); err != nil {
+		metrics.Finish(err, 1)
 		os.Exit(1)
+	}
+	metrics.Finish(nil, 0)
+}
+
+// finishMetricsOnPanic writes the metrics of a build that panicked on the main
+// goroutine, then lets the panic go on. Without metrics it does not recover.
+func finishMetricsOnPanic() {
+	if !metrics.Active() {
+		return
+	}
+	if r := recover(); r != nil {
+		metrics.Finish(fmt.Errorf("panic: %v", r), 2)
+		panic(r)
 	}
 }

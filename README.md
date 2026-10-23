@@ -150,6 +150,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_LAYER_HINTS`](#flag-ff_kaniko_layer_hints)
       - [Flag `FF_KANIKO_NATIVE_COPY`](#flag-ff_kaniko_native_copy)
       - [Flag `FF_KANIKO_OCI_SCRATCH_BASE`](#flag-ff_kaniko_oci_scratch_base)
+      - [Flag `FF_KANIKO_PARALLEL_HASH`](#flag-ff_kaniko_parallel_hash)
       - [Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`](#flag-ff_kaniko_path_scoped_registry_auth)
       - [Flag `FF_KANIKO_PEEK_ARCHIVE_HEADER`](#flag-ff_kaniko_peek_archive_header)
       - [Flag `FF_KANIKO_PLATFORM_CACHE_KEY`](#flag-ff_kaniko_platform_cache_key)
@@ -168,6 +169,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_SKIP_CACHED_STAGES`](#flag-ff_kaniko_skip_cached_stages)
       - [Flag `FF_KANIKO_SKIP_RELABEL_RECOMPRESS`](#flag-ff_kaniko_skip_relabel_recompress)
       - [Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`](#flag-ff_kaniko_skip_write_whiteouts)
+      - [Flag `FF_KANIKO_STAT_HASH_CACHE`](#flag-ff_kaniko_stat_hash_cache)
       - [Flag `FF_KANIKO_UNPACK_XZ`](#flag-ff_kaniko_unpack_xz)
       - [Flag `FF_KANIKO_UNPACK_ZSTD`](#flag-ff_kaniko_unpack_zstd)
       - [Flag `FF_KANIKO_UNTAR_SKIP_ROOT`](#flag-ff_kaniko_untar_skip_root)
@@ -1383,6 +1385,12 @@ When a Dockerfile uses `FROM scratch`, kaniko uses an empty Docker-format image 
 Set this flag to `true` to use an empty OCI-format image instead, causing `FROM scratch` builds to produce output in OCI manifest schema v1 format. Defaults to `false`.
 Currently no plans to activate.
 
+#### Flag `FF_KANIKO_PARALLEL_HASH`
+
+The snapshot after a `RUN` walks the root filesystem and hashes every file on a single goroutine.
+Set this flag to `true` to hash on up to 8 goroutines, as many as `GOMAXPROCS`, which follows the CPU limit of the container. The walk itself, and the files and whiteouts of the layer, stay as they are.
+Defaults to `false`.
+
 #### Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`
 
 An `auths` entry is historically matched by either the registry host or by the exact repository path. kaniko and most other tools have no concept of namespaces for docker auth. This means in registries that allow for namespaced auth, ie. quay robot accounts, users will end up configuring credentials for each repository path regardless.
@@ -1519,6 +1527,13 @@ When kaniko extracts a cached layer it applies the layer's whiteouts by deleting
 Set this flag to `true` to skip writing the marker files, the deletion alone already applies the whiteout. Defaults to `true`.
 Will be deprecated in `v1.30.0`.
 
+#### Flag `FF_KANIKO_STAT_HASH_CACHE`
+
+With `--snapshot-mode=full`, every snapshot after a `RUN` reads and hashes the content of every file in the root filesystem, although most of them did not change.
+Set this flag to `true` to remember the hash of each regular file together with its `lstat` (device, inode, size, mtime, ctime, mode, owner) and to read only the files whose `lstat` changed. Any write, `chmod`, `chown`, `touch` or xattr change moves the ctime of a file, which user space cannot set back. Files changed less than 2 seconds before they are hashed are not remembered, as two writes within one timestamp tick can leave ctime unchanged.
+Not for filesystems that do not keep ctime, or whose files change behind the kernel's back (network filesystems).
+Defaults to `false`.
+
 #### Flag `FF_KANIKO_UNPACK_XZ`
 
 `ADD` extracts a local tar archive, and docker recognises xz among the compression formats it accepts. kaniko detects xz but does not decompress it, so `ADD archive.tar.xz` fails with `unsupported compression algorithm`.
@@ -1607,6 +1622,10 @@ Spans are sent over OTLP/**HTTP(S)**, OTLP/**gRPC** is not supported. The endpoi
 See [Telemetry attributes](docs/telemetry.md) for the full list of exported span attributes.
 
 Standard OpenTelemetry environment variables apply for the rest: `OTEL_EXPORTER_OTLP_HEADERS` for authenticating to the collector, and `OTEL_RESOURCE_ATTRIBUTES` for fleet labels of your own. `KANIKO_TELEMETRY_TOKEN_EXCHANGE_ENDPOINT` authenticates without a stored token, see [Authenticating to the collector](docs/telemetry.md#authenticating-to-the-collector).
+
+### Build metrics
+
+`KANIKO_METRICS_FILE=<path>` makes kaniko write a JSON report of the build when it exits: the time and the bytes and files of every phase (walking and hashing the filesystem, writing and compressing the layer tar, extracting, cache, push), per stage, command and snapshot, plus what the process used. `KANIKO_PPROF_DIR=<dir>` writes CPU and heap profiles. With both unset nothing changes. See [Build metrics](docs/metrics.md).
 
 ### Debug Image
 
