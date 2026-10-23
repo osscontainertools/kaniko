@@ -139,13 +139,14 @@ func setupBuild() error {
 	if err := resolveSourceContext(); err != nil {
 		return fmt.Errorf("error resolving source context: %w", err)
 	}
-	if opts.PredefinedAnnotations {
+	if opts.PredefinedAnnotations || opts.Provenance {
 		dir, cloneURL := opts.SrcContext, ""
 		gitContext, isGit := strings.CutPrefix(srcContext, constants.GitBuildContextPrefix)
 		if isGit {
 			dir, cloneURL = config.BuildContextDir, buildcontext.GitURL(gitContext)
 		}
-		opts.ContextSource = buildenv.ResolveSource(buildenv.DetectCI(), buildenv.GitSource(dir, cloneURL))
+		opts.CI = buildenv.DetectCI()
+		opts.ContextSource = buildenv.ResolveSource(opts.CI, buildenv.GitSource(dir, cloneURL))
 	}
 	if err := resolveDockerfilePath(); err != nil {
 		return fmt.Errorf("error resolving dockerfile path: %w", err)
@@ -182,6 +183,15 @@ func validateOutputFlags(opts *config.KanikoOptions) error {
 	}
 	if opts.TarPath != "" && opts.Compression == config.ZStd {
 		return errors.New("--compression=zstd cannot be used with --tar-path, the Docker schema2 tarball has no zstd layer media type, use --oci-layout-path for zstd layers")
+	}
+	if opts.IndexFile != "" && !opts.Provenance {
+		return errors.New("--index-file requires --provenance, a build without it creates no index")
+	}
+	if opts.Provenance && opts.TarPath != "" && opts.IndexFile == "" {
+		return errors.New("--tar-path with --provenance requires --index-file, a Docker tarball cannot hold the attestation")
+	}
+	if opts.Provenance && opts.NoPush && opts.OCILayoutPath == "" && (opts.TarPath != "" || opts.IndexFile != "") {
+		return errors.New("--provenance with --no-push stores the attestation only in --oci-layout-path, a Docker tarball cannot hold it and --index-file would point at a manifest stored nowhere")
 	}
 	return nil
 }
@@ -292,7 +302,7 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 			logrus.Infof("Building target %q [stage: %q]", target.ID, target.Stage)
 		}
 		_, endBuild := timing.Scope("Total Build Time")
-		image, err := executor.DoBuild(&topts)
+		out, err := executor.DoBuild(&topts)
 		endBuild()
 		if err != nil {
 			return fmt.Errorf("error building image: %w", err)
@@ -301,7 +311,7 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 		// mz992: a dryrun renders the plan and returns no image, there is nothing to push.
 		if !opts.Dryrun {
 			pushTimer := timing.Start("Total Push Time")
-			err := executor.DoPush(image, &topts)
+			err := executor.DoPush(out, &topts)
 			pushTimer.End()
 			if err != nil {
 				return fmt.Errorf("error pushing image: %w", err)
@@ -340,6 +350,7 @@ func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().StringVarP(&opts.DigestFile, "digest-file", "", "", "Specify a file to save the digest of the built image to.")
 	cmd.Flags().StringVarP(&opts.ImageNameDigestFile, "image-name-with-digest-file", "", "", "Specify a file to save the image name w/ digest of the built image to.")
 	cmd.Flags().StringVarP(&opts.ImageNameTagDigestFile, "image-name-tag-with-digest-file", "", "", "Specify a file to save the image name w/ image tag w/ digest of the built image to.")
+	cmd.Flags().StringVarP(&opts.IndexFile, "index-file", "", "", "Specify a file to save the OCI index of the built image to.")
 	cmd.Flags().StringVarP(&opts.OCILayoutPath, "oci-layout-path", "", "", "Path to save the OCI image layout of the built image.")
 	cmd.Flags().VarP(&opts.Compression, "compression", "", "Compression algorithm (gzip, zstd)")
 	cmd.Flags().VarP(&opts.ImageFormat, "image-format", "", "Output image media type (docker, oci). Defaults to inheriting the format of the base image.")
@@ -360,6 +371,7 @@ func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	opts.Annotations = make(map[string]string)
 	cmd.Flags().VarP(&opts.Annotations, "annotation", "", "Set metadata annotations for the image in key=value format. Set it repeatedly for multiple annotations.")
 	cmd.Flags().BoolVarP(&opts.PredefinedAnnotations, "predefined-annotations", "", false, "Set the OCI pre-defined annotations kaniko can determine.")
+	cmd.Flags().BoolVarP(&opts.Provenance, "provenance", "", false, "Attach a SLSA provenance attestation and push an OCI index.")
 	cmd.Flags().BoolVarP(&opts.PreserveContext, "preserve-context", "", config.EnvBool("KANIKO_PRESERVE_CONTEXT"), "Preserve build context across build stages by taking a snapshot of the full filesystem before build and restore it after we switch stages. Restores in the end too if passed together with 'cleanup'")
 	cmd.Flags().BoolVarP(&opts.Materialize, "materialize", "", false, "Guarantee that the final state of the file system corresponds to what was specified as the build target, even if we have 100% cache hitrate and wouldn't need to unpack any layers")
 	opts.Secrets = make(config.SecretOptions)

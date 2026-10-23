@@ -47,6 +47,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	ggcrtypes "github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/osscontainertools/kaniko/pkg/provenance"
 	"github.com/osscontainertools/kaniko/testutil"
 )
 
@@ -353,6 +354,8 @@ func TestKanikoOnly(t *testing.T) {
 				testutil.CheckDeepEqual(t, manifestMediaTypes(t, base), manifestMediaTypes(t, kanikoImage))
 			}
 			checkAnnotations(t, dockerfile, GetKanikoImage(config.imageRepo, dockerfile))
+			checkProvenance(t, dockerfile, GetKanikoImage(config.imageRepo, dockerfile))
+			checkIndexFile(t, dockerfile, GetKanikoImage(config.imageRepo, dockerfile))
 		})
 	}
 }
@@ -1604,12 +1607,45 @@ func lastLayerSize(t *testing.T, image string) int64 {
 	return size
 }
 
+func TestProvenanceMatchesBuildKit(t *testing.T) {
+	t.Parallel()
+	testdata, err := filepath.Abs("testdata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerfile := "Dockerfile_test_issue_mz1230_buildkit"
+	dockerImage := GetDockerImage(config.imageRepo, dockerfile)
+	kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
+
+	RunCommand(exec.Command("docker", "build", "--provenance=mode=min,version=v1", "-f", filepath.Join(testdata, dockerfile), "-t", dockerImage, testdata), t)
+	RunCommand(exec.Command("docker", "push", dockerImage), t)
+
+	flags := []string{"run", "--rm", "--net=host", "-v", testdata + ":/workspace:ro"}
+	flags = addKanikoEnvFlags(flags, t.Name())
+	flags = addAuthFlags(flags)
+	flags = append(flags, ExecutorImage, "-f", "/workspace/"+dockerfile, "-c", "/workspace", "-d", kanikoImage, "--provenance")
+	RunCommand(exec.Command("docker", flags...), t)
+
+	images := func(image string) []provenance.ResourceDescriptor {
+		_, statement := readAttestation(t, image)
+		var out []provenance.ResourceDescriptor
+		for _, dep := range statement.Predicate.BuildDefinition.ResolvedDependencies {
+			if strings.HasPrefix(dep.URI, "pkg:docker/") {
+				out = append(out, dep)
+			}
+		}
+		return out
+	}
+	testutil.CheckDeepEqual(t, images(dockerImage), images(kanikoImage))
+}
+
 func TestPushFromArtifact(t *testing.T) {
 	t.Parallel()
 	branch, _, url := getBranchCommitAndURL()
 	dockerfile := integrationPath + "/testdata/Dockerfile.trivial"
 
-	for _, outFlag := range []string{"tar-path", "oci-layout-path"} {
+	for _, artifactFlags := range [][]string{{"--tar-path"}, {"--oci-layout-path"}, {"--oci-layout-path", "--provenance"}} {
+		outFlag := strings.ReplaceAll(strings.Join(artifactFlags, ""), "--", "_")[1:]
 		t.Run(outFlag, func(t *testing.T) {
 			t.Parallel()
 
@@ -1655,19 +1691,40 @@ func TestPushFromArtifact(t *testing.T) {
 			)
 
 			// Two-step: build to an artifact (no push), then push from it.
-			runExecutor(
+			runExecutor(append([]string{
 				"-f", dockerfile,
 				"-c", KanikoGitRepo(url, "", branch),
 				"--no-push",
-				"--"+outFlag, "/out/image",
+				artifactFlags[0], "/out/image",
 				"--reproducible",
-			)
+			}, artifactFlags[1:]...)...)
 			runExecutor(
 				"push", "/out/image",
 				"-d", fromArtifactImage,
 			)
 
-			diffoci(t, directImage, fromArtifactImage)
+			pushedImage := fromArtifactImage
+			if slices.Contains(artifactFlags, "--provenance") {
+				ref, err := name.ParseReference(fromArtifactImage, name.WeakValidation)
+				if err != nil {
+					t.Fatal(err)
+				}
+				idx, err := remote.Index(ref)
+				if err != nil {
+					t.Fatal(err)
+				}
+				manifest, err := idx.IndexManifest()
+				if err != nil {
+					t.Fatal(err)
+				}
+				var types []string
+				for _, m := range manifest.Manifests {
+					types = append(types, m.Annotations["vnd.docker.reference.type"])
+				}
+				testutil.CheckDeepEqual(t, []string{"", "attestation-manifest"}, types)
+				pushedImage = ref.Context().Digest(manifest.Manifests[0].Digest.String()).String()
+			}
+			diffoci(t, directImage, pushedImage)
 		})
 	}
 }
@@ -1800,11 +1857,13 @@ func checkAnnotations(t *testing.T, dockerfile, image string) {
 		}
 		compareAnnotations(t, "index", want.Index, manifest.Annotations)
 		for _, m := range manifest.Manifests {
-			img, err := idx.Image(m.Digest)
-			if err != nil {
-				t.Fatal(err)
+			if m.Annotations["vnd.docker.reference.type"] != "attestation-manifest" {
+				img, err := idx.Image(m.Digest)
+				if err != nil {
+					t.Fatal(err)
+				}
+				images = append(images, img)
 			}
-			images = append(images, img)
 		}
 	} else {
 		if want.Index != nil {
@@ -1823,6 +1882,115 @@ func checkAnnotations(t *testing.T, dockerfile, image string) {
 		}
 		compareAnnotations(t, "manifest", want.Manifest, manifest.Annotations)
 	}
+}
+
+func checkIndexFile(t *testing.T, dockerfile, image string) {
+	t.Helper()
+	_, ok := indexFileDockerfiles[dockerfile]
+	if !ok {
+		return
+	}
+	raw, err := os.ReadFile(filepath.Join(indexFileDir(dockerfile), "index.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref, err := name.ParseReference(image, name.WeakValidation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	desc, err := remote.Get(ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	testutil.CheckDeepEqual(t, string(desc.Manifest), string(raw))
+}
+
+func checkProvenance(t *testing.T, dockerfile, image string) {
+	t.Helper()
+	want, ok := expectedAttestations[dockerfile]
+	if !ok {
+		return
+	}
+	img, statement := readAttestation(t, image)
+
+	got := attestation{
+		ImageMediaType: img.MediaType,
+		BuilderID:      statement.Predicate.RunDetails.Builder.ID,
+		Dependencies:   statement.Predicate.BuildDefinition.ResolvedDependencies,
+		Timestamps:     statement.Predicate.RunDetails.Metadata != nil && statement.Predicate.RunDetails.Metadata.StartedOn != nil,
+	}
+	for _, subject := range statement.Subject {
+		got.Subjects = append(got.Subjects, "sha256:"+subject.Digest["sha256"])
+	}
+
+	placeholders := strings.NewReplacer("{image.digest}", img.Digest.String(), "{git.revision}", gitRevision("."))
+	var subjects []string
+	for _, subject := range want.Subjects {
+		subjects = append(subjects, placeholders.Replace(subject))
+	}
+	want.Subjects = subjects
+	var dependencies []provenance.ResourceDescriptor
+	for _, dep := range want.Dependencies {
+		digest := map[string]string{}
+		for algorithm, value := range dep.Digest {
+			digest[algorithm] = placeholders.Replace(value)
+		}
+		dependencies = append(dependencies, provenance.ResourceDescriptor{URI: dep.URI, Name: dep.Name, Digest: digest})
+	}
+	want.Dependencies = dependencies
+	testutil.CheckDeepEqual(t, want, got)
+}
+
+func readAttestation(t *testing.T, image string) (v1.Descriptor, provenance.Statement) {
+	t.Helper()
+	ref, err := name.ParseReference(image, name.WeakValidation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := remote.Index(ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := idx.IndexManifest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.MediaType != ggcrtypes.OCIImageIndex || len(manifest.Manifests) != 2 {
+		t.Fatalf("%s is a %s of %d manifests, want an OCI index of the image and its attestation", image, manifest.MediaType, len(manifest.Manifests))
+	}
+	img, att := manifest.Manifests[0], manifest.Manifests[1]
+	linked := att.Annotations["vnd.docker.reference.type"] == "attestation-manifest" &&
+		att.Annotations["vnd.docker.reference.digest"] == img.Digest.String() &&
+		att.Platform != nil && att.Platform.OS == "unknown" && att.Platform.Architecture == "unknown"
+	if !linked {
+		t.Fatalf("second manifest of %s is not an attestation of the first", image)
+	}
+
+	attestationImage, err := idx.Image(att.Digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	layers, err := attestationImage.Layers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(layers) != 1 {
+		t.Fatalf("attestation holds %d layers, want one statement", len(layers))
+	}
+	rc, err := layers[0].Uncompressed()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rc.Close()
+	var statement provenance.Statement
+	err = json.NewDecoder(rc).Decode(&statement)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if statement.Type != "https://in-toto.io/Statement/v1" || statement.PredicateType != "https://slsa.dev/provenance/v1" {
+		t.Fatalf("attestation of %s is a %s with a %s predicate, want an in-toto v1 statement with a SLSA v1 predicate", image, statement.Type, statement.PredicateType)
+	}
+	return img, statement
 }
 
 func compareAnnotations(t *testing.T, level string, want, got map[string]string) {
