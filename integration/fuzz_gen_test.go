@@ -426,7 +426,7 @@ func generate(s *source, bases []string) genResult {
 
 		ninstr := 2 + s.intn(6)
 		for i := 0; i < ninstr; i++ {
-			c := s.intn(38)
+			c := s.intn(39)
 			// An empty base has no shell, so RUN-based instructions cannot execute at build
 			// time; remap them to a context COPY, which scratch supports. Metadata and other
 			// file instructions are already scratch-safe (ADD url downloads into the empty fs).
@@ -831,6 +831,37 @@ func generate(s *source, bases []string) genResult {
 						fmt.Fprintf(&b, "COPY %s /lks/%s\n", srcPick(s, regulars), regulars[0])
 					}
 					fmt.Fprintf(&b, "COPY --link %s /lks/\n", regulars[0])
+				}
+			case 38:
+				// mz1254: --chown and --chmod apply to what the COPY creates, so a destination
+				// directory that already exists keeps its owner and mode.
+				switch {
+				case !scratch && s.chance(2):
+					fmt.Fprintf(&b, "RUN mkdir -p /ex%d && chmod %s /ex%d\n", i, srcPick(s, modes), i)
+				case !scratch && s.chance(2):
+					fmt.Fprintf(&b, "RUN mkdir -p /ex%d && chown %s:%s /ex%d\n", i, srcPick(s, uids), srcPick(s, uids), i)
+				default:
+					fmt.Fprintf(&b, "COPY %s /ex%d/\n", srcPick(s, regulars), i)
+				}
+				opt := ""
+				if !s.chance(4) {
+					opt += fmt.Sprintf(" --chown=%s:%s", srcPick(s, ug), srcPick(s, ug))
+				}
+				if s.chance(2) {
+					opt += fmt.Sprintf(" --chmod=%s", srcPick(s, chmods))
+				}
+				// earlier stages, the current one excluded
+				from := len(namedStages)
+				if !last {
+					from--
+				}
+				switch {
+				case dirName != "" && s.chance(2):
+					fmt.Fprintf(&b, "COPY%s %s%s /ex%d/\n", opt, dirName, srcPick(s, []string{"", "/"}), i)
+				case from > 0 && s.chance(2):
+					fmt.Fprintf(&b, "COPY%s --from=stage%d /stage /ex%d/\n", opt, namedStages[s.intn(from)], i)
+				default:
+					fmt.Fprintf(&b, "COPY%s %s /ex%d/\n", opt, srcPick(s, regulars), i)
 				}
 			}
 		}
