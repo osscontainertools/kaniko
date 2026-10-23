@@ -72,6 +72,7 @@ type FeatureFlags struct {
 	UnpackZstd                     bool
 	UntarSkipRoot                  bool
 	WarmerBuildArgs                bool
+	WarmerPredefinedArgs           bool
 }
 
 var FF FeatureFlags
@@ -152,6 +153,7 @@ func InitFeatureFlags() {
 		UnpackZstd:                     featureFlag("FF_KANIKO_UNPACK_ZSTD", true),
 		UntarSkipRoot:                  featureFlag("FF_KANIKO_UNTAR_SKIP_ROOT", true),
 		WarmerBuildArgs:                featureFlag("FF_KANIKO_WARMER_BUILD_ARGS", false),
+		WarmerPredefinedArgs:           featureFlag("FF_KANIKO_WARMER_PREDEFINED_ARGS", false),
 	}
 
 	fields := reflect.TypeFor[FeatureFlags]().NumField()
