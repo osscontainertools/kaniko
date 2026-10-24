@@ -569,15 +569,13 @@ Requirements:
 We can run the kaniko executor image locally in a Docker daemon to build and
 push an image from a Dockerfile.
 
-For example, when using gcloud and GCR you could run kaniko as follows:
-
 ```shell
 docker run \
-    -v "$HOME"/.config/gcloud:/root/.config/gcloud \
+    -v "$HOME"/.docker/config.json:/kaniko/.docker/config.json:ro \
     -v /path/to/context:/workspace \
     ghcr.io/osscontainertools/kaniko:latest \
     --dockerfile /workspace/Dockerfile \
-    --destination "gcr.io/$PROJECT_ID/$IMAGE_NAME:$TAG" \
+    --destination "registry.example.com/$IMAGE_NAME:$TAG" \
     --context dir:///workspace/
 ```
 
