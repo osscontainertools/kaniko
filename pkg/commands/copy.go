@@ -142,8 +142,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		}
 
 		if fi.IsDir() {
-			keepDestOwner := kConfig.FF.CopyKeepDestOwner && !(kConfig.FF.CopyLink && c.cmd.Link)
-			copiedFiles, err := util.CopyDir(fullPath, destPath, c.fileContext, owner, chmod, useDefaultChmod, keepDestOwner)
+			copiedFiles, err := util.CopyDir(fullPath, destPath, c.fileContext, owner, chmod, useDefaultChmod)
 			if err != nil {
 				return fmt.Errorf("copying dir: %w", err)
 			}
