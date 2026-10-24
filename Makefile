@@ -34,6 +34,7 @@ GO_FILES := $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 GO_LDFLAGS := '-extldflags "-static"
 GO_LDFLAGS += -X $(VERSION_PACKAGE).version=$(VERSION)
 GO_LDFLAGS += -w -s # Drop debugging symbols.
+GO_LDFLAGS += -buildid= # Drop build ID to make builds reproducible.
 GO_LDFLAGS += '
 
 EXECUTOR_PACKAGE = $(REPOPATH)/cmd/executor
@@ -44,8 +45,9 @@ COVER ?=
 
 # Force using Go Modules and always read the dependencies from
 # the `vendor` folder.
+# Remove VCS and path to make builds reproducible.
 export GO111MODULE = on
-export GOFLAGS = -mod=vendor
+export GOFLAGS = -mod=vendor -buildvcs=false -trimpath
 
 
 out/executor: $(GO_FILES)
