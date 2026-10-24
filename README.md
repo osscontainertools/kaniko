@@ -1298,7 +1298,7 @@ Currently no plans to activate.
 #### Flag `FF_KANIKO_COPY_KEEP_DEST_OWNER`
 
 `COPY --chown` of a directory also changes the owner of an existing destination directory.
-Set this flag to `true` to keep its owner like buildkit. Defaults to `false`.
+Set this flag to `true` to keep its owner. Defaults to `false`.
 Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_COPY_LINK`
