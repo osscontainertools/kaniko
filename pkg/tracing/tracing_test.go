@@ -1,3 +1,5 @@
+//go:build otel
+
 /*
 Copyright 2026 OSS Container Tools
 

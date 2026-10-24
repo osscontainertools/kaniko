@@ -1,3 +1,5 @@
+//go:build azure
+
 /*
 Copyright 2026 OSS Container Tools
 

@@ -1,3 +1,5 @@
+//go:build git
+
 /*
 Copyright 2020 Google LLC
 
