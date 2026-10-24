@@ -155,10 +155,10 @@ TESTS=<pattern> make golden
 
 ### Lint Checks
 
-The helper script to install and run lint is placed here at the root of project.
+CI runs staticcheck. To run the same version locally:
 
 ```shell
-./hack/linter.sh
+go run honnef.co/go/tools/cmd/staticcheck@2026.2.2 ./...
 ```
 
 To fix any `gofmt` issues, you can simply run `gofmt` with `-w` flag like this
