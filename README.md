@@ -151,6 +151,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`](#flag-ff_kaniko_infer_cross_stage_cache_key)
       - [Flag `FF_KANIKO_LAYER_HINTS`](#flag-ff_kaniko_layer_hints)
       - [Flag `FF_KANIKO_NATIVE_COPY`](#flag-ff_kaniko_native_copy)
+      - [Flag `FF_KANIKO_NATIVE_INIT`](#flag-ff_kaniko_native_init)
       - [Flag `FF_KANIKO_OCI_SCRATCH_BASE`](#flag-ff_kaniko_oci_scratch_base)
       - [Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`](#flag-ff_kaniko_path_scoped_registry_auth)
       - [Flag `FF_KANIKO_PEEK_ARCHIVE_HEADER`](#flag-ff_kaniko_peek_archive_header)
@@ -1233,6 +1234,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_LINK=true
 FF_KANIKO_DEFER_CACHE_PUSH=true
+FF_KANIKO_NATIVE_INIT=true
 FF_KANIKO_RUN_HEREDOC_SCRIPT=true
 FF_KANIKO_WARMER_BUILD_ARGS=true
 FF_KANIKO_WARMER_PREDEFINED_ARGS=true
@@ -1403,6 +1405,13 @@ Three copy paths use the `github.com/otiai10/copy` library instead of kaniko's o
 Set this flag to `true` to use kaniko's own copy for all three, walking each tree once and linking repeated inodes instead of duplicating them. Defaults to `true`.
 Will be deprecated in `v1.30.0`.
 
+#### Flag `FF_KANIKO_NATIVE_INIT`
+
+Kaniko usually runs as PID 1 but does not reap zombie processes or forward signals to `RUN` commands.
+Set this flag to `true` to have kaniko handle both itself, without `/kaniko/tini`.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
+
 #### Flag `FF_KANIKO_OCI_SCRATCH_BASE`
 
 When a Dockerfile uses `FROM scratch`, kaniko uses an empty Docker-format image as the build base, which means the output image is produced in Docker manifest schema v2 format.
@@ -1517,6 +1526,8 @@ Set this flag to `true` to run any `RUN` commands via `tini` init system as subr
 Note that for this feature to work the tini binary must be available as `/kaniko/tini`.
 Defaults to `false`.
 Currently no plans to activate.
+Superseded by [`FF_KANIKO_NATIVE_INIT`](#flag-ff_kaniko_native_init).
+Will be deprecated together with `/kaniko/tini` in `v1.31.0`.
 
 #### Flag `FF_KANIKO_SCOPED_DOCKERIGNORE`
 

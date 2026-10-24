@@ -17,17 +17,28 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
+	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/creds"
+	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
 func main() {
 	helper, ok := creds.Helpers[filepath.Base(os.Args[0])]
 	if ok {
 		os.Exit(helper())
+	}
+	if config.FF.NativeInit && os.Getpid() == 1 {
+		code, err := util.RunAsInit()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Exit(code)
 	}
 
 	if err := cmd.RootCmd.Execute(); err != nil {
