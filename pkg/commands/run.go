@@ -67,12 +67,13 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 		}
 	}
 	var secretEnvs []string
+	var readOnlyBindTargets []string
 	if len(cmdRun.FlagsUsed) > 0 {
 		replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 		expand := func(word string) (string, error) {
 			return util.ResolveEnvironmentReplacement(word, replacementEnvs, false)
 		}
-		err := cmdRun.Expand(expand)
+		err := ExpandRunCommand(cmdRun, expand)
 		if err != nil {
 			return err
 		}
@@ -217,11 +218,23 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				}
 			// https://docs.docker.com/reference/dockerfile/#run---mounttypebind
 			case m.Type == instructions.MountTypeBind:
-				if m.From != "" && m.From != "context" {
-					logrus.Warnf("Kaniko does not support cross-stage bind mounts (from=%s) - skipping", m.From)
-					continue
+				crossStageBind := m.From != "" && m.From != "context"
+				if crossStageBind {
+					if !kConfig.FF.RunCrossStageBindMount {
+						logrus.Warnf("Kaniko does not support cross-stage bind mounts (from=%s) - skipping", m.From)
+						continue
+					}
 				}
-				src := filepath.Join(fileContext.Root, m.Source)
+				mountFileContext := fileContext
+				if m.From != "" && m.From != "context" {
+					mountFileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoInterStageDepsDir, m.From)}
+				}
+				source := m.Source
+				if source == "" {
+					source = "."
+				}
+				rootedSource := filepath.Clean(string(filepath.Separator) + source)
+				src := filepath.Join(mountFileContext.Root, strings.TrimPrefix(rootedSource, string(filepath.Separator)))
 				target := m.Target
 
 				_, err := os.Lstat(target)
@@ -256,9 +269,12 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 						return os.RemoveAll(created)
 					})
 				}
+				defer assignIfNil(&reterr, func() error {
+					return os.RemoveAll(target)
+				})
 
 				if kConfig.FF.NativeCopy {
-					err = util.CopyTree(src, target, fileContext, false)
+					err = util.CopyTree(src, target, mountFileContext, false)
 				} else {
 					err = otiai10Cpy.Copy(src, target, otiai10Cpy.Options{
 						PreserveTimes:     true,
@@ -266,22 +282,175 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 						PermissionControl: otiai10Cpy.PerservePermission,
 						FS:                util.FSys,
 						Skip: func(_ os.FileInfo, srcPath, _ string) (bool, error) {
-							return fileContext.ExcludesFile(srcPath), nil
+							return mountFileContext.ExcludesFile(srcPath), nil
 						},
 					})
 				}
 				if err != nil {
 					return fmt.Errorf("copying bind source %s to %s: %w", src, target, err)
 				}
-				defer assignIfNil(&reterr, func() error {
-					return os.RemoveAll(target)
-				})
+				if crossStageBind && m.ReadOnly {
+					readOnlyBindTargets = append(readOnlyBindTargets, target)
+				}
 			default:
 				logrus.Warnf("Kaniko does not support '--mount=type=%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", m.Type)
 			}
 		}
 	}
-	return runCommandInExec(config, buildArgs, cmdRun, secretEnvs)
+
+	readOnlyBindTargets = uniqueBindTargets(readOnlyBindTargets)
+	for _, target := range readOnlyBindTargets {
+		if err := makeReadOnlyBindTarget(target); err != nil {
+			return fmt.Errorf("making bind target %s read-only: %w", target, err)
+		}
+		target := target
+		defer assignIfNil(&reterr, func() error {
+			return makeBindTargetRemovable(target)
+		})
+	}
+
+	readOnlyBindSnapshots := make(map[string]map[string]string, len(readOnlyBindTargets))
+	for _, target := range readOnlyBindTargets {
+		snapshot, err := snapshotBindTarget(target)
+		if err != nil {
+			return fmt.Errorf("snapshotting read-only bind target %s: %w", target, err)
+		}
+		readOnlyBindSnapshots[target] = snapshot
+	}
+
+	if err := runCommandInExec(config, buildArgs, cmdRun, secretEnvs); err != nil {
+		return err
+	}
+	for target, snapshot := range readOnlyBindSnapshots {
+		if err := verifyReadOnlyBindTarget(target, snapshot); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func uniqueBindTargets(targets []string) []string {
+	seen := make(map[string]struct{}, len(targets))
+	unique := make([]string, 0, len(targets))
+	for _, target := range targets {
+		if _, ok := seen[target]; ok {
+			continue
+		}
+		seen[target] = struct{}{}
+		unique = append(unique, target)
+	}
+	return unique
+}
+
+func makeReadOnlyBindTarget(target string) error {
+	var paths []string
+	err := filepath.WalkDir(target, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.Type()&os.ModeSymlink == 0 {
+			paths = append(paths, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	for i := len(paths) - 1; i >= 0; i-- {
+		info, err := os.Lstat(paths[i])
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && !info.Mode().IsRegular() {
+			continue
+		}
+		if err := os.Chmod(paths[i], info.Mode().Perm()&^0o222); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func makeBindTargetRemovable(target string) error {
+	var directories []string
+	err := filepath.WalkDir(target, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		info, err := os.Lstat(path)
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			directories = append(directories, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	for _, path := range directories {
+		info, err := os.Lstat(path)
+		if err != nil {
+			return err
+		}
+		if err := os.Chmod(path, info.Mode().Perm()|0o200); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func snapshotBindTarget(target string) (map[string]string, error) {
+	snapshot := make(map[string]string)
+	err := filepath.WalkDir(target, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		info, err := os.Lstat(path)
+		if err != nil {
+			return err
+		}
+		relative, err := filepath.Rel(target, path)
+		if err != nil {
+			return err
+		}
+		fingerprint := info.Mode().String()
+		switch {
+		case info.Mode().IsRegular():
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			sum := sha256.Sum256(content)
+			fingerprint += fmt.Sprintf(":%x", sum)
+		case info.Mode()&os.ModeSymlink != 0:
+			link, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			fingerprint += ":" + link
+		}
+		snapshot[relative] = fingerprint
+		return nil
+	})
+	return snapshot, err
+}
+
+func verifyReadOnlyBindTarget(target string, before map[string]string) error {
+	after, err := snapshotBindTarget(target)
+	if err != nil {
+		return fmt.Errorf("checking read-only bind target %s: %w", target, err)
+	}
+	if len(before) != len(after) {
+		return fmt.Errorf("read-only bind mount target %s was modified during RUN", target)
+	}
+	for path, fingerprint := range before {
+		if after[path] != fingerprint {
+			return fmt.Errorf("read-only bind mount target %s was modified during RUN", target)
+		}
+	}
+	return nil
 }
 
 func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand, secretEnvs []string) error {
@@ -468,6 +637,10 @@ func (r *RunCommand) CacheKey(replacementEnvs []string) (string, error) {
 	return runCacheKey(r.cmd), nil
 }
 
+func (r *RunCommand) CrossStageSources(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
+	return runCrossStageSources(r.cmd, config, buildArgs)
+}
+
 // runCacheKey appends the raw heredoc bodies to the instruction text
 func runCacheKey(cmd *instructions.RunCommand) string {
 	var key strings.Builder
@@ -527,6 +700,10 @@ func (cr *CachingRunCommand) CacheKey(replacementEnvs []string) (string, error) 
 	return runCacheKey(cr.cmd), nil
 }
 
+func (cr *CachingRunCommand) CrossStageSources(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
+	return runCrossStageSources(cr.cmd, config, buildArgs)
+}
+
 func (cr *CachingRunCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
 	return runCmdFilesUsedFromContext(config, buildArgs, cr.cmd, cr.fileContext)
 }
@@ -554,7 +731,7 @@ func runCmdFilesUsedFromContext(
 	expand := func(word string) (string, error) {
 		return util.ResolveEnvironmentReplacement(word, replacementEnvs, false)
 	}
-	if err := cmd.Expand(expand); err != nil {
+	if err := ExpandRunCommand(cmd, expand); err != nil {
 		return nil, err
 	}
 
@@ -564,7 +741,9 @@ func runCmdFilesUsedFromContext(
 			continue
 		}
 		if m.From != "" && m.From != "context" {
-			logrus.Warnf("Kaniko does not support cross-stage bind mounts (from=%s) - skipping", m.From)
+			if !kConfig.FF.RunCrossStageBindMount {
+				logrus.Warnf("Kaniko does not support cross-stage bind mounts (from=%s) - skipping", m.From)
+			}
 			continue
 		}
 		fullPath := filepath.Join(fileContext.Root, m.Source)
@@ -574,6 +753,25 @@ func runCmdFilesUsedFromContext(
 	logrus.Debugf("Using files from context: %v", files)
 
 	return files, nil
+}
+
+func runCrossStageSources(cmd *instructions.RunCommand, config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
+	if !kConfig.FF.RunCrossStageBindMount || len(cmd.FlagsUsed) == 0 {
+		return nil, nil
+	}
+	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
+	if err := ExpandRunCommand(cmd, func(word string) (string, error) {
+		return util.ResolveEnvironmentReplacement(word, replacementEnvs, false)
+	}); err != nil {
+		return nil, err
+	}
+	var sources []string
+	for _, m := range instructions.GetMounts(cmd) {
+		if m.Type == instructions.MountTypeBind && m.From != "" && m.From != "context" {
+			sources = append(sources, m.From)
+		}
+	}
+	return sources, nil
 }
 
 // todo: this should create the workdir if it doesn't exist, atleast this is what docker does
