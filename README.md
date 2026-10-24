@@ -581,25 +581,6 @@ docker run \
     --context dir:///workspace/
 ```
 
-There is also a utility script [`run_in_docker.sh`](./run_in_docker.sh) that can
-be used as follows:
-
-```shell
-./run_in_docker.sh <path to Dockerfile> <path to build context> <destination of final image>
-```
-
-_NOTE: `run_in_docker.sh` expects a path to a Dockerfile relative to the
-absolute path of the build context._
-
-An example run, specifying the Dockerfile in the container directory
-`/workspace`, the build context in the local directory
-`/home/user/kaniko-project`, and a Google Container Registry as a remote image
-destination:
-
-```shell
-./run_in_docker.sh /workspace/Dockerfile /home/user/kaniko-project gcr.io/$PROJECT_ID/$TAG
-```
-
 ### Bootstrapping Kaniko
 Kaniko's approach to buliding docker images is unique. It doesn't build up and snapshot an image in a separate container, instead it will build up and snapshot the image in the container where kaniko is installed. The benefit is that kaniko can run without any privileges, because it's not actually using any containerization technologies, the downside is that sometimes builds can yield surprising results - bootstrapping kaniko image with kaniko builder is one such case. 
 

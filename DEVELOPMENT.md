@@ -102,8 +102,6 @@ docker run --network=host --rm \
 
 Swap in any Dockerfile from `integration/dockerfiles/` or write your own.
 
-Note: `run_in_docker.sh` in the repo root is a different tool. It runs the published kaniko image against a user-provided Dockerfile and is not intended for testing local code changes.
-
 ## Verifying kaniko builds
 
 Images built with kaniko should be no different from images built elsewhere.
