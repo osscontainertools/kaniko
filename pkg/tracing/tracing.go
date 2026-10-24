@@ -89,7 +89,7 @@ func tracesEndpoint(endpoint string) string {
 	return u.JoinPath("/v1/traces").String()
 }
 
-func Init(ctx context.Context, opts *config.KanikoOptions) {
+func Init(ctx context.Context, opts *config.KanikoOptions, start time.Time) {
 	endpoint := os.Getenv(EndpointEnv)
 	if endpoint == "" {
 		return
@@ -97,7 +97,9 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 	if strings.HasPrefix(endpoint, "http://") {
 		logrus.Warnf("%s uses plaintext http: spans (including Dockerfile content) are sent unencrypted", EndpointEnv)
 	}
+	loginStart := time.Now()
 	headers, auth := exportHeaders(ctx)
+	loginEnd := time.Now()
 	exp, err := otlptracehttp.New(ctx,
 		otlptracehttp.WithEndpointURL(tracesEndpoint(endpoint)),
 		otlptracehttp.WithHeaders(headers),
@@ -126,7 +128,7 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 	)
 
 	tracer := tp.Tracer("github.com/osscontainertools/kaniko")
-	sctx, span := tracer.Start(ctx, "build")
+	sctx, span := tracer.Start(ctx, "build", trace.WithTimestamp(start))
 	span.SetAttributes(attribute.String("kaniko.telemetry.auth", auth))
 	raw, set := os.LookupEnv(OmitDockerfileEnv)
 	if set {
@@ -153,6 +155,9 @@ func Init(ctx context.Context, opts *config.KanikoOptions) {
 	mu.Unlock()
 
 	timing.SetTracer(sctx, tracer)
+	if auth != "env" {
+		timing.Record("Exchanging telemetry token", loginStart, loginEnd)
+	}
 
 	// hook, not import, so assert does not depend on tracing
 	assert.OnAssertionViolation = onAssertion

@@ -19,6 +19,7 @@ package timing
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	"go.opentelemetry.io/otel/attribute"
@@ -88,18 +89,25 @@ var noSpanCategories = map[string]bool{
 }
 
 var networkCategories = map[string]bool{
-	"Retrieving Source Image": true,
-	"Fetching Extra Stages":   true,
-	"Downloading base image":  true,
-	"Pushing cached layer":    true,
-	"Pushing cache pointer":   true,
-	"Total Push Time":         true,
+	"Retrieving Source Image":    true,
+	"Downloading base image":     true,
+	"Pushing cached layer":       true,
+	"Pushing cache pointer":      true,
+	"Resolving cache pointer":    true,
+	"Pushing image":              true,
+	"Awaiting cache uploads":     true,
+	"Total Push Time":            true,
+	"Checking push permissions":  true,
+	"Exchanging telemetry token": true,
 }
 
 var containerCategories = map[string]bool{
-	"Stage":            true,
-	"Command":          true,
-	"Total Build Time": true,
+	"Stage":                         true,
+	"Command":                       true,
+	"Total Build Time":              true,
+	"Planning":                      true,
+	"Resolving Extra Stage Digests": true,
+	"Fetching Extra Stages":         true,
 }
 
 func phaseFor(category string) string {
@@ -122,7 +130,12 @@ func StartChild(parent trace.Span, category string) trace.Span {
 	return start(parent, category)
 }
 
-func start(parent trace.Span, category string) trace.Span {
+func Record(category string, begin, end time.Time) {
+	span := start(nil, category, trace.WithTimestamp(begin))
+	span.End(trace.WithTimestamp(end))
+}
+
+func start(parent trace.Span, category string, opts ...trace.SpanStartOption) trace.Span {
 	tracerMu.Lock()
 	tr, ctx := tracer, parentCtx
 	tracerMu.Unlock()
@@ -132,7 +145,7 @@ func start(parent trace.Span, category string) trace.Span {
 	if parent != nil && parent.SpanContext().IsValid() {
 		ctx = trace.ContextWithSpan(ctx, parent)
 	}
-	_, span := tr.Start(ctx, category)
+	_, span := tr.Start(ctx, category, opts...)
 	phase := phaseFor(category)
 	if phase != "" {
 		span.SetAttributes(attribute.String("kaniko.phase", phase))

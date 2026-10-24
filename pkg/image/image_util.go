@@ -33,7 +33,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/image/remote"
-	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
@@ -102,8 +101,6 @@ func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, b
 	}
 
 	// Otherwise, initialize image as usual
-	t := timing.Start("Retrieving Source Image")
-	defer t.End()
 	return RetrieveRemoteImage(currentBaseName, opts.RegistryOptions, opts.CustomPlatform)
 }
 

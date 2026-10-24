@@ -149,6 +149,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_HASH_DIR_FRAMING`](#flag-ff_kaniko_hash_dir_framing)
       - [Flag `FF_KANIKO_IMAGE_STAGES`](#flag-ff_kaniko_image_stages)
       - [Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`](#flag-ff_kaniko_infer_cross_stage_cache_key)
+      - [Flag `FF_KANIKO_ISOLATE_CACHE_PUSH`](#flag-ff_kaniko_isolate_cache_push)
       - [Flag `FF_KANIKO_LAYER_HINTS`](#flag-ff_kaniko_layer_hints)
       - [Flag `FF_KANIKO_NATIVE_COPY`](#flag-ff_kaniko_native_copy)
       - [Flag `FF_KANIKO_NATIVE_INIT`](#flag-ff_kaniko_native_init)
@@ -1234,6 +1235,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_LINK=true
 FF_KANIKO_DEFER_CACHE_PUSH=true
+FF_KANIKO_ISOLATE_CACHE_PUSH=true
 FF_KANIKO_NATIVE_INIT=true
 FF_KANIKO_RUN_HEREDOC_SCRIPT=true
 FF_KANIKO_WARMER_BUILD_ARGS=true
@@ -1392,6 +1394,13 @@ When a multi-stage build uses `COPY --from=<stage>`, kaniko normally hashes the 
 Set this flag to `true` to add additional cache entries for the shortcuts, currently they do not yet allow optimization.
 Requires `--cache-copy-layers`. Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_ISOLATE_CACHE_PUSH`
+
+With `--cache`, kaniko writes the build's output files for every pushed cache layer, not only for the final image.
+Set this flag to `true` to write them for the final image only.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_LAYER_HINTS`
 
