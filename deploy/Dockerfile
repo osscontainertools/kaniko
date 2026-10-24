@@ -51,7 +51,7 @@ RUN mkdir -p /dist/executor /dist/warmer \
 # use musl busybox since it's staticly compiled on all platforms
 # Keep in sync with deploy/sources/busybox.spdx.json.
 FROM busybox:musl@sha256:ea2b9914a16a4ac1981994af97b318f7c7d4db76b580c56177f08bf76f4a0be8 AS busybox
-RUN mkdir -p /kaniko && chmod 777 /kaniko
+RUN mkdir -m 777 -p /kaniko
 
 FROM scratch AS busybox-licenses
 ADD --checksum=sha256:bbfc9843646d483c334664f651c208b9839626891d8f17604db2146962f43548 \
