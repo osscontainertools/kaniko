@@ -195,7 +195,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 					if owner != nil {
 						dirOwner = *owner
 					}
-					if err := util.MkdirAllWithPermissions(parent, 0o755, dirOwner); err != nil {
+					if err := util.MkdirAllWithPermissions(parent, 0o755, dirOwner, false); err != nil {
 						return err
 					}
 				} else if err != nil {

@@ -476,7 +476,7 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 				return fmt.Errorf("error removing symlink %s to make way for new directory: %w", path, err)
 			}
 		}
-		if err := MkdirAllWithPermissions(path, mode, owner); err != nil {
+		if err := MkdirAllWithPermissions(path, mode, owner, false); err != nil {
 			return err
 		}
 		// For existing directories, MkdirAll doesn't change the permissions, so run Chmod
@@ -820,10 +820,10 @@ func CopyDir(src, dest string, context FileContext, owner *Owner, chmod mode.Set
 	if err != nil {
 		return nil, fmt.Errorf("copying dir: %w", err)
 	}
-	return copyDirInner(files, src, dest, context, owner, chmod, useDefaultChmod, false, true)
+	return copyDirInner(files, src, dest, context, owner, chmod, useDefaultChmod, false, true, config.FF.CopyKeepDestOwner)
 }
 
-func copyDirInner(files []string, src, dest string, context FileContext, owner *Owner, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool, collect bool) ([]string, error) {
+func copyDirInner(files []string, src, dest string, context FileContext, owner *Owner, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool, collect bool, keepDestOwner bool) ([]string, error) {
 	var copiedFiles []string
 	var updates []timestampUpdate
 	hardlinksSeen := make(map[hardlinkKey]string)
@@ -856,14 +856,14 @@ func copyDirInner(files []string, src, dest string, context FileContext, owner *
 				perm = chmod.Apply(fi.Mode()) & ^umask
 			}
 
-			if err := MkdirAllWithPermissions(destPath, perm, DetermineTargetFileOwnership(fi, owner)); err != nil {
+			if err := MkdirAllWithPermissions(destPath, perm, DetermineTargetFileOwnership(fi, owner), keepDestOwner); err != nil {
 				return nil, err
 			}
 			updates = append(updates, timestampUpdate{src: fi, dest: destPath})
 		} else if fi.IsDir() {
 			logrus.Tracef("Creating directory %s", destPath)
 
-			if err := MkdirAllWithPermissions(destPath, fi.Mode(), DetermineTargetFileOwnership(fi, owner)); err != nil {
+			if err := MkdirAllWithPermissions(destPath, fi.Mode(), DetermineTargetFileOwnership(fi, owner), false); err != nil {
 				return nil, err
 			}
 			if !useDefaultChmod {
@@ -998,7 +998,7 @@ func CopyTree(src, dest string, context FileContext, skipIgnoreList bool) error 
 	if err != nil {
 		return err
 	}
-	_, err = copyDirInner(files, src, dest, context, nil, mode.Set{}, true, skipIgnoreList, false)
+	_, err = copyDirInner(files, src, dest, context, nil, mode.Set{}, true, skipIgnoreList, false, false)
 	return err
 }
 
@@ -1258,7 +1258,7 @@ func Volumes() []string {
 	return volumes
 }
 
-func MkdirAllWithPermissions(path string, mode os.FileMode, owner Owner) error {
+func MkdirAllWithPermissions(path string, mode os.FileMode, owner Owner, keepOwner bool) error {
 	// Check if a file already exists on the path, if yes then delete it
 	info, err := os.Lstat(path)
 	if err == nil && !info.IsDir() {
@@ -1269,6 +1269,9 @@ func MkdirAllWithPermissions(path string, mode os.FileMode, owner Owner) error {
 	}
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("error calling stat on %s: %w", path, err)
+	}
+	if keepOwner && err == nil && info.IsDir() {
+		return nil
 	}
 
 	var parents []string
@@ -1452,7 +1455,7 @@ func CopyPaths(srcRoot, dstRoot string, paths []string) error {
 			}
 		}
 	}
-	_, err := copyDirInner(files, srcRoot, dstRoot, FileContext{}, nil, mode.Set{}, true, true, false)
+	_, err := copyDirInner(files, srcRoot, dstRoot, FileContext{}, nil, mode.Set{}, true, true, false, false)
 	return err
 }
 
