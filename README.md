@@ -1297,14 +1297,8 @@ Currently no plans to activate.
 
 #### Flag `FF_KANIKO_COPY_KEEP_DEST_OWNER`
 
-```dockerfile
-RUN mkdir /app
-COPY --chown=1000:1000 dist /app/
-```
-
-Kaniko gives `/app` the `--chown` owner, even though it existed before the `COPY`. buildkit only chowns what the `COPY` creates and leaves `/app` owned by root.
-Set this flag to `true` to keep the owner of a destination directory that already exists. `COPY --link` is not affected.
-Defaults to `false`.
+`COPY --chown` of a directory also changes the owner of an existing destination directory.
+Set this flag to `true` to keep its owner like buildkit. Defaults to `false`.
 Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_COPY_LINK`

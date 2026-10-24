@@ -158,7 +158,6 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 				return fmt.Errorf("copying dir: %w", err)
 			}
 			if existing != nil {
-				// CopyDir chowns the destination it was given, buildkit leaves one that already exists as it was
 				stat := existing.Sys().(*syscall.Stat_t)
 				err = os.Lchown(destPath, int(stat.Uid), int(stat.Gid))
 				if err != nil {

@@ -5,8 +5,6 @@ RUN mkdir -p /src/dist/sub && echo a > /src/dist/a.js && echo b > /src/dist/sub/
 FROM ${IMAGE_REPO}alpine
 
 # mz1254: COPY of a directory chowns a destination directory that already exists.
-# Diverges from buildkit on kaniko v1.28.6: buildkit keeps the owner of the
-# existing destination and only chowns what the COPY creates.
 # COPY --link builds its layer on an empty filesystem, so there buildkit does chown it.
 RUN mkdir -p /app /keep /lnk && chown 1000:1000 /keep
 COPY --from=build --chown=1000:1000 /src/dist /app/
