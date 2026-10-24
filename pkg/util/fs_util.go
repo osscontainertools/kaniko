@@ -809,7 +809,7 @@ type timestampUpdate struct {
 
 // CopyDir copies the file or directory at src to dest
 // It returns a list of files it copied over
-func CopyDir(src, dest string, context FileContext, owner *Owner, chmod mode.Set, useDefaultChmod bool) ([]string, error) {
+func CopyDir(src, dest string, context FileContext, owner *Owner, chmod mode.Set, useDefaultChmod bool, keepDestOwner bool) ([]string, error) {
 	if config.FF.ConfineCopySource {
 		err := CheckSource(src, context)
 		if err != nil {
@@ -820,10 +820,10 @@ func CopyDir(src, dest string, context FileContext, owner *Owner, chmod mode.Set
 	if err != nil {
 		return nil, fmt.Errorf("copying dir: %w", err)
 	}
-	return copyDirInner(files, src, dest, context, owner, chmod, useDefaultChmod, false, true)
+	return copyDirInner(files, src, dest, context, owner, chmod, useDefaultChmod, false, true, keepDestOwner)
 }
 
-func copyDirInner(files []string, src, dest string, context FileContext, owner *Owner, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool, collect bool) ([]string, error) {
+func copyDirInner(files []string, src, dest string, context FileContext, owner *Owner, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool, collect bool, keepDestOwner bool) ([]string, error) {
 	var copiedFiles []string
 	var updates []timestampUpdate
 	hardlinksSeen := make(map[hardlinkKey]string)
@@ -856,8 +856,18 @@ func copyDirInner(files []string, src, dest string, context FileContext, owner *
 				perm = chmod.Apply(fi.Mode()) & ^umask
 			}
 
-			if err := MkdirAllWithPermissions(destPath, perm, DetermineTargetFileOwnership(fi, owner)); err != nil {
-				return nil, err
+			exists := false
+			if keepDestOwner {
+				dfi, err := os.Lstat(destPath)
+				if err != nil && !os.IsNotExist(err) {
+					return nil, err
+				}
+				exists = err == nil && dfi.IsDir()
+			}
+			if !exists {
+				if err := MkdirAllWithPermissions(destPath, perm, DetermineTargetFileOwnership(fi, owner)); err != nil {
+					return nil, err
+				}
 			}
 			updates = append(updates, timestampUpdate{src: fi, dest: destPath})
 		} else if fi.IsDir() {
@@ -998,7 +1008,7 @@ func CopyTree(src, dest string, context FileContext, skipIgnoreList bool) error 
 	if err != nil {
 		return err
 	}
-	_, err = copyDirInner(files, src, dest, context, nil, mode.Set{}, true, skipIgnoreList, false)
+	_, err = copyDirInner(files, src, dest, context, nil, mode.Set{}, true, skipIgnoreList, false, false)
 	return err
 }
 
@@ -1452,7 +1462,7 @@ func CopyPaths(srcRoot, dstRoot string, paths []string) error {
 			}
 		}
 	}
-	_, err := copyDirInner(files, srcRoot, dstRoot, FileContext{}, nil, mode.Set{}, true, true, false)
+	_, err := copyDirInner(files, srcRoot, dstRoot, FileContext{}, nil, mode.Set{}, true, true, false, false)
 	return err
 }
 

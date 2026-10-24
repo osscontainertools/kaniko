@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"syscall"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
@@ -143,26 +142,9 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		}
 
 		if fi.IsDir() {
-			var existing os.FileInfo
-			if kConfig.FF.CopyKeepDestOwner && !(kConfig.FF.CopyLink && c.cmd.Link) {
-				dfi, err := os.Lstat(destPath)
-				if err != nil && !os.IsNotExist(err) {
-					return err
-				}
-				if err == nil && dfi.IsDir() {
-					existing = dfi
-				}
-			}
-			copiedFiles, err := util.CopyDir(fullPath, destPath, c.fileContext, owner, chmod, useDefaultChmod)
+			copiedFiles, err := util.CopyDir(fullPath, destPath, c.fileContext, owner, chmod, useDefaultChmod, kConfig.FF.CopyKeepDestOwner && !(kConfig.FF.CopyLink && c.cmd.Link))
 			if err != nil {
 				return fmt.Errorf("copying dir: %w", err)
-			}
-			if existing != nil {
-				stat := existing.Sys().(*syscall.Stat_t)
-				err = os.Lchown(destPath, int(stat.Uid), int(stat.Gid))
-				if err != nil {
-					return fmt.Errorf("restoring owner of %s: %w", destPath, err)
-				}
 			}
 			c.snapshotFiles = append(c.snapshotFiles, copiedFiles...)
 		} else if util.IsSymlink(fi) {
