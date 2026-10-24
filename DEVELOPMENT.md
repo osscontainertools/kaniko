@@ -116,8 +116,7 @@ While you iterate on kaniko, you can verify images built with kaniko by:
 
 kaniko has [unit tests](#unit-tests), [golden tests](#golden-tests), and [integration tests](#integration-tests).
 
-Please note that the tests require a Linux machine - use Vagrant to quickly set
-up the test environment needed if you work with macOS or Windows.
+The tests require a Linux machine.
 
 **What to add when contributing:** every change that affects the output of a build should be covered by a new integration test Dockerfile. Changes that affect the build plan but not the output (flow optimizations, caching logic) should be covered by a golden test. Unit tests are useful for development and debugging, but we do not add new ones: they verify that code behaves the same as before in specific scenarios, not that it is correct.
 
