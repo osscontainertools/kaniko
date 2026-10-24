@@ -32,6 +32,10 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
+func init() {
+	newAzureBlob = func(context string) BuildContext { return &AzureBlob{context: context} }
+}
+
 // AzureBlob struct for Azure Blob Storage processing
 type AzureBlob struct {
 	context string

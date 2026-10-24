@@ -29,6 +29,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func init() {
+	newGCS = func(context string) BuildContext { return &GCS{context: context} }
+}
+
 // GCS struct for Google Cloud Storage processing
 type GCS struct {
 	context string

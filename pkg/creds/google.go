@@ -19,24 +19,16 @@ package creds
 import (
 	"context"
 	"flag"
-	"fmt"
 
 	gcr "github.com/GoogleCloudPlatform/docker-credential-gcr/v2/cli"
-	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
-	ecrconfig "github.com/awslabs/amazon-ecr-credential-helper/ecr-login/config"
-	ecrversion "github.com/awslabs/amazon-ecr-credential-helper/ecr-login/version"
-	"github.com/docker/docker-credential-helpers/credentials"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/google/subcommands"
-	acr "github.com/osscontainertools/docker-credential-acr/cmd"
 )
 
-// The names must match the hardlinks created in deploy/Dockerfile.
-var Helpers = map[string]func() int{
-	"docker-credential-gcr":       gcrMain,
-	"docker-credential-ecr-login": ecrMain,
-	// The acr helper is named docker-credential-acr upstream, keep the old name
-	// so existing credHelpers entries for "acr-env" keep resolving.
-	"docker-credential-acr-env": acrMain,
+func init() {
+	googleKeychain = func() authn.Keychain { return google.Keychain }
+	Helpers["docker-credential-gcr"] = gcrMain
 }
 
 func gcrMain() int {
@@ -54,26 +46,4 @@ func gcrMain() int {
 	subcommands.Register(gcr.NewClearSubcommand(), "")
 	flag.Parse()
 	return int(subcommands.Execute(context.Background()))
-}
-
-func ecrMain() int {
-	credentials.Name = "docker-credential-ecr-login"
-	credentials.Package = "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
-	credentials.Version = ecrversion.Version
-	credentials.Revision = ecrversion.GitCommitSHA
-	var versionFlag bool
-	flag.BoolVar(&versionFlag, "v", false, "print version and exit")
-	flag.Parse()
-	if versionFlag {
-		fmt.Printf("amazon-ecr-credential-helper\nVersion:    %s\nGit commit: %s\n", ecrversion.Version, ecrversion.GitCommitSHA)
-		return 0
-	}
-	ecrconfig.SetupLogger()
-	credentials.Serve(ecr.NewECRHelper())
-	return 0
-}
-
-func acrMain() int {
-	acr.Execute("dev")
-	return 0
 }
