@@ -108,14 +108,14 @@ func compressBytes(in []byte, name string, args ...string) ([]byte, error) {
 
 var tarFixtureNames = []string{"file.tar", "file.tar.gz", "file.bz2", "file.tar.xz", "file.tar.zst", "sys.tar.gz"}
 
-func tarFixtureDir() string {
+func tarFixtureDir(config *integrationTestConfig) string {
 	return filepath.Join(config.dir, "context", "tars")
 }
 
 // generateTarFixtures writes the tar archives consumed by the ADD integration
 // tests into context/tars, so the repository holds no committed binary archives.
-func generateTarFixtures() error {
-	dir := tarFixtureDir()
+func generateTarFixtures(config *integrationTestConfig) error {
+	dir := tarFixtureDir(config)
 	err := os.MkdirAll(dir, 0o755)
 	if err != nil {
 		return err
@@ -208,8 +208,8 @@ func generateTarFixtures() error {
 	return nil
 }
 
-func removeTarFixtures() {
-	dir := tarFixtureDir()
+func removeTarFixtures(config *integrationTestConfig) {
+	dir := tarFixtureDir(config)
 	for _, name := range tarFixtureNames {
 		_ = os.Remove(filepath.Join(dir, name))
 	}

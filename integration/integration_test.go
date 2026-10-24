@@ -101,8 +101,8 @@ func runIntegrationTests(m *testing.M) int {
 
 	config = initIntegrationTestConfig()
 
-	defer removeTarFixtures()
-	err := generateTarFixtures()
+	defer removeTarFixtures(config)
+	err := generateTarFixtures(config)
 	if err != nil {
 		fmt.Println("Couldn't generate tar fixtures", err)
 		return 1
@@ -1197,7 +1197,7 @@ func TestCache(t *testing.T) {
 
 func TestWarmer(t *testing.T) {
 	t.Parallel()
-	populateVolumeCache(t)
+	populateVolumeCache(t, config)
 
 	for dockerfile := range imageBuilder.TestWarmerDockerfiles {
 		t.Run("test_warmer_"+dockerfile, func(t *testing.T) {
@@ -1431,7 +1431,7 @@ func TestRelativePaths(t *testing.T) {
 
 		err := imageBuilder.buildRelativePathsImage(
 			t,
-			config.imageRepo,
+			config,
 			dockerfile,
 			contextPath,
 		)

@@ -1098,7 +1098,7 @@ func (d *DockerFileBuilder) buildCachedImageInContext(t *testing.T, config *inte
 	return err
 }
 
-func populateVolumeCache(t *testing.T) error {
+func populateVolumeCache(t *testing.T, config *integrationTestConfig) error {
 	fmt.Println("Populating warmer cache")
 	cwd := config.dir
 	cmd := []string{
@@ -1180,11 +1180,11 @@ func (d *DockerFileBuilder) buildWarmerImage(t *testing.T, config *integrationTe
 }
 
 // buildRelativePathsImage builds the images for testing passing relatives paths to Kaniko
-func (d *DockerFileBuilder) buildRelativePathsImage(t *testing.T, imageRepo, dockerfile, buildContextPath string) error {
+func (d *DockerFileBuilder) buildRelativePathsImage(t *testing.T, config *integrationTestConfig, dockerfile, buildContextPath string) error {
 	cwd := config.dir
 
-	dockerImage := GetDockerImage(imageRepo, "test_relative_"+dockerfile)
-	kanikoImage := GetKanikoImage(imageRepo, "test_relative_"+dockerfile)
+	dockerImage := GetDockerImage(config.imageRepo, "test_relative_"+dockerfile)
+	kanikoImage := GetKanikoImage(config.imageRepo, "test_relative_"+dockerfile)
 
 	dockerArgs := []string{
 		"build",
