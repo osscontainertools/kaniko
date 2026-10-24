@@ -101,8 +101,8 @@ func runIntegrationTests(m *testing.M) int {
 
 	config = initIntegrationTestConfig()
 
-	defer removeTarFixtures()
-	err := generateTarFixtures()
+	defer removeTarFixtures(config)
+	err := generateTarFixtures(config)
 	if err != nil {
 		fmt.Println("Couldn't generate tar fixtures", err)
 		return 1
@@ -1073,8 +1073,7 @@ func TestSnapshotModes(t *testing.T) {
 	t.Parallel()
 	const dockerfile = "Dockerfile_test_run"
 
-	_, ex, _, _ := runtime.Caller(0)
-	cwd := filepath.Dir(ex)
+	cwd := config.dir
 
 	buildArgs := []string{
 		"--build-arg", "file=/file",
@@ -1114,8 +1113,7 @@ func buildImage(t *testing.T, dockerfile string, imageBuilder *DockerFileBuilder
 // Build each image with kaniko twice, and then make sure they're exactly the same
 func TestReproducible(t *testing.T) {
 	t.Parallel()
-	_, ex, _, _ := runtime.Caller(0)
-	cwd := filepath.Dir(ex)
+	cwd := config.dir
 
 	build := func(t *testing.T, dockerfile, ref string) {
 		t.Helper()
@@ -1199,7 +1197,7 @@ func TestCache(t *testing.T) {
 
 func TestWarmer(t *testing.T) {
 	t.Parallel()
-	populateVolumeCache(t)
+	populateVolumeCache(t, config)
 
 	for dockerfile := range imageBuilder.TestWarmerDockerfiles {
 		t.Run("test_warmer_"+dockerfile, func(t *testing.T) {
@@ -1386,8 +1384,7 @@ func TestCacheInvalidatesOnAllowlistedFileChange(t *testing.T) {
 func TestPlatformScopedCacheKey(t *testing.T) {
 	t.Parallel()
 
-	_, ex, _, _ := runtime.Caller(0)
-	cwd := filepath.Dir(ex)
+	cwd := config.dir
 	dockerfile := filepath.Join(buildContextPath, dockerfilesPath, "Dockerfile_test_issue_2567")
 	cacheRepo := filepath.Join(config.imageRepo, "cache", "2567", strconv.FormatInt(time.Now().UnixNano(), 10))
 
@@ -1434,7 +1431,7 @@ func TestRelativePaths(t *testing.T) {
 
 		err := imageBuilder.buildRelativePathsImage(
 			t,
-			config.imageRepo,
+			config,
 			dockerfile,
 			contextPath,
 		)
@@ -2149,6 +2146,12 @@ func initIntegrationTestConfig() *integrationTestConfig {
 		c.imageRepo = c.imageRepo + "/"
 	}
 
+	dir, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("Failed to get working directory: %v", err)
+	}
+	c.dir = dir
+
 	c.dockerMajorVersion = getDockerMajorVersion()
 	c.busyboxBaseImage = c.imageRepo + "busybox:latest"
 	c.alpineBaseImage = c.imageRepo + "alpine:latest"
@@ -2205,8 +2208,7 @@ func TestAlpineTLS(t *testing.T) {
 		t.Fatalf("kaniko login failed: %v\n%s", err, out)
 	}
 
-	_, ex, _, _ := runtime.Caller(0)
-	cwd := filepath.Dir(ex)
+	cwd := config.dir
 	dest := "127.0.0.2:5001/kaniko/mz595-tls:latest"
 	err = buildKanikoImage(
 		t,
@@ -2264,8 +2266,7 @@ func TestPushRepositoryScopedAuth(t *testing.T) {
 		destination: "127.0.0.2:5001/usera/mz1008:latest",
 	}}
 
-	_, ex, _, _ := runtime.Caller(0)
-	cwd := filepath.Dir(ex)
+	cwd := config.dir
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			err := buildKanikoImage(
@@ -2307,8 +2308,7 @@ func TestCrossRepoMountFallback(t *testing.T) {
 		t.Fatal("TLS_REGISTRY_CERT not set")
 	}
 
-	_, ex, _, _ := runtime.Caller(0)
-	cwd := filepath.Dir(ex)
+	cwd := config.dir
 	base := "127.0.0.2:5001/userb/test_issue_mz1007:base"
 
 	seed := writeDockerConfig(t, map[string]types.AuthConfig{
@@ -2399,8 +2399,7 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 		stranger = "userb:userb"
 	)
 
-	_, ex, _, _ := runtime.Caller(0)
-	cwd := filepath.Dir(ex)
+	cwd := config.dir
 	pushDockerfile := filepath.Join(buildContextPath, "testdata", "Dockerfile.trivial")
 	pullDockerfile := filepath.Join(buildContextPath, dockerfilesPath, "Dockerfile_test_arg_from_quotes")
 
@@ -2524,8 +2523,7 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 // into Architecture="arm/v7". diffoci ignores the config platform fields, so rather than a
 // docker diff we reuse the cross_compile dockerfile and assert OS/Architecture/Variant directly.
 func TestCustomPlatformVariant(t *testing.T) {
-	_, ex, _, _ := runtime.Caller(0)
-	cwd := filepath.Dir(ex)
+	cwd := config.dir
 	kanikoImage := GetKanikoImage(config.imageRepo, "issue_mz745")
 	err := buildKanikoImage(
 		t,
