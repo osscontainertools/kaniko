@@ -18,6 +18,7 @@ package integration
 
 type integrationTestConfig struct {
 	imageRepo               string
+	dir                     string
 	busyboxBaseImage        string
 	alpineBaseImage         string
 	onbuildBaseImage        string

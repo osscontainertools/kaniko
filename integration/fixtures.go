@@ -24,7 +24,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"time"
 )
 
@@ -110,8 +109,7 @@ func compressBytes(in []byte, name string, args ...string) ([]byte, error) {
 var tarFixtureNames = []string{"file.tar", "file.tar.gz", "file.bz2", "file.tar.xz", "file.tar.zst", "sys.tar.gz"}
 
 func tarFixtureDir() string {
-	_, ex, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(ex), "context", "tars")
+	return filepath.Join(config.dir, "context", "tars")
 }
 
 // generateTarFixtures writes the tar archives consumed by the ADD integration

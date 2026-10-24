@@ -942,16 +942,14 @@ func (d *DockerFileBuilder) BuildDockerImage(t *testing.T, imageRepo, dockerfile
 // BuildImage will build dockerfile (located at dockerfilesPath) using both kaniko and docker.
 // The resulting image will be tagged with imageRepo.
 func (d *DockerFileBuilder) BuildImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile string) error {
-	_, ex, _, _ := runtime.Caller(0)
-	cwd := filepath.Dir(ex)
+	cwd := config.dir
 
 	return d.BuildImageWithContext(t, config, dockerfilesPath, dockerfile, cwd)
 }
 
 // BuildKanikoImage builds dockerfile using only kaniko (no docker build).
 func (d *DockerFileBuilder) BuildKanikoImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile string) error {
-	_, ex, _, _ := runtime.Caller(0)
-	cwd := filepath.Dir(ex)
+	cwd := config.dir
 
 	var buildArgs []string
 	for _, arg := range argsMap[dockerfile] {
@@ -1006,8 +1004,7 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 // buildCachedImage builds the image for testing caching via kaniko where version is the nth time this image has been built
 func (d *DockerFileBuilder) buildCachedImage(t *testing.T, config *integrationTestConfig, cacheRepo, dockerfilesPath, dockerfile string, version int, args []string) error {
 	imageRepo := config.imageRepo
-	_, ex, _, _ := runtime.Caller(0)
-	cwd := filepath.Dir(ex)
+	cwd := config.dir
 
 	cacheFlag := "--cache=true"
 
@@ -1079,8 +1076,7 @@ func (d *DockerFileBuilder) buildCachedImage(t *testing.T, config *integrationTe
 }
 
 func (d *DockerFileBuilder) buildCachedImageInContext(t *testing.T, config *integrationTestConfig, cacheRepo, dockerfile, contextDir string, version int) error {
-	_, ex, _, _ := runtime.Caller(0)
-	cwd := filepath.Dir(ex)
+	cwd := config.dir
 
 	kanikoImage := GetVersionedKanikoImage(config.imageRepo, filepath.Base(contextDir), version)
 
@@ -1104,8 +1100,7 @@ func (d *DockerFileBuilder) buildCachedImageInContext(t *testing.T, config *inte
 
 func populateVolumeCache(t *testing.T) error {
 	fmt.Println("Populating warmer cache")
-	_, ex, _, _ := runtime.Caller(0)
-	cwd := filepath.Dir(ex)
+	cwd := config.dir
 	cmd := []string{
 		"run", "--net=host",
 		"-v", cwd + ":/workspace",
@@ -1133,8 +1128,7 @@ func populateVolumeCache(t *testing.T) error {
 // buildCachedImage builds the image for testing caching via kaniko warmer cache where version is the nth time this image has been built
 func (d *DockerFileBuilder) buildWarmerImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile string, version int, args []string, cache bool) error {
 	imageRepo := config.imageRepo
-	_, ex, _, _ := runtime.Caller(0)
-	cwd := filepath.Dir(ex)
+	cwd := config.dir
 
 	kanikoImage := GetKanikoImage(imageRepo, "test_warmer_"+dockerfile) + strconv.Itoa(version)
 
@@ -1187,8 +1181,7 @@ func (d *DockerFileBuilder) buildWarmerImage(t *testing.T, config *integrationTe
 
 // buildRelativePathsImage builds the images for testing passing relatives paths to Kaniko
 func (d *DockerFileBuilder) buildRelativePathsImage(t *testing.T, imageRepo, dockerfile, buildContextPath string) error {
-	_, ex, _, _ := runtime.Caller(0)
-	cwd := filepath.Dir(ex)
+	cwd := config.dir
 
 	dockerImage := GetDockerImage(imageRepo, "test_relative_"+dockerfile)
 	kanikoImage := GetKanikoImage(imageRepo, "test_relative_"+dockerfile)

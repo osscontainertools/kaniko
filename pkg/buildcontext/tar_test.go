@@ -21,7 +21,6 @@ import (
 	"compress/gzip"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sync"
 	"testing"
 
@@ -30,8 +29,10 @@ import (
 )
 
 func TestBuildWithLocalTar(t *testing.T) {
-	_, ex, _, _ := runtime.Caller(0)
-	cwd := filepath.Dir(ex)
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
 
 	testDir := "test_dir"
 	testDirLongPath := filepath.Join(cwd, testDir)
