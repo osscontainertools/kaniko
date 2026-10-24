@@ -33,6 +33,10 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/util/bucket"
 )
 
+func init() {
+	newS3 = func(context string) BuildContext { return &S3{context: context} }
+}
+
 // S3 unifies calls to download and unpack the build context.
 type S3 struct {
 	context string

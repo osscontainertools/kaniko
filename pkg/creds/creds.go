@@ -17,19 +17,20 @@ limitations under the License.
 package creds
 
 import (
-	"io"
 	"os"
 	"strings"
 
-	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	gitlab "github.com/ePirat/docker-credential-gitlabci/pkg/credhelper"
 	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/v1/google"
-	"github.com/osscontainertools/docker-credential-acr/pkg/credhelper"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
+
+// The names must match the hardlinks created in deploy/Dockerfile.
+var Helpers = map[string]func() int{}
+
+var googleKeychain, ecrKeychain, acrKeychain func() authn.Keychain
 
 // GetKeychain returns a keychain for accessing container registries.
 func GetKeychain(opts *config.RegistryOptions) authn.Keychain {
@@ -68,19 +69,11 @@ func GetKeychain(opts *config.RegistryOptions) authn.Keychain {
 				authn.NewKeychainFromHelper(EnvCredentialsHelper),
 			)
 		case "google":
-			keychains = append(keychains, google.Keychain)
+			keychains = append(keychains, googleKeychain())
 		case "ecr":
-			keychains = append(keychains,
-				authn.NewKeychainFromHelper(
-					ecr.NewECRHelper(ecr.WithLogger(io.Discard)),
-				),
-			)
+			keychains = append(keychains, ecrKeychain())
 		case "acr":
-			keychains = append(keychains,
-				authn.NewKeychainFromHelper(
-					credhelper.NewACRCredentialsHelper(),
-				),
-			)
+			keychains = append(keychains, acrKeychain())
 		case "gitlab":
 			keychains = append(keychains,
 				authn.NewKeychainFromHelper(

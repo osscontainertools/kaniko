@@ -38,7 +38,7 @@ RUN mkdir -p /licenses/go \
     && find vendor -type f \( -name 'LICEN[CS]E*' -o -name 'NOTICE*' -o -name 'COPYING*' \) -exec cp --parents {} /licenses/ \; \
     && hardlink -t /licenses
 
-# The helper names must match the argv[0] dispatch in pkg/creds/helpers.go.
+# The helper names must match the argv[0] dispatch in pkg/creds.
 # A hardlink only shares the file when it is copied in the same layer as the binary.
 RUN mkdir -p /dist/executor /dist/warmer \
     && cp out/executor /dist/executor/ \

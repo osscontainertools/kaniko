@@ -35,16 +35,14 @@ import (
 )
 
 const (
-	gitPullMethodEnvKey = "GIT_PULL_METHOD"
-	gitPullMethodHTTPS  = "https"
-	gitPullMethodHTTP   = "http"
-
 	gitAuthUsernameEnvKey = "GIT_USERNAME"
 	gitAuthPasswordEnvKey = "GIT_PASSWORD"
 	gitAuthTokenEnvKey    = "GIT_TOKEN"
 )
 
-var supportedGitPullMethods = map[string]bool{gitPullMethodHTTPS: true, gitPullMethodHTTP: true}
+func init() {
+	newGit = func(context string, opts BuildOptions) BuildContext { return &Git{context: context, opts: opts} }
+}
 
 // Git unifies calls to download and unpack the build context.
 type Git struct {
@@ -209,17 +207,4 @@ func getGitAuth() transport.AuthMethod {
 		}
 	}
 	return nil
-}
-
-func GitURL(context string) string {
-	repo, _, _ := strings.Cut(context, "#")
-	return getGitPullMethod() + "://" + repo
-}
-
-func getGitPullMethod() string {
-	gitPullMethod := os.Getenv(gitPullMethodEnvKey)
-	if ok := supportedGitPullMethods[gitPullMethod]; !ok {
-		gitPullMethod = gitPullMethodHTTPS
-	}
-	return gitPullMethod
 }

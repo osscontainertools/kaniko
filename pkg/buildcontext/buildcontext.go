@@ -28,6 +28,13 @@ const (
 	TarBuildContextPrefix = "tar://"
 )
 
+var (
+	newGCS       func(context string) BuildContext
+	newS3        func(context string) BuildContext
+	newGit       func(context string, opts BuildOptions) BuildContext
+	newAzureBlob func(context string) BuildContext
+)
+
 type BuildOptions struct {
 	GitBranch            string
 	GitSingleBranch      bool
@@ -52,16 +59,16 @@ func GetBuildContext(srcContext string, opts BuildOptions) (BuildContext, error)
 
 		switch prefix {
 		case constants.GCSBuildContextPrefix:
-			return &GCS{context: srcContext}, nil
+			return newGCS(srcContext), nil
 		case constants.S3BuildContextPrefix:
-			return &S3{context: srcContext}, nil
+			return newS3(srcContext), nil
 		case constants.LocalDirBuildContextPrefix:
 			return &Dir{context: context}, nil
 		case constants.GitBuildContextPrefix:
-			return &Git{context: context, opts: opts}, nil
+			return newGit(context, opts), nil
 		case constants.HTTPSBuildContextPrefix:
 			if util.ValidAzureBlobStorageHost(srcContext) {
-				return &AzureBlob{context: srcContext}, nil
+				return newAzureBlob(srcContext), nil
 			}
 			return &HTTPSTar{context: srcContext}, nil
 		case TarBuildContextPrefix:
