@@ -1,3 +1,5 @@
+//go:build aws
+
 /*
 Copyright 2018 Google LLC
 

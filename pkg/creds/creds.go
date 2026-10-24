@@ -69,11 +69,17 @@ func GetKeychain(opts *config.RegistryOptions) authn.Keychain {
 				authn.NewKeychainFromHelper(EnvCredentialsHelper),
 			)
 		case "google":
-			keychains = append(keychains, googleKeychain())
+			if googleKeychain != nil {
+				keychains = append(keychains, googleKeychain())
+			}
 		case "ecr":
-			keychains = append(keychains, ecrKeychain())
+			if ecrKeychain != nil {
+				keychains = append(keychains, ecrKeychain())
+			}
 		case "acr":
-			keychains = append(keychains, acrKeychain())
+			if acrKeychain != nil {
+				keychains = append(keychains, acrKeychain())
+			}
 		case "gitlab":
 			keychains = append(keychains,
 				authn.NewKeychainFromHelper(

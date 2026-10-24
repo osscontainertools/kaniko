@@ -20,6 +20,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/util"
 )
@@ -59,15 +60,27 @@ func GetBuildContext(srcContext string, opts BuildOptions) (BuildContext, error)
 
 		switch prefix {
 		case constants.GCSBuildContextPrefix:
+			if newGCS == nil {
+				return nil, config.NotCompiled("the gs:// build context")
+			}
 			return newGCS(srcContext), nil
 		case constants.S3BuildContextPrefix:
+			if newS3 == nil {
+				return nil, config.NotCompiled("the s3:// build context")
+			}
 			return newS3(srcContext), nil
 		case constants.LocalDirBuildContextPrefix:
 			return &Dir{context: context}, nil
 		case constants.GitBuildContextPrefix:
+			if newGit == nil {
+				return nil, config.NotCompiled("the git:// build context")
+			}
 			return newGit(context, opts), nil
 		case constants.HTTPSBuildContextPrefix:
 			if util.ValidAzureBlobStorageHost(srcContext) {
+				if newAzureBlob == nil {
+					return nil, config.NotCompiled("the Azure Blob Storage build context")
+				}
 				return newAzureBlob(srcContext), nil
 			}
 			return &HTTPSTar{context: srcContext}, nil

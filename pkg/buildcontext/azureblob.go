@@ -1,3 +1,5 @@
+//go:build azure
+
 /*
 Copyright 2018 Google LLC
 

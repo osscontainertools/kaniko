@@ -44,6 +44,9 @@ jobs:
 
       - run: make test
 
+      - name: Vet the slim build
+        run: go vet ./pkg/... ./cmd/...
+
       - run: make golden
 
       - name: Run staticcheck
@@ -51,3 +54,4 @@ jobs:
         with:
           install-go: false
           version: '2026.2.2'
+          build-tags: otel,git,google,aws,azure

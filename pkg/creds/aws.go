@@ -1,3 +1,5 @@
+//go:build aws
+
 /*
 Copyright 2026 OSS Container Tools
 

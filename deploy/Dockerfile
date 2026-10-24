@@ -13,7 +13,7 @@
 # limitations under the License.
 
 ARG BUILDPLATFORM
-FROM --platform=$BUILDPLATFORM golang:1.27.3@sha256:f20d83a83e18dbd2a4714b8ffd4b30b287b6243962dd75608e86abcc63ba4efc AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.3@sha256:f20d83a83e18dbd2a4714b8ffd4b30b287b6243962dd75608e86abcc63ba4efc AS builder-base
 WORKDIR /src
 
 # This arg is passed by docker buildx & contains the target CPU architecture (e.g., amd64, arm64, etc.)
@@ -29,14 +29,16 @@ ENV CGO_ENABLED=0
 RUN mkdir -p /kaniko/.docker
 
 COPY . .
-ARG COVER=""
-RUN make COVER="$COVER" out/executor out/warmer \
-    && rm -rf /root/.cache
 RUN mkdir -p /licenses/go \
     && cp LICENSE /licenses/ \
     && cp /usr/local/go/LICENSE /licenses/go/ \
     && find vendor -type f \( -name 'LICEN[CS]E*' -o -name 'NOTICE*' -o -name 'COPYING*' \) -exec cp --parents {} /licenses/ \; \
     && hardlink -t /licenses
+
+FROM builder-base AS builder
+ARG COVER=""
+RUN make COVER="$COVER" out/executor out/warmer \
+    && rm -rf /root/.cache
 
 # The helper names must match the argv[0] dispatch in pkg/creds.
 # A hardlink only shares the file when it is copied in the same layer as the binary.
@@ -47,6 +49,11 @@ RUN mkdir -p /dist/executor /dist/warmer \
         ln /dist/executor/executor /dist/executor/$helper \
         && ln /dist/warmer/warmer /dist/warmer/$helper; \
     done
+
+FROM builder-base AS builder-slim
+ARG COVER=""
+RUN make COVER="$COVER" out/executor-slim \
+    && rm -rf /root/.cache
 
 # use musl busybox since it's staticly compiled on all platforms
 # Keep in sync with deploy/sources/busybox.spdx.json.
@@ -72,9 +79,9 @@ FROM scratch AS kaniko-base-slim
 # Create kaniko directory with world write permission to allow non root run
 COPY --from=busybox /kaniko /kaniko
 
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /kaniko/ssl/certs/
+COPY --from=builder-base /etc/ssl/certs/ca-certificates.crt /kaniko/ssl/certs/
 COPY files/nsswitch.conf /etc/nsswitch.conf
-COPY --from=builder /licenses /kaniko/licenses
+COPY --from=builder-base /licenses /kaniko/licenses
 ENV HOME=/root
 ENV USER=root
 ENV PATH=/usr/local/bin:/kaniko
@@ -199,6 +206,6 @@ RUN ["/busybox2/ln", "-s", "/busybox2/sh", "/bin/sh"]
 
 FROM kaniko-base-slim AS kaniko-slim
 
-COPY --from=builder /src/out/executor /kaniko/executor
+COPY --from=builder-slim /src/out/executor-slim /kaniko/executor
 
 ENTRYPOINT ["/kaniko/executor"]

@@ -24,7 +24,7 @@ import sys
 
 
 SKIPPED_DIRS = ["Godeps", "third_party", ".git", "vendor", "examples", "testdata", "dockerfiles", "bakefiles"]
-SKIPPED_FILES = []
+SKIPPED_FILES = ["install_golint.sh"]
 
 parser = argparse.ArgumentParser()
 parser.add_argument("filenames", help="list of files to check, all files if unspecified", nargs='*')
@@ -157,7 +157,7 @@ def get_regexs():
     regexs["date"] = re.compile(r'(20\d\d)')
     regexs["company"] = re.compile(r"Google LLC|Google, Inc\.|OSS Container Tools")
     # strip // go:build \n\n build constraints
-    regexs["go_build_constraints_go"] = re.compile(r"^(?://go:build[^\n]*\n)+", re.MULTILINE)
+    regexs["go_build_constraints_go"] = re.compile(r"^(?://go:build[^\n]*\n)+\n?", re.MULTILINE)
     # strip // +build \n\n build constraints
     regexs["go_build_constraints"] = re.compile(r"^(// \+build.*\n)+\n", re.MULTILINE)
     # strip #!.* from shell scripts

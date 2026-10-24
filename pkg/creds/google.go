@@ -1,3 +1,5 @@
+//go:build google
+
 /*
 Copyright 2026 OSS Container Tools
 

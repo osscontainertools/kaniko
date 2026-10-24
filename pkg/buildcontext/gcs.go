@@ -1,3 +1,5 @@
+//go:build google
+
 /*
 Copyright 2018 Google LLC
 
