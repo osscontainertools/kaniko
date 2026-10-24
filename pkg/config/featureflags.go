@@ -45,6 +45,7 @@ type FeatureFlags struct {
 	DeprecateLayerlessCacheEntries bool
 	DisableHTTP2                   bool
 	ExpandHeredoc                  bool
+	FormatIndependentCacheKey      bool
 	HashDirFraming                 bool
 	ImageStages                    bool
 	InferCrossStageCacheKey        bool
@@ -130,6 +131,7 @@ func InitFeatureFlags() {
 		DeprecateLayerlessCacheEntries: featureFlag("FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES", true),
 		DisableHTTP2:                   featureFlag("FF_KANIKO_DISABLE_HTTP2", false),
 		ExpandHeredoc:                  featureFlag("FF_KANIKO_EXPAND_HEREDOC", true),
+		FormatIndependentCacheKey:      featureFlag("FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY", false),
 		HashDirFraming:                 featureFlag("FF_KANIKO_HASH_DIR_FRAMING", true),
 		ImageStages:                    featureFlag("FF_KANIKO_IMAGE_STAGES", true),
 		InferCrossStageCacheKey:        featureFlag("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", true),
