@@ -569,35 +569,14 @@ Requirements:
 We can run the kaniko executor image locally in a Docker daemon to build and
 push an image from a Dockerfile.
 
-For example, when using gcloud and GCR you could run kaniko as follows:
-
 ```shell
 docker run \
-    -v "$HOME"/.config/gcloud:/root/.config/gcloud \
+    -v "$HOME"/.docker/config.json:/kaniko/.docker/config.json:ro \
     -v /path/to/context:/workspace \
     ghcr.io/osscontainertools/kaniko:latest \
     --dockerfile /workspace/Dockerfile \
-    --destination "gcr.io/$PROJECT_ID/$IMAGE_NAME:$TAG" \
+    --destination "registry.example.com/$IMAGE_NAME:$TAG" \
     --context dir:///workspace/
-```
-
-There is also a utility script [`run_in_docker.sh`](./run_in_docker.sh) that can
-be used as follows:
-
-```shell
-./run_in_docker.sh <path to Dockerfile> <path to build context> <destination of final image>
-```
-
-_NOTE: `run_in_docker.sh` expects a path to a Dockerfile relative to the
-absolute path of the build context._
-
-An example run, specifying the Dockerfile in the container directory
-`/workspace`, the build context in the local directory
-`/home/user/kaniko-project`, and a Google Container Registry as a remote image
-destination:
-
-```shell
-./run_in_docker.sh /workspace/Dockerfile /home/user/kaniko-project gcr.io/$PROJECT_ID/$TAG
 ```
 
 ### Bootstrapping Kaniko

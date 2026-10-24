@@ -102,8 +102,6 @@ docker run --network=host --rm \
 
 Swap in any Dockerfile from `integration/dockerfiles/` or write your own.
 
-Note: `run_in_docker.sh` in the repo root is a different tool. It runs the published kaniko image against a user-provided Dockerfile and is not intended for testing local code changes.
-
 ## Verifying kaniko builds
 
 Images built with kaniko should be no different from images built elsewhere.
@@ -116,8 +114,7 @@ While you iterate on kaniko, you can verify images built with kaniko by:
 
 kaniko has [unit tests](#unit-tests), [golden tests](#golden-tests), and [integration tests](#integration-tests).
 
-Please note that the tests require a Linux machine - use Vagrant to quickly set
-up the test environment needed if you work with macOS or Windows.
+The tests require a Linux machine.
 
 **What to add when contributing:** every change that affects the output of a build should be covered by a new integration test Dockerfile. Changes that affect the build plan but not the output (flow optimizations, caching logic) should be covered by a golden test. Unit tests are useful for development and debugging, but we do not add new ones: they verify that code behaves the same as before in specific scenarios, not that it is correct.
 
@@ -155,10 +152,10 @@ TESTS=<pattern> make golden
 
 ### Lint Checks
 
-The helper script to install and run lint is placed here at the root of project.
+CI runs staticcheck. To run the same version locally:
 
 ```shell
-./hack/linter.sh
+go run honnef.co/go/tools/cmd/staticcheck@2026.2.2 ./...
 ```
 
 To fix any `gofmt` issues, you can simply run `gofmt` with `-w` flag like this
