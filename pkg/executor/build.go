@@ -1120,19 +1120,7 @@ func convertLayerMediaType(layer v1.Layer, image v1.Image, opts *config.KanikoOp
 
 		if targetMediaType != "" {
 			if !recompress {
-				relabeled, err := tarball.LayerFromOpener(layer.Compressed, layerOpts...)
-				if err != nil {
-					return nil, err
-				}
-				rd, err := relabeled.Digest()
-				if err != nil {
-					return nil, err
-				}
-				ld, err := layer.Digest()
-				if err != nil {
-					return nil, err
-				}
-				assert.Assert("executor.convertlayer.relabel-digest", rd == ld, "relabel changed layer digest %s != %s", rd, ld)
+				var relabeled v1.Layer = relabeledLayer{Layer: layer, mediaType: targetMediaType}
 				ml, ok := layer.(*ggcrremote.MountableLayer)
 				if ok {
 					return &ggcrremote.MountableLayer{Layer: relabeled, Reference: ml.Reference}, nil
@@ -1148,6 +1136,15 @@ func convertLayerMediaType(layer v1.Layer, image v1.Image, opts *config.KanikoOp
 		)
 	}
 	return layer, nil
+}
+
+type relabeledLayer struct {
+	v1.Layer
+	mediaType types.MediaType
+}
+
+func (l relabeledLayer) MediaType() (types.MediaType, error) {
+	return l.mediaType, nil
 }
 
 // planLayerMediaType returns a zero key when the conversion rewrites the blob, and an origin only
