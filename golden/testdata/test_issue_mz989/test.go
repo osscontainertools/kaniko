@@ -61,11 +61,11 @@ var Tests = types.GoldenTests{
 		},
 		{
 			// The docker gzip entries are relabeled into the oci image. The relabel keeps the
-			// digest, so they still mount.
+			// digest, so they still mount. The keys are the ones cache_hit looks up.
 			Args: []string{"-d", "example.com/img:latest", "--cache", "--cache-repo", "example.com/cache", "--image-format", "oci"},
 			CachedKeys: []string{
-				"8328b762de0f48ec6cc90c110378e61ce0db514e86ab810971769b55975eabef",
-				"583d4732963f7897a17b5d92572eea389ce2b85cc21431f1df1999457e1cbe70",
+				"3da159ee0182e9c6251bd02915edc2b5be6f4f22a8119fcd25a71fb61b9fbcd1",
+				"62e7ee4103dd49492957774b4a6fedd82a693d8b89e3e67285bd6d3a98108b89",
 			},
 			Plan: "relabeled_mount",
 		},

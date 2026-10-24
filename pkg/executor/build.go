@@ -181,9 +181,13 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 	if !stage.Push {
 		_opts.Labels = []string{}
 	}
+	keyImage := sourceImage
 	sourceImage, err := applyImageFormat(sourceImage, opts.ImageFormat)
 	if err != nil {
 		return nil, err
+	}
+	if !config.FF.FormatIndependentCacheKey {
+		keyImage = sourceImage
 	}
 	outMediaType, err := sourceImage.MediaType()
 	if err != nil {
@@ -202,14 +206,14 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 		return nil, err
 	}
 
-	cf, err := sourceImage.ConfigFile()
+	cf, err := keyImage.ConfigFile()
 	if err != nil {
 		return nil, err
 	}
 	cfg := *cf
 	cfg.Created = v1.Time{}
 	cfg.Config.Labels = map[string]string{}
-	sourceImageReproducible, err := mutate.ConfigFile(sourceImage, &cfg)
+	sourceImageReproducible, err := mutate.ConfigFile(keyImage, &cfg)
 	if err != nil {
 		return nil, err
 	}

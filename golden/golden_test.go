@@ -173,13 +173,14 @@ var update bool
 
 // sync with the Preview profile in README.md
 var previewEnv = map[string]string{
-	"FF_KANIKO_CACHE_IMAGE_INDEX":      "1",
-	"FF_KANIKO_COPY_LINK":              "1",
-	"FF_KANIKO_DEFER_CACHE_PUSH":       "1",
-	"FF_KANIKO_NATIVE_INIT":            "1",
-	"FF_KANIKO_RUN_HEREDOC_SCRIPT":     "1",
-	"FF_KANIKO_WARMER_BUILD_ARGS":      "1",
-	"FF_KANIKO_WARMER_PREDEFINED_ARGS": "1",
+	"FF_KANIKO_CACHE_IMAGE_INDEX":            "1",
+	"FF_KANIKO_COPY_LINK":                    "1",
+	"FF_KANIKO_DEFER_CACHE_PUSH":             "1",
+	"FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY": "1",
+	"FF_KANIKO_NATIVE_INIT":                  "1",
+	"FF_KANIKO_RUN_HEREDOC_SCRIPT":           "1",
+	"FF_KANIKO_WARMER_BUILD_ARGS":            "1",
+	"FF_KANIKO_WARMER_PREDEFINED_ARGS":       "1",
 }
 
 func TestMain(m *testing.M) {
