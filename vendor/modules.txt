@@ -395,8 +395,8 @@ github.com/containerd/typeurl/v2
 ## explicit; go 1.18
 github.com/cyphar/filepath-securejoin
 github.com/cyphar/filepath-securejoin/internal/consts
-# github.com/dimchansky/utfbom v1.1.1
-## explicit
+# github.com/dimchansky/utfbom v1.2.0
+## explicit; go 1.19
 github.com/dimchansky/utfbom
 # github.com/docker/cli v29.9.2+incompatible
 ## explicit
