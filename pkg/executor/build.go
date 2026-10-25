@@ -570,11 +570,8 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 					finalCacheKey = ""
 					continue
 				}
-				useStageKey := crossStageDependency && (!isCopy || config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers)
+				useStageKey := crossStageDependency && !isCopy
 				if useStageKey {
-					if isCopy {
-						files = nil
-					}
 					layerKey, err = populateCompositeKey(command, files, seed, args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 				} else {
 					layerKey, err = populateCompositeKey(command, files, seed, args, cfg.Env, fileContext, nil, nil)
@@ -811,11 +808,8 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				return false, fmt.Errorf("failed to get files used from context: %w", err)
 			}
 			if cacheKeyValid {
-				useStageKey := crossStageDependency && (!isCopy || config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers)
+				useStageKey := crossStageDependency && !isCopy
 				if useStageKey {
-					if isCopy {
-						files = nil
-					}
 					layerKey, err = populateCompositeKey(command, files, seed, s.args, s.cf.Config.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 				} else {
 					layerKey, err = populateCompositeKey(command, files, seed, s.args, s.cf.Config.Env, fileContext, nil, nil)
