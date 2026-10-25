@@ -1767,6 +1767,9 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 				stagesDependencies[s.BaseImageIndex]++
 			}
 			for _, c := range stageBuilders[s.Index].cmds {
+				if _, ok := c.(commands.Cached); ok {
+					continue
+				}
 				sources, err := commands.CrossStageSources(c, &stageBuilders[s.Index].cf.Config, stageBuilders[s.Index].args)
 				if err != nil {
 					return nil, fmt.Errorf("resolving cross-stage sources for stage %d: %w", s.Index, err)
