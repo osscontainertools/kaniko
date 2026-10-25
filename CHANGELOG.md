@@ -116,9 +116,6 @@ To get an overview over our feature flags you can check the schedule on https://
 * warmer `--dryrun` prints which bases it would fetch: https://github.com/osscontainertools/kaniko/pull/1206
 * graduate feature flags for v1.29.0 release: https://github.com/osscontainertools/kaniko/pull/870 https://github.com/osscontainertools/kaniko/pull/1235
 * `--predefined-annotations` sets the OCI source, revision, version and base image annotations: https://github.com/osscontainertools/kaniko/pull/1227
-* ship licenses in the images: https://github.com/osscontainertools/kaniko/pull/1247
-* ship credential helpers as hardlinks to the executor: https://github.com/osscontainertools/kaniko/pull/1224
-* add busybox and tini sources to the SBOM: https://github.com/osscontainertools/kaniko/pull/1246
 * `--provenance` attaches a SLSA provenance attestation: https://github.com/osscontainertools/kaniko/pull/1230
 * `FF_KANIKO_NATIVE_INIT=false` kaniko acts as its own init process: https://github.com/osscontainertools/kaniko/pull/1222
 * `slim` image drops the cloud SDKs, go-git and OpenTelemetry: https://github.com/osscontainertools/kaniko/pull/1279 https://github.com/osscontainertools/kaniko/pull/1265
@@ -182,6 +179,9 @@ To get an overview over our feature flags you can check the schedule on https://
 * golden tests run the Preview profile: https://github.com/osscontainertools/kaniko/pull/1238
 * `--dryrun` plan prints `STREAM` for `FROM scratch`: https://github.com/osscontainertools/kaniko/pull/1211
 * `KANIKO_NO_PUSH=true` without `--destination` fails flag validation: https://github.com/osscontainertools/kaniko/pull/1232
+* ship licenses in the images: https://github.com/osscontainertools/kaniko/pull/1247
+* ship credential helpers as hardlinks to the executor: https://github.com/osscontainertools/kaniko/pull/1224
+* add busybox and tini sources to the SBOM: https://github.com/osscontainertools/kaniko/pull/1246
 * disable the dependabot cooldown: https://github.com/osscontainertools/kaniko/pull/1267
 * locate test fixtures via the working directory: https://github.com/osscontainertools/kaniko/pull/1273
 * reproducible go build of executor and warmer: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1269
