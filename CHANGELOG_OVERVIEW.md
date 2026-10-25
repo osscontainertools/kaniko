@@ -136,7 +136,6 @@
 * if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
 * kaniko learned `--preserve-context` to preserve the build-context across multi-stage builds: https://github.com/mzihlmann/kaniko/pull/28
 * kaniko learned `--materialize` forcing the filesystem into a well-defined state after the build: https://github.com/mzihlmann/kaniko/pull/29
-* bootstrap image: https://github.com/mzihlmann/kaniko/pull/59
 * deprecate force-build-metadata: https://github.com/mzihlmann/kaniko/pull/99
 * make skip-unused-stages the default: https://github.com/mzihlmann/kaniko/pull/100
 * kaniko learned `--credential-helpers` to select credential helpers: https://github.com/mzihlmann/kaniko/pull/135
@@ -145,7 +144,6 @@
 * new cli option `--pre-cleanup` to clean the filesystem prior to build, allowing customized kaniko images to work properly: https://github.com/mzihlmann/kaniko/pull/196
 * add git depth option: https://github.com/mzihlmann/kaniko/pull/203
 * add docs for azure chinacloud: https://github.com/mzihlmann/kaniko/pull/216
-* riscv image: https://github.com/mzihlmann/kaniko/pull/220
 * add env credential helper: https://github.com/mzihlmann/kaniko/pull/236 https://github.com/mzihlmann/kaniko/pull/249
 * allow skip push cache: https://github.com/osscontainertools/kaniko/pull/268
 * organize kaniko dir: https://github.com/osscontainertools/kaniko/pull/285
@@ -154,7 +152,6 @@
 * cleanup kaniko workspace on failure too: https://github.com/osscontainertools/kaniko/pull/453 https://github.com/osscontainertools/kaniko/pull/532
 * multitarget builds - part 1: https://github.com/osscontainertools/kaniko/pull/485
 * `FF_KANIKO_OCI_SCRATCH_BASE=false` oci scratch base image: https://github.com/osscontainertools/kaniko/pull/612
-* `kaniko-alpine` image (`martizih/kaniko:alpine`): https://github.com/osscontainertools/kaniko/pull/647 https://github.com/osscontainertools/kaniko/pull/659
 * `executor push` subcommand pushes a pre-built tarball or OCI layout without a separate `crane` binary: https://github.com/osscontainertools/kaniko/pull/737
 * keep read-only bind mounts (e.g. NVIDIA GPU driver artifacts) in place during extraction: https://github.com/osscontainertools/kaniko/pull/754
 * deprecate the `--preserve-context` inter-stage restore: https://github.com/osscontainertools/kaniko/pull/710
@@ -162,13 +159,11 @@
 * `--image-format=docker|oci` pins the output manifest media type instead of inheriting it from the base image: https://github.com/osscontainertools/kaniko/pull/850
 * `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=true` match an `auths` entry by repository namespace: by @WoozyMasta in https://github.com/osscontainertools/kaniko/pull/1002
 * experimental support for bakefile via `kaniko bake`: https://github.com/osscontainertools/kaniko/pull/773
-* add 32-bit platform support: by @donbowman in https://github.com/osscontainertools/kaniko/pull/1136 https://github.com/osscontainertools/kaniko/pull/1137 https://github.com/osscontainertools/kaniko/pull/1140
 * `FF_KANIKO_LAYER_HINTS=true` kaniko now hints at common mistakes: https://github.com/osscontainertools/kaniko/pull/1121
 * warmer `--dryrun` prints which bases it would fetch: https://github.com/osscontainertools/kaniko/pull/1206
 * `--predefined-annotations` sets the OCI source, revision, version and base image annotations: https://github.com/osscontainertools/kaniko/pull/1227
 * `--provenance` attaches a SLSA provenance attestation: https://github.com/osscontainertools/kaniko/pull/1230
 * `FF_KANIKO_NATIVE_INIT=false` kaniko acts as its own init process: https://github.com/osscontainertools/kaniko/pull/1222
-* `slim` image drops the cloud SDKs, go-git and OpenTelemetry: https://github.com/osscontainertools/kaniko/pull/1279 https://github.com/osscontainertools/kaniko/pull/1265
 
 ### Telemetry
 * opt-in OpenTelemetry tracing via `KANIKO_TELEMETRY_ENDPOINT`, one trace per build: by @babs in https://github.com/osscontainertools/kaniko/pull/902 https://github.com/osscontainertools/kaniko/pull/951 https://github.com/osscontainertools/kaniko/pull/913 https://github.com/osscontainertools/kaniko/pull/931 https://github.com/osscontainertools/kaniko/pull/1019
@@ -184,6 +179,18 @@
 * `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true` now also redacts `RUN`, `ENV` and `ARG`: https://github.com/osscontainertools/kaniko/pull/1119
 * report layer size and digest: https://github.com/osscontainertools/kaniko/pull/1120
 * trace the push, planning and the `--reproducible` rewrite: https://github.com/osscontainertools/kaniko/pull/1217
+
+### Packaging
+* bootstrap image: https://github.com/mzihlmann/kaniko/pull/59
+* riscv image: https://github.com/mzihlmann/kaniko/pull/220
+* `kaniko-alpine` image (`martizih/kaniko:alpine`): https://github.com/osscontainertools/kaniko/pull/647 https://github.com/osscontainertools/kaniko/pull/659
+* strip debug symbols from the credential helper binaries: https://github.com/osscontainertools/kaniko/pull/1031
+* add 32-bit platform support: by @donbowman in https://github.com/osscontainertools/kaniko/pull/1136 https://github.com/osscontainertools/kaniko/pull/1137 https://github.com/osscontainertools/kaniko/pull/1140
+* add OCI labels and an SBOM to kaniko images: https://github.com/osscontainertools/kaniko/pull/1169 https://github.com/osscontainertools/kaniko/pull/1246
+* make the kaniko images reproducible: https://github.com/osscontainertools/kaniko/pull/1231 https://github.com/osscontainertools/kaniko/pull/1269
+* ship licenses in the images: https://github.com/osscontainertools/kaniko/pull/1247
+* ship credential helpers as hardlinks to the executor: https://github.com/osscontainertools/kaniko/pull/1224
+* `slim` image drops the cloud SDKs, go-git and OpenTelemetry: https://github.com/osscontainertools/kaniko/pull/1279 https://github.com/osscontainertools/kaniko/pull/1265
 
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
