@@ -66,7 +66,13 @@ func WrapDial(dial DialFunc) DialFunc {
 				break
 			}
 		}
-		return &countedConn{Conn: conn}, nil
+		cc := &countedConn{Conn: conn}
+		if countHosts.Load() {
+			h := hostFor(addr)
+			h.conns.Add(1)
+			return &meteredConn{countedConn: cc, host: h}, nil
+		}
+		return cc, nil
 	}
 }
 
@@ -83,6 +89,89 @@ func (c *countedConn) Close() error {
 	return c.Conn.Close()
 }
 
+// meteredConn counts the bytes on the wire, TLS records and HTTP framing
+// included. Only used once CountHosts has been called.
+type meteredConn struct {
+	*countedConn
+	host *hostCounters
+}
+
+func (c *meteredConn) Read(b []byte) (int, error) {
+	n, err := c.Conn.Read(b)
+	c.host.read.Add(int64(n))
+	return n, err
+}
+
+func (c *meteredConn) Write(b []byte) (int, error) {
+	n, err := c.Conn.Write(b)
+	c.host.written.Add(int64(n))
+	return n, err
+}
+
+var (
+	countHosts atomic.Bool
+	hostsMu    sync.Mutex
+	hosts      = map[string]*hostCounters{}
+)
+
+type hostCounters struct {
+	conns    atomic.Int64
+	requests atomic.Int64
+	reused   atomic.Int64
+	read     atomic.Int64
+	written  atomic.Int64
+}
+
+// CountHosts turns on the per-host counters of Hosts. It must run before the
+// first transport dials; the build metrics turn it on.
+func CountHosts() {
+	countHosts.Store(true)
+}
+
+// hostFor takes a dial address or a URL host, with or without a port.
+func hostFor(addr string) *hostCounters {
+	host := addr
+	if h, _, err := net.SplitHostPort(addr); err == nil {
+		host = h
+	}
+	hostsMu.Lock()
+	defer hostsMu.Unlock()
+	h := hosts[host]
+	if h == nil {
+		h = &hostCounters{}
+		hosts[host] = h
+	}
+	return h
+}
+
+// HostStats is the traffic with one host. Connections and bytes are keyed by
+// the dialed address, so behind an HTTP proxy they land on the proxy while
+// requests stay on the registry.
+type HostStats struct {
+	Conns        int64 `json:"conns"`
+	Requests     int64 `json:"requests"`
+	Reused       int64 `json:"reused"`
+	BytesRead    int64 `json:"bytes_read"`
+	BytesWritten int64 `json:"bytes_written"`
+}
+
+// Hosts totals the traffic per host so far.
+func Hosts() map[string]HostStats {
+	hostsMu.Lock()
+	defer hostsMu.Unlock()
+	out := make(map[string]HostStats, len(hosts))
+	for name, h := range hosts {
+		out[name] = HostStats{
+			Conns:        h.conns.Load(),
+			Requests:     h.requests.Load(),
+			Reused:       h.reused.Load(),
+			BytesRead:    h.read.Load(),
+			BytesWritten: h.written.Load(),
+		}
+	}
+	return out
+}
+
 // Trace records whether a request reused its connection, how long that
 // connection sat idle first, and what the TLS handshake cost.
 func Trace(rt http.RoundTripper) http.RoundTripper {
@@ -95,6 +184,11 @@ type tracedTransport struct {
 
 func (t *tracedTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	requests.Add(1)
+	var host *hostCounters
+	if countHosts.Load() {
+		host = hostFor(r.URL.Host)
+		host.requests.Add(1)
+	}
 	// both handshake hooks run on the goroutine doing the dial
 	var start time.Time
 	trace := &httptrace.ClientTrace{
@@ -111,6 +205,9 @@ func (t *tracedTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 		GotConn: func(info httptrace.GotConnInfo) {
 			if info.Reused {
 				reused.Add(1)
+				if host != nil {
+					host.reused.Add(1)
+				}
 			}
 			if info.WasIdle {
 				idleTime.Add(int64(info.IdleTime))
