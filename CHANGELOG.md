@@ -83,7 +83,9 @@ Their behavior is now unconditional, they have no effect and can be removed.
 > ⚠️ The `slim` image no longer authenticates to GCR, ECR and ACR, and drops the `gs://`, `s3://` and azure build contexts, git build contexts and OpenTelemetry export. If you use any of them, switch to the regular image, which is now about the same size as `slim` used to be.
 
 ## Community Update
-@gary-wall made their first contribution in https://github.com/osscontainertools/kaniko/pull/1205 and joins us as a maintainer. Their warmer now caches the image index too, so builds from a base pinned by index digest work air-gapped.
+@gary-wall made their first contribution in https://github.com/osscontainertools/kaniko/pull/1205. Their warmer now caches the image index too, so builds from a base pinned by index digest work air-gapped.
+
+They also join us as a maintainer, welcome aboard!
 
 Also many thanks to @philou-078 and @hanbyeol for reporting issues fixed in this release.
 
