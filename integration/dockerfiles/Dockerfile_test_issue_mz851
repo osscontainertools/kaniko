@@ -14,5 +14,5 @@
 # built on this and made that vendor the one the build asked for, so this file
 # is run with --image-format=oci --compression=zstd and the expectation is an
 # OCI manifest with a gzip base layer and a zstd kaniko layer.
-FROM debian:12.10@sha256:6bc30d909583f38600edd6609e29eb3fb284ab8affce8d0389f332fc91c2dd91
+FROM debian:13.7@sha256:15a71cc87173e191d5046f9c4288db4e8954b67f92e48d9587087826b0afe562
 RUN echo 'hi' > /root/hi.txt

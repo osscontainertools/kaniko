@@ -1133,7 +1133,7 @@ func TestReproducible(t *testing.T) {
 	baseRefs := map[string]string{
 		"Dockerfile_test_copy_reproducible": "alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
 		"Dockerfile_test_issue_mz731":       "alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
-		"Dockerfile_test_issue_mz851":       "debian@sha256:6bc30d909583f38600edd6609e29eb3fb284ab8affce8d0389f332fc91c2dd91",
+		"Dockerfile_test_issue_mz851":       "debian@sha256:15a71cc87173e191d5046f9c4288db4e8954b67f92e48d9587087826b0afe562",
 	}
 	layerMediaTypes := map[string][]ggcrtypes.MediaType{
 		"Dockerfile_test_copy_reproducible": append([]ggcrtypes.MediaType{ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerConfigJSON}, slices.Repeat([]ggcrtypes.MediaType{ggcrtypes.DockerLayer}, 18)...),
@@ -1233,14 +1233,14 @@ func TestWarmerTwice(t *testing.T) {
 	// mz364: subtests share one cache volume so concurrent warmers exercise the TOCTOU race
 	tmpDir := t.TempDir()
 	// mz364: pre-place a broken tarball-format cache entry
-	brokenPath := filepath.Join(tmpDir, "sha256:6bc30d909583f38600edd6609e29eb3fb284ab8affce8d0389f332fc91c2dd91")
+	brokenPath := filepath.Join(tmpDir, "sha256:15a71cc87173e191d5046f9c4288db4e8954b67f92e48d9587087826b0afe562")
 	if err := os.WriteFile(brokenPath, []byte("legacy tarball"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	dockerfiles := map[string]bool{
 		"debian:trixie-slim": true,
-		"debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56": false, // image-index can skip lookup
-		"debian:12.10@sha256:6bc30d909583f38600edd6609e29eb3fb284ab8affce8d0389f332fc91c2dd91": false, // image-manifest can skip lookup
+		"debian:13.7@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308": false, // image-index can skip lookup
+		"debian:13.7@sha256:15a71cc87173e191d5046f9c4288db4e8954b67f92e48d9587087826b0afe562": false, // image-manifest can skip lookup
 	}
 	for dockerfile, remoteLookup := range dockerfiles {
 		t.Run("test_warmer_twice_"+dockerfile, func(t *testing.T) {
@@ -1291,7 +1291,7 @@ func TestWarmerTwice(t *testing.T) {
 func TestWarmerIndexAcrossPlatforms(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()
-	image := "debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56"
+	image := "debian:13.7@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308"
 	warm := func(platform string) string {
 		dockerRunFlags := []string{"run", "--net=host", "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())}
 		dockerRunFlags = addAuthFlags(dockerRunFlags)
@@ -1314,7 +1314,7 @@ func TestWarmerIndexAcrossPlatforms(t *testing.T) {
 
 	warm("linux/arm64")
 	out := warm("linux/amd64")
-	s := fmt.Sprintf("Resolved sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56 to sha256:%s through cached image index", debian1210Digest)
+	s := fmt.Sprintf("Resolved sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308 to sha256:%s through cached image index", debian137Digest)
 	if !strings.Contains(out, s) {
 		t.Fatalf("output must contain %s", s)
 	}
