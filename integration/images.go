@@ -157,12 +157,12 @@ var argsMap = map[string][]string{
 		"file3=context/b*",
 	},
 	"Dockerfile_test_multistage":  {"file=/foo2"},
-	"Dockerfile_test_issue_mz655": {"BASE_TAG=1.37.0"},
+	"Dockerfile_test_issue_mz655": {"BASE_TAG=1.38.0"},
 	"Dockerfile_test_issue_3373":  {"DIGEST=sha256:a680e90a30faae7b193edf63b088a11edf856f731d93c25f1fd7c1a21cf82d06"},
 }
 
 var argsMapVersion1 = map[string][]string{
-	"Dockerfile_test_issue_mz655": {"BASE_TAG=1.36.1"},
+	"Dockerfile_test_issue_mz655": {"BASE_TAG=1.37.0"},
 }
 
 // Environment to build Dockerfiles with, used for both docker and kaniko builds
@@ -282,12 +282,9 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_copy":                         dockerV2Flags,
 	"Dockerfile_test_copy_bucket":                  dockerV2Flags,
 	"Dockerfile_test_cache_copy_oci":               dockerV2Flags,
-	"Dockerfile_test_add_url_with_arg":             dockerV2Flags,
-	"Dockerfile_test_issue_3373":                   dockerV2Flags,
 	"Dockerfile_test_add_dest_symlink_dir":         dockerV2Flags,
 	"Dockerfile_test_add_chown_intermediate_dirs":  dockerV2Flags,
 	"Dockerfile_test_arg_two_level":                dockerV2Flags,
-	"Dockerfile_test_arg_multi_empty_val":          dockerV2Flags,
 	"issue-1020":                                   dockerV2Flags,
 	"issue-774":                                    dockerV2Flags,
 	"issue-1315":                                   dockerV2Flags,

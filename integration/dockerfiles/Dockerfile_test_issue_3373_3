@@ -1,4 +1,4 @@
-FROM busybox:1.31
+FROM busybox:1.38
 
 # 3373: the digest is the correct sha512 of the asset, but buildkit's http source
 # always compares a sha256, so docker fails this with a digest mismatch. Honouring

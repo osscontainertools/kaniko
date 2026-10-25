@@ -1,4 +1,4 @@
-FROM busybox:1.31
+FROM busybox:1.38
 
 # 3373: one digest cannot validate two distinct files. docker rejects this with
 # "checksum can't be specified for multiple sources", kaniko let it through and
