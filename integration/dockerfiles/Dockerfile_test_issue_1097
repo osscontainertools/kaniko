@@ -1,0 +1,11 @@
+# 1097: USER must keep the user's supplementary groups for RUN, kaniko used to drop them.
+FROM debian:13.7
+
+RUN groupadd -g 20000 bar
+RUN groupadd -g 10000 foo
+
+RUN useradd -c "Foo user" -u 10000 -g 10000 -G bar -m foo
+
+USER foo
+
+RUN id -G > /home/foo/groups && grep -qw 20000 /home/foo/groups
