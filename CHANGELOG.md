@@ -1,5 +1,7 @@
 # v1.29.0 Release 2026-10-25
 ## Update Notice
+> ⚠️ The `slim` image no longer authenticates to GCR, ECR and ACR, and drops the `gs://`, `s3://` and azure build contexts, git build contexts and OpenTelemetry export. If you use any of them, switch to the regular image, which is now about the same size as `slim` used to be.
+
 In this Release we activated these feature-flags:
 * [FF_KANIKO_ADD_CHECKSUM](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_add_checksum)
 * [FF_KANIKO_ADD_UNPACK](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_add_unpack)
