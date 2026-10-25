@@ -86,7 +86,7 @@ They also join us as a maintainer, welcome aboard!
 
 Also many thanks to @philou-078 and @hanbyeol for reporting issues fixed in this release.
 
-To see when a feature flag was introduced, becomes the default and gets removed, check the schedule on https://osscontainertools.org/kaniko/flags/
+To get an overview over our feature flags you can check the schedule on https://osscontainertools.org/kaniko/flags/
 
 ## What's Changed
 ### Security
