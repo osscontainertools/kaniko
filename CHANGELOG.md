@@ -77,8 +77,6 @@ Their behavior is now unconditional, they have no effect and can be removed.
 
 > ⚠️ The warmer only reads and writes the OCI layout now. Tarballs left in a warmer cache from before `v1.28.0` are no longer used and can be deleted.
 
-> ⚠️ The `slim` image no longer authenticates to GCR, ECR and ACR, and drops the `gs://`, `s3://` and azure build contexts, git build contexts and OpenTelemetry export. If you use any of them, switch to the regular image, which is now about the same size as `slim` used to be.
-
 ## Community Update
 @gary-wall made their first contribution in https://github.com/osscontainertools/kaniko/pull/1205. Their warmer now caches the image index too, so builds from a base pinned by index digest work air-gapped.
 
