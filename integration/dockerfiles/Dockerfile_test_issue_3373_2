@@ -1,4 +1,4 @@
-FROM busybox:1.31
+FROM busybox:1.38
 
 # 3373: a checksum on a context file is not verifiable, docker fails with
 # "checksum requires HTTP(S) or Git sources".
