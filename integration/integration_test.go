@@ -211,6 +211,11 @@ func buildRequiredImages() error {
 		return err
 	}
 
+	err = pushTestIssueMz1268Image(strings.ToLower(config.imageRepo + "test_issue_mz1268:latest"))
+	if err != nil {
+		return err
+	}
+
 	oversizedIDRef := strings.ToLower(config.imageRepo + "oversized-id:latest")
 	err = pushOversizedIDImage(oversizedIDRef)
 	if err != nil {
@@ -964,6 +969,45 @@ func pushMaliciousSymlinkTraversalImage(imageRef string) error {
 	}
 	if err := remote.Write(ref, img, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
 		return fmt.Errorf("pushing malicious image to %s: %v", imageRef, err)
+	}
+	return nil
+}
+
+// pushTestIssueMz1268Image pushes a minimal image whose single layer resolves
+// "evil" as a plain directory, then replaces it with a symlink "evil" -> "../../.."
+// and writes "evil/mz1268" through it. Docker cannot produce such a layer.
+func pushTestIssueMz1268Image(imageRef string) error {
+	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		for _, hdr := range []*tar.Header{
+			{Name: "marker", Typeflag: tar.TypeReg, Mode: 0o644},
+			{Name: "evil/x", Typeflag: tar.TypeReg, Mode: 0o644},
+			{Name: "evil", Typeflag: tar.TypeSymlink, Linkname: "../../..", Mode: 0o777},
+			{Name: "evil/mz1268", Typeflag: tar.TypeReg, Mode: 0o644},
+		} {
+			if err := tw.WriteHeader(hdr); err != nil {
+				return nil, err
+			}
+		}
+		tw.Close()
+		return io.NopCloser(bytes.NewReader(buf.Bytes())), nil
+	})
+	if err != nil {
+		return fmt.Errorf("creating mz1268 layer: %v", err)
+	}
+
+	img, err := mutate.AppendLayers(empty.Image, layer)
+	if err != nil {
+		return fmt.Errorf("appending layer to empty image: %v", err)
+	}
+
+	ref, err := name.ParseReference(imageRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing image ref %s: %v", imageRef, err)
+	}
+	if err := remote.Write(ref, img, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
+		return fmt.Errorf("pushing mz1268 image to %s: %v", imageRef, err)
 	}
 	return nil
 }
