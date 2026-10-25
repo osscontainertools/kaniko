@@ -16,7 +16,7 @@
 set -e
 
 function start_local_registry {
-  docker start registry 2>/dev/null || docker run --name registry -d -p 5000:5000 registry:2
+  docker start registry 2>/dev/null || docker run --name registry -d -p 5000:5000 registry:3
 }
 
 function start_local_auth_server {
@@ -48,7 +48,7 @@ function start_local_tls_registry {
       -e REGISTRY_AUTH_TOKEN_SERVICE=kaniko-test-registry \
       -e REGISTRY_AUTH_TOKEN_ISSUER=kaniko-test-auth \
       -e REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE=/certs/tls.crt \
-      registry:2
+      registry:3
   fi
 }
 
