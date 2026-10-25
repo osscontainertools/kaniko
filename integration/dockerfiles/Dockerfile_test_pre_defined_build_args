@@ -1,5 +1,5 @@
 # ingegration test for pre-defined build args; see pkg/dockerfile/buildargs.go
-FROM alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a AS undefined
+FROM busybox:1.38 AS undefined
 RUN echo "BUILDPLATFORM: ${BUILDPLATFORM}" | tee info1.txt && \
     echo "BUILDOS: ${BUILDOS}" | tee -a info1.txt && \
     echo "BUILDARCH: ${BUILDARCH}" | tee -a info1.txt && \

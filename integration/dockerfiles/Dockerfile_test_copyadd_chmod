@@ -1,4 +1,4 @@
-FROM alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a
+FROM busybox:1.38
 
 ADD --chmod=0666 context/foo /file666
 ADD --chmod=777 context/qux /dir777

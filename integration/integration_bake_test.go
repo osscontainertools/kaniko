@@ -74,11 +74,10 @@ func TestBake(t *testing.T) {
 				dockerImages[target.ID] = GetDockerImage(config.imageRepo, imageName)
 				kanikoFlags = append(kanikoFlags, "--set", target.ID+".destination="+kanikoImages[target.ID])
 				dockerFlags = append(dockerFlags, "--set", target.ID+".tags="+dockerImages[target.ID])
-				// kaniko emits dockerv2 here, so the oracle has to as well. This is the
-				// bake spelling of dockerV2Flags, and it pushes, so --push is not needed.
+				// type=registry pushes, so --push is not needed.
 				dockerFlags = append(dockerFlags,
 					"--set", target.ID+".attest=type=provenance,disabled=true",
-					"--set", target.ID+".output=type=registry,oci-mediatypes=false")
+					"--set", target.ID+".output=type=registry")
 				dockerTargets = append(dockerTargets, target.ID)
 			}
 			// buildx bake builds the "default" group when no target is named, and the
