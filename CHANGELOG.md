@@ -177,10 +177,11 @@ To get an overview over our feature flags you can check the schedule on https://
 * build(deps): bump registry from 2 to 3: https://github.com/osscontainertools/kaniko/pull/1288
 * build(deps): bump google/cloud-sdk from 256.0.0-alpine to 590.0.1-alpine: https://github.com/osscontainertools/kaniko/pull/1297
 * build(deps): bump ubi from ubi8 8.2 to ubi9 9.8: https://github.com/osscontainertools/kaniko/pull/1295
+* build(deps): bump rabbitmq from 3.7.11 to 4.4.0: https://github.com/osscontainertools/kaniko/pull/1296
 
 ### Fork Related
 * drop unused dependencies and upstream leftovers: https://github.com/osscontainertools/kaniko/pull/1237 https://github.com/osscontainertools/kaniko/pull/1239 https://github.com/osscontainertools/kaniko/pull/1240 https://github.com/osscontainertools/kaniko/pull/1278
-* test improvements: https://github.com/osscontainertools/kaniko/pull/1238 https://github.com/osscontainertools/kaniko/pull/1273 https://github.com/osscontainertools/kaniko/pull/1289 https://github.com/osscontainertools/kaniko/pull/1290 https://github.com/osscontainertools/kaniko/pull/1293 https://github.com/osscontainertools/kaniko/pull/1292 https://github.com/osscontainertools/kaniko/pull/1299 https://github.com/osscontainertools/kaniko/pull/1294
+* test improvements: https://github.com/osscontainertools/kaniko/pull/1238 https://github.com/osscontainertools/kaniko/pull/1273 https://github.com/osscontainertools/kaniko/pull/1289 https://github.com/osscontainertools/kaniko/pull/1290 https://github.com/osscontainertools/kaniko/pull/1293 https://github.com/osscontainertools/kaniko/pull/1292 https://github.com/osscontainertools/kaniko/pull/1299 https://github.com/osscontainertools/kaniko/pull/1294 https://github.com/osscontainertools/kaniko/pull/1298
 * `--dryrun` plan prints `STREAM` for `FROM scratch`: https://github.com/osscontainertools/kaniko/pull/1211
 * `KANIKO_NO_PUSH=true` without `--destination` fails flag validation: https://github.com/osscontainertools/kaniko/pull/1232
 * disable the dependabot cooldown: https://github.com/osscontainertools/kaniko/pull/1267
