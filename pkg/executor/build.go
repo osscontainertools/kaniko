@@ -209,7 +209,15 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 	cfg := *cf
 	cfg.Created = v1.Time{}
 	cfg.Config.Labels = map[string]string{}
-	sourceImageReproducible, err := mutate.ConfigFile(sourceImage, &cfg)
+	keyImage := sourceImage
+	if config.FF.FormatIndependentCacheKey {
+		// OCI, because docker schema2 cannot represent zstd layers
+		keyImage, err = image_util.WithMediaType(sourceImage, types.OCIManifestSchema1)
+		if err != nil {
+			return nil, err
+		}
+	}
+	sourceImageReproducible, err := mutate.ConfigFile(keyImage, &cfg)
 	if err != nil {
 		return nil, err
 	}
