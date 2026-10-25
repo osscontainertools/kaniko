@@ -1,3 +1,193 @@
+# v1.29.0 Release 2026-10-25
+## Update Notice
+> ⚠️ The `slim` image no longer authenticates to GCR/GAR, ECR and ACR, and drops the `gs://`, `s3://` and azure build contexts, git build contexts and OpenTelemetry export. If you use any of them, switch to `latest`, which is now about the same size as `slim` used to be.
+
+In this Release we activated these feature-flags:
+* [FF_KANIKO_ADD_CHECKSUM](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_add_checksum)
+* [FF_KANIKO_ADD_UNPACK](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_add_unpack)
+* [FF_KANIKO_CACHE_HASH_BLAKE3](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_cache_hash_blake3)
+* [FF_KANIKO_CACHE_LOOKAHEAD](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_cache_lookahead)
+* [FF_KANIKO_COPY_SKIP_SPECIAL_FILES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_copy_skip_special_files)
+* [FF_KANIKO_CROSS_REPO_MOUNT](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_cross_repo_mount)
+* [FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_deprecate_layerless_cache_entries)
+* [FF_KANIKO_EXPAND_HEREDOC](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_expand_heredoc)
+* [FF_KANIKO_HASH_DIR_FRAMING](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_hash_dir_framing)
+* [FF_KANIKO_IMAGE_STAGES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_image_stages)
+* [FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_infer_cross_stage_cache_key)
+* [FF_KANIKO_LAYER_HINTS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_layer_hints)
+* [FF_KANIKO_NATIVE_COPY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_native_copy)
+* [FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_path_scoped_registry_auth)
+* [FF_KANIKO_PEEK_ARCHIVE_HEADER](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_peek_archive_header)
+* [FF_KANIKO_PLATFORM_CACHE_KEY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_platform_cache_key)
+* [FF_KANIKO_POOL_REGISTRY_CONNECTIONS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_pool_registry_connections)
+* [FF_KANIKO_PRECOMPILE_DOCKERIGNORE](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_precompile_dockerignore)
+* [FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_preserve_mounted_symlinks)
+* [FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_reproducible_preserve_base_layers)
+* [FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_reproducible_preserve_format)
+* [FF_KANIKO_RESOLVE_CACHE_KEY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_resolve_cache_key)
+* [FF_KANIKO_ROLLING_CACHE_KEY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_rolling_cache_key)
+* [FF_KANIKO_RUN_HONOR_GROUP](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_run_honor_group)
+* [FF_KANIKO_SHARED_BASE_CACHE](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_shared_base_cache)
+* [FF_KANIKO_SKIP_CACHED_STAGES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_skip_cached_stages)
+* [FF_KANIKO_SKIP_RELABEL_RECOMPRESS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_skip_relabel_recompress)
+* [FF_KANIKO_SKIP_WRITE_WHITEOUTS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_skip_write_whiteouts)
+* [FF_KANIKO_UNPACK_ZSTD](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_unpack_zstd)
+* [FF_KANIKO_UNTAR_SKIP_ROOT](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_untar_skip_root)
+
+> ⚠️ Several of these flags change how cache keys are computed. Existing cache entries are invalidated, so the first build after upgrading is a full rebuild that repopulates the cache.
+
+> ⚠️ `--reproducible` now leaves base layers untouched and keeps the requested image format, so the digest of a reproducible build changes once. A reproducible build from an OCI base is now pushed as OCI instead of docker, pass `--image-format=docker` to keep the old format.
+
+`FF_KANIKO_ADD_CHECKSUM` verifies `ADD --checksum`. A wrong checksum used to pass silently and now fails the build, so update it to the digest of the download.
+
+`FF_KANIKO_EXPAND_HEREDOC` expands variables in unquoted `COPY` and `ADD` heredoc bodies. If a body needs a literal `$`, quote the delimiter:
+```dockerfile
+COPY <<'EOF' /etc/motd
+costs $5
+EOF
+```
+
+`FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH` matches an `auths` entry against the repository namespace, so one entry for `registry.example.com/org-a` covers every repository below it and you can merge your per-repository entries. It is no longer sent to sibling namespaces like `registry.example.com/org-b`, which now need their own entry.
+
+`FF_KANIKO_SHARED_BASE_CACHE` keeps downloaded bases in `/kaniko/bases` after the build, `--cleanup` does not remove them. If you reuse an executor for many builds, clean that directory yourself.
+
+You can roll-back any of those changes by overriding them in the environment ie.
+```yaml
+job:
+  variables:
+    FF_KANIKO_PLATFORM_CACHE_KEY: "0"
+    FF_KANIKO_CROSS_REPO_MOUNT: "0"
+```
+Please also notify us by [filing a new issue](https://github.com/osscontainertools/kaniko/issues/new/choose).
+
+We further removed these feature-flags:
+* `FF_KANIKO_RUN_MOUNT_BIND`
+* `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS`
+* `FF_KANIKO_VOLUME_SKIP_MKDIR`
+* `FF_KANIKO_PRESERVE_HARDLINKS`
+* `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE`
+* `FF_KANIKO_PRESERVE_MOUNTED_PATHS`
+* `FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE`
+* `FF_KANIKO_SECUREJOIN_EXTRACTION`
+* `FF_KANIKO_WARMER_CACHE_LOCK`
+* `FF_KANIKO_CLEAN_KANIKO_DIR`
+* `FF_KANIKO_RELATIVE_LINK_TARGETS`
+* `FF_KANIKO_OCI_WARMER`
+* `FF_KANIKO_IGNORE_CACHED_MANIFEST`
+
+Their behavior is now unconditional, they have no effect and can be removed.
+
+> ⚠️ The warmer only reads and writes the OCI layout now. Tarballs left in a warmer cache from before `v1.28.0` are no longer used, re-run the warmer to populate the cache.
+
+## Community Update
+@gary-wall made their first contribution in https://github.com/osscontainertools/kaniko/pull/1205. Their warmer now caches the image index too, so builds from a base pinned by index digest work air-gapped.
+
+They also join us as a maintainer, welcome aboard!
+
+Also many thanks to @philou-078 and @hanbyeol for reporting issues fixed in this release.
+
+To get an overview over our feature flags you can check the schedule on https://osscontainertools.org/kaniko/flags/
+
+## What's Changed
+### Security
+* go stdlib v1.26.9: CVE-2026-111943 (eMudhra)
+
+### Bugfixes
+* warmer pulls `scratch` from the registry: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1205
+* `FF_KANIKO_ISOLATE_CACHE_PUSH=false` every cache push also writes the build outputs: https://github.com/osscontainertools/kaniko/pull/1223
+* warmer leaves nested `ARG` defaults unexpanded: https://github.com/osscontainertools/kaniko/pull/1209
+* `FF_KANIKO_WARMER_BUILD_ARGS=false` warmer lets an `ARG` default win over `--build-arg`: https://github.com/osscontainertools/kaniko/pull/1207
+* warmer pulls stage references that differ in case: https://github.com/osscontainertools/kaniko/pull/1208
+* `FF_KANIKO_WARMER_PREDEFINED_ARGS=false` warmer leaves `TARGETARCH` empty in `FROM`: https://github.com/osscontainertools/kaniko/pull/1210
+
+### Standardization
+* `FF_KANIKO_RUN_HEREDOC_SCRIPT=false` run a lone `RUN` heredoc body as the script: https://github.com/osscontainertools/kaniko/pull/1216
+* `FF_KANIKO_COPY_KEEP_DEST_OWNER=false` `COPY --chown` keeps the owner of an existing destination directory: https://github.com/osscontainertools/kaniko/pull/1257
+* `FF_KANIKO_COPY_SUBDIR_MODE=false` directory `COPY` applies the source mode to existing subdirectories: https://github.com/osscontainertools/kaniko/pull/1259
+
+### Caching
+* `FF_KANIKO_CACHE_IMAGE_INDEX=false` warmer caches the image index of index-pinned bases: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1225
+* `FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY=false` keep `--image-format` out of cache keys: https://github.com/osscontainertools/kaniko/pull/1276
+
+### Performance
+* relabel cached layers without downloading them: https://github.com/osscontainertools/kaniko/pull/1275
+
+### Usability
+* warmer `--dryrun` prints which bases it would fetch: https://github.com/osscontainertools/kaniko/pull/1206
+* graduate feature flags for v1.29.0 release: https://github.com/osscontainertools/kaniko/pull/870 https://github.com/osscontainertools/kaniko/pull/1235
+* `--predefined-annotations` sets the OCI source, revision, version and base image annotations: https://github.com/osscontainertools/kaniko/pull/1227
+* `--provenance` attaches a SLSA provenance attestation: https://github.com/osscontainertools/kaniko/pull/1230
+* `FF_KANIKO_NATIVE_INIT=false` kaniko acts as its own init process: https://github.com/osscontainertools/kaniko/pull/1222
+
+### Telemetry
+* trace the push, planning and the `--reproducible` rewrite: https://github.com/osscontainertools/kaniko/pull/1217
+
+### Packaging
+* make the kaniko images reproducible: https://github.com/osscontainertools/kaniko/pull/1231
+* ship licenses in the images: https://github.com/osscontainertools/kaniko/pull/1247
+* ship credential helpers as hardlinks to the executor: https://github.com/osscontainertools/kaniko/pull/1224
+* add busybox and tini sources to the SBOM: https://github.com/osscontainertools/kaniko/pull/1246
+* reproducible go build of executor and warmer: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1269
+* `slim` image drops the cloud SDKs, go-git and OpenTelemetry: https://github.com/osscontainertools/kaniko/pull/1279 https://github.com/osscontainertools/kaniko/pull/1265
+
+### Maintenance
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/ecr from 1.66.3 to 1.66.6: https://github.com/osscontainertools/kaniko/pull/1215 https://github.com/osscontainertools/kaniko/pull/1255 https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/ecrpublic from 1.47.3 to 1.47.6: https://github.com/osscontainertools/kaniko/pull/1215 https://github.com/osscontainertools/kaniko/pull/1255 https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/klauspost/compress from 1.20.1 to 1.20.3: https://github.com/osscontainertools/kaniko/pull/1226
+* build(deps): bump github.com/klauspost/cpuid/v2 from 2.4.0 to 2.4.1: https://github.com/osscontainertools/kaniko/pull/1228
+* build(deps): bump google.golang.org/api from 0.301.0 to 0.308.0: https://github.com/osscontainertools/kaniko/pull/1229 https://github.com/osscontainertools/kaniko/pull/1245 https://github.com/osscontainertools/kaniko/pull/1256 https://github.com/osscontainertools/kaniko/pull/1264 https://github.com/osscontainertools/kaniko/pull/1283
+* build(deps): bump go from 1.26.9 to 1.27.3: https://github.com/osscontainertools/kaniko/pull/1034 https://github.com/osscontainertools/kaniko/pull/1271
+* build(deps): bump github.com/Azure/azure-sdk-for-go/sdk/azidentity from 1.14.1 to 1.15.0: https://github.com/osscontainertools/kaniko/pull/1244
+* build(deps): bump github.com/grpc-ecosystem/grpc-gateway/v2 from 2.31.0 to 2.32.0: https://github.com/osscontainertools/kaniko/pull/1243
+* build(deps): bump github.com/docker/cli from 29.9.0 to 29.9.2: https://github.com/osscontainertools/kaniko/pull/1242 https://github.com/osscontainertools/kaniko/pull/1255
+* build(deps): bump github.com/Microsoft/go-winio from 0.6.3 to 0.6.4: https://github.com/osscontainertools/kaniko/pull/1242
+* build(deps): bump github.com/moby/buildkit from 0.34.0 to 0.34.1: https://github.com/osscontainertools/kaniko/pull/1249
+* build(deps): bump step-security/harden-runner from 2.22.1 to 2.22.2: https://github.com/osscontainertools/kaniko/pull/1253
+* build(deps): bump github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager from 0.4.16 to 0.4.19: https://github.com/osscontainertools/kaniko/pull/1255 https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump anchore/grype from 0.111.1 to 0.121.0: https://github.com/osscontainertools/kaniko/pull/1261
+* build(deps): bump k3s-io/k3s from v1.36.2+k3s1 to v1.37.1+k3s1: https://github.com/osscontainertools/kaniko/pull/1262 https://github.com/osscontainertools/kaniko/pull/1286
+* build(deps): bump docker engine from 29.7.0 to 29.9.2: https://github.com/osscontainertools/kaniko/pull/1260
+* build(deps): bump alpine from 3.24.2 to 3.24.3: https://github.com/osscontainertools/kaniko/pull/1270
+* build(deps): bump docker/login-action from 4.6.0 to 4.7.0: https://github.com/osscontainertools/kaniko/pull/1272
+* build(deps): bump docker/setup-docker-action from 5.5.0 to 5.6.0: https://github.com/osscontainertools/kaniko/pull/1272
+* build(deps): bump github.com/aws/aws-sdk-go-v2 from 1.47.3 to 1.47.4: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.33.9 to 1.33.10: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/s3 from 1.114.3 to 1.114.5: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/docker/docker-credential-helpers from 0.9.10 to 0.9.12: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream from 1.7.22 to 1.7.24: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/aws/aws-sdk-go-v2/credentials from 1.20.9 to 1.20.10: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/aws/aws-sdk-go-v2/feature/ec2/imds from 1.20.3 to 1.20.4: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/aws/aws-sdk-go-v2/internal/configsources from 1.5.6 to 1.5.7: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 from 2.8.6 to 2.8.7: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/aws/aws-sdk-go-v2/internal/v4a from 1.5.6 to 1.5.7: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding from 1.13.21 to 1.13.22: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/internal/checksum from 1.11.7 to 1.11.8: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/internal/presigned-url from 1.14.6 to 1.14.7: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/internal/s3shared from 1.20.6 to 1.20.7: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/signin from 1.10.4 to 1.10.5: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/sso from 1.38.4 to 1.38.5: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/ssooidc from 1.43.4 to 1.43.5: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/aws/aws-sdk-go-v2/service/sts from 1.51.4 to 1.51.5: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/aws/smithy-go from 1.28.5 to 1.28.6: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/googleapis/enterprise-certificate-proxy from 0.3.23 to 0.3.24: https://github.com/osscontainertools/kaniko/pull/1274
+* build(deps): bump github.com/ProtonMail/go-crypto from 1.4.1 to 1.5.2: https://github.com/osscontainertools/kaniko/pull/1184
+* build(deps): bump github.com/googleapis/gax-go/v2 from 2.26.2 to 2.27.0: https://github.com/osscontainertools/kaniko/pull/1282
+* build(deps): bump github.com/dimchansky/utfbom from 1.1.1 to 1.2.0: https://github.com/osscontainertools/kaniko/pull/1281
+* build(deps): bump github.com/osscontainertools/docker-credential-acr from 0.9.2 to 1.0.0: https://github.com/osscontainertools/kaniko/pull/1284
+* build(deps): bump registry from 2 to 3: https://github.com/osscontainertools/kaniko/pull/1288
+* build(deps): bump google/cloud-sdk from 256.0.0-alpine to 590.0.1-alpine: https://github.com/osscontainertools/kaniko/pull/1297
+* build(deps): bump ubi from ubi8 8.2 to ubi9 9.8: https://github.com/osscontainertools/kaniko/pull/1295
+* build(deps): bump rabbitmq from 3.7.11 to 4.4.0: https://github.com/osscontainertools/kaniko/pull/1296
+
+### Fork Related
+* drop unused dependencies and upstream leftovers: https://github.com/osscontainertools/kaniko/pull/1237 https://github.com/osscontainertools/kaniko/pull/1239 https://github.com/osscontainertools/kaniko/pull/1240 https://github.com/osscontainertools/kaniko/pull/1278
+* test improvements: https://github.com/osscontainertools/kaniko/pull/1238 https://github.com/osscontainertools/kaniko/pull/1273 https://github.com/osscontainertools/kaniko/pull/1289 https://github.com/osscontainertools/kaniko/pull/1290 https://github.com/osscontainertools/kaniko/pull/1293 https://github.com/osscontainertools/kaniko/pull/1292 https://github.com/osscontainertools/kaniko/pull/1299 https://github.com/osscontainertools/kaniko/pull/1294 https://github.com/osscontainertools/kaniko/pull/1298 https://github.com/osscontainertools/kaniko/pull/1291
+* `--dryrun` plan prints `STREAM` for `FROM scratch`: https://github.com/osscontainertools/kaniko/pull/1211
+* `KANIKO_NO_PUSH=true` without `--destination` fails flag validation: https://github.com/osscontainertools/kaniko/pull/1232
+* disable the dependabot cooldown: https://github.com/osscontainertools/kaniko/pull/1267
+* add @gary-wall to maintainers: https://github.com/osscontainertools/kaniko/pull/1277
+
+
 # v1.28.6 Release 2026-10-11
 
 ## Community Update
@@ -16,7 +206,6 @@ Follow along on https://osscontainertools.org, where we post news and write abou
 * `FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES=true` scope `--registry-certificate` CAs to their registry: https://github.com/osscontainertools/kaniko/pull/1162
 
 ### Bugfixes
-* add 32-bit platform support: by @donbowman in https://github.com/osscontainertools/kaniko/pull/1136 https://github.com/osscontainertools/kaniko/pull/1137 https://github.com/osscontainertools/kaniko/pull/1140
 * a bind-mount over a base image symlink fails with `Resource busy`: https://github.com/osscontainertools/kaniko/pull/1114 https://github.com/osscontainertools/kaniko/pull/1179 https://github.com/osscontainertools/kaniko/pull/1188
 * `ADD` from a URL ignores `FF_KANIKO_COPY_AS_ROOT`: https://github.com/osscontainertools/kaniko/pull/1146
 
@@ -40,6 +229,10 @@ Follow along on https://osscontainertools.org, where we post news and write abou
 * report `kaniko.cache.eligible`: https://github.com/osscontainertools/kaniko/pull/1147
 * `KANIKO_TELEMETRY_OMIT_DOCKERFILE=true` now also redacts `RUN`, `ENV` and `ARG`: https://github.com/osscontainertools/kaniko/pull/1119
 * report layer size and digest: https://github.com/osscontainertools/kaniko/pull/1120
+
+### Packaging
+* add 32-bit platform support: by @donbowman in https://github.com/osscontainertools/kaniko/pull/1136 https://github.com/osscontainertools/kaniko/pull/1137 https://github.com/osscontainertools/kaniko/pull/1140
+* add OCI labels and an SBOM to kaniko images: https://github.com/osscontainertools/kaniko/pull/1169
 
 ### Maintenance
 * build(deps): bump alpine in /deploy from 3.24.1 to 3.24.2: https://github.com/osscontainertools/kaniko/pull/1115
@@ -106,7 +299,6 @@ Follow along on https://osscontainertools.org, where we post news and write abou
 ### Fork Related
 * update docs: https://github.com/osscontainertools/kaniko/pull/1118 https://github.com/osscontainertools/kaniko/pull/1127 https://github.com/osscontainertools/kaniko/pull/1135
 * fix MOUNT and UPLOAD in the `--dryrun` plan: https://github.com/osscontainertools/kaniko/pull/1129
-* add OCI labels and an SBOM to kaniko images: https://github.com/osscontainertools/kaniko/pull/1169
 * fix the k3s version pin in CI: https://github.com/osscontainertools/kaniko/pull/1182
 * bump indirect dependencies with dependabot: https://github.com/osscontainertools/kaniko/pull/1181
 
@@ -213,6 +405,9 @@ An extraordinary thank you to @0hlov3 for reviewing 9 PRs this cycle, and for th
 * associate every span with the stage and command it belongs to: https://github.com/osscontainertools/kaniko/pull/1019
 * `KANIKO_TELEMETRY_BUILD_ID` overrides the build id kaniko derives from the Dockerfile: https://github.com/osscontainertools/kaniko/pull/1033
 
+### Packaging
+* strip debug symbols from the credential helper binaries: https://github.com/osscontainertools/kaniko/pull/1031
+
 ### Maintenance
 * build(deps): bump step-security/harden-runner from 2.20.1 to 2.21.0: https://github.com/osscontainertools/kaniko/pull/1012
 * build(deps): bump github.com/sirupsen/logrus from 1.9.4 to 1.10.2: https://github.com/osscontainertools/kaniko/pull/1011 https://github.com/osscontainertools/kaniko/pull/1035 https://github.com/osscontainertools/kaniko/pull/1050
@@ -237,7 +432,6 @@ An extraordinary thank you to @0hlov3 for reviewing 9 PRs this cycle, and for th
 ### Fork Related
 * integration test improvements: https://github.com/osscontainertools/kaniko/pull/1016 https://github.com/osscontainertools/kaniko/pull/1021 https://github.com/osscontainertools/kaniko/pull/1024 https://github.com/osscontainertools/kaniko/pull/1037
 * let the nightly image scan fail instead of filing an issue: https://github.com/osscontainertools/kaniko/pull/1006
-* strip debug symbols from the credential helper binaries: https://github.com/osscontainertools/kaniko/pull/1031
 
 
 # v1.28.3 Release 2026-08-13
@@ -671,7 +865,7 @@ Many thanks to @ehfd for reporting an issue fixed in this release.
 * FROM-only stages produce an empty cross-stage cache key causing a panic on the next build when the source image changes: https://github.com/osscontainertools/kaniko/pull/656
 * secrets with paths inside the kaniko dir fail when `KANIKO_DIR` points to a non-default location: https://github.com/osscontainertools/kaniko/pull/662
 
-### Usability
+### Packaging
 * `kaniko-alpine` image (`martizih/kaniko:alpine`): https://github.com/osscontainertools/kaniko/pull/647 https://github.com/osscontainertools/kaniko/pull/659
 
 ### Maintenance
@@ -1113,6 +1307,9 @@ Also many thanks to @Ashex @ehfd and @YevheniiSemendiak for reporting the issues
 * port digest optimization to warmer: https://github.com/osscontainertools/kaniko/pull/325
 * `FF_KANIKO_DISABLE_HTTP2=false` stop forcing http/2.0: https://github.com/osscontainertools/kaniko/pull/340
 
+### Packaging
+* publish images to ghcr: by @babs in https://github.com/osscontainertools/kaniko/pull/329 https://github.com/osscontainertools/kaniko/pull/353
+
 ### Maintenance
 * chore(deps): bump github.com/aws/aws-sdk-go-v2 from 1.39.2 to 1.39.6: https://github.com/osscontainertools/kaniko/pull/317 https://github.com/osscontainertools/kaniko/pull/331 https://github.com/osscontainertools/kaniko/pull/349 https://github.com/osscontainertools/kaniko/pull/359
 * chore(deps): bump github.com/aws/aws-sdk-go-v2/config from 1.31.12 to 1.31.17: https://github.com/osscontainertools/kaniko/pull/317 https://github.com/osscontainertools/kaniko/pull/327 https://github.com/osscontainertools/kaniko/pull/331 https://github.com/osscontainertools/kaniko/pull/349 https://github.com/osscontainertools/kaniko/pull/359
@@ -1132,7 +1329,6 @@ Also many thanks to @Ashex @ehfd and @YevheniiSemendiak for reporting the issues
 ### Fork Related
 * cleanup docs: https://github.com/osscontainertools/kaniko/pull/315
 * cleanup unused release script: by @BobDu in https://github.com/osscontainertools/kaniko/pull/347
-* publish images to ghcr: by @babs in https://github.com/osscontainertools/kaniko/pull/329 https://github.com/osscontainertools/kaniko/pull/353
 * use upstream images from local registry: https://github.com/osscontainertools/kaniko/pull/355
 
 ### Refactorings
@@ -1275,6 +1471,8 @@ Please also notify us by [filing a new issue](https://github.com/osscontainertoo
 * new cli option `--pre-cleanup` to clean the filesystem prior to build, allowing customized kaniko images to work properly: https://github.com/mzihlmann/kaniko/pull/196
 * add git depth option: https://github.com/mzihlmann/kaniko/pull/203
 * add docs for azure chinacloud: https://github.com/mzihlmann/kaniko/pull/216
+
+### Packaging
 * riscv image: https://github.com/mzihlmann/kaniko/pull/220
 
 ### Maintenance
@@ -1405,7 +1603,7 @@ Please also notify us by [filing a new issue](https://github.com/osscontainertoo
 ### Bugfixes
 * cache collision under rename: by @SJrX in https://github.com/mzihlmann/kaniko/pull/62
 
-### Usability
+### Packaging
 * bootstrap image: https://github.com/mzihlmann/kaniko/pull/59
 
 ### Maintenance
