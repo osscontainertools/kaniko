@@ -814,10 +814,7 @@ type DockerFileBuilder struct {
 // it will assume are all as yet unbuilt.
 func NewDockerFileBuilder() *DockerFileBuilder {
 	d := DockerFileBuilder{}
-	d.DockerfilesToIgnore = map[string]struct{}{
-		// extraction-base-image lived in upstream's gcr.io/kaniko-test and nothing here builds it.
-		"Dockerfile_test_extraction": {},
-	}
+	d.DockerfilesToIgnore = map[string]struct{}{}
 	d.TestCacheDockerfiles = map[string]struct{}{
 		"Dockerfile_test_cache":              {},
 		"Dockerfile_test_cache_install":      {},

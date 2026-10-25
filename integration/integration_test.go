@@ -233,6 +233,85 @@ func buildRequiredImages() error {
 		return err
 	}
 
+	err = pushExtractionBaseImage(config.busyboxBaseImage, config.extractionBaseImage)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// pushExtractionBaseImage appends two layers to the busybox base. The first ships
+// non-empty directories, the second replaces each of them with a regular file, a
+// symlink and a hardlink, without whiteouts.
+func pushExtractionBaseImage(baseRef, imageRef string) error {
+	src, err := name.ParseReference(baseRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing base ref %s: %v", baseRef, err)
+	}
+	base, err := remote.Image(src, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		return fmt.Errorf("pulling extraction base image: %v", err)
+	}
+	man, err := base.Manifest()
+	if err != nil {
+		return fmt.Errorf("reading extraction base manifest: %v", err)
+	}
+	mediaType := ggcrtypes.DockerLayer
+	if strings.Contains(string(man.MediaType), ggcrtypes.OCIVendorPrefix) {
+		mediaType = ggcrtypes.OCILayer
+	}
+
+	layerOf := func(headers []tar.Header) (v1.Layer, error) {
+		return tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+			var buf bytes.Buffer
+			tw := tar.NewWriter(&buf)
+			for _, hdr := range headers {
+				if err := tw.WriteHeader(&hdr); err != nil {
+					return nil, err
+				}
+				if hdr.Size > 0 {
+					if _, err := tw.Write([]byte("extraction\n")); err != nil {
+						return nil, err
+					}
+				}
+			}
+			tw.Close()
+			return io.NopCloser(bytes.NewReader(buf.Bytes())), nil
+		}, tarball.WithMediaType(mediaType))
+	}
+	dirs, err := layerOf([]tar.Header{
+		{Name: "reg/", Typeflag: tar.TypeDir, Mode: 0o755},
+		{Name: "reg/file", Typeflag: tar.TypeReg, Mode: 0o644, Size: 11},
+		{Name: "sym/", Typeflag: tar.TypeDir, Mode: 0o755},
+		{Name: "sym/file", Typeflag: tar.TypeReg, Mode: 0o644, Size: 11},
+		{Name: "hard/", Typeflag: tar.TypeDir, Mode: 0o755},
+		{Name: "hard/file", Typeflag: tar.TypeReg, Mode: 0o644, Size: 11},
+	})
+	if err != nil {
+		return fmt.Errorf("creating directory layer: %v", err)
+	}
+	replacements, err := layerOf([]tar.Header{
+		{Name: "target", Typeflag: tar.TypeReg, Mode: 0o644, Size: 11},
+		{Name: "reg", Typeflag: tar.TypeReg, Mode: 0o644, Size: 11},
+		{Name: "sym", Typeflag: tar.TypeSymlink, Linkname: "target", Mode: 0o777},
+		{Name: "hard", Typeflag: tar.TypeLink, Linkname: "target", Mode: 0o644},
+	})
+	if err != nil {
+		return fmt.Errorf("creating replacement layer: %v", err)
+	}
+	img, err := mutate.AppendLayers(base, dirs, replacements)
+	if err != nil {
+		return fmt.Errorf("appending extraction layers: %v", err)
+	}
+
+	dst, err := name.ParseReference(imageRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing image ref %s: %v", imageRef, err)
+	}
+	if err := remote.Write(dst, img, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
+		return fmt.Errorf("pushing extraction base image to %s: %v", imageRef, err)
+	}
 	return nil
 }
 
@@ -2158,6 +2237,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 	c.onbuildBaseImage = c.imageRepo + "onbuild-base:latest"
 	c.onbuildCopyImage = c.imageRepo + "onbuild-copy:latest"
 	c.hardlinkBaseImage = c.imageRepo + "hardlink-base:latest"
+	c.extractionBaseImage = c.imageRepo + "extraction-base-image:latest"
 	c.hijackBaseImage = c.imageRepo + "hijack:latest"
 	c.malformedOCIImage = c.imageRepo + "malformed-oci:latest"
 	c.mixedMediaTypeImage = c.imageRepo + "mixed-media-type:latest"
