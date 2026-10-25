@@ -268,7 +268,6 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_stopsignal":                   dockerV2Flags,
 	"Dockerfile_test_healthcheck":                  dockerV2Flags,
 	"Dockerfile_test_snapshotter_ignorelist":       dockerV2Flags,
-	"Dockerfile_test_volume_4":                     dockerV2Flags,
 	"Dockerfile_test_volume_3":                     dockerV2Flags,
 	"Dockerfile_test_replaced_symlinks":            dockerV2Flags,
 	"Dockerfile_test_pre_defined_build_args":       dockerV2Flags,
