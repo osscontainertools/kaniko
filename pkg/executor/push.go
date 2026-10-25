@@ -42,6 +42,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/creds"
+	"github.com/osscontainertools/kaniko/pkg/metrics"
 	"github.com/osscontainertools/kaniko/pkg/mounts"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -475,6 +476,7 @@ func writeImageOutputs(image v1.Image, destRefs []name.Tag) error {
 func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath string, createdBy string, parent trace.Span) error {
 	t := timing.StartChild(parent, "Pushing cached layer")
 	defer t.End()
+	defer metrics.CachePush.Since(metrics.Now())
 	var layerOpts []tarball.LayerOption
 	if opts.CompressedCaching {
 		layerOpts = append(layerOpts, tarball.WithCompressedCaching)
@@ -492,10 +494,13 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 		// layer already gzipped by default
 	}
 
+	// a second, eager gzip of the tar the build layer was made from
+	layerStart := metrics.Now()
 	layer, err := tarball.LayerFromFile(tarPath, layerOpts...)
 	if err != nil {
 		return err
 	}
+	observeLayer(metrics.CachePushLayer, layerStart, layer)
 
 	cache, err := cache.Destination(opts, cacheKey)
 	if err != nil {
@@ -544,6 +549,7 @@ const cachePointerLabel = "kaniko.cache.pointer-target"
 func pushCachePointer(opts *config.KanikoOptions, inferredKey, contentKey string, parent trace.Span) error {
 	t := timing.StartChild(parent, "Pushing cache pointer")
 	defer t.End()
+	defer metrics.CachePushPointer.Since(metrics.Now())
 	dest, err := cache.Destination(opts, inferredKey)
 	if err != nil {
 		return fmt.Errorf("getting cache destination for pointer: %w", err)
