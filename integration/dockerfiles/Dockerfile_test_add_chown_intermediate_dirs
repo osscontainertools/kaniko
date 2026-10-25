@@ -1,4 +1,5 @@
-FROM busybox:1.38
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
 # Create dev user and group, with id 1001
 RUN yes | adduser -u 1001 dev
 

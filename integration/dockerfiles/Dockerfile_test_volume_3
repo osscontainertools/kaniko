@@ -1,5 +1,6 @@
+ARG IMAGE_REPO
 FROM scratch AS one
 VOLUME /vol
 
-FROM busybox:1.38 AS two
+FROM ${IMAGE_REPO}busybox AS two
 RUN mkdir /vol && echo hey > /vol/foo

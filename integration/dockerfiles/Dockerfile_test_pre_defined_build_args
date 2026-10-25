@@ -1,5 +1,6 @@
 # ingegration test for pre-defined build args; see pkg/dockerfile/buildargs.go
-FROM busybox:1.38 AS undefined
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS undefined
 RUN echo "BUILDPLATFORM: ${BUILDPLATFORM}" | tee info1.txt && \
     echo "BUILDOS: ${BUILDOS}" | tee -a info1.txt && \
     echo "BUILDARCH: ${BUILDARCH}" | tee -a info1.txt && \
