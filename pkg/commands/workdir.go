@@ -82,7 +82,7 @@ func (w *WorkdirCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile
 
 		logrus.Infof("Creating directory %s with uid %d and gid %d", config.WorkingDir, owner.UID, owner.GID)
 		w.snapshotFiles = append(w.snapshotFiles, config.WorkingDir)
-		if err := mkdirAllWithPermissions(config.WorkingDir, 0o755, *owner); err != nil {
+		if err := mkdirAllWithPermissions(config.WorkingDir, 0o755, *owner, false); err != nil {
 			return fmt.Errorf("creating workdir %s: %w", config.WorkingDir, err)
 		}
 	}

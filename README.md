@@ -139,6 +139,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_CONFINE_COPY_SOURCE`](#flag-ff_kaniko_confine_copy_source)
       - [Flag `FF_KANIKO_COPY_AS_ROOT`](#flag-ff_kaniko_copy_as_root)
       - [Flag `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS`](#flag-ff_kaniko_copy_chmod_on_implicit_dirs)
+      - [Flag `FF_KANIKO_COPY_KEEP_DEST_OWNER`](#flag-ff_kaniko_copy_keep_dest_owner)
       - [Flag `FF_KANIKO_COPY_LINK`](#flag-ff_kaniko_copy_link)
       - [Flag `FF_KANIKO_COPY_SKIP_SPECIAL_FILES`](#flag-ff_kaniko_copy_skip_special_files)
       - [Flag `FF_KANIKO_CROSS_REPO_MOUNT`](#flag-ff_kaniko_cross_repo_mount)
@@ -1212,6 +1213,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 
 ```sh
 FF_KANIKO_CACHE_IMAGE_INDEX=true
+FF_KANIKO_COPY_KEEP_DEST_OWNER=true
 FF_KANIKO_COPY_LINK=true
 FF_KANIKO_DEFER_CACHE_PUSH=true
 FF_KANIKO_ISOLATE_CACHE_PUSH=true
@@ -1301,6 +1303,12 @@ Currently no plans to activate.
 When files are copied into a non-existing directory, both kaniko and buildkit will create the directory and all required parent directories implicitly. If chmod option is given, buildkit will apply the chmod not only on the copied files & folders, but on all implicit parent dirs too. Kaniko will use regular folder permissions (0755) on parent directories instead and only apply the chmod on the explicitly created files & folders.
 Set this flag to `true` to implement COPY chmod like buildkit. Defaults to `false`.
 Currently no plans to activate.
+
+#### Flag `FF_KANIKO_COPY_KEEP_DEST_OWNER`
+
+`COPY --chown` of a directory also changes the owner of an existing destination directory.
+Set this flag to `true` to keep its owner. Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_COPY_LINK`
 

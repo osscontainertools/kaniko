@@ -1,0 +1,10 @@
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}alpine AS build
+RUN mkdir -p /src/dist/sub && echo a > /src/dist/a.js && echo b > /src/dist/sub/b.js
+
+FROM ${IMAGE_REPO}alpine
+
+# mz1254: COPY of a directory chowns a destination directory that already exists.
+RUN mkdir -p /app /keep && chown 1000:1000 /keep
+COPY --from=build --chown=1000:1000 /src/dist /app/
+COPY --from=build /src/dist /keep/
