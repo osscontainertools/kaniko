@@ -866,7 +866,7 @@ func copyDirInner(files []string, src, dest string, context FileContext, owner *
 			if err := MkdirAllWithPermissions(destPath, fi.Mode(), DetermineTargetFileOwnership(fi, owner), false); err != nil {
 				return nil, err
 			}
-			if !useDefaultChmod {
+			if !useDefaultChmod || config.FF.CopySubdirMode {
 				// For existing directories, MkdirAll doesn't change the permissions, so run Chmod
 				// To force permissions into what is configured via the chmod parameter
 				if err = os.Chmod(destPath, chmod.Apply(fi.Mode())); err != nil {

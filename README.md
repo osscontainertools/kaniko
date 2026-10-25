@@ -142,6 +142,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_COPY_KEEP_DEST_OWNER`](#flag-ff_kaniko_copy_keep_dest_owner)
       - [Flag `FF_KANIKO_COPY_LINK`](#flag-ff_kaniko_copy_link)
       - [Flag `FF_KANIKO_COPY_SKIP_SPECIAL_FILES`](#flag-ff_kaniko_copy_skip_special_files)
+      - [Flag `FF_KANIKO_COPY_SUBDIR_MODE`](#flag-ff_kaniko_copy_subdir_mode)
       - [Flag `FF_KANIKO_CROSS_REPO_MOUNT`](#flag-ff_kaniko_cross_repo_mount)
       - [Flag `FF_KANIKO_DEFER_CACHE_PUSH`](#flag-ff_kaniko_defer_cache_push)
       - [Flag `FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES`](#flag-ff_kaniko_deprecate_layerless_cache_entries)
@@ -1216,6 +1217,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_KEEP_DEST_OWNER=true
 FF_KANIKO_COPY_LINK=true
+FF_KANIKO_COPY_SUBDIR_MODE=true
 FF_KANIKO_DEFER_CACHE_PUSH=true
 FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY=true
 FF_KANIKO_ISOLATE_CACHE_PUSH=true
@@ -1329,6 +1331,11 @@ Becomes default in `v1.30.0`.
 `COPY` reads each source file to copy it, which is wrong for anything that is not a regular file. A socket fails the build with `ENXIO`, and a block or character device is read as if it were a file, baking its contents into the image in place of the device node.
 Set this flag to `true` to skip both with a warning instead. Fifos are always recreated with `mkfifo` regardless of this flag, since opening one hung the build outright. Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_COPY_SUBDIR_MODE`
+
+When a directory COPY lands on a subdirectory that already exists, kaniko keeps its old mode. Set this flag to `true` to give it the mode of the source subdirectory. Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_CROSS_REPO_MOUNT`
 
