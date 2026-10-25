@@ -89,7 +89,7 @@ Also many thanks to @philou-078 and @hanbyeol for reporting issues fixed in this
 
 ## What's Changed
 ### Security
-* go stdlib v1.26.9: CVE-2026-111943
+* go stdlib v1.26.9: CVE-2026-111943 (eMudhra)
 
 ### Bugfixes
 * warmer pulls `scratch` from the registry: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1205
