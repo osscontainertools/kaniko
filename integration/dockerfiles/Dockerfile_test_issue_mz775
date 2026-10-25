@@ -8,7 +8,7 @@
 # internal/gzip's writer goroutine fails its final flush on the closed pipe and returns
 # without closing the reader it wraps, the reader that holds the pullLimiter token, so the token leaks.
 # Once every token has leaked the remaining goroutines block forever acquiring one and the save never returns.
-FROM debian:12.10 AS base
+FROM debian:13.7 AS base
 RUN echo 1 >/dev/null
 RUN echo 2 >/dev/null
 RUN echo 3 >/dev/null

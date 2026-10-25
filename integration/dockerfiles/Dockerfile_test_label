@@ -1,4 +1,4 @@
-FROM debian:12.10
+FROM debian:13.7
 LABEL foo=bar
 LABEL "baz"="bat"
 ENV label1 "mylabel"
