@@ -42,7 +42,7 @@ func TestBuildWithStdin(t *testing.T) {
 	dockerfile := "Dockerfile_test_stdin"
 
 	files := map[string]string{
-		dockerfile: "FROM debian:12.10\nRUN echo \"hey\"",
+		dockerfile: "FROM debian:13.7\nRUN echo \"hey\"",
 	}
 
 	if err := testutil.SetupFiles(testDir, files); err != nil {

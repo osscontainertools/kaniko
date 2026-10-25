@@ -1,6 +1,6 @@
 # using debian as scratch results in empty image
 # and diffoci can't handle that
-FROM debian:12.10 AS base
+FROM debian:13.7 AS base
 
 FROM base AS output1
 

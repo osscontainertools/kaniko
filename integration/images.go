@@ -268,10 +268,8 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_stopsignal":                   dockerV2Flags,
 	"Dockerfile_test_healthcheck":                  dockerV2Flags,
 	"Dockerfile_test_snapshotter_ignorelist":       dockerV2Flags,
-	"Dockerfile_test_whitelist":                    dockerV2Flags,
 	"Dockerfile_test_volume_4":                     dockerV2Flags,
 	"Dockerfile_test_volume_3":                     dockerV2Flags,
-	"Dockerfile_test_meta_arg":                     dockerV2Flags,
 	"Dockerfile_test_replaced_symlinks":            dockerV2Flags,
 	"Dockerfile_test_pre_defined_build_args":       dockerV2Flags,
 	"Dockerfile_test_replaced_hardlinks":           dockerV2Flags,
@@ -526,7 +524,7 @@ var cacheHitOutputChecks = map[string]func(string, []byte) error{
 		for _, cmd := range []string{
 			"COPY --from=first /blubb /blubb",
 			"COPY --from=third /bli /bli",
-			"COPY --from=debian:12.10 /etc/os-release /external-os-release",
+			"COPY --from=debian:13.7 /etc/os-release /external-os-release",
 		} {
 			if !strings.Contains(string(out), "Cache hit via inferred cross-stage key for cmd: "+cmd) {
 				return fmt.Errorf("expected inferred-key cache hit for %q but found none in output", cmd)
