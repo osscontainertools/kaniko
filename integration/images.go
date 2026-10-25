@@ -453,31 +453,6 @@ var diffArgsMap = map[string][]string{
 	// 1599: docker copies the fifo into /kaniko, we refuse to write there at all,
 	// so the docker image keeps a /kaniko/tini our image never has.
 	"TestRun/test_Dockerfile_test_issue_1599_2": {"--extra-ignore-files=kaniko/", "--extra-ignore-layer-length-mismatch"},
-	// Layer-length divergences from buildkit, enforced per-test instead of globally
-	"TestRun/test_Dockerfile_test_add":                       {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_arg_blank_with_quotes":     {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_arg_multi":                 {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_arg_multi_with_quotes":     {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_cache_install_oci":         {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_copy_same_file_many_times": {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_meta_arg":                  {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_scratch":                   {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_969":                 {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_1007":                {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_1568":                {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_1837":                {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_2066":                {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_3393":                {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_cg73":                {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_cg188":               {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_mz247":               {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_mz332":               {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_mz725":               {"--extra-ignore-layer-length-mismatch"},
-	"TestWithContext/test_with_context_issue-57":             {"--extra-ignore-layer-length-mismatch"},
-	"TestWithContext/test_with_context_issue-1568":           {"--extra-ignore-layer-length-mismatch"},
-	"TestK8s/test_k8s_with_context_issue-57":                 {"--extra-ignore-layer-length-mismatch"},
-	"TestK8s/test_k8s_with_context_issue-1020":               {"--extra-ignore-layer-length-mismatch"},
-	"TestK8s/test_k8s_with_context_issue-1568":               {"--extra-ignore-layer-length-mismatch"},
 }
 
 // output check to do when building with kaniko
@@ -810,14 +785,8 @@ type DockerFileBuilder struct {
 func NewDockerFileBuilder() *DockerFileBuilder {
 	d := DockerFileBuilder{}
 	d.DockerfilesToIgnore = map[string]struct{}{
-		// TODO: remove test_user_run from this when https://github.com/GoogleContainerTools/container-diff/issues/237 is fixed
-		"Dockerfile_test_user_run": {},
-		// TODO: All the below tests are fialing with errro
-		// You don't have the needed permissions to perform this operation, and you may have invalid credentials.
-		// To authenticate your request, follow the steps in: https://cloud.google.com/container-registry/docs/advanced-authentication
-		"Dockerfile_test_onbuild":    {},
+		// extraction-base-image lived in upstream's gcr.io/kaniko-test and nothing here builds it.
 		"Dockerfile_test_extraction": {},
-		"Dockerfile_test_hardlink":   {},
 	}
 	d.TestCacheDockerfiles = map[string]struct{}{
 		"Dockerfile_test_cache":              {},
