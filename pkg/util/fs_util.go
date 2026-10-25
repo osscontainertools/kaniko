@@ -120,7 +120,31 @@ func CheckSource(src string, context FileContext) error {
 	return fmt.Errorf("source %s resolves to %s in the kaniko directory", src, resolved)
 }
 
-type ExtractFunction func(string, *tar.Header, string, io.Reader) error
+type ExtractFunction func(string, *tar.Header, string, io.Reader, secureDirs) error
+
+// secureDirs memoizes securejoin.SecureJoin of directories under a single root.
+// A resolution depends only on which components are symlinks, so it has to be
+// forgotten whenever a symlink may have been created, removed or replaced.
+type secureDirs map[string]string
+
+func (s secureDirs) join(root, dir string) (string, error) {
+	resolved, ok := s[dir]
+	if ok {
+		return resolved, nil
+	}
+	resolved, err := securejoin.SecureJoin(root, dir)
+	if err != nil {
+		return "", err
+	}
+	if s != nil {
+		s[dir] = resolved
+	}
+	return resolved, nil
+}
+
+func (s secureDirs) forget() {
+	clear(s)
+}
 
 type FSConfig struct {
 	includeWhiteout bool
@@ -215,6 +239,7 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 	defer r.Close()
 
 	extractedFiles := []string{}
+	dirs := secureDirs{}
 	tr := tar.NewReader(r)
 	for {
 		hdr, err := tr.Next()
@@ -253,6 +278,7 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 				continue
 			}
 
+			dirs.forget()
 			if err := os.RemoveAll(path); err != nil {
 				return nil, fmt.Errorf("removing whiteout %s: %w", hdr.Name, err)
 			}
@@ -264,7 +290,7 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 			}
 		}
 
-		if err := cfg.extractFunc(root, hdr, cleanedName, tr); err != nil {
+		if err := cfg.extractFunc(root, hdr, cleanedName, tr, dirs); err != nil {
 			return nil, err
 		}
 
@@ -372,7 +398,7 @@ func UnTar(r io.Reader, dest string) ([]string, error) {
 		if cleanedName == "." && config.FF.UntarSkipRoot {
 			continue
 		}
-		if err := ExtractFile(dest, hdr, cleanedName, tr); err != nil {
+		if err := ExtractFile(dest, hdr, cleanedName, tr, nil); err != nil {
 			return nil, err
 		}
 		extractedFiles = append(extractedFiles, filepath.Join(dest, cleanedName))
@@ -380,7 +406,7 @@ func UnTar(r io.Reader, dest string) ([]string, error) {
 	return extractedFiles, nil
 }
 
-func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader) error {
+func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader, dirs secureDirs) error {
 	if cleanedName == ".." || strings.HasPrefix(cleanedName, "../") {
 		return fmt.Errorf("tar entry %q is not allowed: references parent directory", hdr.Name)
 	}
@@ -390,7 +416,7 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 	// the full name would resolve the final component when it is a symlink we
 	// mean to overwrite, writing through it and creating loops like
 	// bin/sh -> dash -> dash.
-	secureDir, err := securejoin.SecureJoin(dest, filepath.Dir(cleanedName))
+	secureDir, err := dirs.join(dest, filepath.Dir(cleanedName))
 	if err != nil {
 		if !errors.Is(err, syscall.ELOOP) {
 			return fmt.Errorf("resolving path for %q: %w", hdr.Name, err)
@@ -434,6 +460,7 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		// Check if something already exists at path (symlinks etc.)
 		// If so, delete it
 		if FilepathExists(path) {
+			dirs.forget()
 			skip, err := removeAllSkipIgnored(path)
 			if err != nil {
 				return fmt.Errorf("error removing %s to make way for new file: %w", path, err)
@@ -471,6 +498,9 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 	case tar.TypeDir:
 		logrus.Tracef("Creating dir %s", path)
 		fi, lerr := os.Lstat(path)
+		if lerr == nil && !fi.IsDir() {
+			dirs.forget()
+		}
 		if lerr == nil && fi.Mode()&os.ModeSymlink != 0 {
 			if err := os.Remove(path); err != nil {
 				return fmt.Errorf("error removing symlink %s to make way for new directory: %w", path, err)
@@ -502,6 +532,7 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		// Check if something already exists at path
 		// If so, delete it
 		if FilepathExists(path) {
+			dirs.forget()
 			skip, err := removeAllSkipIgnored(path)
 			if err != nil {
 				return fmt.Errorf("error removing %s to make way for new link: %w", hdr.Name, err)
@@ -520,12 +551,14 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 			return fmt.Errorf("invalid hardlink target %q: %w", hdr.Linkname, err)
 		}
 		link = resolved
+		// SecureJoin resolved every component of link, so this cannot create a symlink
 		if err := os.Link(link, path); err != nil {
 			return err
 		}
 
 	case tar.TypeSymlink:
 		logrus.Tracef("Symlink from %s to %s", hdr.Linkname, path)
+		dirs.forget()
 		// The base directory for a symlink may not exist before it is created.
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return err
