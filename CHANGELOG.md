@@ -1,41 +1,42 @@
 # v1.29.0 Release 2026-10-25
 ## Update Notice
-In this Release we activated 30 feature-flags. They are grouped below by what changes for you, follow the links for the details of each flag.
+In this Release we activated these feature-flags:
+* [FF_KANIKO_ADD_CHECKSUM](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_add_checksum)
+* [FF_KANIKO_ADD_UNPACK](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_add_unpack)
+* [FF_KANIKO_CACHE_HASH_BLAKE3](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_cache_hash_blake3)
+* [FF_KANIKO_CACHE_LOOKAHEAD](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_cache_lookahead)
+* [FF_KANIKO_COPY_SKIP_SPECIAL_FILES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_copy_skip_special_files)
+* [FF_KANIKO_CROSS_REPO_MOUNT](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_cross_repo_mount)
+* [FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_deprecate_layerless_cache_entries)
+* [FF_KANIKO_EXPAND_HEREDOC](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_expand_heredoc)
+* [FF_KANIKO_HASH_DIR_FRAMING](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_hash_dir_framing)
+* [FF_KANIKO_IMAGE_STAGES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_image_stages)
+* [FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_infer_cross_stage_cache_key)
+* [FF_KANIKO_LAYER_HINTS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_layer_hints)
+* [FF_KANIKO_NATIVE_COPY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_native_copy)
+* [FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_path_scoped_registry_auth)
+* [FF_KANIKO_PEEK_ARCHIVE_HEADER](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_peek_archive_header)
+* [FF_KANIKO_PLATFORM_CACHE_KEY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_platform_cache_key)
+* [FF_KANIKO_POOL_REGISTRY_CONNECTIONS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_pool_registry_connections)
+* [FF_KANIKO_PRECOMPILE_DOCKERIGNORE](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_precompile_dockerignore)
+* [FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_preserve_mounted_symlinks)
+* [FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_reproducible_preserve_base_layers)
+* [FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_reproducible_preserve_format)
+* [FF_KANIKO_RESOLVE_CACHE_KEY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_resolve_cache_key)
+* [FF_KANIKO_ROLLING_CACHE_KEY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_rolling_cache_key)
+* [FF_KANIKO_RUN_HONOR_GROUP](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_run_honor_group)
+* [FF_KANIKO_SHARED_BASE_CACHE](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_shared_base_cache)
+* [FF_KANIKO_SKIP_CACHED_STAGES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_skip_cached_stages)
+* [FF_KANIKO_SKIP_RELABEL_RECOMPRESS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_skip_relabel_recompress)
+* [FF_KANIKO_SKIP_WRITE_WHITEOUTS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_skip_write_whiteouts)
+* [FF_KANIKO_UNPACK_ZSTD](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_unpack_zstd)
+* [FF_KANIKO_UNTAR_SKIP_ROOT](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_untar_skip_root)
 
-> ⚠️ The cache key flags shift every cache key. Existing cache entries are invalidated, so the first build after upgrading is a full rebuild that repopulates the cache.
+> ⚠️ Several of these flags change how cache keys are computed. Existing cache entries are invalidated, so the first build after upgrading is a full rebuild that repopulates the cache.
 
-Cache keys can no longer collide, they pick up build args and env referenced in `COPY`, `ADD` and `WORKDIR`, and they carry the target platform, so multi-arch builds sharing one cache stop serving each other's layers. Cache entries without a layer, written before `v1.25.0`, are rejected:
-[FF_KANIKO_RESOLVE_CACHE_KEY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_resolve_cache_key),
-[FF_KANIKO_ROLLING_CACHE_KEY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_rolling_cache_key),
-[FF_KANIKO_HASH_DIR_FRAMING](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_hash_dir_framing),
-[FF_KANIKO_CACHE_HASH_BLAKE3](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_cache_hash_blake3),
-[FF_KANIKO_PLATFORM_CACHE_KEY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_platform_cache_key),
-[FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_infer_cross_stage_cache_key),
-[FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_deprecate_layerless_cache_entries)
+> ⚠️ `--reproducible` now leaves base layers untouched and keeps the requested image format, so the digest of a reproducible build changes once.
 
-Builds do less work. Kaniko knows ahead of time which stages hit the cache and drops the ones nothing needs anymore, uses a fully cached stage as an image without unpacking it, downloads a base shared by several stages once, and mounts layers the registry already holds instead of uploading them again:
-[FF_KANIKO_CACHE_LOOKAHEAD](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_cache_lookahead),
-[FF_KANIKO_SKIP_CACHED_STAGES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_skip_cached_stages),
-[FF_KANIKO_IMAGE_STAGES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_image_stages),
-[FF_KANIKO_SHARED_BASE_CACHE](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_shared_base_cache),
-[FF_KANIKO_CROSS_REPO_MOUNT](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_cross_repo_mount),
-[FF_KANIKO_POOL_REGISTRY_CONNECTIONS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_pool_registry_connections),
-[FF_KANIKO_PRECOMPILE_DOCKERIGNORE](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_precompile_dockerignore),
-[FF_KANIKO_PEEK_ARCHIVE_HEADER](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_peek_archive_header),
-[FF_KANIKO_SKIP_RELABEL_RECOMPRESS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_skip_relabel_recompress)
-
-> ℹ️ Shared bases stay in `/kaniko/bases` after the build, so a long-lived executor that runs many builds accumulates every base it downloaded.
-
-Dockerfile instructions behave like in docker. `ADD --checksum` is verified, `ADD --unpack` is honoured, zstd archives are extracted, `RUN` keeps the group from `USER user:group`, and `COPY` skips sockets and device files. Hardlinks and file capabilities survive cross-stage copies and bind mounts, and a cache hit no longer copies whiteout markers as real files:
-[FF_KANIKO_ADD_CHECKSUM](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_add_checksum),
-[FF_KANIKO_ADD_UNPACK](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_add_unpack),
-[FF_KANIKO_UNPACK_ZSTD](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_unpack_zstd),
-[FF_KANIKO_UNTAR_SKIP_ROOT](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_untar_skip_root),
-[FF_KANIKO_EXPAND_HEREDOC](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_expand_heredoc),
-[FF_KANIKO_RUN_HONOR_GROUP](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_run_honor_group),
-[FF_KANIKO_COPY_SKIP_SPECIAL_FILES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_copy_skip_special_files),
-[FF_KANIKO_NATIVE_COPY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_native_copy),
-[FF_KANIKO_SKIP_WRITE_WHITEOUTS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_skip_write_whiteouts)
+`FF_KANIKO_ADD_CHECKSUM` verifies `ADD --checksum`. A wrong checksum used to pass silently and now fails the build, so fix the digest or drop the flag from the instruction.
 
 `FF_KANIKO_EXPAND_HEREDOC` expands variables in unquoted `COPY` and `ADD` heredoc bodies. If a body needs a literal `$`, quote the delimiter:
 ```dockerfile
@@ -44,13 +45,9 @@ costs $5
 EOF
 ```
 
-`--reproducible` passes base layers through unchanged, so they still match the registry, and keeps the requested image format and compression instead of rewriting everything to docker with gzip. Digests of reproducible builds change once:
-[FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_reproducible_preserve_base_layers),
-[FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_reproducible_preserve_format)
+`FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH` matches an `auths` entry against the repository namespace, so one entry for `registry.example.com/org-a` covers every repository below it and you can merge your per-repository entries.
 
-[FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_path_scoped_registry_auth) matches an `auths` entry for `registry.example.com/org-a` to every repository below it, so a quay robot account needs one entry instead of one per repository.
-
-[FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_preserve_mounted_symlinks) lets you build Ubuntu-based images on NVIDIA GPU nodes, where a bind-mount into `/lib` broke every `RUN`. [FF_KANIKO_LAYER_HINTS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_layer_hints) logs [hints](https://github.com/osscontainertools/kaniko#layer-hints) at common mistakes.
+`FF_KANIKO_SHARED_BASE_CACHE` keeps downloaded bases in `/kaniko/bases` after the build. If you reuse an executor for many builds, clean that directory yourself.
 
 You can roll-back any of those changes by overriding them in the environment ie.
 ```yaml
@@ -78,7 +75,7 @@ We further removed these feature-flags:
 
 Their behavior is now unconditional, they have no effect and can be removed.
 
-> ⚠️ The warmer only writes the OCI layout now. A tarball left in a warmer cache from before `v1.28.0` is a cache miss that the next warmer run overwrites.
+> ⚠️ The warmer only reads and writes the OCI layout now. Tarballs left in a warmer cache from before `v1.28.0` are no longer used and can be deleted.
 
 > ⚠️ The `slim` image no longer authenticates to GCR, ECR and ACR, and drops the `gs://`, `s3://` and azure build contexts, git build contexts and OpenTelemetry export. If you use any of them, switch to the regular image, which is now about the same size as `slim` used to be.
 
