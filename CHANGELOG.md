@@ -1,6 +1,6 @@
 # v1.29.0 Release 2026-10-25
 ## Update Notice
-> ⚠️ The `slim` image no longer authenticates to GCR, ECR and ACR, and drops the `gs://`, `s3://` and azure build contexts, git build contexts and OpenTelemetry export. If you use any of them, switch to the regular image, which is now about the same size as `slim` used to be.
+> ⚠️ The `slim` image no longer authenticates to GCR/GAR, ECR and ACR, and drops the `gs://`, `s3://` and azure build contexts, git build contexts and OpenTelemetry export. If you use any of them, switch to `latest`, which is now about the same size as `slim` used to be.
 
 In this Release we activated these feature-flags:
 * [FF_KANIKO_ADD_CHECKSUM](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_add_checksum)
@@ -36,9 +36,9 @@ In this Release we activated these feature-flags:
 
 > ⚠️ Several of these flags change how cache keys are computed. Existing cache entries are invalidated, so the first build after upgrading is a full rebuild that repopulates the cache.
 
-> ⚠️ `--reproducible` now leaves base layers untouched and keeps the requested image format, so the digest of a reproducible build changes once.
+> ⚠️ `--reproducible` now leaves base layers untouched and keeps the requested image format, so the digest of a reproducible build changes once. A reproducible build from an OCI base is now pushed as OCI instead of docker, pass `--image-format=docker` to keep the old format.
 
-`FF_KANIKO_ADD_CHECKSUM` verifies `ADD --checksum`. A wrong checksum used to pass silently and now fails the build, so fix the digest or drop the flag from the instruction.
+`FF_KANIKO_ADD_CHECKSUM` verifies `ADD --checksum`. A wrong checksum used to pass silently and now fails the build, so update it to the digest of the download.
 
 `FF_KANIKO_EXPAND_HEREDOC` expands variables in unquoted `COPY` and `ADD` heredoc bodies. If a body needs a literal `$`, quote the delimiter:
 ```dockerfile
@@ -47,9 +47,9 @@ costs $5
 EOF
 ```
 
-`FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH` matches an `auths` entry against the repository namespace, so one entry for `registry.example.com/org-a` covers every repository below it and you can merge your per-repository entries.
+`FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH` matches an `auths` entry against the repository namespace, so one entry for `registry.example.com/org-a` covers every repository below it and you can merge your per-repository entries. It is no longer sent to sibling namespaces like `registry.example.com/org-b`, which now need their own entry.
 
-`FF_KANIKO_SHARED_BASE_CACHE` keeps downloaded bases in `/kaniko/bases` after the build. If you reuse an executor for many builds, clean that directory yourself.
+`FF_KANIKO_SHARED_BASE_CACHE` keeps downloaded bases in `/kaniko/bases` after the build, `--cleanup` does not remove them. If you reuse an executor for many builds, clean that directory yourself.
 
 You can roll-back any of those changes by overriding them in the environment ie.
 ```yaml
@@ -77,7 +77,7 @@ We further removed these feature-flags:
 
 Their behavior is now unconditional, they have no effect and can be removed.
 
-> ⚠️ The warmer only reads and writes the OCI layout now. Tarballs left in a warmer cache from before `v1.28.0` are no longer used and can be deleted.
+> ⚠️ The warmer only reads and writes the OCI layout now. Tarballs left in a warmer cache from before `v1.28.0` are no longer used, re-run the warmer to populate the cache.
 
 ## Community Update
 @gary-wall made their first contribution in https://github.com/osscontainertools/kaniko/pull/1205. Their warmer now caches the image index too, so builds from a base pinned by index digest work air-gapped.
