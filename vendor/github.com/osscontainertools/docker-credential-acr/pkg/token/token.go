@@ -21,16 +21,10 @@ import (
 
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
-	"github.com/osscontainertools/docker-credential-acr/internal/config"
 )
 
-func tokenResource(armResource string) string {
-	if config.EnvBool("FF_DOCKER_ACR_REGISTRY_SCOPED_TOKEN", true) {
-		// the audience azcontainerregistry asks for, one value for every cloud
-		return "https://containerregistry.azure.net"
-	}
-	return armResource
-}
+// the audience azcontainerregistry asks for, one value for every cloud
+const registryAudience = "https://containerregistry.azure.net"
 
 func GetServicePrincipalTokenFromEnvironment() (*adal.ServicePrincipalToken, auth.EnvironmentSettings, error) {
 	settings, err := auth.GetSettingsFromEnvironment()
@@ -38,7 +32,7 @@ func GetServicePrincipalTokenFromEnvironment() (*adal.ServicePrincipalToken, aut
 		return &adal.ServicePrincipalToken{}, auth.EnvironmentSettings{}, fmt.Errorf("failed to get auth settings from environment - %w", err)
 	}
 
-	spToken, err := getServicePrincipalToken(settings, tokenResource(settings.Values[auth.Resource]))
+	spToken, err := getServicePrincipalToken(settings, registryAudience)
 	if err != nil {
 		return &adal.ServicePrincipalToken{}, auth.EnvironmentSettings{}, fmt.Errorf("failed to initialise sp token config %w", err)
 	}

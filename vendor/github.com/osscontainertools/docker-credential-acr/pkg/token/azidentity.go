@@ -28,12 +28,12 @@ import (
 )
 
 func GetAccessToken(ctx context.Context) (accessToken string, tenantID string, err error) {
-	config, armAudience, err := cloudConfig(os.Getenv("AZURE_ENVIRONMENT"))
+	config, err := cloudConfig(os.Getenv("AZURE_ENVIRONMENT"))
 	if err != nil {
 		return "", "", err
 	}
 
-	scope := tokenResource(armAudience) + "/.default"
+	scope := registryAudience + "/.default"
 
 	cred, err := chainedCredential(azcore.ClientOptions{Cloud: config})
 	if err != nil {
@@ -92,15 +92,15 @@ func chainedCredential(options azcore.ClientOptions) (azcore.TokenCredential, er
 // cloudConfig resolves AZURE_ENVIRONMENT against the names go-autorest accepts. The
 // ARM audience is spelled out because cloud.Configuration carries an empty Services
 // map until azcore/arm/runtime's init fills it in, and we do not import that.
-func cloudConfig(name string) (cloud.Configuration, string, error) {
+func cloudConfig(name string) (cloud.Configuration, error) {
 	switch strings.ToUpper(name) {
 	case "", "AZURECLOUD", "AZUREPUBLICCLOUD":
-		return cloud.AzurePublic, "https://management.core.windows.net/", nil
+		return cloud.AzurePublic, nil
 	case "AZURECHINACLOUD":
-		return cloud.AzureChina, "https://management.core.chinacloudapi.cn/", nil
+		return cloud.AzureChina, nil
 	case "AZUREUSGOVERNMENT", "AZUREUSGOVERNMENTCLOUD":
-		return cloud.AzureGovernment, "https://management.core.usgovcloudapi.net/", nil
+		return cloud.AzureGovernment, nil
 	default:
-		return cloud.Configuration{}, "", fmt.Errorf("AZURE_ENVIRONMENT %q is not supported, azidentity has no configuration for it", name)
+		return cloud.Configuration{}, fmt.Errorf("AZURE_ENVIRONMENT %q is not supported, azidentity has no configuration for it", name)
 	}
 }
