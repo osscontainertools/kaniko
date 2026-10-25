@@ -80,9 +80,9 @@ Their behavior is now unconditional, they have no effect and can be removed.
 > ⚠️ The warmer only reads and writes the OCI layout now. Tarballs left in a warmer cache from before `v1.28.0` are no longer used, re-run the warmer to populate the cache.
 
 ## Community Update
-@gary-wall made their first contribution in https://github.com/osscontainertools/kaniko/pull/1205. Their warmer now caches the image index too, so builds from a base pinned by index digest work air-gapped.
+@gary-wall made their first contribution in https://github.com/osscontainertools/kaniko/pull/1205. The warmer now also caches the image index, so builds from a base pinned by index digest work air-gapped.
 
-They also join us as a maintainer, welcome aboard!
+@gary-wall also joined us as a maintainer, welcome aboard!
 
 Also many thanks to @philou-078 and @hanbyeol for reporting issues fixed in this release.
 
