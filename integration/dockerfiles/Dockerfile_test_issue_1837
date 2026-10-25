@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi8/ubi:8.2 AS base
+FROM registry.access.redhat.com/ubi9/ubi:9.8 AS base
 # Install ping
 RUN dnf install -y iputils \
     && dnf clean all \
