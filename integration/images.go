@@ -50,7 +50,7 @@ const (
 	kanikoPrefix     = "kaniko-"
 	buildContextPath = "/workspace"
 	cacheDir         = "/workspace/cache"
-	baseImageToCache = "debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56"
+	baseImageToCache = "debian:13.7@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308"
 
 	ExecutorImageMoved   = "executor-image-moved"
 	ExecutorImageTainted = "executor-image-tainted"
@@ -669,16 +669,16 @@ var expectedAttestations = map[string]attestation{
 	},
 }
 
-// Digest for debian:12.10 (see baseImageToCache)
-const debian1210Digest = "6bc30d909583f38600edd6609e29eb3fb284ab8affce8d0389f332fc91c2dd91"
+// Digest for debian:13.7 (see baseImageToCache)
+const debian137Digest = "15a71cc87173e191d5046f9c4288db4e8954b67f92e48d9587087826b0afe562"
 
 var warmerOutputChecks = map[string]func(string, []byte) error{
 	"Dockerfile_test_issue_mz320": func(_ string, out []byte) error {
-		s := fmt.Sprintf("Found sha256:%s in local cache", debian1210Digest)
+		s := fmt.Sprintf("Found sha256:%s in local cache", debian137Digest)
 		if !strings.Contains(string(out), s) {
 			return fmt.Errorf("output must contain %s", s)
 		}
-		s = "Retrieving image debian:12.10@sha256:264982ff4d18000fa74540837e2c43ca5137a53a83f8f62c7b3803c0f0bdcd56 from registry"
+		s = "Retrieving image debian:13.7@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308 from registry"
 		if strings.Contains(string(out), s) {
 			return fmt.Errorf("output must not contain %s", s)
 		}
