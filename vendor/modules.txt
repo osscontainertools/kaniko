@@ -688,8 +688,8 @@ github.com/opencontainers/go-digest
 ## explicit; go 1.18
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/osscontainertools/docker-credential-acr v0.9.2
-## explicit; go 1.26.0
+# github.com/osscontainertools/docker-credential-acr v1.0.0
+## explicit; go 1.27.0
 github.com/osscontainertools/docker-credential-acr/cmd
 github.com/osscontainertools/docker-credential-acr/internal/config
 github.com/osscontainertools/docker-credential-acr/pkg/credhelper

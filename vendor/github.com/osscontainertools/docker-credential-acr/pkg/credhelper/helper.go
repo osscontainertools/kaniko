@@ -70,7 +70,7 @@ func (a ACRCredHelper) Get(serverURL string) (string, string, error) {
 		return "", "", errors.New("serverURL does not refer to Azure Container Registry")
 	}
 
-	if config.EnvBool("FF_DOCKER_ACR_AZIDENTITY", false) {
+	if config.EnvBool("FF_DOCKER_ACR_AZIDENTITY", true) {
 		return getViaAzidentity(serverURL)
 	} else {
 		return getViaServicePrincipal(serverURL)
