@@ -496,12 +496,12 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 				seed = *NewCompositeCache(cfg.WorkingDir, cfg.User)
 			}
 			if crossStageDependency && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
-				files, err := command.FilesUsedFromContext(&cfg, args)
-				if err != nil {
-					return "", ci, v1.Config{}, fmt.Errorf("failed to get files used from context: %w", err)
-				}
-				if _, isCopy := commands.CastAbstractCopyCommand(command); isCopy {
-					files = nil
+				var files []string
+				if !isCopy {
+					files, err = command.FilesUsedFromContext(&cfg, args)
+					if err != nil {
+						return "", ci, v1.Config{}, fmt.Errorf("failed to get files used from context: %w", err)
+					}
 				}
 				inferredKey, err := populateCompositeKey(command, files, seed.Clone(), args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 				if err == nil {
@@ -522,12 +522,12 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 						// the pointer against the content hash of its files. With
 						// elimination off nothing is dropped, so verify the whole chain.
 						if hasContext && (!precomputed || !config.FF.SkipCachedStages) {
-							files, err := command.FilesUsedFromContext(&cfg, args)
-							if err != nil {
-								return "", ci, v1.Config{}, fmt.Errorf("failed to get files used from context: %w", err)
-							}
-							if _, isCopy := commands.CastAbstractCopyCommand(command); isCopy {
-								files = nil
+							var files []string
+							if !isCopy {
+								files, err = command.FilesUsedFromContext(&cfg, args)
+								if err != nil {
+									return "", ci, v1.Config{}, fmt.Errorf("failed to get files used from context: %w", err)
+								}
 							}
 							hashedKey, err := populateCompositeKey(command, files, seed.Clone(), args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 							if err != nil {
@@ -552,13 +552,19 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 				}
 			}
 			if !inferred {
+				if crossStageDependency && !hasContext && isCopy {
+					// COPY --from sources are not materialized during cache lookahead.
+					stopCache = true
+					keyValid = false
+					finalCacheKey = ""
+					continue
+				}
 				files, err := command.FilesUsedFromContext(&cfg, args)
 				if err != nil {
 					return "", ci, v1.Config{}, fmt.Errorf("failed to get files used from context: %w", err)
 				}
-				if crossStageDependency && !hasContext && (isCopy || len(files) > 0) {
-					// A COPY --from source, or a context bind source, cannot be
-					// verified until the build context is available.
+				if crossStageDependency && !hasContext && len(files) > 0 {
+					// A context bind source cannot be verified until the build context is available.
 					stopCache = true
 					keyValid = false
 					finalCacheKey = ""
@@ -770,12 +776,14 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			seed = *NewCompositeCache(s.cf.Config.WorkingDir, s.cf.Config.User)
 		}
 		if cacheKeyValid && crossStageDependency && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
-			files, err := command.FilesUsedFromContext(&s.cf.Config, s.args)
-			if err != nil {
-				return false, fmt.Errorf("failed to get files used from context: %w", err)
-			}
+			var files []string
 			if isCopy {
 				files = nil
+			} else {
+				files, err = command.FilesUsedFromContext(&s.cf.Config, s.args)
+				if err != nil {
+					return false, fmt.Errorf("failed to get files used from context: %w", err)
+				}
 			}
 			inferredKey, err := populateCompositeKey(command, files, seed.Clone(), s.args, s.cf.Config.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 			if err == nil {
