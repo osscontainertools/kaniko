@@ -24,6 +24,7 @@ type integrationTestConfig struct {
 	onbuildBaseImage        string
 	onbuildCopyImage        string
 	hardlinkBaseImage       string
+	extractionBaseImage     string
 	hijackBaseImage         string
 	malformedOCIImage       string
 	mixedMediaTypeImage     string
