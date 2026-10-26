@@ -38,15 +38,16 @@ var snapshotPathPrefix = ""
 
 // Snapshotter holds the root directory from which to take snapshots, and a list of snapshots taken
 type Snapshotter struct {
-	l          *LayeredMap
-	directory  string
-	ignorelist []util.IgnoreListEntry
-	synced     bool
+	l           *LayeredMap
+	directory   string
+	ignorelist  []util.IgnoreListEntry
+	synced      bool
+	hashWorkers int
 }
 
 // NewSnapshotter creates a new snapshotter rooted at d
-func NewSnapshotter(l *LayeredMap, d string) *Snapshotter {
-	return &Snapshotter{l: l, directory: d, ignorelist: util.IgnoreList()}
+func NewSnapshotter(l *LayeredMap, d string, hashWorkers int) *Snapshotter {
+	return &Snapshotter{l: l, directory: d, ignorelist: util.IgnoreList(), hashWorkers: hashWorkers}
 }
 
 func (s *Snapshotter) Reset() {
@@ -204,7 +205,7 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 	workers := 0
 	if config.FF.ParallelHash {
 		// CheckFileChange and the hashers are safe for concurrent use
-		workers = util.HashWorkers()
+		workers = util.HashWorkers(s.hashWorkers)
 	}
 	changedPaths, deletedPaths, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), s.l.CheckFileChange, workers)
 	if err != nil {

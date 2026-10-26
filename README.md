@@ -115,6 +115,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--skip-tls-verify`](#flag---skip-tls-verify)
       - [Flag `--skip-tls-verify-pull`](#flag---skip-tls-verify-pull)
       - [Flag `--skip-tls-verify-registry`](#flag---skip-tls-verify-registry)
+      - [Flag `--snapshot-hash-workers`](#flag---snapshot-hash-workers)
       - [Flag `--snapshot-mode`](#flag---snapshot-mode)
       - [Flag `--tar-path`](#flag---tar-path)
       - [Flag `--target`](#flag---target)
@@ -1087,6 +1088,10 @@ validation when accessing the specified registry. It is supposed to be used for
 testing purposes only and should not be used in production! You can set it
 multiple times for multiple registries.
 
+#### Flag `--snapshot-hash-workers`
+
+Set `--snapshot-hash-workers=<n>` to hash the files of a snapshot on `n` goroutines with [`FF_KANIKO_PARALLEL_HASH`](#flag-ff_kaniko_parallel_hash). Defaults to `GOMAXPROCS`, at most 8.
+
 #### Flag `--snapshot-mode`
 
 You can set the `--snapshot-mode=<full (default), redo, time>` flag to set how
@@ -1434,7 +1439,7 @@ Currently no plans to activate.
 #### Flag `FF_KANIKO_PARALLEL_HASH`
 
 The snapshot after a `RUN` walks the root filesystem and hashes every file on a single goroutine.
-Set this flag to `true` to hash on up to 8 goroutines, as many as `GOMAXPROCS`, which follows the CPU limit of the container. The walk itself, and the files and whiteouts of the layer, stay as they are.
+Set this flag to `true` to hash on up to 8 goroutines, as many as `GOMAXPROCS`, which follows the CPU limit of the container. [`--snapshot-hash-workers`](#flag---snapshot-hash-workers) sets another number. The walk itself, and the files and whiteouts of the layer, stay as they are.
 Defaults to `false`.
 
 #### Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`

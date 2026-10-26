@@ -172,7 +172,7 @@ func makeSnapshotter(opts *config.KanikoOptions) (*snapshot.Snapshotter, error) 
 		return nil, err
 	}
 	l := snapshot.NewLayeredMap(hasher)
-	return snapshot.NewSnapshotter(l, config.RootDir), nil
+	return snapshot.NewSnapshotter(l, config.RootDir, opts.SnapshotHashWorkers), nil
 }
 
 // newStageBuilder returns a new type stageBuilder which contains all the information required to build the stage
