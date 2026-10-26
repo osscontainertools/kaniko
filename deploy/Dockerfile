@@ -37,7 +37,8 @@ RUN mkdir -p /licenses/go \
 
 FROM builder-base AS builder
 ARG COVER=""
-RUN make COVER="$COVER" out/executor out/warmer \
+ARG RACE=""
+RUN make COVER="$COVER" RACE="$RACE" out/executor out/warmer \
     && rm -rf /root/.cache
 
 # The helper names must match the argv[0] dispatch in pkg/creds.
@@ -52,7 +53,8 @@ RUN mkdir -p /dist/executor /dist/warmer \
 
 FROM builder-base AS builder-slim
 ARG COVER=""
-RUN make COVER="$COVER" out/executor-slim \
+ARG RACE=""
+RUN make COVER="$COVER" RACE="$RACE" out/executor-slim \
     && rm -rf /root/.cache
 
 # use musl busybox since it's staticly compiled on all platforms
