@@ -201,7 +201,12 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 
 	logrus.Debugf("Current image filesystem: %v", s.l.currentImage)
 
-	changedPaths, deletedPaths, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), s.l.CheckFileChange, 0)
+	workers := 0
+	if config.FF.ParallelHash {
+		// CheckFileChange and the hashers are safe for concurrent use
+		workers = util.HashWorkers()
+	}
+	changedPaths, deletedPaths, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), s.l.CheckFileChange, workers)
 	if err != nil {
 		return nil, nil, err
 	}
