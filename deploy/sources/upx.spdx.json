@@ -8,6 +8,12 @@
     "created": "2026-10-20T00:00:00Z",
     "creators": ["Organization: OSS Container Tools"]
   },
+  "hasExtractedLicensingInfos": [
+    {
+      "licenseId": "LicenseRef-LZMA-SDK",
+      "extractedText": "LZMA SDK is placed in the public domain.\n\nAnyone is free to copy, modify, publish, use, compile, sell, or distribute the original LZMA SDK code, either in source code form or as a compiled binary, for any purpose, commercial or non-commercial, and by any means."
+    }
+  ],
   "packages": [
     {
       "SPDXID": "SPDXRef-upx",
