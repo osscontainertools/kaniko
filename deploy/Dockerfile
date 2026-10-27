@@ -18,6 +18,8 @@ ARG BUILDPLATFORM
 FROM busybox:musl@sha256:ea2b9914a16a4ac1981994af97b318f7c7d4db76b580c56177f08bf76f4a0be8 AS busybox
 RUN mkdir -m 777 -p /kaniko
 
+FROM --platform=$BUILDPLATFORM busybox:musl@sha256:ea2b9914a16a4ac1981994af97b318f7c7d4db76b580c56177f08bf76f4a0be8 AS busybox-build
+
 FROM scratch AS upx-licenses
 ADD --checksum=sha256:905d4a66d5324e154d976bbf88829d4d9263815a2b97cc40954f06d4a23c28eb \
     https://raw.githubusercontent.com/upx/upx/v5.2.1/LICENSE /upx/
@@ -38,7 +40,7 @@ ENV GOOS=$TARGETOS
 
 ENV CGO_ENABLED=0
 
-COPY --from=busybox /bin/busybox /usr/local/bin/busybox
+COPY --from=busybox-build /bin/busybox /usr/local/bin/busybox
 RUN mkdir -p /opt/upx-license-files/upx /opt/upx-license-files/zlib
 COPY --from=upx-licenses /upx/LICENSE /opt/upx-license-files/upx/LICENSE
 COPY --from=upx-licenses /upx/COPYING /opt/upx-license-files/upx/COPYING
