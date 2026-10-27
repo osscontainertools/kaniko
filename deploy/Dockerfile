@@ -32,8 +32,6 @@ ENV GOOS=$TARGETOS
 
 ENV CGO_ENABLED=0
 
-COPY --from=busybox-build /bin/busybox /usr/local/bin/busybox
-
 # Install UPX on BUILDPLATFORM for optional binary compression
 ARG BUILDPLATFORM
 ARG UPX_COMPRESS=""
@@ -45,7 +43,9 @@ ARG UPX_386_SHA256=44b505d881337ef17ad03f03fd80f2ecdebc3a36077e1dd260ae1b359c713
 ARG UPX_PPC64LE_SHA256=e914046633567c3255a6440bae4d6c13d9f90d458445b47b8474b048ca4072b7
 ARG UPX_RISCV64_SHA256=a8663b4cb6523104a8a807362d0da6f5d6d55f6083152f78fa27fa9c05443c17
 
-RUN if [ "$UPX_COMPRESS" = "true" ] || [ "$UPX_COMPRESS" = "1" ]; then \
+RUN --mount=from=busybox-build,source=/bin/busybox,target=/busybox,ro \
+    --mount=type=tmpfs,target=/tmp/upx \
+    if [ "$UPX_COMPRESS" = "true" ] || [ "$UPX_COMPRESS" = "1" ]; then \
       case "${BUILDPLATFORM:-linux/amd64}" in \
         "linux/amd64"|"amd64") UPX_ARCH="amd64"; UPX_SHA="$UPX_AMD64_SHA256" ;; \
         "linux/arm64"|"arm64") UPX_ARCH="arm64"; UPX_SHA="$UPX_ARM64_SHA256" ;; \
@@ -56,12 +56,11 @@ RUN if [ "$UPX_COMPRESS" = "true" ] || [ "$UPX_COMPRESS" = "1" ]; then \
         *) UPX_ARCH=""; UPX_SHA="" ;; \
       esac; \
       if [ -n "$UPX_ARCH" ]; then \
-        curl -sL "https://github.com/upx/upx/releases/download/v${UPX_VERSION}/upx-${UPX_VERSION}-${UPX_ARCH}_linux.tar.xz" -o /tmp/upx.tar.xz \
-        && echo "${UPX_SHA}  /tmp/upx.tar.xz" | sha256sum -c - \
-        && busybox xz -dc /tmp/upx.tar.xz > /tmp/upx.tar \
-        && tar -xf /tmp/upx.tar -C /tmp \
-        && mv /tmp/upx-${UPX_VERSION}-${UPX_ARCH}_linux/upx /usr/local/bin/upx \
-        && rm -rf /tmp/upx*; \
+        curl -sL "https://github.com/upx/upx/releases/download/v${UPX_VERSION}/upx-${UPX_VERSION}-${UPX_ARCH}_linux.tar.xz" -o /tmp/upx/upx.tar.xz \
+        && echo "${UPX_SHA}  /tmp/upx/upx.tar.xz" | sha256sum -c - \
+        && /busybox xz -dc /tmp/upx/upx.tar.xz > /tmp/upx/upx.tar \
+        && tar -xf /tmp/upx/upx.tar -C /tmp/upx \
+        && mv /tmp/upx/upx-${UPX_VERSION}-${UPX_ARCH}_linux/upx /usr/local/bin/upx; \
       fi; \
     fi
 
@@ -74,8 +73,9 @@ RUN mkdir -p /licenses/go \
     && cp /usr/local/go/LICENSE /licenses/go/ \
     && find vendor -type f \( -name 'LICEN[CS]E*' -o -name 'NOTICE*' -o -name 'COPYING*' \) -exec cp --parents {} /licenses/ \; \
     && hardlink -t /licenses \
+    && mkdir -p /upx-metadata/sbom \
     && if [ "$UPX_COMPRESS" = "true" ] || [ "$UPX_COMPRESS" = "1" ]; then \
-      mkdir -p /upx-metadata/licenses/upx /upx-metadata/licenses/zlib /upx-metadata/sbom \
+      mkdir -p /upx-metadata/licenses/upx /upx-metadata/licenses/zlib \
       && curl -fsSL https://raw.githubusercontent.com/upx/upx/v${UPX_VERSION}/LICENSE -o /upx-metadata/licenses/upx/LICENSE \
       && echo "905d4a66d5324e154d976bbf88829d4d9263815a2b97cc40954f06d4a23c28eb  /upx-metadata/licenses/upx/LICENSE" | sha256sum -c - \
       && curl -fsSL https://raw.githubusercontent.com/upx/upx/v${UPX_VERSION}/COPYING -o /upx-metadata/licenses/upx/COPYING \
