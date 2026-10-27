@@ -78,7 +78,8 @@ func Hasher() func(string) (string, error) {
 			defer f.Close()
 			buf := pool.Get().(*[]byte)
 			defer pool.Put(buf)
-			if _, err := io.CopyBuffer(h, f, *buf); err != nil {
+			// hide f's WriterTo, otherwise CopyBuffer ignores buf
+			if _, err := io.CopyBuffer(h, struct{ io.Reader }{f}, *buf); err != nil {
 				return "", err
 			}
 		} else if fi.Mode()&os.ModeSymlink == os.ModeSymlink {
