@@ -1,0 +1,82 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "upx",
+  "documentNamespace": "https://github.com/osscontainertools/kaniko/deploy/sources/upx.spdx.json",
+  "creationInfo": {
+    "created": "2026-10-20T00:00:00Z",
+    "creators": ["Organization: OSS Container Tools"]
+  },
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-upx",
+      "name": "upx",
+      "versionInfo": "5.2.1",
+      "downloadLocation": "https://github.com/upx/upx/releases/download/v5.2.1/upx-5.2.1-src.tar.xz",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "a7d457be4ef942e46844ee8f301206b111394cbcbde3599747a6904c54ff116b"}],
+      "licenseConcluded": "GPL-2.0-or-later",
+      "licenseDeclared": "GPL-2.0-or-later",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/upx/upx@v5.2.1?checksum=sha256:a7d457be4ef942e46844ee8f301206b111394cbcbde3599747a6904c54ff116b&download_url=https://github.com/upx/upx/releases/download/v5.2.1/upx-5.2.1-src.tar.xz"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-ucl",
+      "name": "ucl",
+      "versionInfo": "1.03",
+      "downloadLocation": "https://www.oberhumer.com/opensource/ucl/download/ucl-1.03.tar.gz",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "b86529944093e9ad123e4e9084610185a02dcf5b8d696e2fb6505ab64619448f"}],
+      "licenseConcluded": "GPL-2.0-or-later",
+      "licenseDeclared": "GPL-2.0-or-later",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:generic/ucl@1.03?checksum=sha256:b86529944093e9ad123e4e9084610185a02dcf5b8d696e2fb6505ab64619448f&download_url=https://www.oberhumer.com/opensource/ucl/download/ucl-1.03.tar.gz"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-zlib",
+      "name": "zlib",
+      "versionInfo": "1.3.1",
+      "downloadLocation": "https://github.com/madler/zlib/archive/refs/tags/v1.3.1.tar.gz",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "7db572b219b722424713b96ad11a9a4a6d101d0ec2c7e0c8b326d9c4900ad4e3"}],
+      "licenseConcluded": "Zlib",
+      "licenseDeclared": "Zlib",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/madler/zlib@v1.3.1?checksum=sha256:7db572b219b722424713b96ad11a9a4a6d101d0ec2c7e0c8b326d9c4900ad4e3&download_url=https://github.com/madler/zlib/archive/refs/tags/v1.3.1.tar.gz"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-lzma-sdk",
+      "name": "lzma-sdk",
+      "versionInfo": "4.43",
+      "downloadLocation": "https://www.7-zip.org/sdk.html",
+      "licenseConcluded": "LicenseRef-LZMA-SDK",
+      "licenseDeclared": "LicenseRef-LZMA-SDK",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:generic/lzma-sdk@4.43"
+      }]
+    }
+  ],
+  "relationships": [
+    {"spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES", "relatedSpdxElement": "SPDXRef-upx"},
+    {"spdxElementId": "SPDXRef-upx", "relationshipType": "STATIC_LINK", "relatedSpdxElement": "SPDXRef-ucl"},
+    {"spdxElementId": "SPDXRef-upx", "relationshipType": "STATIC_LINK", "relatedSpdxElement": "SPDXRef-zlib"},
+    {"spdxElementId": "SPDXRef-upx", "relationshipType": "STATIC_LINK", "relatedSpdxElement": "SPDXRef-lzma-sdk"}
+  ]
+}
