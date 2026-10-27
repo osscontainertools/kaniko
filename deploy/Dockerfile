@@ -20,14 +20,6 @@ RUN mkdir -m 777 -p /kaniko
 
 FROM --platform=$BUILDPLATFORM busybox:musl@sha256:ea2b9914a16a4ac1981994af97b318f7c7d4db76b580c56177f08bf76f4a0be8 AS busybox-build
 
-FROM scratch AS upx-licenses
-ADD --checksum=sha256:905d4a66d5324e154d976bbf88829d4d9263815a2b97cc40954f06d4a23c28eb \
-    https://raw.githubusercontent.com/upx/upx/v5.2.1/LICENSE /upx/
-ADD --checksum=sha256:8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643 \
-    https://raw.githubusercontent.com/upx/upx/v5.2.1/COPYING /upx/
-ADD --checksum=sha256:845efc77857d485d91fb3e0b884aaa929368c717ae8186b66fe1ed2495753243 \
-    https://raw.githubusercontent.com/madler/zlib/v1.3.1/LICENSE /zlib/
-
 FROM --platform=$BUILDPLATFORM golang:1.27.3@sha256:f20d83a83e18dbd2a4714b8ffd4b30b287b6243962dd75608e86abcc63ba4efc AS builder-base
 WORKDIR /src
 
@@ -41,10 +33,6 @@ ENV GOOS=$TARGETOS
 ENV CGO_ENABLED=0
 
 COPY --from=busybox-build /bin/busybox /usr/local/bin/busybox
-RUN mkdir -p /opt/upx-license-files/upx /opt/upx-license-files/zlib
-COPY --from=upx-licenses /upx/LICENSE /opt/upx-license-files/upx/LICENSE
-COPY --from=upx-licenses /upx/COPYING /opt/upx-license-files/upx/COPYING
-COPY --from=upx-licenses /zlib/LICENSE /opt/upx-license-files/zlib/LICENSE
 
 # Install UPX on BUILDPLATFORM for optional binary compression
 ARG BUILDPLATFORM
@@ -88,11 +76,15 @@ RUN mkdir -p /licenses/go \
     && hardlink -t /licenses \
     && mkdir -p /upx-metadata/sbom \
     && if [ "$UPX_COMPRESS" = "true" ] || [ "$UPX_COMPRESS" = "1" ]; then \
-      mkdir -p /upx-metadata/licenses \
-      && cp -R /opt/upx-license-files/. /upx-metadata/licenses/ \
+      mkdir -p /upx-metadata/licenses/upx /upx-metadata/licenses/zlib \
+      && curl -fsSL https://raw.githubusercontent.com/upx/upx/v${UPX_VERSION}/LICENSE -o /upx-metadata/licenses/upx/LICENSE \
+      && echo "905d4a66d5324e154d976bbf88829d4d9263815a2b97cc40954f06d4a23c28eb  /upx-metadata/licenses/upx/LICENSE" | sha256sum -c - \
+      && curl -fsSL https://raw.githubusercontent.com/upx/upx/v${UPX_VERSION}/COPYING -o /upx-metadata/licenses/upx/COPYING \
+      && echo "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643  /upx-metadata/licenses/upx/COPYING" | sha256sum -c - \
+      && curl -fsSL https://raw.githubusercontent.com/madler/zlib/v1.3.1/LICENSE -o /upx-metadata/licenses/zlib/LICENSE \
+      && echo "845efc77857d485d91fb3e0b884aaa929368c717ae8186b66fe1ed2495753243  /upx-metadata/licenses/zlib/LICENSE" | sha256sum -c - \
       && cp deploy/sources/upx.spdx.json /upx-metadata/sbom/upx.spdx.json; \
-    fi \
-    && rm -rf /opt/upx-license-files
+    fi
 
 FROM builder-base AS builder
 ARG COVER=""
