@@ -74,9 +74,8 @@ RUN mkdir -p /licenses/go \
     && cp /usr/local/go/LICENSE /licenses/go/ \
     && find vendor -type f \( -name 'LICEN[CS]E*' -o -name 'NOTICE*' -o -name 'COPYING*' \) -exec cp --parents {} /licenses/ \; \
     && hardlink -t /licenses \
-    && mkdir -p /upx-metadata/sbom \
     && if [ "$UPX_COMPRESS" = "true" ] || [ "$UPX_COMPRESS" = "1" ]; then \
-      mkdir -p /upx-metadata/licenses/upx /upx-metadata/licenses/zlib \
+      mkdir -p /upx-metadata/licenses/upx /upx-metadata/licenses/zlib /upx-metadata/sbom \
       && curl -fsSL https://raw.githubusercontent.com/upx/upx/v${UPX_VERSION}/LICENSE -o /upx-metadata/licenses/upx/LICENSE \
       && echo "905d4a66d5324e154d976bbf88829d4d9263815a2b97cc40954f06d4a23c28eb  /upx-metadata/licenses/upx/LICENSE" | sha256sum -c - \
       && curl -fsSL https://raw.githubusercontent.com/upx/upx/v${UPX_VERSION}/COPYING -o /upx-metadata/licenses/upx/COPYING \
