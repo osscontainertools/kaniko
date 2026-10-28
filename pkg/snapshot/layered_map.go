@@ -19,6 +19,7 @@ package snapshot
 import (
 	"fmt"
 	"maps"
+	"path/filepath"
 
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/timing"
@@ -126,6 +127,24 @@ func (l *LayeredMap) AddDelete(s string) error {
 	l.isCurrentImageValid = false
 
 	l.deletes[len(l.deletes)-1][s] = struct{}{}
+	return nil
+}
+
+// AddDeleteBelow deletes every path of the current image that lies below one of roots.
+func (l *LayeredMap) AddDeleteBelow(roots map[string]struct{}) error {
+	for p := range l.getCurrentImage() {
+		for a := filepath.Dir(p); ; a = filepath.Dir(a) {
+			if _, ok := roots[a]; ok {
+				if err := l.AddDelete(p); err != nil {
+					return err
+				}
+				break
+			}
+			if a == filepath.Dir(a) {
+				break
+			}
+		}
+	}
 	return nil
 }
 

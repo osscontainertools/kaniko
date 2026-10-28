@@ -171,14 +171,16 @@ func GetFSFromImage(root string, img v1.Image, extract ExtractFunction) ([]strin
 		return nil, err
 	}
 
-	return GetFSFromLayers(root, layers, ExtractFunc(extract))
+	extracted, _, err := GetFSFromLayers(root, layers, ExtractFunc(extract))
+	return extracted, err
 }
 
-func GetFSFromLayers(root string, layers []v1.Layer, opts ...FSOpt) ([]string, error) {
+// GetFSFromLayers extracts layers to root. It returns the extracted files and the paths their whiteouts removed.
+func GetFSFromLayers(root string, layers []v1.Layer, opts ...FSOpt) ([]string, []string, error) {
 	volumes = []string{}
 	cfg := new(FSConfig)
 	if err := InitIgnoreList(); err != nil {
-		return nil, fmt.Errorf("initializing filesystem ignore list: %w", err)
+		return nil, nil, fmt.Errorf("initializing filesystem ignore list: %w", err)
 	}
 	logrus.Debugf("Ignore list: %v", ignorelist)
 
@@ -187,21 +189,23 @@ func GetFSFromLayers(root string, layers []v1.Layer, opts ...FSOpt) ([]string, e
 	}
 
 	if cfg.extractFunc == nil {
-		return nil, errors.New("must supply an extract function")
+		return nil, nil, errors.New("must supply an extract function")
 	}
 
 	extractedFiles := []string{}
+	whitedOut := []string{}
 	for i, l := range layers {
-		extracted, err := extractLayer(i, l, root, cfg)
+		extracted, removed, err := extractLayer(i, l, root, cfg)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		extractedFiles = append(extractedFiles, extracted...)
+		whitedOut = append(whitedOut, removed...)
 	}
-	return extractedFiles, nil
+	return extractedFiles, whitedOut, nil
 }
 
-func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, error) {
+func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, []string, error) {
 	if mediaType, err := l.MediaType(); err == nil {
 		logrus.Tracef("Extracting layer %d of media type %s", i, mediaType)
 	} else {
@@ -210,11 +214,12 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 
 	r, err := l.Uncompressed()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer r.Close()
 
 	extractedFiles := []string{}
+	whitedOut := []string{}
 	tr := tar.NewReader(r)
 	for {
 		hdr, err := tr.Next()
@@ -223,12 +228,12 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 		}
 
 		if err != nil {
-			return nil, fmt.Errorf("error reading tar %d: %w", i, err)
+			return nil, nil, fmt.Errorf("error reading tar %d: %w", i, err)
 		}
 
 		cleanedName := filepath.Clean(hdr.Name)
 		if cleanedName == ".." || strings.HasPrefix(cleanedName, "../") {
-			return nil, fmt.Errorf("tar entry %q is not allowed: references parent directory", hdr.Name)
+			return nil, nil, fmt.Errorf("tar entry %q is not allowed: references parent directory", hdr.Name)
 		}
 		path := filepath.Join(root, cleanedName)
 		base := filepath.Base(path)
@@ -236,7 +241,7 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 		if strings.HasPrefix(base, archive.WhiteoutPrefix) {
 			securePath, err := securejoin.SecureJoin(root, cleanedName)
 			if err != nil {
-				return nil, fmt.Errorf("resolving whiteout path for %q: %w", hdr.Name, err)
+				return nil, nil, fmt.Errorf("resolving whiteout path for %q: %w", hdr.Name, err)
 			}
 			dir := filepath.Dir(securePath)
 
@@ -254,8 +259,9 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 			}
 
 			if err := os.RemoveAll(path); err != nil {
-				return nil, fmt.Errorf("removing whiteout %s: %w", hdr.Name, err)
+				return nil, nil, fmt.Errorf("removing whiteout %s: %w", hdr.Name, err)
 			}
+			whitedOut = append(whitedOut, path)
 
 			// mz774: whiteout deletion is already applied, the marker is not needed in the filesystem
 			if !cfg.includeWhiteout || config.FF.SkipWriteWhiteouts {
@@ -265,12 +271,12 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 		}
 
 		if err := cfg.extractFunc(root, hdr, cleanedName, tr); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		extractedFiles = append(extractedFiles, filepath.Join(root, cleanedName))
 	}
-	return extractedFiles, nil
+	return extractedFiles, whitedOut, nil
 }
 
 // DeleteFilesystem deletes the extracted image file system

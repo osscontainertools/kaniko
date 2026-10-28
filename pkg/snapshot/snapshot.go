@@ -17,7 +17,9 @@ limitations under the License.
 package snapshot
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -60,15 +62,70 @@ func (s *Snapshotter) Fork() *Snapshotter {
 	return &Snapshotter{l: s.l.Clone(), directory: s.directory, ignorelist: s.ignorelist}
 }
 
+// TrackLayer records a layer that was extracted onto the filesystem without a snapshot.
+func (s *Snapshotter) TrackLayer(added, whitedOut []string) error {
+	s.l.Snapshot()
+	removed, err := s.replacedByNonDirectories(added)
+	if err != nil {
+		return err
+	}
+	for _, p := range whitedOut {
+		removed[p] = struct{}{}
+		if err := s.l.AddDelete(p); err != nil {
+			return fmt.Errorf("unable to whiteout file %s in layered map: %w", p, err)
+		}
+	}
+	if len(removed) > 0 {
+		if err := s.l.AddDeleteBelow(removed); err != nil {
+			return err
+		}
+	}
+	if !s.synced {
+		// Init picks up the added files
+		return nil
+	}
+	files, err := filesystem.ResolvePaths(added, s.ignorelist)
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		if err := s.l.Add(file); err != nil {
+			return fmt.Errorf("unable to add file %s to layered map: %w", file, err)
+		}
+	}
+	return nil
+}
+
+// replacedByNonDirectories returns the tracked paths among files that are no longer directories.
+func (s *Snapshotter) replacedByNonDirectories(files []string) (map[string]struct{}, error) {
+	replaced := map[string]struct{}{}
+	for _, f := range files {
+		_, tracked := s.l.get(f)
+		if tracked {
+			fi, err := os.Lstat(f)
+			switch {
+			case errors.Is(err, fs.ErrNotExist):
+				// a later entry of the same layer removed it again
+			case err != nil:
+				return nil, err
+			case !fi.IsDir():
+				replaced[f] = struct{}{}
+			}
+		}
+	}
+	return replaced, nil
+}
+
 // Init initializes a new snapshotter
 func (s *Snapshotter) Init() error {
 	assert.Assert("snapshot.init.layeredmap-set", s.l != nil, "Snapshotter.Init: layered map must be set")
 	assert.Assert("snapshot.init.directory-set", s.directory != "", "Snapshotter.Init: directory must be non-empty")
 	logrus.Info("Initializing snapshotter ...")
-	_, _, err := s.scanFullFilesystem()
+	_, deleted, err := s.scanFullFilesystem()
 	if err != nil {
 		return err
 	}
+	assert.Assert("snapshot.init.no-deletes", len(deleted) == 0, "Snapshotter.Init: layered map must not track paths missing from the filesystem, found %v", deleted)
 	s.synced = true
 	return nil
 }
@@ -104,6 +161,15 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 	for _, file := range filesToAdd {
 		if err := s.l.Add(file); err != nil {
 			return "", nil, nil, fmt.Errorf("unable to add file %s to layered map: %w", file, err)
+		}
+	}
+	replaced, err := s.replacedByNonDirectories(filesToAdd)
+	if err != nil {
+		return "", nil, nil, err
+	}
+	if len(replaced) > 0 {
+		if err := s.l.AddDeleteBelow(replaced); err != nil {
+			return "", nil, nil, err
 		}
 	}
 
