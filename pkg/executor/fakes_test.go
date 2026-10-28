@@ -50,6 +50,10 @@ func (f *fakeSnapShotter) TakeSnapshot(_ []string, _ bool) (string, []string, []
 	return f.tarPath, nil, nil, nil
 }
 
+func (f *fakeSnapShotter) TrackLayer(_, _ []string) error {
+	return nil
+}
+
 func (f *fakeSnapShotter) Reset() {}
 
 type MockDockerCommand struct {
