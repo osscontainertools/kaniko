@@ -1,0 +1,34 @@
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
+
+# Test 1: Write to tmpfs mount and verify content is available during RUN
+# Also copy and move files created in tmpfs to outside destination
+RUN --mount=type=tmpfs,target=/tmp/tmpfs_dir \
+    echo "temporary content" > /tmp/tmpfs_dir/temp_file \
+    && test -f /tmp/tmpfs_dir/temp_file \
+    && echo "copied content" > /tmp/tmpfs_dir/copied_file \
+    && echo "moved content" > /tmp/tmpfs_dir/moved_file \
+    && cp /tmp/tmpfs_dir/copied_file /tmp/copied_outside.txt \
+    && mv /tmp/tmpfs_dir/moved_file /tmp/moved_outside.txt
+
+# Test 2: After RUN step, tmpfs mount content is discarded and directory cleaned up.
+# Files copied or moved outside of tmpfs remain available in subsequent RUN steps.
+RUN test ! -f /tmp/tmpfs_dir/temp_file \
+    && test ! -d /tmp/tmpfs_dir \
+    && test -f /tmp/copied_outside.txt \
+    && test "$(cat /tmp/copied_outside.txt)" = "copied content" \
+    && test -f /tmp/moved_outside.txt \
+    && test "$(cat /tmp/moved_outside.txt)" = "moved content"
+
+RUN mkdir -p /tmp/existing_dir \
+    && echo "existing content" > /tmp/existing_dir/existing_file
+
+# Test 3: Overlaying pre-existing directory with tmpfs mount hides original content during RUN
+RUN --mount=type=tmpfs,target=/tmp/existing_dir \
+    test ! -f /tmp/existing_dir/existing_file \
+    && echo "tmpfs content" > /tmp/existing_dir/new_temp_file \
+    && test -f /tmp/existing_dir/new_temp_file
+
+# Test 4: After RUN step, original directory content is restored and tmpfs changes discarded
+RUN test -f /tmp/existing_dir/existing_file \
+    && test ! -f /tmp/existing_dir/new_temp_file
