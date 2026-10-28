@@ -27,6 +27,7 @@ import (
 
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
+	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/testutil"
@@ -130,6 +131,12 @@ func TestSetWorkDirIfExists(t *testing.T) {
 
 func TestRunCommandWithFlags_TmpfsMount(t *testing.T) {
 	tmpDir := t.TempDir()
+	originalSwapDir := kConfig.KanikoSwapDir
+	kConfig.KanikoSwapDir = filepath.Join(tmpDir, "swap")
+	defer func() {
+		kConfig.KanikoSwapDir = originalSwapDir
+	}()
+
 	targetPath := filepath.Join(tmpDir, "tmpfs_target")
 
 	// Pre-create target directory with a file to test existing target swap & restoration
