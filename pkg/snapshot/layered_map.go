@@ -46,13 +46,6 @@ func NewLayeredMap(h func(string) (string, error)) *LayeredMap {
 	return &l
 }
 
-// Clone returns a new layered map whose image starts as the current image of l.
-func (l *LayeredMap) Clone() *LayeredMap {
-	c := NewLayeredMap(l.hasher)
-	maps.Copy(c.currentImage, l.getCurrentImage())
-	return c
-}
-
 // Snapshot creates a new layer.
 func (l *LayeredMap) Snapshot() {
 	// Save current state of image
