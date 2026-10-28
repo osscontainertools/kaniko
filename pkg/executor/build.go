@@ -686,7 +686,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			}
 		}()
 
-		if !initSnapshotTaken && !isCacheCommand && !command.ProvidesFilesToSnapshot() {
+		if !initSnapshotTaken && !isCacheCommand && (!command.ProvidesFilesToSnapshot() || command.ShouldDetectDeletedFiles()) {
 			// Take initial snapshot if command does not expect to return
 			// a list of files.
 			t := timing.Start("Initial FS snapshot")
@@ -1755,6 +1755,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		if err = util.DeleteFilesystem(); err != nil {
 			return nil, err
 		}
+		snapshotter.Reset()
 	}
 
 	// Deferred before the cleanup below so LIFO order closes the final stage
@@ -2029,6 +2030,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 			if err := util.DeleteFilesystem(); err != nil {
 				return nil, fmt.Errorf("deleting file system after stage %d: %w", stage.Index, err)
 			}
+			snapshotter.Reset()
 		}
 	}
 
