@@ -1,0 +1,9 @@
+# mz876: a cached layer deletes a file the layered map tracks.
+# The second build serves RUN rm from cache and extracts its whiteout, the map still held /foo.
+# The RUN after it misses the cache, so Init found /foo missing (snapshot.init.no-deletes).
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
+COPY context/foo /foo
+RUN rm /foo
+ARG V=0
+RUN : $V

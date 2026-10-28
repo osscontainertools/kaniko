@@ -1,0 +1,10 @@
+# mz876: a COPY replaces a directory with a symlink before the stage's first Init.
+# The layered map still held /x/child from the first COPY, so Init found it missing (snapshot.init.no-deletes).
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS links
+RUN mkdir -p /src/dir/x /src/link /empty && touch /src/dir/x/child && ln -s /empty /src/link/x
+
+FROM ${IMAGE_REPO}busybox
+COPY --from=links /src/dir/ /
+COPY --from=links /src/link/ /
+RUN touch /after
