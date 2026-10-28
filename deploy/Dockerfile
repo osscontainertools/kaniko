@@ -13,6 +13,7 @@
 # limitations under the License.
 
 ARG BUILDPLATFORM
+
 # Use the statically compiled BusyBox xz applet to unpack the UPX archive.
 # Keep in sync with deploy/sources/busybox.spdx.json.
 FROM busybox:musl@sha256:ea2b9914a16a4ac1981994af97b318f7c7d4db76b580c56177f08bf76f4a0be8 AS busybox
@@ -20,7 +21,7 @@ RUN mkdir -m 777 -p /kaniko
 
 FROM --platform=$BUILDPLATFORM busybox:musl@sha256:ea2b9914a16a4ac1981994af97b318f7c7d4db76b580c56177f08bf76f4a0be8 AS busybox-build
 
-FROM --platform=$BUILDPLATFORM golang:1.27.3@sha256:f20d83a83e18dbd2a4714b8ffd4b30b287b6243962dd75608e86abcc63ba4efc AS builder-base
+FROM --platform=$BUILDPLATFORM golang:1.27.3@sha256:9048d5e7751706200eb1719c7dae0436950d362f29a1da91fa05e5c63867c60f AS builder-base
 WORKDIR /src
 
 # This arg is passed by docker buildx & contains the target CPU architecture (e.g., amd64, arm64, etc.)
