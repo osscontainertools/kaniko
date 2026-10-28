@@ -42,6 +42,7 @@ WARMER_PACKAGE = $(REPOPATH)/cmd/warmer
 KANIKO_PROJECT = $(REPOPATH)/kaniko
 BUILD_ARG ?=
 COVER ?=
+UPX_COMPRESS ?=
 
 # Force using Go Modules and always read the dependencies from
 # the `vendor` folder.
@@ -51,14 +52,27 @@ export GOFLAGS = -mod=vendor -buildvcs=false -trimpath
 
 export GO_TAGS = otel,git,google,aws,azure
 
+define compress_upx
+	@if [ "$(UPX_COMPRESS)" = "true" ] || [ "$(UPX_COMPRESS)" = "1" ]; then \
+		if command -v upx >/dev/null 2>&1; then \
+			upx --best $(1) || echo "UPX compression skipped or unsupported on target platform"; \
+		else \
+			echo "UPX not available for build platform, skipping compression"; \
+		fi; \
+	fi
+endef
+
 out/executor: $(GO_FILES)
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=0 go build -tags $(GO_TAGS) $(if $(COVER),-cover) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
+	$(call compress_upx,$@)
 
 out/executor-slim: $(GO_FILES)
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=0 go build $(if $(COVER),-cover) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
+	$(call compress_upx,$@)
 
 out/warmer: $(GO_FILES)
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=0 go build -tags $(GO_TAGS) $(if $(COVER),-cover) -ldflags $(GO_LDFLAGS) -o $@ $(WARMER_PACKAGE)
+	$(call compress_upx,$@)
 
 .PHONY: install-diffoci
 install-diffoci:
