@@ -1,0 +1,21 @@
+# mz876: a RUN under --use-new-run whites out paths that only an earlier stage had.
+# Wrong output since v1.27.0, the stages share one snapshotter, so its layered map still
+# holds the paths of stage0 and other, and the final stage whites them out (.wh.only0 among them).
+# The final stage is built on base, so deleting a file of base must still leave a whiteout.
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS stage0
+RUN mkdir -p /nm/keep /nm/drop && touch /nm/keep/k /nm/drop/d /only0
+
+FROM ${IMAGE_REPO}busybox AS base
+RUN touch /from-base /keep-base
+
+# a second user keeps base from being squashed into the final stage
+FROM base AS other
+RUN touch /other
+
+FROM base
+RUN mkdir -p /nm/keep && touch /nm/keep/k
+COPY --from=stage0 /nm/keep/k /k2
+COPY --from=other /other /other
+RUN touch /deleted
+RUN rm /deleted /from-base

@@ -1734,15 +1734,15 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize ignore list: %w", err)
 	}
-	snapshotter, err := makeSnapshotter(opts)
-	if err != nil {
-		return nil, err
-	}
 	if opts.PreserveContext {
 		if len(kanikoStages) > 1 || opts.PreCleanup || opts.Cleanup {
 			logrus.Info("Creating snapshot of build context")
+			contextSnapshotter, err := makeSnapshotter(opts)
+			if err != nil {
+				return nil, err
+			}
 			t := timing.Start("Snapshotting context")
-			tarball, _, _, err = snapshotter.TakeSnapshotFS()
+			tarball, _, _, err = contextSnapshotter.TakeSnapshotFS()
 			t.End()
 			if err != nil {
 				return nil, err
@@ -1788,6 +1788,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	var pushIndex v1.ImageIndex
 	// the stage whose remote base sits at the bottom of each stage's chain of local bases
 	remoteBase := make([]config.KanikoStage, lastStage.Index+1)
+	snapshotters := map[int]*snapshot.Snapshotter{}
 	for _, stage := range kanikoStages {
 		remoteBase[stage.Index] = stage
 		if stage.BaseImageStoredLocally {
@@ -1863,6 +1864,20 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 
 		stageArgs[stage.Index] = sb.args
 		crossStageDeps := len(crossStageDependencies[stage.Index]) > 0
+		// mz876: each stage diffs against its own base only. A layered map shared
+		// across stages still holds the paths of unrelated stages, and a snapshot that
+		// checks for deletions whites them out in this stage's layer. A stage built on
+		// an earlier stage starts from that stage's map, so deleting its files is seen.
+		var snapshotter *snapshot.Snapshotter
+		if base, ok := snapshotters[stage.BaseImageIndex]; stage.BaseImageStoredLocally && ok {
+			snapshotter = base.Fork()
+		} else {
+			snapshotter, err = makeSnapshotter(opts)
+			if err != nil {
+				return nil, err
+			}
+		}
+		snapshotters[stage.Index] = snapshotter
 		needsRootFS, err := sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps, stageFinalCacheKeys, externalImageDigests, layerCache, buildCi)
 		if err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)

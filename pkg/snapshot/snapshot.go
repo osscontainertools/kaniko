@@ -48,6 +48,12 @@ func NewSnapshotter(l *LayeredMap, d string) *Snapshotter {
 	return &Snapshotter{l: l, directory: d, ignorelist: util.IgnoreList()}
 }
 
+// Fork returns a snapshotter that starts from the files s tracks, for a stage
+// built on top of the image s snapshotted. s itself is left unchanged.
+func (s *Snapshotter) Fork() *Snapshotter {
+	return &Snapshotter{l: s.l.Clone(), directory: s.directory, ignorelist: s.ignorelist}
+}
+
 // Init initializes a new snapshotter
 func (s *Snapshotter) Init() error {
 	assert.Assert("snapshot.init.layeredmap-set", s.l != nil, "Snapshotter.Init: layered map must be set")

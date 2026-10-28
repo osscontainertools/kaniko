@@ -316,6 +316,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_snapshotter_ignorelist":     {"--use-new-run=true", "-v=trace"},
 	"Dockerfile_test_issue_mz334":                {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz960":                {"--cache-copy-layers=true"},
+	"Dockerfile_test_issue_mz876":                {"--use-new-run"},
 	"Dockerfile_test_issue_mz879":                {"--cache-copy-layers=true", "--use-new-run"},
 	"Dockerfile_test_issue_mz896":                {"--cache-copy-layers=true", "--cache-run-layers=false"},
 	"Dockerfile_test_issue_mz787":                {"--cache=true"},
