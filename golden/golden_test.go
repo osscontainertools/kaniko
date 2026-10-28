@@ -41,6 +41,7 @@ import (
 	testissuemz1126 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1126"
 	testissuemz1128 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1128"
 	testissuemz1133 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1133"
+	testissuemz1233 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1233"
 	testissuemz195 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz195"
 	testissuemz333 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz333"
 	testissuemz334 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz334"
@@ -167,6 +168,7 @@ var allTests = map[string][]types.GoldenTests{
 	"test_issue_mz989":  {testissuemz989.Tests},
 	"test_issue_mz1128": {testissuemz1128.Tests},
 	"test_issue_mz1133": {testissuemz1133.Tests},
+	"test_issue_mz1233": testissuemz1233.Tests,
 	"test_unittests":    testunittests.Tests,
 }
 var update bool

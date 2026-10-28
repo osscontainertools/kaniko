@@ -1279,6 +1279,10 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 				if err := util.UpdateConfigEnv(cmd.Env, &cfg.Config, ba.ReplacementEnvs(cfg.Config.Env)); err != nil {
 					return nil, err
 				}
+				// Match EnvCommand: later ENV values override arguments of the same name.
+				for _, keyVal := range cmd.Env {
+					ba.RemoveArg(keyVal.Key)
+				}
 				image, err = mutate.Config(image, cfg.Config)
 				if err != nil {
 					return nil, err
