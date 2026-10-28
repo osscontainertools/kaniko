@@ -686,7 +686,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			}
 		}()
 
-		if !initSnapshotTaken && !isCacheCommand && !command.ProvidesFilesToSnapshot() {
+		if !initSnapshotTaken && !isCacheCommand && (!command.ProvidesFilesToSnapshot() || command.ShouldDetectDeletedFiles()) {
 			// Take initial snapshot if command does not expect to return
 			// a list of files.
 			t := timing.Start("Initial FS snapshot")

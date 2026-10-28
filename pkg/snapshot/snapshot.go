@@ -41,6 +41,7 @@ type Snapshotter struct {
 	l          *LayeredMap
 	directory  string
 	ignorelist []util.IgnoreListEntry
+	synced     bool
 }
 
 // NewSnapshotter creates a new snapshotter rooted at d
@@ -50,6 +51,7 @@ func NewSnapshotter(l *LayeredMap, d string) *Snapshotter {
 
 func (s *Snapshotter) Reset() {
 	s.l = NewLayeredMap(s.l.hasher)
+	s.synced = false
 }
 
 // Init initializes a new snapshotter
@@ -58,7 +60,11 @@ func (s *Snapshotter) Init() error {
 	assert.Assert("snapshot.init.directory-set", s.directory != "", "Snapshotter.Init: directory must be non-empty")
 	logrus.Info("Initializing snapshotter ...")
 	_, _, err := s.scanFullFilesystem()
-	return err
+	if err != nil {
+		return err
+	}
+	s.synced = true
+	return nil
 }
 
 // TakeSnapshot takes a snapshot of the specified files, avoiding directories in the ignorelist, and creates
@@ -98,6 +104,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 	// Get whiteout paths
 	var filesToWhiteout []string
 	if shdCheckDelete {
+		assert.Assert("snapshot.takesnapshot.synced", s.synced, "Snapshotter.TakeSnapshot: layered map must be synced with the filesystem before detecting deletes")
 		_, deletedFiles, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), func(_ string) (bool, error) {
 			return true, nil
 		})
@@ -147,6 +154,7 @@ func (s *Snapshotter) TakeSnapshotFS() (string, []string, []string, error) {
 	if err != nil {
 		return "", nil, nil, err
 	}
+	s.synced = true
 
 	if err := writeToTar(t, filesToAdd, filesToWhiteOut); err != nil {
 		return "", nil, nil, err
