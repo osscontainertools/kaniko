@@ -366,7 +366,7 @@ COPY --from=second /bar /bat
 			if err != nil {
 				t.Errorf("Failed to parse stages to Kaniko Stages: %s", err)
 			}
-			got, err := CalculateDependencies(kanikoStages, opts)
+			got, _, err := CalculateDependencies(kanikoStages, opts)
 			if err != nil {
 				t.Errorf("got error: %s,", err)
 			}
@@ -1485,7 +1485,7 @@ RUN foobar
 			if err != nil {
 				t.Errorf("failed to optimize instructions: %v", err)
 			}
-			_, err = sb.build(*compositeKey, tc.opts, util.FileContext{}, snap, tc.crossStageDeps, map[int]string{}, nil, lc, ci)
+			_, err = sb.build(*compositeKey, tc.opts, util.FileContext{}, snap, tc.crossStageDeps, nil, map[int]string{}, nil, lc, ci)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
