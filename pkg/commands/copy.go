@@ -275,6 +275,10 @@ func (c *CopyCommand) From() string {
 	return c.cmd.From
 }
 
+func (c *CopyCommand) Instruction() *instructions.CopyCommand {
+	return c.cmd
+}
+
 func (c *CopyCommand) HasIndependentCacheKey() bool {
 	if !kConfig.FF.CopyLink || !c.cmd.Link {
 		return false
@@ -332,6 +336,10 @@ func (cr *CachingCopyCommand) CacheKey(replacementEnvs []string) (string, error)
 
 func (cr *CachingCopyCommand) From() string {
 	return cr.cmd.From
+}
+
+func (cr *CachingCopyCommand) Instruction() *instructions.CopyCommand {
+	return cr.cmd
 }
 
 func (cr *CachingCopyCommand) HasIndependentCacheKey() bool {
@@ -455,6 +463,7 @@ func copyCmdFilesUsedFromContext(
 // AbstractCopyCommand can either be a CopyCommand or a CachingCopyCommand.
 type AbstractCopyCommand interface {
 	From() string
+	Instruction() *instructions.CopyCommand
 }
 
 // CastAbstractCopyCommand tries to convert a command to an AbstractCopyCommand.
