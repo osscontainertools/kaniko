@@ -1734,15 +1734,15 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize ignore list: %w", err)
 	}
+	snapshotter, err := makeSnapshotter(opts)
+	if err != nil {
+		return nil, err
+	}
 	if opts.PreserveContext {
 		if len(kanikoStages) > 1 || opts.PreCleanup || opts.Cleanup {
 			logrus.Info("Creating snapshot of build context")
-			contextSnapshotter, err := makeSnapshotter(opts)
-			if err != nil {
-				return nil, err
-			}
 			t := timing.Start("Snapshotting context")
-			tarball, _, _, err = contextSnapshotter.TakeSnapshotFS()
+			tarball, _, _, err = snapshotter.TakeSnapshotFS()
 			t.End()
 			if err != nil {
 				return nil, err
@@ -1755,6 +1755,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		if err = util.DeleteFilesystem(); err != nil {
 			return nil, err
 		}
+		snapshotter.Reset()
 	}
 
 	// Deferred before the cleanup below so LIFO order closes the final stage
@@ -1788,10 +1789,6 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	var pushIndex v1.ImageIndex
 	// the stage whose remote base sits at the bottom of each stage's chain of local bases
 	remoteBase := make([]config.KanikoStage, lastStage.Index+1)
-	snapshotter, err := makeSnapshotter(opts)
-	if err != nil {
-		return nil, err
-	}
 	for _, stage := range kanikoStages {
 		remoteBase[stage.Index] = stage
 		if stage.BaseImageStoredLocally {
