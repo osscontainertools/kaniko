@@ -17,9 +17,18 @@ limitations under the License.
 package commands
 
 import (
+	"os"
 	"os/user"
+	"path/filepath"
 	"testing"
 
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"strings"
+
+	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/moby/buildkit/frontend/dockerfile/parser"
+	"github.com/osscontainertools/kaniko/pkg/dockerfile"
+	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/testutil"
 )
 
@@ -117,4 +126,89 @@ func TestSetWorkDirIfExists(t *testing.T) {
 	testDir := t.TempDir()
 	testutil.CheckDeepEqual(t, testDir, setWorkDirIfExists(testDir))
 	testutil.CheckDeepEqual(t, "", setWorkDirIfExists("doesnot-exists"))
+}
+
+func TestRunCommandWithFlags_TmpfsMount(t *testing.T) {
+	tmpDir := t.TempDir()
+	targetPath := filepath.Join(tmpDir, "tmpfs_target")
+
+	// Pre-create target directory with a file to test existing target swap & restoration
+	if err := os.MkdirAll(targetPath, 0o755); err != nil {
+		t.Fatalf("failed to create target dir: %v", err)
+	}
+	existingFilePath := filepath.Join(targetPath, "existing.txt")
+	if err := os.WriteFile(existingFilePath, []byte("pre-existing content"), 0o644); err != nil {
+		t.Fatalf("failed to write existing file: %v", err)
+	}
+
+	dockerfileSnippet := "RUN --mount=type=tmpfs,target=" + targetPath + " echo 'hello tmpfs' > " + filepath.Join(targetPath, "newfile.txt")
+	res, err := parser.Parse(strings.NewReader(dockerfileSnippet))
+	if err != nil {
+		t.Fatalf("failed to parse Dockerfile snippet: %v", err)
+	}
+	inst, err := instructions.ParseInstruction(res.AST.Children[0])
+	if err != nil {
+		t.Fatalf("failed to parse instruction: %v", err)
+	}
+	cmdRun, ok := inst.(*instructions.RunCommand)
+	if !ok {
+		t.Fatalf("expected *instructions.RunCommand, got %T", inst)
+	}
+
+	cfg := &v1.Config{}
+	buildArgs := dockerfile.NewBuildArgs([]string{})
+	fileContext := util.FileContext{Root: tmpDir}
+
+	err = runCommandWithFlags(cfg, buildArgs, cmdRun, fileContext, nil)
+	if err != nil {
+		t.Fatalf("runCommandWithFlags returned error: %v", err)
+	}
+
+	// Verify that the pre-existing file content is restored after RUN execution
+	content, err := os.ReadFile(existingFilePath)
+	if err != nil {
+		t.Fatalf("failed to read restored existing file: %v", err)
+	}
+	if string(content) != "pre-existing content" {
+		t.Errorf("expected pre-existing content %q, got %q", "pre-existing content", string(content))
+	}
+
+	// Verify that newfile.txt created inside tmpfs mount was cleaned up / discarded
+	newFilePath := filepath.Join(targetPath, "newfile.txt")
+	if _, err := os.Stat(newFilePath); !os.IsNotExist(err) {
+		t.Errorf("expected newfile.txt to be discarded after RUN command, but it exists")
+	}
+}
+
+func TestRunCommandWithFlags_TmpfsMount_NonExistentTarget(t *testing.T) {
+	tmpDir := t.TempDir()
+	targetPath := filepath.Join(tmpDir, "new_dir", "tmpfs_target")
+
+	dockerfileSnippet := "RUN --mount=type=tmpfs,target=" + targetPath + " echo 'hello tmpfs' > " + filepath.Join(targetPath, "newfile.txt")
+	res, err := parser.Parse(strings.NewReader(dockerfileSnippet))
+	if err != nil {
+		t.Fatalf("failed to parse Dockerfile snippet: %v", err)
+	}
+	inst, err := instructions.ParseInstruction(res.AST.Children[0])
+	if err != nil {
+		t.Fatalf("failed to parse instruction: %v", err)
+	}
+	cmdRun, ok := inst.(*instructions.RunCommand)
+	if !ok {
+		t.Fatalf("expected *instructions.RunCommand, got %T", inst)
+	}
+
+	cfg := &v1.Config{}
+	buildArgs := dockerfile.NewBuildArgs([]string{})
+	fileContext := util.FileContext{Root: tmpDir}
+
+	err = runCommandWithFlags(cfg, buildArgs, cmdRun, fileContext, nil)
+	if err != nil {
+		t.Fatalf("runCommandWithFlags returned error: %v", err)
+	}
+
+	// Verify target path created by ensureDir was cleaned up after RUN
+	if _, err := os.Stat(targetPath); !os.IsNotExist(err) {
+		t.Errorf("expected targetPath %s to be cleaned up, but it exists", targetPath)
+	}
 }
