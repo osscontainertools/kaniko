@@ -43,6 +43,93 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+func TestOptimizeCachesCrossStageRunMount(t *testing.T) {
+	originalFlag := config.FF.RunCrossStageBindMount
+	config.FF.RunCrossStageBindMount = true
+	defer func() { config.FF.RunCrossStageBindMount = originalFlag }()
+
+	stages, metaArgs, err := dockerfile.Parse([]byte(`
+FROM scratch AS build
+FROM scratch AS final
+RUN echo before
+RUN --mount=type=bind,from=build,source=/artifact,target=/mounted true
+RUN echo after
+`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	kanikoStages, err := dockerfile.MakeKanikoStages(&config.KanikoOptions{}, stages, metaArgs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fileContext := util.FileContext{Root: t.TempDir()}
+	cmds := make([]commands.DockerCommand, 0, len(kanikoStages[1].Commands))
+	for _, cmd := range kanikoStages[1].Commands {
+		command, err := commands.GetCommand(cmd, fileContext, nil, false, true, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cmds = append(cmds, command)
+	}
+	sources, err := commands.CrossStageSources(cmds[1], &v1.Config{}, dockerfile.NewBuildArgs(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sources) != 1 || sources[0] != "0" {
+		t.Fatalf("expected resolved cross-stage source [0], got %v", sources)
+	}
+	sb := &stageBuilder{cmds: cmds, cf: &v1.ConfigFile{}}
+	cache := &fakeLayerCache{}
+	opts := &config.KanikoOptions{Cache: true, CacheCopyLayers: true, CacheRunLayers: true}
+	finalCacheKey, ci, _, err := sb.optimize(
+		NewCompositeCache("base"),
+		v1.Config{},
+		dockerfile.NewBuildArgs(nil),
+		opts,
+		fileContext,
+		newMemoizedLayerCache(cache),
+		map[int]string{0: "source-stage-cache-key"},
+		nil,
+		false,
+		true,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if finalCacheKey == "" {
+		t.Fatal("expected stage cache key to remain valid")
+	}
+	for i, key := range ci.cacheKeys {
+		if key == "" {
+			t.Errorf("expected command %d to remain cacheable", i)
+		}
+	}
+	if len(cache.receivedKeys) != 2 || cache.receivedKeys[1] != ci.cacheKeys[1] {
+		t.Fatalf("expected cross-stage RUN cache lookup %q after the initial miss, got %v", ci.cacheKeys[1], cache.receivedKeys)
+	}
+
+	dependentCache := &fakeLayerCache{}
+	dependent := &stageBuilder{cmds: cmds[1:2]}
+	finalCacheKey, dependentInfo, _, err := dependent.optimize(
+		NewCompositeCache("base"),
+		v1.Config{},
+		dockerfile.NewBuildArgs(nil),
+		opts,
+		fileContext,
+		newMemoizedLayerCache(dependentCache),
+		map[int]string{0: ""},
+		nil,
+		false,
+		false,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if finalCacheKey != "" || dependentInfo.cacheKeys[0] != "" || len(dependentCache.receivedKeys) != 0 {
+		t.Fatal("expected cross-stage RUN cache lookup to be skipped when source stage has no cache key")
+	}
+}
+
 func Test_reviewConfig(t *testing.T) {
 	tests := []struct {
 		name               string
@@ -608,7 +695,7 @@ func Test_stageBuilder_optimize(t *testing.T) {
 				cacheCommand: MockCachedDockerCommand{},
 			}
 			sb.cmds = []commands.DockerCommand{command}
-			_, _, _, err = sb.optimize(&ck, cf.Config, sb.args, tc.opts, util.FileContext{}, lc, nil, nil, true)
+			_, _, _, err = sb.optimize(&ck, cf.Config, sb.args, tc.opts, util.FileContext{}, lc, nil, nil, true, true)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}
@@ -1481,7 +1568,7 @@ RUN foobar
 				getFSFromImage = tc.mockGetFSFromImage
 			}
 			compositeKey := NewCompositeCache(sb.baseImageDigest)
-			_, ci, _, err := sb.optimize(compositeKey, sb.cf.Config, sb.args, tc.opts, util.FileContext{}, lc, map[int]string{}, nil, true)
+			_, ci, _, err := sb.optimize(compositeKey, sb.cf.Config, sb.args, tc.opts, util.FileContext{}, lc, map[int]string{}, nil, true, true)
 			if err != nil {
 				t.Errorf("failed to optimize instructions: %v", err)
 			}

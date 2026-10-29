@@ -18,6 +18,7 @@ package commands
 
 import (
 	"fmt"
+	"strconv"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
@@ -117,4 +118,39 @@ func GetCommand(cmd instructions.Command, fileContext util.FileContext, secrets 
 		return nil, nil
 	}
 	return nil, fmt.Errorf("%s is not a supported command", cmd.Name())
+}
+
+func CrossStageSources(command DockerCommand, cfg *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
+	if copyCmd, ok := CastAbstractCopyCommand(command); ok && copyCmd.From() != "" {
+		return []string{copyCmd.From()}, nil
+	}
+	type crossStageRun interface {
+		CrossStageSources(*v1.Config, *dockerfile.BuildArgs) ([]string, error)
+	}
+	if run, ok := command.(crossStageRun); ok {
+		return run.CrossStageSources(cfg, buildArgs)
+	}
+	return nil, nil
+}
+
+func ExpandRunCommand(cmd *instructions.RunCommand, expand instructions.SingleWordExpander) error {
+	mounts := instructions.GetMounts(cmd)
+	resolvedStages := make([]string, len(mounts))
+	for i, mount := range mounts {
+		if mount.Type != instructions.MountTypeBind || mount.From == "" {
+			continue
+		}
+		if _, err := strconv.Atoi(mount.From); err == nil {
+			resolvedStages[i] = mount.From
+		}
+	}
+	if err := cmd.Expand(expand); err != nil {
+		return err
+	}
+	for i, mount := range instructions.GetMounts(cmd) {
+		if resolvedStages[i] != "" {
+			mount.From = resolvedStages[i]
+		}
+	}
+	return nil
 }

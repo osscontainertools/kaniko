@@ -167,6 +167,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT`](#flag-ff_kaniko_reproducible_preserve_format)
       - [Flag `FF_KANIKO_RESOLVE_CACHE_KEY`](#flag-ff_kaniko_resolve_cache_key)
       - [Flag `FF_KANIKO_ROLLING_CACHE_KEY`](#flag-ff_kaniko_rolling_cache_key)
+      - [Flag `FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT`](#flag-ff_kaniko_run_cross_stage_bind_mount)
       - [Flag `FF_KANIKO_RUN_HEREDOC_SCRIPT`](#flag-ff_kaniko_run_heredoc_script)
       - [Flag `FF_KANIKO_RUN_HONOR_GROUP`](#flag-ff_kaniko_run_honor_group)
       - [Flag `FF_KANIKO_RUN_VIA_TINI`](#flag-ff_kaniko_run_via_tini)
@@ -1510,6 +1511,11 @@ This flag switches to a rolling hash, think git, where `state = SHA256(state || 
 Set this flag to `true` to enable the rolling cache key.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT`
+
+Enables `RUN --mount=type=bind,from=<stage>,source=<path>,target=<path>` to bind files from a previous Dockerfile stage. Mounts are read-only by default, matching BuildKit; writes through `rw`/`readwrite` are discarded after `RUN`. Kaniko removes write permissions from read-only mounts and checks for changes after the command; if mounted contents change, the `RUN` fails. Root may perform a write before the change is detected. The mounted target is restored or removed after `RUN`, so mounted files are not included in the resulting image layer. Cross-stage `RUN` mounts use the source stage's cache key when caching is enabled.
+Defaults to `false`.
 
 #### Flag `FF_KANIKO_RUN_HEREDOC_SCRIPT`
 

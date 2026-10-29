@@ -1,0 +1,15 @@
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS build
+RUN mkdir /artifact && echo cross-stage-content > /artifact/value
+
+FROM ${IMAGE_REPO}busybox AS final
+RUN mkdir /mount && echo original-content > /mount/original
+RUN --mount=type=bind,from=build,source=/artifact,target=/mount \
+    test "$(cat /mount/value)" = "cross-stage-content" && test ! -e /mount/original
+RUN test -f /mount/original && test ! -e /mount/value
+RUN test "$(cat /mount/original)" = "original-content"
+RUN --mount=type=bind,from=build,source=/artifact,target=/mount,rw \
+    echo changed-content > /mount/value && touch /mount/added
+RUN test "$(cat /mount/original)" = "original-content" && test ! -e /mount/added
+RUN --mount=type=bind,from=build,source=/artifact,target=/verify \
+    test "$(cat /verify/value)" = "cross-stage-content"
