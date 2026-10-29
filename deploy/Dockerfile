@@ -57,7 +57,7 @@ RUN make COVER="$COVER" out/executor-slim \
 
 # use musl busybox since it's staticly compiled on all platforms
 # Keep in sync with deploy/sources/busybox.spdx.json.
-FROM busybox:musl@sha256:ea2b9914a16a4ac1981994af97b318f7c7d4db76b580c56177f08bf76f4a0be8 AS busybox
+FROM busybox:musl@sha256:fec1a451896b46904ea70824d256d46cb992530a731daf78259d1967e9828523 AS busybox
 RUN mkdir -m 777 -p /kaniko
 
 FROM scratch AS busybox-licenses
