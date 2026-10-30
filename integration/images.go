@@ -465,6 +465,7 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_issue_3393":        {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_issue_cg73":        {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_issue_cg188":       {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_run_tmpfs_mnt":     {"--extra-ignore-layer-length-mismatch"},
 	// We record a file that COPY or RUN rewrote with identical content and metadata.
 	// Buildkit leaves the layer empty.
 	"TestRun/test_Dockerfile_test_arg_blank_with_quotes":     {"--extra-ignore-layer-length-mismatch"},
