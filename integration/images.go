@@ -464,6 +464,7 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_issue_mz247":               {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_issue_mz332":               {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_issue_mz725":               {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_run_tmpfs_mnt":             {"--extra-ignore-layer-length-mismatch"},
 	"TestWithContext/test_with_context_issue-57":             {"--extra-ignore-layer-length-mismatch"},
 	"TestWithContext/test_with_context_issue-1568":           {"--extra-ignore-layer-length-mismatch"},
 	"TestK8s/test_k8s_with_context_issue-57":                 {"--extra-ignore-layer-length-mismatch"},
