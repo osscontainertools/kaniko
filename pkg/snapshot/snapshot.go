@@ -96,7 +96,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 
 	// Add files to current layer.
 	for _, file := range filesToAdd {
-		if err := s.l.Add(file); err != nil {
+		if err := s.l.Add(file, nil); err != nil {
 			return "", nil, nil, fmt.Errorf("unable to add file %s to layered map: %w", file, err)
 		}
 	}
@@ -227,14 +227,8 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 
 	// Add files to the layered map
 	for _, file := range filesToAdd {
-		hash, ok := changedHashes[file]
-		if ok {
-			s.l.AddHashed(file, hash)
-		} else {
-			err := s.l.Add(file)
-			if err != nil {
-				return nil, nil, fmt.Errorf("unable to add file %s to layered map: %w", file, err)
-			}
+		if err := s.l.Add(file, changedHashes); err != nil {
+			return nil, nil, fmt.Errorf("unable to add file %s to layered map: %w", file, err)
 		}
 	}
 	for file := range deletedPaths {

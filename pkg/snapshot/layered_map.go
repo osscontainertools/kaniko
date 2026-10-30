@@ -119,24 +119,26 @@ func (l *LayeredMap) AddDelete(s string) error {
 	return nil
 }
 
-// Add will add the specified file s to the current layer.
-func (l *LayeredMap) Add(s string) error {
-	newV, err := l.hasher(s)
-	if err != nil {
-		return fmt.Errorf("error creating hash for %s: %w", s, err)
-	}
-
-	l.AddHashed(s, newV)
-	return nil
-}
-
-// AddHashed adds file s with its known hash to the current layer.
-func (l *LayeredMap) AddHashed(s, hash string) {
+// Add will add the specified file s to the current layer, with its hash from
+// hashes if present.
+func (l *LayeredMap) Add(s string, hashes map[string]string) error {
 	// A layer must exist before files can be added.
 	assert.Assert("layeredmap.add-before-snapshot", len(l.adds) > 0, "LayeredMap.Add called before Snapshot()")
 	l.isCurrentImageValid = false
 
-	l.adds[len(l.adds)-1][s] = hash
+	// Use hash function and add to layers
+	newV, err := func(s string) (string, error) {
+		if v, ok := hashes[s]; ok {
+			return v, nil
+		}
+		return l.hasher(s)
+	}(s)
+	if err != nil {
+		return fmt.Errorf("error creating hash for %s: %w", s, err)
+	}
+
+	l.adds[len(l.adds)-1][s] = newV
+	return nil
 }
 
 // CheckFileChange checks whether a given file (needs to exist) changed
