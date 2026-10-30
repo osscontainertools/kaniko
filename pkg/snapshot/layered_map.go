@@ -19,7 +19,6 @@ package snapshot
 import (
 	"fmt"
 	"maps"
-	"sync"
 
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/timing"
@@ -32,13 +31,7 @@ type LayeredMap struct {
 	currentImage        map[string]string // All files and hashes in the current image (up to the last layer).
 	isCurrentImageValid bool              // If the currentImage is not out-of-date.
 
-	layerHashCache map[string]string
-	hasher         func(string) (string, error)
-
-	// layerHashMu guards the writes of CheckFileChange to layerHashCache, which
-	// a parallel walk (FF_KANIKO_PARALLEL_HASH) makes from several goroutines.
-	// Everything else runs on the build goroutine, before or after the walk.
-	layerHashMu sync.Mutex
+	hasher func(string) (string, error)
 }
 
 // NewLayeredMap creates a new layered map which keeps track of adds and deletes.
@@ -48,7 +41,6 @@ func NewLayeredMap(h func(string) (string, error)) *LayeredMap {
 	}
 
 	l.currentImage = map[string]string{}
-	l.layerHashCache = map[string]string{}
 	return &l
 }
 
@@ -59,7 +51,6 @@ func (l *LayeredMap) Snapshot() {
 
 	l.adds = append(l.adds, map[string]string{})
 	l.deletes = append(l.deletes, map[string]struct{}{})
-	l.layerHashCache = map[string]string{} // Erase the hash cache for this new layer.
 }
 
 // getCurrentImage returns the current image by merging the latest
@@ -129,14 +120,14 @@ func (l *LayeredMap) AddDelete(s string) error {
 }
 
 // Add will add the specified file s to the current layer.
-func (l *LayeredMap) Add(s string) error {
+func (l *LayeredMap) Add(s string, hashes map[string]string) error {
 	// A layer must exist before files can be added.
 	assert.Assert("layeredmap.add-before-snapshot", len(l.adds) > 0, "LayeredMap.Add called before Snapshot()")
 	l.isCurrentImageValid = false
 
 	// Use hash function and add to layers
 	newV, err := func(s string) (string, error) {
-		if v, ok := l.layerHashCache[s]; ok {
+		if v, ok := hashes[s]; ok {
 			return v, nil
 		}
 		return l.hasher(s)
@@ -153,30 +144,24 @@ func (l *LayeredMap) Add(s string) error {
 // from the current layered map by its hashing function.
 // If the file does not exist, an error is returned.
 // Returns true if the file is changed.
-func (l *LayeredMap) CheckFileChange(s string) (bool, error) {
+func (l *LayeredMap) CheckFileChange(s string) (string, bool, error) {
 	t := timing.Start("Hashing files")
 	defer t.End()
 
 	newV, err := l.hasher(s)
 	if err != nil {
-		return false, err
+		return "", false, err
 	}
-
-	// Save hash to not recompute it when
-	// adding the file.
-	l.layerHashMu.Lock()
-	l.layerHashCache[s] = newV
-	l.layerHashMu.Unlock()
 
 	// currentImage is only read during a walk: Snapshot() brought it up to
 	// date before, Add and AddDelete change the layers after.
 	oldV, ok := l.get(s)
 	if ok && newV == oldV {
 		// File hash did not change => Unchanged.
-		return false, nil
+		return newV, false, nil
 	}
 
 	// File does not exist in current image,
 	// or it did change => Changed.
-	return true, nil
+	return newV, true, nil
 }

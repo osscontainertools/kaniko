@@ -97,7 +97,7 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 
 	// Add files to current layer.
 	for _, file := range filesToAdd {
-		if err := s.l.Add(file); err != nil {
+		if err := s.l.Add(file, nil); err != nil {
 			return "", nil, nil, fmt.Errorf("unable to add file %s to layered map: %w", file, err)
 		}
 	}
@@ -106,8 +106,8 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 	var filesToWhiteout []string
 	if shdCheckDelete {
 		assert.Assert("snapshot.takesnapshot.synced", s.synced, "Snapshotter.TakeSnapshot: layered map must be synced with the filesystem before detecting deletes")
-		_, deletedFiles, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), func(_ string) (bool, error) {
-			return true, nil
+		_, _, deletedFiles, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), func(_ string) (string, bool, error) {
+			return "", true, nil
 		}, 0)
 		if err != nil {
 			return "", nil, nil, err
@@ -207,7 +207,7 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 		// CheckFileChange and the hashers are safe for concurrent use
 		workers = util.HashWorkers(s.hashWorkers)
 	}
-	changedPaths, deletedPaths, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), s.l.CheckFileChange, workers)
+	changedPaths, hashes, deletedPaths, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), s.l.CheckFileChange, workers)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -233,7 +233,7 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 
 	// Add files to the layered map
 	for _, file := range filesToAdd {
-		if err := s.l.Add(file); err != nil {
+		if err := s.l.Add(file, hashes); err != nil {
 			return nil, nil, fmt.Errorf("unable to add file %s to layered map: %w", file, err)
 		}
 	}
