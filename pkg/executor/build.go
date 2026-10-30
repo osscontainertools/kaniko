@@ -81,6 +81,8 @@ type snapShotter interface {
 	Init() error
 	TakeSnapshotFS() (string, []string, []string, error)
 	TakeSnapshot([]string, bool) (string, []string, []string, error)
+	TrackLayer([]string, []string) error
+	Reset()
 }
 
 // stageBuilder contains all fields necessary to build one stage of a Dockerfile
@@ -638,6 +640,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		if err != nil {
 			return false, fmt.Errorf("failed to get filesystem from image: %w", err)
 		}
+		snapshotter.Reset()
 		assert.Assert("executor.getfs.volumes-reset", len(util.Volumes()) == 0, "stageBuilder.build: getFSFromImage must reset volumes for stage %d", s.index)
 	} else {
 		logrus.Info("Skipping unpacking as no commands require it.")
@@ -819,10 +822,13 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			if layer != nil && (!config.FF.ImageStages || unpacked) {
 				logrus.Infof("Extracting cached layer to filesystem")
 				t := timing.Start("Extracting cached layer")
-				_, err = util.GetFSFromLayers(config.RootDir, []v1.Layer{layer}, util.ExtractFunc(util.ExtractFile), util.IncludeWhiteout())
+				extracted, whitedOut, err := util.GetFSFromLayers(config.RootDir, []v1.Layer{layer}, util.ExtractFunc(util.ExtractFile), util.IncludeWhiteout())
 				t.End()
 				if err != nil {
 					return false, fmt.Errorf("extracting fs from image: %w", err)
+				}
+				if err := snapshotter.TrackLayer(extracted, whitedOut); err != nil {
+					return false, fmt.Errorf("tracking cached layer: %w", err)
 				}
 			}
 		}

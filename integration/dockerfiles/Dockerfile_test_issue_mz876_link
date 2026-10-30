@@ -1,0 +1,8 @@
+# mz876: COPY --link is looked up after an earlier miss, so its cached layer is extracted after Init.
+# The second build misses RUN on the changed V, hits the COPY --link and snapshotted /dest a second time.
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
+ARG V=0
+RUN : $V
+COPY --link context/foo /dest
+RUN touch /b
