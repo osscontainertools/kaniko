@@ -17,7 +17,6 @@ limitations under the License.
 package snapshot
 
 import (
-	"fmt"
 	"maps"
 
 	"github.com/osscontainertools/kaniko/pkg/assert"
@@ -119,25 +118,13 @@ func (l *LayeredMap) AddDelete(s string) error {
 	return nil
 }
 
-// Add will add the specified file s to the current layer.
-func (l *LayeredMap) Add(s string, hashes map[string]string) error {
+// Add will add the specified file s with its hash to the current layer.
+func (l *LayeredMap) Add(s, hash string) {
 	// A layer must exist before files can be added.
 	assert.Assert("layeredmap.add-before-snapshot", len(l.adds) > 0, "LayeredMap.Add called before Snapshot()")
 	l.isCurrentImageValid = false
 
-	// Use hash function and add to layers
-	newV, err := func(s string) (string, error) {
-		if v, ok := hashes[s]; ok {
-			return v, nil
-		}
-		return l.hasher(s)
-	}(s)
-	if err != nil {
-		return fmt.Errorf("error creating hash for %s: %w", s, err)
-	}
-
-	l.adds[len(l.adds)-1][s] = newV
-	return nil
+	l.adds[len(l.adds)-1][s] = hash
 }
 
 // CheckFileChange checks whether a given file (needs to exist) changed
