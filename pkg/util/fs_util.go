@@ -1593,21 +1593,22 @@ func InitIgnoreList() error {
 
 type walkFSResult struct {
 	filesAdded    []string
+	hashes        map[string]string
 	existingPaths map[string]struct{}
 	err           error
 }
 
 // WalkFS given a directory dir and list of existing files existingPaths,
-// returns a list of changed files determined by `changeFunc` and a list
-// of deleted files. Input existingPaths is changed inside this function and
-// returned as deleted files map.
+// returns a list of changed files determined by `changeFunc` with their
+// hashes and a list of deleted files. Input existingPaths is changed inside
+// this function and returned as deleted files map.
 // It timesout after 90 mins which can be configured via setting an environment variable
 // SNAPSHOT_TIMEOUT in the kaniko pod definition.
 func WalkFS(
 	dir string,
 	existingPaths map[string]struct{},
-	changeFunc func(string) (bool, error),
-) ([]string, map[string]struct{}, error) {
+	changeFunc func(string) (string, bool, error),
+) ([]string, map[string]string, map[string]struct{}, error) {
 	timeOutStr := os.Getenv(snapshotTimeout)
 	if timeOutStr == "" {
 		logrus.Tracef("Environment '%s' not set. Using default snapshot timeout '%s'", snapshotTimeout, defaultTimeout)
@@ -1622,24 +1623,25 @@ func WalkFS(
 	ch := make(chan walkFSResult, 1)
 
 	go func() {
-		filesAdded, existingPaths, err := gowalkDir(dir, existingPaths, changeFunc)
-		ch <- walkFSResult{filesAdded, existingPaths, err}
+		filesAdded, hashes, existingPaths, err := gowalkDir(dir, existingPaths, changeFunc)
+		ch <- walkFSResult{filesAdded, hashes, existingPaths, err}
 	}()
 
 	// Listen on our channel AND a timeout channel - which ever happens first.
 	select {
 	case res := <-ch:
 		timer.End()
-		return res.filesAdded, res.existingPaths, res.err
+		return res.filesAdded, res.hashes, res.existingPaths, res.err
 	case <-time.After(timeOut):
 		timer.End()
 		logrus.Fatalf("Timed out snapshotting FS in %s", timeOutStr)
-		return nil, nil, fmt.Errorf("Timed out snapshotting FS in %s", timeOutStr)
+		return nil, nil, nil, fmt.Errorf("Timed out snapshotting FS in %s", timeOutStr)
 	}
 }
 
-func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(string) (bool, error)) ([]string, map[string]struct{}, error) {
+func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(string) (string, bool, error)) ([]string, map[string]string, map[string]struct{}, error) {
 	foundPaths := make([]string, 0)
+	hashes := map[string]string{}
 	deletedFiles := existingPaths // Make a reference.
 
 	callback := func(path string, info fs.DirEntry, err error) error {
@@ -1659,10 +1661,13 @@ func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(st
 		// File is existing on disk, remove it from deleted files.
 		delete(deletedFiles, path)
 
-		if isChanged, err := changeFunc(path); err != nil {
+		hash, isChanged, err := changeFunc(path)
+		if err != nil {
 			return err
-		} else if isChanged {
+		}
+		if isChanged {
 			foundPaths = append(foundPaths, path)
+			hashes[path] = hash
 		}
 
 		return nil
@@ -1670,10 +1675,10 @@ func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(st
 
 	err := fs.WalkDir(FSys, dir, callback)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	return foundPaths, deletedFiles, nil
+	return foundPaths, hashes, deletedFiles, nil
 }
 
 // GetFSInfoMap given a directory gets a map of FileInfo for all files

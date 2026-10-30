@@ -31,8 +31,7 @@ type LayeredMap struct {
 	currentImage        map[string]string // All files and hashes in the current image (up to the last layer).
 	isCurrentImageValid bool              // If the currentImage is not out-of-date.
 
-	layerHashCache map[string]string
-	hasher         func(string) (string, error)
+	hasher func(string) (string, error)
 }
 
 // NewLayeredMap creates a new layered map which keeps track of adds and deletes.
@@ -42,7 +41,6 @@ func NewLayeredMap(h func(string) (string, error)) *LayeredMap {
 	}
 
 	l.currentImage = map[string]string{}
-	l.layerHashCache = map[string]string{}
 	return &l
 }
 
@@ -53,7 +51,6 @@ func (l *LayeredMap) Snapshot() {
 
 	l.adds = append(l.adds, map[string]string{})
 	l.deletes = append(l.deletes, map[string]struct{}{})
-	l.layerHashCache = map[string]string{} // Erase the hash cache for this new layer.
 }
 
 // getCurrentImage returns the current image by merging the latest
@@ -124,49 +121,44 @@ func (l *LayeredMap) AddDelete(s string) error {
 
 // Add will add the specified file s to the current layer.
 func (l *LayeredMap) Add(s string) error {
-	// A layer must exist before files can be added.
-	assert.Assert("layeredmap.add-before-snapshot", len(l.adds) > 0, "LayeredMap.Add called before Snapshot()")
-	l.isCurrentImageValid = false
-
-	// Use hash function and add to layers
-	newV, err := func(s string) (string, error) {
-		if v, ok := l.layerHashCache[s]; ok {
-			return v, nil
-		}
-		return l.hasher(s)
-	}(s)
+	newV, err := l.hasher(s)
 	if err != nil {
 		return fmt.Errorf("error creating hash for %s: %w", s, err)
 	}
 
-	l.adds[len(l.adds)-1][s] = newV
+	l.AddHashed(s, newV)
 	return nil
+}
+
+// AddHashed adds file s with its known hash to the current layer.
+func (l *LayeredMap) AddHashed(s, hash string) {
+	// A layer must exist before files can be added.
+	assert.Assert("layeredmap.add-before-snapshot", len(l.adds) > 0, "LayeredMap.Add called before Snapshot()")
+	l.isCurrentImageValid = false
+
+	l.adds[len(l.adds)-1][s] = hash
 }
 
 // CheckFileChange checks whether a given file (needs to exist) changed
 // from the current layered map by its hashing function.
 // If the file does not exist, an error is returned.
-// Returns true if the file is changed.
-func (l *LayeredMap) CheckFileChange(s string) (bool, error) {
+// Returns the file's hash and true if the file is changed.
+func (l *LayeredMap) CheckFileChange(s string) (string, bool, error) {
 	t := timing.Start("Hashing files")
 	defer t.End()
 
 	newV, err := l.hasher(s)
 	if err != nil {
-		return false, err
+		return "", false, err
 	}
-
-	// Save hash to not recompute it when
-	// adding the file.
-	l.layerHashCache[s] = newV
 
 	oldV, ok := l.get(s)
 	if ok && newV == oldV {
 		// File hash did not change => Unchanged.
-		return false, nil
+		return newV, false, nil
 	}
 
 	// File does not exist in current image,
 	// or it did change => Changed.
-	return true, nil
+	return newV, true, nil
 }
