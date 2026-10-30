@@ -106,7 +106,7 @@ func compressBytes(in []byte, name string, args ...string) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-var tarFixtureNames = []string{"file.tar", "file.tar.gz", "file.bz2", "file.tar.xz", "file.tar.zst", "sys.tar.gz"}
+var tarFixtureNames = []string{"file.tar", "file.tar.gz", "file.bz2", "file.tar.xz", "file.tar.zst", "sys.tar.gz", "file.gz"}
 
 func tarFixtureDir(config *integrationTestConfig) string {
 	return filepath.Join(config.dir, "context", "tars")
@@ -190,6 +190,10 @@ func generateTarFixtures(config *integrationTestConfig) error {
 	if err != nil {
 		return err
 	}
+	nonTarGz, err := gzipBytes([]byte("this is non-tar gzipped content\n"))
+	if err != nil {
+		return err
+	}
 
 	fixtures := map[string][]byte{
 		"file.tar":     plain,
@@ -198,6 +202,7 @@ func generateTarFixtures(config *integrationTestConfig) error {
 		"file.tar.xz":  xzedXz,
 		"file.tar.zst": zstdedZst,
 		"sys.tar.gz":   sysGz,
+		"file.gz":      nonTarGz,
 	}
 	for name, data := range fixtures {
 		err = os.WriteFile(filepath.Join(dir, name), data, 0o644)

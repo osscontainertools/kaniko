@@ -55,6 +55,26 @@ func Test_IsLocalTarArchive(t *testing.T) {
 		isTarArchive := IsFileLocalTarArchive(filepath.Join(testDir, compressedTar))
 		testutil.CheckErrorAndDeepEqual(t, false, nil, true, isTarArchive)
 	}
+
+	// Test non-tar gzip file returns false
+	nonTarGzPath := filepath.Join(testDir, "non_tar.gz")
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	if _, err := gw.Write([]byte("this is a plain text file compressed with gzip, not a tar")); err != nil {
+		t.Fatal(err)
+	}
+	if err := gw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(nonTarGzPath, buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	isTarArchive := IsFileLocalTarArchive(nonTarGzPath)
+	testutil.CheckErrorAndDeepEqual(t, false, nil, false, isTarArchive)
+
+	isTarArchive = IsFileTarArchive(nonTarGzPath)
+	testutil.CheckErrorAndDeepEqual(t, false, nil, false, isTarArchive)
 }
 
 func Test_AddFileToTar(t *testing.T) {
@@ -113,6 +133,9 @@ func setUpFilesAndTars(testDir string) error {
 		}
 		gzr := gzip.NewWriter(tarFile)
 		if err := createTar(testDir, gzr); err != nil {
+			return err
+		}
+		if err := gzr.Close(); err != nil {
 			return err
 		}
 	}
