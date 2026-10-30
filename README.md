@@ -130,6 +130,7 @@ expect - see [Known Issues](#known-issues).
     - [Feature Flags](#feature-flags)
       - [Profiles](#profiles)
       - [Flag `FF_KANIKO_ADD_CHECKSUM`](#flag-ff_kaniko_add_checksum)
+      - [Flag `FF_KANIKO_ADD_CHOWN_TAR`](#flag-ff_kaniko_add_chown_tar)
       - [Flag `FF_KANIKO_ADD_UNPACK`](#flag-ff_kaniko_add_unpack)
       - [Flag `FF_KANIKO_CACHE_HASH_BLAKE3`](#flag-ff_kaniko_cache_hash_blake3)
       - [Flag `FF_KANIKO_CACHE_IMAGE_INDEX`](#flag-ff_kaniko_cache_image_index)
@@ -1243,6 +1244,13 @@ FF_KANIKO_UNPACK_XZ=true
 
 `ADD --checksum=sha256:<hex> <url> <dest>` states that the download has to hash to the given digest. With this flag off kaniko parses the flag and never checks it, so a substituted download is added to the image and the build succeeds.
 Set this flag to `true` to verify the download and fail the build on a mismatch.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_ADD_CHOWN_TAR`
+
+`ADD --chown` is applied to the entries of an extracted archive. Explicit entries in the tar archive and the destination directory receive the specified `--chown` owner, while directories that only exist implicitly in the tar remain owned by root (`0:0`).
+Set this flag to `true` to apply `--chown` to extracted archive entries, matching Docker and BuildKit.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
 

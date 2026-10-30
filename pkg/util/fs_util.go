@@ -357,7 +357,11 @@ func removeAllSkipIgnored(path string) (skip bool, err error) {
 	return true, err
 }
 
-func UnTar(r io.Reader, dest string) ([]string, error) {
+func UnTar(r io.Reader, dest string, chownOwner ...*Owner) ([]string, error) {
+	var owner *Owner
+	if len(chownOwner) > 0 {
+		owner = chownOwner[0]
+	}
 	var extractedFiles []string
 	tr := tar.NewReader(r)
 	for {
@@ -372,7 +376,7 @@ func UnTar(r io.Reader, dest string) ([]string, error) {
 		if cleanedName == "." && config.FF.UntarSkipRoot {
 			continue
 		}
-		if err := ExtractFile(dest, hdr, cleanedName, tr); err != nil {
+		if err := ExtractFileWithChown(dest, hdr, cleanedName, tr, owner); err != nil {
 			return nil, err
 		}
 		extractedFiles = append(extractedFiles, filepath.Join(dest, cleanedName))
@@ -381,6 +385,10 @@ func UnTar(r io.Reader, dest string) ([]string, error) {
 }
 
 func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader) error {
+	return ExtractFileWithChown(dest, hdr, cleanedName, tr, nil)
+}
+
+func ExtractFileWithChown(dest string, hdr *tar.Header, cleanedName string, tr io.Reader, chownOwner *Owner) error {
 	if cleanedName == ".." || strings.HasPrefix(cleanedName, "../") {
 		return fmt.Errorf("tar entry %q is not allowed: references parent directory", hdr.Name)
 	}
@@ -411,10 +419,15 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		logrus.Debugf("Not adding %s because it is ignored", path)
 		return nil
 	}
-	if int64(hdr.Uid) > math.MaxUint32 || int64(hdr.Gid) > math.MaxUint32 {
-		return fmt.Errorf("user-id %d and group-id %d must fit a 32 bit id", hdr.Uid, hdr.Gid)
+	var owner Owner
+	if chownOwner != nil {
+		owner = *chownOwner
+	} else {
+		if int64(hdr.Uid) > math.MaxUint32 || int64(hdr.Gid) > math.MaxUint32 {
+			return fmt.Errorf("user-id %d and group-id %d must fit a 32 bit id", hdr.Uid, hdr.Gid)
+		}
+		owner = Owner{UID: uint32(hdr.Uid), GID: uint32(hdr.Gid)}
 	}
-	owner := Owner{UID: uint32(hdr.Uid), GID: uint32(hdr.Gid)}
 
 	switch hdr.Typeflag {
 	case tar.TypeReg:
@@ -523,6 +536,11 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		if err := os.Link(link, path); err != nil {
 			return err
 		}
+		if chownOwner != nil {
+			if err := os.Lchown(path, int(owner.UID), int(owner.GID)); err != nil {
+				return err
+			}
+		}
 
 	case tar.TypeSymlink:
 		logrus.Tracef("Symlink from %s to %s", hdr.Linkname, path)
@@ -550,6 +568,11 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		}
 		if err := os.Symlink(hdr.Linkname, path); err != nil {
 			return err
+		}
+		if chownOwner != nil {
+			if err := os.Lchown(path, int(owner.UID), int(owner.GID)); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

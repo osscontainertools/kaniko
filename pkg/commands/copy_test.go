@@ -17,6 +17,8 @@ limitations under the License.
 package commands
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"errors"
 	"io"
 	"io/fs"
@@ -29,6 +31,7 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/testutil"
@@ -997,5 +1000,156 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 			t.Fatal(err)
 		}
 		testutil.CheckDeepEqual(t, "../bam.txt", linkName)
+	})
+}
+
+func TestAddCommand_ExecuteCommand_TarChown(t *testing.T) {
+	_original := util.FSys
+	util.FSys = util.OSFS{}
+	defer func() { util.FSys = _original }()
+
+	createTarArchive := func(dir string) string {
+		tarPath := filepath.Join(dir, "test.tar.gz")
+		tarFile, err := os.Create(tarPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		gzw := gzip.NewWriter(tarFile)
+		tw := tar.NewWriter(gzw)
+		tarUid := 1000
+		tarGid := 1000
+		if os.Getuid() != 0 {
+			tarUid = os.Getuid()
+			tarGid = os.Getgid()
+		}
+		hdr := &tar.Header{
+			Name:     "in/f",
+			Mode:     0o644,
+			Size:     int64(len("hello")),
+			Typeflag: tar.TypeReg,
+			Uid:      tarUid,
+			Gid:      tarGid,
+		}
+		if err := tw.WriteHeader(hdr); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tw.Write([]byte("hello")); err != nil {
+			t.Fatal(err)
+		}
+		tw.Close()
+		gzw.Close()
+		tarFile.Close()
+		return tarPath
+	}
+
+	uid := 65534
+	gid := 1000
+	if os.Getuid() != 0 {
+		uid = os.Getuid()
+		gid = os.Getgid()
+	}
+
+	t.Run("feature flag enabled (default)", func(t *testing.T) {
+		origFF := kConfig.FF.AddChownTar
+		kConfig.FF.AddChownTar = true
+		defer func() { kConfig.FF.AddChownTar = origFF }()
+
+		testDir := t.TempDir()
+		createTarArchive(testDir)
+		destDir := filepath.Join(testDir, "local")
+
+		cmd := AddCommand{
+			cmd: &instructions.AddCommand{
+				SourcesAndDest: instructions.SourcesAndDest{
+					SourcePaths: []string{"test.tar.gz"},
+					DestPath:    destDir + "/",
+				},
+				Chown: strconv.Itoa(uid) + ":" + strconv.Itoa(gid),
+			},
+			fileContext: util.FileContext{Root: testDir},
+		}
+
+		cfg := &v1.Config{WorkingDir: testDir}
+		err := cmd.ExecuteCommand(cfg, dockerfile.NewBuildArgs([]string{}))
+		if err != nil {
+			t.Fatalf("ExecuteCommand failed: %v", err)
+		}
+
+		// Verify destDir ownership
+		fiDest, err := os.Lstat(destDir)
+		if err != nil {
+			t.Fatalf("stat destDir: %v", err)
+		}
+		if stat, ok := fiDest.Sys().(*syscall.Stat_t); ok {
+			if int(stat.Uid) != uid || int(stat.Gid) != gid {
+				t.Errorf("destDir ownership = %d:%d, want %d:%d", stat.Uid, stat.Gid, uid, gid)
+			}
+		}
+
+		// Verify extracted file ownership
+		fiFile, err := os.Lstat(filepath.Join(destDir, "in", "f"))
+		if err != nil {
+			t.Fatalf("stat file in/f: %v", err)
+		}
+		if stat, ok := fiFile.Sys().(*syscall.Stat_t); ok {
+			if int(stat.Uid) != uid || int(stat.Gid) != gid {
+				t.Errorf("extracted file ownership = %d:%d, want %d:%d", stat.Uid, stat.Gid, uid, gid)
+			}
+		}
+
+		// Verify implicit parent directory ownership remains default 0:0 when root
+		fiImplicit, err := os.Lstat(filepath.Join(destDir, "in"))
+		if err != nil {
+			t.Fatalf("stat implicit dir: %v", err)
+		}
+		if stat, ok := fiImplicit.Sys().(*syscall.Stat_t); ok {
+			if os.Getuid() == 0 && (stat.Uid != 0 || stat.Gid != 0) {
+				t.Errorf("implicit dir ownership = %d:%d, want 0:0", stat.Uid, stat.Gid)
+			}
+		}
+	})
+
+	t.Run("feature flag disabled", func(t *testing.T) {
+		origFF := kConfig.FF.AddChownTar
+		kConfig.FF.AddChownTar = false
+		defer func() { kConfig.FF.AddChownTar = origFF }()
+
+		testDir := t.TempDir()
+		createTarArchive(testDir)
+		destDir := filepath.Join(testDir, "local")
+
+		cmd := AddCommand{
+			cmd: &instructions.AddCommand{
+				SourcesAndDest: instructions.SourcesAndDest{
+					SourcePaths: []string{"test.tar.gz"},
+					DestPath:    destDir + "/",
+				},
+				Chown: strconv.Itoa(uid) + ":" + strconv.Itoa(gid),
+			},
+			fileContext: util.FileContext{Root: testDir},
+		}
+
+		cfg := &v1.Config{WorkingDir: testDir}
+		err := cmd.ExecuteCommand(cfg, dockerfile.NewBuildArgs([]string{}))
+		if err != nil {
+			t.Fatalf("ExecuteCommand failed: %v", err)
+		}
+
+		// When flag is disabled, file retains ownership from tar header (tarUid:tarGid)
+		fiFile, err := os.Lstat(filepath.Join(destDir, "in", "f"))
+		if err != nil {
+			t.Fatalf("stat file in/f: %v", err)
+		}
+		if stat, ok := fiFile.Sys().(*syscall.Stat_t); ok {
+			expectedUid := 1000
+			expectedGid := 1000
+			if os.Getuid() != 0 {
+				expectedUid = os.Getuid()
+				expectedGid = os.Getgid()
+			}
+			if stat.Uid != uint32(expectedUid) || stat.Gid != uint32(expectedGid) {
+				t.Errorf("extracted file ownership with flag disabled = %d:%d, want %d:%d", stat.Uid, stat.Gid, expectedUid, expectedGid)
+			}
+		}
 	})
 }

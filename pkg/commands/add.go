@@ -56,6 +56,14 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		return fmt.Errorf("getting permissions from chmod: %w", err)
 	}
 
+	var chownOwner *util.Owner
+	if kConfig.FF.AddChownTar && a.cmd.Chown != "" {
+		chownOwner, err = util.GetUserGroup(a.cmd.Chown, replacementEnvs)
+		if err != nil {
+			return fmt.Errorf("getting user group from chown: %w", err)
+		}
+	}
+
 	var owner *util.Owner
 	if kConfig.FF.CopyLink && a.cmd.Link {
 		chown := a.cmd.Chown
@@ -172,8 +180,14 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 						return fmt.Errorf("materializing link destination: %w", err)
 					}
 				}
+				if chownOwner != nil {
+					if err := util.MkdirAllWithPermissions(tarDest, 0o755, *chownOwner, false); err != nil {
+						return fmt.Errorf("creating tar destination directory: %w", err)
+					}
+					a.snapshotFiles = append(a.snapshotFiles, tarDest)
+				}
 				logrus.Infof("Unpacking remote archive %s to %s", src, tarDest)
-				extractedFiles, err := util.UnpackLocalTarArchive(download, tarDest)
+				extractedFiles, err := util.UnpackLocalTarArchive(download, tarDest, chownOwner)
 				if err != nil {
 					return fmt.Errorf("unpacking remote archive: %w", err)
 				}
@@ -227,8 +241,14 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 					return fmt.Errorf("materializing link destination: %w", err)
 				}
 			}
+			if chownOwner != nil {
+				if err := util.MkdirAllWithPermissions(tarDest, 0o755, *chownOwner, false); err != nil {
+					return fmt.Errorf("creating tar destination directory: %w", err)
+				}
+				a.snapshotFiles = append(a.snapshotFiles, tarDest)
+			}
 			logrus.Infof("Unpacking local tar archive %s to %s", src, tarDest)
-			extractedFiles, err := util.UnpackLocalTarArchive(fullPath, tarDest)
+			extractedFiles, err := util.UnpackLocalTarArchive(fullPath, tarDest, chownOwner)
 			if err != nil {
 				return fmt.Errorf("unpacking local tar: %w", err)
 			}

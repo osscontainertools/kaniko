@@ -1,0 +1,11 @@
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
+RUN yes | adduser -u 1001 dev
+
+ADD --chown=dev:dev context/tars/file.tar.gz /local_gz/
+ADD --chown=1001:1001 context/tars/sys.tar.gz /local_sys/
+
+USER dev
+
+RUN mkdir /local_gz/new_dir
+RUN mkdir /local_sys/sys/fs/new_dir

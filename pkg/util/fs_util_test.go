@@ -643,6 +643,58 @@ func Test_UnTar(t *testing.T) {
 	}
 }
 
+func TestExtractFileWithChown(t *testing.T) {
+	dest := t.TempDir()
+	testTime, _ := time.Parse(time.RFC3339, "2020-01-01T00:00:00Z")
+
+	chownOwner := &Owner{UID: uint32(os.Getuid()), GID: uint32(os.Getgid())}
+	if os.Getuid() == 0 {
+		chownOwner = &Owner{UID: 65534, GID: 1000}
+	}
+
+	// 1. Explicit directory header entry
+	dirHdr := dirHeader("./explicit_dir", 0o755)
+	if err := ExtractFileWithChown(dest, dirHdr, filepath.Clean(dirHdr.Name), bytes.NewReader(nil), chownOwner); err != nil {
+		t.Fatalf("ExtractFileWithChown failed for dir: %v", err)
+	}
+
+	// 2. File entry inside an implicit parent directory (no header for implicit_dir)
+	fileHdr := fileHeader("./implicit_dir/file.txt", "contents", 0o644, testTime)
+	if err := ExtractFileWithChown(dest, fileHdr, filepath.Clean(fileHdr.Name), bytes.NewReader([]byte("contents")), chownOwner); err != nil {
+		t.Fatalf("ExtractFileWithChown failed for file: %v", err)
+	}
+
+	// Check explicit directory ownership
+	fiExplicit, err := os.Lstat(filepath.Join(dest, "explicit_dir"))
+	if err != nil {
+		t.Fatalf("lstat explicit_dir: %v", err)
+	}
+	statExplicit := getSyscallStatT(fiExplicit)
+	if statExplicit.Uid != chownOwner.UID || statExplicit.Gid != chownOwner.GID {
+		t.Errorf("explicit_dir ownership = %d:%d, want %d:%d", statExplicit.Uid, statExplicit.Gid, chownOwner.UID, chownOwner.GID)
+	}
+
+	// Check explicit file ownership
+	fiFile, err := os.Lstat(filepath.Join(dest, "implicit_dir", "file.txt"))
+	if err != nil {
+		t.Fatalf("lstat implicit_dir/file.txt: %v", err)
+	}
+	statFile := getSyscallStatT(fiFile)
+	if statFile.Uid != chownOwner.UID || statFile.Gid != chownOwner.GID {
+		t.Errorf("implicit_dir/file.txt ownership = %d:%d, want %d:%d", statFile.Uid, statFile.Gid, chownOwner.UID, statFile.Gid)
+	}
+
+	// Check implicit parent directory ownership (should remain default 0:0 when root)
+	fiImplicit, err := os.Lstat(filepath.Join(dest, "implicit_dir"))
+	if err != nil {
+		t.Fatalf("lstat implicit_dir: %v", err)
+	}
+	statImplicit := getSyscallStatT(fiImplicit)
+	if os.Getuid() == 0 && (statImplicit.Uid != 0 || statImplicit.Gid != 0) {
+		t.Errorf("implicit_dir ownership = %d:%d, want 0:0", statImplicit.Uid, statImplicit.Gid)
+	}
+}
+
 func TestExtractFile(t *testing.T) {
 	type tc struct {
 		name     string
