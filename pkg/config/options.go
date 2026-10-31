@@ -70,6 +70,7 @@ type KanikoOptions struct {
 	SrcContext                   string
 	SnapshotMode                 string
 	SnapshotModeDeprecated       string
+	SnapshotHashWorkers          int
 	CustomPlatform               string
 	CustomPlatformDeprecated     string
 	Bucket                       string

@@ -20,6 +20,7 @@ import (
 	"archive/tar"
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -29,6 +30,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -44,6 +46,7 @@ import (
 	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 	mode "github.com/tonistiigi/dchapes-mode"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/unix"
 )
 
@@ -1593,21 +1596,25 @@ func InitIgnoreList() error {
 
 type walkFSResult struct {
 	filesAdded    []string
+	hashes        map[string]string
 	existingPaths map[string]struct{}
 	err           error
 }
 
 // WalkFS given a directory dir and list of existing files existingPaths,
-// returns a list of changed files determined by `changeFunc` and a list
-// of deleted files. Input existingPaths is changed inside this function and
-// returned as deleted files map.
+// returns a list of changed files determined by `changeFunc`, the hashes of
+// all walked files and a list of deleted files. Input existingPaths is changed
+// inside this function and returned as deleted files map.
 // It timesout after 90 mins which can be configured via setting an environment variable
 // SNAPSHOT_TIMEOUT in the kaniko pod definition.
+// With workers > 0 changeFunc runs on that many goroutines after the walk
+// (FF_KANIKO_PARALLEL_HASH), and must be safe for concurrent use.
 func WalkFS(
 	dir string,
 	existingPaths map[string]struct{},
-	changeFunc func(string) (bool, error),
-) ([]string, map[string]struct{}, error) {
+	changeFunc func(string) (string, bool, error),
+	workers int,
+) ([]string, map[string]string, map[string]struct{}, error) {
 	timeOutStr := os.Getenv(snapshotTimeout)
 	if timeOutStr == "" {
 		logrus.Tracef("Environment '%s' not set. Using default snapshot timeout '%s'", snapshotTimeout, defaultTimeout)
@@ -1622,25 +1629,27 @@ func WalkFS(
 	ch := make(chan walkFSResult, 1)
 
 	go func() {
-		filesAdded, existingPaths, err := gowalkDir(dir, existingPaths, changeFunc)
-		ch <- walkFSResult{filesAdded, existingPaths, err}
+		filesAdded, hashes, existingPaths, err := gowalkDir(dir, existingPaths, changeFunc, workers)
+		ch <- walkFSResult{filesAdded, hashes, existingPaths, err}
 	}()
 
 	// Listen on our channel AND a timeout channel - which ever happens first.
 	select {
 	case res := <-ch:
 		timer.End()
-		return res.filesAdded, res.existingPaths, res.err
+		return res.filesAdded, res.hashes, res.existingPaths, res.err
 	case <-time.After(timeOut):
 		timer.End()
 		logrus.Fatalf("Timed out snapshotting FS in %s", timeOutStr)
-		return nil, nil, fmt.Errorf("Timed out snapshotting FS in %s", timeOutStr)
+		return nil, nil, nil, fmt.Errorf("Timed out snapshotting FS in %s", timeOutStr)
 	}
 }
 
-func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(string) (bool, error)) ([]string, map[string]struct{}, error) {
+func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(string) (string, bool, error), workers int) ([]string, map[string]string, map[string]struct{}, error) {
 	foundPaths := make([]string, 0)
+	hashes := map[string]string{}
 	deletedFiles := existingPaths // Make a reference.
+	paths := make([]string, 0)
 
 	callback := func(path string, info fs.DirEntry, err error) error {
 		logrus.Tracef("Analyzing path '%s'", path)
@@ -1659,10 +1668,17 @@ func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(st
 		// File is existing on disk, remove it from deleted files.
 		delete(deletedFiles, path)
 
-		if isChanged, err := changeFunc(path); err != nil {
-			return err
-		} else if isChanged {
-			foundPaths = append(foundPaths, path)
+		if workers > 0 {
+			paths = append(paths, path)
+		} else {
+			hash, isChanged, err := changeFunc(path)
+			if err != nil {
+				return err
+			}
+			hashes[path] = hash
+			if isChanged {
+				foundPaths = append(foundPaths, path)
+			}
 		}
 
 		return nil
@@ -1670,10 +1686,53 @@ func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(st
 
 	err := fs.WalkDir(FSys, dir, callback)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	return foundPaths, deletedFiles, nil
+	if workers > 0 {
+		hashed, changed, err := runChangeFunc(paths, changeFunc, workers)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		hashes = make(map[string]string, len(paths))
+		for i, path := range paths {
+			hashes[path] = hashed[i]
+			if changed[i] {
+				foundPaths = append(foundPaths, path)
+			}
+		}
+	}
+
+	return foundPaths, hashes, deletedFiles, nil
+}
+
+// runChangeFunc calls changeFunc on every path with workers goroutines. It
+// returns, per index, the hash and whether the path changed, or the first
+// error any worker hit.
+func runChangeFunc(paths []string, changeFunc func(string) (string, bool, error), workers int) ([]string, []bool, error) {
+	hashed := make([]string, len(paths))
+	changed := make([]bool, len(paths))
+	var next atomic.Int64
+	g, ctx := errgroup.WithContext(context.Background())
+	for range min(workers, len(paths)) {
+		g.Go(func() error {
+			for ctx.Err() == nil {
+				i := next.Add(1) - 1
+				if i >= int64(len(paths)) {
+					return nil
+				}
+				hash, isChanged, err := changeFunc(paths[i])
+				if err != nil {
+					return err
+				}
+				hashed[i] = hash
+				changed[i] = isChanged
+			}
+			return nil
+		})
+	}
+	err := g.Wait()
+	return hashed, changed, err
 }
 
 // GetFSInfoMap given a directory gets a map of FileInfo for all files

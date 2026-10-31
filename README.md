@@ -115,6 +115,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--skip-tls-verify`](#flag---skip-tls-verify)
       - [Flag `--skip-tls-verify-pull`](#flag---skip-tls-verify-pull)
       - [Flag `--skip-tls-verify-registry`](#flag---skip-tls-verify-registry)
+      - [Flag `--snapshot-hash-workers`](#flag---snapshot-hash-workers)
       - [Flag `--snapshot-mode`](#flag---snapshot-mode)
       - [Flag `--tar-path`](#flag---tar-path)
       - [Flag `--target`](#flag---target)
@@ -157,6 +158,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_NATIVE_COPY`](#flag-ff_kaniko_native_copy)
       - [Flag `FF_KANIKO_NATIVE_INIT`](#flag-ff_kaniko_native_init)
       - [Flag `FF_KANIKO_OCI_SCRATCH_BASE`](#flag-ff_kaniko_oci_scratch_base)
+      - [Flag `FF_KANIKO_PARALLEL_HASH`](#flag-ff_kaniko_parallel_hash)
       - [Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`](#flag-ff_kaniko_path_scoped_registry_auth)
       - [Flag `FF_KANIKO_PEEK_ARCHIVE_HEADER`](#flag-ff_kaniko_peek_archive_header)
       - [Flag `FF_KANIKO_PLATFORM_CACHE_KEY`](#flag-ff_kaniko_platform_cache_key)
@@ -1086,6 +1088,10 @@ validation when accessing the specified registry. It is supposed to be used for
 testing purposes only and should not be used in production! You can set it
 multiple times for multiple registries.
 
+#### Flag `--snapshot-hash-workers`
+
+Set `--snapshot-hash-workers=<n>` to hash the files of a snapshot on `n` goroutines. Defaults to `GOMAXPROCS`, at most 8.
+
 #### Flag `--snapshot-mode`
 
 You can set the `--snapshot-mode=<full (default), redo, time>` flag to set how
@@ -1429,6 +1435,13 @@ Becomes default in `v1.30.0`.
 When a Dockerfile uses `FROM scratch`, kaniko uses an empty Docker-format image as the build base, which means the output image is produced in Docker manifest schema v2 format.
 Set this flag to `true` to use an empty OCI-format image instead, causing `FROM scratch` builds to produce output in OCI manifest schema v1 format. Defaults to `false`.
 Currently no plans to activate.
+
+#### Flag `FF_KANIKO_PARALLEL_HASH`
+
+After each `RUN`, kaniko hashes the files of the whole filesystem one at a time, which is slow for large images.
+Set this flag to `true` to hash them in parallel. [`--snapshot-hash-workers`](#flag---snapshot-hash-workers) sets how many at once.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`
 
