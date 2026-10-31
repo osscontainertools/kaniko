@@ -216,11 +216,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					}
 				}
 			// https://docs.docker.com/reference/dockerfile/#run---mounttypetmpfs
-			case m.Type == instructions.MountTypeTmpfs:
-				if !kConfig.FF.RunMountTmpfs {
-					logrus.Warnf("Kaniko feature flag FF_KANIKO_RUN_MOUNT_TMPFS is disabled - skipping tmpfs mount %s", m.Target)
-					continue
-				}
+			case m.Type == instructions.MountTypeTmpfs && kConfig.FF.RunMountTmpfs:
 				target := m.Target
 				if target == "" {
 					return errors.New("tmpfs mount target must be specified")
