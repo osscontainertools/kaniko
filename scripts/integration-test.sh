@@ -21,15 +21,16 @@ function start_local_registry {
 
 function start_local_auth_server {
   local dir="/tmp/kaniko-tls-registry"
+  local image="cesanta/docker_auth:1.14.0"
   "$(dirname "$0")/setup-tls-registry-creds.sh"
-  if ! docker start kaniko-auth-server 2>/dev/null; then
+  if [[ "$(docker inspect -f '{{.Config.Image}}' kaniko-auth-server 2>/dev/null)" != "${image}" ]] || ! docker start kaniko-auth-server 2>/dev/null; then
     docker rm -f kaniko-auth-server 2>/dev/null || true
     docker run -d --name kaniko-auth-server \
       -p 5002:5002 \
       -v "${dir}/tls.crt:/certs/tls.crt:ro" \
       -v "${dir}/tls.key:/certs/tls.key:ro" \
       -v "${dir}/auth_config.yml:/config/auth_config.yml:ro" \
-      cesanta/docker_auth:1.14.0 /config/auth_config.yml
+      "${image}" /config/auth_config.yml
   fi
 }
 
