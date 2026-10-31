@@ -1563,7 +1563,7 @@ Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_RUN_MOUNT_TMPFS`
 
-Supports `--mount=type=tmpfs` flags in `RUN` instructions, creating temporary tmpfs mounts for the duration of the command execution in a manner consistent with BuildKit.
+Supports `--mount=type=tmpfs` flags in `RUN` instructions. The target is an empty directory for the duration of the command, and its contents are discarded afterwards.
 Set this flag to `true` to enable tmpfs mounts in `RUN` statements.
 Defaults to `false`.
 
