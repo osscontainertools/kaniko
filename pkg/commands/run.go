@@ -260,7 +260,11 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					}
 					if created != "" {
 						defer assignIfNil(&reterr, func() error {
-							return os.RemoveAll(created)
+							err := os.RemoveAll(target)
+							if err != nil {
+								return err
+							}
+							return removeEmptyDirs(filepath.Dir(target), created)
 						})
 					} else {
 						defer assignIfNil(&reterr, func() error {
