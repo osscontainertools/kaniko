@@ -1249,7 +1249,7 @@ Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_ADD_CHOWN_TAR`
 
-`ADD --chown` is not applied to an extracted archive. A local archive keeps the owners recorded in the tar, and a download extracted with `--unpack=true` is owned by `0:0`.
+`ADD --chown` is not applied to an extracted archive, the files keep the owners recorded in the tar.
 Set this flag to `true` to apply `--chown` to the extracted files.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
