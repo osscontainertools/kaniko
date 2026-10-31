@@ -1314,7 +1314,7 @@ COPY --from=debian:13.7@sha256:15a71cc87173e191d5046f9c4288db4e8954b67f92e48d958
 		"-v", tmpDir+":/workspace",
 		WarmerImage,
 		"--cache-dir=/workspace/cache",
-		"-f", "/workspace/Dockerfile")
+		"-d", "/workspace/Dockerfile")
 
 	warmCmd := exec.Command("docker", dockerRunFlags...)
 	out, err := RunCommandWithoutTest(warmCmd)
