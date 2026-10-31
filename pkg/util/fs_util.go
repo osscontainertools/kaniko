@@ -30,7 +30,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -47,6 +46,7 @@ import (
 	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 	mode "github.com/tonistiigi/dchapes-mode"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/unix"
 )
 
@@ -1721,40 +1721,31 @@ func HashWorkers(n int) int {
 }
 
 // runChangeFunc calls changeFunc on every path with workers goroutines. It
-// returns, per index, whether the path changed, or the first error any worker
-// hit. After an error no further path is started.
+// returns, per index, the hash and whether the path changed, or the first
+// error any worker hit.
 func runChangeFunc(paths []string, changeFunc func(string) (string, bool, error), workers int) ([]string, []bool, error) {
 	hashed := make([]string, len(paths))
 	changed := make([]bool, len(paths))
-	var (
-		next     atomic.Int64
-		failed   atomic.Bool
-		errOnce  sync.Once
-		firstErr error
-		wg       sync.WaitGroup
-	)
+	var next atomic.Int64
+	var g errgroup.Group
 	for range min(workers, len(paths)) {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		g.Go(func() error {
 			for {
 				i := next.Add(1) - 1
-				if i >= int64(len(paths)) || failed.Load() {
-					return
+				if i >= int64(len(paths)) {
+					return nil
 				}
 				hash, isChanged, err := changeFunc(paths[i])
 				if err != nil {
-					errOnce.Do(func() { firstErr = err })
-					failed.Store(true)
-					return
+					return err
 				}
 				hashed[i] = hash
 				changed[i] = isChanged
 			}
-		}()
+		})
 	}
-	wg.Wait()
-	return hashed, changed, firstErr
+	err := g.Wait()
+	return hashed, changed, err
 }
 
 // GetFSInfoMap given a directory gets a map of FileInfo for all files
