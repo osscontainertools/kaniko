@@ -223,6 +223,9 @@ var RootCmd = &cobra.Command{
 			if opts.SnapshotHashWorkers < 1 {
 				return fmt.Errorf("--snapshot-hash-workers=%d must be at least 1", opts.SnapshotHashWorkers)
 			}
+			if cmd.Flags().Changed("snapshot-hash-workers") && !config.FF.ParallelHash {
+				logrus.Warn("--snapshot-hash-workers has no effect without FF_KANIKO_PARALLEL_HASH")
+			}
 			if len(opts.Destinations) == 0 && opts.ImageNameDigestFile != "" {
 				return errors.New("you must provide --destination if setting ImageNameDigestFile")
 			}
