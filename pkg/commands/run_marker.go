@@ -79,6 +79,10 @@ func (r *RunMarkerCommand) CacheKey(replacementEnvs []string) (string, error) {
 	return runCacheKey(r.cmd), nil
 }
 
+func (r *RunMarkerCommand) CrossStageSources(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
+	return runCrossStageSources(r.cmd, config, buildArgs)
+}
+
 // CacheCommand returns true since this command should be cached
 func (r *RunMarkerCommand) CacheCommand(img v1.Image) DockerCommand {
 	return &CachingRunCommand{

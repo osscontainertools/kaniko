@@ -47,7 +47,6 @@ func Test_ParseStages_ArgValueWithQuotes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	defer os.Remove(tmpfile.Name())
 
 	if _, err := tmpfile.WriteString(dockerfile); err != nil {
@@ -74,6 +73,60 @@ func Test_ParseStages_ArgValueWithQuotes(t *testing.T) {
 		if metaArgs[i].Args[0].ValueString() != expectedVal {
 			t.Fatalf("expected metaArg %d val to be %s but was %s", i, expectedVal, metaArgs[i].Args[0].ValueString())
 		}
+	}
+}
+
+func TestMakeKanikoStagesRunCrossStageBindMount(t *testing.T) {
+	originalFlag := config.FF.RunCrossStageBindMount
+	defer func() { config.FF.RunCrossStageBindMount = originalFlag }()
+
+	dockerfileText := []byte(`
+FROM scratch AS build
+RUN mkdir /artifact
+FROM scratch AS final
+RUN --mount=type=bind,from=build,source=/artifact,target=/mounted test -d /mounted
+`)
+	stages, metaArgs, err := Parse(dockerfileText)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config.FF.RunCrossStageBindMount = true
+	kanikoStages, err := MakeKanikoStages(&config.KanikoOptions{}, stages, metaArgs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(kanikoStages) != 2 {
+		t.Fatalf("expected source stage to be retained, got %d stages", len(kanikoStages))
+	}
+	run, ok := kanikoStages[1].Commands[0].(*instructions.RunCommand)
+	if !ok {
+		t.Fatalf("expected RUN command, got %T", kanikoStages[1].Commands[0])
+	}
+	if got := instructions.GetMounts(run)[0].From; got != "0" {
+		t.Errorf("expected source stage index 0, got %q", got)
+	}
+
+	config.FF.RunCrossStageBindMount = false
+	kanikoStages, err = MakeKanikoStages(&config.KanikoOptions{}, stages, metaArgs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(kanikoStages) != 1 {
+		t.Errorf("expected unused source stage to be omitted when the flag is disabled, got %d stages", len(kanikoStages))
+	}
+
+	config.FF.RunCrossStageBindMount = true
+	invalidStageDockerfile := []byte(`
+FROM scratch AS final
+RUN --mount=type=bind,from=-1,source=/artifact,target=/mounted true
+`)
+	stages, metaArgs, err = Parse(invalidStageDockerfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := MakeKanikoStages(&config.KanikoOptions{}, stages, metaArgs); err == nil {
+		t.Fatal("expected a negative RUN mount stage index to be rejected")
 	}
 }
 
