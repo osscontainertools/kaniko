@@ -54,7 +54,7 @@ LABEL maintainer="alexezio"
 }
 
 func TestParseDockerfile_MultiStageDockerfile(t *testing.T) {
-	dockerfile := `FROM golang:1.20 as BUILDER
+	dockerfile := `FROM golang:1.27.3@sha256:2920bb124f1a2e12a1d39f0cab756ae0068441ee1da7655dec7f5e374944095b as BUILDER
 LABEL maintainer="alexezio"
 
 FROM alpine:latest as RUNNER
@@ -81,8 +81,8 @@ LABEL maintainer="alexezio"
 	if len(baseNames) != 2 {
 		t.Fatalf("expected 2 base name, got %d", len(baseNames))
 	}
-	if baseNames[0] != "golang:1.20" {
-		t.Fatalf("expected 'golang:1.20', got '%s'", baseNames[0])
+	if baseNames[0] != "golang:1.27.3@sha256:2920bb124f1a2e12a1d39f0cab756ae0068441ee1da7655dec7f5e374944095b" {
+		t.Fatalf("expected 'golang:1.27.3@sha256:2920bb124f1a2e12a1d39f0cab756ae0068441ee1da7655dec7f5e374944095b', got '%s'", baseNames[0])
 	}
 
 	if baseNames[1] != "alpine:latest" {
@@ -137,11 +137,11 @@ FROM alpine:latest AS builder
 RUN touch /file.txt
 
 FROM debian:buster
-COPY --from=builder /file.txt /file.txt
+COPY --from=BUILDER /file.txt /file.txt
 COPY --from=0 /file.txt /file2.txt
-COPY --from=golang:1.20 /usr/local/go /usr/local/go
+COPY --from=golang:1.27.3@sha256:2920bb124f1a2e12a1d39f0cab756ae0068441ee1da7655dec7f5e374944095b /usr/local/go /usr/local/go
 COPY --from=$TOOLS /bin/busybox /bin/busybox
-COPY --from=golang:1.20 /usr/local/go /opt/go
+COPY --from=golang:1.27.3@sha256:2920bb124f1a2e12a1d39f0cab756ae0068441ee1da7655dec7f5e374944095b /usr/local/go /opt/go
 `
 	tmpfile, err := os.CreateTemp("", "example")
 	if err != nil {
@@ -161,8 +161,8 @@ COPY --from=golang:1.20 /usr/local/go /opt/go
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	// Expected: alpine:latest, debian:buster, golang:1.20, busybox:latest
-	expected := []string{"alpine:latest", "debian:buster", "golang:1.20", "busybox:latest"}
+	// Expected: alpine:latest, debian:buster, golang:1.27.3@sha256:2920bb124f1a2e12a1d39f0cab756ae0068441ee1da7655dec7f5e374944095b, busybox:latest
+	expected := []string{"alpine:latest", "debian:buster", "golang:1.27.3@sha256:2920bb124f1a2e12a1d39f0cab756ae0068441ee1da7655dec7f5e374944095b", "busybox:latest"}
 	if len(baseNames) != len(expected) {
 		t.Fatalf("expected %d base names, got %d: %v", len(expected), len(baseNames), baseNames)
 	}

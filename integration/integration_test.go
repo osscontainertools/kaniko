@@ -1197,11 +1197,16 @@ func TestCache(t *testing.T) {
 
 func TestWarmer(t *testing.T) {
 	t.Parallel()
-	populateVolumeCache(t, config)
 
 	for dockerfile := range imageBuilder.TestWarmerDockerfiles {
 		t.Run("test_warmer_"+dockerfile, func(t *testing.T) {
 			t.Parallel()
+			testCacheDir := t.TempDir()
+
+			if err := imageBuilder.WarmDockerfile(t, config, dockerfilesPath, dockerfile, testCacheDir); err != nil {
+				t.Fatalf("error warming cache for %s: %v", dockerfile, err)
+			}
+
 			args, ok := additionalKanikoFlagsMap[dockerfile]
 			imageRepo := config.imageRepo
 			if !ok {
@@ -1209,12 +1214,12 @@ func TestWarmer(t *testing.T) {
 			}
 
 			// Build the initial without warmer
-			if err := imageBuilder.buildWarmerImage(t, config, dockerfilesPath, dockerfile, 0, args, false); err != nil {
+			if err := imageBuilder.buildWarmerImage(t, config, dockerfilesPath, dockerfile, 0, args, false, testCacheDir); err != nil {
 				t.Fatalf("error building cached image for the first time: %v", err)
 			}
 
 			// Build the second with warmer
-			if err := imageBuilder.buildWarmerImage(t, config, dockerfilesPath, dockerfile, 1, args, true); err != nil {
+			if err := imageBuilder.buildWarmerImage(t, config, dockerfilesPath, dockerfile, 1, args, true, testCacheDir); err != nil {
 				t.Fatalf("error building cached image for the second time: %v", err)
 			}
 

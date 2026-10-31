@@ -398,7 +398,7 @@ outer:
 		stageNames := make(map[string]bool)
 		for _, s := range stages {
 			if s.Name != "" {
-				stageNames[s.Name] = true
+				stageNames[strings.ToLower(s.Name)] = true
 			}
 		}
 
@@ -419,7 +419,7 @@ outer:
 					// Numeric index referring to a previous stage
 					continue
 				}
-				if stageNames[resolvedFrom] {
+				if stageNames[strings.ToLower(resolvedFrom)] {
 					// Named stage reference
 					continue
 				}
