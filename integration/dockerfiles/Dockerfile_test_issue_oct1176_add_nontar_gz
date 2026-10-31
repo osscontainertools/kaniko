@@ -1,3 +1,0 @@
-# oct1176: ADD nontar.gz
-FROM scratch
-ADD context/tars/file.gz /gz/
