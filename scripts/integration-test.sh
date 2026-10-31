@@ -29,7 +29,7 @@ function start_local_auth_server {
       -v "${dir}/tls.crt:/certs/tls.crt:ro" \
       -v "${dir}/tls.key:/certs/tls.key:ro" \
       -v "${dir}/auth_config.yml:/config/auth_config.yml:ro" \
-      cesanta/docker_auth:1 /config/auth_config.yml
+      cesanta/docker_auth:1.14.0 /config/auth_config.yml
   fi
 }
 

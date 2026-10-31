@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: auth-server
-          image: cesanta/docker_auth:1
+          image: cesanta/docker_auth:1.14.0
           args: ["/config/auth_config.yml"]
           ports:
             - containerPort: 5002
