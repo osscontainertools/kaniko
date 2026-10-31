@@ -206,7 +206,6 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 
 	workers := 0
 	if config.FF.ParallelHash {
-		// CheckFileChange and the hashers are safe for concurrent use
 		workers = util.HashWorkers(s.hashWorkers)
 	}
 	changedPaths, hashes, deletedPaths, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), s.l.CheckFileChange, workers)
