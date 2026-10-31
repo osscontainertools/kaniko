@@ -44,7 +44,8 @@ KANIKO_PROJECT = $(REPOPATH)/kaniko
 BUILD_ARG ?=
 COVER ?=
 RACE ?=
-RACE_GCFLAGS := -gcflags='compress/...=-race=false' -gcflags='hash/...=-race=false' -gcflags='archive/tar=-race=false' -gcflags='github.com/klauspost/compress/...=-race=false'
+# excluding archive/tar reports false races in go-containerregistry's push
+RACE_GCFLAGS := -gcflags='compress/...=-race=false' -gcflags='hash/...=-race=false' -gcflags='github.com/klauspost/compress/...=-race=false'
 # the image has no glibc NSS for cgo user and host lookups
 RACE_TAGS := ,netgo,osusergo
 
