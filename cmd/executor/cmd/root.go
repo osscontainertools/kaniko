@@ -356,7 +356,7 @@ func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().StringVarP(&ctxSubPath, "context-sub-path", "", "", "Sub path within the given context.")
 	cmd.Flags().StringVarP(&opts.Bucket, "bucket", "b", "", "Name of the GCS bucket from which to access build context as tarball.")
 	cmd.Flags().StringVarP(&opts.SnapshotMode, "snapshot-mode", "", "full", "Change the file attributes inspected during snapshotting")
-	cmd.Flags().IntVar(&opts.SnapshotHashWorkers, "snapshot-hash-workers", min(runtime.GOMAXPROCS(0), 8), "Number of goroutines hashing files during a snapshot with FF_KANIKO_PARALLEL_HASH. Defaults to GOMAXPROCS, at most 8.")
+	cmd.Flags().IntVar(&opts.SnapshotHashWorkers, "snapshot-hash-workers", min(runtime.GOMAXPROCS(0), 8), "Number of goroutines hashing files during a snapshot. Defaults to GOMAXPROCS, at most 8.")
 	cmd.Flags().StringVarP(&opts.CustomPlatform, "custom-platform", "", "", "Specify the build platform if different from the current host")
 	cmd.Flags().VarP(&opts.BuildArgs, "build-arg", "", "This flag allows you to pass in ARG values at build time. Set it repeatedly for multiple values.")
 	cmd.Flags().IntVar(&opts.ImageFSExtractRetry, "image-fs-extract-retry", 0, "Number of retries for image FS extraction")

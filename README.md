@@ -1090,7 +1090,7 @@ multiple times for multiple registries.
 
 #### Flag `--snapshot-hash-workers`
 
-Set `--snapshot-hash-workers=<n>` to hash the files of a snapshot on `n` goroutines with [`FF_KANIKO_PARALLEL_HASH`](#flag-ff_kaniko_parallel_hash). Defaults to `GOMAXPROCS`, at most 8.
+Set `--snapshot-hash-workers=<n>` to hash the files of a snapshot on `n` goroutines. Defaults to `GOMAXPROCS`, at most 8.
 
 #### Flag `--snapshot-mode`
 
