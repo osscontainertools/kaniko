@@ -1415,7 +1415,7 @@ Will be deprecated in `v1.30.0`.
 #### Flag `FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR`
 
 `ADD` takes any local compressed file for a tar archive, so a gzip file whose content is not a tar fails with `unpacking local tar: unexpected EOF`.
-Set this flag to `true` to decompress the file and read the first tar header before unpacking it.
+Set this flag to `true` to add such a file as it is.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
 
