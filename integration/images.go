@@ -186,6 +186,7 @@ var envsMap = map[string][]string{
 
 var KanikoEnv = []string{
 	"FF_KANIKO_ADD_CHECKSUM=1",
+	"FF_KANIKO_ADD_CHOWN_TAR=1",
 	"FF_KANIKO_ADD_UNPACK=1",
 	"FF_KANIKO_CACHE_HASH_BLAKE3=1",
 	"FF_KANIKO_CACHE_IMAGE_INDEX=1",

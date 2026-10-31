@@ -1249,10 +1249,10 @@ Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_ADD_CHOWN_TAR`
 
-`ADD --chown` is applied to the entries of an extracted archive. Explicit entries in the tar archive and the destination directory receive the specified `--chown` owner, while directories that only exist implicitly in the tar remain owned by root (`0:0`).
-Set this flag to `true` to apply `--chown` to extracted archive entries, matching Docker and BuildKit.
-Defaults to `true`.
-Will be deprecated in `v1.30.0`.
+`ADD --chown` is not applied to an extracted archive. A local archive keeps the owners recorded in the tar, and a download extracted with `--unpack=true` is owned by `0:0`.
+Set this flag to `true` to give the archive entries and a newly created destination directory the `--chown` owner. Directories that only exist implicitly in the tar stay `0:0`.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_ADD_UNPACK`
 
