@@ -1288,6 +1288,60 @@ func TestWarmerTwice(t *testing.T) {
 	}
 }
 
+func TestWarmerCopyFromDockerfile(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	dockerfileContent := `FROM alpine:latest
+COPY --from=debian:13.7@sha256:15a71cc87173e191d5046f9c4288db4e8954b67f92e48d9587087826b0afe562 /etc/issue /etc/issue-copy
+`
+	dockerfilePath := filepath.Join(tmpDir, "Dockerfile")
+	if err := os.WriteFile(dockerfilePath, []byte(dockerfileContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cachePath := filepath.Join(tmpDir, "cache")
+	if err := os.MkdirAll(cachePath, 0o777); err != nil {
+		t.Fatal(err)
+	}
+
+	// Warm the Dockerfile using --dockerfile
+	dockerRunFlags := []string{"run", "--net=host", "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())}
+	dockerRunFlags = addAuthFlags(dockerRunFlags)
+	for _, envVariable := range WarmerEnv {
+		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
+	}
+	dockerRunFlags = append(dockerRunFlags,
+		"-v", tmpDir+":/workspace",
+		WarmerImage,
+		"--cache-dir=/workspace/cache",
+		"-f", "/workspace/Dockerfile")
+
+	warmCmd := exec.Command("docker", dockerRunFlags...)
+	out, err := RunCommandWithoutTest(warmCmd)
+	t.Logf("Warmer output:\n%s", out)
+	if err != nil {
+		t.Fatalf("Unable to warm dockerfile: %s", err)
+	}
+
+	// Verify that debian manifest digest from COPY --from was cached in the cache directory
+	expectedCacheEntry := filepath.Join(cachePath, "sha256:"+debian137Digest)
+	if _, err := os.Stat(expectedCacheEntry); err != nil {
+		t.Fatalf("expected COPY --from image to be cached at %s, but stat failed: %v", expectedCacheEntry, err)
+	}
+
+	// Run warmer again and verify it is recognized as already in cache
+	warmCmd2 := exec.Command("docker", dockerRunFlags...)
+	out2, err := RunCommandWithoutTest(warmCmd2)
+	t.Logf("Second warmer output:\n%s", out2)
+	if err != nil {
+		t.Fatalf("Unable to run second warm: %s", err)
+	}
+	s := "Image already in cache: debian:13.7@sha256:15a71cc87173e191d5046f9c4288db4e8954b67f92e48d9587087826b0afe562"
+	if !strings.Contains(string(out2), s) {
+		t.Fatalf("output must contain %s", s)
+	}
+}
+
 func TestWarmerIndexAcrossPlatforms(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()

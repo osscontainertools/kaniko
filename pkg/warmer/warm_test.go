@@ -131,6 +131,61 @@ func TestParseDockerfile_MissingsDockerfile(t *testing.T) {
 	}
 }
 
+func TestParseDockerfile_CopyFrom(t *testing.T) {
+	dockerfile := `ARG TOOLS=busybox:latest
+FROM alpine:latest AS builder
+RUN touch /file.txt
+
+FROM debian:buster
+COPY --from=builder /file.txt /file.txt
+COPY --from=0 /file.txt /file2.txt
+COPY --from=golang:1.20 /usr/local/go /usr/local/go
+COPY --from=$TOOLS /bin/busybox /bin/busybox
+COPY --from=golang:1.20 /usr/local/go /opt/go
+`
+	tmpfile, err := os.CreateTemp("", "example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+
+	if _, err := tmpfile.WriteString(dockerfile); err != nil {
+		t.Fatal(err)
+	}
+	if err := tmpfile.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	opts := &config.WarmerOptions{DockerfilePath: tmpfile.Name()}
+	baseNames, err := ParseDockerfile(opts)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	// Expected: alpine:latest, debian:buster, golang:1.20, busybox:latest
+	expected := []string{"alpine:latest", "debian:buster", "golang:1.20", "busybox:latest"}
+	if len(baseNames) != len(expected) {
+		t.Fatalf("expected %d base names, got %d: %v", len(expected), len(baseNames), baseNames)
+	}
+	for i, exp := range expected {
+		if baseNames[i] != exp {
+			t.Errorf("expected baseNames[%d] to be %s, got %s", i, exp, baseNames[i])
+		}
+	}
+
+	// Test with feature flag disabled
+	config.FF.CacheCopyFrom = false
+	defer func() { config.FF.CacheCopyFrom = true }()
+
+	baseNamesDisabled, err := ParseDockerfile(opts)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	expectedDisabled := []string{"alpine:latest", "debian:buster"}
+	if len(baseNamesDisabled) != len(expectedDisabled) {
+		t.Fatalf("expected %d base names when FF_KANIKO_CACHE_COPY_FROM is false, got %d: %v", len(expectedDisabled), len(baseNamesDisabled), baseNamesDisabled)
+	}
+}
+
 func TestParseDockerfile_InvalidsDockerfile(t *testing.T) {
 	dockerfile := "This is a invalid dockerfile"
 	tmpfile, err := os.CreateTemp("", "example")

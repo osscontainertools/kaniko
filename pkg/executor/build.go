@@ -67,12 +67,14 @@ import (
 
 // for testing
 var (
-	initializeConfig             = initConfig
-	getFSFromImage               = util.GetFSFromImage
-	mkdirPermissions os.FileMode = 0o755
-	pushCache                    = pushLayerToCache
-	pushPointer                  = pushCachePointer
-	NewLayerCache                = newLayerCacheImpl
+	initializeConfig                    = initConfig
+	getFSFromImage                      = util.GetFSFromImage
+	mkdirPermissions        os.FileMode = 0o755
+	pushCache                           = pushLayerToCache
+	pushPointer                         = pushCachePointer
+	NewLayerCache                       = newLayerCacheImpl
+	cachedImageFunc                     = image_util.CachedImage
+	retrieveRemoteImageFunc             = remote.RetrieveRemoteImage
 )
 
 var deferredCachePushes errgroup.Group
@@ -2164,9 +2166,28 @@ func resolveExtraStageDigests(stages []config.KanikoStage, opts *config.KanikoOp
 
 			// This must be an image name, fetch its manifest.
 			logrus.Debugf("Found extra base image stage %s", c.From)
-			sourceImage, err := remote.RetrieveRemoteImage(c.From, opts.RegistryOptions, opts.CustomPlatform)
-			if err != nil {
-				return nil, nil, err
+			var sourceImage v1.Image
+			var err error
+			if config.FF.CacheCopyFrom && opts.Cache && opts.CacheDir != "" {
+				cached, cacheErr := cachedImageFunc(opts, c.From)
+				if cacheErr != nil {
+					switch {
+					case cache.IsNotFound(cacheErr):
+						logrus.Debugf("Image %v not found in cache", c.From)
+					case cache.IsExpired(cacheErr):
+						logrus.Debugf("Image %v found in cache but was expired", c.From)
+					default:
+						logrus.Errorf("Error while retrieving image from cache: %v %v", c.From, cacheErr)
+					}
+				} else if cached != nil {
+					sourceImage = cached
+				}
+			}
+			if sourceImage == nil {
+				sourceImage, err = retrieveRemoteImageFunc(c.From, opts.RegistryOptions, opts.CustomPlatform)
+				if err != nil {
+					return nil, nil, err
+				}
 			}
 			digest, err := sourceImage.Digest()
 			if err != nil {
