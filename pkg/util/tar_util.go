@@ -258,6 +258,9 @@ func UnpackLocalTarArchive(path, dest string) ([]string, error) {
 
 // IsFileLocalTarArchive returns true if the file is a local tar archive
 func IsFileLocalTarArchive(src string) bool {
+	if config.FF.LocalUnpackRequiresTar {
+		return IsFileTarArchive(src)
+	}
 	compressed, _ := fileIsCompressedTar(src)
 	uncompressed := fileIsUncompressedTar(src)
 	return compressed || uncompressed
