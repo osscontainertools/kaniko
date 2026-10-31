@@ -1789,7 +1789,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 					return errors.New("context snapshot is missing")
 				}
 				t := timing.Start("Restoring context")
-				_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
+				_, err := util.UnpackLocalTarArchive(tarball, config.RootDir, nil)
 				t.End()
 				if err != nil {
 					return fmt.Errorf("failed to unpack context snapshot: %w", err)

@@ -131,6 +131,7 @@ expect - see [Known Issues](#known-issues).
     - [Feature Flags](#feature-flags)
       - [Profiles](#profiles)
       - [Flag `FF_KANIKO_ADD_CHECKSUM`](#flag-ff_kaniko_add_checksum)
+      - [Flag `FF_KANIKO_ADD_CHOWN_TAR`](#flag-ff_kaniko_add_chown_tar)
       - [Flag `FF_KANIKO_ADD_UNPACK`](#flag-ff_kaniko_add_unpack)
       - [Flag `FF_KANIKO_CACHE_HASH_BLAKE3`](#flag-ff_kaniko_cache_hash_blake3)
       - [Flag `FF_KANIKO_CACHE_IMAGE_INDEX`](#flag-ff_kaniko_cache_image_index)
@@ -1252,6 +1253,13 @@ FF_KANIKO_UNPACK_XZ=true
 Set this flag to `true` to verify the download and fail the build on a mismatch.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_ADD_CHOWN_TAR`
+
+`ADD --chown` is not applied to an extracted archive, the files keep the owners recorded in the tar.
+Set this flag to `true` to apply `--chown` to the extracted files.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_ADD_UNPACK`
 

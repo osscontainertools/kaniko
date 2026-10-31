@@ -89,6 +89,11 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		}
 	}
 
+	var chownOwner *util.Owner
+	if kConfig.FF.AddChownTar && a.cmd.Chown != "" {
+		chownOwner = owner
+	}
+
 	srcs, dest, err := util.ResolveEnvAndWildcards(a.cmd.SourcesAndDest, a.fileContext, replacementEnvs)
 	if err != nil {
 		return err
@@ -172,8 +177,19 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 						return fmt.Errorf("materializing link destination: %w", err)
 					}
 				}
+				if chownOwner != nil {
+					_, err := os.Stat(tarDest)
+					if os.IsNotExist(err) {
+						if err := util.MkdirAllWithPermissions(tarDest, 0o755, *chownOwner, true); err != nil {
+							return fmt.Errorf("creating tar destination directory: %w", err)
+						}
+						a.snapshotFiles = append(a.snapshotFiles, tarDest)
+					} else if err != nil {
+						return fmt.Errorf("checking tar destination: %w", err)
+					}
+				}
 				logrus.Infof("Unpacking remote archive %s to %s", src, tarDest)
-				extractedFiles, err := util.UnpackLocalTarArchive(download, tarDest)
+				extractedFiles, err := util.UnpackLocalTarArchive(download, tarDest, chownOwner)
 				if err != nil {
 					return fmt.Errorf("unpacking remote archive: %w", err)
 				}
@@ -227,8 +243,19 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 					return fmt.Errorf("materializing link destination: %w", err)
 				}
 			}
+			if chownOwner != nil {
+				_, err := os.Stat(tarDest)
+				if os.IsNotExist(err) {
+					if err := util.MkdirAllWithPermissions(tarDest, 0o755, *chownOwner, true); err != nil {
+						return fmt.Errorf("creating tar destination directory: %w", err)
+					}
+					a.snapshotFiles = append(a.snapshotFiles, tarDest)
+				} else if err != nil {
+					return fmt.Errorf("checking tar destination: %w", err)
+				}
+			}
 			logrus.Infof("Unpacking local tar archive %s to %s", src, tarDest)
-			extractedFiles, err := util.UnpackLocalTarArchive(fullPath, tarDest)
+			extractedFiles, err := util.UnpackLocalTarArchive(fullPath, tarDest, chownOwner)
 			if err != nil {
 				return fmt.Errorf("unpacking local tar: %w", err)
 			}
