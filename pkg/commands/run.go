@@ -254,19 +254,15 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					if err != nil {
 						return fmt.Errorf("ensuring tmpfs target %s: %w", target, err)
 					}
-					if created != "" {
-						defer assignIfNil(&reterr, func() error {
-							err := os.RemoveAll(target)
-							if err != nil {
-								return err
-							}
-							return removeEmptyDirs(filepath.Dir(target), created)
-						})
-					} else {
-						defer assignIfNil(&reterr, func() error {
-							return os.RemoveAll(target)
-						})
-					}
+					// Lstat reported target missing, so ensureDir creates at least target itself.
+					assert.Assert("run.tmpfs-created", created != "", "ensureDir created nothing for missing tmpfs target %s", target)
+					defer assignIfNil(&reterr, func() error {
+						err := os.RemoveAll(target)
+						if err != nil {
+							return err
+						}
+						return removeEmptyDirs(filepath.Dir(target), created)
+					})
 				}
 
 			// https://docs.docker.com/reference/dockerfile/#run---mounttypebind
