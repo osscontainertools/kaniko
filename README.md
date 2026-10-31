@@ -1438,9 +1438,10 @@ Currently no plans to activate.
 
 #### Flag `FF_KANIKO_PARALLEL_HASH`
 
-The snapshot after a `RUN` walks the root filesystem and hashes every file on a single goroutine.
-Set this flag to `true` to hash on up to 8 goroutines, as many as `GOMAXPROCS`, which follows the CPU limit of the container. [`--snapshot-hash-workers`](#flag---snapshot-hash-workers) sets another number. The walk itself, and the files and whiteouts of the layer, stay as they are.
+After each `RUN`, kaniko hashes the files of the whole filesystem one at a time, which is slow for large images.
+Set this flag to `true` to hash them in parallel. [`--snapshot-hash-workers`](#flag---snapshot-hash-workers) sets how many at once.
 Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`
 
