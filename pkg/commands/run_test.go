@@ -130,6 +130,9 @@ func TestSetWorkDirIfExists(t *testing.T) {
 }
 
 func TestRunCommandWithFlags_TmpfsMount(t *testing.T) {
+	previous := kConfig.FF.RunMountTmpfs
+	kConfig.FF.RunMountTmpfs = true
+	t.Cleanup(func() { kConfig.FF.RunMountTmpfs = previous })
 	tmpDir := t.TempDir()
 	originalSwapDir := kConfig.KanikoSwapDir
 	kConfig.KanikoSwapDir = filepath.Join(tmpDir, "swap")
@@ -188,6 +191,9 @@ func TestRunCommandWithFlags_TmpfsMount(t *testing.T) {
 }
 
 func TestRunCommandWithFlags_TmpfsMount_NonExistentTarget(t *testing.T) {
+	previous := kConfig.FF.RunMountTmpfs
+	kConfig.FF.RunMountTmpfs = true
+	t.Cleanup(func() { kConfig.FF.RunMountTmpfs = previous })
 	tmpDir := t.TempDir()
 	targetPath := filepath.Join(tmpDir, "new_dir", "tmpfs_target")
 

@@ -1565,7 +1565,7 @@ Will be deprecated in `v1.30.0`.
 
 Supports `--mount=type=tmpfs` flags in `RUN` instructions, creating temporary tmpfs mounts for the duration of the command execution in a manner consistent with BuildKit.
 Set this flag to `true` to enable tmpfs mounts in `RUN` statements.
-Defaults to `true`.
+Defaults to `false`.
 
 #### Flag `FF_KANIKO_RUN_VIA_TINI`
 
