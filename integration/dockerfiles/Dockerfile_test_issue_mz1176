@@ -1,0 +1,4 @@
+# mz1176: through kaniko v1.29.0, ADD of a gzip file that is not a tar failed with `unpacking local tar: unexpected EOF`.
+FROM scratch
+ADD context/tars/plain.gz /gz/
+ADD context/tars/junk.gz /gz/

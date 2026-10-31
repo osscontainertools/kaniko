@@ -115,6 +115,9 @@ func setUpFilesAndTars(testDir string) error {
 		if err := createTar(testDir, gzr); err != nil {
 			return err
 		}
+		if err := gzr.Close(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
