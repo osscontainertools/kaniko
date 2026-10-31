@@ -178,10 +178,15 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 					}
 				}
 				if chownOwner != nil {
-					if err := util.MkdirAllWithPermissions(tarDest, 0o755, *chownOwner, true); err != nil {
-						return fmt.Errorf("creating tar destination directory: %w", err)
+					_, err := os.Stat(tarDest)
+					if os.IsNotExist(err) {
+						if err := util.MkdirAllWithPermissions(tarDest, 0o755, *chownOwner, true); err != nil {
+							return fmt.Errorf("creating tar destination directory: %w", err)
+						}
+						a.snapshotFiles = append(a.snapshotFiles, tarDest)
+					} else if err != nil {
+						return fmt.Errorf("checking tar destination: %w", err)
 					}
-					a.snapshotFiles = append(a.snapshotFiles, tarDest)
 				}
 				logrus.Infof("Unpacking remote archive %s to %s", src, tarDest)
 				extractedFiles, err := util.UnpackLocalTarArchive(download, tarDest, chownOwner)
@@ -239,10 +244,15 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				}
 			}
 			if chownOwner != nil {
-				if err := util.MkdirAllWithPermissions(tarDest, 0o755, *chownOwner, true); err != nil {
-					return fmt.Errorf("creating tar destination directory: %w", err)
+				_, err := os.Stat(tarDest)
+				if os.IsNotExist(err) {
+					if err := util.MkdirAllWithPermissions(tarDest, 0o755, *chownOwner, true); err != nil {
+						return fmt.Errorf("creating tar destination directory: %w", err)
+					}
+					a.snapshotFiles = append(a.snapshotFiles, tarDest)
+				} else if err != nil {
+					return fmt.Errorf("checking tar destination: %w", err)
 				}
-				a.snapshotFiles = append(a.snapshotFiles, tarDest)
 			}
 			logrus.Infof("Unpacking local tar archive %s to %s", src, tarDest)
 			extractedFiles, err := util.UnpackLocalTarArchive(fullPath, tarDest, chownOwner)
