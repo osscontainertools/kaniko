@@ -20,6 +20,7 @@ import (
 	"archive/tar"
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -1712,10 +1713,10 @@ func runChangeFunc(paths []string, changeFunc func(string) (string, bool, error)
 	hashed := make([]string, len(paths))
 	changed := make([]bool, len(paths))
 	var next atomic.Int64
-	var g errgroup.Group
+	g, ctx := errgroup.WithContext(context.Background())
 	for range min(workers, len(paths)) {
 		g.Go(func() error {
-			for {
+			for ctx.Err() == nil {
 				i := next.Add(1) - 1
 				if i >= int64(len(paths)) {
 					return nil
@@ -1727,6 +1728,7 @@ func runChangeFunc(paths []string, changeFunc func(string) (string, bool, error)
 				hashed[i] = hash
 				changed[i] = isChanged
 			}
+			return nil
 		})
 	}
 	err := g.Wait()
