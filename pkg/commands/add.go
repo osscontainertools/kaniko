@@ -181,7 +181,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 					}
 				}
 				if chownOwner != nil {
-					if err := util.MkdirAllWithPermissions(tarDest, 0o755, *chownOwner, false); err != nil {
+					if err := util.MkdirAllWithPermissions(tarDest, 0o755, *chownOwner, true); err != nil {
 						return fmt.Errorf("creating tar destination directory: %w", err)
 					}
 					a.snapshotFiles = append(a.snapshotFiles, tarDest)
@@ -242,7 +242,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				}
 			}
 			if chownOwner != nil {
-				if err := util.MkdirAllWithPermissions(tarDest, 0o755, *chownOwner, false); err != nil {
+				if err := util.MkdirAllWithPermissions(tarDest, 0o755, *chownOwner, true); err != nil {
 					return fmt.Errorf("creating tar destination directory: %w", err)
 				}
 				a.snapshotFiles = append(a.snapshotFiles, tarDest)
