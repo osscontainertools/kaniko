@@ -29,6 +29,7 @@ import (
 type FeatureFlags struct {
 	AddChecksum                    bool
 	AddUnpack                      bool
+	CacheCopyFrom                  bool
 	CacheHashBlake3                bool
 	CacheImageIndex                bool
 	CacheLookahead                 bool
@@ -116,6 +117,7 @@ func InitFeatureFlags() {
 	FF = FeatureFlags{
 		AddChecksum:                    featureFlag("FF_KANIKO_ADD_CHECKSUM", true),
 		AddUnpack:                      featureFlag("FF_KANIKO_ADD_UNPACK", true),
+		CacheCopyFrom:                  featureFlag("FF_KANIKO_CACHE_COPY_FROM", true),
 		CacheHashBlake3:                featureFlag("FF_KANIKO_CACHE_HASH_BLAKE3", true),
 		CacheImageIndex:                featureFlag("FF_KANIKO_CACHE_IMAGE_INDEX", false),
 		CacheLookahead:                 featureFlag("FF_KANIKO_CACHE_LOOKAHEAD", true),

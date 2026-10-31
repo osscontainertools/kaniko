@@ -1,0 +1,6 @@
+FROM alpine:latest AS builder
+RUN touch /built.txt
+
+FROM debian:13.7@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308
+COPY --from=builder /built.txt /built.txt
+COPY --from=debian:13.7@sha256:15a71cc87173e191d5046f9c4288db4e8954b67f92e48d9587087826b0afe562 /etc/issue /etc/issue-from-copy

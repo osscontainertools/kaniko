@@ -131,6 +131,7 @@ expect - see [Known Issues](#known-issues).
       - [Profiles](#profiles)
       - [Flag `FF_KANIKO_ADD_CHECKSUM`](#flag-ff_kaniko_add_checksum)
       - [Flag `FF_KANIKO_ADD_UNPACK`](#flag-ff_kaniko_add_unpack)
+      - [Flag `FF_KANIKO_CACHE_COPY_FROM`](#flag-ff_kaniko_cache_copy_from)
       - [Flag `FF_KANIKO_CACHE_HASH_BLAKE3`](#flag-ff_kaniko_cache_hash_blake3)
       - [Flag `FF_KANIKO_CACHE_IMAGE_INDEX`](#flag-ff_kaniko_cache_image_index)
       - [Flag `FF_KANIKO_CACHE_LOOKAHEAD`](#flag-ff_kaniko_cache_lookahead)
@@ -1250,6 +1251,13 @@ Will be deprecated in `v1.30.0`.
 
 `ADD --unpack=<bool>` overrides whether a tar archive is extracted. A local archive is extracted and a URL download is not, so `--unpack=false` adds a local archive as a file and `--unpack=true` extracts a download. A source that turns out not to be an archive is added as a file either way. With this flag off kaniko parses the modifier and ignores it, so both sources keep their default treatment.
 Set this flag to `true` to honor `--unpack`.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_CACHE_COPY_FROM`
+
+Images referenced in `COPY --from=<image>` instructions are fetched directly from the registry without checking the local cache, and the cache warmer only discovers `FROM` base images.
+Set this flag to `true` to have the warmer cache images referenced by `COPY --from=<image>` and to have the executor resolve them from the local cache directory when available.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
 

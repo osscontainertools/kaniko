@@ -666,6 +666,13 @@ var warmerOutputChecks = map[string]func(string, []byte) error{
 		}
 		return nil
 	},
+	"Dockerfile_test_issue_oct1212_cache_copy_from": func(_ string, out []byte) error {
+		s := fmt.Sprintf("Found sha256:%s in local cache", debian137Digest)
+		if !strings.Contains(string(out), s) {
+			return fmt.Errorf("output must contain %s", s)
+		}
+		return nil
+	},
 }
 
 // expectedWarnings maps a Dockerfile name to a warning substring that must appear in its output.
@@ -832,7 +839,8 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_cache_copy_oci":    {},
 	}
 	d.TestWarmerDockerfiles = map[string]struct{}{
-		"Dockerfile_test_issue_mz320": {},
+		"Dockerfile_test_issue_mz320":                   {},
+		"Dockerfile_test_issue_oct1212_cache_copy_from": {},
 	}
 	d.TestMountDockerfiles = map[string]struct{}{
 		"Dockerfile_test_issue_mz1007": {},

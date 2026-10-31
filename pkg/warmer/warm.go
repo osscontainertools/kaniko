@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/containerd/platforms"
@@ -32,6 +33,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
+	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
@@ -391,5 +393,50 @@ outer:
 		}
 		baseNames = append(baseNames, resolvedBaseName)
 	}
+
+	if config.FF.CacheCopyFrom {
+		stageNames := make(map[string]bool)
+		for _, s := range stages {
+			if s.Name != "" {
+				stageNames[s.Name] = true
+			}
+		}
+
+		for _, s := range stages {
+			for _, cmd := range s.Commands {
+				c, ok := cmd.(*instructions.CopyCommand)
+				if !ok || c.From == "" {
+					continue
+				}
+				resolvedFrom, err := util.ResolveEnvironmentReplacement(c.From, args, false)
+				if err != nil {
+					return nil, fmt.Errorf("resolving COPY --from %s: %w", c.From, err)
+				}
+				if resolvedFrom == "" {
+					continue
+				}
+				if _, err := strconv.Atoi(resolvedFrom); err == nil {
+					// Numeric index referring to a previous stage
+					continue
+				}
+				if stageNames[resolvedFrom] {
+					// Named stage reference
+					continue
+				}
+				// Deduplicate
+				isDuplicate := false
+				for _, x := range baseNames {
+					if x == resolvedFrom {
+						isDuplicate = true
+						break
+					}
+				}
+				if !isDuplicate {
+					baseNames = append(baseNames, resolvedFrom)
+				}
+			}
+		}
+	}
+
 	return baseNames, nil
 }
