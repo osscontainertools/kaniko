@@ -32,3 +32,8 @@ RUN --mount=type=tmpfs,target=/tmp/existing_dir \
 # Test 4: After RUN step, original directory content is restored and tmpfs changes discarded
 RUN test -f /tmp/existing_dir/existing_file \
     && test ! -f /tmp/existing_dir/new_temp_file
+
+# Test 5: Parents created for the mount are kept when the command writes into them
+RUN --mount=type=tmpfs,target=/app/sub/.cache \
+    echo "kept" > /app/out \
+    && echo "discarded" > /app/sub/.cache/file
