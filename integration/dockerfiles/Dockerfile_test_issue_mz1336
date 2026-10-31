@@ -1,0 +1,11 @@
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
+
+RUN --mount=type=cache,target=/cache/sub/.cache \
+    echo "kept" > /cache/out
+
+RUN --mount=type=secret,id=foo,target=/secret/sub/foo \
+    echo "kept" > /secret/out
+
+RUN --mount=type=bind,target=/bind/sub/ctx \
+    echo "kept" > /bind/out
