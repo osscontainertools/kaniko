@@ -138,10 +138,10 @@ func buildRequiredImages() error {
 		command []string
 	}{{
 		name:    "Building kaniko image",
-		command: []string{"docker", "build", coverArg, "-t", ExecutorImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-executor", ".."},
+		command: []string{"docker", "build", coverArg, "--build-arg=RACE=1", "-t", ExecutorImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-executor", ".."},
 	}, {
 		name:    "Building cache warmer image",
-		command: []string{"docker", "build", coverArg, "-t", WarmerImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-warmer", ".."},
+		command: []string{"docker", "build", coverArg, "--build-arg=RACE=1", "-t", WarmerImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-warmer", ".."},
 	}, {
 		name:    "Building busybox base image",
 		command: []string{"docker", "build", "--push", "-t", config.busyboxBaseImage, "-f", dockerfilesPath + "/Dockerfile_busybox_base", "."},
@@ -188,7 +188,7 @@ func buildRequiredImages() error {
 			"--target", "base", "--build-arg", "IMAGE_REPO="+config.imageRepo, "."),
 	}, {
 		name:    "Building kaniko image based on alpine",
-		command: []string{"docker", "build", coverArg, "-t", AlpineImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-alpine", ".."},
+		command: []string{"docker", "build", coverArg, "--build-arg=RACE=1", "-t", AlpineImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-alpine", ".."},
 	}}
 
 	for _, setupCmd := range setupCommands {
