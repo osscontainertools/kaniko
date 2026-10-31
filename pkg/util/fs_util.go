@@ -28,7 +28,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -1704,20 +1703,6 @@ func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(st
 	}
 
 	return foundPaths, hashes, deletedFiles, nil
-}
-
-// maxHashWorkers caps HashWorkers: beyond it, more readers mostly contend for
-// the disk and the locks changeFunc takes per file.
-const maxHashWorkers = 8
-
-// HashWorkers is the pool size of a parallel WalkFS: n when set
-// (--snapshot-hash-workers), else GOMAXPROCS up to maxHashWorkers. GOMAXPROCS
-// follows the CPU quota of the container's cgroup.
-func HashWorkers(n int) int {
-	if n > 0 {
-		return n
-	}
-	return min(max(runtime.GOMAXPROCS(0), 1), maxHashWorkers)
 }
 
 // runChangeFunc calls changeFunc on every path with workers goroutines. It
