@@ -1,0 +1,12 @@
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
+
+# mz1268: extraction caches the resolved parent directory of each tar entry.
+# A stale entry would let a crafted layer escape the dependency dir.
+# The layer holds "evil/x", which resolves "evil" as a plain directory.
+# It then replaces "evil" with a symlink to "../../.." and writes "evil/mz1268".
+# If the cache survived the symlink, that file would be written through it
+# and land on /kaniko/mz1268 instead of inside /kaniko/deps.
+COPY --from=localhost:5000/test_issue_mz1268:latest marker marker
+
+RUN test ! -e /kaniko/mz1268
