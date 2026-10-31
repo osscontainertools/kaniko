@@ -97,7 +97,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				}
 				if created != "" {
 					defer assignIfNil(&reterr, func() error {
-						return os.RemoveAll(created)
+						return removeEmptyDirs(m.Target, created)
 					})
 				}
 				err = swapDir(cacheDir, m.Target)
@@ -186,7 +186,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					}
 					if created != "" {
 						defer assignIfNil(&reterr, func() error {
-							return os.RemoveAll(created)
+							return removeEmptyDirs(parent, created)
 						})
 					}
 					mode := os.FileMode(0o400)
@@ -253,7 +253,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				}
 				if created != "" {
 					defer assignIfNil(&reterr, func() error {
-						return os.RemoveAll(created)
+						return removeEmptyDirs(parent, created)
 					})
 				}
 
@@ -642,6 +642,20 @@ func ensureDir(target string) (string, error) {
 	}
 
 	return firstCreated, nil
+}
+
+func removeEmptyDirs(dir, created string) error {
+	for ; dir != filepath.Dir(created); dir = filepath.Dir(dir) {
+		err := os.Remove(dir)
+		switch {
+		case err == nil, os.IsNotExist(err):
+		case errors.Is(err, syscall.ENOTEMPTY), errors.Is(err, syscall.EEXIST):
+			return nil
+		default:
+			return err
+		}
+	}
+	return nil
 }
 
 func assignIfNil(dst *error, fn func() error) {
