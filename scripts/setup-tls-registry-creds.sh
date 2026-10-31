@@ -34,7 +34,7 @@ function bcrypt {
   docker run --rm --entrypoint htpasswd httpd:2 -Bbn "$1" "$1" | cut -d: -f2-
 }
 
-if [[ ! -f "${TLS_REG_DIR}/auth_config.yml" ]]; then
+if [[ ! -f "${TLS_REG_DIR}/auth_config.yml" ]] || ! grep -q "disable_legacy_key_id" "${TLS_REG_DIR}/auth_config.yml"; then
   cat > "${TLS_REG_DIR}/auth_config.yml" <<EOF
 server:
   addr: ":5002"
@@ -44,6 +44,8 @@ server:
 token:
   issuer: kaniko-test-auth
   expiration: 900
+  # registry v3 only trusts the RFC 7638 thumbprint as key ID
+  disable_legacy_key_id: true
 
 users:
   kanikotest:
