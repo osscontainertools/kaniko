@@ -357,11 +357,7 @@ func removeAllSkipIgnored(path string) (skip bool, err error) {
 	return true, err
 }
 
-func UnTar(r io.Reader, dest string, chownOwner ...*Owner) ([]string, error) {
-	var owner *Owner
-	if len(chownOwner) > 0 {
-		owner = chownOwner[0]
-	}
+func UnTar(r io.Reader, dest string, chownOwner *Owner) ([]string, error) {
 	var extractedFiles []string
 	tr := tar.NewReader(r)
 	for {
@@ -376,7 +372,7 @@ func UnTar(r io.Reader, dest string, chownOwner ...*Owner) ([]string, error) {
 		if cleanedName == "." && config.FF.UntarSkipRoot {
 			continue
 		}
-		if err := ExtractFileWithChown(dest, hdr, cleanedName, tr, owner); err != nil {
+		if err := ExtractFileWithChown(dest, hdr, cleanedName, tr, chownOwner); err != nil {
 			return nil, err
 		}
 		extractedFiles = append(extractedFiles, filepath.Join(dest, cleanedName))

@@ -627,7 +627,7 @@ func Test_UnTar(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			fileList, err := UnTar(file, tc.destination)
+			fileList, err := UnTar(file, tc.destination, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1140,7 +1140,7 @@ func TestUnTar_PathTraversal(t *testing.T) {
 			Name: "../outside.txt", Size: 5, Mode: 0o644, Typeflag: tar.TypeReg,
 		})
 		dest := t.TempDir()
-		if _, err := UnTar(buf, dest); err == nil {
+		if _, err := UnTar(buf, dest, nil); err == nil {
 			t.Fatal("expected error for parent directory reference, got nil")
 		}
 		// Verify no file was written outside dest.
@@ -1160,7 +1160,7 @@ func TestUnTar_PathTraversal(t *testing.T) {
 			},
 		)
 		dest := t.TempDir()
-		if _, err := UnTar(buf, dest); err == nil {
+		if _, err := UnTar(buf, dest, nil); err == nil {
 			t.Fatal("expected error for hardlink with dotdot target, got nil")
 		}
 	})
@@ -1174,7 +1174,7 @@ func TestUnTar_PathTraversal(t *testing.T) {
 			Name: "ext-link", Typeflag: tar.TypeSymlink, Linkname: "../../etc/passwd",
 		})
 		dest := t.TempDir()
-		if _, err := UnTar(buf, dest); err != nil {
+		if _, err := UnTar(buf, dest, nil); err != nil {
 			t.Fatalf("symlink with dotdot target should be created, not rejected: %v", err)
 		}
 		target, err := os.Readlink(filepath.Join(dest, "ext-link"))
@@ -1201,7 +1201,7 @@ func TestUnTar_PathTraversal(t *testing.T) {
 				Uid: os.Getuid(), Gid: os.Getgid(),
 			},
 		)
-		if _, err := UnTar(buf, dest); err != nil {
+		if _, err := UnTar(buf, dest, nil); err != nil {
 			t.Fatalf("extraction should succeed (confined), got: %v", err)
 		}
 		// The file must not escape, and must land at the confined in-dest path.
@@ -1232,7 +1232,7 @@ func TestUnTar_PathTraversal(t *testing.T) {
 				Uid: os.Getuid(), Gid: os.Getgid(),
 			},
 		)
-		if _, err := UnTar(buf, dest); err != nil {
+		if _, err := UnTar(buf, dest, nil); err != nil {
 			t.Fatalf("extraction should succeed (confined), got: %v", err)
 		}
 		if _, err := os.Stat(marker); err == nil {
@@ -1252,7 +1252,7 @@ func TestUnTar_PathTraversal(t *testing.T) {
 			Uid: os.Getuid(), Gid: os.Getgid(),
 		})
 		dest := t.TempDir()
-		files, err := UnTar(buf, dest)
+		files, err := UnTar(buf, dest, nil)
 		if err != nil {
 			t.Fatalf("legitimate extraction should succeed: %v", err)
 		}
