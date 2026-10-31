@@ -83,6 +83,89 @@ func Test_reviewConfig(t *testing.T) {
 	}
 }
 
+func Test_resolveExtraStageDigests_CachedImage(t *testing.T) {
+	origCachedImage := cachedImageFunc
+	origRetrieveRemote := retrieveRemoteImageFunc
+	defer func() {
+		cachedImageFunc = origCachedImage
+		retrieveRemoteImageFunc = origRetrieveRemote
+	}()
+
+	cachedCalls := 0
+	remoteCalls := 0
+
+	cachedImageFunc = func(opts *config.KanikoOptions, image string) (v1.Image, error) {
+		cachedCalls++
+		if image == "cached-extra:latest" {
+			return empty.Image, nil
+		}
+		return nil, cache.NotFoundErr{}
+	}
+
+	retrieveRemoteImageFunc = func(image string, opts config.RegistryOptions, customPlatform string) (v1.Image, error) {
+		remoteCalls++
+		return empty.Image, nil
+	}
+
+	stages := []config.KanikoStage{
+		{
+			Index: 0,
+			Commands: []instructions.Command{
+				&instructions.CopyCommand{
+					From: "cached-extra:latest",
+				},
+				&instructions.CopyCommand{
+					From: "remote-extra:latest",
+				},
+			},
+		},
+	}
+
+	opts := &config.KanikoOptions{
+		Cache: true,
+		CacheOptions: config.CacheOptions{
+			CacheDir: "/tmp/cache",
+		},
+	}
+
+	// 1. With FF_KANIKO_CACHE_COPY_FROM = true
+	config.FF.CacheCopyFrom = true
+	extDigests, imgs, err := resolveExtraStageDigests(stages, opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(imgs) != 2 {
+		t.Fatalf("expected 2 extra stage images, got %d", len(imgs))
+	}
+	if len(extDigests) != 2 {
+		t.Fatalf("expected 2 extra stage digests, got %d", len(extDigests))
+	}
+	if cachedCalls != 2 {
+		t.Fatalf("expected 2 calls to cachedImageFunc, got %d", cachedCalls)
+	}
+	// "cached-extra:latest" should be hit from cache, so only 1 remote call for "remote-extra:latest"
+	if remoteCalls != 1 {
+		t.Fatalf("expected 1 call to retrieveRemoteImageFunc, got %d", remoteCalls)
+	}
+
+	// 2. With FF_KANIKO_CACHE_COPY_FROM = false
+	cachedCalls = 0
+	remoteCalls = 0
+	config.FF.CacheCopyFrom = false
+	defer func() { config.FF.CacheCopyFrom = true }()
+
+	_, _, err = resolveExtraStageDigests(stages, opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cachedCalls != 0 {
+		t.Fatalf("expected 0 calls to cachedImageFunc when feature flag is disabled, got %d", cachedCalls)
+	}
+	if remoteCalls != 2 {
+		t.Fatalf("expected 2 calls to retrieveRemoteImageFunc when feature flag is disabled, got %d", remoteCalls)
+	}
+}
+
 func stage(t *testing.T, d string) config.KanikoStage {
 	stages, _, err := dockerfile.Parse([]byte(d))
 	if err != nil {

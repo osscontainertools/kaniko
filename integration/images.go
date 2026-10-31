@@ -668,6 +668,13 @@ var warmerOutputChecks = map[string]func(string, []byte) error{
 		}
 		return nil
 	},
+	"Dockerfile_test_issue_oct1212_cache_copy_from": func(_ string, out []byte) error {
+		s := fmt.Sprintf("Found sha256:%s in local cache", debian137Digest)
+		if !strings.Contains(string(out), s) {
+			return fmt.Errorf("output must contain %s", s)
+		}
+		return nil
+	},
 }
 
 // expectedWarnings maps a Dockerfile name to a warning substring that must appear in its output.
@@ -834,7 +841,8 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_cache_copy_oci":    {},
 	}
 	d.TestWarmerDockerfiles = map[string]struct{}{
-		"Dockerfile_test_issue_mz320": {},
+		"Dockerfile_test_issue_mz320":                   {},
+		"Dockerfile_test_issue_oct1212_cache_copy_from": {},
 	}
 	d.TestMountDockerfiles = map[string]struct{}{
 		"Dockerfile_test_issue_mz1007": {},
@@ -1113,8 +1121,55 @@ func populateVolumeCache(t *testing.T, config *integrationTestConfig) error {
 	return nil
 }
 
-// buildCachedImage builds the image for testing caching via kaniko warmer cache where version is the nth time this image has been built
-func (d *DockerFileBuilder) buildWarmerImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile string, version int, args []string, cache bool) error {
+// WarmCache warms images or a dockerfile into the specified hostCacheDir.
+func (d *DockerFileBuilder) WarmCache(t *testing.T, config *integrationTestConfig, hostCacheDir string, warmerArgs ...string) error {
+	cwd := config.dir
+	dockerRunFlags := []string{
+		"run", "--net=host",
+		"-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()),
+		"-v", cwd + ":/workspace:ro",
+		"-v", hostCacheDir + ":/cache",
+	}
+	for _, envVariable := range WarmerEnv {
+		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
+	}
+	dockerRunFlags = addAuthFlags(dockerRunFlags)
+	dockerRunFlags = addCoverageFlags(dockerRunFlags)
+	dockerRunFlags = append(dockerRunFlags,
+		WarmerImage,
+		"--cache-dir=/cache",
+	)
+	dockerRunFlags = append(dockerRunFlags, warmerArgs...)
+
+	warmerCmd := exec.Command("docker", dockerRunFlags...)
+	out, err := RunCommandWithoutTest(warmerCmd)
+	t.Logf("Warmer output:\n%s", out)
+	if err != nil {
+		return fmt.Errorf("failed to warm kaniko cache: %w", err)
+	}
+	return nil
+}
+
+// WarmDockerfile warms all images referenced in a dockerfile into hostCacheDir.
+func (d *DockerFileBuilder) WarmDockerfile(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile, hostCacheDir string, extraArgs ...string) error {
+	dockerfilePath := path.Join(buildContextPath, dockerfilesPath, dockerfile)
+	args := append([]string{"-d", dockerfilePath}, extraArgs...)
+	return d.WarmCache(t, config, hostCacheDir, args...)
+}
+
+// WarmImages warms the specified images into hostCacheDir.
+func (d *DockerFileBuilder) WarmImages(t *testing.T, config *integrationTestConfig, hostCacheDir string, images []string, extraArgs ...string) error {
+	var args []string
+	for _, img := range images {
+		args = append(args, "-i", img)
+	}
+	args = append(args, extraArgs...)
+	return d.WarmCache(t, config, hostCacheDir, args...)
+}
+
+// buildWarmerImage builds the image for testing caching via kaniko warmer cache where version is the nth time this image has been built.
+// If hostCacheDir is specified, it mounts that host directory to /cache and passes --cache-dir /cache; otherwise it uses the global cacheDir.
+func (d *DockerFileBuilder) buildWarmerImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile string, version int, args []string, cache bool, hostCacheDir ...string) error {
 	imageRepo := config.imageRepo
 	cwd := config.dir
 
@@ -1123,6 +1178,11 @@ func (d *DockerFileBuilder) buildWarmerImage(t *testing.T, config *integrationTe
 	dockerRunFlags := []string{
 		"run", "--net=host",
 		"-v", cwd + ":/workspace:ro",
+	}
+	activeCacheDir := cacheDir
+	if len(hostCacheDir) > 0 && hostCacheDir[0] != "" {
+		dockerRunFlags = append(dockerRunFlags, "-v", hostCacheDir[0]+":/cache:ro")
+		activeCacheDir = "/cache"
 	}
 	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	executorImage := ExecutorImage
@@ -1136,7 +1196,7 @@ func (d *DockerFileBuilder) buildWarmerImage(t *testing.T, config *integrationTe
 		"-d", kanikoImage,
 		"-c", buildContextPath,
 		fmt.Sprintf("--cache=%t", cache),
-		"--cache-dir", cacheDir,
+		"--cache-dir", activeCacheDir,
 		"--cache-run-layers=false",
 		"--no-push-cache",
 	)

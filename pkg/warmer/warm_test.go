@@ -54,7 +54,7 @@ LABEL maintainer="alexezio"
 }
 
 func TestParseDockerfile_MultiStageDockerfile(t *testing.T) {
-	dockerfile := `FROM golang:1.20 as BUILDER
+	dockerfile := `FROM golang:1.27.3@sha256:2920bb124f1a2e12a1d39f0cab756ae0068441ee1da7655dec7f5e374944095b as BUILDER
 LABEL maintainer="alexezio"
 
 FROM alpine:latest as RUNNER
@@ -81,8 +81,8 @@ LABEL maintainer="alexezio"
 	if len(baseNames) != 2 {
 		t.Fatalf("expected 2 base name, got %d", len(baseNames))
 	}
-	if baseNames[0] != "golang:1.20" {
-		t.Fatalf("expected 'golang:1.20', got '%s'", baseNames[0])
+	if baseNames[0] != "golang:1.27.3@sha256:2920bb124f1a2e12a1d39f0cab756ae0068441ee1da7655dec7f5e374944095b" {
+		t.Fatalf("expected 'golang:1.27.3@sha256:2920bb124f1a2e12a1d39f0cab756ae0068441ee1da7655dec7f5e374944095b', got '%s'", baseNames[0])
 	}
 
 	if baseNames[1] != "alpine:latest" {
@@ -128,6 +128,61 @@ func TestParseDockerfile_MissingsDockerfile(t *testing.T) {
 	}
 	if len(baseNames) != 0 {
 		t.Fatalf("expected no base names, got %d", len(baseNames))
+	}
+}
+
+func TestParseDockerfile_CopyFrom(t *testing.T) {
+	dockerfile := `ARG TOOLS=busybox:latest
+FROM alpine:latest AS builder
+RUN touch /file.txt
+
+FROM debian:buster
+COPY --from=BUILDER /file.txt /file.txt
+COPY --from=0 /file.txt /file2.txt
+COPY --from=golang:1.27.3@sha256:2920bb124f1a2e12a1d39f0cab756ae0068441ee1da7655dec7f5e374944095b /usr/local/go /usr/local/go
+COPY --from=$TOOLS /bin/busybox /bin/busybox
+COPY --from=golang:1.27.3@sha256:2920bb124f1a2e12a1d39f0cab756ae0068441ee1da7655dec7f5e374944095b /usr/local/go /opt/go
+`
+	tmpfile, err := os.CreateTemp("", "example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+
+	if _, err := tmpfile.WriteString(dockerfile); err != nil {
+		t.Fatal(err)
+	}
+	if err := tmpfile.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	opts := &config.WarmerOptions{DockerfilePath: tmpfile.Name()}
+	baseNames, err := ParseDockerfile(opts)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	// Expected: alpine:latest, debian:buster, golang:1.27.3@sha256:2920bb124f1a2e12a1d39f0cab756ae0068441ee1da7655dec7f5e374944095b, busybox:latest
+	expected := []string{"alpine:latest", "debian:buster", "golang:1.27.3@sha256:2920bb124f1a2e12a1d39f0cab756ae0068441ee1da7655dec7f5e374944095b", "busybox:latest"}
+	if len(baseNames) != len(expected) {
+		t.Fatalf("expected %d base names, got %d: %v", len(expected), len(baseNames), baseNames)
+	}
+	for i, exp := range expected {
+		if baseNames[i] != exp {
+			t.Errorf("expected baseNames[%d] to be %s, got %s", i, exp, baseNames[i])
+		}
+	}
+
+	// Test with feature flag disabled
+	config.FF.CacheCopyFrom = false
+	defer func() { config.FF.CacheCopyFrom = true }()
+
+	baseNamesDisabled, err := ParseDockerfile(opts)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	expectedDisabled := []string{"alpine:latest", "debian:buster"}
+	if len(baseNamesDisabled) != len(expectedDisabled) {
+		t.Fatalf("expected %d base names when FF_KANIKO_CACHE_COPY_FROM is false, got %d: %v", len(expectedDisabled), len(baseNamesDisabled), baseNamesDisabled)
 	}
 }
 

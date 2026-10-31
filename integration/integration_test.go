@@ -1197,11 +1197,16 @@ func TestCache(t *testing.T) {
 
 func TestWarmer(t *testing.T) {
 	t.Parallel()
-	populateVolumeCache(t, config)
 
 	for dockerfile := range imageBuilder.TestWarmerDockerfiles {
 		t.Run("test_warmer_"+dockerfile, func(t *testing.T) {
 			t.Parallel()
+			testCacheDir := t.TempDir()
+
+			if err := imageBuilder.WarmDockerfile(t, config, dockerfilesPath, dockerfile, testCacheDir); err != nil {
+				t.Fatalf("error warming cache for %s: %v", dockerfile, err)
+			}
+
 			args, ok := additionalKanikoFlagsMap[dockerfile]
 			imageRepo := config.imageRepo
 			if !ok {
@@ -1209,12 +1214,12 @@ func TestWarmer(t *testing.T) {
 			}
 
 			// Build the initial without warmer
-			if err := imageBuilder.buildWarmerImage(t, config, dockerfilesPath, dockerfile, 0, args, false); err != nil {
+			if err := imageBuilder.buildWarmerImage(t, config, dockerfilesPath, dockerfile, 0, args, false, testCacheDir); err != nil {
 				t.Fatalf("error building cached image for the first time: %v", err)
 			}
 
 			// Build the second with warmer
-			if err := imageBuilder.buildWarmerImage(t, config, dockerfilesPath, dockerfile, 1, args, true); err != nil {
+			if err := imageBuilder.buildWarmerImage(t, config, dockerfilesPath, dockerfile, 1, args, true, testCacheDir); err != nil {
 				t.Fatalf("error building cached image for the second time: %v", err)
 			}
 
@@ -1285,6 +1290,60 @@ func TestWarmerTwice(t *testing.T) {
 				t.Fatalf("output must not contain %s", s)
 			}
 		})
+	}
+}
+
+func TestWarmerCopyFromDockerfile(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	dockerfileContent := `FROM alpine:latest
+COPY --from=debian:13.7@sha256:15a71cc87173e191d5046f9c4288db4e8954b67f92e48d9587087826b0afe562 /etc/issue /etc/issue-copy
+`
+	dockerfilePath := filepath.Join(tmpDir, "Dockerfile")
+	if err := os.WriteFile(dockerfilePath, []byte(dockerfileContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cachePath := filepath.Join(tmpDir, "cache")
+	if err := os.MkdirAll(cachePath, 0o777); err != nil {
+		t.Fatal(err)
+	}
+
+	// Warm the Dockerfile using --dockerfile
+	dockerRunFlags := []string{"run", "--net=host", "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())}
+	dockerRunFlags = addAuthFlags(dockerRunFlags)
+	for _, envVariable := range WarmerEnv {
+		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
+	}
+	dockerRunFlags = append(dockerRunFlags,
+		"-v", tmpDir+":/workspace",
+		WarmerImage,
+		"--cache-dir=/workspace/cache",
+		"-d", "/workspace/Dockerfile")
+
+	warmCmd := exec.Command("docker", dockerRunFlags...)
+	out, err := RunCommandWithoutTest(warmCmd)
+	t.Logf("Warmer output:\n%s", out)
+	if err != nil {
+		t.Fatalf("Unable to warm dockerfile: %s", err)
+	}
+
+	// Verify that debian manifest digest from COPY --from was cached in the cache directory
+	expectedCacheEntry := filepath.Join(cachePath, "sha256:"+debian137Digest)
+	if _, err := os.Stat(expectedCacheEntry); err != nil {
+		t.Fatalf("expected COPY --from image to be cached at %s, but stat failed: %v", expectedCacheEntry, err)
+	}
+
+	// Run warmer again and verify it is recognized as already in cache
+	warmCmd2 := exec.Command("docker", dockerRunFlags...)
+	out2, err := RunCommandWithoutTest(warmCmd2)
+	t.Logf("Second warmer output:\n%s", out2)
+	if err != nil {
+		t.Fatalf("Unable to run second warm: %s", err)
+	}
+	s := "Image already in cache: debian:13.7@sha256:15a71cc87173e191d5046f9c4288db4e8954b67f92e48d9587087826b0afe562"
+	if !strings.Contains(string(out2), s) {
+		t.Fatalf("output must contain %s", s)
 	}
 }
 
