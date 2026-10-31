@@ -453,6 +453,40 @@ var diffArgsMap = map[string][]string{
 	// 1599: docker copies the fifo into /kaniko, we refuse to write there at all,
 	// so the docker image keeps a /kaniko/tini our image never has.
 	"TestRun/test_Dockerfile_test_issue_1599_2": {"--extra-ignore-files=kaniko/", "--extra-ignore-layer-length-mismatch"},
+	// We never snapshot the live container mounts (/proc, /sys, /dev, /etc/hosts, /etc/hostname,
+	// /etc/mtab, /var/run). Buildkit records them, as mountpoints of a RUN or as content of ADD/COPY.
+	"TestRun/test_Dockerfile_test_add":             {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_1007":      {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz247":     {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz332":     {"--extra-ignore-layer-length-mismatch"},
+	"TestWithContext/test_with_context_issue-57":   {"--extra-ignore-layer-length-mismatch"},
+	"TestWithContext/test_with_context_issue-1568": {"--extra-ignore-layer-length-mismatch"},
+	"TestK8s/test_k8s_with_context_issue-57":       {"--extra-ignore-layer-length-mismatch"},
+	"TestK8s/test_k8s_with_context_issue-1568":     {"--extra-ignore-layer-length-mismatch"},
+	// We record a directory whose only change is its mtime, e.g. /tmp after a RUN created and
+	// removed a file in it. Buildkit leaves it out of the layer.
+	"TestRun/test_Dockerfile_test_cache_install_oci": {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_meta_arg":          {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_969":         {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_1568":        {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_1837":        {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_2066":        {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_3393":        {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_cg73":        {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_cg188":       {"--extra-ignore-layer-length-mismatch"},
+	// We record a file that COPY or RUN rewrote with identical content and metadata.
+	// Buildkit leaves the layer empty.
+	"TestRun/test_Dockerfile_test_arg_blank_with_quotes":     {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_arg_multi":                 {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_arg_multi_with_quotes":     {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_copy_same_file_many_times": {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_user_run":                  {"--extra-ignore-layer-length-mismatch"},
+	"TestK8s/test_k8s_with_context_issue-1020":               {"--extra-ignore-layer-length-mismatch"},
+	// We expand variables in an ARG name, buildkit does not. `ARG ${src}=...` declares file3 for us
+	// only, so buildkit copies the whole context into /baz.
+	"TestRun/test_Dockerfile_test_scratch": {"--extra-ignore-layer-length-mismatch"},
+	// The base image's WorkingDir is relative. We resolve WORKDIR sub to /relwd/sub, buildkit to /sub.
+	"TestRun/test_Dockerfile_test_issue_mz725": {"--extra-ignore-layer-length-mismatch"},
 }
 
 // output check to do when building with kaniko
