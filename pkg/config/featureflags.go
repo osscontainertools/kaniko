@@ -52,6 +52,7 @@ type FeatureFlags struct {
 	InferCrossStageCacheKey        bool
 	IsolateCachePush               bool
 	LayerHints                     bool
+	LocalUnpackRequiresTar         bool
 	NativeCopy                     bool
 	NativeInit                     bool
 	OCIScratchBase                 bool
@@ -139,6 +140,7 @@ func InitFeatureFlags() {
 		InferCrossStageCacheKey:        featureFlag("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", true),
 		IsolateCachePush:               featureFlag("FF_KANIKO_ISOLATE_CACHE_PUSH", false),
 		LayerHints:                     featureFlag("FF_KANIKO_LAYER_HINTS", true),
+		LocalUnpackRequiresTar:         featureFlag("FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR", false),
 		NativeCopy:                     featureFlag("FF_KANIKO_NATIVE_COPY", true),
 		NativeInit:                     featureFlag("FF_KANIKO_NATIVE_INIT", false),
 		OCIScratchBase:                 featureFlag("FF_KANIKO_OCI_SCRATCH_BASE", false),

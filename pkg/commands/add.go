@@ -131,6 +131,11 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		defer os.RemoveAll(staging)
 	}
 
+	isLocalArchive := util.IsFileLocalTarArchive
+	if kConfig.FF.LocalUnpackRequiresTar {
+		isLocalArchive = util.IsFileTarArchive
+	}
+
 	var unresolvedSrcs []string
 	// If any of the sources are local tar archives:
 	// 	1. Unpack them to the specified destination
@@ -206,7 +211,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				}
 				a.snapshotFiles = append(a.snapshotFiles, urlDest)
 			}
-		} else if unpackLocal && util.IsFileLocalTarArchive(fullPath) {
+		} else if unpackLocal && isLocalArchive(fullPath) {
 			if kConfig.FF.ConfineCopySource {
 				resolved, err := filepath.EvalSymlinks(fullPath)
 				if err != nil {
@@ -356,12 +361,17 @@ func addCmdFilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildAr
 		return nil, err
 	}
 
+	isLocalArchive := util.IsFileLocalTarArchive
+	if kConfig.FF.LocalUnpackRequiresTar {
+		isLocalArchive = util.IsFileTarArchive
+	}
+
 	files := []string{}
 	for _, src := range srcs {
 		if util.IsSrcRemoteFileURL(src) {
 			continue
 		}
-		if util.IsFileLocalTarArchive(src) {
+		if isLocalArchive(src) {
 			continue
 		}
 		fullPath := filepath.Join(fileContext.Root, src)

@@ -154,6 +154,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`](#flag-ff_kaniko_infer_cross_stage_cache_key)
       - [Flag `FF_KANIKO_ISOLATE_CACHE_PUSH`](#flag-ff_kaniko_isolate_cache_push)
       - [Flag `FF_KANIKO_LAYER_HINTS`](#flag-ff_kaniko_layer_hints)
+      - [Flag `FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR`](#flag-ff_kaniko_local_unpack_requires_tar)
       - [Flag `FF_KANIKO_NATIVE_COPY`](#flag-ff_kaniko_native_copy)
       - [Flag `FF_KANIKO_NATIVE_INIT`](#flag-ff_kaniko_native_init)
       - [Flag `FF_KANIKO_OCI_SCRATCH_BASE`](#flag-ff_kaniko_oci_scratch_base)
@@ -1410,6 +1411,13 @@ Becomes default in `v1.30.0`.
 Set this flag to `true` to log [layer hints](#layer-hints).
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR`
+
+`ADD` takes any local compressed file for a tar archive, so a gzip file whose content is not a tar fails with `unpacking local tar: unexpected EOF`, where docker adds the file as it is.
+Set this flag to `true` to decompress the file and read the first tar header before unpacking it.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_NATIVE_COPY`
 
