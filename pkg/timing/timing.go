@@ -137,6 +137,11 @@ func Record(category string, begin, end time.Time) {
 	span.End(trace.WithTimestamp(end))
 }
 
+func RecordChild(parent trace.Span, category string, begin, end time.Time) {
+	span := start(parent, category, trace.WithTimestamp(begin))
+	span.End(trace.WithTimestamp(end))
+}
+
 func start(parent trace.Span, category string, opts ...trace.SpanStartOption) trace.Span {
 	tracerMu.Lock()
 	tr, ctx := tracer, parentCtx
