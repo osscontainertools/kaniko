@@ -215,6 +215,56 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 						}
 					}
 				}
+			// https://docs.docker.com/reference/dockerfile/#run---mounttypetmpfs
+			case m.Type == instructions.MountTypeTmpfs && kConfig.FF.RunMountTmpfs:
+				target := m.Target
+				if target == "" {
+					return errors.New("tmpfs mount target must be specified")
+				}
+
+				_, err := os.Lstat(target)
+				if err != nil && !os.IsNotExist(err) {
+					return fmt.Errorf("stat tmpfs target %s: %w", target, err)
+				}
+				targetExisted := err == nil
+
+				if targetExisted {
+					h := sha256.Sum256([]byte(target))
+					tmpfsDir := filepath.Join(kConfig.KanikoSwapDir, "tmpfs-"+hex.EncodeToString(h[:]))
+					err = os.MkdirAll(kConfig.KanikoSwapDir, 0o755)
+					if err != nil {
+						return fmt.Errorf("creating swap dir for tmpfs: %w", err)
+					}
+					err = os.MkdirAll(tmpfsDir, 0o755)
+					if err != nil {
+						return fmt.Errorf("creating tmpfs dir: %w", err)
+					}
+					defer func() {
+						os.RemoveAll(tmpfsDir)
+					}()
+					err = swapDir(tmpfsDir, target)
+					if err != nil {
+						return fmt.Errorf("swapping tmpfs target %s: %w", target, err)
+					}
+					defer assignIfNil(&reterr, func() error {
+						return swapDir(target, tmpfsDir)
+					})
+				} else {
+					created, err := ensureDir(target)
+					if err != nil {
+						return fmt.Errorf("ensuring tmpfs target %s: %w", target, err)
+					}
+					// Lstat reported target missing, so ensureDir creates at least target itself.
+					assert.Assert("run.tmpfs-created", created != "", "ensureDir created nothing for missing tmpfs target %s", target)
+					defer assignIfNil(&reterr, func() error {
+						err := os.RemoveAll(target)
+						if err != nil {
+							return err
+						}
+						return removeEmptyDirs(filepath.Dir(target), created)
+					})
+				}
+
 			// https://docs.docker.com/reference/dockerfile/#run---mounttypebind
 			case m.Type == instructions.MountTypeBind:
 				if m.From != "" && m.From != "context" {

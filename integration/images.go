@@ -226,6 +226,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_ROLLING_CACHE_KEY=1",
 	"FF_KANIKO_RUN_HEREDOC_SCRIPT=1",
 	"FF_KANIKO_RUN_HONOR_GROUP=1",
+	"FF_KANIKO_RUN_MOUNT_TMPFS=1",
 	"FF_KANIKO_SCOPED_DOCKERIGNORE=1",
 	"FF_KANIKO_SHARED_BASE_CACHE=1",
 	"FF_KANIKO_SKIP_RELABEL_RECOMPRESS=1",
@@ -465,6 +466,7 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_issue_3393":        {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_issue_cg73":        {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_issue_cg188":       {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_run_tmpfs_mnt":     {"--extra-ignore-layer-length-mismatch"},
 	// We record a file that COPY or RUN rewrote with identical content and metadata.
 	// Buildkit leaves the layer empty.
 	"TestRun/test_Dockerfile_test_arg_blank_with_quotes":     {"--extra-ignore-layer-length-mismatch"},
