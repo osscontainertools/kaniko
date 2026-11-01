@@ -396,18 +396,28 @@ outer:
 	}
 
 	if config.FF.CacheCopyFrom {
+		stageByName := make(map[string]int)
+		for idx, s := range stages {
+			if s.Name != "" {
+				stageByName[s.Name] = idx
+			}
+		}
 		for _, s := range stages {
 			for _, cmd := range s.Commands {
 				c, ok := cmd.(*instructions.CopyCommand)
-				if ok && c.From != "" {
-					_, err := strconv.Atoi(c.From)
-					isStage := err == nil || slices.ContainsFunc(stages, func(st instructions.Stage) bool {
-						return st.Name == strings.ToLower(c.From)
-					})
-					if !isStage && !slices.Contains(baseNames, c.From) {
-						baseNames = append(baseNames, c.From)
-					}
+				if !ok || c.From == "" {
+					continue
 				}
+				if _, ok := stageByName[strings.ToLower(c.From)]; ok {
+					continue
+				}
+				if _, err := strconv.Atoi(c.From); err == nil {
+					continue
+				}
+				if slices.Contains(baseNames, c.From) {
+					continue
+				}
+				baseNames = append(baseNames, c.From)
 			}
 		}
 	}
