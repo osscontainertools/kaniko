@@ -41,6 +41,7 @@ import (
 	testissuemz1126 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1126"
 	testissuemz1128 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1128"
 	testissuemz1133 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1133"
+	testissuemz1212 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1212"
 	testissuemz1233 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1233"
 	testissuemz195 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz195"
 	testissuemz333 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz333"
@@ -175,6 +176,7 @@ var update bool
 
 // sync with the Preview profile in README.md
 var previewEnv = map[string]string{
+	"FF_KANIKO_CACHE_COPY_FROM":              "1",
 	"FF_KANIKO_CACHE_IMAGE_INDEX":            "1",
 	"FF_KANIKO_COPY_KEEP_DEST_OWNER":         "1",
 	"FF_KANIKO_COPY_LINK":                    "1",
@@ -350,6 +352,7 @@ func TestBake(t *testing.T) {
 var warmerTests = map[string][]types.GoldenTests{
 	"test_warmer":       {testwarmer.Tests},
 	"test_issue_mz1126": {testissuemz1126.Tests},
+	"test_issue_mz1212": {testissuemz1212.Tests},
 }
 
 // fakeRemoteImage derives the image and its index from its reference, so their digests are stable across runs.

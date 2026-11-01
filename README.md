@@ -1226,6 +1226,7 @@ jq -r '.manifests[] | select(.annotations["vnd.docker.reference.type"] != "attes
 Opting into the Preview profile gives you early access to upcoming performance improvements, bugfixes and features. While these flags are tested and ready to use, implementation details may still change.
 
 ```sh
+FF_KANIKO_CACHE_COPY_FROM=true
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_KEEP_DEST_OWNER=true
 FF_KANIKO_COPY_LINK=true
