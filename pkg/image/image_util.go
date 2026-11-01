@@ -85,7 +85,7 @@ func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, b
 	// Finally, check if local caching is enabled
 	// If so, look in the local cache before trying the remote registry
 	if opts.Cache && opts.CacheDir != "" {
-		cachedImage, err := CachedImage(opts, currentBaseName)
+		cachedImage, err := cachedImage(opts, currentBaseName)
 		if err != nil {
 			switch {
 			case cache.IsNotFound(err):
@@ -131,8 +131,7 @@ func ociImage(index int) (v1.Image, error) {
 	return p.Image(hash)
 }
 
-// CachedImage looks up an image in the local cache or fetches remotely and checks local cache.
-func CachedImage(opts *config.KanikoOptions, image string) (v1.Image, error) {
+func cachedImage(opts *config.KanikoOptions, image string) (v1.Image, error) {
 	ref, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
 		return nil, err
