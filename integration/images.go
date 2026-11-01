@@ -170,6 +170,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_arg_secret":   {"SSH_PRIVATE_KEY=ThEPriv4t3Key"},
 	"Dockerfile_test_issue_519":    {"DOCKER_BUILDKIT=0"},
 	"Dockerfile_test_issue_cg188":  {"SECRET=blubb"},
+	"Dockerfile_test_issue_mz1336": {"SECRET=blubb"},
 	"Dockerfile_test_issue_mz334":  {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
 	"Dockerfile_test_issue_mz960":  {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
 	"Dockerfile_test_issue_mz473":  {"KANIKO_DIR=/kaniko2"},
@@ -226,6 +227,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_RUN_HEREDOC_SCRIPT=1",
 	"FF_KANIKO_RUN_HONOR_GROUP=1",
 	"FF_KANIKO_RUN_MOUNT_BIND_RELATIVE=1",
+	"FF_KANIKO_RUN_MOUNT_TMPFS=1",
 	"FF_KANIKO_SCOPED_DOCKERIGNORE=1",
 	"FF_KANIKO_SHARED_BASE_CACHE=1",
 	"FF_KANIKO_SKIP_RELABEL_RECOMPRESS=1",
@@ -266,6 +268,7 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_target":               {"--target=second"},
 	"Dockerfile_test_issue_cg188":          {"--secret=id=netrc,env=SECRET"},
 	"Dockerfile_test_issue_mz511":          {"--secret=id=netrc,src=context/foo"},
+	"Dockerfile_test_issue_mz1336":         {"--secret=id=foo,env=SECRET"},
 	"Dockerfile_test_cross_compile":        {"--platform=linux/" + crossCompileArch},
 	"Dockerfile_test_issue_mz849":          dockerV2Flags,
 	"Dockerfile_test_issue_mz849_dockerv2": dockerV2Flags,
@@ -348,6 +351,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz529":   {"--cleanup", "--target=final,nosquash"},
 	"Dockerfile_test_issue_mz595":   {"--cleanup"},
 	"Dockerfile_test_issue_mz661":   {"--secret=id=kaniko,src=/kaniko/executor"},
+	"Dockerfile_test_issue_mz1336":  {"--secret=id=foo,env=SECRET"},
 	"Dockerfile_test_issue_mz992":   {"--dryrun", "--tar-path=/kaniko/dryrun.tar", "--oci-layout-path=/kaniko/dryrun-layout"},
 	"Dockerfile_test_issue_mz881": {
 		"--registry-certificate=localhost:5000=/mz881/registry-ca.crt",
@@ -463,6 +467,7 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_issue_3393":        {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_issue_cg73":        {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_issue_cg188":       {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_run_tmpfs_mnt":     {"--extra-ignore-layer-length-mismatch"},
 	// We record a file that COPY or RUN rewrote with identical content and metadata.
 	// Buildkit leaves the layer empty.
 	"TestRun/test_Dockerfile_test_arg_blank_with_quotes":     {"--extra-ignore-layer-length-mismatch"},
