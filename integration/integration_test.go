@@ -543,8 +543,10 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 
 func TestBuildViaRegistryMirrors(t *testing.T) {
 	t.Parallel()
-	branch, _, url := getBranchCommitAndURL()
-	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
+	contextDir, err := filepath.Abs(dockerfilesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Build with docker
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_registry_mirror")
@@ -553,8 +555,8 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 			"build",
 			"--push",
 			"-t", dockerImage,
-			"-f", dockerfile,
-			DockerGitRepo(url, "", branch),
+			"-f", filepath.Join(contextDir, "Dockerfile_registry_mirror"),
+			contextDir,
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -563,16 +565,16 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_mirror")
-	dockerRunFlags := []string{"run", "--net=host"}
+	dockerRunFlags := []string{"run", "--net=host", "-v", contextDir + ":/workspace:ro"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
-		"-f", dockerfile,
+		"-f", "/workspace/Dockerfile_registry_mirror",
 		"-d", kanikoImage,
 		"--registry-mirror", "doesnotexist.example.com",
 		"--registry-mirror", "us-mirror.gcr.io",
-		"-c", KanikoGitRepo(url, "", branch))
+		"-c", "/workspace")
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -586,8 +588,10 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 
 func TestBuildViaRegistryMap(t *testing.T) {
 	t.Parallel()
-	branch, _, url := getBranchCommitAndURL()
-	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
+	contextDir, err := filepath.Abs(dockerfilesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Build with docker
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_registry_map")
@@ -595,9 +599,9 @@ func TestBuildViaRegistryMap(t *testing.T) {
 		[]string{
 			"build",
 			"-t", dockerImage,
-			"-f", dockerfile,
+			"-f", filepath.Join(contextDir, "Dockerfile_registry_mirror"),
 			"--push",
-			DockerGitRepo(url, "", branch),
+			contextDir,
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -606,16 +610,16 @@ func TestBuildViaRegistryMap(t *testing.T) {
 
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_map")
-	dockerRunFlags := []string{"run", "--net=host"}
+	dockerRunFlags := []string{"run", "--net=host", "-v", contextDir + ":/workspace:ro"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
-		"-f", dockerfile,
+		"-f", "/workspace/Dockerfile_registry_mirror",
 		"-d", kanikoImage,
 		"--registry-map", "index.docker.io=doesnotexist.example.com",
 		"--registry-map", "index.docker.io=us-mirror.gcr.io",
-		"-c", KanikoGitRepo(url, "", branch))
+		"-c", "/workspace")
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -629,25 +633,27 @@ func TestBuildViaRegistryMap(t *testing.T) {
 
 func TestBuildSkipFallback(t *testing.T) {
 	t.Parallel()
-	branch, _, url := getBranchCommitAndURL()
-	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
+	contextDir, err := filepath.Abs(dockerfilesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_skip_fallback")
-	dockerRunFlags := []string{"run", "--net=host"}
+	dockerRunFlags := []string{"run", "--net=host", "-v", contextDir + ":/workspace:ro"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
-		"-f", dockerfile,
+		"-f", "/workspace/Dockerfile_registry_mirror",
 		"-d", kanikoImage,
 		"--registry-mirror", "doesnotexist.example.com",
 		"--skip-default-registry-fallback",
-		"-c", KanikoGitRepo(url, "", branch))
+		"-c", "/workspace")
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
-	_, err := RunCommandWithoutTest(kanikoCmd)
+	_, err = RunCommandWithoutTest(kanikoCmd)
 	if err == nil {
 		t.Errorf("Build should fail after using skip-default-registry-fallback and registry-mirror fail to pull")
 	}
@@ -656,8 +662,10 @@ func TestBuildSkipFallback(t *testing.T) {
 // TestKanikoDir tests that a build that sets --kaniko-dir produces the same output as the equivalent docker build.
 func TestKanikoDir(t *testing.T) {
 	t.Parallel()
-	branch, _, url := getBranchCommitAndURL()
-	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
+	contextDir, err := filepath.Abs(dockerfilesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Build with docker
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_kaniko_dir")
@@ -665,9 +673,9 @@ func TestKanikoDir(t *testing.T) {
 		[]string{
 			"build",
 			"-t", dockerImage,
-			"-f", dockerfile,
+			"-f", filepath.Join(contextDir, "Dockerfile_registry_mirror"),
 			"--push",
-			DockerGitRepo(url, "", branch),
+			contextDir,
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -676,14 +684,14 @@ func TestKanikoDir(t *testing.T) {
 
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_kaniko_dir")
-	dockerRunFlags := []string{"run", "--net=host"}
+	dockerRunFlags := []string{"run", "--net=host", "-v", contextDir + ":/workspace:ro"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
-		"-f", dockerfile,
+		"-f", "/workspace/Dockerfile_registry_mirror",
 		"-d", kanikoImage,
-		"-c", KanikoGitRepo(url, "", branch))
+		"-c", "/workspace")
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 	kanikoCmd.Env = append(kanikoCmd.Env, "KANIKO_DIR=/not-kaniko")
@@ -698,8 +706,10 @@ func TestKanikoDir(t *testing.T) {
 
 func TestBuildWithLabels(t *testing.T) {
 	t.Parallel()
-	branch, _, url := getBranchCommitAndURL()
-	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_test_label", integrationPath, dockerfilesPath)
+	contextDir, err := filepath.Abs(dockerfilesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	testLabel := "mylabel=myvalue"
 
@@ -710,9 +720,9 @@ func TestBuildWithLabels(t *testing.T) {
 			"build",
 			"--push",
 			"-t", dockerImage,
-			"-f", dockerfile,
+			"-f", filepath.Join(contextDir, "Dockerfile_test_label"),
 			"--label", testLabel,
-			DockerGitRepo(url, "", branch),
+			contextDir,
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -721,15 +731,15 @@ func TestBuildWithLabels(t *testing.T) {
 
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_label")
-	dockerRunFlags := []string{"run", "--net=host"}
+	dockerRunFlags := []string{"run", "--net=host", "-v", contextDir + ":/workspace:ro"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
-		"-f", dockerfile,
+		"-f", "/workspace/Dockerfile_test_label",
 		"-d", kanikoImage,
 		"--label", testLabel,
-		"-c", KanikoGitRepo(url, "", branch),
+		"-c", "/workspace",
 	)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
@@ -744,8 +754,10 @@ func TestBuildWithLabels(t *testing.T) {
 
 func TestBuildWithHTTPError(t *testing.T) {
 	t.Parallel()
-	branch, _, url := getBranchCommitAndURL()
-	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_test_add_404", integrationPath, dockerfilesPath)
+	contextDir, err := filepath.Abs(dockerfilesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Build with docker
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_add_404")
@@ -753,8 +765,8 @@ func TestBuildWithHTTPError(t *testing.T) {
 		[]string{
 			"build",
 			"-t", dockerImage,
-			"-f", dockerfile,
-			DockerGitRepo(url, "", branch),
+			"-f", filepath.Join(contextDir, "Dockerfile_test_add_404"),
+			contextDir,
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err == nil {
@@ -763,14 +775,14 @@ func TestBuildWithHTTPError(t *testing.T) {
 
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_add_404")
-	dockerRunFlags := []string{"run", "--net=host"}
+	dockerRunFlags := []string{"run", "--net=host", "-v", contextDir + ":/workspace:ro"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
-		"-f", dockerfile,
+		"-f", "/workspace/Dockerfile_test_add_404",
 		"-d", kanikoImage,
-		"-c", KanikoGitRepo(url, "", branch),
+		"-c", "/workspace",
 	)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
@@ -1522,9 +1534,11 @@ func TestExitCodePropagation(t *testing.T) {
 
 func TestBuildWithAnnotations(t *testing.T) {
 	t.Parallel()
-	branch, _, url := getBranchCommitAndURL()
+	contextDir, err := filepath.Abs("testdata")
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	dockerfile := integrationPath + "/testdata/Dockerfile.trivial"
 	annotationKey := "myannotation"
 	annotationValue := "myvalue"
 
@@ -1534,9 +1548,9 @@ func TestBuildWithAnnotations(t *testing.T) {
 		"build",
 		"--push",
 		"-t", dockerImage,
-		"-f", dockerfile,
+		"-f", filepath.Join(contextDir, "Dockerfile.trivial"),
 		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
-		DockerGitRepo(url, "", branch),
+		contextDir,
 	)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -1545,15 +1559,15 @@ func TestBuildWithAnnotations(t *testing.T) {
 
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_annotation")
-	dockerRunFlags := []string{"run", "--net=host"}
+	dockerRunFlags := []string{"run", "--net=host", "-v", contextDir + ":/workspace:ro"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
-		"-f", dockerfile,
+		"-f", "/workspace/Dockerfile.trivial",
 		"-d", kanikoImage,
 		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
-		"-c", KanikoGitRepo(url, "", branch),
+		"-c", "/workspace",
 	)
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 	out, err = RunCommandWithoutTest(kanikoCmd)
@@ -1638,8 +1652,10 @@ func TestProvenanceMatchesBuildKit(t *testing.T) {
 
 func TestPushFromArtifact(t *testing.T) {
 	t.Parallel()
-	branch, _, url := getBranchCommitAndURL()
-	dockerfile := integrationPath + "/testdata/Dockerfile.trivial"
+	contextDir, err := filepath.Abs("testdata")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, artifactFlags := range [][]string{{"--tar-path"}, {"--oci-layout-path"}, {"--oci-layout-path", "--provenance"}} {
 		outFlag := strings.ReplaceAll(strings.Join(artifactFlags, ""), "--", "_")[1:]
@@ -1659,7 +1675,7 @@ func TestPushFromArtifact(t *testing.T) {
 
 			runExecutor := func(executorArgs ...string) {
 				t.Helper()
-				flags := []string{"run", "--rm", "--net=host", "-v", outFlag + ":/out"}
+				flags := []string{"run", "--rm", "--net=host", "-v", outFlag + ":/out", "-v", contextDir + ":/workspace:ro"}
 				flags = addKanikoEnvFlags(flags, t.Name())
 				// mz731 keeps OCI base layers verbatim on the direct push, but the
 				// docker-archive --tar-path writer rewrites them to docker mediatypes, so
@@ -1681,16 +1697,16 @@ func TestPushFromArtifact(t *testing.T) {
 
 			// Reference: direct kaniko build & push, reproducible.
 			runExecutor(
-				"-f", dockerfile,
-				"-c", KanikoGitRepo(url, "", branch),
+				"-f", "/workspace/Dockerfile.trivial",
+				"-c", "/workspace",
 				"-d", directImage,
 				"--reproducible",
 			)
 
 			// Two-step: build to an artifact (no push), then push from it.
 			runExecutor(append([]string{
-				"-f", dockerfile,
-				"-c", KanikoGitRepo(url, "", branch),
+				"-f", "/workspace/Dockerfile.trivial",
+				"-c", "/workspace",
 				"--no-push",
 				artifactFlags[0], "/out/image",
 				"--reproducible",
