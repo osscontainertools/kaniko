@@ -688,9 +688,14 @@ func resolveSourceContext() error {
 		return err
 	}
 	logrus.Debugf("Getting source context from %s", opts.SrcContext)
-	fetch := timing.Start("Fetching build context")
-	opts.SrcContext, err = contextExecutor.UnpackTarFromBuildContext()
-	fetch.End()
+	switch contextExecutor.(type) {
+	case *buildcontext.Dir, *buildcontext.Tar:
+		opts.SrcContext, err = contextExecutor.UnpackTarFromBuildContext()
+	default:
+		fetch := timing.Start("Fetching build context")
+		opts.SrcContext, err = contextExecutor.UnpackTarFromBuildContext()
+		fetch.End()
+	}
 	if err != nil {
 		return err
 	}
