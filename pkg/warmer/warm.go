@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -395,44 +396,17 @@ outer:
 	}
 
 	if config.FF.CacheCopyFrom {
-		stageNames := make(map[string]bool)
-		for _, s := range stages {
-			if s.Name != "" {
-				stageNames[strings.ToLower(s.Name)] = true
-			}
-		}
-
 		for _, s := range stages {
 			for _, cmd := range s.Commands {
 				c, ok := cmd.(*instructions.CopyCommand)
-				if !ok || c.From == "" {
-					continue
-				}
-				resolvedFrom, err := util.ResolveEnvironmentReplacement(c.From, args, false)
-				if err != nil {
-					return nil, fmt.Errorf("resolving COPY --from %s: %w", c.From, err)
-				}
-				if resolvedFrom == "" {
-					continue
-				}
-				if _, err := strconv.Atoi(resolvedFrom); err == nil {
-					// Numeric index referring to a previous stage
-					continue
-				}
-				if stageNames[strings.ToLower(resolvedFrom)] {
-					// Named stage reference
-					continue
-				}
-				// Deduplicate
-				isDuplicate := false
-				for _, x := range baseNames {
-					if x == resolvedFrom {
-						isDuplicate = true
-						break
+				if ok && c.From != "" {
+					_, err := strconv.Atoi(c.From)
+					isStage := err == nil || slices.ContainsFunc(stages, func(st instructions.Stage) bool {
+						return st.Name == strings.ToLower(c.From)
+					})
+					if !isStage && !slices.Contains(baseNames, c.From) {
+						baseNames = append(baseNames, c.From)
 					}
-				}
-				if !isDuplicate {
-					baseNames = append(baseNames, resolvedFrom)
 				}
 			}
 		}
