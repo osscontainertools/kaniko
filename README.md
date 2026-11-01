@@ -1265,9 +1265,9 @@ Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_ADD_FOLLOW_SYMLINK`
 
-`ADD <url> /dir/` fails when `/dir` is a symlink to a directory.
-Set this flag to `true` to write the download through the symlink, as `COPY` does.
-Defaults to `false`.
+`ADD <url> /dir/` fails with `destination cannot be a symlink` when `/dir` is a symlink to a directory.
+Set this flag to `true` to write the download through the symlink. Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_ADD_UNPACK`
 
