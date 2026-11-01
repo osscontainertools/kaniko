@@ -336,7 +336,9 @@ func Shutdown(err error) {
 	if provider == nil {
 		return
 	}
-	exportLocked(context.Background())
+	exportCtx, cancelExport := context.WithTimeout(context.Background(), shutdownFlushTimeout)
+	defer cancelExport()
+	exportLocked(exportCtx)
 	if rootSpan != nil {
 		rootSpan.SetAttributes(registryAttrs(connstats.Snapshot())...)
 		if err != nil {
