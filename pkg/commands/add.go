@@ -154,7 +154,10 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 			if err != nil {
 				return err
 			}
-			if kConfig.FF.CopyLink && a.cmd.Link {
+			download := urlDest
+			if unpackRemote {
+				download = filepath.Join(staging, filepath.Base(urlDest))
+			} else if kConfig.FF.CopyLink && a.cmd.Link {
 				err = materializeLinkDest(urlDest)
 				if err != nil {
 					return fmt.Errorf("materializing link destination: %w", err)
@@ -164,10 +167,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				if err != nil {
 					return fmt.Errorf("resolving dest symlink: %w", err)
 				}
-			}
-			download := urlDest
-			if unpackRemote {
-				download = filepath.Join(staging, filepath.Base(urlDest))
+				download = urlDest
 			}
 			logrus.Infof("Adding remote URL %s to %s", src, urlDest)
 			if err := util.DownloadFileToDest(src, download, owner, chmod.Apply(0o600), checksum); err != nil {
