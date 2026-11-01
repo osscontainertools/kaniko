@@ -675,20 +675,6 @@ var expectedAttestations = map[string]attestation{
 // Digest for debian:13.7 (see baseImageToCache)
 const debian137Digest = "15a71cc87173e191d5046f9c4288db4e8954b67f92e48d9587087826b0afe562"
 
-var warmerOutputChecks = map[string]func(string, []byte) error{
-	"Dockerfile_test_issue_mz320": func(_ string, out []byte) error {
-		s := fmt.Sprintf("Found sha256:%s in local cache", debian137Digest)
-		if !strings.Contains(string(out), s) {
-			return fmt.Errorf("output must contain %s", s)
-		}
-		s = "Retrieving image debian:13.7@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308 from registry"
-		if strings.Contains(string(out), s) {
-			return fmt.Errorf("output must not contain %s", s)
-		}
-		return nil
-	},
-}
-
 // expectedWarnings maps a Dockerfile name to a warning substring that must appear in its output.
 // Dockerfiles listed here are required to emit that warning; all others must emit no warnings.
 var expectedWarnings = map[string]string{
@@ -1065,11 +1051,6 @@ func (d *DockerFileBuilder) buildCachedImage(t *testing.T, config *integrationTe
 			}
 		}
 	}
-	if outputCheck := warmerOutputChecks[dockerfile]; outputCheck != nil {
-		if err := outputCheck(dockerfile, out); err != nil {
-			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
-		}
-	}
 	if err := checkNoWarnings(dockerfile, out); err != nil {
 		return err
 	}
@@ -1137,6 +1118,13 @@ func (d *DockerFileBuilder) buildWarmerImage(t *testing.T, config *integrationTe
 		"run", "--net=host",
 		"-v", cwd + ":/workspace:ro",
 	}
+	if cache {
+		dockerRunFlags = append(dockerRunFlags,
+			"--add-host", "index.docker.io:0.0.0.0",
+			"--add-host", "registry-1.docker.io:0.0.0.0",
+			"--add-host", "auth.docker.io:0.0.0.0",
+		)
+	}
 	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	executorImage := ExecutorImage
 	if exec, ok := executorImages[dockerfile]; ok {
@@ -1165,13 +1153,6 @@ func (d *DockerFileBuilder) buildWarmerImage(t *testing.T, config *integrationTe
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
 		if err := outputCheck(dockerfile, out); err != nil {
 			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
-		}
-	}
-	if cache {
-		if outputCheck := warmerOutputChecks[dockerfile]; outputCheck != nil {
-			if err := outputCheck(dockerfile, out); err != nil {
-				return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
-			}
 		}
 	}
 	if err := checkNoWarnings(dockerfile, out); err != nil {
