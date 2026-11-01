@@ -434,6 +434,8 @@ var diffArgsMap = map[string][]string{
 	// mz922: buildkit gives the implicitly created destination directory the mode that was
 	// requested, we subtract the umask from it, so /dir777 ends up 0755 instead of 0777.
 	"TestRun/test_Dockerfile_test_copyadd_chmod": {"--extra-ignore-files=dir777/"},
+	// `COPY --from` touches the atime of copied files, so two builds differ in it.
+	"TestWarmer/test_warmer_Dockerfile_test_issue_mz1212": {"--ignore-file-atime"},
 	// #mz155: `COPY --from` does not copy the timestamps from the source but touches new files with new timestamps.
 	// To test this we have to deactivate `--ignore-file-timestamps`. This is achieved here by deactivating `--semantic` comparison,
 	// which we pass by default, and then activating all the necessary ignores except file-timestamps.
