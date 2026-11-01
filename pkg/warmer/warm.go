@@ -408,12 +408,15 @@ outer:
 				if !ok || c.From == "" {
 					continue
 				}
+				// skip stage references ie.
+				// COPY --from=base and COPY --from=0
 				if _, ok := stageByName[strings.ToLower(c.From)]; ok {
 					continue
 				}
 				if _, err := strconv.Atoi(c.From); err == nil {
 					continue
 				}
+				// deduplicate
 				if slices.Contains(baseNames, c.From) {
 					continue
 				}
