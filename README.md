@@ -1564,9 +1564,9 @@ Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_RUN_MOUNT_BIND_RELATIVE`
 
-Resolves a relative `RUN --mount=type=bind` target path against the current `WORKDIR`. 
-Set this flag to `true` to resolve `RUN` relative bind mount target paths against `WORKDIR`.
-Defaults to `false`.
+A relative `RUN --mount=type=bind` target resolves against `/`, whatever the `WORKDIR` is.
+Set this flag to `true` to resolve it against `WORKDIR`. Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_RUN_MOUNT_TMPFS`
 
