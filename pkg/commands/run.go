@@ -223,6 +223,9 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				}
 				src := filepath.Join(fileContext.Root, m.Source)
 				target := m.Target
+				if kConfig.FF.RunMountBindRelative {
+					target = ToAbsPath(target, config.WorkingDir)
+				}
 
 				_, err := os.Lstat(target)
 				if err != nil && !os.IsNotExist(err) {

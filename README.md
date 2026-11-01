@@ -173,6 +173,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_ROLLING_CACHE_KEY`](#flag-ff_kaniko_rolling_cache_key)
       - [Flag `FF_KANIKO_RUN_HEREDOC_SCRIPT`](#flag-ff_kaniko_run_heredoc_script)
       - [Flag `FF_KANIKO_RUN_HONOR_GROUP`](#flag-ff_kaniko_run_honor_group)
+      - [Flag `FF_KANIKO_RUN_MOUNT_BIND_RELATIVE`](#flag-ff_kaniko_run_mount_bind_relative)
       - [Flag `FF_KANIKO_RUN_VIA_TINI`](#flag-ff_kaniko_run_via_tini)
       - [Flag `FF_KANIKO_SCOPED_DOCKERIGNORE`](#flag-ff_kaniko_scoped_dockerignore)
       - [Flag `FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES`](#flag-ff_kaniko_scoped_registry_certificates)
@@ -1559,6 +1560,12 @@ When a stage sets `USER user:group`, `RUN` applies only the user and the gid fal
 Set this flag to `true` to pass the full `user:group` to the command so `RUN` runs with the requested group, matching docker.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_RUN_MOUNT_BIND_RELATIVE`
+
+Resolves a relative `RUN --mount=type=bind` target path against the current `WORKDIR`. 
+Set this flag to `true` to resolve `RUN` relative bind mount target paths against `WORKDIR`.
+Defaults to `false`.
 
 #### Flag `FF_KANIKO_RUN_VIA_TINI`
 

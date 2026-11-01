@@ -1,0 +1,4 @@
+# mz1213: BuildKit resolves a relative RUN --mount target against WORKDIR.
+FROM alpine
+WORKDIR /app
+RUN --mount=type=bind,source=context/foo,target=foo cat foo > /out
