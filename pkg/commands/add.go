@@ -137,8 +137,8 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 	}
 
 	cwd := config.WorkingDir
-	if cwd == "" {
-		cwd = kConfig.RootDir
+	if !filepath.IsAbs(cwd) {
+		cwd = filepath.Join(kConfig.RootDir, cwd)
 	}
 
 	var unresolvedSrcs []string
