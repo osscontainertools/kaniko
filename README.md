@@ -137,6 +137,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_ADD_CHOWN_TAR`](#flag-ff_kaniko_add_chown_tar)
       - [Flag `FF_KANIKO_ADD_FOLLOW_SYMLINK`](#flag-ff_kaniko_add_follow_symlink)
       - [Flag `FF_KANIKO_ADD_UNPACK`](#flag-ff_kaniko_add_unpack)
+      - [Flag `FF_KANIKO_BAKE_CONTEXT_DOCKERFILE`](#flag-ff_kaniko_bake_context_dockerfile)
       - [Flag `FF_KANIKO_CACHE_COPY_FROM`](#flag-ff_kaniko_cache_copy_from)
       - [Flag `FF_KANIKO_CACHE_HASH_BLAKE3`](#flag-ff_kaniko_cache_hash_blake3)
       - [Flag `FF_KANIKO_CACHE_IMAGE_INDEX`](#flag-ff_kaniko_cache_image_index)
@@ -1312,6 +1313,11 @@ Becomes default in `v1.30.0`.
 Set this flag to `true` to honor `--unpack`.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_BAKE_CONTEXT_DOCKERFILE`
+
+Enables support for per-target `context` and `dockerfile` attributes in bake files, as well as overriding them with `--set <target>.context=<path>` and `--set <target>.dockerfile=<path>`.
+Defaults to `false`.
 
 #### Flag `FF_KANIKO_CACHE_COPY_FROM`
 

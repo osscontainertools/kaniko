@@ -250,6 +250,14 @@ func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
 		opts.Target = []string{target.Stage}
 	}
 	opts.Destinations = target.Destination
+	if config.FF.BakeContextDockerfile {
+		if target.Context != "" {
+			opts.SrcContext = target.Context
+		}
+		if target.Dockerfile != "" {
+			opts.DockerfilePath = target.Dockerfile
+		}
+	}
 	opts.CacheFrom = target.CacheFrom
 	opts.CacheTo = target.CacheTo
 	if opts.NoPushCache {
@@ -360,6 +368,16 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 		topts := *opts
 		if err := ApplyTarget(&topts, target); err != nil {
 			return err
+		}
+		if config.FF.BakeContextDockerfile && (target.Context != "" || target.Dockerfile != "") {
+			if target.Context != "" {
+				if err := resolveSourceContextFor(&topts); err != nil {
+					return fmt.Errorf("resolving source context for target %q: %w", target.ID, err)
+				}
+			}
+			if err := resolveDockerfilePathFor(&topts); err != nil {
+				return fmt.Errorf("resolving dockerfile path for target %q: %w", target.ID, err)
+			}
 		}
 		if target.ID != "" {
 			logrus.Infof("Building target %q [stage: %q]", target.ID, target.Stage)
@@ -582,25 +600,29 @@ func validateCompressionLevel(compression config.Compression, level int) error {
 
 // resolveDockerfilePath resolves the Dockerfile path to an absolute path
 func resolveDockerfilePath() error {
-	if isURL(opts.DockerfilePath) {
+	return resolveDockerfilePathFor(opts)
+}
+
+func resolveDockerfilePathFor(targetOpts *config.KanikoOptions) error {
+	if isURL(targetOpts.DockerfilePath) {
 		return nil
 	}
-	if util.FilepathExists(opts.DockerfilePath) {
-		abs, err := filepath.Abs(opts.DockerfilePath)
+	if util.FilepathExists(targetOpts.DockerfilePath) {
+		abs, err := filepath.Abs(targetOpts.DockerfilePath)
 		if err != nil {
 			return fmt.Errorf("getting absolute path for dockerfile: %w", err)
 		}
-		opts.DockerfilePath = abs
-		return copyDockerfile()
+		targetOpts.DockerfilePath = abs
+		return copyDockerfileFor(targetOpts)
 	}
 	// Otherwise, check if the path relative to the build context exists
-	if util.FilepathExists(filepath.Join(opts.SrcContext, opts.DockerfilePath)) {
-		abs, err := filepath.Abs(filepath.Join(opts.SrcContext, opts.DockerfilePath))
+	if util.FilepathExists(filepath.Join(targetOpts.SrcContext, targetOpts.DockerfilePath)) {
+		abs, err := filepath.Abs(filepath.Join(targetOpts.SrcContext, targetOpts.DockerfilePath))
 		if err != nil {
 			return fmt.Errorf("getting absolute path for src context/dockerfile path: %w", err)
 		}
-		opts.DockerfilePath = abs
-		return copyDockerfile()
+		targetOpts.DockerfilePath = abs
+		return copyDockerfileFor(targetOpts)
 	}
 	return errors.New("please provide a valid path to a Dockerfile within the build context with --dockerfile")
 }
@@ -650,65 +672,73 @@ func resolveEnvironmentBuildArgs(arguments []string, resolver func(string) strin
 // copy Dockerfile to /kaniko/Dockerfile so that if it's specified in the .dockerignore
 // it won't be copied into the image
 func copyDockerfile() error {
-	if err := util.CopyFileInternal(opts.DockerfilePath, config.DockerfilePath, util.FileContext{}); err != nil {
+	return copyDockerfileFor(opts)
+}
+
+func copyDockerfileFor(targetOpts *config.KanikoOptions) error {
+	if err := util.CopyFileInternal(targetOpts.DockerfilePath, config.DockerfilePath, util.FileContext{}); err != nil {
 		return fmt.Errorf("copying dockerfile: %w", err)
 	}
-	dockerignorePath := opts.DockerfilePath + ".dockerignore"
+	dockerignorePath := targetOpts.DockerfilePath + ".dockerignore"
 	if util.FilepathExists(dockerignorePath) {
 		if err := util.CopyFileInternal(dockerignorePath, config.DockerfilePath+".dockerignore", util.FileContext{}); err != nil {
 			return fmt.Errorf("copying Dockerfile.dockerignore: %w", err)
 		}
 	}
-	opts.DockerfilePath = config.DockerfilePath
+	targetOpts.DockerfilePath = config.DockerfilePath
 	return nil
 }
 
 // resolveSourceContext unpacks the source context if it is a tar in a bucket or in kaniko container
 // it resets srcContext to be the path to the unpacked build context within the image
 func resolveSourceContext() error {
-	if opts.SrcContext == "" && opts.Bucket == "" {
+	return resolveSourceContextFor(opts)
+}
+
+func resolveSourceContextFor(targetOpts *config.KanikoOptions) error {
+	if targetOpts.SrcContext == "" && targetOpts.Bucket == "" {
 		return errors.New("please specify a path to the build context with the --context flag or a bucket with the --bucket flag")
 	}
-	if opts.SrcContext != "" && !strings.Contains(opts.SrcContext, "://") {
+	if targetOpts.SrcContext != "" && !strings.Contains(targetOpts.SrcContext, "://") {
 		return nil
 	}
-	if opts.Bucket != "" {
-		if !strings.Contains(opts.Bucket, "://") {
+	if targetOpts.Bucket != "" {
+		if !strings.Contains(targetOpts.Bucket, "://") {
 			// if no prefix use Google Cloud Storage as default for backwards compatibility
-			opts.SrcContext = constants.GCSBuildContextPrefix + opts.Bucket
+			targetOpts.SrcContext = constants.GCSBuildContextPrefix + targetOpts.Bucket
 		} else {
-			opts.SrcContext = opts.Bucket
+			targetOpts.SrcContext = targetOpts.Bucket
 		}
 	}
-	contextExecutor, err := buildcontext.GetBuildContext(opts.SrcContext, buildcontext.BuildOptions{
-		GitBranch:            opts.Git.Branch,
-		GitSingleBranch:      opts.Git.SingleBranch,
-		GitDepth:             opts.Git.Depth,
-		GitRecurseSubmodules: opts.Git.RecurseSubmodules,
-		InsecureSkipTLS:      opts.Git.InsecureSkipTLS,
+	contextExecutor, err := buildcontext.GetBuildContext(targetOpts.SrcContext, buildcontext.BuildOptions{
+		GitBranch:            targetOpts.Git.Branch,
+		GitSingleBranch:      targetOpts.Git.SingleBranch,
+		GitDepth:             targetOpts.Git.Depth,
+		GitRecurseSubmodules: targetOpts.Git.RecurseSubmodules,
+		InsecureSkipTLS:      targetOpts.Git.InsecureSkipTLS,
 	})
 	if err != nil {
 		return err
 	}
-	logrus.Debugf("Getting source context from %s", opts.SrcContext)
+	logrus.Debugf("Getting source context from %s", targetOpts.SrcContext)
 	switch contextExecutor.(type) {
 	case *buildcontext.Dir, *buildcontext.Tar:
-		opts.SrcContext, err = contextExecutor.UnpackTarFromBuildContext()
+		targetOpts.SrcContext, err = contextExecutor.UnpackTarFromBuildContext()
 	default:
 		fetch := timing.Start("Fetching build context")
-		opts.SrcContext, err = contextExecutor.UnpackTarFromBuildContext()
+		targetOpts.SrcContext, err = contextExecutor.UnpackTarFromBuildContext()
 		fetch.End()
 	}
 	if err != nil {
 		return err
 	}
 	if ctxSubPath != "" {
-		opts.SrcContext = filepath.Join(opts.SrcContext, ctxSubPath)
-		if _, err := os.Stat(opts.SrcContext); os.IsNotExist(err) {
+		targetOpts.SrcContext = filepath.Join(targetOpts.SrcContext, ctxSubPath)
+		if _, err := os.Stat(targetOpts.SrcContext); os.IsNotExist(err) {
 			return err
 		}
 	}
-	logrus.Debugf("Build context located at %s", opts.SrcContext)
+	logrus.Debugf("Build context located at %s", targetOpts.SrcContext)
 	return nil
 }
 

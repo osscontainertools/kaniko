@@ -31,6 +31,7 @@ type FeatureFlags struct {
 	AddChownTar                    bool
 	AddFollowSymlink               bool
 	AddUnpack                      bool
+	BakeContextDockerfile          bool
 	CacheCopyFrom                  bool
 	CacheHashBlake3                bool
 	CacheImageIndex                bool
@@ -125,6 +126,7 @@ func InitFeatureFlags() {
 		AddChownTar:                    featureFlag("FF_KANIKO_ADD_CHOWN_TAR", false),
 		AddFollowSymlink:               featureFlag("FF_KANIKO_ADD_FOLLOW_SYMLINK", false),
 		AddUnpack:                      featureFlag("FF_KANIKO_ADD_UNPACK", true),
+		BakeContextDockerfile:          featureFlag("FF_KANIKO_BAKE_CONTEXT_DOCKERFILE", false),
 		CacheCopyFrom:                  featureFlag("FF_KANIKO_CACHE_COPY_FROM", false),
 		CacheHashBlake3:                featureFlag("FF_KANIKO_CACHE_HASH_BLAKE3", true),
 		CacheImageIndex:                featureFlag("FF_KANIKO_CACHE_IMAGE_INDEX", false),

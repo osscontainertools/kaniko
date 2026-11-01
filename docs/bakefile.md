@@ -40,6 +40,20 @@ target "app" {
 }
 ```
 
+When `FF_KANIKO_BAKE_CONTEXT_DOCKERFILE` is enabled, targets can also specify per-target `context` and `dockerfile`:
+
+```hcl
+target "app" {
+  context    = "services/app"
+  dockerfile = "Dockerfile"
+  target     = "app"
+  destination = ["registry.example.com/app:latest"]
+}
+```
+
+- `context`: Path to the build context for this target. Relative paths are resolved relative to the bakefile.
+- `dockerfile`: Path to the Dockerfile for this target. Relative paths are resolved relative to the target's context (or bakefile).
+
 ## Choosing Targets
 
 With no target named on the command line, every target in the file is built:
@@ -54,14 +68,23 @@ Name one to build only that one:
 executor bake /workspace/kaniko-bake.hcl app --context /workspace
 ```
 
-## Overriding Destinations
+## Overriding Target Attributes
 
-`--set <target>.destination=<ref>` replaces a target's destinations:
+`--set <target>.<field>=<value>` replaces a target's field:
 
 ```shell
 executor bake /workspace/kaniko-bake.hcl \
   --set app.destination=$CI_REGISTRY_IMAGE/app:$CI_COMMIT_SHA \
   --set tools.destination=$CI_REGISTRY_IMAGE/tools:$CI_COMMIT_SHA \
+  --context /workspace
+```
+
+When `FF_KANIKO_BAKE_CONTEXT_DOCKERFILE` is enabled, `context` and `dockerfile` can also be overridden with `--set`:
+
+```shell
+executor bake /workspace/kaniko-bake.hcl \
+  --set app.context=/custom/context \
+  --set app.dockerfile=/custom/context/Dockerfile \
   --context /workspace
 ```
 
@@ -83,7 +106,7 @@ Name a single target to use them.
 
 ## Relationship to docker-bake.hcl
 
-kaniko uses its own names. An image reference is a `destination`, not a `tag`. There is no per-target `context` or `dockerfile`, those are flags. Variables, functions, `group`, `inherits`, `matrix` and attestations are not supported.
+kaniko uses its own names. An image reference is a `destination`, not a `tag`. When `FF_KANIKO_BAKE_CONTEXT_DOCKERFILE` is enabled, per-target `context` and `dockerfile` are supported. Variables, functions, `group`, `inherits`, `matrix` and attestations are not supported.
 
 A buildx bakefile fails with the construct it does not understand named:
 
