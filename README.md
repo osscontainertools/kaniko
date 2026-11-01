@@ -1280,10 +1280,10 @@ Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_CACHE_COPY_FROM`
 
-Images referenced in `COPY --from=<image>` instructions are fetched directly from the registry without checking the local cache, and the cache warmer only discovers `FROM` base images.
-Set this flag to `true` to have the warmer cache images referenced by `COPY --from=<image>` and to have the executor resolve them from the local cache directory when available.
-Defaults to `true`.
-Will be deprecated in `v1.30.0`.
+`COPY --from=<image>` always pulls the image from the registry, even when it is in `--cache-dir`.
+Set this flag to `true` on the warmer and the executor to cache it like a `FROM` base image.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_CACHE_HASH_BLAKE3`
 
