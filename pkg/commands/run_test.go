@@ -147,25 +147,30 @@ func TestRunCommandBindMountRelativeTarget(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name          string
-		flagEnabled   bool
-		workdir       string
-		target        string
-		expectedCheck string // what the shell command should test
+		name        string
+		flagEnabled bool
+		makeTarget  func(baseDir string) string
+		makeCheck   func(workdir, absTarget string) string
 	}{
 		{
-			name:          "flag enabled with relative target in workdir",
-			flagEnabled:   true,
-			workdir:       "/tmp/test-workdir",
-			target:        "mounted-req.txt",
-			expectedCheck: "test -f /tmp/test-workdir/mounted-req.txt",
+			name:        "flag enabled with relative target in workdir",
+			flagEnabled: true,
+			makeTarget: func(baseDir string) string {
+				return "mounted-req.txt"
+			},
+			makeCheck: func(workdir, _ string) string {
+				return "test -f " + filepath.Join(workdir, "mounted-req.txt")
+			},
 		},
 		{
-			name:          "flag enabled with absolute target",
-			flagEnabled:   true,
-			workdir:       "/tmp/test-workdir",
-			target:        "/tmp/abs-mounted.txt",
-			expectedCheck: "test -f /tmp/abs-mounted.txt && test ! -f /tmp/test-workdir/tmp/abs-mounted.txt",
+			name:        "flag enabled with absolute target",
+			flagEnabled: true,
+			makeTarget: func(baseDir string) string {
+				return filepath.Join(baseDir, "abs-target", "abs-mounted.txt")
+			},
+			makeCheck: func(workdir, absTarget string) string {
+				return "test -f " + absTarget + " && test ! -f " + filepath.Join(workdir, absTarget)
+			},
 		},
 	}
 
@@ -177,23 +182,26 @@ func TestRunCommandBindMountRelativeTarget(t *testing.T) {
 				kConfig.FF.RunMountBindRelative = oldFF
 			}()
 
+			baseDir := t.TempDir()
+			workdir := filepath.Join(baseDir, "workdir")
+			if err := os.MkdirAll(workdir, 0o755); err != nil {
+				t.Fatalf("creating workdir: %v", err)
+			}
+
 			contextDir := t.TempDir()
 			srcFile := filepath.Join(contextDir, "source.txt")
 			if err := os.WriteFile(srcFile, []byte("hello"), 0o644); err != nil {
 				t.Fatalf("writing source file: %v", err)
 			}
 
-			// Ensure workdir exists
-			if err := os.MkdirAll(tc.workdir, 0o755); err != nil {
-				t.Fatalf("creating workdir: %v", err)
-			}
-			defer os.RemoveAll(tc.workdir)
+			target := tc.makeTarget(baseDir)
+			expectedCheck := tc.makeCheck(workdir, target)
 
-			dockerfileLine := "RUN --mount=type=bind,source=source.txt,target=" + tc.target + " " + tc.expectedCheck
+			dockerfileLine := "RUN --mount=type=bind,source=source.txt,target=" + target + " " + expectedCheck
 			cmdRun := parseRun(t, dockerfileLine)
 
 			cfg := &v1.Config{
-				WorkingDir: tc.workdir,
+				WorkingDir: workdir,
 			}
 			buildArgs := dockerfile.NewBuildArgs([]string{})
 			fileContext := util.FileContext{Root: contextDir}
