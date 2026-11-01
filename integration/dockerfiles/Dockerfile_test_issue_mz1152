@@ -1,0 +1,4 @@
+FROM busybox:1.38
+RUN mkdir -p /real && ln -s /real /linkdir
+ADD https://raw.githubusercontent.com/GoogleContainerTools/kaniko/main/README.md /linkdir/
+RUN [ -f /real/README.md ] && [ -L /linkdir ]
