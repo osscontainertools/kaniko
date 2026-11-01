@@ -1265,8 +1265,8 @@ Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_ADD_FOLLOW_SYMLINK`
 
-`ADD <url> /dir/` will resolve when `/dir` is a symlink to an existing directory.
-Set this flag to `true` to resolve destination parent directory symlinks and write through them, matching `COPY`.
+`ADD <url> /dir/` fails when `/dir` is a symlink to a directory.
+Set this flag to `true` to write the download through the symlink, as `COPY` does.
 Defaults to `false`.
 
 #### Flag `FF_KANIKO_ADD_UNPACK`
