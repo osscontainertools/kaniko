@@ -1,0 +1,7 @@
+# mz1152: ADD from a URL fails when the destination parent is a symlink.
+# The downloader refuses to create a file under a symlinked directory, COPY writes through it.
+# Without a WORKDIR the relative destination resolves against the root.
+FROM busybox:1.38
+RUN mkdir -p /real && ln -s /real /linkdir
+ADD https://raw.githubusercontent.com/osscontainertools/kaniko/main/README.md /linkdir/
+ADD https://raw.githubusercontent.com/osscontainertools/kaniko/main/README.md linkdir/relative.md

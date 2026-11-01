@@ -188,6 +188,7 @@ var envsMap = map[string][]string{
 var KanikoEnv = []string{
 	"FF_KANIKO_ADD_CHECKSUM=1",
 	"FF_KANIKO_ADD_CHOWN_TAR=1",
+	"FF_KANIKO_ADD_FOLLOW_SYMLINK=1",
 	"FF_KANIKO_ADD_UNPACK=1",
 	"FF_KANIKO_CACHE_HASH_BLAKE3=1",
 	"FF_KANIKO_CACHE_IMAGE_INDEX=1",
@@ -451,6 +452,7 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_issue_1007":      {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_issue_mz247":     {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_issue_mz332":     {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz1152":    {"--extra-ignore-layer-length-mismatch"},
 	"TestWithContext/test_with_context_issue-57":   {"--extra-ignore-layer-length-mismatch"},
 	"TestWithContext/test_with_context_issue-1568": {"--extra-ignore-layer-length-mismatch"},
 	"TestK8s/test_k8s_with_context_issue-57":       {"--extra-ignore-layer-length-mismatch"},

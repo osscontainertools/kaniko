@@ -132,6 +132,7 @@ expect - see [Known Issues](#known-issues).
       - [Profiles](#profiles)
       - [Flag `FF_KANIKO_ADD_CHECKSUM`](#flag-ff_kaniko_add_checksum)
       - [Flag `FF_KANIKO_ADD_CHOWN_TAR`](#flag-ff_kaniko_add_chown_tar)
+      - [Flag `FF_KANIKO_ADD_FOLLOW_SYMLINK`](#flag-ff_kaniko_add_follow_symlink)
       - [Flag `FF_KANIKO_ADD_UNPACK`](#flag-ff_kaniko_add_unpack)
       - [Flag `FF_KANIKO_CACHE_HASH_BLAKE3`](#flag-ff_kaniko_cache_hash_blake3)
       - [Flag `FF_KANIKO_CACHE_IMAGE_INDEX`](#flag-ff_kaniko_cache_image_index)
@@ -1260,6 +1261,12 @@ Will be deprecated in `v1.30.0`.
 `ADD --chown` is not applied to an extracted archive, the files keep the owners recorded in the tar.
 Set this flag to `true` to apply `--chown` to the extracted files.
 Defaults to `false`.
+Becomes default in `v1.30.0`.
+
+#### Flag `FF_KANIKO_ADD_FOLLOW_SYMLINK`
+
+`ADD <url> /dir/` fails with `destination cannot be a symlink` when `/dir` is a symlink to a directory.
+Set this flag to `true` to write the download through the symlink. Defaults to `false`.
 Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_ADD_UNPACK`
