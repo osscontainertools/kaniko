@@ -1,4 +1,4 @@
-# mzADDCWD: through kaniko v1.29.0, ADD to a relative destination without a WORKDIR left the layer empty.
+# mz1339: through kaniko v1.29.0, ADD to a relative destination without a WORKDIR left the layer empty.
 # The files reached the build filesystem, so a later RUN saw them, but not the image.
 FROM busybox:1.38
 ADD context/tars/file.tar localdir/
