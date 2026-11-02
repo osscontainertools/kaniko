@@ -671,10 +671,6 @@ func resolveEnvironmentBuildArgs(arguments []string, resolver func(string) strin
 
 // copy Dockerfile to /kaniko/Dockerfile so that if it's specified in the .dockerignore
 // it won't be copied into the image
-func copyDockerfile() error {
-	return copyDockerfileFor(opts)
-}
-
 func copyDockerfileFor(targetOpts *config.KanikoOptions) error {
 	if err := util.CopyFileInternal(targetOpts.DockerfilePath, config.DockerfilePath, util.FileContext{}); err != nil {
 		return fmt.Errorf("copying dockerfile: %w", err)
