@@ -65,7 +65,8 @@ func TestBake(t *testing.T) {
 			kanikoFlags = addAuthFlags(kanikoFlags)
 			kanikoFlags = addCoverageFlags(kanikoFlags)
 			kanikoFlags = addKanikoEnvFlags(kanikoFlags, t.Name())
-			kanikoFlags = append(kanikoFlags, ExecutorImage, "bake", "/ctx/kaniko-bake.hcl", "-c", "/ctx")
+			// Match buildx's OCI registry output; Kaniko otherwise inherits the base image format.
+			kanikoFlags = append(kanikoFlags, ExecutorImage, "bake", "/ctx/kaniko-bake.hcl", "-c", "/ctx", "--image-format=oci")
 			dockerFlags := []string{"buildx", "bake", "-f", "docker-bake.hcl"}
 			var dockerTargets []string
 			for _, target := range targets {
