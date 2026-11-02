@@ -409,6 +409,102 @@ func TestRun(t *testing.T) {
 	}
 }
 
+func TestCacheFromTo(t *testing.T) {
+	t.Parallel()
+	const dockerfile = "Dockerfile_test_cache"
+
+	// Permutation 1: --cache-from registry and --cache-to registry
+	t.Run("cache_from_and_to_registry", func(t *testing.T) {
+		t.Parallel()
+		cacheRepo := filepath.Join(config.imageRepo, "cache-from-to", strconv.FormatInt(time.Now().UnixNano(), 10))
+		img0 := GetKanikoImage(config.imageRepo, "test_cache_from_to_reg_0")
+		img1 := GetKanikoImage(config.imageRepo, "test_cache_from_to_reg_1")
+
+		// First build pushes to cacheRepo via --cache-to
+		cacheFlags0 := []string{
+			"--cache-to", fmt.Sprintf("type=registry,ref=%s", cacheRepo),
+		}
+		if err := imageBuilder.buildCacheSpecImage(t, config, img0, dockerfilesPath, dockerfile, 0, cacheFlags0); err != nil {
+			t.Fatalf("first build with cache-to failed: %v", err)
+		}
+
+		// Second build reads from cacheRepo via --cache-from and pushes to cacheRepo via --cache-to
+		cacheFlags1 := []string{
+			"--cache-from", fmt.Sprintf("type=registry,ref=%s", cacheRepo),
+			"--cache-to", fmt.Sprintf("type=registry,ref=%s", cacheRepo),
+		}
+		if err := imageBuilder.buildCacheSpecImage(t, config, img1, dockerfilesPath, dockerfile, 1, cacheFlags1); err != nil {
+			t.Fatalf("second build with cache-from and cache-to failed: %v", err)
+		}
+
+		diffoci(t, img0, img1)
+	})
+
+	// Permutation 2: --cache-from registry without --cache-to (read-only cache)
+	t.Run("cache_from_registry_only", func(t *testing.T) {
+		t.Parallel()
+		cacheRepo := filepath.Join(config.imageRepo, "cache-from-only", strconv.FormatInt(time.Now().UnixNano(), 10))
+		img0 := GetKanikoImage(config.imageRepo, "test_cache_from_only_0")
+		img1 := GetKanikoImage(config.imageRepo, "test_cache_from_only_1")
+
+		// Populate cache via --cache-to
+		cacheFlags0 := []string{
+			"--cache-to", fmt.Sprintf("type=registry,ref=%s", cacheRepo),
+		}
+		if err := imageBuilder.buildCacheSpecImage(t, config, img0, dockerfilesPath, dockerfile, 0, cacheFlags0); err != nil {
+			t.Fatalf("initial build populating cache failed: %v", err)
+		}
+
+		// Second build uses --cache-from only (no-push-cache default)
+		cacheFlags1 := []string{
+			"--cache-from", fmt.Sprintf("type=registry,ref=%s", cacheRepo),
+		}
+		if err := imageBuilder.buildCacheSpecImage(t, config, img1, dockerfilesPath, dockerfile, 1, cacheFlags1); err != nil {
+			t.Fatalf("build with cache-from only failed: %v", err)
+		}
+
+		diffoci(t, img0, img1)
+	})
+
+	// Permutation 3: --cache-from local
+	t.Run("cache_from_local", func(t *testing.T) {
+		t.Parallel()
+		populateVolumeCache(t, config)
+		const warmerDockerfile = "Dockerfile_test_warmer"
+
+		img0 := GetKanikoImage(config.imageRepo, "test_cache_from_local_0")
+		img1 := GetKanikoImage(config.imageRepo, "test_cache_from_local_1")
+
+		// Warm cache is already in cacheDir (/cache)
+		cacheFlags := []string{
+			"--cache-from", fmt.Sprintf("type=local,src=%s", cacheDir),
+			"--cache-run-layers=false",
+		}
+		if err := imageBuilder.buildCacheSpecImage(t, config, img0, dockerfilesPath, warmerDockerfile, 0, cacheFlags); err != nil {
+			t.Fatalf("build with cache-from local failed: %v", err)
+		}
+		if err := imageBuilder.buildCacheSpecImage(t, config, img1, dockerfilesPath, warmerDockerfile, 1, cacheFlags); err != nil {
+			t.Fatalf("second build with cache-from local failed: %v", err)
+		}
+
+		diffoci(t, img0, img1)
+	})
+
+	// Permutation 4: --cache-to registry without --cache-from
+	t.Run("cache_to_registry_only", func(t *testing.T) {
+		t.Parallel()
+		cacheRepo := filepath.Join(config.imageRepo, "cache-to-only", strconv.FormatInt(time.Now().UnixNano(), 10))
+		img := GetKanikoImage(config.imageRepo, "test_cache_to_only")
+
+		cacheFlags := []string{
+			"--cache-to", fmt.Sprintf("type=registry,ref=%s", cacheRepo),
+		}
+		if err := imageBuilder.buildCacheSpecImage(t, config, img, dockerfilesPath, dockerfile, 0, cacheFlags); err != nil {
+			t.Fatalf("build with cache-to only failed: %v", err)
+		}
+	})
+}
+
 // TestKanikoOnly asserts kaniko survives the build.
 func TestKanikoOnly(t *testing.T) {
 	t.Parallel()

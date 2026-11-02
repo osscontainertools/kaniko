@@ -79,6 +79,8 @@ type KanikoOptions struct {
 	KanikoDir                    string
 	Target                       []string
 	CacheRepo                    string
+	CacheFrom                    string
+	CacheTo                      string
 	DigestFile                   string
 	ImageNameDigestFile          string
 	ImageNameTagDigestFile       string
@@ -163,6 +165,118 @@ func (k *KanikoGitOptions) Set(s string) error {
 		k.InsecureSkipTLS = v
 	}
 	return nil
+}
+
+type CacheSpecType string
+
+const (
+	CacheSpecRegistry CacheSpecType = "registry"
+	CacheSpecLocal    CacheSpecType = "local"
+)
+
+type CacheSpec struct {
+	Type CacheSpecType
+	Ref  string // for registry
+	Src  string // for local cache-from
+	Dest string // for local cache-to
+}
+
+// ParseCacheFrom parses a buildkit-style --cache-from spec: type=registry,ref=... or type=local,src=...
+func ParseCacheFrom(val string) (CacheSpec, error) {
+	spec := CacheSpec{}
+	parts := strings.Split(val, ",")
+	seenKeys := make(map[string]bool)
+	for _, part := range parts {
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) != 2 || kv[0] == "" || kv[1] == "" {
+			return CacheSpec{}, fmt.Errorf("invalid cache-from format: %q", part)
+		}
+		k, v := kv[0], kv[1]
+		if seenKeys[k] {
+			return CacheSpec{}, fmt.Errorf("duplicate key %q in cache-from", k)
+		}
+		seenKeys[k] = true
+		switch k {
+		case "type":
+			switch CacheSpecType(v) {
+			case CacheSpecRegistry, CacheSpecLocal:
+				spec.Type = CacheSpecType(v)
+			default:
+				return CacheSpec{}, fmt.Errorf("unsupported cache-from type %q, only registry and local are supported", v)
+			}
+		case "ref":
+			spec.Ref = v
+		case "src":
+			spec.Src = v
+		default:
+			return CacheSpec{}, fmt.Errorf("unknown key %q in cache-from", k)
+		}
+	}
+
+	if spec.Type == "" {
+		return CacheSpec{}, errors.New("cache-from requires type=(registry|local)")
+	}
+
+	switch spec.Type {
+	case CacheSpecRegistry:
+		if spec.Ref == "" {
+			return CacheSpec{}, errors.New("cache-from type=registry requires ref=<ref>")
+		}
+		if spec.Src != "" {
+			return CacheSpec{}, errors.New("cache-from type=registry does not support src")
+		}
+	case CacheSpecLocal:
+		if spec.Src == "" {
+			return CacheSpec{}, errors.New("cache-from type=local requires src=<path>")
+		}
+		if spec.Ref != "" {
+			return CacheSpec{}, errors.New("cache-from type=local does not support ref")
+		}
+	}
+
+	return spec, nil
+}
+
+// ParseCacheTo parses a buildkit-style --cache-to spec: type=registry,ref=...
+func ParseCacheTo(val string) (CacheSpec, error) {
+	spec := CacheSpec{}
+	parts := strings.Split(val, ",")
+	seenKeys := make(map[string]bool)
+	for _, part := range parts {
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) != 2 || kv[0] == "" || kv[1] == "" {
+			return CacheSpec{}, fmt.Errorf("invalid cache-to format: %q", part)
+		}
+		k, v := kv[0], kv[1]
+		if seenKeys[k] {
+			return CacheSpec{}, fmt.Errorf("duplicate key %q in cache-to", k)
+		}
+		seenKeys[k] = true
+		switch k {
+		case "type":
+			switch CacheSpecType(v) {
+			case CacheSpecRegistry:
+				spec.Type = CacheSpecType(v)
+			case CacheSpecLocal:
+				return CacheSpec{}, errors.New("unsupported cache-to type \"local\", only registry is supported for cache-to")
+			default:
+				return CacheSpec{}, fmt.Errorf("unsupported cache-to type %q, only registry is supported", v)
+			}
+		case "ref":
+			spec.Ref = v
+		default:
+			return CacheSpec{}, fmt.Errorf("unknown key %q in cache-to", k)
+		}
+	}
+
+	if spec.Type == "" {
+		return CacheSpec{}, errors.New("cache-to requires type=registry")
+	}
+	if spec.Ref == "" {
+		return CacheSpec{}, errors.New("cache-to type=registry requires ref=<ref>")
+	}
+
+	return spec, nil
 }
 
 // Compression is an enumeration of the supported compression algorithms

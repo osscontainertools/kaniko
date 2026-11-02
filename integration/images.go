@@ -190,6 +190,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_ADD_CHOWN_TAR=1",
 	"FF_KANIKO_ADD_FOLLOW_SYMLINK=1",
 	"FF_KANIKO_ADD_UNPACK=1",
+	"FF_KANIKO_CACHE_FROM_TO=1",
 	"FF_KANIKO_CACHE_HASH_BLAKE3=1",
 	"FF_KANIKO_CACHE_IMAGE_INDEX=1",
 	"FF_KANIKO_CACHE_LOOKAHEAD=1",
@@ -983,6 +984,52 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 	}
 
 	return nil
+}
+
+// buildCacheSpecImage builds an image with custom cache flags (e.g. --cache-from, --cache-to)
+func (d *DockerFileBuilder) buildCacheSpecImage(t *testing.T, config *integrationTestConfig, kanikoImage, dockerfilesPath, dockerfile string, version int, cacheFlags []string) error {
+	cwd := config.dir
+
+	dockerRunFlags := []string{
+		"run", "--net=host",
+		"-v", cwd + ":/workspace",
+	}
+	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
+	for _, envVariable := range envsMap[dockerfile] {
+		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
+	}
+	executorImage := ExecutorImage
+	if exec, ok := executorImages[dockerfile]; ok {
+		executorImage = exec
+	}
+
+	rawBuildArgs := argsMap[dockerfile]
+	if override, ok := argsMapVersion1[dockerfile]; version == 1 && ok {
+		rawBuildArgs = override
+	}
+	var buildArgs []string
+	for _, arg := range rawBuildArgs {
+		buildArgs = append(buildArgs, "--build-arg", arg)
+	}
+	buildArgs = append(buildArgs, "--build-arg", "IMAGE_REPO="+config.imageRepo)
+
+	dockerRunFlags = addAuthFlags(dockerRunFlags)
+	dockerRunFlags = addCoverageFlags(dockerRunFlags)
+	dockerRunFlags = append(dockerRunFlags, executorImage,
+		"-f", path.Join(buildContextPath, dockerfilesPath, dockerfile),
+		"-d", kanikoImage,
+		"-c", buildContextPath)
+	dockerRunFlags = append(dockerRunFlags, cacheFlags...)
+	dockerRunFlags = append(dockerRunFlags, buildArgs...)
+	kanikoCmd := exec.Command("docker", dockerRunFlags...)
+
+	out, err := RunCommandWithoutTest(kanikoCmd)
+	t.Logf("%s", out)
+
+	if err != nil {
+		return fmt.Errorf("failed to build cached image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
+	}
+	return checkNoWarnings(dockerfile, out)
 }
 
 // buildCachedImage builds the image for testing caching via kaniko where version is the nth time this image has been built

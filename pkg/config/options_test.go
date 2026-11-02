@@ -88,3 +88,144 @@ func TestKanikoSecretOptions(t *testing.T) {
 		testutil.CheckDeepEqual(t, SecretOptions{}, s)
 	})
 }
+
+func TestParseCacheFrom(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		want      CacheSpec
+		expectErr bool
+	}{
+		{
+			name:  "valid registry type",
+			input: "type=registry,ref=myregistry.com/myimage/cache",
+			want: CacheSpec{
+				Type: CacheSpecRegistry,
+				Ref:  "myregistry.com/myimage/cache",
+			},
+			expectErr: false,
+		},
+		{
+			name:  "valid local type",
+			input: "type=local,src=/path/to/cache",
+			want: CacheSpec{
+				Type: CacheSpecLocal,
+				Src:  "/path/to/cache",
+			},
+			expectErr: false,
+		},
+		{
+			name:      "missing type",
+			input:     "ref=myregistry.com/myimage/cache",
+			expectErr: true,
+		},
+		{
+			name:      "unsupported type",
+			input:     "type=gha,mode=max",
+			expectErr: true,
+		},
+		{
+			name:      "registry missing ref",
+			input:     "type=registry",
+			expectErr: true,
+		},
+		{
+			name:      "registry with src",
+			input:     "type=registry,ref=foo,src=/bar",
+			expectErr: true,
+		},
+		{
+			name:      "local missing src",
+			input:     "type=local",
+			expectErr: true,
+		},
+		{
+			name:      "local with ref",
+			input:     "type=local,src=/bar,ref=foo",
+			expectErr: true,
+		},
+		{
+			name:      "duplicate key",
+			input:     "type=registry,ref=foo,ref=bar",
+			expectErr: true,
+		},
+		{
+			name:      "malformed kv",
+			input:     "type=registry,foo",
+			expectErr: true,
+		},
+		{
+			name:      "unknown attribute",
+			input:     "type=registry,ref=foo,mode=max",
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseCacheFrom(tt.input)
+			if tt.expectErr {
+				testutil.CheckError(t, true, err)
+			} else {
+				testutil.CheckNoError(t, err)
+				testutil.CheckDeepEqual(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func TestParseCacheTo(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		want      CacheSpec
+		expectErr bool
+	}{
+		{
+			name:  "valid registry type",
+			input: "type=registry,ref=myregistry.com/myimage/cache",
+			want: CacheSpec{
+				Type: CacheSpecRegistry,
+				Ref:  "myregistry.com/myimage/cache",
+			},
+			expectErr: false,
+		},
+		{
+			name:      "unsupported local type",
+			input:     "type=local,dest=/path/to/cache",
+			expectErr: true,
+		},
+		{
+			name:      "missing type",
+			input:     "ref=myregistry.com/myimage/cache",
+			expectErr: true,
+		},
+		{
+			name:      "registry missing ref",
+			input:     "type=registry",
+			expectErr: true,
+		},
+		{
+			name:      "duplicate key",
+			input:     "type=registry,ref=foo,ref=bar",
+			expectErr: true,
+		},
+		{
+			name:      "unknown attribute",
+			input:     "type=registry,ref=foo,mode=max",
+			expectErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseCacheTo(tt.input)
+			if tt.expectErr {
+				testutil.CheckError(t, true, err)
+			} else {
+				testutil.CheckNoError(t, err)
+				testutil.CheckDeepEqual(t, tt.want, got)
+			}
+		})
+	}
+}
