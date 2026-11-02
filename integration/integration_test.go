@@ -411,7 +411,7 @@ func TestRun(t *testing.T) {
 
 func TestCacheFromTo(t *testing.T) {
 	t.Parallel()
-	const dockerfile = "Dockerfile_test_cache"
+	const dockerfile = "Dockerfile_test_cache_from_to"
 
 	// Permutation 1: --cache-from registry and --cache-to registry
 	t.Run("cache_from_and_to_registry", func(t *testing.T) {
@@ -469,8 +469,10 @@ func TestCacheFromTo(t *testing.T) {
 	// Permutation 3: --cache-from local
 	t.Run("cache_from_local", func(t *testing.T) {
 		t.Parallel()
-		populateVolumeCache(t, config)
-		const warmerDockerfile = "Dockerfile_test_warmer"
+		if err := populateVolumeCache(t, config); err != nil {
+			t.Fatalf("failed to populate local cache: %v", err)
+		}
+		const warmerDockerfile = "Dockerfile_test_issue_mz320"
 
 		img0 := GetKanikoImage(config.imageRepo, "test_cache_from_local_0")
 		img1 := GetKanikoImage(config.imageRepo, "test_cache_from_local_1")

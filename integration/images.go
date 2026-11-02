@@ -804,6 +804,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 	d.DockerfilesToIgnore = map[string]struct{}{}
 	d.TestCacheDockerfiles = map[string]struct{}{
 		"Dockerfile_test_cache":              {},
+		"Dockerfile_test_cache_from_to":      {},
 		"Dockerfile_test_cache_install":      {},
 		"Dockerfile_test_cache_perm":         {},
 		"Dockerfile_test_cache_copy":         {},
