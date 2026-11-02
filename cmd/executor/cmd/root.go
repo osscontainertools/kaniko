@@ -110,7 +110,7 @@ func ValidateFlags(opts *config.KanikoOptions) {
 	}
 }
 
-func setupBuild() error {
+func setupBuild(resolveDockerfile bool) error {
 	ValidateFlags(opts)
 
 	// mz661: resolveSecrets must run before moveKanikoDir so that secret src=
@@ -148,7 +148,7 @@ func setupBuild() error {
 		opts.CI = buildenv.DetectCI()
 		opts.ContextSource = buildenv.ResolveSource(opts.CI, buildenv.GitSource(dir, cloneURL))
 	}
-	if opts.DockerfilePath != "" {
+	if resolveDockerfile && opts.DockerfilePath != "" {
 		if err := resolveDockerfilePath(); err != nil {
 			return fmt.Errorf("error resolving dockerfile path: %w", err)
 		}
@@ -304,7 +304,8 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 	}
 	tracing.Init(context.Background(), opts)
 	_, endSetup := timing.Scope("Setting up build")
-	err := setupBuild()
+	resolveDefaultDockerfile := !config.FF.BakeContextDockerfile || !bakeTargetsHaveDockerfiles(targets)
+	err := setupBuild(resolveDefaultDockerfile)
 	endSetup()
 	if err != nil {
 		return err
@@ -412,6 +413,18 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 	util.LogRegistryConnections()
 	tracing.Shutdown(nil)
 	return nil
+}
+
+func bakeTargetsHaveDockerfiles(targets []bake.ResolvedTarget) bool {
+	if len(targets) == 0 {
+		return false
+	}
+	for _, target := range targets {
+		if target.ID == "" || target.Dockerfile == "" {
+			return false
+		}
+	}
+	return true
 }
 
 // addKanikoOptionsFlags configures opts
