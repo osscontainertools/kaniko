@@ -134,8 +134,10 @@ func setupBuild() error {
 
 	resolveEnvironmentBuildArgs(opts.BuildArgs, os.Getenv)
 	srcContext := opts.SrcContext
-	if err := resolveSourceContext(); err != nil {
-		return fmt.Errorf("error resolving source context: %w", err)
+	if opts.SrcContext != "" || opts.Bucket != "" {
+		if err := resolveSourceContext(); err != nil {
+			return fmt.Errorf("error resolving source context: %w", err)
+		}
 	}
 	if opts.PredefinedAnnotations || opts.Provenance {
 		dir, cloneURL := opts.SrcContext, ""
@@ -146,8 +148,10 @@ func setupBuild() error {
 		opts.CI = buildenv.DetectCI()
 		opts.ContextSource = buildenv.ResolveSource(opts.CI, buildenv.GitSource(dir, cloneURL))
 	}
-	if err := resolveDockerfilePath(); err != nil {
-		return fmt.Errorf("error resolving dockerfile path: %w", err)
+	if opts.DockerfilePath != "" {
+		if err := resolveDockerfilePath(); err != nil {
+			return fmt.Errorf("error resolving dockerfile path: %w", err)
+		}
 	}
 	// Update ignored paths
 	if opts.IgnoreVarRun {
