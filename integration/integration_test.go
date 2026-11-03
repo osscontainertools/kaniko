@@ -425,8 +425,9 @@ func TestCacheFromTo(t *testing.T) {
 		return GetVersionedKanikoImage(config.imageRepo, dockerfile, version)
 	}
 
-	// The subtests run in sequence, buildCachedImage names its images after the dockerfile.
+	// buildCachedImage names its images after the dockerfile and the version, so each subtest takes its own versions.
 	t.Run("branch", func(t *testing.T) {
+		t.Parallel()
 		mainCache := filepath.Join(config.imageRepo, "cache-from-to", run, "main")
 		featureCache := filepath.Join(config.imageRepo, "cache-from-to", run, "feature")
 		build(t, 0, "--build-arg=V=main", "--cache-to="+mainCache)
@@ -444,16 +445,18 @@ func TestCacheFromTo(t *testing.T) {
 	})
 
 	t.Run("read_only", func(t *testing.T) {
+		t.Parallel()
 		cache := filepath.Join(config.imageRepo, "cache-from-to", run, "read-only")
-		first := build(t, 0, "--build-arg=V=main", "--cache-to="+cache)
-		second := build(t, 1, "--build-arg=V=main", "--cache-from="+cache)
+		first := build(t, 4, "--build-arg=V=main", "--cache-to="+cache)
+		second := build(t, 5, "--build-arg=V=main", "--cache-from="+cache)
 		diffoci(t, first, second)
 	})
 
 	t.Run("oci_layout", func(t *testing.T) {
+		t.Parallel()
 		cache := "oci:" + filepath.Join(cacheDir, "cache-from-to", run)
-		first := build(t, 0, "--build-arg=V=main", "--cache-to="+cache)
-		second := build(t, 1, "--build-arg=V=main", "--cache-from="+cache)
+		first := build(t, 6, "--build-arg=V=main", "--cache-to="+cache)
+		second := build(t, 7, "--build-arg=V=main", "--cache-from="+cache)
 		diffoci(t, first, second)
 	})
 }
