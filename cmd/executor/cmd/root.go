@@ -48,15 +48,12 @@ import (
 )
 
 var (
-	opts                  = &config.KanikoOptions{}
-	ctxSubPath            string
-	force                 bool
-	logLevel              string
-	logFormat             string
-	logTimestamp          bool
-	isNoPushCacheExplicit bool
-	isCacheRepoExplicit   bool
-	isCacheDirExplicit    bool
+	opts         = &config.KanikoOptions{}
+	ctxSubPath   string
+	force        bool
+	logLevel     string
+	logFormat    string
+	logTimestamp bool
 )
 
 func init() {
@@ -69,62 +66,6 @@ func init() {
 	addHiddenFlags(RootCmd)
 	RootCmd.Flags().BoolVarP(&opts.IgnoreVarRun, "whitelist-var-run", "", true, "Ignore /var/run directory when taking image snapshot. Set it to false to preserve /var/run/ in destination image.")
 	RootCmd.Flags().MarkDeprecated("whitelist-var-run", "Please use ignore-var-run instead.")
-}
-
-func resolveCacheSpecs(opts *config.KanikoOptions, isNoPushCacheExplicit bool, isCacheRepoExplicit bool, isCacheDirExplicit bool) error {
-	hasCacheFrom := opts.CacheFromFlags != ""
-	hasCacheTo := opts.CacheToFlags != ""
-
-	if !hasCacheFrom && !hasCacheTo {
-		return nil
-	}
-
-	if !config.FF.CacheFromTo {
-		return errors.New("--cache-from and --cache-to require FF_KANIKO_CACHE_FROM_TO")
-	}
-
-	if hasCacheTo && isNoPushCacheExplicit && opts.NoPushCache {
-		return errors.New("cannot specify both --cache-to and --no-push-cache")
-	}
-
-	if hasCacheFrom {
-		fromSpec, err := config.ParseCacheFrom(opts.CacheFromFlags)
-		if err != nil {
-			return err
-		}
-		opts.Cache = true
-
-		if fromSpec.Type == config.CacheSpecRegistry {
-			if isCacheRepoExplicit && opts.CacheRepo != "" {
-				logrus.Warnf("Overriding --cache-repo=%q with --cache-from %s", opts.CacheRepo, opts.CacheFromFlags)
-			}
-			opts.CacheRepo = fromSpec.Ref
-		} else if fromSpec.Type == config.CacheSpecLocal {
-			if isCacheDirExplicit && opts.CacheDir != "" {
-				logrus.Warnf("Overriding --cache-dir=%q with --cache-from %s", opts.CacheDir, opts.CacheFromFlags)
-			}
-			opts.CacheDir = fromSpec.Src
-		}
-	}
-
-	if hasCacheTo {
-		toSpec, err := config.ParseCacheTo(opts.CacheToFlags)
-		if err != nil {
-			return err
-		}
-		opts.Cache = true
-		opts.NoPushCache = false
-
-		if isCacheRepoExplicit && opts.CacheRepo != "" && (!hasCacheFrom || opts.CacheRepo != toSpec.Ref) {
-			logrus.Warnf("Overriding --cache-repo=%q with --cache-to %s", opts.CacheRepo, opts.CacheToFlags)
-		}
-		opts.CacheRepo = toSpec.Ref
-	} else if hasCacheFrom {
-		// If only cache-from is specified, default to no-push-cache
-		opts.NoPushCache = true
-	}
-
-	return nil
 }
 
 func ValidateFlags(opts *config.KanikoOptions) {
@@ -170,10 +111,6 @@ func ValidateFlags(opts *config.KanikoOptions) {
 
 func setupBuild() error {
 	ValidateFlags(opts)
-
-	if err := resolveCacheSpecs(opts, isNoPushCacheExplicit, isCacheRepoExplicit, isCacheDirExplicit); err != nil {
-		return fmt.Errorf("error resolving cache specs: %w", err)
-	}
 
 	// mz661: resolveSecrets must run before moveKanikoDir so that secret src=
 	// paths pointing into the original kaniko dir are still valid when copied.
@@ -283,9 +220,6 @@ var RootCmd = &cobra.Command{
 					return err
 				}
 			}
-			isNoPushCacheExplicit = cmd.Flags().Changed("no-push-cache")
-			isCacheRepoExplicit = cmd.Flags().Changed("cache-repo")
-			isCacheDirExplicit = cmd.Flags().Changed("cache-dir")
 			if opts.SnapshotHashWorkers < 1 {
 				return fmt.Errorf("--snapshot-hash-workers=%d must be at least 1", opts.SnapshotHashWorkers)
 			}
@@ -440,8 +374,8 @@ func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().BoolVarP(&opts.NoPush, "no-push", "", config.EnvBool("KANIKO_NO_PUSH"), "Do not push the image to the registry")
 	cmd.Flags().BoolVarP(&opts.NoPushCache, "no-push-cache", "", false, "Do not push the cache layers to the registry")
 	cmd.Flags().StringVarP(&opts.CacheRepo, "cache-repo", "", "", "Specify a repository to use as a cache, otherwise one will be inferred from the destination provided; when prefixed with 'oci:' the repository will be written in OCI image layout format at the path provided")
-	cmd.Flags().StringVarP(&opts.CacheFromFlags, "cache-from", "", "", "Specify cache sources consistent with buildkit (e.g. type=registry,ref=... or type=local,src=...)")
-	cmd.Flags().StringVarP(&opts.CacheToFlags, "cache-to", "", "", "Specify cache destination consistent with buildkit (e.g. type=registry,ref=...)")
+	cmd.Flags().StringArrayVar(&opts.CacheFrom, "cache-from", nil, "Read the layer cache from this repository, or from an OCI layout when prefixed with 'oci:'. Set it repeatedly to read from several caches in order.")
+	cmd.Flags().StringArrayVar(&opts.CacheTo, "cache-to", nil, "Write the layer cache to this repository, or to an OCI layout when prefixed with 'oci:'. Set it repeatedly to write to several caches.")
 	cmd.Flags().StringVarP(&opts.CacheDir, "cache-dir", "", "/cache", "Specify a local directory to use as a cache.")
 	cmd.Flags().StringVarP(&opts.DigestFile, "digest-file", "", "", "Specify a file to save the digest of the built image to.")
 	cmd.Flags().StringVarP(&opts.ImageNameDigestFile, "image-name-with-digest-file", "", "", "Specify a file to save the image name w/ digest of the built image to.")
@@ -574,12 +508,21 @@ func checkNoDeprecatedFlags() {
 
 // cacheFlagsValid makes sure the flags passed in related to caching are valid
 func cacheFlagsValid() error {
+	if (len(opts.CacheFrom) > 0 || len(opts.CacheTo) > 0) && !config.FF.CacheFromTo {
+		return errors.New("--cache-from and --cache-to require FF_KANIKO_CACHE_FROM_TO")
+	}
+	if len(opts.CacheTo) > 0 && opts.NoPushCache {
+		return errors.New("--no-push-cache cannot be combined with --cache-to")
+	}
+	if opts.CacheRepo != "" && (len(opts.CacheFrom) > 0 || len(opts.CacheTo) > 0) {
+		return errors.New("--cache-repo cannot be combined with --cache-from or --cache-to")
+	}
 	if !opts.Cache {
 		return nil
 	}
 	// If --cache=true and --no-push=true, then cache repo must be provided
 	// since cache can't be inferred from destination
-	if !opts.NoPushCache && opts.CacheRepo == "" && opts.NoPush {
+	if !opts.NoPushCache && opts.CacheRepo == "" && len(opts.CacheFrom) == 0 && len(opts.CacheTo) == 0 && opts.NoPush {
 		return errors.New("if using cache with --no-push, specify cache repo with --cache-repo")
 	}
 	return nil
