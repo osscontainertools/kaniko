@@ -2,7 +2,6 @@ package testissuemz1346
 
 import "github.com/osscontainertools/kaniko/golden/types"
 
-// The first layer is cached, so each plan shows a hit and the cache uploads of the missed second layer.
 var cached = []string{"8328b762de0f48ec6cc90c110378e61ce0db514e86ab810971769b55975eabef"}
 
 var Tests = types.GoldenTests{

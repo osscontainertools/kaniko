@@ -248,7 +248,7 @@ func runBuild(opts *config.KanikoOptions) error {
 }
 
 // ApplyTarget points opts at a single target. A target with no stage keeps whatever
-// --target was given. Without a cache flag the cache follows the target's destination.
+// --target was given.
 func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
 	if target.Stage != "" {
 		opts.Target = []string{target.Stage}

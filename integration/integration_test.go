@@ -431,12 +431,9 @@ func TestCacheFromTo(t *testing.T) {
 		mainCache := filepath.Join(config.imageRepo, "cache-from-to", run, "main")
 		featureCache := filepath.Join(config.imageRepo, "cache-from-to", run, "feature")
 		build(t, 0, "--build-arg=V=main", "--cache-to="+mainCache)
-		// RUN date > /a hits mainCache, the RUN below the changed ARG rebuilds and goes to featureCache
 		feature := build(t, 1, "--build-arg=V=feature", "--cache-from="+mainCache, "--cache-to="+featureCache)
-		// /a only comes out of mainCache and /b only out of featureCache
 		both := build(t, 2, "--build-arg=V=feature", "--cache-from="+featureCache, "--cache-from="+mainCache)
 		diffoci(t, feature, both)
-		// /b never reached mainCache, so it is rebuilt with a new date
 		mainOnly := build(t, 3, "--build-arg=V=feature", "--cache-from="+mainCache)
 		out, err := RunCommandWithoutTest(diffociCmd(feature, mainOnly, "", "--ignore-image-name", "--ignore-image-timestamps"))
 		if err == nil {

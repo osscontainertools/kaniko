@@ -985,7 +985,7 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 	return nil
 }
 
-// buildCachedImage builds the image for testing caching via kaniko where version is the nth time this image has been built.
+// buildCachedImage builds the image for testing caching via kaniko where version is the nth time this image has been built
 // An empty cacheRepo leaves the cache configuration to args.
 func (d *DockerFileBuilder) buildCachedImage(t *testing.T, config *integrationTestConfig, cacheRepo, dockerfilesPath, dockerfile string, version int, args []string) error {
 	imageRepo := config.imageRepo
