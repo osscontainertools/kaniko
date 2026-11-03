@@ -31,6 +31,7 @@ import (
 	"github.com/containerd/platforms"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/buildcontext"
 	"github.com/osscontainertools/kaniko/pkg/buildenv"
@@ -244,6 +245,41 @@ var RootCmd = &cobra.Command{
 
 func runBuild(opts *config.KanikoOptions) error {
 	return runBuildTargets(opts, []bake.ResolvedTarget{{Destination: opts.Destinations}})
+}
+
+// ApplyTarget points opts at a single target. A target with no stage keeps whatever
+// --target was given. Without a cache flag the cache follows the target's destination.
+func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
+	if target.Stage != "" {
+		opts.Target = []string{target.Stage}
+	}
+	opts.Destinations = target.Destination
+	if opts.NoPushCache {
+		assert.Assert("cmd.applytarget.no-push-cache-alone", len(opts.CacheTo) == 0, "ApplyTarget: --no-push-cache with --cache-to")
+	}
+	if opts.CacheRepo != "" {
+		assert.Assert("cmd.applytarget.cache-repo-alone", len(opts.CacheFrom) == 0 && len(opts.CacheTo) == 0, "ApplyTarget: --cache-repo with --cache-from or --cache-to")
+	}
+	switch {
+	case len(opts.CacheFrom) > 0 || len(opts.CacheTo) > 0:
+		opts.Cache = true
+	case opts.Cache || opts.CacheRepo != "":
+		repo := opts.CacheRepo
+		if repo == "" && len(opts.Destinations) > 0 {
+			destRef, err := name.NewTag(opts.Destinations[0], name.WeakValidation)
+			if err != nil {
+				return fmt.Errorf("getting tag for destination: %w", err)
+			}
+			repo = fmt.Sprintf("%s/cache", destRef.Context())
+		}
+		if repo != "" {
+			opts.CacheFrom = []string{repo}
+			if !opts.NoPushCache {
+				opts.CacheTo = []string{repo}
+			}
+		}
+	}
+	return nil
 }
 
 func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) error {

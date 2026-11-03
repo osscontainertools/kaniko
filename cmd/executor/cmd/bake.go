@@ -19,8 +19,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/logging"
@@ -83,41 +81,6 @@ func ConfigureFromBakefile(opts *config.KanikoOptions, path string, selection, s
 		}
 	}
 	return targets, nil
-}
-
-// ApplyTarget points opts at a single target. A target with no stage keeps whatever
-// --target was given. Without a cache flag the cache follows the target's destination.
-func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
-	if target.Stage != "" {
-		opts.Target = []string{target.Stage}
-	}
-	opts.Destinations = target.Destination
-	if opts.NoPushCache {
-		assert.Assert("cmd.applytarget.no-push-cache-alone", len(opts.CacheTo) == 0, "ApplyTarget: --no-push-cache with --cache-to")
-	}
-	if opts.CacheRepo != "" {
-		assert.Assert("cmd.applytarget.cache-repo-alone", len(opts.CacheFrom) == 0 && len(opts.CacheTo) == 0, "ApplyTarget: --cache-repo with --cache-from or --cache-to")
-	}
-	switch {
-	case len(opts.CacheFrom) > 0 || len(opts.CacheTo) > 0:
-		opts.Cache = true
-	case opts.Cache || opts.CacheRepo != "":
-		repo := opts.CacheRepo
-		if repo == "" && len(opts.Destinations) > 0 {
-			destRef, err := name.NewTag(opts.Destinations[0], name.WeakValidation)
-			if err != nil {
-				return fmt.Errorf("getting tag for destination: %w", err)
-			}
-			repo = fmt.Sprintf("%s/cache", destRef.Context())
-		}
-		if repo != "" {
-			opts.CacheFrom = []string{repo}
-			if !opts.NoPushCache {
-				opts.CacheTo = []string{repo}
-			}
-		}
-	}
-	return nil
 }
 
 var bakeCmd = &cobra.Command{
