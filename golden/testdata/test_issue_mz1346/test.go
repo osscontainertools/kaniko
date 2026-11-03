@@ -1,0 +1,39 @@
+package testissuemz1346
+
+import "github.com/osscontainertools/kaniko/golden/types"
+
+var env = map[string]string{"FF_KANIKO_CACHE_FROM_TO": "1"}
+
+// The first layer is cached, so each plan shows a hit and the cache uploads of the missed second layer.
+var cached = []string{"8328b762de0f48ec6cc90c110378e61ce0db514e86ab810971769b55975eabef"}
+
+var Tests = types.GoldenTests{
+	Name:       "test_issue_mz1346",
+	Dockerfile: "Dockerfile",
+	Tests: []types.GoldenTest{
+		{
+			Env:        env,
+			Args:       []string{"-d", "example.com/img:latest", "--cache-from", "example.com/main-cache", "--cache-to", "example.com/branch-cache"},
+			CachedKeys: cached,
+			Plan:       "from_to",
+		},
+		{
+			Env:        env,
+			Args:       []string{"-d", "example.com/img:latest", "--cache-from", "example.com/main-cache"},
+			CachedKeys: cached,
+			Plan:       "from_only",
+		},
+		{
+			Env:        env,
+			Args:       []string{"-d", "example.com/img:latest", "--cache-to", "example.com/a-cache", "--cache-to", "example.com/b-cache"},
+			CachedKeys: cached,
+			Plan:       "to_twice",
+		},
+		{
+			Env:        env,
+			Args:       []string{"-d", "example.com/img:latest", "--cache-from", "example.com/branch-cache", "--cache-from", "example.com/main-cache", "--cache-to", "example.com/branch-cache"},
+			CachedKeys: cached,
+			Plan:       "from_twice",
+		},
+	},
+}
