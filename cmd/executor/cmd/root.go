@@ -329,7 +329,9 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 	if !opts.Dryrun {
 		for _, target := range targets {
 			topts := *opts
-			ApplyTarget(&topts, target)
+			if err := ApplyTarget(&topts, target); err != nil {
+				return err
+			}
 			if !topts.NoPush || topts.CacheRepo != "" {
 				checkStart := time.Now()
 				err := executor.CheckPushPermissions(&topts)
@@ -380,7 +382,9 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 		}
 		// Copy, so nothing a build writes back into its options reaches the next target.
 		topts := *opts
-		ApplyTarget(&topts, target)
+		if err := ApplyTarget(&topts, target); err != nil {
+			return err
+		}
 		if target.ID != "" {
 			logrus.Infof("Building target %q [stage: %q]", target.ID, target.Stage)
 		}

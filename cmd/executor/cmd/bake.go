@@ -19,6 +19,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/logging"
@@ -84,12 +85,20 @@ func ConfigureFromBakefile(opts *config.KanikoOptions, path string, selection, s
 }
 
 // ApplyTarget points opts at a single target. A target with no stage keeps whatever
-// --target was given.
-func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) {
+// --target was given. Without --cache-repo the cache follows the target's destination.
+func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
 	if target.Stage != "" {
 		opts.Target = []string{target.Stage}
 	}
 	opts.Destinations = target.Destination
+	if opts.CacheRepo == "" && opts.Cache && len(opts.Destinations) > 0 {
+		destRef, err := name.NewTag(opts.Destinations[0], name.WeakValidation)
+		if err != nil {
+			return fmt.Errorf("getting tag for destination: %w", err)
+		}
+		opts.CacheRepo = fmt.Sprintf("%s/cache", destRef.Context())
+	}
+	return nil
 }
 
 var bakeCmd = &cobra.Command{

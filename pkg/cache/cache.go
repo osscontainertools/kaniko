@@ -183,20 +183,11 @@ func locateImage(path string) (v1.Image, error) {
 }
 
 // Destination returns the repo where the layer should be stored
-// If no cache is specified, one is inferred from the destination provided
 func Destination(opts *config.KanikoOptions, cacheKey string) (string, error) {
-	cache := opts.CacheRepo
-	if cache == "" && len(opts.Destinations) == 0 {
+	if opts.CacheRepo == "" {
 		return "", errors.New("cache repo can't be deduced")
-	} else if cache == "" {
-		destination := opts.Destinations[0]
-		destRef, err := name.NewTag(destination, name.WeakValidation)
-		if err != nil {
-			return "", fmt.Errorf("getting tag for destination: %w", err)
-		}
-		return fmt.Sprintf("%s/cache:%s", destRef.Context(), cacheKey), nil
 	}
-	return fmt.Sprintf("%s:%s", cache, cacheKey), nil
+	return fmt.Sprintf("%s:%s", opts.CacheRepo, cacheKey), nil
 }
 
 // LocalSource retrieves a source image from a local cache given cacheKey

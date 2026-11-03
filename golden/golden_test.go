@@ -57,6 +57,7 @@ import (
 	testunittests "github.com/osscontainertools/kaniko/golden/testdata/test_unittests"
 	testwarmer "github.com/osscontainertools/kaniko/golden/testdata/test_warmer"
 	"github.com/osscontainertools/kaniko/golden/types"
+	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/executor"
@@ -274,6 +275,9 @@ func TestRun(t *testing.T) {
 								t.Fatal(err)
 							}
 							cmd.ValidateFlags(&opts)
+							if err := cmd.ApplyTarget(&opts, bake.ResolvedTarget{Destination: opts.Destinations}); err != nil {
+								t.Fatal(err)
+							}
 
 							output := renderPlan(t, &opts, test)
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), output)
@@ -335,8 +339,11 @@ func TestBake(t *testing.T) {
 
 							var output string
 							for _, target := range targets {
-								cmd.ApplyTarget(&opts, target)
-								output += renderPlan(t, &opts, test)
+								topts := opts
+								if err := cmd.ApplyTarget(&topts, target); err != nil {
+									t.Fatal(err)
+								}
+								output += renderPlan(t, &topts, test)
 							}
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), output)
 						})
