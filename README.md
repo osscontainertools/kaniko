@@ -706,7 +706,7 @@ The artifact must contain exactly one image. Multi-image tarballs and indexes ar
 
 #### Subcommand `bake`
 
-`executor bake <bakefile> [target]` builds several images from one multi-stage Dockerfile in a single invocation. A small HCL bakefile says which stage each image is built from and where it is pushed, while the context, dockerfile, build args, cache and registry settings stay on the usual flags and are shared by every target.
+`executor bake <bakefile> [target]` builds several images from one multi-stage Dockerfile in a single invocation. A small HCL bakefile says which stage each image is built from, where it is pushed and which layer caches it uses, while the context, dockerfile, build args and registry settings stay on the usual flags and are shared by every target.
 
 ```hcl
 target "app" {
