@@ -98,6 +98,12 @@ func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
 		}
 		opts.CacheRepo = fmt.Sprintf("%s/cache", destRef.Context())
 	}
+	if opts.CacheRepo != "" {
+		opts.CacheFrom = []string{opts.CacheRepo}
+		if !opts.NoPushCache {
+			opts.CacheTo = []string{opts.CacheRepo}
+		}
+	}
 	return nil
 }
 

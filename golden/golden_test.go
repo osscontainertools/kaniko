@@ -113,10 +113,9 @@ func (f *fakeLayerCache) RetrieveLayer(key string) (v1.Image, error) {
 	}
 	var layer v1.Layer = &fakeLayer{key: key, mediaType: f.mediaType}
 	var tag name.Tag
-	dest, err := cache.Destination(f.opts, key)
-	remoteCache := err == nil && !strings.HasPrefix(dest, "oci:")
+	remoteCache := len(f.opts.CacheFrom) > 0 && !strings.HasPrefix(f.opts.CacheFrom[0], "oci:")
 	if remoteCache {
-		tag, err = name.NewTag(dest, name.WeakValidation)
+		tag, err = name.NewTag(cache.Ref(f.opts.CacheFrom[0], key), name.WeakValidation)
 		remoteCache = err == nil
 	}
 	// Layers read through remote.Image are mountable, layers read from a layout are not.

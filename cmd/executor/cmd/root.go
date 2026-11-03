@@ -72,8 +72,8 @@ func init() {
 }
 
 func resolveCacheSpecs(opts *config.KanikoOptions, isNoPushCacheExplicit bool, isCacheRepoExplicit bool, isCacheDirExplicit bool) error {
-	hasCacheFrom := opts.CacheFrom != ""
-	hasCacheTo := opts.CacheTo != ""
+	hasCacheFrom := opts.CacheFromFlags != ""
+	hasCacheTo := opts.CacheToFlags != ""
 
 	if !hasCacheFrom && !hasCacheTo {
 		return nil
@@ -88,7 +88,7 @@ func resolveCacheSpecs(opts *config.KanikoOptions, isNoPushCacheExplicit bool, i
 	}
 
 	if hasCacheFrom {
-		fromSpec, err := config.ParseCacheFrom(opts.CacheFrom)
+		fromSpec, err := config.ParseCacheFrom(opts.CacheFromFlags)
 		if err != nil {
 			return err
 		}
@@ -96,19 +96,19 @@ func resolveCacheSpecs(opts *config.KanikoOptions, isNoPushCacheExplicit bool, i
 
 		if fromSpec.Type == config.CacheSpecRegistry {
 			if isCacheRepoExplicit && opts.CacheRepo != "" {
-				logrus.Warnf("Overriding --cache-repo=%q with --cache-from %s", opts.CacheRepo, opts.CacheFrom)
+				logrus.Warnf("Overriding --cache-repo=%q with --cache-from %s", opts.CacheRepo, opts.CacheFromFlags)
 			}
 			opts.CacheRepo = fromSpec.Ref
 		} else if fromSpec.Type == config.CacheSpecLocal {
 			if isCacheDirExplicit && opts.CacheDir != "" {
-				logrus.Warnf("Overriding --cache-dir=%q with --cache-from %s", opts.CacheDir, opts.CacheFrom)
+				logrus.Warnf("Overriding --cache-dir=%q with --cache-from %s", opts.CacheDir, opts.CacheFromFlags)
 			}
 			opts.CacheDir = fromSpec.Src
 		}
 	}
 
 	if hasCacheTo {
-		toSpec, err := config.ParseCacheTo(opts.CacheTo)
+		toSpec, err := config.ParseCacheTo(opts.CacheToFlags)
 		if err != nil {
 			return err
 		}
@@ -116,7 +116,7 @@ func resolveCacheSpecs(opts *config.KanikoOptions, isNoPushCacheExplicit bool, i
 		opts.NoPushCache = false
 
 		if isCacheRepoExplicit && opts.CacheRepo != "" && (!hasCacheFrom || opts.CacheRepo != toSpec.Ref) {
-			logrus.Warnf("Overriding --cache-repo=%q with --cache-to %s", opts.CacheRepo, opts.CacheTo)
+			logrus.Warnf("Overriding --cache-repo=%q with --cache-to %s", opts.CacheRepo, opts.CacheToFlags)
 		}
 		opts.CacheRepo = toSpec.Ref
 	} else if hasCacheFrom {
@@ -332,7 +332,7 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 			if err := ApplyTarget(&topts, target); err != nil {
 				return err
 			}
-			if !topts.NoPush || topts.CacheRepo != "" {
+			if !topts.NoPush || len(topts.CacheTo) > 0 {
 				checkStart := time.Now()
 				err := executor.CheckPushPermissions(&topts)
 				checks = append(checks, [2]time.Time{checkStart, time.Now()})
@@ -440,8 +440,8 @@ func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().BoolVarP(&opts.NoPush, "no-push", "", config.EnvBool("KANIKO_NO_PUSH"), "Do not push the image to the registry")
 	cmd.Flags().BoolVarP(&opts.NoPushCache, "no-push-cache", "", false, "Do not push the cache layers to the registry")
 	cmd.Flags().StringVarP(&opts.CacheRepo, "cache-repo", "", "", "Specify a repository to use as a cache, otherwise one will be inferred from the destination provided; when prefixed with 'oci:' the repository will be written in OCI image layout format at the path provided")
-	cmd.Flags().StringVarP(&opts.CacheFrom, "cache-from", "", "", "Specify cache sources consistent with buildkit (e.g. type=registry,ref=... or type=local,src=...)")
-	cmd.Flags().StringVarP(&opts.CacheTo, "cache-to", "", "", "Specify cache destination consistent with buildkit (e.g. type=registry,ref=...)")
+	cmd.Flags().StringVarP(&opts.CacheFromFlags, "cache-from", "", "", "Specify cache sources consistent with buildkit (e.g. type=registry,ref=... or type=local,src=...)")
+	cmd.Flags().StringVarP(&opts.CacheToFlags, "cache-to", "", "", "Specify cache destination consistent with buildkit (e.g. type=registry,ref=...)")
 	cmd.Flags().StringVarP(&opts.CacheDir, "cache-dir", "", "/cache", "Specify a local directory to use as a cache.")
 	cmd.Flags().StringVarP(&opts.DigestFile, "digest-file", "", "", "Specify a file to save the digest of the built image to.")
 	cmd.Flags().StringVarP(&opts.ImageNameDigestFile, "image-name-with-digest-file", "", "", "Specify a file to save the image name w/ digest of the built image to.")

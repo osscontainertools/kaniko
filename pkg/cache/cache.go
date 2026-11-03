@@ -41,17 +41,32 @@ type LayerCache interface {
 	RetrieveLayer(string) (v1.Image, error)
 }
 
+type Sources []LayerCache
+
+func (s Sources) RetrieveLayer(ck string) (v1.Image, error) {
+	if len(s) == 0 {
+		return nil, errors.New("no cache to read from")
+	}
+	var errs []error
+	for _, c := range s {
+		img, err := c.RetrieveLayer(ck)
+		if err == nil {
+			return img, nil
+		}
+		errs = append(errs, err)
+	}
+	return nil, errors.Join(errs...)
+}
+
 // RegistryCache is the registry cache
 type RegistryCache struct {
 	Opts *config.KanikoOptions
+	Repo string
 }
 
 // RetrieveLayer retrieves a layer from the cache given the cache key ck.
 func (rc *RegistryCache) RetrieveLayer(ck string) (v1.Image, error) {
-	cache, err := Destination(rc.Opts, ck)
-	if err != nil {
-		return nil, fmt.Errorf("getting cache destination: %w", err)
-	}
+	cache := Ref(rc.Repo, ck)
 	logrus.Infof("Checking for cached layer %s...", cache)
 
 	cacheRef, err := name.NewTag(cache, name.WeakValidation)
@@ -135,16 +150,15 @@ func verifyImage(img v1.Image, cacheTTL time.Duration, cache string) error {
 // LayoutCache is the OCI image layout cache
 type LayoutCache struct {
 	Opts *config.KanikoOptions
+	Repo string
 }
 
 func (lc *LayoutCache) RetrieveLayer(ck string) (v1.Image, error) {
-	cache, err := Destination(lc.Opts, ck)
-	if err != nil {
-		return nil, fmt.Errorf("getting cache destination: %w", err)
-	}
+	cache := Ref(lc.Repo, ck)
 	logrus.Infof("Checking for cached layer %s...", cache)
 
 	var img v1.Image
+	var err error
 	if img, err = locateImage(strings.TrimPrefix(cache, "oci:")); err != nil {
 		return nil, fmt.Errorf("locating cache image: %w", err)
 	}
@@ -182,12 +196,8 @@ func locateImage(path string) (v1.Image, error) {
 	return img, nil
 }
 
-// Destination returns the repo where the layer should be stored
-func Destination(opts *config.KanikoOptions, cacheKey string) (string, error) {
-	if opts.CacheRepo == "" {
-		return "", errors.New("cache repo can't be deduced")
-	}
-	return fmt.Sprintf("%s:%s", opts.CacheRepo, cacheKey), nil
+func Ref(repo, cacheKey string) string {
+	return fmt.Sprintf("%s:%s", repo, cacheKey)
 }
 
 // LocalSource retrieves a source image from a local cache given cacheKey

@@ -540,14 +540,14 @@ func TestInitializeConfig(t *testing.T) {
 
 func Test_newLayerCache_defaultCache(t *testing.T) {
 	t.Run("default layer cache is registry cache", func(t *testing.T) {
-		layerCache := NewLayerCache(&config.KanikoOptions{CacheRepo: "some-cache-repo"})
-		foundCache, ok := layerCache.(*cache.RegistryCache)
+		layerCache := NewLayerCache(&config.KanikoOptions{CacheFrom: []string{"some-cache-repo"}})
+		foundCache, ok := layerCache.(cache.Sources)[0].(*cache.RegistryCache)
 		if !ok {
 			t.Error("expected layer cache to be a registry cache")
 		}
-		if foundCache.Opts.CacheRepo != "some-cache-repo" {
+		if foundCache.Repo != "some-cache-repo" {
 			t.Errorf(
-				"expected cache repo to be 'some-cache-repo'; got %q", foundCache.Opts.CacheRepo,
+				"expected cache repo to be 'some-cache-repo'; got %q", foundCache.Repo,
 			)
 		}
 	})
@@ -555,14 +555,14 @@ func Test_newLayerCache_defaultCache(t *testing.T) {
 
 func Test_newLayerCache_layoutCache(t *testing.T) {
 	t.Run("when cache repo has 'oci:' prefix layer cache is layout cache", func(t *testing.T) {
-		layerCache := NewLayerCache(&config.KanikoOptions{CacheRepo: "oci:/some-cache-repo"})
-		foundCache, ok := layerCache.(*cache.LayoutCache)
+		layerCache := NewLayerCache(&config.KanikoOptions{CacheFrom: []string{"oci:/some-cache-repo"}})
+		foundCache, ok := layerCache.(cache.Sources)[0].(*cache.LayoutCache)
 		if !ok {
 			t.Error("expected layer cache to be a layout cache")
 		}
-		if foundCache.Opts.CacheRepo != "oci:/some-cache-repo" {
+		if foundCache.Repo != "oci:/some-cache-repo" {
 			t.Errorf(
-				"expected cache repo to be 'oci:/some-cache-repo'; got %q", foundCache.Opts.CacheRepo,
+				"expected cache repo to be 'oci:/some-cache-repo'; got %q", foundCache.Repo,
 			)
 		}
 	})

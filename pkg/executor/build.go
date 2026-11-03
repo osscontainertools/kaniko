@@ -283,14 +283,15 @@ func initConfig(img partial.WithConfigFile, opts *config.KanikoOptions) (*v1.Con
 }
 
 func newLayerCacheImpl(opts *config.KanikoOptions) cache.LayerCache {
-	if isOCILayout(opts.CacheRepo) {
-		return &cache.LayoutCache{
-			Opts: opts,
+	sources := make(cache.Sources, 0, len(opts.CacheFrom))
+	for _, repo := range opts.CacheFrom {
+		if isOCILayout(repo) {
+			sources = append(sources, &cache.LayoutCache{Opts: opts, Repo: repo})
+		} else {
+			sources = append(sources, &cache.RegistryCache{Opts: opts, Repo: repo})
 		}
 	}
-	return &cache.RegistryCache{
-		Opts: opts,
-	}
+	return sources
 }
 
 func isOCILayout(path string) bool {
@@ -883,7 +884,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				logrus.Debugf("Build: cache key for command %v %v", command.String(), ck)
 
 				// Push layer to cache (in parallel) now along with new config file
-				if command.ShouldCacheOutput() && !opts.NoPushCache {
+				if command.ShouldCacheOutput() && len(opts.CacheTo) > 0 {
 					cacheGroup.Go(func() error {
 						return pushCache(opts, ck, tarPath, command.String(), s.span)
 					})
@@ -1432,10 +1433,6 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 			if opts.Cache && config.FF.CacheLookahead {
 				ci := cacheInfo[s.Index]
 				if ck := ci.cacheKeys[jdx]; ck != "" {
-					cacheRef, err := cache.Destination(opts, ck)
-					if err != nil {
-						cacheRef = ""
-					}
 					if ci.cacheHits[jdx] {
 						printf("  CACHE HIT: %s\n", ck)
 						cached, err := layerCache.RetrieveLayer(ck)
@@ -1450,14 +1447,19 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 						}
 					} else {
 						printf("  CACHE MISS: %s\n", ck)
-						if snapshots && !opts.NoPushCache && command.ShouldCacheOutput() && cacheRef != "" {
-							printf("  UPLOAD %s\n", cacheRef)
+						if snapshots && command.ShouldCacheOutput() && len(opts.CacheTo) > 0 {
 							key = mounts.PlannedDigest(ck)
-							tag, err := name.NewTag(cacheRef, name.WeakValidation)
-							if err != nil {
-								return err
+							var repos []name.Repository
+							for _, repo := range opts.CacheTo {
+								cacheRef := cache.Ref(repo, ck)
+								printf("  UPLOAD %s\n", cacheRef)
+								tag, err := name.NewTag(cacheRef, name.WeakValidation)
+								if err != nil {
+									return err
+								}
+								repos = append(repos, tag.Context())
 							}
-							sources[key] = []name.Repository{tag.Context()}
+							sources[key] = repos
 						}
 					}
 				}

@@ -321,11 +321,10 @@ func fakeCheckPushPermission(_ name.Reference, _ authn.Keychain, _ http.RoundTri
 func TestCheckPushPermissions(t *testing.T) {
 	tests := []struct {
 		description                     string
-		cacheRepo                       string
+		cacheTo                         []string
 		checkPushPermsExpectedCallCount int
 		destinations                    []string
 		noPush                          bool
-		noPushCache                     bool
 	}{
 		{description: "a gcr image", destinations: []string{"gcr.io/test-image"}, checkPushPermsExpectedCallCount: 1},
 		{description: "a pkg.dev image", destinations: []string{"us-docker.pkg.dev/test-image"}, checkPushPermsExpectedCallCount: 1},
@@ -360,19 +359,18 @@ func TestCheckPushPermissions(t *testing.T) {
 			destinations:                    []string{"us-central1-docker.pkg.dev/prj/test-image"},
 			checkPushPermsExpectedCallCount: 0,
 			noPush:                          true,
-			noPushCache:                     true,
 		},
 		{
 			description:                     "no push and push cache",
 			destinations:                    []string{"us-central1-docker.pkg.dev/prj/test-image"},
-			cacheRepo:                       "us-central1-docker.pkg.dev/prj/cache-image",
+			cacheTo:                         []string{"us-central1-docker.pkg.dev/prj/cache-image"},
 			checkPushPermsExpectedCallCount: 1,
 			noPush:                          true,
 		},
 		{
 			description:                     "no push and cache repo is OCI image layout",
 			destinations:                    []string{"us-central1-docker.pkg.dev/prj/test-image"},
-			cacheRepo:                       "oci:/some-layout-path",
+			cacheTo:                         []string{"oci:/some-layout-path"},
 			checkPushPermsExpectedCallCount: 0,
 			noPush:                          true,
 		},
@@ -383,10 +381,9 @@ func TestCheckPushPermissions(t *testing.T) {
 		t.Run(test.description, func(t *testing.T) {
 			resetCalledCount()
 			opts := config.KanikoOptions{
-				CacheRepo:    test.cacheRepo,
+				CacheTo:      test.cacheTo,
 				Destinations: test.destinations,
 				NoPush:       test.noPush,
-				NoPushCache:  test.noPushCache,
 			}
 			CheckPushPermissions(&opts)
 			if checkPushPermsCallCount != test.checkPushPermsExpectedCallCount {
