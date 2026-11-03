@@ -290,7 +290,7 @@ func TestRun(t *testing.T) {
 								t.Fatal(err)
 							}
 							cmd.ValidateFlags(&opts)
-							if err := cmd.ApplyTarget(&opts, bake.ResolvedTarget{Destination: opts.Destinations}); err != nil {
+							if err := cmd.ApplyTarget(&opts, bake.ResolvedTarget{Destination: opts.Destinations, CacheFrom: opts.CacheFrom, CacheTo: opts.CacheTo}); err != nil {
 								t.Fatal(err)
 							}
 

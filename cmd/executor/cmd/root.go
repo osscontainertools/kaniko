@@ -133,10 +133,6 @@ func setupBuild() error {
 	}
 
 	resolveEnvironmentBuildArgs(opts.BuildArgs, os.Getenv)
-
-	if err := cacheFlagsValid(); err != nil {
-		return fmt.Errorf("cache flags invalid: %w", err)
-	}
 	srcContext := opts.SrcContext
 	if err := resolveSourceContext(); err != nil {
 		return fmt.Errorf("error resolving source context: %w", err)
@@ -244,7 +240,7 @@ var RootCmd = &cobra.Command{
 }
 
 func runBuild(opts *config.KanikoOptions) error {
-	return runBuildTargets(opts, []bake.ResolvedTarget{{Destination: opts.Destinations}})
+	return runBuildTargets(opts, []bake.ResolvedTarget{{Destination: opts.Destinations, CacheFrom: opts.CacheFrom, CacheTo: opts.CacheTo}})
 }
 
 // ApplyTarget points opts at a single target. A target with no stage keeps whatever
@@ -254,6 +250,8 @@ func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
 		opts.Target = []string{target.Stage}
 	}
 	opts.Destinations = target.Destination
+	opts.CacheFrom = target.CacheFrom
+	opts.CacheTo = target.CacheTo
 	if opts.NoPushCache {
 		assert.Assert("cmd.applytarget.no-push-cache-alone", len(opts.CacheTo) == 0, "ApplyTarget: --no-push-cache with --cache-to")
 	}
@@ -286,6 +284,12 @@ func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
 }
 
 func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) error {
+	for _, target := range targets {
+		err := cacheFlagsValid(opts, target)
+		if err != nil {
+			return fmt.Errorf("cache flags invalid: %w", err)
+		}
+	}
 	setupStart := time.Now()
 	if err := setupBuild(); err != nil {
 		return err
@@ -546,11 +550,11 @@ func checkNoDeprecatedFlags() {
 }
 
 // cacheFlagsValid makes sure the flags passed in related to caching are valid
-func cacheFlagsValid() error {
-	if len(opts.CacheTo) > 0 && opts.NoPushCache {
+func cacheFlagsValid(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
+	if len(target.CacheTo) > 0 && opts.NoPushCache {
 		return errors.New("--no-push-cache cannot be combined with --cache-to")
 	}
-	if opts.CacheRepo != "" && (len(opts.CacheFrom) > 0 || len(opts.CacheTo) > 0) {
+	if opts.CacheRepo != "" && (len(target.CacheFrom) > 0 || len(target.CacheTo) > 0) {
 		return errors.New("--cache-repo cannot be combined with --cache-from or --cache-to")
 	}
 	if !opts.Cache {
@@ -558,7 +562,7 @@ func cacheFlagsValid() error {
 	}
 	// If --cache=true and --no-push=true, then cache repo must be provided
 	// since cache can't be inferred from destination
-	if !opts.NoPushCache && opts.CacheRepo == "" && len(opts.CacheFrom) == 0 && len(opts.CacheTo) == 0 && opts.NoPush {
+	if !opts.NoPushCache && opts.CacheRepo == "" && len(target.CacheFrom) == 0 && len(target.CacheTo) == 0 && opts.NoPush {
 		return errors.New("if using cache with --no-push, specify cache repo with --cache-repo")
 	}
 	return nil
