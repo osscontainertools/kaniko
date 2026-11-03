@@ -136,7 +136,6 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_ADD_CHOWN_TAR`](#flag-ff_kaniko_add_chown_tar)
       - [Flag `FF_KANIKO_ADD_FOLLOW_SYMLINK`](#flag-ff_kaniko_add_follow_symlink)
       - [Flag `FF_KANIKO_ADD_UNPACK`](#flag-ff_kaniko_add_unpack)
-      - [Flag `FF_KANIKO_CACHE_FROM_TO`](#flag-ff_kaniko_cache_from_to)
       - [Flag `FF_KANIKO_CACHE_HASH_BLAKE3`](#flag-ff_kaniko_cache_hash_blake3)
       - [Flag `FF_KANIKO_CACHE_IMAGE_INDEX`](#flag-ff_kaniko_cache_image_index)
       - [Flag `FF_KANIKO_CACHE_LOOKAHEAD`](#flag-ff_kaniko_cache_lookahead)
@@ -763,13 +762,11 @@ _This flag must be used in conjunction with the `--cache=true` flag._
 
 Specify cache sources consistent with BuildKit: `type=registry,ref=<repo>` or `type=local,src=<dir>`.
 If specified without `--cache-to`, `--cache` is enabled and `--no-push-cache` is set.
-Requires `FF_KANIKO_CACHE_FROM_TO=true`.
 
 #### Flag `--cache-to`
 
 Specify cache destination consistent with BuildKit: `type=registry,ref=<repo>`.
 Enables `--cache` and pushes cache layers to the specified repository.
-Requires `FF_KANIKO_CACHE_FROM_TO=true`.
 
 #### Flag `--cache-copy-layers`
 
@@ -1291,10 +1288,6 @@ Becomes default in `v1.30.0`.
 Set this flag to `true` to honor `--unpack`.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
-
-#### Flag `FF_KANIKO_CACHE_FROM_TO`
-
-Set this flag to `true` to enable support for BuildKit-consistent `--cache-from` and `--cache-to` flags. Defaults to `false`.
 
 #### Flag `FF_KANIKO_CACHE_HASH_BLAKE3`
 

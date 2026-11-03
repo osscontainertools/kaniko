@@ -544,9 +544,6 @@ func checkNoDeprecatedFlags() {
 
 // cacheFlagsValid makes sure the flags passed in related to caching are valid
 func cacheFlagsValid() error {
-	if (len(opts.CacheFrom) > 0 || len(opts.CacheTo) > 0) && !config.FF.CacheFromTo {
-		return errors.New("--cache-from and --cache-to require FF_KANIKO_CACHE_FROM_TO")
-	}
 	if len(opts.CacheTo) > 0 && opts.NoPushCache {
 		return errors.New("--no-push-cache cannot be combined with --cache-to")
 	}
