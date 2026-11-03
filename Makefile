@@ -46,7 +46,7 @@ COVER ?=
 RACE ?=
 # archive/tar stays instrumented, excluding it reports false races in go-containerregistry's push
 # bufio is excluded because compress/flate reads gzip layers from it one byte at a time
-RACE_GCFLAGS := -gcflags='compress/...=-race=false' -gcflags='hash/...=-race=false' -gcflags='bufio=-race=false' -gcflags='github.com/klauspost/compress/...=-race=false'
+RACE_GCFLAGS := -gcflags='compress/...=-race=false' -gcflags='hash/...=-race=false' -gcflags='bufio=-race=false' -gcflags='github.com/klauspost/compress/...=-race=false' -gcflags='github.com/minio/highwayhash=-race=false'
 # the image has no glibc NSS for cgo user and host lookups
 RACE_TAGS := ,netgo,osusergo
 
