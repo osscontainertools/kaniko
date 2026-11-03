@@ -2164,7 +2164,13 @@ func resolveExtraStageDigests(stages []config.KanikoStage, opts *config.KanikoOp
 
 			// This must be an image name, fetch its manifest.
 			logrus.Debugf("Found extra base image stage %s", c.From)
-			sourceImage, err := remote.RetrieveRemoteImage(c.From, opts.RegistryOptions, opts.CustomPlatform)
+			var sourceImage v1.Image
+			var err error
+			if config.FF.CacheCopyFrom {
+				sourceImage, err = image_util.RetrieveSourceImageInternal(c.From, false, 0, nil, opts)
+			} else {
+				sourceImage, err = remote.RetrieveRemoteImage(c.From, opts.RegistryOptions, opts.CustomPlatform)
+			}
 			if err != nil {
 				return nil, nil, err
 			}

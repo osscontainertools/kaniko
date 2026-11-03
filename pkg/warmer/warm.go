@@ -25,6 +25,8 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/containerd/platforms"
@@ -32,6 +34,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
+	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
@@ -391,5 +394,36 @@ outer:
 		}
 		baseNames = append(baseNames, resolvedBaseName)
 	}
+
+	if config.FF.CacheCopyFrom {
+		stageByName := make(map[string]int)
+		for idx, s := range stages {
+			if s.Name != "" {
+				stageByName[s.Name] = idx
+			}
+		}
+		for _, s := range stages {
+			for _, cmd := range s.Commands {
+				c, ok := cmd.(*instructions.CopyCommand)
+				if !ok || c.From == "" {
+					continue
+				}
+				// skip stage references ie.
+				// COPY --from=base and COPY --from=0
+				if _, ok := stageByName[strings.ToLower(c.From)]; ok {
+					continue
+				}
+				if _, err := strconv.Atoi(c.From); err == nil {
+					continue
+				}
+				// deduplicate
+				if slices.Contains(baseNames, c.From) {
+					continue
+				}
+				baseNames = append(baseNames, c.From)
+			}
+		}
+	}
+
 	return baseNames, nil
 }

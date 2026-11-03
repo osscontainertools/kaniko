@@ -190,6 +190,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_ADD_CHOWN_TAR=1",
 	"FF_KANIKO_ADD_FOLLOW_SYMLINK=1",
 	"FF_KANIKO_ADD_UNPACK=1",
+	"FF_KANIKO_CACHE_COPY_FROM=1",
 	"FF_KANIKO_CACHE_HASH_BLAKE3=1",
 	"FF_KANIKO_CACHE_IMAGE_INDEX=1",
 	"FF_KANIKO_CACHE_LOOKAHEAD=1",
@@ -257,6 +258,7 @@ var KanikoEnv = []string{
 }
 
 var WarmerEnv = []string{
+	"FF_KANIKO_CACHE_COPY_FROM=1",
 	"FF_KANIKO_CACHE_IMAGE_INDEX=1",
 }
 
@@ -432,6 +434,9 @@ var diffArgsMap = map[string][]string{
 	// mz922: buildkit gives the implicitly created destination directory the mode that was
 	// requested, we subtract the umask from it, so /dir777 ends up 0755 instead of 0777.
 	"TestRun/test_Dockerfile_test_copyadd_chmod": {"--extra-ignore-files=dir777/"},
+	// `COPY --from` touches the atime of copied files, so two builds differ in it.
+	// diffoci only honors --ignore-file-atime together with --ignore-file-ctime.
+	"TestWarmer/test_warmer_Dockerfile_test_issue_mz1212": {"--ignore-file-atime", "--ignore-file-ctime"},
 	// #mz155: `COPY --from` does not copy the timestamps from the source but touches new files with new timestamps.
 	// To test this we have to deactivate `--ignore-file-timestamps`. This is achieved here by deactivating `--semantic` comparison,
 	// which we pass by default, and then activating all the necessary ignores except file-timestamps.
@@ -830,7 +835,8 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_cache_copy_oci":    {},
 	}
 	d.TestWarmerDockerfiles = map[string]struct{}{
-		"Dockerfile_test_issue_mz320": {},
+		"Dockerfile_test_issue_mz320":  {},
+		"Dockerfile_test_issue_mz1212": {},
 	}
 	d.TestMountDockerfiles = map[string]struct{}{
 		"Dockerfile_test_issue_mz1007": {},

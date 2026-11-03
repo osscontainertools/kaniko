@@ -134,6 +134,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_ADD_CHOWN_TAR`](#flag-ff_kaniko_add_chown_tar)
       - [Flag `FF_KANIKO_ADD_FOLLOW_SYMLINK`](#flag-ff_kaniko_add_follow_symlink)
       - [Flag `FF_KANIKO_ADD_UNPACK`](#flag-ff_kaniko_add_unpack)
+      - [Flag `FF_KANIKO_CACHE_COPY_FROM`](#flag-ff_kaniko_cache_copy_from)
       - [Flag `FF_KANIKO_CACHE_HASH_BLAKE3`](#flag-ff_kaniko_cache_hash_blake3)
       - [Flag `FF_KANIKO_CACHE_IMAGE_INDEX`](#flag-ff_kaniko_cache_image_index)
       - [Flag `FF_KANIKO_CACHE_LOOKAHEAD`](#flag-ff_kaniko_cache_lookahead)
@@ -1225,6 +1226,7 @@ jq -r '.manifests[] | select(.annotations["vnd.docker.reference.type"] != "attes
 Opting into the Preview profile gives you early access to upcoming performance improvements, bugfixes and features. While these flags are tested and ready to use, implementation details may still change.
 
 ```sh
+FF_KANIKO_CACHE_COPY_FROM=true
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_KEEP_DEST_OWNER=true
 FF_KANIKO_COPY_LINK=true
@@ -1276,6 +1278,13 @@ Becomes default in `v1.30.0`.
 Set this flag to `true` to honor `--unpack`.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_CACHE_COPY_FROM`
+
+`COPY --from=<image>` always pulls the image from the registry, even when it is in `--cache-dir`.
+Set this flag to `true` on the warmer and the executor to cache it like a `FROM` base image.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_CACHE_HASH_BLAKE3`
 
