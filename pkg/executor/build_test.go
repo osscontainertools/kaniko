@@ -926,7 +926,7 @@ func Test_stageBuilder_build(t *testing.T) {
 			return testcase{
 				description:       "fake command cache enabled but key not in cache",
 				config:            &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
-				opts:              &config.KanikoOptions{Cache: true},
+				opts:              &config.KanikoOptions{Cache: true, CacheTo: []string{"some-cache-repo"}},
 				expectedCacheKeys: []string{hash},
 				pushedCacheKeys:   []string{hash},
 				commands:          []commands.DockerCommand{command},
@@ -1044,6 +1044,7 @@ func Test_stageBuilder_build(t *testing.T) {
 				DockerfilePath:  f.Name(),
 				Cache:           true,
 				CacheCopyLayers: true,
+				CacheTo:         []string{"some-cache-repo"},
 			}
 			testStages, metaArgs, err := dockerfile.ParseStages(opts)
 			if err != nil {
@@ -1109,6 +1110,7 @@ COPY %s foo.txt
 				DockerfilePath:  f.Name(),
 				Cache:           true,
 				CacheCopyLayers: true,
+				CacheTo:         []string{"some-cache-repo"},
 			}
 
 			testStages, metaArgs, err := dockerfile.ParseStages(opts)
@@ -1201,7 +1203,7 @@ COPY %s bar.txt
 			cmds := stage.Commands
 			return testcase{
 				description: "cached run command followed by uncached copy command results in consistent read and write hashes",
-				opts:        &config.KanikoOptions{Cache: true, CacheCopyLayers: true, CacheRunLayers: true},
+				opts:        &config.KanikoOptions{Cache: true, CacheCopyLayers: true, CacheRunLayers: true, CacheTo: []string{"some-cache-repo"}},
 				rootDir:     dir,
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
 				layerCache: &fakeLayerCache{
@@ -1392,7 +1394,7 @@ RUN foobar
 			return testcase{
 				description: "cached run command with another build arg pushes layer",
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: dir}},
-				opts:        &config.KanikoOptions{Cache: true},
+				opts:        &config.KanikoOptions{Cache: true, CacheTo: []string{"some-cache-repo"}},
 				args: map[string]string{
 					"arg": "anotherValue",
 				},
