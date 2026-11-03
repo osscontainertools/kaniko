@@ -394,6 +394,8 @@ func AddKanikoOptionsFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	AddSharedBuildFlags(cmd, opts)
 	cmd.Flags().VarP(&opts.Destinations, "destination", "d", "Registry the final image should be pushed to. Set it repeatedly for multiple destinations.")
 	cmd.Flags().StringSliceVarP(&opts.Target, "target", "", []string{}, "Set the target stages to build, the first in the list denotes the stage to be pushed")
+	cmd.Flags().StringArrayVar(&opts.CacheFrom, "cache-from", nil, "Read the layer cache from this repository, or from an OCI layout when prefixed with 'oci:'. Set it repeatedly to read from several caches in order.")
+	cmd.Flags().StringArrayVar(&opts.CacheTo, "cache-to", nil, "Write the layer cache to this repository, or to an OCI layout when prefixed with 'oci:'. Set it repeatedly to write to several caches.")
 }
 
 func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
@@ -413,8 +415,6 @@ func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().BoolVarP(&opts.NoPush, "no-push", "", config.EnvBool("KANIKO_NO_PUSH"), "Do not push the image to the registry")
 	cmd.Flags().BoolVarP(&opts.NoPushCache, "no-push-cache", "", false, "Do not push the cache layers to the registry")
 	cmd.Flags().StringVarP(&opts.CacheRepo, "cache-repo", "", "", "Specify a repository to use as a cache, otherwise one will be inferred from the destination provided; when prefixed with 'oci:' the repository will be written in OCI image layout format at the path provided")
-	cmd.Flags().StringArrayVar(&opts.CacheFrom, "cache-from", nil, "Read the layer cache from this repository, or from an OCI layout when prefixed with 'oci:'. Set it repeatedly to read from several caches in order.")
-	cmd.Flags().StringArrayVar(&opts.CacheTo, "cache-to", nil, "Write the layer cache to this repository, or to an OCI layout when prefixed with 'oci:'. Set it repeatedly to write to several caches.")
 	cmd.Flags().StringVarP(&opts.CacheDir, "cache-dir", "", "/cache", "Specify a local directory to use as a cache.")
 	cmd.Flags().StringVarP(&opts.DigestFile, "digest-file", "", "", "Specify a file to save the digest of the built image to.")
 	cmd.Flags().StringVarP(&opts.ImageNameDigestFile, "image-name-with-digest-file", "", "", "Specify a file to save the image name w/ digest of the built image to.")
