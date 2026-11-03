@@ -10,6 +10,16 @@ var Tests = types.GoldenTests{
 	Dockerfile: "Dockerfile",
 	Tests: []types.GoldenTest{
 		{
+			Args:       []string{"-d", "example.com/img:latest", "--cache"},
+			CachedKeys: cached,
+			Plan:       "fallback",
+		},
+		{
+			Args:       []string{"-d", "example.com/img:latest", "--cache", "--cache-repo", "example.com/cache", "--no-push-cache"},
+			CachedKeys: cached,
+			Plan:       "no_push_cache",
+		},
+		{
 			Args:       []string{"-d", "example.com/img:latest", "--cache-from", "example.com/main-cache", "--cache-to", "example.com/branch-cache"},
 			CachedKeys: cached,
 			Plan:       "from_to",
@@ -20,9 +30,8 @@ var Tests = types.GoldenTests{
 			Plan:       "from_only",
 		},
 		{
-			Args:       []string{"-d", "example.com/img:latest", "--cache-to", "example.com/a-cache", "--cache-to", "example.com/b-cache"},
-			CachedKeys: cached,
-			Plan:       "to_twice",
+			Args: []string{"-d", "example.com/img:latest", "--cache-to", "example.com/a-cache", "--cache-to", "example.com/b-cache"},
+			Plan: "to_twice",
 		},
 		{
 			Args:       []string{"-d", "example.com/img:latest", "--cache-from", "example.com/branch-cache", "--cache-from", "example.com/main-cache", "--cache-to", "example.com/branch-cache"},
