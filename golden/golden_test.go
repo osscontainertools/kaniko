@@ -73,7 +73,7 @@ import (
 const cachePointerLabel = "kaniko.cache.pointer-target"
 
 type fakeLayerCache struct {
-	opts       *config.KanikoOptions
+	repo       string
 	cachedKeys []string
 	mediaType  ggcrtypes.MediaType
 }
@@ -114,9 +114,9 @@ func (f *fakeLayerCache) RetrieveLayer(key string) (v1.Image, error) {
 	}
 	var layer v1.Layer = &fakeLayer{key: key, mediaType: f.mediaType}
 	var tag name.Tag
-	remoteCache := len(f.opts.CacheFrom) > 0 && !strings.HasPrefix(f.opts.CacheFrom[0], "oci:")
+	remoteCache := f.repo != "" && !strings.HasPrefix(f.repo, "oci:")
 	if remoteCache {
-		tag, err = name.NewTag(cache.Ref(f.opts.CacheFrom[0], key), name.WeakValidation)
+		tag, err = name.NewTag(cache.Ref(f.repo, key), name.WeakValidation)
 		remoteCache = err == nil
 	}
 	// Layers read through remote.Image are mountable, layers read from a layout are not.
@@ -205,7 +205,19 @@ func renderPlan(t *testing.T, opts *config.KanikoOptions, test types.GoldenTest)
 	}
 	origNewLayerCache := executor.NewLayerCache
 	executor.NewLayerCache = func(opts *config.KanikoOptions) cache.LayerCache {
-		return &fakeLayerCache{opts: opts, cachedKeys: test.CachedKeys, mediaType: cacheMediaType}
+		if test.CachedKeysByRepo != nil {
+			sources := make(cache.Sources, 0, len(opts.CacheFrom))
+			for _, repo := range opts.CacheFrom {
+				sources = append(sources, &fakeLayerCache{repo: repo, cachedKeys: test.CachedKeysByRepo[repo], mediaType: cacheMediaType})
+			}
+			return sources
+		} else {
+			var repo string
+			if len(opts.CacheFrom) > 0 {
+				repo = opts.CacheFrom[0]
+			}
+			return &fakeLayerCache{repo: repo, cachedKeys: test.CachedKeys, mediaType: cacheMediaType}
+		}
 	}
 	t.Cleanup(func() { executor.NewLayerCache = origNewLayerCache })
 
