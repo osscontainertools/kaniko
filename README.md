@@ -756,17 +756,32 @@ If this flag is not provided, a cache repo will be inferred from the
 `--destination` flag. If `--destination=gcr.io/kaniko-project/test`, then cached
 layers will be stored in `gcr.io/kaniko-project/test/cache`.
 
+Cannot be combined with `--cache-from` or `--cache-to`.
+
 _This flag must be used in conjunction with the `--cache=true` flag._
 
 #### Flag `--cache-from`
 
-Specify cache sources consistent with BuildKit: `type=registry,ref=<repo>` or `type=local,src=<dir>`.
-If specified without `--cache-to`, `--cache` is enabled and `--no-push-cache` is set.
+`--cache-from=<repo>` reads cached layers from `<repo>`. Prefix a path with `oci:` to read from an OCI layout on disk instead.
+Set it repeatedly to read from several caches. The first cache that holds a layer is used.
+
+Enables caching. Without `--cache-to` no cached layers are pushed.
+Cannot be combined with `--cache-repo`.
 
 #### Flag `--cache-to`
 
-Specify cache destination consistent with BuildKit: `type=registry,ref=<repo>`.
-Enables `--cache` and pushes cache layers to the specified repository.
+`--cache-to=<repo>` pushes cached layers to `<repo>`. Prefix a path with `oci:` to write an OCI layout on disk instead.
+Set it repeatedly to push to several caches.
+
+Enables caching. Cannot be combined with `--cache-repo` or `--no-push-cache`.
+
+For example, a feature branch reads its own cache and falls back to the one of `main`, but only writes its own:
+
+```bash
+--cache-from=registry.example.com/app/cache/feature \
+--cache-from=registry.example.com/app/cache/main \
+--cache-to=registry.example.com/app/cache/feature
+```
 
 #### Flag `--cache-copy-layers`
 
@@ -948,6 +963,8 @@ NOTE: this will still push cache layers to the repo, to disable pushing cache la
 
 Set this flag if you do not want to push cache layers to a
 registry.  Can be used in addition to `--no-push` to push no layers to a registry.
+
+Cannot be combined with `--cache-to`.
 
 #### Flag `--oci-layout-path`
 
