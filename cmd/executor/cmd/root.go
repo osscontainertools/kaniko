@@ -279,6 +279,9 @@ func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
 			}
 		}
 	}
+	if opts.Cache && len(opts.CacheTo) == 0 {
+		logrus.Info("Skipping push to cache, no cache to push to")
+	}
 	return nil
 }
 
