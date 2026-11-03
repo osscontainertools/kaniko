@@ -803,7 +803,6 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 	d.DockerfilesToIgnore = map[string]struct{}{}
 	d.TestCacheDockerfiles = map[string]struct{}{
 		"Dockerfile_test_cache":              {},
-		"Dockerfile_test_cache_from_to":      {},
 		"Dockerfile_test_cache_install":      {},
 		"Dockerfile_test_cache_perm":         {},
 		"Dockerfile_test_cache_copy":         {},
@@ -986,53 +985,8 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 	return nil
 }
 
-// buildCacheSpecImage builds an image with custom cache flags (e.g. --cache-from, --cache-to)
-func (d *DockerFileBuilder) buildCacheSpecImage(t *testing.T, config *integrationTestConfig, kanikoImage, dockerfilesPath, dockerfile string, version int, cacheFlags []string) error {
-	cwd := config.dir
-
-	dockerRunFlags := []string{
-		"run", "--net=host",
-		"-v", cwd + ":/workspace",
-	}
-	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
-	for _, envVariable := range envsMap[dockerfile] {
-		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
-	}
-	executorImage := ExecutorImage
-	if exec, ok := executorImages[dockerfile]; ok {
-		executorImage = exec
-	}
-
-	rawBuildArgs := argsMap[dockerfile]
-	if override, ok := argsMapVersion1[dockerfile]; version == 1 && ok {
-		rawBuildArgs = override
-	}
-	var buildArgs []string
-	for _, arg := range rawBuildArgs {
-		buildArgs = append(buildArgs, "--build-arg", arg)
-	}
-	buildArgs = append(buildArgs, "--build-arg", "IMAGE_REPO="+config.imageRepo)
-
-	dockerRunFlags = addAuthFlags(dockerRunFlags)
-	dockerRunFlags = addCoverageFlags(dockerRunFlags)
-	dockerRunFlags = append(dockerRunFlags, executorImage,
-		"-f", path.Join(buildContextPath, dockerfilesPath, dockerfile),
-		"-d", kanikoImage,
-		"-c", buildContextPath)
-	dockerRunFlags = append(dockerRunFlags, cacheFlags...)
-	dockerRunFlags = append(dockerRunFlags, buildArgs...)
-	kanikoCmd := exec.Command("docker", dockerRunFlags...)
-
-	out, err := RunCommandWithoutTest(kanikoCmd)
-	t.Logf("%s", out)
-
-	if err != nil {
-		return fmt.Errorf("failed to build cached image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
-	}
-	return checkNoWarnings(dockerfile, out)
-}
-
-// buildCachedImage builds the image for testing caching via kaniko where version is the nth time this image has been built
+// buildCachedImage builds the image for testing caching via kaniko where version is the nth time this image has been built.
+// An empty cacheRepo leaves the cache configuration to args.
 func (d *DockerFileBuilder) buildCachedImage(t *testing.T, config *integrationTestConfig, cacheRepo, dockerfilesPath, dockerfile string, version int, args []string) error {
 	imageRepo := config.imageRepo
 	cwd := config.dir
@@ -1070,9 +1024,10 @@ func (d *DockerFileBuilder) buildCachedImage(t *testing.T, config *integrationTe
 		"-f", path.Join(buildContextPath, dockerfilesPath, dockerfile),
 		"-d", kanikoImage,
 		"-c", buildContextPath,
-		cacheFlag,
-		"--cache-repo", cacheRepo,
 		"--cache-dir", cacheDir)
+	if cacheRepo != "" {
+		dockerRunFlags = append(dockerRunFlags, cacheFlag, "--cache-repo", cacheRepo)
+	}
 	dockerRunFlags = append(dockerRunFlags, args...)
 	dockerRunFlags = append(dockerRunFlags, buildArgs...)
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)

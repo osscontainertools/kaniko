@@ -412,98 +412,49 @@ func TestRun(t *testing.T) {
 func TestCacheFromTo(t *testing.T) {
 	t.Parallel()
 	const dockerfile = "Dockerfile_test_cache_from_to"
-
-	// Permutation 1: --cache-from registry and --cache-to registry
-	t.Run("cache_from_and_to_registry", func(t *testing.T) {
-		t.Parallel()
-		cacheRepo := filepath.Join(config.imageRepo, "cache-from-to", strconv.FormatInt(time.Now().UnixNano(), 10))
-		img0 := GetKanikoImage(config.imageRepo, "test_cache_from_to_reg_0")
-		img1 := GetKanikoImage(config.imageRepo, "test_cache_from_to_reg_1")
-
-		// First build pushes to cacheRepo via --cache-to
-		cacheFlags0 := []string{
-			"--cache-to", fmt.Sprintf("type=registry,ref=%s", cacheRepo),
+	if match, _ := filepath.Match(config.dockerfilesPattern, dockerfile); !match {
+		t.Skip()
+	}
+	run := strconv.FormatInt(time.Now().UnixNano(), 10)
+	build := func(t *testing.T, version int, args ...string) string {
+		t.Helper()
+		err := imageBuilder.buildCachedImage(t, config, "", dockerfilesPath, dockerfile, version, args)
+		if err != nil {
+			t.Fatalf("error building version %d: %v", version, err)
 		}
-		if err := imageBuilder.buildCacheSpecImage(t, config, img0, dockerfilesPath, dockerfile, 0, cacheFlags0); err != nil {
-			t.Fatalf("first build with cache-to failed: %v", err)
-		}
+		return GetVersionedKanikoImage(config.imageRepo, dockerfile, version)
+	}
 
-		// Second build reads from cacheRepo via --cache-from and pushes to cacheRepo via --cache-to
-		cacheFlags1 := []string{
-			"--cache-from", fmt.Sprintf("type=registry,ref=%s", cacheRepo),
-			"--cache-to", fmt.Sprintf("type=registry,ref=%s", cacheRepo),
+	// The subtests run in sequence, buildCachedImage names its images after the dockerfile.
+	t.Run("branch", func(t *testing.T) {
+		mainCache := filepath.Join(config.imageRepo, "cache-from-to", run, "main")
+		featureCache := filepath.Join(config.imageRepo, "cache-from-to", run, "feature")
+		build(t, 0, "--build-arg=V=main", "--cache-to="+mainCache)
+		// RUN date > /a hits mainCache, the RUN below the changed ARG rebuilds and goes to featureCache
+		feature := build(t, 1, "--build-arg=V=feature", "--cache-from="+mainCache, "--cache-to="+featureCache)
+		// /a only comes out of mainCache and /b only out of featureCache
+		both := build(t, 2, "--build-arg=V=feature", "--cache-from="+featureCache, "--cache-from="+mainCache)
+		diffoci(t, feature, both)
+		// /b never reached mainCache, so it is rebuilt with a new date
+		mainOnly := build(t, 3, "--build-arg=V=feature", "--cache-from="+mainCache)
+		out, err := RunCommandWithoutTest(diffociCmd(feature, mainOnly, "", "--ignore-image-name", "--ignore-image-timestamps"))
+		if err == nil {
+			t.Errorf("--cache-to pushed to a --cache-from source:\n%s", out)
 		}
-		if err := imageBuilder.buildCacheSpecImage(t, config, img1, dockerfilesPath, dockerfile, 1, cacheFlags1); err != nil {
-			t.Fatalf("second build with cache-from and cache-to failed: %v", err)
-		}
-
-		diffoci(t, img0, img1)
 	})
 
-	// Permutation 2: --cache-from registry without --cache-to (read-only cache)
-	t.Run("cache_from_registry_only", func(t *testing.T) {
-		t.Parallel()
-		cacheRepo := filepath.Join(config.imageRepo, "cache-from-only", strconv.FormatInt(time.Now().UnixNano(), 10))
-		img0 := GetKanikoImage(config.imageRepo, "test_cache_from_only_0")
-		img1 := GetKanikoImage(config.imageRepo, "test_cache_from_only_1")
-
-		// Populate cache via --cache-to
-		cacheFlags0 := []string{
-			"--cache-to", fmt.Sprintf("type=registry,ref=%s", cacheRepo),
-		}
-		if err := imageBuilder.buildCacheSpecImage(t, config, img0, dockerfilesPath, dockerfile, 0, cacheFlags0); err != nil {
-			t.Fatalf("initial build populating cache failed: %v", err)
-		}
-
-		// Second build uses --cache-from only (no-push-cache default)
-		cacheFlags1 := []string{
-			"--cache-from", fmt.Sprintf("type=registry,ref=%s", cacheRepo),
-		}
-		if err := imageBuilder.buildCacheSpecImage(t, config, img1, dockerfilesPath, dockerfile, 1, cacheFlags1); err != nil {
-			t.Fatalf("build with cache-from only failed: %v", err)
-		}
-
-		diffoci(t, img0, img1)
+	t.Run("read_only", func(t *testing.T) {
+		cache := filepath.Join(config.imageRepo, "cache-from-to", run, "read-only")
+		first := build(t, 0, "--build-arg=V=main", "--cache-to="+cache)
+		second := build(t, 1, "--build-arg=V=main", "--cache-from="+cache)
+		diffoci(t, first, second)
 	})
 
-	// Permutation 3: --cache-from local
-	t.Run("cache_from_local", func(t *testing.T) {
-		t.Parallel()
-		if err := populateVolumeCache(t, config); err != nil {
-			t.Fatalf("failed to populate local cache: %v", err)
-		}
-		const warmerDockerfile = "Dockerfile_test_issue_mz320"
-
-		img0 := GetKanikoImage(config.imageRepo, "test_cache_from_local_0")
-		img1 := GetKanikoImage(config.imageRepo, "test_cache_from_local_1")
-
-		// Warm cache is already in cacheDir (/cache)
-		cacheFlags := []string{
-			"--cache-from", fmt.Sprintf("type=local,src=%s", cacheDir),
-			"--cache-run-layers=false",
-		}
-		if err := imageBuilder.buildCacheSpecImage(t, config, img0, dockerfilesPath, warmerDockerfile, 0, cacheFlags); err != nil {
-			t.Fatalf("build with cache-from local failed: %v", err)
-		}
-		if err := imageBuilder.buildCacheSpecImage(t, config, img1, dockerfilesPath, warmerDockerfile, 1, cacheFlags); err != nil {
-			t.Fatalf("second build with cache-from local failed: %v", err)
-		}
-
-		diffoci(t, img0, img1)
-	})
-
-	// Permutation 4: --cache-to registry without --cache-from
-	t.Run("cache_to_registry_only", func(t *testing.T) {
-		t.Parallel()
-		cacheRepo := filepath.Join(config.imageRepo, "cache-to-only", strconv.FormatInt(time.Now().UnixNano(), 10))
-		img := GetKanikoImage(config.imageRepo, "test_cache_to_only")
-
-		cacheFlags := []string{
-			"--cache-to", fmt.Sprintf("type=registry,ref=%s", cacheRepo),
-		}
-		if err := imageBuilder.buildCacheSpecImage(t, config, img, dockerfilesPath, dockerfile, 0, cacheFlags); err != nil {
-			t.Fatalf("build with cache-to only failed: %v", err)
-		}
+	t.Run("oci_layout", func(t *testing.T) {
+		cache := "oci:" + filepath.Join(cacheDir, "cache-from-to", run)
+		first := build(t, 0, "--build-arg=V=main", "--cache-to="+cache)
+		second := build(t, 1, "--build-arg=V=main", "--cache-from="+cache)
+		diffoci(t, first, second)
 	})
 }
 
