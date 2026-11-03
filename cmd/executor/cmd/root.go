@@ -31,6 +31,7 @@ import (
 	"github.com/containerd/platforms"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/buildcontext"
 	"github.com/osscontainertools/kaniko/pkg/buildenv"
@@ -246,6 +247,44 @@ func runBuild(opts *config.KanikoOptions) error {
 	return runBuildTargets(opts, []bake.ResolvedTarget{{Destination: opts.Destinations}})
 }
 
+// ApplyTarget points opts at a single target. A target with no stage keeps whatever
+// --target was given.
+func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
+	if target.Stage != "" {
+		opts.Target = []string{target.Stage}
+	}
+	opts.Destinations = target.Destination
+	if opts.NoPushCache {
+		assert.Assert("cmd.applytarget.no-push-cache-alone", len(opts.CacheTo) == 0, "ApplyTarget: --no-push-cache with --cache-to")
+	}
+	if opts.CacheRepo != "" {
+		assert.Assert("cmd.applytarget.cache-repo-alone", len(opts.CacheFrom) == 0 && len(opts.CacheTo) == 0, "ApplyTarget: --cache-repo with --cache-from or --cache-to")
+	}
+	switch {
+	case len(opts.CacheFrom) > 0 || len(opts.CacheTo) > 0:
+		opts.Cache = true
+	case opts.Cache || opts.CacheRepo != "":
+		repo := opts.CacheRepo
+		if repo == "" && len(opts.Destinations) > 0 {
+			destRef, err := name.NewTag(opts.Destinations[0], name.WeakValidation)
+			if err != nil {
+				return fmt.Errorf("getting tag for destination: %w", err)
+			}
+			repo = fmt.Sprintf("%s/cache", destRef.Context())
+		}
+		if repo != "" {
+			opts.CacheFrom = []string{repo}
+			if !opts.NoPushCache {
+				opts.CacheTo = []string{repo}
+			}
+		}
+	}
+	if opts.Cache && len(opts.CacheTo) == 0 {
+		logrus.Info("Skipping push to cache, no cache to push to")
+	}
+	return nil
+}
+
 func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) error {
 	setupStart := time.Now()
 	if err := setupBuild(); err != nil {
@@ -263,8 +302,10 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 	if !opts.Dryrun {
 		for _, target := range targets {
 			topts := *opts
-			ApplyTarget(&topts, target)
-			if !topts.NoPush || topts.CacheRepo != "" {
+			if err := ApplyTarget(&topts, target); err != nil {
+				return err
+			}
+			if !topts.NoPush || len(topts.CacheTo) > 0 {
 				checkStart := time.Now()
 				err := executor.CheckPushPermissions(&topts)
 				checks = append(checks, [2]time.Time{checkStart, time.Now()})
@@ -314,7 +355,9 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 		}
 		// Copy, so nothing a build writes back into its options reaches the next target.
 		topts := *opts
-		ApplyTarget(&topts, target)
+		if err := ApplyTarget(&topts, target); err != nil {
+			return err
+		}
 		if target.ID != "" {
 			logrus.Infof("Building target %q [stage: %q]", target.ID, target.Stage)
 		}
@@ -351,6 +394,8 @@ func AddKanikoOptionsFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	AddSharedBuildFlags(cmd, opts)
 	cmd.Flags().VarP(&opts.Destinations, "destination", "d", "Registry the final image should be pushed to. Set it repeatedly for multiple destinations.")
 	cmd.Flags().StringSliceVarP(&opts.Target, "target", "", []string{}, "Set the target stages to build, the first in the list denotes the stage to be pushed")
+	cmd.Flags().StringArrayVar(&opts.CacheFrom, "cache-from", nil, "Read the layer cache from this repository, or from an OCI layout when prefixed with 'oci:'. Set it repeatedly to read from several caches in order.")
+	cmd.Flags().StringArrayVar(&opts.CacheTo, "cache-to", nil, "Write the layer cache to this repository, or to an OCI layout when prefixed with 'oci:'. Set it repeatedly to write to several caches.")
 }
 
 func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
@@ -502,12 +547,18 @@ func checkNoDeprecatedFlags() {
 
 // cacheFlagsValid makes sure the flags passed in related to caching are valid
 func cacheFlagsValid() error {
+	if len(opts.CacheTo) > 0 && opts.NoPushCache {
+		return errors.New("--no-push-cache cannot be combined with --cache-to")
+	}
+	if opts.CacheRepo != "" && (len(opts.CacheFrom) > 0 || len(opts.CacheTo) > 0) {
+		return errors.New("--cache-repo cannot be combined with --cache-from or --cache-to")
+	}
 	if !opts.Cache {
 		return nil
 	}
 	// If --cache=true and --no-push=true, then cache repo must be provided
 	// since cache can't be inferred from destination
-	if !opts.NoPushCache && opts.CacheRepo == "" && opts.NoPush {
+	if !opts.NoPushCache && opts.CacheRepo == "" && len(opts.CacheFrom) == 0 && len(opts.CacheTo) == 0 && opts.NoPush {
 		return errors.New("if using cache with --no-push, specify cache repo with --cache-repo")
 	}
 	return nil

@@ -17,11 +17,12 @@ limitations under the License.
 package types
 
 type GoldenTest struct {
-	Args           []string
-	Env            map[string]string
-	CachedKeys     []string
-	CacheMediaType string // docker gzip when empty
-	Plan           string
+	Args             []string
+	Env              map[string]string
+	CachedKeys       []string
+	CachedKeysByRepo map[string][]string
+	CacheMediaType   string // docker gzip when empty
+	Plan             string
 }
 
 type GoldenTests struct {

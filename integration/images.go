@@ -992,6 +992,7 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 }
 
 // buildCachedImage builds the image for testing caching via kaniko where version is the nth time this image has been built
+// An empty cacheRepo leaves the cache configuration to args.
 func (d *DockerFileBuilder) buildCachedImage(t *testing.T, config *integrationTestConfig, cacheRepo, dockerfilesPath, dockerfile string, version int, args []string) error {
 	imageRepo := config.imageRepo
 	cwd := config.dir
@@ -1029,9 +1030,10 @@ func (d *DockerFileBuilder) buildCachedImage(t *testing.T, config *integrationTe
 		"-f", path.Join(buildContextPath, dockerfilesPath, dockerfile),
 		"-d", kanikoImage,
 		"-c", buildContextPath,
-		cacheFlag,
-		"--cache-repo", cacheRepo,
 		"--cache-dir", cacheDir)
+	if cacheRepo != "" {
+		dockerRunFlags = append(dockerRunFlags, cacheFlag, "--cache-repo", cacheRepo)
+	}
 	dockerRunFlags = append(dockerRunFlags, args...)
 	dockerRunFlags = append(dockerRunFlags, buildArgs...)
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)

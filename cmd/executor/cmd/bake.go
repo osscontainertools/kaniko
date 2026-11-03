@@ -83,15 +83,6 @@ func ConfigureFromBakefile(opts *config.KanikoOptions, path string, selection, s
 	return targets, nil
 }
 
-// ApplyTarget points opts at a single target. A target with no stage keeps whatever
-// --target was given.
-func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) {
-	if target.Stage != "" {
-		opts.Target = []string{target.Stage}
-	}
-	opts.Destinations = target.Destination
-}
-
 var bakeCmd = &cobra.Command{
 	Use:   "bake <bakefile> [target]",
 	Short: "Build a target defined in a bakefile",

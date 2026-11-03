@@ -79,6 +79,8 @@ type KanikoOptions struct {
 	KanikoDir                    string
 	Target                       []string
 	CacheRepo                    string
+	CacheFrom                    []string
+	CacheTo                      []string
 	DigestFile                   string
 	ImageNameDigestFile          string
 	ImageNameTagDigestFile       string
