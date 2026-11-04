@@ -44,6 +44,7 @@ import (
 	testissuemz1212 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1212"
 	testissuemz1233 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1233"
 	testissuemz1346 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1346"
+	testissuemz1349 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1349"
 	testissuemz195 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz195"
 	testissuemz333 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz333"
 	testissuemz334 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz334"
@@ -290,7 +291,7 @@ func TestRun(t *testing.T) {
 								t.Fatal(err)
 							}
 							cmd.ValidateFlags(&opts)
-							if err := cmd.ApplyTarget(&opts, bake.ResolvedTarget{Destination: opts.Destinations}); err != nil {
+							if err := cmd.ApplyTarget(&opts, bake.ResolvedTarget{Destination: opts.Destinations, CacheFrom: opts.CacheFrom, CacheTo: opts.CacheTo}); err != nil {
 								t.Fatal(err)
 							}
 
@@ -305,7 +306,8 @@ func TestRun(t *testing.T) {
 }
 
 var bakeTests = map[string][]types.GoldenTests{
-	"test_bake": {testbake.Tests},
+	"test_bake":         {testbake.Tests},
+	"test_issue_mz1349": {testissuemz1349.Tests},
 }
 
 func TestBake(t *testing.T) {
