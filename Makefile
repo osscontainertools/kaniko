@@ -38,8 +38,7 @@ GO_LDFLAGS += -buildid= # Drop build ID to make builds reproducible.
 GO_LDFLAGS += $(if $(RACE),-linkmode=external) # -race needs cgo, -extldflags only applies to the external linker
 GO_LDFLAGS += '
 
-EXECUTOR_PACKAGE = $(REPOPATH)/cmd/executor
-WARMER_PACKAGE = $(REPOPATH)/cmd/warmer
+KANIKO_PACKAGE = $(REPOPATH)/cmd/kaniko
 KANIKO_PROJECT = $(REPOPATH)/kaniko
 BUILD_ARG ?=
 COVER ?=
@@ -57,14 +56,11 @@ export GOFLAGS = -mod=vendor -buildvcs=false -trimpath
 
 export GO_TAGS = otel,git,google,aws,azure
 
-out/executor: $(GO_FILES)
-	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build -tags $(GO_TAGS)$(if $(RACE),$(RACE_TAGS)) $(if $(COVER),-cover) $(if $(RACE),-race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
+out/kaniko: $(GO_FILES)
+	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build -tags $(GO_TAGS)$(if $(RACE),$(RACE_TAGS)) $(if $(COVER),-cover) $(if $(RACE),-race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(KANIKO_PACKAGE)
 
-out/executor-slim: $(GO_FILES)
-	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build $(if $(COVER),-cover) $(if $(RACE),-tags $(RACE_TAGS) -race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
-
-out/warmer: $(GO_FILES)
-	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build -tags $(GO_TAGS)$(if $(RACE),$(RACE_TAGS)) $(if $(COVER),-cover) $(if $(RACE),-race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(WARMER_PACKAGE)
+out/kaniko-slim: $(GO_FILES)
+	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build $(if $(COVER),-cover) $(if $(RACE),-tags $(RACE_TAGS) -race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(KANIKO_PACKAGE)
 
 .PHONY: install-diffoci
 install-diffoci:
@@ -80,14 +76,14 @@ k3s-setup:
 	@ ./scripts/k3s-setup.sh
 
 .PHONY: test
-test: out/executor
+test: out/kaniko
 	@ ./scripts/test.sh
 
 test-with-coverage: test
 	go tool cover -html=out/coverage.out
 
 .PHONY: golden
-golden: out/executor
+golden: out/kaniko
 	@ ./scripts/golden.sh
 
 .PHONY: integration-test

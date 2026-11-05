@@ -78,12 +78,12 @@ Note that the resulting binary cannot and should not be run directly on your hos
 
 ## Testing your changes
 
-After `make`, the executor binary is at `out/executor`. Mount it into the debug image to run your local build:
+After `make`, the kaniko binary is at `out/kaniko`. Mount it into the debug image to run your local build:
 
 ```shell
 # Build only, no push, useful for quick iteration
 docker run --rm \
-  -v $(pwd)/out/executor:/kaniko/executor \
+  -v $(pwd)/out/kaniko:/kaniko/executor \
   -v $(pwd)/integration:/workspace \
   ghcr.io/osscontainertools/kaniko:debug \
   --context /workspace \
@@ -92,7 +92,7 @@ docker run --rm \
 
 # Build and push to a local registry
 docker run --network=host --rm \
-  -v $(pwd)/out/executor:/kaniko/executor \
+  -v $(pwd)/out/kaniko:/kaniko/executor \
   -v $(pwd)/integration:/workspace \
   ghcr.io/osscontainertools/kaniko:debug \
   --context /workspace \
