@@ -39,13 +39,13 @@ FROM builder-base AS builder
 ARG COVER=""
 ARG RACE=""
 RUN --mount=type=cache,target=/root/.cache/go-build \
-    make COVER="$COVER" RACE="$RACE" out/executor out/warmer
+    make COVER="$COVER" RACE="$RACE" out/kaniko
 
 # The helper names must match the argv[0] dispatch in pkg/creds.
 # A hardlink only shares the file when it is copied in the same layer as the binary.
 RUN mkdir -p /dist/executor /dist/warmer \
-    && cp out/executor /dist/executor/ \
-    && cp out/warmer /dist/warmer/ \
+    && cp out/kaniko /dist/executor/executor \
+    && cp out/kaniko /dist/warmer/warmer \
     && for helper in docker-credential-gcr docker-credential-ecr-login docker-credential-acr-env; do \
         ln /dist/executor/executor /dist/executor/$helper \
         && ln /dist/warmer/warmer /dist/warmer/$helper; \
@@ -55,7 +55,7 @@ FROM builder-base AS builder-slim
 ARG COVER=""
 ARG RACE=""
 RUN --mount=type=cache,target=/root/.cache/go-build \
-    make COVER="$COVER" RACE="$RACE" out/executor-slim
+    make COVER="$COVER" RACE="$RACE" out/kaniko-slim
 
 FROM builder-base AS builder-slim-fips
 ARG COVER=""
@@ -162,7 +162,7 @@ FROM alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0
 
 RUN apk add --no-cache ca-certificates git
 
-COPY --from=builder /src/out/executor /kaniko/executor
+COPY --from=builder /src/out/kaniko /kaniko/executor
 COPY --from=builder /kaniko/.docker /kaniko/.docker
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /kaniko/ssl/certs/
 COPY --from=kaniko-base-2 /kaniko/licenses /kaniko/licenses
@@ -187,7 +187,7 @@ FROM kaniko-executor AS kaniko-debug
 
 ENV PATH=/usr/local/bin:/kaniko:/busybox
 
-COPY --from=builder /src/out/warmer /kaniko/warmer
+COPY --from=builder /src/out/kaniko /kaniko/warmer
 
 COPY --from=busybox /bin /busybox
 COPY --from=busybox-licenses / /kaniko/licenses/
@@ -202,7 +202,7 @@ FROM kaniko-executor AS kaniko-debug-2
 
 ENV PATH=/usr/local/bin:/kaniko:/busybox2
 
-COPY --from=builder /src/out/warmer /kaniko/warmer
+COPY --from=builder /src/out/kaniko /kaniko/warmer
 
 COPY --from=busybox /bin /busybox2
 COPY --from=busybox-licenses / /kaniko/licenses/
@@ -215,7 +215,7 @@ RUN ["/busybox2/ln", "-s", "/busybox2/sh", "/bin/sh"]
 
 FROM kaniko-base-slim AS kaniko-slim
 
-COPY --from=builder-slim /src/out/executor-slim /kaniko/executor
+COPY --from=builder-slim /src/out/kaniko-slim /kaniko/executor
 
 ENTRYPOINT ["/kaniko/executor"]
 
