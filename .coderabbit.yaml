@@ -3,8 +3,8 @@ knowledge_base:
     filePatterns:
       - CONTRIBUTING.md
       - DEVELOPMENT.md
-      - docs/releases.md
-      - docs/testplan.md
+      - files: "docs/coding-guidelines.md,docs/principles.md,docs/releases.md,docs/testplan.md"
+        applyTo: "**"
 reviews:
   path_filters:
     - "!vendor/**"
