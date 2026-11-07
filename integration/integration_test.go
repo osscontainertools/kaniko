@@ -238,6 +238,64 @@ func buildRequiredImages() error {
 		return err
 	}
 
+	hardlinkEscapeRef := strings.ToLower(config.imageRepo + "hardlink-escape:latest")
+	err = pushHardlinkEscapeImage(config.busyboxBaseImage, hardlinkEscapeRef)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// pushHardlinkEscapeImage appends a layer to the busybox base that symlinks
+// "escape" to /kaniko and then hardlinks "probe" to "escape/executor".
+func pushHardlinkEscapeImage(baseRef, imageRef string) error {
+	src, err := name.ParseReference(baseRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing base ref %s: %v", baseRef, err)
+	}
+	base, err := remote.Image(src, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		return fmt.Errorf("pulling hardlink-escape base image: %v", err)
+	}
+	man, err := base.Manifest()
+	if err != nil {
+		return fmt.Errorf("reading hardlink-escape base manifest: %v", err)
+	}
+	mediaType := ggcrtypes.DockerLayer
+	if strings.Contains(string(man.MediaType), ggcrtypes.OCIVendorPrefix) {
+		mediaType = ggcrtypes.OCILayer
+	}
+
+	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		for _, hdr := range []tar.Header{
+			{Name: "escape", Typeflag: tar.TypeSymlink, Linkname: "/kaniko", Mode: 0o777},
+			{Name: "probe", Typeflag: tar.TypeLink, Linkname: "escape/executor", Mode: 0o755},
+		} {
+			if err := tw.WriteHeader(&hdr); err != nil {
+				return nil, err
+			}
+		}
+		tw.Close()
+		return io.NopCloser(bytes.NewReader(buf.Bytes())), nil
+	}, tarball.WithMediaType(mediaType))
+	if err != nil {
+		return fmt.Errorf("creating hardlink-escape layer: %v", err)
+	}
+	img, err := mutate.AppendLayers(base, layer)
+	if err != nil {
+		return fmt.Errorf("appending hardlink-escape layer: %v", err)
+	}
+
+	dst, err := name.ParseReference(imageRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing image ref %s: %v", imageRef, err)
+	}
+	if err := remote.Write(dst, img, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
+		return fmt.Errorf("pushing hardlink-escape image to %s: %v", imageRef, err)
+	}
 	return nil
 }
 

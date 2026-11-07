@@ -853,6 +853,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_2567":     {},
 		"Dockerfile_test_issue_cg326_2":  {},
 		"Dockerfile_test_issue_cg326_3":  {},
+		"Dockerfile_test_issue_cg533":    {},
 		"Dockerfile_test_issue_mz444":    {},
 		"Dockerfile_test_issue_mz455":    {},
 		"Dockerfile_test_issue_mz473":    {},

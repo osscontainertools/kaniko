@@ -1,0 +1,10 @@
+ARG IMAGE_REPO
+
+# cg533: through v1.29.0 a base layer can hardlink a file from /kaniko into the image.
+# The base is pushed by test setup. Its layer symlinks "escape" to /kaniko, then
+# hardlinks "probe" to "escape/executor". The ignore list only saw the target as
+# written, and SecureJoin followed the symlink, so /probe linked to the executor.
+# Docker has no /kaniko to link into, so the test runs kaniko only.
+FROM ${IMAGE_REPO}hardlink-escape:latest
+# Forces kaniko to unpack the base, a bare FROM reuses its layers untouched.
+RUN test ! -e /probe
