@@ -217,23 +217,15 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				}
 			// https://docs.docker.com/reference/dockerfile/#run---mounttypebind
 			case m.Type == instructions.MountTypeBind:
-				crossStageBind := m.From != "" && m.From != "context"
-				if crossStageBind {
+				mountFileContext := fileContext
+				if m.From != "" && m.From != "context" {
 					if !kConfig.FF.RunCrossStageBindMount {
 						logrus.Warnf("Kaniko does not support cross-stage bind mounts (from=%s) - skipping", m.From)
 						continue
 					}
-				}
-				mountFileContext := fileContext
-				if m.From != "" && m.From != "context" {
 					mountFileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoInterStageDepsDir, m.From)}
 				}
-				source := m.Source
-				if source == "" {
-					source = "."
-				}
-				rootedSource := filepath.Clean(string(filepath.Separator) + source)
-				src := filepath.Join(mountFileContext.Root, strings.TrimPrefix(rootedSource, string(filepath.Separator)))
+				src := filepath.Join(mountFileContext.Root, m.Source)
 				target := m.Target
 
 				_, err := os.Lstat(target)
@@ -268,9 +260,6 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 						return os.RemoveAll(created)
 					})
 				}
-				defer assignIfNil(&reterr, func() error {
-					return os.RemoveAll(target)
-				})
 
 				if kConfig.FF.NativeCopy {
 					err = util.CopyTree(src, target, mountFileContext, false)
@@ -288,6 +277,9 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				if err != nil {
 					return fmt.Errorf("copying bind source %s to %s: %w", src, target, err)
 				}
+				defer assignIfNil(&reterr, func() error {
+					return os.RemoveAll(target)
+				})
 			default:
 				logrus.Warnf("Kaniko does not support '--mount=type=%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", m.Type)
 			}
