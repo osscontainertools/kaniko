@@ -68,7 +68,7 @@ var (
 	copyExcludePath = regexp.MustCompile(`\bexcl[0-9]+/`)
 	copyLinkIntoDir = regexp.MustCompile(`\blkdir[0-9]+/`)
 	// a directory the --link shape writes under, its owner rows only
-	copyLinkParentOwner = regexp.MustCompile(`\blk(s|[0-9]+)/\s+(Uid|Gid) `)
+	copyLinkParentOwner = regexp.MustCompile(`\blk(s|[0-9]+)/(\S*/)?\s+(Uid|Gid) `)
 )
 
 // dockerKnownDivergences are the classes observed on the docker oracle. The cache
