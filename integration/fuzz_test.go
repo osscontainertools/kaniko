@@ -2303,10 +2303,10 @@ func provenanceOracle(seed int64, label, dir string, flags, envFlags []string, c
 // bakefile target builds a stage by name.
 const bakeFinalStage = "fuzzfinal"
 
-// bakeOracle builds every stage of the case in one `executor bake` and compares two of the
-// targets with standalone builds of the same stage: the one the fresh build produced, and
-// one other named stage the seed picks. Targets build one after another in one process, so a
-// target that differs from its standalone build picked up state from an earlier one.
+// bakeOracle builds two stages as targets of one `executor bake`, the one the fresh build
+// produced and one other named stage the seed picks, and compares each with its standalone
+// build. Targets build one after another in one process, so a target that differs from its
+// standalone build picked up state from an earlier one.
 func bakeOracle(seed int64, label, dir, freshImage string, gen genResult, covDir string, fail func(severity, string, string) *finding, crashOr func(string) *finding) *finding {
 	lines := strings.Split(gen.dockerfile, "\n")
 	var stages []string
@@ -2335,50 +2335,15 @@ func bakeOracle(seed int64, label, dir, freshImage string, gen genResult, covDir
 	if err := copyFuzzContext(dir, bakeCtx, dockerfile); err != nil {
 		return nil
 	}
-	// The bakefile stays out of the context, a COPY . would pick it up.
-	bakeDir, err := os.MkdirTemp("", "kaniko-fuzz-bakefile-")
-	if err != nil {
-		return nil
-	}
-	defer os.RemoveAll(bakeDir)
-	images := map[string]string{}
-	var hcl strings.Builder
-	for _, s := range stages {
-		images[s] = strings.ToLower(config.imageRepo + kanikoPrefix + label + "-bake-" + s)
-		fmt.Fprintf(&hcl, "target %q {\n  destination = [%q]\n}\n\n", s, images[s])
-	}
-	if err := os.WriteFile(filepath.Join(bakeDir, "kaniko-bake.hcl"), []byte(hcl.String()), 0o644); err != nil {
-		return nil
-	}
 	var flags []string
 	for _, f := range gen.kanikoFlags {
 		if !strings.HasPrefix(f, "--target=") {
 			flags = append(flags, f)
 		}
 	}
-	defer func() {
-		for _, img := range images {
-			runFuzzBounded(exec.Command("docker", "rmi", "-f", img))
-		}
-	}()
 
-	args := []string{"run", "--rm", "--net=host", "-v", bakeCtx + ":/workspace:ro", "-v", bakeDir + ":/bake:ro"}
-	args = append(args, fuzzMountFlags(gen.mounts)...)
-	for _, e := range append(append([]string{}, KanikoEnv...), gen.envFlags...) {
-		args = append(args, "-e", e)
-	}
-	if covDir != "" {
-		args = append(args, "-v", covDir+":/covdata", "-e", "GOCOVERDIR=/covdata")
-	}
-	args = append(args, ExecutorImage, "bake", "/bake/kaniko-bake.hcl", "-f", path.Join(buildContextPath, "Dockerfile"), "-c", buildContextPath)
-	out, berr := runFuzzBounded(exec.Command("docker", append(args, flags...)...))
-	if f := crashOr(string(out)); f != nil {
-		return f
-	}
-	if berr != nil {
-		return fail(sevInvarianceDiff, "bake failed on a case the executor builds", string(out))
-	}
-
+	// Only stages a standalone build accepts are baked. A --target build never touches the
+	// stages it does not depend on, and those may not build at all.
 	compareTo := map[string]string{bakeFinalStage: freshImage}
 	if gen.target != "" {
 		compareTo = map[string]string{gen.target: freshImage}
@@ -2401,6 +2366,47 @@ func bakeOracle(seed int64, label, dir, freshImage string, gen genResult, covDir
 			compareTo[s] = img
 		}
 	}
+
+	// The bakefile stays out of the context, a COPY . would pick it up.
+	bakeDir, err := os.MkdirTemp("", "kaniko-fuzz-bakefile-")
+	if err != nil {
+		return nil
+	}
+	defer os.RemoveAll(bakeDir)
+	images := map[string]string{}
+	var hcl strings.Builder
+	for _, s := range stages {
+		if _, ok := compareTo[s]; ok {
+			images[s] = strings.ToLower(config.imageRepo + kanikoPrefix + label + "-bake-" + s)
+			fmt.Fprintf(&hcl, "target %q {\n  destination = [%q]\n}\n\n", s, images[s])
+		}
+	}
+	if err := os.WriteFile(filepath.Join(bakeDir, "kaniko-bake.hcl"), []byte(hcl.String()), 0o644); err != nil {
+		return nil
+	}
+	defer func() {
+		for _, img := range images {
+			runFuzzBounded(exec.Command("docker", "rmi", "-f", img))
+		}
+	}()
+
+	args := []string{"run", "--rm", "--net=host", "-v", bakeCtx + ":/workspace:ro", "-v", bakeDir + ":/bake:ro"}
+	args = append(args, fuzzMountFlags(gen.mounts)...)
+	for _, e := range append(append([]string{}, KanikoEnv...), gen.envFlags...) {
+		args = append(args, "-e", e)
+	}
+	if covDir != "" {
+		args = append(args, "-v", covDir+":/covdata", "-e", "GOCOVERDIR=/covdata")
+	}
+	args = append(args, ExecutorImage, "bake", "/bake/kaniko-bake.hcl", "-f", path.Join(buildContextPath, "Dockerfile"), "-c", buildContextPath)
+	out, berr := runFuzzBounded(exec.Command("docker", append(args, flags...)...))
+	if f := crashOr(string(out)); f != nil {
+		return f
+	}
+	if berr != nil {
+		return fail(sevInvarianceDiff, "bake failed on stages that build standalone", string(out))
+	}
+
 	ignores := []string{"--ignore-image-name", "--ignore-image-timestamps", "--ignore-file-timestamps"}
 	for _, s := range stages {
 		alone, ok := compareTo[s]
