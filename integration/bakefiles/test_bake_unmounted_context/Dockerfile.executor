@@ -1,3 +1,2 @@
-# The context is part of the executor image instead of a mount, like a CI image that ships it.
 FROM executor-image
 COPY . /ctx

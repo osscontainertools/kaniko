@@ -402,8 +402,6 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 }
 
 type targetInputs struct {
-	// stored is copied into the build context dir before the build, empty when the
-	// context is used where it is.
 	stored     string
 	srcContext string
 	dockerfile string
@@ -411,9 +409,7 @@ type targetInputs struct {
 	ci         buildenv.CI
 }
 
-// resolveInputs fetches the context and Dockerfile of every target before the first
-// build. With several targets they are stored in the kaniko dir, because the filesystem
-// is deleted between targets and the build context dir holds one context at a time.
+// The filesystem is deleted between targets, so with several targets the inputs live in the kaniko dir.
 func resolveInputs(opts *config.KanikoOptions, targets []bake.ResolvedTarget) ([]targetInputs, error) {
 	store := len(targets) > 1
 	if store {
@@ -422,9 +418,8 @@ func resolveInputs(opts *config.KanikoOptions, targets []bake.ResolvedTarget) ([
 		}
 	}
 	type resolvedContext struct {
-		inputs targetInputs
-		// dir is where the context is now, a relative Dockerfile resolves against it.
-		dir string
+		inputs         targetInputs
+		dockerfileBase string
 	}
 	contexts := map[string]resolvedContext{}
 	inputs := make([]targetInputs, len(targets))
@@ -448,7 +443,7 @@ func resolveInputs(opts *config.KanikoOptions, targets []bake.ResolvedTarget) ([
 				}
 				topts.SrcContext = abs
 			}
-			c = resolvedContext{inputs: targetInputs{srcContext: topts.SrcContext}, dir: topts.SrcContext}
+			c = resolvedContext{inputs: targetInputs{srcContext: topts.SrcContext}, dockerfileBase: topts.SrcContext}
 			if topts.PredefinedAnnotations || topts.Provenance {
 				dir, cloneURL := topts.SrcContext, ""
 				gitContext, isGit := strings.CutPrefix(srcContext, constants.GitBuildContextPrefix)
@@ -473,14 +468,14 @@ func resolveInputs(opts *config.KanikoOptions, targets []bake.ResolvedTarget) ([
 					if err := os.Rename(filepath.Clean(config.BuildContextDir), stored); err != nil {
 						return nil, fmt.Errorf("storing context %s: %w", srcContext, err)
 					}
-					c.dir = filepath.Join(stored, rel)
+					c.dockerfileBase = filepath.Join(stored, rel)
 					c.inputs.srcContext = filepath.Join(config.BuildContextDir, rel)
 				}
 				c.inputs.stored = stored
 			}
 			contexts[key] = c
 		}
-		topts.SrcContext = c.dir
+		topts.SrcContext = c.dockerfileBase
 		if err := resolveDockerfilePath(&topts); err != nil {
 			return nil, fmt.Errorf("error resolving dockerfile path: %w", err)
 		}

@@ -25,8 +25,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/bake"
 )
 
-// Fixtures that run on an executor image which already holds the folder at /ctx,
-// so the folder is not mounted.
+// Each image ships its fixture at /ctx, a mount would hide it.
 var bakeExecutorImages = map[string]string{
 	"test_bake_unmounted_context": ExecutorImageBakeContext,
 }

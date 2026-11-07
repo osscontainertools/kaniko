@@ -52,7 +52,6 @@ var DockerfilePath = KanikoDir + "/Dockerfile"
 // for example, a tarball from a GCS bucket will be unpacked here
 var BuildContextDir = KanikoDir + "/buildcontext/"
 
-// KanikoInputsDir holds the contexts and Dockerfiles of a bake with several targets
 var KanikoInputsDir = KanikoDir + "/inputs/"
 
 // KanikoIntermediateStagesDir is where we will store intermediate stages
