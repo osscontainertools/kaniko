@@ -460,7 +460,10 @@ func ExtractFileWithChown(dest string, hdr *tar.Header, cleanedName string, tr i
 			return err
 		}
 
-		if _, err = io.Copy(currFile, tr); err != nil {
+		buf := copyBufPool.Get().(*[]byte)
+		defer copyBufPool.Put(buf)
+		// hide currFile's ReaderFrom, otherwise CopyBuffer ignores buf
+		if _, err = io.CopyBuffer(struct{ io.Writer }{currFile}, tr, *buf); err != nil {
 			return err
 		}
 

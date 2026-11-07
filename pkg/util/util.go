@@ -44,14 +44,15 @@ const (
 	securityCapabilityXattr = "security.capability"
 )
 
+var copyBufPool = sync.Pool{
+	New: func() any {
+		b := make([]byte, 320*1024)
+		return &b
+	},
+}
+
 // Hasher returns a hash function, used in snapshotting to determine if a file has changed
 func Hasher() func(string) (string, error) {
-	pool := sync.Pool{
-		New: func() any {
-			b := make([]byte, highwayhash.Size*10*1024)
-			return &b
-		},
-	}
 	key := make([]byte, highwayhash.Size)
 	hasher := func(p string) (string, error) {
 		h, _ := highwayhash.New(key)
@@ -76,8 +77,8 @@ func Hasher() func(string) (string, error) {
 				return "", err
 			}
 			defer f.Close()
-			buf := pool.Get().(*[]byte)
-			defer pool.Put(buf)
+			buf := copyBufPool.Get().(*[]byte)
+			defer copyBufPool.Put(buf)
 			// hide f's WriterTo, otherwise CopyBuffer ignores buf
 			if _, err := io.CopyBuffer(h, struct{ io.Reader }{f}, *buf); err != nil {
 				return "", err
@@ -124,7 +125,10 @@ func CacheHasher() func(string) (string, error) {
 				return "", err
 			}
 			defer f.Close()
-			if _, err := io.Copy(h, f); err != nil {
+			buf := copyBufPool.Get().(*[]byte)
+			defer copyBufPool.Put(buf)
+			// hide f's WriterTo, otherwise CopyBuffer ignores buf
+			if _, err := io.CopyBuffer(h, struct{ io.Reader }{f}, *buf); err != nil {
 				return "", err
 			}
 		} else if fi.Mode()&os.ModeSymlink == os.ModeSymlink {

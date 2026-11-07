@@ -118,7 +118,10 @@ func (t *Tar) AddFileToTar(p string) error {
 		return err
 	}
 	defer r.Close()
-	if _, err := io.Copy(t.w, r); err != nil {
+	buf := copyBufPool.Get().(*[]byte)
+	defer copyBufPool.Put(buf)
+	// hide r's WriterTo, otherwise CopyBuffer ignores buf
+	if _, err := io.CopyBuffer(t.w, struct{ io.Reader }{r}, *buf); err != nil {
 		return err
 	}
 	return nil
