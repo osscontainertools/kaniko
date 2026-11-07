@@ -276,20 +276,32 @@ func resolveCrossStageCommands(cmds []instructions.Command, stageNameToIdx map[s
 				}
 			}
 		case *instructions.RunCommand:
-			if !config.FF.RunCrossStageBindMount {
-				continue
-			}
-			for _, mount := range instructions.GetMounts(c) {
-				if mount.Type != instructions.MountTypeBind || mount.From == "" {
-					continue
-				}
-				if val, ok := stageNameToIdx[strings.ToLower(mount.From)]; ok {
-					mount.From = strconv.Itoa(val)
+			if config.FF.RunCrossStageBindMount {
+				for _, m := range CrossStageMounts(c) {
+					if val, ok := stageNameToIdx[strings.ToLower(m.From)]; ok {
+						m.From = strconv.Itoa(val)
+					}
+					if idx, err := strconv.Atoi(m.From); err == nil {
+						if idx < 0 || idx >= nStages {
+							return fmt.Errorf("RUN --mount=from=%d refers to a stage that does not exist", idx)
+						}
+					}
 				}
 			}
 		}
 	}
 	return nil
+}
+
+// CrossStageMounts returns the bind mounts of a RUN that read from a stage or an image.
+func CrossStageMounts(cmd *instructions.RunCommand) []*instructions.Mount {
+	var mounts []*instructions.Mount
+	for _, m := range instructions.GetMounts(cmd) {
+		if m.Type == instructions.MountTypeBind && m.From != "" && m.From != "context" {
+			mounts = append(mounts, m)
+		}
+	}
+	return mounts
 }
 
 // resolveStagesArgs resolves all the args from list of stages
@@ -387,21 +399,11 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 					copyDependencies[copyFromIndex]++
 				}
 			case *instructions.RunCommand:
-				if !config.FF.RunCrossStageBindMount {
-					continue
-				}
-				for _, mount := range instructions.GetMounts(cmd) {
-					if mount.Type != instructions.MountTypeBind || mount.From == "" {
-						continue
-					}
-					if fromIndex, err := strconv.Atoi(mount.From); err == nil {
-						if fromIndex < 0 {
-							return nil, fmt.Errorf("RUN --mount=from=%d refers to an invalid stage", fromIndex)
+				if config.FF.RunCrossStageBindMount {
+					for _, m := range CrossStageMounts(cmd) {
+						if fromIndex, err := strconv.Atoi(m.From); err == nil {
+							copyDependencies[fromIndex]++
 						}
-						if fromIndex >= i {
-							return nil, fmt.Errorf("RUN --mount=from=%d refers to a stage that is not before the current stage", fromIndex)
-						}
-						copyDependencies[fromIndex]++
 					}
 				}
 			}

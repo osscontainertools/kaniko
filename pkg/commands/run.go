@@ -472,8 +472,8 @@ func (r *RunCommand) CacheKey(replacementEnvs []string) (string, error) {
 	return runCacheKey(r.cmd), nil
 }
 
-func (r *RunCommand) CrossStageSources(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
-	return runCrossStageSources(r.cmd, config, buildArgs)
+func (r *RunCommand) instruction() *instructions.RunCommand {
+	return r.cmd
 }
 
 // runCacheKey appends the raw heredoc bodies to the instruction text
@@ -535,8 +535,8 @@ func (cr *CachingRunCommand) CacheKey(replacementEnvs []string) (string, error) 
 	return runCacheKey(cr.cmd), nil
 }
 
-func (cr *CachingRunCommand) CrossStageSources(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
-	return runCrossStageSources(cr.cmd, config, buildArgs)
+func (cr *CachingRunCommand) instruction() *instructions.RunCommand {
+	return cr.cmd
 }
 
 func (cr *CachingRunCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
@@ -588,25 +588,6 @@ func runCmdFilesUsedFromContext(
 	logrus.Debugf("Using files from context: %v", files)
 
 	return files, nil
-}
-
-func runCrossStageSources(cmd *instructions.RunCommand, config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
-	if !kConfig.FF.RunCrossStageBindMount || len(cmd.FlagsUsed) == 0 {
-		return nil, nil
-	}
-	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
-	if err := ExpandRunCommand(cmd, func(word string) (string, error) {
-		return util.ResolveEnvironmentReplacement(word, replacementEnvs, false)
-	}); err != nil {
-		return nil, err
-	}
-	var sources []string
-	for _, m := range instructions.GetMounts(cmd) {
-		if m.Type == instructions.MountTypeBind && m.From != "" && m.From != "context" {
-			sources = append(sources, m.From)
-		}
-	}
-	return sources, nil
 }
 
 // todo: this should create the workdir if it doesn't exist, atleast this is what docker does

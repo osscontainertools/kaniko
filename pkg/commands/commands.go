@@ -18,7 +18,6 @@ package commands
 
 import (
 	"fmt"
-	"strconv"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
@@ -120,37 +119,31 @@ func GetCommand(cmd instructions.Command, fileContext util.FileContext, secrets 
 	return nil, fmt.Errorf("%s is not a supported command", cmd.Name())
 }
 
-func CrossStageSources(command DockerCommand, cfg *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
-	if copyCmd, ok := CastAbstractCopyCommand(command); ok && copyCmd.From() != "" {
-		return []string{copyCmd.From()}, nil
+// MountSources returns the stages and images a RUN binds files from.
+func MountSources(command DockerCommand) []string {
+	var sources []string
+	run, ok := command.(runInstruction)
+	if ok && config.FF.RunCrossStageBindMount {
+		for _, m := range dockerfile.CrossStageMounts(run.instruction()) {
+			sources = append(sources, m.From)
+		}
 	}
-	type crossStageRun interface {
-		CrossStageSources(*v1.Config, *dockerfile.BuildArgs) ([]string, error)
-	}
-	if run, ok := command.(crossStageRun); ok {
-		return run.CrossStageSources(cfg, buildArgs)
-	}
-	return nil, nil
+	return sources
 }
 
+type runInstruction interface {
+	instruction() *instructions.RunCommand
+}
+
+// ExpandRunCommand expands the flags of a RUN. buildkit reparses the mounts
+// from the raw flag, so the stage index resolved into from= is put back.
 func ExpandRunCommand(cmd *instructions.RunCommand, expand instructions.SingleWordExpander) error {
 	mounts := instructions.GetMounts(cmd)
-	resolvedStages := make([]string, len(mounts))
-	for i, mount := range mounts {
-		if mount.Type != instructions.MountTypeBind || mount.From == "" {
-			continue
-		}
-		if _, err := strconv.Atoi(mount.From); err == nil {
-			resolvedStages[i] = mount.From
-		}
-	}
 	if err := cmd.Expand(expand); err != nil {
 		return err
 	}
-	for i, mount := range instructions.GetMounts(cmd) {
-		if resolvedStages[i] != "" {
-			mount.From = resolvedStages[i]
-		}
+	for i, m := range instructions.GetMounts(cmd) {
+		m.From = mounts[i].From
 	}
 	return nil
 }
