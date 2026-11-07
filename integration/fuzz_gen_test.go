@@ -155,6 +155,10 @@ type genResult struct {
 	// false to the registry. Backend choice must not change output, so the same oracle
 	// applies either way.
 	cacheLocal bool
+	// cacheMode picks how the cache oracle names its cache: 0 --cache-repo on both builds,
+	// 1 --cache-from and --cache-to of one repo on both, 2 populate --cache-to the main repo
+	// and consume from an empty branch repo layered over it, writing to the branch.
+	cacheMode int
 	// target, if set, is the stage to build (--target). Passed to both docker and every
 	// kaniko build so the comparison stays like-for-like; it also determines which
 	// stage's base fixes the output media type.
@@ -1226,7 +1230,9 @@ func generate(s *source, bases []string) genResult {
 		}
 	}
 
-	return genResult{dockerfile: b.String(), context: ctx, kanikoFlags: flags, buildArgs: buildArgs, argNames: argNames, envFlags: envFlags, cacheCompression: cacheCompression, cacheLocal: cacheLocal, target: target, labels: labels, annotations: annotations, usesSecret: usesSecret, chaosEnv: chaosEnv, mounts: mounts}
+	cacheMode := s.intn(3)
+
+	return genResult{dockerfile: b.String(), context: ctx, kanikoFlags: flags, buildArgs: buildArgs, argNames: argNames, envFlags: envFlags, cacheCompression: cacheCompression, cacheLocal: cacheLocal, cacheMode: cacheMode, target: target, labels: labels, annotations: annotations, usesSecret: usesSecret, chaosEnv: chaosEnv, mounts: mounts}
 }
 
 // argValue returns a build-arg value drawn from a pool biased toward strings that stress
