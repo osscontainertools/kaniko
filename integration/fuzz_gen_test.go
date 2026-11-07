@@ -802,8 +802,9 @@ func generate(s *source, bases []string) genResult {
 				// destination must not change the layer, only the merged image.
 				f := srcPick(s, regulars)
 				opt := ""
+				// --link has no filesystem to look a name up in, so both tools take numeric owners only
 				if s.chance(3) {
-					opt += fmt.Sprintf(" --chown=%s:%s", srcPick(s, ug), srcPick(s, ug))
+					opt += fmt.Sprintf(" --chown=%s:%s", srcPick(s, uids), srcPick(s, uids))
 				}
 				if s.chance(3) {
 					opt += fmt.Sprintf(" --chmod=%s", srcPick(s, chmods))
@@ -953,23 +954,23 @@ func generate(s *source, bases []string) genResult {
 					fmt.Fprintf(&b, "RUN --mount=type=tmpfs,target=/td%d%s test ! -e /td%d/k && echo n > /td%d/n\n", i, opt, i, i)
 				}
 			case 44:
-				// An ARG and an ENV of the same name, the ENV wins wherever it is declared, and the
-				// dependency prepass has to resolve COPY --from paths the same way (mz1233).
+				// An ARG and an ENV of the same name, the later declaration wins, and the
+				// dependency prepass has to resolve COPY --from paths the same way (mz1233). Only
+				// the winning value names a path that exists, so resolving the other one fails.
 				from := len(namedStages)
 				if !last {
 					from--
 				}
 				copyLine := fmt.Sprintf("COPY --from=%s /$CP%d/hostname /dest/envarg%d\n", srcPick(s, bases), i, i)
-				envLine := fmt.Sprintf("ENV CP%d=etc\n", i)
+				dir := "etc"
 				if from > 0 && s.chance(2) {
 					copyLine = fmt.Sprintf("COPY --from=stage%d /$CP%d/artifact /dest/envarg%d\n", namedStages[s.intn(from)], i, i)
-					envLine = fmt.Sprintf("ENV CP%d=stage\n", i)
+					dir = "stage"
 				}
-				argLine := fmt.Sprintf("ARG CP%d=nope\n", i)
 				if s.chance(2) {
-					b.WriteString(argLine + envLine + copyLine)
+					fmt.Fprintf(&b, "ARG CP%d=nope\nENV CP%d=%s\n%s", i, i, dir, copyLine)
 				} else {
-					b.WriteString(envLine + argLine + copyLine)
+					fmt.Fprintf(&b, "ENV CP%d=nope\nARG CP%d=%s\n%s", i, i, dir, copyLine)
 				}
 			case 45:
 				// A directory COPY onto a subdirectory that already exists gives it the source
