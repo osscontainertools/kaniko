@@ -95,6 +95,7 @@ type finding struct {
 	envFlags         []string
 	cacheCompression string
 	cacheLocal       bool
+	cacheMode        int
 	context          []fileSpec
 	mounts           []string
 }
@@ -504,7 +505,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	fail := func(sev severity, summary, detail string) *finding {
 		return &finding{
 			seed: seed, sev: sev, summary: summary, detail: detail, dockerfile: gen.dockerfile,
-			flags: gen.kanikoFlags, envFlags: gen.envFlags, cacheCompression: gen.cacheCompression, cacheLocal: gen.cacheLocal, context: gen.context, mounts: gen.mounts,
+			flags: gen.kanikoFlags, envFlags: gen.envFlags, cacheCompression: gen.cacheCompression, cacheLocal: gen.cacheLocal, cacheMode: gen.cacheMode, context: gen.context, mounts: gen.mounts,
 		}
 	}
 
@@ -613,6 +614,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		// change the built image, so the same populate-consume comparison applies. The
 		// layout persists in a host dir bind-mounted at /cache across the two builds.
 		cacheRepo := strings.ToLower(config.imageRepo + "fuzzcache-" + label)
+		branchRepo := strings.ToLower(config.imageRepo + "fuzzcache-branch-" + label)
 		cacheHost := ""
 		if gen.cacheLocal {
 			d, err := os.MkdirTemp("", "kaniko-fuzz-layoutcache-")
@@ -620,11 +622,13 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 				cacheHost = d
 				defer os.RemoveAll(cacheHost)
 				cacheRepo = "oci:/cache/layout"
+				branchRepo = "oci:/cache/branch"
 			}
 		}
+		populate, consume := cacheModeArgs(gen.cacheMode, cacheRepo, branchRepo)
 		// --cache-copy-layers is required for COPY layers to be served from cache;
 		// without it the consume build re-runs COPY and restamps wall-clock mtimes.
-		cacheArgs := append([]string{"--cache=true", "--cache-copy-layers=true", "--cache-repo=" + cacheRepo}, gen.kanikoFlags...)
+		cacheArgs := append([]string{"--cache=true", "--cache-copy-layers=true"}, gen.kanikoFlags...)
 		// Compression is applied only to the cache builds (both v0 and v1), never the
 		// docker-compared fresh build, so a zstd layer media type is not mistaken for a
 		// docker-parity diff. Both sides match, so the cache comparison stays strict.
@@ -633,17 +637,18 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		}
 		// runCache builds one side of the cache comparison against the chosen backend, at
 		// the same per-case GOCOVERDIR as the fresh build (sequential, so it accumulates).
-		runCache := func(image, cov string) (string, error) {
+		runCache := func(image, cov string, repoArgs, env []string) (string, error) {
+			args := append(append([]string{}, cacheArgs...), repoArgs...)
 			if cacheHost != "" {
-				return runFuzzKanikoCache(dir, image, cacheArgs, cov, cacheHost, gen.envFlags, gen.mounts...)
+				return runFuzzKanikoCache(dir, image, args, cov, cacheHost, env, gen.mounts...)
 			}
-			return runFuzzKanikoEnv(dir, image, cacheArgs, cov, gen.envFlags, gen.mounts...)
+			return runFuzzKanikoEnv(dir, image, args, cov, env, gen.mounts...)
 		}
-		c0, ce0 := runCache(v0, covDir)
+		c0, ce0 := runCache(v0, covDir, populate, gen.envFlags)
 		if f := crashOr(c0); f != nil {
 			return f
 		}
-		c1, ce1 := runCache(v1, covDir)
+		c1, ce1 := runCache(v1, covDir, consume, gen.envFlags)
 		if f := crashOr(c1); f != nil {
 			return f
 		}
@@ -692,6 +697,18 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 				return f
 			}
 			t.Logf("[%s] cache diff did not reproduce, treating as measurement artifact:\n%s", label, evidence)
+		}
+
+		// format oracle: with FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY the cache keys do not
+		// depend on the manifest format, so a build under the other --image-format has to
+		// hit every layer the consume build hit. Gated behind FUZZ_CACHEFORMAT; adds a build.
+		if os.Getenv("FUZZ_CACHEFORMAT") == "1" && !slices.Contains(gen.envFlags, "FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY=0") {
+			if f := cacheFormatOracle(label, gen, cacheRepo, c1, crashOr, fail, func(image string, flags []string) (string, error) {
+				return runCache(image, covDir, flags, gen.envFlags)
+			}); f != nil {
+				mergeKnown(f, dockerCls.known)
+				return f
+			}
 		}
 
 		// invariance oracle: cache-lookahead is a performance optimization and must not
@@ -920,6 +937,52 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		return f
 	}
 	return &finding{seed: seed, sev: sevClean, known: dockerCls.known}
+}
+
+// cacheModeArgs returns the cache flags of the populate and the consume build for
+// genResult.cacheMode.
+func cacheModeArgs(mode int, repo, branch string) (populate, consume []string) {
+	switch mode {
+	case 1:
+		both := []string{"--cache-from=" + repo, "--cache-to=" + repo}
+		return both, both
+	case 2:
+		return []string{"--cache-to=" + repo}, []string{"--cache-from=" + branch, "--cache-from=" + repo, "--cache-to=" + branch}
+	default:
+		return []string{"--cache-repo=" + repo}, []string{"--cache-repo=" + repo}
+	}
+}
+
+// cacheMisses counts the commands a build looked up in the layer cache and did not find.
+func cacheMisses(out string) int {
+	return strings.Count(out, "No cached layer found for cmd")
+}
+
+// cacheFormatOracle builds the case under the --image-format its consume build did not
+// use, reading the populated cache without writing to it, and requires no more cache
+// misses than the consume build had.
+func cacheFormatOracle(label string, gen genResult, repo, consumeOut string, crashOr func(string) *finding, fail func(severity, string, string) *finding, build func(image string, flags []string) (string, error)) *finding {
+	format := "--image-format=oci"
+	if dockerWantsOCI(gen) {
+		format = "--image-format=docker"
+	}
+	// docker schema2 has no zstd layer media type
+	if format == "--image-format=docker" && gen.cacheCompression == "zstd" {
+		return nil
+	}
+	img := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-fmt")
+	defer runFuzzBounded(exec.Command("docker", "rmi", "-f", img))
+	out, err := build(img, []string{"--cache-from=" + repo, format})
+	if f := crashOr(out); f != nil {
+		return f
+	}
+	if err != nil {
+		return fail(sevCacheDiff, "cache build under the other --image-format failed", out)
+	}
+	if got, want := cacheMisses(out), cacheMisses(consumeOut); got > want {
+		return fail(sevCacheDiff, fmt.Sprintf("%s misses the cache %d times, the consume build %d times", format, got, want), out)
+	}
+	return nil
 }
 
 // determinismOracle builds the case again with kaniko and checks that kaniko agrees
@@ -2668,8 +2731,8 @@ func writeFinding(outDir string, f finding) error {
 	if err := os.WriteFile(filepath.Join(dir, "repro.sh"), []byte(reproScript(f)), 0o755); err != nil {
 		return err
 	}
-	report := fmt.Sprintf("seed: %d\nseverity: %s\nsummary: %s\nflags: %s\nenvFlags: %s\ncacheCompression: %q\ncacheLocal: %v\nmounts: %s\n\n%s\n",
-		f.seed, f.sev, f.summary, strings.Join(f.flags, " "), strings.Join(f.envFlags, " "), f.cacheCompression, f.cacheLocal, strings.Join(f.mounts, " "), f.detail)
+	report := fmt.Sprintf("seed: %d\nseverity: %s\nsummary: %s\nflags: %s\nenvFlags: %s\ncacheCompression: %q\ncacheLocal: %v\ncacheMode: %d\nmounts: %s\n\n%s\n",
+		f.seed, f.sev, f.summary, strings.Join(f.flags, " "), strings.Join(f.envFlags, " "), f.cacheCompression, f.cacheLocal, f.cacheMode, strings.Join(f.mounts, " "), f.detail)
 	return os.WriteFile(filepath.Join(dir, "report.txt"), []byte(report), 0o644)
 }
 
@@ -2714,14 +2777,20 @@ func reproScript(f finding) string {
 	b.WriteString("# cache populate then consume, compared byte-strict (cache oracle)\n")
 	// The case's cache backend: an on-disk OCI layout shared across the two builds, or a
 	// registry repo. The built image must not depend on which.
-	cacheRepoArg := fmt.Sprintf("--cache-repo=${REPO}%s-cache", tag)
-	cacheMount := ""
+	cacheRepo, branchRepo := fmt.Sprintf("${REPO}%s-cache", tag), fmt.Sprintf("${REPO}%s-branch", tag)
+	cacheMount, cacheDir := "", ""
 	if f.cacheLocal {
-		cacheRepoArg = "--cache-repo=oci:/cache/layout --cache-dir=/cache"
-		cacheMount = " -v \"$LAYOUT\":/cache"
+		cacheRepo, branchRepo = "oci:/cache/layout", "oci:/cache/branch"
+		cacheMount, cacheDir = " -v \"$LAYOUT\":/cache", " --cache-dir=/cache"
 		b.WriteString("LAYOUT=$(mktemp -d)\n")
 	}
-	fmt.Fprintf(&b, "for v in v0 v1; do docker run --rm --net=host -v \"$CTX\":/workspace:ro%s $MOUNTS $ENV %s -f /workspace/Dockerfile -c /workspace -d ${REPO}%s-$v --cache=true --cache-copy-layers=true %s %s $FLAGS; done\n", cacheMount, ExecutorImage, tag, cacheRepoArg, comp)
+	populate, consume := cacheModeArgs(f.cacheMode, cacheRepo, branchRepo)
+	for _, v := range []struct {
+		name string
+		args []string
+	}{{"v0", populate}, {"v1", consume}} {
+		fmt.Fprintf(&b, "docker run --rm --net=host -v \"$CTX\":/workspace:ro%s $MOUNTS $ENV %s -f /workspace/Dockerfile -c /workspace -d ${REPO}%s-%s --cache=true --cache-copy-layers=true%s %s %s $FLAGS\n", cacheMount, ExecutorImage, tag, v.name, cacheDir, strings.Join(v.args, " "), comp)
+	}
 	fmt.Fprintf(&b, "diffoci diff --pull=always --ignore-image-name --ignore-image-timestamps%s ${REPO}%s-v0 ${REPO}%s-v1\n\n", cacheIgnore, tag, tag)
 	b.WriteString("# determinism (reproducible, byte-strict) - relevant for DETERMINISM_DIFF\n")
 	fmt.Fprintf(&b, "for r in r0 r1; do docker run --rm --net=host -v \"$CTX\":/workspace:ro $MOUNTS $ENV %s -f /workspace/Dockerfile -c /workspace -d ${REPO}%s-$r --reproducible $FLAGS; done\n", ExecutorImage, tag)
