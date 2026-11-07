@@ -220,7 +220,7 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 	// known to serve the stored blob.
 	_, fromRegistry := l.(*remote.MountableLayer)
 	isGzip := mediaType == types.DockerLayer || mediaType == types.OCILayer || mediaType == types.DockerForeignLayer || mediaType == types.OCIRestrictedLayer
-	var r io.Reader
+	var r io.ReadCloser
 	if config.FF.ParallelGunzip && fromRegistry && isGzip {
 		rc, err := l.Compressed()
 		if err != nil {
@@ -240,20 +240,18 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 				return nil, err
 			}
 			// ggcr picks the decompressor from the content, not the media type.
-			uc, err := l.Uncompressed()
+			r, err = l.Uncompressed()
 			if err != nil {
 				return nil, err
 			}
-			defer uc.Close()
-			r = uc
+			defer r.Close()
 		}
 	} else {
-		rc, err := l.Uncompressed()
+		r, err = l.Uncompressed()
 		if err != nil {
 			return nil, err
 		}
-		defer rc.Close()
-		r = rc
+		defer r.Close()
 	}
 
 	extractedFiles := []string{}
