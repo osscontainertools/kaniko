@@ -118,32 +118,3 @@ func GetCommand(cmd instructions.Command, fileContext util.FileContext, secrets 
 	}
 	return nil, fmt.Errorf("%s is not a supported command", cmd.Name())
 }
-
-// MountSources returns the stages and images a RUN binds files from.
-func MountSources(command DockerCommand) []string {
-	var sources []string
-	run, ok := command.(runInstruction)
-	if ok && config.FF.RunCrossStageBindMount {
-		for _, m := range dockerfile.CrossStageMounts(run.instruction()) {
-			sources = append(sources, m.From)
-		}
-	}
-	return sources
-}
-
-type runInstruction interface {
-	instruction() *instructions.RunCommand
-}
-
-// ExpandRunCommand expands the flags of a RUN. buildkit reparses the mounts
-// from the raw flag, so the stage index resolved into from= is put back.
-func ExpandRunCommand(cmd *instructions.RunCommand, expand instructions.SingleWordExpander) error {
-	mounts := instructions.GetMounts(cmd)
-	if err := cmd.Expand(expand); err != nil {
-		return err
-	}
-	for i, m := range instructions.GetMounts(cmd) {
-		m.From = mounts[i].From
-	}
-	return nil
-}
