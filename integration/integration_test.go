@@ -164,6 +164,9 @@ func buildRequiredImages() error {
 		name:    "Building kaniko image with leftover stuff in the filesystem",
 		command: []string{"docker", "build", coverArg, "-t", ExecutorImageTainted, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz455", "--target", "kaniko", "."},
 	}, {
+		name:    "Building kaniko image with a bake context in the filesystem",
+		command: []string{"docker", "build", "-t", ExecutorImageBakeContext, "-f", "bakefiles/test_bake_unmounted_context/Dockerfile.executor", "bakefiles/test_bake_unmounted_context"},
+	}, {
 		name:    "Building hijack base image",
 		command: []string{"docker", "build", "--push", "-t", config.hijackBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz560", "--target", "base", "."},
 	}, {

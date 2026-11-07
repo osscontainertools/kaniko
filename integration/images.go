@@ -52,9 +52,10 @@ const (
 	cacheDir         = "/workspace/cache"
 	baseImageToCache = "debian:13.7@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308"
 
-	ExecutorImageMoved   = "executor-image-moved"
-	ExecutorImageTainted = "executor-image-tainted"
-	AlpineImage          = "alpine-image"
+	ExecutorImageMoved       = "executor-image-moved"
+	ExecutorImageTainted     = "executor-image-tainted"
+	ExecutorImageBakeContext = "executor-image-bake-context"
+	AlpineImage              = "alpine-image"
 )
 
 var coverageDir string
