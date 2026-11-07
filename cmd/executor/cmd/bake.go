@@ -142,9 +142,12 @@ and inherits are not supported.`,
 		if err := prepareBuild(opts, targets); err != nil {
 			return err
 		}
-		// The filesystem is deleted between targets, so the inputs live in the kaniko dir.
-		if err := os.MkdirAll(config.KanikoBuildContextsDir, 0o755); err != nil {
-			return fmt.Errorf("creating %s: %w", config.KanikoBuildContextsDir, err)
+		// The filesystem is deleted between targets, so with several targets the inputs live in the kaniko dir.
+		store := len(targets) > 1
+		if store {
+			if err := os.MkdirAll(config.KanikoBuildContextsDir, 0o755); err != nil {
+				return fmt.Errorf("creating %s: %w", config.KanikoBuildContextsDir, err)
+			}
 		}
 		type resolvedContext struct {
 			inputs         targetInputs
@@ -164,23 +167,32 @@ and inherits are not supported.`,
 				if err := resolveContext(&topts); err != nil {
 					return err
 				}
-				stored := filepath.Join(config.KanikoBuildContextsDir, fmt.Sprintf("context-%d", len(contexts)))
-				c = resolvedContext{inputs: targetInputs{stored: stored, source: topts.ContextSource, ci: topts.CI}, dockerfileBase: topts.SrcContext}
-				if srcContext != "" && !strings.Contains(srcContext, "://") {
-					if err := util.CopyTree(topts.SrcContext, stored, util.FileContext{}, true); err != nil {
+				c = resolvedContext{inputs: targetInputs{srcContext: topts.SrcContext, source: topts.ContextSource, ci: topts.CI}, dockerfileBase: topts.SrcContext}
+				local := srcContext != "" && !strings.Contains(srcContext, "://")
+				switch {
+				case store && local:
+					c.inputs.stored = filepath.Join(config.KanikoBuildContextsDir, fmt.Sprintf("context-%d", len(contexts)))
+					if err := util.CopyTree(topts.SrcContext, c.inputs.stored, util.FileContext{}, true); err != nil {
 						return fmt.Errorf("storing context %s: %w", srcContext, err)
 					}
 					c.inputs.srcContext = filepath.Clean(config.BuildContextDir)
-				} else {
+				case store:
+					c.inputs.stored = filepath.Join(config.KanikoBuildContextsDir, fmt.Sprintf("context-%d", len(contexts)))
 					rel, err := filepath.Rel(config.BuildContextDir, topts.SrcContext)
 					if err != nil {
 						return fmt.Errorf("locating context in %s: %w", config.BuildContextDir, err)
 					}
-					if err := os.Rename(filepath.Clean(config.BuildContextDir), stored); err != nil {
+					if err := os.Rename(filepath.Clean(config.BuildContextDir), c.inputs.stored); err != nil {
 						return fmt.Errorf("storing context %s: %w", srcContext, err)
 					}
-					c.dockerfileBase = filepath.Join(stored, rel)
+					c.dockerfileBase = filepath.Join(c.inputs.stored, rel)
 					c.inputs.srcContext = filepath.Join(config.BuildContextDir, rel)
+				case local:
+					abs, err := filepath.Abs(topts.SrcContext)
+					if err != nil {
+						return fmt.Errorf("getting absolute path for context: %w", err)
+					}
+					c.inputs.srcContext = abs
 				}
 				contexts[key] = c
 			}
@@ -190,7 +202,7 @@ and inherits are not supported.`,
 			}
 			in := c.inputs
 			in.dockerfile = topts.DockerfilePath
-			if !isURL(in.dockerfile) {
+			if store && !isURL(in.dockerfile) {
 				in.dockerfile = filepath.Join(config.KanikoBuildContextsDir, fmt.Sprintf("Dockerfile-%d", i))
 				if err := os.Rename(config.DockerfilePath, in.dockerfile); err != nil {
 					return fmt.Errorf("storing dockerfile of target %q: %w", target.ID, err)

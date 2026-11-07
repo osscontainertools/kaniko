@@ -367,11 +367,13 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget, 
 		}
 		if inputs != nil {
 			in := inputs[i]
-			if err := config.CleanupBuildContext(); err != nil {
-				return fmt.Errorf("cleaning build context before target %q: %w", target.ID, err)
-			}
-			if err := util.CopyTree(in.stored, config.BuildContextDir, util.FileContext{AllowedPath: config.KanikoDir}, true); err != nil {
-				return fmt.Errorf("copying build context for target %q: %w", target.ID, err)
+			if in.stored != "" {
+				if err := config.CleanupBuildContext(); err != nil {
+					return fmt.Errorf("cleaning build context before target %q: %w", target.ID, err)
+				}
+				if err := util.CopyTree(in.stored, config.BuildContextDir, util.FileContext{AllowedPath: config.KanikoDir}, true); err != nil {
+					return fmt.Errorf("copying build context for target %q: %w", target.ID, err)
+				}
 			}
 			topts.SrcContext, topts.DockerfilePath, topts.ContextSource, topts.CI = in.srcContext, in.dockerfile, in.source, in.ci
 		}
