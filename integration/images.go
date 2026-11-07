@@ -427,6 +427,7 @@ var expectErrOutput = map[string]string{
 	"Dockerfile_test_issue_mz1230_tar_no_index": "--tar-path with --provenance requires --index-file",
 	"Dockerfile_test_require_digest_fail":       "--require-digest:",
 	"Dockerfile_test_issue_mz1378":              "variables are not supported in --from",
+	"Dockerfile_test_require_add_checksum_fail": "is not pinned by a checksum; --require-add-checksum requires all remote ADD sources to specify --checksum",
 }
 
 var crossCompileArch = func() string {

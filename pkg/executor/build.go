@@ -469,6 +469,13 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 				return "", ci, v1.Config{}, err
 			}
 		}
+		if opts.RequireAddChecksum {
+			if addCmd, ok := command.(*commands.AddCommand); ok {
+				if err := addCmd.ValidateRequireAddChecksum(args.ReplacementEnvs(cfg.Env), fileContext); err != nil {
+					return "", ci, v1.Config{}, err
+				}
+			}
+		}
 		if opts.Cache && keyValid {
 			// mz334: cross-stage copies key off the inferred pointer first, the
 			// source files do not exist during precompute or after elimination.

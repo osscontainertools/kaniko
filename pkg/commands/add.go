@@ -100,12 +100,8 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		return err
 	}
 
-	if a.requireAddChecksum {
-		for _, src := range srcs {
-			if util.IsSrcRemoteFileURL(src) && a.cmd.Checksum == "" {
-				return fmt.Errorf("ADD %s is not pinned by a checksum; --require-add-checksum requires all remote ADD sources to specify --checksum", src)
-			}
-		}
+	if err := a.ValidateRequireAddChecksum(replacementEnvs, a.fileContext); err != nil {
+		return err
 	}
 
 	var checksum digest.Digest
@@ -305,6 +301,25 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		return fmt.Errorf("executing copy command: %w", err)
 	}
 	a.snapshotFiles = append(a.snapshotFiles, copyCmd.snapshotFiles...)
+	return nil
+}
+
+// ValidateRequireAddChecksum rejects remote ADD sources that lack a checksum
+// when --require-add-checksum is set. It runs before cached layers can be
+// reused, so it applies to cache hits as well as fresh downloads.
+func (a *AddCommand) ValidateRequireAddChecksum(replacementEnvs []string, fileContext util.FileContext) error {
+	if !a.requireAddChecksum {
+		return nil
+	}
+	srcs, _, err := util.ResolveEnvAndWildcards(a.cmd.SourcesAndDest, fileContext, replacementEnvs)
+	if err != nil {
+		return err
+	}
+	for _, src := range srcs {
+		if util.IsSrcRemoteFileURL(src) && a.cmd.Checksum == "" {
+			return fmt.Errorf("ADD %s is not pinned by a checksum; --require-add-checksum requires all remote ADD sources to specify --checksum", src)
+		}
+	}
 	return nil
 }
 
