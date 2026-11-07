@@ -211,7 +211,13 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 		logrus.Tracef("Extracting layer %d", i)
 	}
 
-	r, err := l.Uncompressed()
+	var r io.ReadCloser
+	var err error
+	if config.FF.ParallelGunzip {
+		r, err = gunzipReadAhead(l)
+	} else {
+		r, err = l.Uncompressed()
+	}
 	if err != nil {
 		return nil, err
 	}

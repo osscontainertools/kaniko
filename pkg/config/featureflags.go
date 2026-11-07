@@ -60,6 +60,7 @@ type FeatureFlags struct {
 	NativeCopy                     bool
 	NativeInit                     bool
 	OCIScratchBase                 bool
+	ParallelGunzip                 bool
 	ParallelHash                   bool
 	PathScopedRegistryAuth         bool
 	PeekArchiveHeader              bool
@@ -156,6 +157,7 @@ func InitFeatureFlags() {
 		NativeCopy:                     featureFlag("FF_KANIKO_NATIVE_COPY", true),
 		NativeInit:                     featureFlag("FF_KANIKO_NATIVE_INIT", false),
 		OCIScratchBase:                 featureFlag("FF_KANIKO_OCI_SCRATCH_BASE", false),
+		ParallelGunzip:                 featureFlag("FF_KANIKO_PARALLEL_GUNZIP", false),
 		ParallelHash:                   featureFlag("FF_KANIKO_PARALLEL_HASH", false),
 		PathScopedRegistryAuth:         featureFlag("FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH", true),
 		PeekArchiveHeader:              featureFlag("FF_KANIKO_PEEK_ARCHIVE_HEADER", true),

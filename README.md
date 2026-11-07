@@ -166,6 +166,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_NATIVE_COPY`](#flag-ff_kaniko_native_copy)
       - [Flag `FF_KANIKO_NATIVE_INIT`](#flag-ff_kaniko_native_init)
       - [Flag `FF_KANIKO_OCI_SCRATCH_BASE`](#flag-ff_kaniko_oci_scratch_base)
+      - [Flag `FF_KANIKO_PARALLEL_GUNZIP`](#flag-ff_kaniko_parallel_gunzip)
       - [Flag `FF_KANIKO_PARALLEL_HASH`](#flag-ff_kaniko_parallel_hash)
       - [Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`](#flag-ff_kaniko_path_scoped_registry_auth)
       - [Flag `FF_KANIKO_PEEK_ARCHIVE_HEADER`](#flag-ff_kaniko_peek_archive_header)
@@ -1512,6 +1513,12 @@ Becomes default in `v1.30.0`.
 When a Dockerfile uses `FROM scratch`, kaniko uses an empty Docker-format image as the build base, which means the output image is produced in Docker manifest schema v2 format.
 Set this flag to `true` to use an empty OCI-format image instead, causing `FROM scratch` builds to produce output in OCI manifest schema v1 format. Defaults to `false`.
 Currently no plans to activate.
+
+#### Flag `FF_KANIKO_PARALLEL_GUNZIP`
+
+kaniko decompresses gzip base layers on the same thread that writes their files to disk.
+Set this flag to `true` to decompress them ahead of extraction on a separate thread.
+Defaults to `false`.
 
 #### Flag `FF_KANIKO_PARALLEL_HASH`
 
