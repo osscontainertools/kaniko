@@ -53,6 +53,7 @@ var (
 	rootSpan trace.Span
 	deferred *deferredProcessor
 	opts     *config.KanikoOptions
+	exported chan struct{}
 )
 
 const shutdownFlushTimeout = 5 * time.Second
@@ -126,29 +127,13 @@ func exportLocked(ctx context.Context) {
 		return
 	}
 	deferred = nil
-	loginStart := time.Now()
-	headers, auth := exportHeaders(ctx)
-	loginEnd := time.Now()
-	exp, err := otlptracehttp.New(ctx,
-		otlptracehttp.WithEndpointURL(tracesEndpoint(endpoint)),
-		otlptracehttp.WithHeaders(headers),
-	)
-	if err != nil {
-		logrus.Debugf("tracing disabled: failed to create OTLP exporter: %v", err)
-		return
-	}
 	// Read the Dockerfile once: reused for build_id and the content attribute.
 	content, cerr := os.ReadFile(opts.DockerfilePath)
 	if cerr != nil {
 		logrus.Debugf("tracing: Dockerfile not readable, kaniko.dockerfile.content omitted: %v", cerr)
 	}
-	res, err := buildResource(ctx, opts, content)
-	if err != nil {
-		logrus.Debugf("tracing: partial resource, continuing: %v", err)
-	}
 
 	span := rootSpan
-	span.SetAttributes(attribute.String("kaniko.telemetry.auth", auth))
 	raw, set := os.LookupEnv(OmitDockerfileEnv)
 	if set {
 		_, perr := strconv.ParseBool(raw)
@@ -169,19 +154,44 @@ func exportLocked(ctx context.Context) {
 		}
 	}
 
-	dp.attach(sdktrace.NewBatchSpanProcessor(exp), res)
-	if auth != "env" {
-		timing.Record("Exchanging telemetry token", loginStart, loginEnd)
-	}
+	envHeaders, req := exportAuth()
+	o := *opts
+	done := make(chan struct{})
+	exported = done
+	go func() {
+		defer close(done)
+		loginStart := time.Now()
+		headers, auth := exportHeaders(ctx, envHeaders, req)
+		loginEnd := time.Now()
+		span.SetAttributes(attribute.String("kaniko.telemetry.auth", auth))
+		if auth != "env" {
+			timing.RecordChild(span, "Exchanging telemetry token", loginStart, loginEnd)
+		}
+		exp, err := otlptracehttp.New(ctx,
+			otlptracehttp.WithEndpointURL(tracesEndpoint(endpoint)),
+			otlptracehttp.WithHeaders(headers),
+		)
+		if err != nil {
+			logrus.Debugf("tracing disabled: failed to create OTLP exporter: %v", err)
+			dp.drop()
+			return
+		}
+		res, err := buildResource(ctx, &o, content)
+		if err != nil {
+			logrus.Debugf("tracing: partial resource, continuing: %v", err)
+		}
+		dp.attach(sdktrace.NewBatchSpanProcessor(exp), res)
+	}()
 }
 
 // The provider's resource is fixed before the build is known, so every span is
 // handed on with the resource Export resolved.
 type deferredProcessor struct {
-	mu   sync.Mutex
-	next sdktrace.SpanProcessor
-	res  *resource.Resource
-	held []sdktrace.ReadOnlySpan
+	mu      sync.Mutex
+	next    sdktrace.SpanProcessor
+	res     *resource.Resource
+	held    []sdktrace.ReadOnlySpan
+	dropped bool
 }
 
 type withResource struct {
@@ -201,15 +211,22 @@ func (p *deferredProcessor) attach(next sdktrace.SpanProcessor, res *resource.Re
 	p.held = nil
 }
 
+func (p *deferredProcessor) drop() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.held, p.dropped = nil, true
+}
+
 func (p *deferredProcessor) OnStart(context.Context, sdktrace.ReadWriteSpan) {}
 
 func (p *deferredProcessor) OnEnd(s sdktrace.ReadOnlySpan) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.next == nil {
-		p.held = append(p.held, s)
-	} else {
+	switch {
+	case p.next != nil:
 		p.next.OnEnd(withResource{s, p.res})
+	case !p.dropped:
+		p.held = append(p.held, s)
 	}
 }
 
@@ -339,6 +356,9 @@ func Shutdown(err error) {
 	exportCtx, cancelExport := context.WithTimeout(context.Background(), shutdownFlushTimeout)
 	defer cancelExport()
 	exportLocked(exportCtx)
+	if exported != nil {
+		<-exported
+	}
 	if rootSpan != nil {
 		rootSpan.SetAttributes(registryAttrs(connstats.Snapshot())...)
 		if err != nil {

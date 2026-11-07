@@ -42,54 +42,75 @@ const (
 
 const loginTimeout = 10 * time.Second
 
-func login(ctx context.Context) string {
+type exchangeRequest struct {
+	url      string
+	identity string
+	source   string
+}
+
+func loginRequest() *exchangeRequest {
 	exchangeURL := os.Getenv(TokenExchangeEndpointEnv)
 	if exchangeURL == "" {
-		return ""
+		return nil
 	}
 	err := requireSecure(exchangeURL)
 	if err != nil {
 		logrus.Warnf("ingest token exchange refused: %s: %v", TokenExchangeEndpointEnv, err)
-		return ""
+		return nil
 	}
 	// the token rides on every export, so the collector has to be as safe as the exchange
 	err = requireSecure(os.Getenv(EndpointEnv))
 	if err != nil {
 		logrus.Warnf("ingest token exchange refused: %s: %v", EndpointEnv, err)
-		return ""
+		return nil
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, loginTimeout)
-	defer cancel()
-	client := &http.Client{CheckRedirect: refuseRedirect}
 
 	identity, source, err := identityToken()
 	if err != nil {
 		logrus.Warnf("ingest token exchange refused: %v", err)
-		return ""
+		return nil
 	}
 	if identity == "" {
 		logrus.Warnf("%s is set but this job has no identity token: set %s or %s",
 			TokenExchangeEndpointEnv, IDTokenEnv, IDTokenFileEnv)
-		return ""
+		return nil
 	}
+	return &exchangeRequest{url: exchangeURL, identity: identity, source: source}
+}
 
-	token, err := exchange(ctx, client, exchangeURL, identity)
+func login(ctx context.Context, req exchangeRequest) string {
+	ctx, cancel := context.WithTimeout(ctx, loginTimeout)
+	defer cancel()
+	client := &http.Client{CheckRedirect: refuseRedirect}
+
+	token, err := exchange(ctx, client, req.url, req.identity)
 	if err != nil {
 		logrus.Warnf("ingest token exchange refused: %v", err)
 		return ""
 	}
-	logrus.Infof("ingest token issued from %s for tenant %s, expires %s", source, token.Tenant, token.ExpiresAt)
+	logrus.Infof("ingest token issued from %s for tenant %s, expires %s", req.source, token.Tenant, token.ExpiresAt)
 	return token.Token
 }
 
-// the second return lands on the root span as kaniko.telemetry.auth.
-func exportHeaders(ctx context.Context) (map[string]string, string) {
+// exportAuth reads the identity before the build starts: a token file outside a
+// mounted volume is gone once the build deletes the filesystem.
+func exportAuth() (map[string]string, *exchangeRequest) {
 	headers := otlpHeaders()
+	if strings.TrimSpace(headers[authHeader]) != "" {
+		return headers, nil
+	}
+	return headers, loginRequest()
+}
+
+// the second return lands on the root span as kaniko.telemetry.auth.
+func exportHeaders(ctx context.Context, headers map[string]string, req *exchangeRequest) (map[string]string, string) {
 	if strings.TrimSpace(headers[authHeader]) != "" {
 		return headers, "env"
 	}
-	token := login(ctx)
+	if req == nil {
+		return headers, "none"
+	}
+	token := login(ctx, *req)
 	if token == "" {
 		return headers, "none"
 	}
