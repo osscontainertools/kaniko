@@ -1603,16 +1603,8 @@ Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT`
 
-```dockerfile
-FROM busybox AS build
-RUN echo hello > /value
-
-FROM busybox
-RUN --mount=type=bind,from=build,source=/value,target=/mnt/value cat /mnt/value
-```
-
-Kaniko skips bind mounts with `from=<stage>` or `from=<image>`.
-Set this flag to `true` to mount them. Writes to the mount are discarded, also without `rw`.
+Kaniko skips `RUN --mount=type=bind` flags with `from=<stage>` or `from=<image>`.
+Set this flag to `true` to mount files from another stage or image. Writes to the mount are discarded.
 Defaults to `false`.
 
 #### Flag `FF_KANIKO_RUN_HEREDOC_SCRIPT`
