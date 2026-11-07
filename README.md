@@ -144,6 +144,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_CACHE_PROBE_AFTER_MISS`](#flag-ff_kaniko_cache_probe_after_miss)
       - [Flag `FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS`](#flag-ff_kaniko_chown_on_implicit_dirs)
       - [Flag `FF_KANIKO_CONFINE_COPY_SOURCE`](#flag-ff_kaniko_confine_copy_source)
+      - [Flag `FF_KANIKO_CONFINE_HARDLINK_TARGET`](#flag-ff_kaniko_confine_hardlink_target)
       - [Flag `FF_KANIKO_COPY_AS_ROOT`](#flag-ff_kaniko_copy_as_root)
       - [Flag `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS`](#flag-ff_kaniko_copy_chmod_on_implicit_dirs)
       - [Flag `FF_KANIKO_COPY_KEEP_DEST_OWNER`](#flag-ff_kaniko_copy_keep_dest_owner)
@@ -1362,6 +1363,13 @@ A `COPY` or `ADD` source that points into the kaniko directory, for example `COP
 Set this flag to `true` to fail the build instead.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_CONFINE_HARDLINK_TARGET`
+
+A hardlink in a base image layer or an `ADD`ed tar whose target passes through a symlink into the kaniko directory, for example `escape -> /kaniko` followed by a hardlink to `escape/executor`, links kaniko's own files into the image.
+Set this flag to `true` to skip such a hardlink with a warning instead.
+Defaults to `true`.
+Will be deprecated in `v1.31.0`.
 
 #### Flag `FF_KANIKO_COPY_AS_ROOT`
 
