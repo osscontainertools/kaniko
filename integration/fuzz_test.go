@@ -31,6 +31,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -236,6 +237,8 @@ func TestFuzz(t *testing.T) {
 		"crane", "copy", alpineFuzzBase, strings.ToLower(config.imageRepo+libraryAlpineTag))
 	mirror("library debian", debianFuzzBase, strings.ToLower(config.imageRepo+libraryDebianTag),
 		"crane", "copy", debianFuzzBase, strings.ToLower(config.imageRepo+libraryDebianTag))
+	archRef := strings.ToLower(config.imageRepo) + archBaseTag + runtime.GOARCH
+	mirror("arch alpine", alpineFuzzBase, archRef, "crane", "copy", alpineFuzzBase, archRef)
 	// The OCI base is minted from alpine with skopeo; --src-no-creds forces an anonymous
 	// pull, avoiding a stale credential in the environment.
 	mirror("oci", alpineFuzzBase, ociBase,
@@ -1071,7 +1074,7 @@ func warmerOracle(label, dir, dockerfile string, buildArgs, flags, envFlags []st
 // skipping FROM lines that reference an earlier stage. Only the mirrored fuzz bases
 // are cacheable, so the set is intersected with them.
 func basesInDockerfile(dockerfile string) []string {
-	known := map[string]bool{}
+	known := map[string]bool{fuzzArchBaseRef(): true}
 	for _, ref := range fuzzBaseRefs() {
 		known[ref] = true
 	}
@@ -1413,6 +1416,9 @@ const (
 	// parity oracle compares the swapped result against the mount-free truth.
 	symlinkBaseTag = "fuzz-symlink-base:latest"
 
+	// alpine tagged with the host architecture, named from FROM through $TARGETARCH.
+	archBaseTag = "fuzz-arch-base:"
+
 	// Docker-Hub-normalized copies of the two upstream bases, mirrored a second time under
 	// the repository path a bare docker.io ref resolves to ("alpine" -> library/alpine).
 	// They let the registry-mirror oracle build a case from a real docker.io reference and
@@ -1513,6 +1519,11 @@ func fuzzBaseRefs() []string {
 		strings.ToLower(repo + richConfigBaseTag),
 		strings.ToLower(repo + symlinkBaseTag),
 	}
+}
+
+// fuzzArchBaseRef lowercases only the repository, the arg name has to stay as written.
+func fuzzArchBaseRef() string {
+	return strings.ToLower(config.imageRepo) + archBaseTag + "$TARGETARCH"
 }
 
 var baseOCICache = map[string]bool{}
@@ -1643,7 +1654,7 @@ func finalBaseRef(dockerfile, target string, buildArgs []string) string {
 		}
 		break
 	}
-	return ref
+	return strings.ReplaceAll(ref, "$TARGETARCH", runtime.GOARCH)
 }
 
 // runFuzzDocker builds and pushes with docker. --provenance=false drops attestation
