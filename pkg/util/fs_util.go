@@ -208,17 +208,27 @@ func GetFSFromLayers(root string, layers []v1.Layer, opts ...FSOpt) ([]string, e
 }
 
 func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, error) {
-	if mediaType, err := l.MediaType(); err == nil {
+	mediaType, err := l.MediaType()
+	if err == nil {
 		logrus.Tracef("Extracting layer %d of media type %s", i, mediaType)
 	} else {
 		logrus.Tracef("Extracting layer %d", i)
 	}
 
+	// Compressed() of a layer backed by an uncompressed tarball, like a
+	// snapshot of an earlier stage, gzips it first. Only registry layers are
+	// known to serve the stored blob.
+	_, fromRegistry := l.(*remote.MountableLayer)
+	isGzip := mediaType == types.DockerLayer || mediaType == types.OCILayer || mediaType == types.DockerForeignLayer || mediaType == types.OCIRestrictedLayer
 	var r io.ReadCloser
-	var err error
-	if config.FF.ParallelGunzip {
-		r, err = gunzipReadAhead(l)
-	} else {
+	switch {
+	case config.FF.ParallelGunzip && fromRegistry && isGzip:
+		r, err = gunzipLayer(l)
+	default:
+		r, err = l.Uncompressed()
+	}
+	if errors.Is(err, pgzip.ErrHeader) {
+		// ggcr picks the decompressor from the content, not the media type.
 		r, err = l.Uncompressed()
 	}
 	if err != nil {
@@ -285,36 +295,15 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 	return extractedFiles, nil
 }
 
-// gunzipReadAhead returns the uncompressed stream of l. Registry gzip layers
-// are decompressed with pgzip, which inflates ahead on its own goroutine.
-// Every other layer goes through l.Uncompressed().
-func gunzipReadAhead(l v1.Layer) (io.ReadCloser, error) {
-	mediaType, err := l.MediaType()
-	if err != nil {
-		return nil, err
-	}
-	// Compressed() of a layer backed by an uncompressed tarball, like a
-	// snapshot of an earlier stage, gzips it first. Only registry layers are
-	// known to serve the stored blob.
-	_, fromRegistry := l.(*remote.MountableLayer)
-	switch {
-	case !fromRegistry:
-		return l.Uncompressed()
-	case mediaType != types.DockerLayer && mediaType != types.OCILayer && mediaType != types.DockerForeignLayer && mediaType != types.OCIRestrictedLayer:
-		return l.Uncompressed()
-	}
-
+// gunzipLayer decompresses the stored blob of l with pgzip, which inflates
+// ahead on its own goroutine.
+func gunzipLayer(l v1.Layer) (io.ReadCloser, error) {
 	rc, err := l.Compressed()
 	if err != nil {
 		return nil, err
 	}
 	gz, err := pgzip.NewReader(rc)
-	switch {
-	case errors.Is(err, pgzip.ErrHeader):
-		// ggcr picks the decompressor from the content, not the media type.
-		rc.Close()
-		return l.Uncompressed()
-	case err != nil:
+	if err != nil {
 		rc.Close()
 		return nil, err
 	}
