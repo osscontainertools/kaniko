@@ -19,7 +19,6 @@ package util
 import (
 	"archive/tar"
 	"bufio"
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -1206,12 +1205,12 @@ func getExcludedFiles(dockerfilePath, buildcontext string) ([]string, error) {
 		return nil, nil
 	}
 	logrus.Infof("Using dockerignore file: %v", path)
-	contents, err := os.ReadFile(path)
+	f, err := FSys.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("parsing .dockerignore: %w", err)
 	}
-	reader := bytes.NewBuffer(contents)
-	return ignorefile.ReadAll(reader)
+	defer f.Close()
+	return ignorefile.ReadAll(f)
 }
 
 // ExcludesFile returns true if the file context specified this file should be ignored.
