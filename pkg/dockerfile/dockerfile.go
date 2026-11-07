@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/moby/buildkit/frontend/dockerfile/linter"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
@@ -294,30 +295,6 @@ func resolveStagesArgs(stages []instructions.Stage, args []string) error {
 	return nil
 }
 
-// HasDigestReference reports whether an image reference is pinned by a digest,
-// e.g. image@sha256:abc123.... It accepts any @<algo>:<hex> where algo is
-// alphanumeric (with '-', '_' allowed) and the digest is non-empty.
-func HasDigestReference(ref string) bool {
-	at := strings.LastIndex(ref, "@")
-	if at < 0 || at == len(ref)-1 {
-		return false
-	}
-	parts := strings.SplitN(ref[at+1:], ":", 2)
-	if len(parts) != 2 {
-		return false
-	}
-	algo, digest := parts[0], parts[1]
-	if algo == "" || digest == "" {
-		return false
-	}
-	for _, c := range algo {
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_') {
-			return false
-		}
-	}
-	return true
-}
-
 func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, metaArgs []instructions.ArgCommand) ([]config.KanikoStage, error) {
 	if len(stages) == 0 {
 		return nil, errors.New("dockerfile must contain at least one FROM instruction")
@@ -336,17 +313,6 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		return nil, fmt.Errorf("resolving args: %w", err)
 	}
 	stages = stages[:finalStage+1]
-
-	if opts.RequireDigest {
-		for i, stage := range stages {
-			if stage.BaseName == constants.NoBaseImage {
-				continue
-			}
-			if !HasDigestReference(stage.BaseName) {
-				return nil, fmt.Errorf("stage %d: FROM %s is not pinned by digest; --require-digest requires all FROM instructions to use a digest reference (e.g. image@sha256:abc123...)", i, stage.BaseName)
-			}
-		}
-	}
 
 	stageByName := make(map[string]int)
 	for idx, s := range stages {
@@ -386,6 +352,12 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		} else if baseImageStoredLocally {
 			onBuild = getOnBuild(stages[baseImageIndex].Commands)
 		} else {
+			if opts.RequireDigest {
+				_, err = name.NewDigest(stage.BaseName)
+				if err != nil {
+					return nil, fmt.Errorf("stage %d: --require-digest: %w", i, err)
+				}
+			}
 			onBuild, baseImageDigest, err = GetRemoteOnBuild(stage.BaseName, metaArgs, opts)
 			if err != nil {
 				return nil, err
