@@ -221,14 +221,25 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 	_, fromRegistry := l.(*remote.MountableLayer)
 	isGzip := mediaType == types.DockerLayer || mediaType == types.OCILayer || mediaType == types.DockerForeignLayer || mediaType == types.OCIRestrictedLayer
 	var r io.ReadCloser
-	switch {
-	case config.FF.ParallelGunzip && fromRegistry && isGzip:
-		r, err = gunzipLayer(l)
-	default:
-		r, err = l.Uncompressed()
-	}
-	if errors.Is(err, pgzip.ErrHeader) {
-		// ggcr picks the decompressor from the content, not the media type.
+	if config.FF.ParallelGunzip && fromRegistry && isGzip {
+		var rc io.ReadCloser
+		rc, err = l.Compressed()
+		if err != nil {
+			return nil, err
+		}
+		var gz *pgzip.Reader
+		gz, err = pgzip.NewReader(rc)
+		switch {
+		case errors.Is(err, pgzip.ErrHeader):
+			rc.Close()
+			// ggcr picks the decompressor from the content, not the media type.
+			r, err = l.Uncompressed()
+		case err != nil:
+			rc.Close()
+		default:
+			r = &gunzipReadCloser{Reader: gz, src: rc}
+		}
+	} else {
 		r, err = l.Uncompressed()
 	}
 	if err != nil {
@@ -293,19 +304,6 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 		extractedFiles = append(extractedFiles, filepath.Join(root, cleanedName))
 	}
 	return extractedFiles, nil
-}
-
-func gunzipLayer(l v1.Layer) (io.ReadCloser, error) {
-	rc, err := l.Compressed()
-	if err != nil {
-		return nil, err
-	}
-	gz, err := pgzip.NewReader(rc)
-	if err != nil {
-		rc.Close()
-		return nil, err
-	}
-	return &gunzipReadCloser{Reader: gz, src: rc}, nil
 }
 
 type gunzipReadCloser struct {
