@@ -67,7 +67,6 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 		}
 	}
 	var secretEnvs []string
-	var readOnlyBindTargets []string
 	if len(cmdRun.FlagsUsed) > 0 {
 		replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 		expand := func(word string) (string, error) {
@@ -289,168 +288,12 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				if err != nil {
 					return fmt.Errorf("copying bind source %s to %s: %w", src, target, err)
 				}
-				if crossStageBind && m.ReadOnly {
-					readOnlyBindTargets = append(readOnlyBindTargets, target)
-				}
 			default:
 				logrus.Warnf("Kaniko does not support '--mount=type=%s' flags in RUN statements - relying on unsupported flags can lead to invalid builds", m.Type)
 			}
 		}
 	}
-
-	readOnlyBindTargets = uniqueBindTargets(readOnlyBindTargets)
-	for _, target := range readOnlyBindTargets {
-		if err := makeReadOnlyBindTarget(target); err != nil {
-			return fmt.Errorf("making bind target %s read-only: %w", target, err)
-		}
-		target := target
-		defer assignIfNil(&reterr, func() error {
-			return makeBindTargetRemovable(target)
-		})
-	}
-
-	readOnlyBindSnapshots := make(map[string]map[string]string, len(readOnlyBindTargets))
-	for _, target := range readOnlyBindTargets {
-		snapshot, err := snapshotBindTarget(target)
-		if err != nil {
-			return fmt.Errorf("snapshotting read-only bind target %s: %w", target, err)
-		}
-		readOnlyBindSnapshots[target] = snapshot
-	}
-
-	if err := runCommandInExec(config, buildArgs, cmdRun, secretEnvs); err != nil {
-		return err
-	}
-	for target, snapshot := range readOnlyBindSnapshots {
-		if err := verifyReadOnlyBindTarget(target, snapshot); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func uniqueBindTargets(targets []string) []string {
-	seen := make(map[string]struct{}, len(targets))
-	unique := make([]string, 0, len(targets))
-	for _, target := range targets {
-		if _, ok := seen[target]; ok {
-			continue
-		}
-		seen[target] = struct{}{}
-		unique = append(unique, target)
-	}
-	return unique
-}
-
-func makeReadOnlyBindTarget(target string) error {
-	var paths []string
-	err := filepath.WalkDir(target, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.Type()&os.ModeSymlink == 0 {
-			paths = append(paths, path)
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	for i := len(paths) - 1; i >= 0; i-- {
-		info, err := os.Lstat(paths[i])
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() && !info.Mode().IsRegular() {
-			continue
-		}
-		if err := os.Chmod(paths[i], info.Mode().Perm()&^0o222); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func makeBindTargetRemovable(target string) error {
-	var directories []string
-	err := filepath.WalkDir(target, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		info, err := os.Lstat(path)
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			directories = append(directories, path)
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	for _, path := range directories {
-		info, err := os.Lstat(path)
-		if err != nil {
-			return err
-		}
-		if err := os.Chmod(path, info.Mode().Perm()|0o200); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func snapshotBindTarget(target string) (map[string]string, error) {
-	snapshot := make(map[string]string)
-	err := filepath.WalkDir(target, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		info, err := os.Lstat(path)
-		if err != nil {
-			return err
-		}
-		relative, err := filepath.Rel(target, path)
-		if err != nil {
-			return err
-		}
-		fingerprint := info.Mode().String()
-		switch {
-		case info.Mode().IsRegular():
-			content, err := os.ReadFile(path)
-			if err != nil {
-				return err
-			}
-			sum := sha256.Sum256(content)
-			fingerprint += fmt.Sprintf(":%x", sum)
-		case info.Mode()&os.ModeSymlink != 0:
-			link, err := os.Readlink(path)
-			if err != nil {
-				return err
-			}
-			fingerprint += ":" + link
-		}
-		snapshot[relative] = fingerprint
-		return nil
-	})
-	return snapshot, err
-}
-
-func verifyReadOnlyBindTarget(target string, before map[string]string) error {
-	after, err := snapshotBindTarget(target)
-	if err != nil {
-		return fmt.Errorf("checking read-only bind target %s: %w", target, err)
-	}
-	if len(before) != len(after) {
-		return fmt.Errorf("read-only bind mount target %s was modified during RUN", target)
-	}
-	for path, fingerprint := range before {
-		if after[path] != fingerprint {
-			return fmt.Errorf("read-only bind mount target %s was modified during RUN", target)
-		}
-	}
-	return nil
+	return runCommandInExec(config, buildArgs, cmdRun, secretEnvs)
 }
 
 func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun *instructions.RunCommand, secretEnvs []string) error {
