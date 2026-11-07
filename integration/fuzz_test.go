@@ -117,6 +117,8 @@ func mergeKnown(f *finding, src map[string]int) {
 // crashMarkers identify a kaniko process that panicked, tripped an assertion, or
 // hit unreachable code. These outrank any image diff.
 var crashMarkers = []string{
+	// the harness builds a -race executor, whose report carries goroutine stacks
+	"WARNING: DATA RACE",
 	"Assertion violated [",
 	"Unreachable Code:",
 	"panic:",
