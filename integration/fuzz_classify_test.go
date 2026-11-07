@@ -161,6 +161,14 @@ var knownBuildFailures = []knownDivergence{
 		},
 	},
 	{
+		name: "targetarch-empty-in-from",
+		why:  "mz1126: the executor resolves $TARGETARCH in FROM to empty, so the base reference ends in a bare colon. The warmer half (#1210) is only reachable once this is fixed",
+		flag: "",
+		match: func(out string) bool {
+			return strings.Contains(out, "could not parse reference: ") && strings.Contains(out, archBaseTag+"\n")
+		},
+	},
+	{
 		name: "run-self-referential-symlink",
 		why:  "mz1174: a RUN that leaves a symlink pointing at itself fails the snapshot, ResolvePaths follows every changed link and aborts on the loop",
 		flag: "",
