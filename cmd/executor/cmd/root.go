@@ -290,18 +290,19 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 			return fmt.Errorf("cache flags invalid: %w", err)
 		}
 	}
-	setupStart := time.Now()
-	if err := setupBuild(); err != nil {
+	tracing.Init(context.Background(), opts)
+	_, endSetup := timing.Scope("Setting up build")
+	err := setupBuild()
+	endSetup()
+	if err != nil {
 		return err
 	}
-	setupEnd := time.Now()
 	if !checkContained() {
 		if !force {
 			return errors.New("kaniko should only be run inside of a container, run with the --force flag if you are sure you want to continue")
 		}
 		logrus.Warn("Kaniko is being run outside of a container. This can have dangerous effects on your system")
 	}
-	var checks [][2]time.Time
 	// mz992: a dryrun only renders the plan, it never pushes a layer or a cache entry.
 	if !opts.Dryrun {
 		for _, target := range targets {
@@ -310,9 +311,9 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 				return err
 			}
 			if !topts.NoPush || len(topts.CacheTo) > 0 {
-				checkStart := time.Now()
+				check := timing.Start("Checking push permissions")
 				err := executor.CheckPushPermissions(&topts)
-				checks = append(checks, [2]time.Time{checkStart, time.Now()})
+				check.End()
 				if err != nil {
 					logrus.Warnf("make sure you entered the correct tag name, that you are authenticated correctly, and try again.")
 					// mz280: remind users that DOCKER_AUTH_CONFIG gets prioritized by docker-cli
@@ -341,11 +342,7 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 		}()
 	}
 	defer executor.WaitCachePushes()
-	tracing.Init(context.Background(), opts, setupStart)
-	timing.Record("Setting up build", setupStart, setupEnd)
-	for _, c := range checks {
-		timing.Record("Checking push permissions", c[0], c[1])
-	}
+	tracing.Export(context.Background())
 	for i, target := range targets {
 		if i > 0 {
 			// Saved stages are keyed by stage index, so without this the next target
@@ -693,7 +690,14 @@ func resolveSourceContext() error {
 		return err
 	}
 	logrus.Debugf("Getting source context from %s", opts.SrcContext)
-	opts.SrcContext, err = contextExecutor.UnpackTarFromBuildContext()
+	switch contextExecutor.(type) {
+	case *buildcontext.Dir, *buildcontext.Tar:
+		opts.SrcContext, err = contextExecutor.UnpackTarFromBuildContext()
+	default:
+		fetch := timing.Start("Fetching build context")
+		opts.SrcContext, err = contextExecutor.UnpackTarFromBuildContext()
+		fetch.End()
+	}
 	if err != nil {
 		return err
 	}

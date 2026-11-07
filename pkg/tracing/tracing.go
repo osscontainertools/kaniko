@@ -51,6 +51,8 @@ var (
 	mu       sync.Mutex
 	provider *sdktrace.TracerProvider
 	rootSpan trace.Span
+	deferred *deferredProcessor
+	opts     *config.KanikoOptions
 )
 
 const shutdownFlushTimeout = 5 * time.Second
@@ -81,7 +83,7 @@ func tracesEndpoint(endpoint string) string {
 	return u.JoinPath("/v1/traces").String()
 }
 
-func Init(ctx context.Context, opts *config.KanikoOptions, start time.Time) {
+func Init(ctx context.Context, o *config.KanikoOptions) {
 	endpoint := os.Getenv(EndpointEnv)
 	if endpoint == "" {
 		return
@@ -89,6 +91,41 @@ func Init(ctx context.Context, opts *config.KanikoOptions, start time.Time) {
 	if strings.HasPrefix(endpoint, "http://") {
 		logrus.Warnf("%s uses plaintext http: spans (including Dockerfile content) are sent unencrypted", EndpointEnv)
 	}
+	dp := &deferredProcessor{}
+	// Deliberately NOT otel.SetTracerProvider: kaniko takes its tracer from
+	// the provider directly, and the global would silently switch on client
+	// spans in the vendored GCS/GCR transports, polluting the trace.
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSpanProcessor(dp),
+		sdktrace.WithRawSpanLimits(spanLimits()),
+	)
+	tracer := tp.Tracer("github.com/osscontainertools/kaniko")
+	sctx, span := tracer.Start(ctx, "build")
+
+	mu.Lock()
+	provider, rootSpan, deferred, opts = tp, span, dp, o
+	mu.Unlock()
+
+	timing.SetTracer(sctx, tracer)
+
+	// hook, not import, so assert does not depend on tracing
+	assert.OnAssertionViolation = onAssertion
+	logrus.RegisterExitHandler(func() { Shutdown(fmt.Errorf("process exited via logrus.Fatal")) })
+}
+
+func Export(ctx context.Context) {
+	mu.Lock()
+	defer mu.Unlock()
+	exportLocked(ctx)
+}
+
+func exportLocked(ctx context.Context) {
+	endpoint := os.Getenv(EndpointEnv)
+	dp := deferred
+	if dp == nil {
+		return
+	}
+	deferred = nil
 	loginStart := time.Now()
 	headers, auth := exportHeaders(ctx)
 	loginEnd := time.Now()
@@ -110,17 +147,7 @@ func Init(ctx context.Context, opts *config.KanikoOptions, start time.Time) {
 		logrus.Debugf("tracing: partial resource, continuing: %v", err)
 	}
 
-	// Deliberately NOT otel.SetTracerProvider: kaniko takes its tracer from
-	// the provider directly, and the global would silently switch on client
-	// spans in the vendored GCS/GCR transports, polluting the trace.
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exp),
-		sdktrace.WithResource(res),
-		sdktrace.WithRawSpanLimits(spanLimits()),
-	)
-
-	tracer := tp.Tracer("github.com/osscontainertools/kaniko")
-	sctx, span := tracer.Start(ctx, "build", trace.WithTimestamp(start))
+	span := rootSpan
 	span.SetAttributes(attribute.String("kaniko.telemetry.auth", auth))
 	raw, set := os.LookupEnv(OmitDockerfileEnv)
 	if set {
@@ -142,18 +169,70 @@ func Init(ctx context.Context, opts *config.KanikoOptions, start time.Time) {
 		}
 	}
 
-	mu.Lock()
-	provider, rootSpan = tp, span
-	mu.Unlock()
-
-	timing.SetTracer(sctx, tracer)
+	dp.attach(sdktrace.NewBatchSpanProcessor(exp), res)
 	if auth != "env" {
 		timing.Record("Exchanging telemetry token", loginStart, loginEnd)
 	}
+}
 
-	// hook, not import, so assert does not depend on tracing
-	assert.OnAssertionViolation = onAssertion
-	logrus.RegisterExitHandler(func() { Shutdown(fmt.Errorf("process exited via logrus.Fatal")) })
+// The provider's resource is fixed before the build is known, so every span is
+// handed on with the resource Export resolved.
+type deferredProcessor struct {
+	mu   sync.Mutex
+	next sdktrace.SpanProcessor
+	res  *resource.Resource
+	held []sdktrace.ReadOnlySpan
+}
+
+type withResource struct {
+	sdktrace.ReadOnlySpan
+	res *resource.Resource
+}
+
+func (s withResource) Resource() *resource.Resource { return s.res }
+
+func (p *deferredProcessor) attach(next sdktrace.SpanProcessor, res *resource.Resource) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.next, p.res = next, res
+	for _, s := range p.held {
+		next.OnEnd(withResource{s, res})
+	}
+	p.held = nil
+}
+
+func (p *deferredProcessor) OnStart(context.Context, sdktrace.ReadWriteSpan) {}
+
+func (p *deferredProcessor) OnEnd(s sdktrace.ReadOnlySpan) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.next == nil {
+		p.held = append(p.held, s)
+	} else {
+		p.next.OnEnd(withResource{s, p.res})
+	}
+}
+
+func (p *deferredProcessor) downstream() sdktrace.SpanProcessor {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.next
+}
+
+func (p *deferredProcessor) Shutdown(ctx context.Context) error {
+	next := p.downstream()
+	if next == nil {
+		return nil
+	}
+	return next.Shutdown(ctx)
+}
+
+func (p *deferredProcessor) ForceFlush(ctx context.Context) error {
+	next := p.downstream()
+	if next == nil {
+		return nil
+	}
+	return next.ForceFlush(ctx)
 }
 
 // onAssertion flushes before the panic from a violated assertion escapes.
@@ -257,6 +336,9 @@ func Shutdown(err error) {
 	if provider == nil {
 		return
 	}
+	exportCtx, cancelExport := context.WithTimeout(context.Background(), shutdownFlushTimeout)
+	defer cancelExport()
+	exportLocked(exportCtx)
 	if rootSpan != nil {
 		rootSpan.SetAttributes(registryAttrs(connstats.Snapshot())...)
 		if err != nil {
