@@ -180,7 +180,7 @@ These bugs were fixed on main between the v1.29.0 rebase and 2026-11-07, and the
 | mz1233 ARG and ENV of one name in the dependency prepass | no name was both an ARG and an ENV | `ARG CP=nope` and `ENV CP=...` in either order, then `COPY --from` through `$CP` |
 | mz1258 existing subdirectory keeps its mode | context dirs and stage artifacts had no subdirectory | `d0/sub` at 0751 and `/stage/sub`, copied onto an existing subdir |
 | mz876 cross-stage whiteouts (#1316) | every cross-stage diff was counted as mz876, and no path was shared across stages | the cross-stage suppression is gone, `/xs` is created and deleted in several stages |
-| #1210 warmer leaves TARGETARCH empty in FROM | no FROM used a predefined arg | `FROM <repo>/fuzz-arch-base:$TARGETARCH` |
+| #1210 warmer leaves TARGETARCH empty in FROM | no FROM used a predefined arg | `FROM <repo>/fuzz-arch-base:$TARGETARCH`. The executor resolves it empty (mz1126, counted), so the warmer is only reached once mz1126 is fixed |
 | 37003efef --image-format in the cache key | no build read a cache under another format | `FUZZ_CACHEFORMAT` |
 | #1315 tmpfs mounts, #1346 --cache-from/--cache-to, #1230 --provenance, bake | new features | tmpfs in the generator, cache modes in the cache oracle, `FUZZ_PROVENANCE`, `FUZZ_BAKE` |
 
