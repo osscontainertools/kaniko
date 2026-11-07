@@ -50,7 +50,6 @@ import (
 
 var (
 	opts         = &config.KanikoOptions{}
-	ctxSubPath   string
 	force        bool
 	logLevel     string
 	logFormat    string
@@ -237,6 +236,9 @@ func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
 	if target.Context != "" {
 		opts.SrcContext = target.Context
 		opts.Bucket = ""
+	}
+	if target.ContextSubPath != "" {
+		opts.ContextSubPath = target.ContextSubPath
 	}
 	if target.Dockerfile != "" {
 		opts.DockerfilePath = target.Dockerfile
@@ -448,7 +450,7 @@ func AddKanikoOptionsFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().StringVarP(&opts.DockerfilePath, "dockerfile", "f", "Dockerfile", "Path to the dockerfile to be built.")
 	cmd.Flags().StringVarP(&opts.SrcContext, "context", "c", "/workspace/", "Path to the dockerfile build context.")
-	cmd.Flags().StringVarP(&ctxSubPath, "context-sub-path", "", "", "Sub path within the given context.")
+	cmd.Flags().StringVarP(&opts.ContextSubPath, "context-sub-path", "", "", "Sub path within the given context.")
 	cmd.Flags().StringVarP(&opts.Bucket, "bucket", "b", "", "Name of the GCS bucket from which to access build context as tarball.")
 	cmd.Flags().StringVarP(&opts.SnapshotMode, "snapshot-mode", "", "full", "Change the file attributes inspected during snapshotting")
 	cmd.Flags().IntVar(&opts.SnapshotHashWorkers, "snapshot-hash-workers", min(runtime.GOMAXPROCS(0), 8), "Number of goroutines hashing files during a snapshot. Defaults to GOMAXPROCS, at most 8.")
@@ -746,8 +748,8 @@ func resolveSourceContext(opts *config.KanikoOptions) error {
 	if err != nil {
 		return err
 	}
-	if ctxSubPath != "" {
-		opts.SrcContext = filepath.Join(opts.SrcContext, ctxSubPath)
+	if opts.ContextSubPath != "" {
+		opts.SrcContext = filepath.Join(opts.SrcContext, opts.ContextSubPath)
 		if _, err := os.Stat(opts.SrcContext); os.IsNotExist(err) {
 			return err
 		}

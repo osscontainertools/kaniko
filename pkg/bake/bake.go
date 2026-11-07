@@ -31,12 +31,13 @@ import (
 )
 
 type Target struct {
-	Context     string   `hcl:"context"`
-	Dockerfile  string   `hcl:"dockerfile"`
-	Target      string   `hcl:"target"`
-	Destination []string `hcl:"destination"`
-	CacheFrom   []string `hcl:"cache_from"`
-	CacheTo     []string `hcl:"cache_to"`
+	Context        string   `hcl:"context"`
+	ContextSubPath string   `hcl:"context_sub_path"`
+	Dockerfile     string   `hcl:"dockerfile"`
+	Target         string   `hcl:"target"`
+	Destination    []string `hcl:"destination"`
+	CacheFrom      []string `hcl:"cache_from"`
+	CacheTo        []string `hcl:"cache_to"`
 }
 
 type Bakefile struct {
@@ -45,13 +46,14 @@ type Bakefile struct {
 }
 
 type ResolvedTarget struct {
-	ID          string
-	Context     string
-	Dockerfile  string
-	Stage       string
-	Destination []string
-	CacheFrom   []string
-	CacheTo     []string
+	ID             string
+	Context        string
+	ContextSubPath string
+	Dockerfile     string
+	Stage          string
+	Destination    []string
+	CacheFrom      []string
+	CacheTo        []string
 }
 
 func Parse(path string) (*Bakefile, error) {
@@ -91,7 +93,7 @@ func parse(data []byte) (*Bakefile, error) {
 
 var (
 	topKeys    = []string{"target"}
-	targetKeys = []string{"target", "destination", "cache_from", "cache_to", "context", "dockerfile"}
+	targetKeys = []string{"target", "destination", "cache_from", "cache_to", "context", "context_sub_path", "dockerfile"}
 )
 
 // Keys a docker-bake.hcl would use. The bakefile keeps kaniko's own vocabulary, so
@@ -229,13 +231,14 @@ func (b *Bakefile) Resolve(selected []string) ([]ResolvedTarget, error) {
 			}
 		}
 		resolved = append(resolved, ResolvedTarget{
-			ID:          id,
-			Context:     targetCtx,
-			Dockerfile:  targetDockerfile,
-			Stage:       stage,
-			Destination: t.Destination,
-			CacheFrom:   t.CacheFrom,
-			CacheTo:     t.CacheTo,
+			ID:             id,
+			Context:        targetCtx,
+			ContextSubPath: t.ContextSubPath,
+			Dockerfile:     targetDockerfile,
+			Stage:          stage,
+			Destination:    t.Destination,
+			CacheFrom:      t.CacheFrom,
+			CacheTo:        t.CacheTo,
 		})
 	}
 	return resolved, nil
@@ -272,6 +275,7 @@ func ApplyOverrides(targets []ResolvedTarget, overrides []Override) error {
 	froms := map[int][]string{}
 	tos := map[int][]string{}
 	contexts := map[int]string{}
+	contextSubPaths := map[int]string{}
 	dockerfiles := map[int]string{}
 	for _, o := range overrides {
 		i, ok := idx[o.Target]
@@ -287,6 +291,8 @@ func ApplyOverrides(targets []ResolvedTarget, overrides []Override) error {
 			tos[i] = append(tos[i], o.Value)
 		case "context":
 			contexts[i] = o.Value
+		case "context_sub_path":
+			contextSubPaths[i] = o.Value
 		case "dockerfile":
 			dockerfiles[i] = o.Value
 		default:
@@ -304,6 +310,9 @@ func ApplyOverrides(targets []ResolvedTarget, overrides []Override) error {
 	}
 	for i, c := range contexts {
 		targets[i].Context = c
+	}
+	for i, p := range contextSubPaths {
+		targets[i].ContextSubPath = p
 	}
 	for i, df := range dockerfiles {
 		targets[i].Dockerfile = df

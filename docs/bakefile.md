@@ -52,6 +52,7 @@ target "app" {
 ```
 
 - `context`: Path to the build context for this target. Relative paths are resolved relative to the bakefile.
+- `context_sub_path`: Sub path within the target's context, like [`--context-sub-path`](../README.md#flag---context-sub-path).
 - `dockerfile`: Path to the Dockerfile for this target. Relative paths are resolved relative to the target's context (or bakefile).
 
 ## Choosing Targets
@@ -79,7 +80,7 @@ executor bake /workspace/kaniko-bake.hcl \
   --context /workspace
 ```
 
-`context` and `dockerfile` can also be overridden with `--set`:
+`context`, `context_sub_path` and `dockerfile` can also be overridden with `--set`:
 
 ```shell
 executor bake /workspace/kaniko-bake.hcl \
