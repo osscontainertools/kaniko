@@ -41,6 +41,13 @@ const (
 // registry), RUN_VIA_TINI and COPY_AS_ROOT (the harness needs them for RUN/COPY) are left
 // out so the chaos build runs far enough to cover something.
 var chaosFlags = []string{
+	"FF_KANIKO_ADD_CHECKSUM", "FF_KANIKO_ADD_CHOWN_TAR",
+	"FF_KANIKO_ADD_FOLLOW_SYMLINK", "FF_KANIKO_ADD_UNPACK",
+	"FF_KANIKO_CACHE_COPY_FROM", "FF_KANIKO_COPY_KEEP_DEST_OWNER",
+	"FF_KANIKO_COPY_LINK", "FF_KANIKO_COPY_SKIP_SPECIAL_FILES",
+	"FF_KANIKO_COPY_SUBDIR_MODE", "FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR",
+	"FF_KANIKO_RUN_HEREDOC_SCRIPT", "FF_KANIKO_RUN_MOUNT_BIND_RELATIVE",
+	"FF_KANIKO_RUN_MOUNT_TMPFS",
 	"FF_KANIKO_CACHE_LOOKAHEAD",
 	"FF_KANIKO_CACHE_PROBE_AFTER_MISS", "FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS",
 	"FF_KANIKO_CONFINE_COPY_SOURCE",
@@ -925,6 +932,11 @@ func generate(s *source, bases []string) genResult {
 	if s.chance(5) {
 		flags = append(flags, "--skip-unused-stages")
 	}
+	// Only read under FF_KANIKO_PARALLEL_HASH. One worker is the serial order through the
+	// pool, three splits the work unevenly.
+	if s.chance(4) {
+		flags = append(flags, "--snapshot-hash-workers="+srcPick(s, []string{"1", "3"}))
+	}
 	// Compression is tested only around caching. On an OCI base it changes the layer
 	// media type (tar+zstd vs docker's tar+gzip), which diffoci flags as a descriptor
 	// diff, so it must not touch the docker-compared fresh build. Applied to both sides
@@ -966,18 +978,29 @@ func generate(s *source, bases []string) genResult {
 	// flag the suite pins on.
 	var envFlags []string
 	for _, ff := range []string{
-		"FF_KANIKO_CACHE_PROBE_AFTER_MISS",    // after a miss, keep probing later layers
-		"FF_KANIKO_ROLLING_CACHE_KEY",         // recursive-hash composite cache key (mz873)
-		"FF_KANIKO_SKIP_RELABEL_RECOMPRESS",   // relabel a converted layer without recompress; digest-asserted equal
-		"FF_KANIKO_DISABLE_HTTP2",             // registry transport over HTTP/1.1, image unaffected
-		"FF_KANIKO_POOL_REGISTRY_CONNECTIONS", // one connection pool per registry (mz961), transport-only
-		"FF_KANIKO_SHARED_BASE_CACHE",         // dedup base-image downloads across stages (mz936), image unaffected
-		"FF_KANIKO_SKIP_CACHED_STAGES",        // squash fully cached stages after lookahead (mz334), final image unaffected
-		"FF_KANIKO_CROSS_REPO_MOUNT",          // mount a blob the registry already holds instead of uploading it (mz989)
-		"FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH", // scope the registry token to the repository path, transport-only
-		"FF_KANIKO_DEFER_CACHE_PUSH",          // upload cache layers in the background, awaited before exit
-		"FF_KANIKO_LAYER_HINTS",               // log layer hints, image unaffected
-		"FF_KANIKO_PEEK_ARCHIVE_HEADER",       // detect ADD archive compression from the header only
+		"FF_KANIKO_CACHE_PROBE_AFTER_MISS",            // after a miss, keep probing later layers
+		"FF_KANIKO_ROLLING_CACHE_KEY",                 // recursive-hash composite cache key (mz873)
+		"FF_KANIKO_SKIP_RELABEL_RECOMPRESS",           // relabel a converted layer without recompress; digest-asserted equal
+		"FF_KANIKO_DISABLE_HTTP2",                     // registry transport over HTTP/1.1, image unaffected
+		"FF_KANIKO_POOL_REGISTRY_CONNECTIONS",         // one connection pool per registry (mz961), transport-only
+		"FF_KANIKO_SHARED_BASE_CACHE",                 // dedup base-image downloads across stages (mz936), image unaffected
+		"FF_KANIKO_SKIP_CACHED_STAGES",                // squash fully cached stages after lookahead (mz334), final image unaffected
+		"FF_KANIKO_CROSS_REPO_MOUNT",                  // mount a blob the registry already holds instead of uploading it (mz989)
+		"FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH",         // scope the registry token to the repository path, transport-only
+		"FF_KANIKO_DEFER_CACHE_PUSH",                  // upload cache layers in the background, awaited before exit
+		"FF_KANIKO_LAYER_HINTS",                       // log layer hints, image unaffected
+		"FF_KANIKO_PEEK_ARCHIVE_HEADER",               // detect ADD archive compression from the header only
+		"FF_KANIKO_PARALLEL_HASH",                     // hash snapshot files on a worker pool
+		"FF_KANIKO_CACHE_HASH_BLAKE3",                 // fold COPY/ADD inputs into the cache key with blake3
+		"FF_KANIKO_PLATFORM_CACHE_KEY",                // target platform in the cache key
+		"FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY",      // cache key ignores the manifest format
+		"FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES", // reject cache entries without a layer, none are written
+		"FF_KANIKO_ISOLATE_CACHE_PUSH",                // digest files for the final image only
+		"FF_KANIKO_CACHE_IMAGE_INDEX",                 // warmer and executor cache the base's index too
+		"FF_KANIKO_IMAGE_STAGES",                      // a fully cached stage is used as an image, not unpacked
+		"FF_KANIKO_NATIVE_COPY",                       // kaniko's own copy for stage files and bind mounts
+		"FF_KANIKO_NATIVE_INIT",                       // kaniko reaps and forwards signals itself
+		"FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT",      // --reproducible keeps the format, both sides draw it alike
 	} {
 		switch s.intn(4) {
 		case 0:
