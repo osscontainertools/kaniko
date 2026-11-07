@@ -295,8 +295,6 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 	return extractedFiles, nil
 }
 
-// gunzipLayer decompresses the stored blob of l with pgzip, which inflates
-// ahead on its own goroutine.
 func gunzipLayer(l v1.Layer) (io.ReadCloser, error) {
 	rc, err := l.Compressed()
 	if err != nil {
