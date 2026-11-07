@@ -18,6 +18,8 @@ package cmd
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/config"
@@ -62,7 +64,19 @@ func ConfigureFromBakefile(opts *config.KanikoOptions, path string, selection, s
 		return nil, err
 	}
 	for i := range targets {
-		targets[i].Context, targets[i].Dockerfile = bake.ResolvePaths(bakefile.Dir, targets[i].Context, targets[i].Dockerfile)
+		t := &targets[i]
+		remote := strings.Contains(t.Context, "://")
+		if t.Context != "" && !filepath.IsAbs(t.Context) && !remote {
+			t.Context = filepath.Join(bakefile.Dir, t.Context)
+		}
+		// A relative dockerfile in a remote context is joined once the context is unpacked.
+		if t.Dockerfile != "" && !filepath.IsAbs(t.Dockerfile) && !strings.Contains(t.Dockerfile, "://") && !remote {
+			if t.Context != "" {
+				t.Dockerfile = filepath.Join(t.Context, t.Dockerfile)
+			} else {
+				t.Dockerfile = filepath.Join(bakefile.Dir, t.Dockerfile)
+			}
+		}
 	}
 	for _, t := range targets {
 		if !opts.NoPush && len(t.Destination) == 0 {

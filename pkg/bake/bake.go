@@ -231,25 +231,6 @@ func (b *Bakefile) Resolve(selected []string) ([]ResolvedTarget, error) {
 	return resolved, nil
 }
 
-func ResolvePaths(dir, context, dockerfile string) (string, string) {
-	if context != "" && !filepath.IsAbs(context) && dir != "" && !isURL(context) {
-		context = filepath.Join(dir, context)
-	}
-	// A relative dockerfile in a remote context is joined once the context is unpacked.
-	if dockerfile != "" && !filepath.IsAbs(dockerfile) && !isURL(dockerfile) && !isURL(context) {
-		if context != "" {
-			dockerfile = filepath.Join(context, dockerfile)
-		} else if dir != "" {
-			dockerfile = filepath.Join(dir, dockerfile)
-		}
-	}
-	return context, dockerfile
-}
-
-func isURL(path string) bool {
-	return strings.Contains(path, "://")
-}
-
 type Override struct {
 	Target string
 	Field  string
