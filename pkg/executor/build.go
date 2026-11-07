@@ -1278,6 +1278,7 @@ func saveLayerToImage(image v1.Image, layer v1.Layer, createdBy string, opts *co
 
 func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptions) (map[int][]string, map[*instructions.CopyCommand][]string, error) {
 	images := make(map[int]v1.Image)
+	stageArgs := make(map[int]*dockerfile.BuildArgs)
 	depGraph := map[int][]string{}
 	copySources := map[*instructions.CopyCommand][]string{}
 	baseArgs := dockerfile.NewBuildArgs(opts.BuildArgs)
@@ -1286,7 +1287,11 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 		return nil, nil, err
 	}
 	for _, s := range stages {
+		// Match DoBuild: a stage built on an earlier stage starts from its args.
 		ba := baseArgs.Clone()
+		if s.BaseImageStoredLocally {
+			ba = stageArgs[s.BaseImageIndex].Clone()
+		}
 		ba.AddMetaArgs(s.MetaArgs)
 		var image v1.Image
 		var err error
@@ -1362,6 +1367,7 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 			}
 		}
 		images[s.Index] = image
+		stageArgs[s.Index] = ba
 	}
 	for i := range depGraph {
 		slices.Sort(depGraph[i])
