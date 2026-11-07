@@ -403,6 +403,9 @@ var expectErr = map[string]int{
 	"Dockerfile_test_require_digest_fail":       1,
 }
 
+// Expected output substrings for failing dockerfiles, checked in TestExpectError.
+var expectErrOutput = map[string]string{}
+
 var crossCompileArch = func() string {
 	if runtime.GOARCH == "amd64" {
 		return "arm64"
@@ -946,7 +949,7 @@ func (d *DockerFileBuilder) BuildImage(t *testing.T, config *integrationTestConf
 }
 
 // BuildKanikoImage builds dockerfile using only kaniko (no docker build).
-func (d *DockerFileBuilder) BuildKanikoImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile string) error {
+func (d *DockerFileBuilder) BuildKanikoImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile string) ([]byte, error) {
 	cwd := config.dir
 
 	var buildArgs []string
@@ -991,7 +994,7 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 	}
 
 	kanikoImage := GetKanikoImage(imageRepo, dockerfile)
-	if err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
+	if _, err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
 		contextDir, "", ""); err != nil {
 		return err
 	}
@@ -1372,7 +1375,7 @@ func buildKanikoImage(
 	contextDir string,
 	tlsCACert string,
 	dockerConfig string,
-) error {
+) ([]byte, error) {
 	// build kaniko image
 	additionalFlags := append(buildArgs, kanikoArgs...)
 	additionalFlags = append(additionalFlags,
@@ -1432,15 +1435,15 @@ func buildKanikoImage(
 	t.Logf("%s", out)
 
 	if err != nil {
-		return fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
+		return out, fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
 	}
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
 		if err := outputCheck(dockerfile, out); err != nil {
-			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
+			return out, fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
 	if err := checkNoWarnings(dockerfile, out); err != nil {
-		return err
+		return out, err
 	}
-	return nil
+	return nil, nil
 }

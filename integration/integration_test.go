@@ -534,7 +534,7 @@ func TestKanikoOnly(t *testing.T) {
 			dockerfile := dockerfile
 			t.Parallel()
 
-			err := imageBuilder.BuildKanikoImage(t, config, dockerfilesPath, dockerfile)
+			_, err := imageBuilder.BuildKanikoImage(t, config, dockerfilesPath, dockerfile)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -558,10 +558,15 @@ func TestExpectError(t *testing.T) {
 			expectedExitCode := expectedExitCode
 			t.Parallel()
 
-			err := imageBuilder.BuildKanikoImage(t, config, dockerfilesPath, dockerfile)
+			out, err := imageBuilder.BuildKanikoImage(t, config, dockerfilesPath, dockerfile)
 
 			var exitErr *exec.ExitError
 			if errors.As(err, &exitErr) && exitErr.ExitCode() == expectedExitCode {
+				if expectedOutput, ok := expectErrOutput[dockerfile]; ok {
+					if !strings.Contains(string(out), expectedOutput) {
+						t.Errorf("expected output %q not found in failing build output:\n%s", expectedOutput, string(out))
+					}
+				}
 				return
 			}
 			if err == nil {
@@ -1286,7 +1291,7 @@ func TestSnapshotModes(t *testing.T) {
 		t.Helper()
 		tag := GetKanikoImage(config.imageRepo, dockerfile+"-snapshot-"+mode)
 		kanikoArgs := []string{"-c", buildContextPath, "--snapshot-mode=" + mode}
-		if err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, kanikoArgs, tag, cwd, "", ""); err != nil {
+		if _, err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, kanikoArgs, tag, cwd, "", ""); err != nil {
 			t.Fatalf("kaniko build with --snapshot-mode=%s: %v", mode, err)
 		}
 		return tag
@@ -1326,7 +1331,7 @@ func TestReproducible(t *testing.T) {
 		buildArgs = append(buildArgs, "--build-arg", "IMAGE_REPO="+config.imageRepo)
 		flags := []string{"-c", buildContextPath, "--reproducible"}
 		flags = append(flags, additionalKanikoFlagsMap[dockerfile]...)
-		err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, flags, ref,
+		_, err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, flags, ref,
 			cwd, "", "")
 		if err != nil {
 			t.Fatalf("build %s -> %s: %v", dockerfile, ref, err)
@@ -1779,7 +1784,7 @@ func TestCompressionLevel(t *testing.T) {
 	sizes := map[string]int64{}
 	for _, level := range []string{"-1", "0", "1"} {
 		image := GetKanikoImage(config.imageRepo, "compression-gzip"+level)
-		err := buildKanikoImage(t, "testdata", "Dockerfile_test_issue_mz1061", nil,
+		_, err := buildKanikoImage(t, "testdata", "Dockerfile_test_issue_mz1061", nil,
 			[]string{"--compression=gzip", "--compression-level=" + level}, image, cwd, "", "")
 		if err != nil {
 			t.Fatalf("building at --compression-level=%s: %v", level, err)
@@ -2420,7 +2425,7 @@ func TestAlpineTLS(t *testing.T) {
 
 	cwd := config.dir
 	dest := "127.0.0.2:5001/kaniko/mz595-tls:latest"
-	err = buildKanikoImage(
+	_, err = buildKanikoImage(
 		t,
 		dockerfilesPath,
 		"Dockerfile_test_issue_mz595",
@@ -2479,7 +2484,7 @@ func TestPushRepositoryScopedAuth(t *testing.T) {
 	cwd := config.dir
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := buildKanikoImage(
+			_, err := buildKanikoImage(
 				t,
 				dockerfilesPath,
 				"Dockerfile_test_label",
@@ -2524,7 +2529,7 @@ func TestCrossRepoMountFallback(t *testing.T) {
 	seed := writeDockerConfig(t, map[string]types.AuthConfig{
 		"127.0.0.2:5001/userb/test_issue_mz1007": {Username: "userb", Password: "userb"},
 	})
-	err := buildKanikoImage(
+	_, err := buildKanikoImage(
 		t,
 		dockerfilesPath,
 		"Dockerfile_test_label",
@@ -2563,7 +2568,7 @@ func TestCrossRepoMountFallback(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			destination := fmt.Sprintf("127.0.0.2:5001/usera/test_issue_mz1007-%s-%d", tc.repo, time.Now().UnixNano())
-			err = buildKanikoImage(
+			_, err = buildKanikoImage(
 				t,
 				dockerfilesPath,
 				"Dockerfile_test_issue_mz1007",
@@ -2735,7 +2740,7 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 func TestCustomPlatformVariant(t *testing.T) {
 	cwd := config.dir
 	kanikoImage := GetKanikoImage(config.imageRepo, "issue_mz745")
-	err := buildKanikoImage(
+	_, err := buildKanikoImage(
 		t,
 		dockerfilesPath,
 		"Dockerfile_test_cross_compile",
