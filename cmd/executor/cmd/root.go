@@ -350,8 +350,10 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 		if i > 0 {
 			// Saved stages are keyed by stage index, so without this the next target
 			// can read the previous target's stage instead of building its own.
-			if err := util.DeleteFilesystem(); err != nil {
-				return fmt.Errorf("deleting filesystem before target %q: %w", target.ID, err)
+			if !opts.Dryrun {
+				if err := util.DeleteFilesystem(); err != nil {
+					return fmt.Errorf("deleting filesystem before target %q: %w", target.ID, err)
+				}
 			}
 			if err := config.CleanupBuild(); err != nil {
 				return fmt.Errorf("cleaning kaniko dir before target %q: %w", target.ID, err)
