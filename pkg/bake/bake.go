@@ -220,6 +220,9 @@ func (b *Bakefile) Resolve(selected []string) ([]ResolvedTarget, error) {
 			return nil, fmt.Errorf("unknown target %q", id)
 		}
 		stage := t.Target
+		if stage == "" {
+			stage = id
+		}
 		targetCtx := t.Context
 		targetDockerfile := t.Dockerfile
 		if config.FF.BakeContextDockerfile {
