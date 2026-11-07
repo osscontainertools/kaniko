@@ -27,5 +27,11 @@ var Tests = types.GoldenTests{
 			},
 			Plan: "eliminated",
 		},
+		{
+			Args:       []string{"--no-push", "--cache", "--cache-copy-layers"},
+			Env:        map[string]string{"FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT": "0"},
+			CachedKeys: []string{},
+			Plan:       "disabled",
+		},
 	},
 }
