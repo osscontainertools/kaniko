@@ -432,27 +432,19 @@ func resolveInputs(opts *config.KanikoOptions, targets []bake.ResolvedTarget) ([
 		key := strings.Join([]string{srcContext, topts.Bucket, topts.ContextSubPath}, "\x00")
 		c, seen := contexts[key]
 		if !seen {
-			if err := resolveSourceContext(&topts); err != nil {
-				return nil, fmt.Errorf("error resolving source context: %w", err)
-			}
 			local := srcContext != "" && !strings.Contains(srcContext, "://")
 			if local {
-				abs, err := filepath.Abs(topts.SrcContext)
+				abs, err := filepath.Abs(srcContext)
 				if err != nil {
 					return nil, fmt.Errorf("getting absolute path for context: %w", err)
 				}
 				topts.SrcContext = abs
 			}
-			c = resolvedContext{inputs: targetInputs{srcContext: topts.SrcContext}, dockerfileBase: topts.SrcContext}
-			if topts.PredefinedAnnotations || topts.Provenance {
-				dir, cloneURL := topts.SrcContext, ""
-				gitContext, isGit := strings.CutPrefix(srcContext, constants.GitBuildContextPrefix)
-				if isGit {
-					dir, cloneURL = config.BuildContextDir, buildcontext.GitURL(gitContext)
-				}
-				c.inputs.ci = buildenv.DetectCI()
-				c.inputs.source = buildenv.ResolveSource(c.inputs.ci, buildenv.GitSource(dir, cloneURL))
+			in, err := resolveContext(&topts)
+			if err != nil {
+				return nil, err
 			}
+			c = resolvedContext{inputs: in, dockerfileBase: in.srcContext}
 			if store {
 				stored := filepath.Join(config.KanikoBuildContextsDir, fmt.Sprintf("context-%d", len(contexts)))
 				if local {
@@ -496,6 +488,24 @@ func resolveInputs(opts *config.KanikoOptions, targets []bake.ResolvedTarget) ([
 		inputs[i] = in
 	}
 	return inputs, nil
+}
+
+func resolveContext(opts *config.KanikoOptions) (targetInputs, error) {
+	srcContext := opts.SrcContext
+	if err := resolveSourceContext(opts); err != nil {
+		return targetInputs{}, fmt.Errorf("error resolving source context: %w", err)
+	}
+	in := targetInputs{srcContext: opts.SrcContext}
+	if opts.PredefinedAnnotations || opts.Provenance {
+		dir, cloneURL := opts.SrcContext, ""
+		gitContext, isGit := strings.CutPrefix(srcContext, constants.GitBuildContextPrefix)
+		if isGit {
+			dir, cloneURL = config.BuildContextDir, buildcontext.GitURL(gitContext)
+		}
+		in.ci = buildenv.DetectCI()
+		in.source = buildenv.ResolveSource(in.ci, buildenv.GitSource(dir, cloneURL))
+	}
+	return in, nil
 }
 
 // addKanikoOptionsFlags configures opts
