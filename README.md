@@ -1490,7 +1490,16 @@ Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT`
 
-Enables `RUN --mount=type=bind,from=<stage>,source=<path>,target=<path>` to bind files from a previous Dockerfile stage. Mounts are read-only by default, matching BuildKit; writes through `rw`/`readwrite` are discarded after `RUN`. Kaniko removes write permissions from read-only mounts and checks for changes after the command; if mounted contents change, the `RUN` fails. Root may perform a write before the change is detected. The mounted target is restored or removed after `RUN`, so mounted files are not included in the resulting image layer. Cross-stage `RUN` mounts use the source stage's cache key when caching is enabled.
+```dockerfile
+FROM busybox AS build
+RUN echo hello > /value
+
+FROM busybox
+RUN --mount=type=bind,from=build,source=/value,target=/mnt/value cat /mnt/value
+```
+
+Kaniko skips bind mounts with `from=<stage>` or `from=<image>`.
+Set this flag to `true` to mount them. Writes to the mount are discarded, also without `rw`.
 Defaults to `false`.
 
 #### Flag `FF_KANIKO_RUN_HEREDOC_SCRIPT`
