@@ -386,6 +386,9 @@ outer:
 				continue outer
 			}
 		}
+		if opts.RequireDigest && !dockerfile.HasDigestReference(resolvedBaseName) {
+			return nil, fmt.Errorf("FROM %s is not pinned by digest; --require-digest requires all FROM instructions to use a digest reference", resolvedBaseName)
+		}
 		// deduplicate
 		for _, x := range baseNames {
 			if x == resolvedBaseName {

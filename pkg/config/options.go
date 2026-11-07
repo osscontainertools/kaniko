@@ -111,6 +111,7 @@ type KanikoOptions struct {
 	Materialize                  bool
 	Secrets                      SecretOptions
 	Dryrun                       bool
+	RequireDigest                bool
 }
 
 type KanikoGitOptions struct {
@@ -232,6 +233,7 @@ type WarmerOptions struct {
 	DockerfilePath string
 	BuildArgs      multiArg
 	Dryrun         bool
+	RequireDigest  bool
 }
 
 func EnvBool(key string) bool {

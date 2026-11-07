@@ -376,6 +376,8 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1230_tar":           {"--provenance", "--tar-path=/index/image.tar", "--index-file=/index/index.json"},
 	"Dockerfile_test_issue_mz1230_reproducible":  {"--provenance", "--predefined-annotations", "--reproducible"},
 	"Dockerfile_test_issue_mz1230_oci":           {"--provenance", "--image-format=oci", "--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
+	"Dockerfile_test_require_digest":             {"--require-digest"},
+	"Dockerfile_test_require_digest_fail":        {"--require-digest"},
 }
 
 var expectErr = map[string]int{
@@ -396,6 +398,7 @@ var expectErr = map[string]int{
 	"Dockerfile_test_issue_mz1230_no_index":     1,
 	"Dockerfile_test_issue_mz1230_no_push_tar":  1,
 	"Dockerfile_test_issue_mz1230_tar_no_index": 1,
+	"Dockerfile_test_require_digest_fail":       1,
 }
 
 var crossCompileArch = func() string {
