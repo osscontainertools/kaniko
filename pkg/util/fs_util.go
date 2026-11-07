@@ -502,13 +502,36 @@ func ExtractFileWithChown(dest string, hdr *tar.Header, cleanedName string, tr i
 
 	case tar.TypeLink:
 		logrus.Tracef("Link from %s to %s", hdr.Linkname, path)
-		abs, err := filepath.Abs(hdr.Linkname)
-		if err != nil {
-			return err
+		if !config.FF.ConfineHardlinkTarget {
+			abs, err := filepath.Abs(hdr.Linkname)
+			if err != nil {
+				return err
+			}
+			if CheckCleanedPathAgainstIgnoreList(abs) {
+				logrus.Tracef("Skipping link from %s to %s because %s is ignored", hdr.Linkname, path, hdr.Linkname)
+				return nil
+			}
 		}
-		if CheckCleanedPathAgainstIgnoreList(abs) {
-			logrus.Tracef("Skipping link from %s to %s because %s is ignored", hdr.Linkname, path, hdr.Linkname)
-			return nil
+		var link string
+		if config.FF.ConfineHardlinkTarget {
+			cleanedLink := filepath.Clean(hdr.Linkname)
+			if cleanedLink == ".." || strings.HasPrefix(cleanedLink, "../") {
+				return fmt.Errorf("hardlink target %q is not allowed: references parent directory", hdr.Linkname)
+			}
+			resolved, err := securejoin.SecureJoin(dest, hdr.Linkname)
+			if err != nil {
+				return fmt.Errorf("invalid hardlink target %q: %w", hdr.Linkname, err)
+			}
+			absLink, err := filepath.Abs(resolved)
+			if err != nil {
+				return err
+			}
+			// SecureJoin follows symlinks, so an earlier entry can route Linkname into an ignored path.
+			if CheckCleanedPathAgainstIgnoreList(absLink) && !checkIgnoreListRoot(dest) {
+				logrus.Warnf("Skipping hardlink %s: its target %s resolves to ignored path %s", hdr.Name, hdr.Linkname, absLink)
+				return nil
+			}
+			link = resolved
 		}
 		// The base directory for a link may not exist before it is created.
 		if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -525,16 +548,17 @@ func ExtractFileWithChown(dest string, hdr *tar.Header, cleanedName string, tr i
 				return nil
 			}
 		}
-		cleanedLink := filepath.Clean(hdr.Linkname)
-		if cleanedLink == ".." || strings.HasPrefix(cleanedLink, "../") {
-			return fmt.Errorf("hardlink target %q is not allowed: references parent directory", hdr.Linkname)
+		if !config.FF.ConfineHardlinkTarget {
+			cleanedLink := filepath.Clean(hdr.Linkname)
+			if cleanedLink == ".." || strings.HasPrefix(cleanedLink, "../") {
+				return fmt.Errorf("hardlink target %q is not allowed: references parent directory", hdr.Linkname)
+			}
+			resolved, err := securejoin.SecureJoin(dest, hdr.Linkname)
+			if err != nil {
+				return fmt.Errorf("invalid hardlink target %q: %w", hdr.Linkname, err)
+			}
+			link = resolved
 		}
-		var link string
-		resolved, err := securejoin.SecureJoin(dest, hdr.Linkname)
-		if err != nil {
-			return fmt.Errorf("invalid hardlink target %q: %w", hdr.Linkname, err)
-		}
-		link = resolved
 		if err := os.Link(link, path); err != nil {
 			return err
 		}

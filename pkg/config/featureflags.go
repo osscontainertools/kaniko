@@ -38,6 +38,7 @@ type FeatureFlags struct {
 	CacheProbeAfterMiss            bool
 	ChownOnImplicitDirs            bool
 	ConfineCopySource              bool
+	ConfineHardlinkTarget          bool
 	CopyAsRoot                     bool
 	CopyChmodOnImplicitDirs        bool
 	CopyKeepDestOwner              bool
@@ -132,6 +133,7 @@ func InitFeatureFlags() {
 		CacheProbeAfterMiss:            featureFlag("FF_KANIKO_CACHE_PROBE_AFTER_MISS", false),
 		ChownOnImplicitDirs:            featureFlag("FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS", false),
 		ConfineCopySource:              featureFlag("FF_KANIKO_CONFINE_COPY_SOURCE", true),
+		ConfineHardlinkTarget:          featureFlag("FF_KANIKO_CONFINE_HARDLINK_TARGET", true),
 		CopyAsRoot:                     featureFlag("FF_KANIKO_COPY_AS_ROOT", false),
 		CopyChmodOnImplicitDirs:        featureFlag("FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS", false),
 		CopyKeepDestOwner:              featureFlag("FF_KANIKO_COPY_KEEP_DEST_OWNER", false),
