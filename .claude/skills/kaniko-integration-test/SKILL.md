@@ -12,8 +12,9 @@ Integration tests build a Dockerfile with real kaniko (inside `docker run`) and 
 The test framework globs `integration/dockerfiles/Dockerfile_test_*` into `allDockerfiles`. Which suite runs a given file is decided in `integration/images.go`:
 
 - **TestRun** (default): builds with both docker and kaniko, then diffs the two images with `diffoci` (not container-diff, which the fork no longer uses). Every discovered `Dockerfile_test_*` lands here unless excluded. Use it for build correctness (the kaniko output must match docker). diffoci runs with `--extra-ignore-file-content`, so it compares file sizes, not contents. To assert a runtime effect like uid/gid, use a `RUN` that fails the build on a wrong value, for example `RUN test "$(id -g)" = 1000`.
-- **TestCache**: builds the same Dockerfile twice against one cache repo, then asserts the two kaniko images are identical (`verifyBuildWith`). Register the file in `d.TestCacheDockerfiles` (this also excludes it from TestRun). Use it for anything cache related: cache hits, layer reuse, cache key correctness, and the `FF_KANIKO_CACHE_LOOKAHEAD` precompute assertions. Two cache misses also produce identical images, so a test about cache hits adds a `cacheHitOutputChecks` entry that asserts the hit in the second build's log.
-- **TestLayers / TestWarmer / TestReproducible**: niche suites, register in the matching map only when you specifically target layer counts, the warmer, or reproducibility. TestReproducible also needs `baseRefs` and `layerMediaTypes` entries for the file in `TestReproducible`.
+- **TestCache**: builds the same Dockerfile twice against one cache repo, then asserts the two kaniko images are identical (`verifyBuildWith`). Register the file in `d.TestCacheDockerfiles` (this also excludes it from TestRun). Use it for anything cache related: cache hits, layer reuse, and the `FF_KANIKO_CACHE_LOOKAHEAD` precompute assertions. Two cache misses also produce identical images, so a test about cache hits adds a `cacheHitOutputChecks` entry that asserts the hit in the second build's log. A key that fails to invalidate needs a changed input between the builds, so write a dedicated test like `TestCacheInvalidatesOnAllowlistedFileChange`.
+- **TestLayers**: runs every discovered Dockerfile, no registration. Select it with `-run` when you target layer counts.
+- **TestWarmer / TestReproducible**: niche suites, register in the matching map only when you specifically target the warmer or reproducibility. TestReproducible also needs `baseRefs` and `layerMediaTypes` entries for the file in `TestReproducible`.
 
 Prefer wiring the test into one of these suites over writing a new `Test` function. Most setups fit through the per-file maps in `integration/images.go` (step 3). Write a dedicated test only when the scenario cannot be expressed in an existing suite.
 
@@ -50,14 +51,15 @@ After editing, confirm it compiles: `go build ./integration/...`.
 
 Never run `out/executor` on the host. Kaniko mutates the filesystem, so it only runs inside `docker run`, which the harness does for you.
 
-Run the one test against a local registry:
+Run the one test against a local registry, with `mz123` replaced by the issue:
 
 ```bash
-LOCAL=1 DOCKERFILE_PATTERN=Dockerfile_test_issue_mz<num> ./scripts/integration-test.sh -run '^TestRun$'
-LOCAL=1 DOCKERFILE_PATTERN=Dockerfile_test_issue_mz<num> ./scripts/integration-test.sh -run '^TestCache$'
+LOCAL=1 DOCKERFILE_PATTERN=Dockerfile_test_issue_mz123 ./scripts/integration-test.sh -run '^TestRun$'
+LOCAL=1 DOCKERFILE_PATTERN=Dockerfile_test_issue_mz123 ./scripts/integration-test.sh -run '^TestCache$'
+LOCAL=1 ./scripts/integration-test.sh -run '^TestWarmer$/^test_warmer_Dockerfile_test_issue_mz123$'
 ```
 
 - The harness builds `executor-image` from the working tree on every run, so it always tests your current code.
 - `LOCAL=1` starts a `localhost:5000` registry and a TLS registry, and points the repo at them.
-- `DOCKERFILE_PATTERN` narrows the glob to your file. `-run` selects the suite that owns the file. Anchor the pattern, `TestCache` alone also matches `TestCacheFromTo` and others. A suite that does not own the file passes without running it, so confirm the named subtest appears in the output.
+- `DOCKERFILE_PATTERN` narrows the glob to your file. `-run` selects the suite that owns the file. Anchor the pattern, `TestCache` alone also matches `TestCacheFromTo` and others. A suite that does not own the file passes without running it, so confirm the named subtest appears in the output. TestWarmer ignores `DOCKERFILE_PATTERN`, so narrow it by subtest name.
 - To prove the test reproduces the bug, run it on main with only the test commit cherry-picked and confirm it fails, then run it on the fix branch and confirm it passes.

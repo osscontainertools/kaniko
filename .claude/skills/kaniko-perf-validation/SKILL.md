@@ -23,14 +23,14 @@ Usage: `/kaniko-perf-validation <pr-number>`
 - Peak RSS (`VmHWM` polled from `/proc/<pid>/status` of the executor process) varies between runs. Report it like wall time, median and mean ± sd, not as a count.
 - Use a local `registry:2` on `localhost:5000` as cache repo and push target unless the mechanism needs distance (bandwidth, round trips). Then say so and use the remote setup.
 - Use a fresh cache repo and a fresh push target repo per run when the scenario measures cold behaviour. The registry skips blobs it already has, so a reused push target hides uploads.
-- A build that exits non-zero aborts the benchmark. Never record its timing.
+- A build that exits non-zero or logs `Error uploading layer to cache` aborts the benchmark. Never record its timing.
 
 ## Steps
 
 1. Read the PR diff and name the mechanism and the flag. Pick the count that exposes it.
-2. Build one executor image per binary from `deploy/Dockerfile --target kaniko-executor`: `kaniko-perf:branch` from the PR head, plus `kaniko-perf:main` from the merge base when the configs include `main`. Use a separate worktree for main.
+2. Build one executor image per binary from `deploy/Dockerfile --target kaniko-executor`: `kaniko-perf:branch` from the PR head, plus `kaniko-perf:main` from the merge base when the configs include `main` or `main-ff`. Use a separate worktree for main.
 3. Write the two scenario Dockerfiles and any context into the scratchpad.
-4. Write a runner script that loops rounds, shuffles configs, runs each build with `/usr/bin/time` or `date +%s.%N`, scrapes the count, and appends `scenario,round,position,config,seconds,count` to a CSV.
+4. Write a runner script that loops rounds, shuffles configs, runs each build with `/usr/bin/time` or `date +%s.%N`, scrapes the count, and appends `scenario,round,position,config,seconds,count,rss` to a CSV. Leave `rss` empty when the scenario does not measure it.
 5. Run it. Check that every count is identical across rounds of the same config. If not, find out why before reporting.
 6. Compute median and mean ± sd per scenario and config from the CSV with `awk` or `jq`.
 7. Show the comment to the user. Post it with `gh pr comment <pr-number> --body-file <file>` only after they approve.
