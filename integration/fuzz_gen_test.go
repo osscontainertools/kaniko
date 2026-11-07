@@ -119,6 +119,7 @@ const (
 	kindTarBz2
 	kindTarLzma
 	kindGzipPlain
+	kindDir
 )
 
 // fileSpec is one context entry the harness writes before building.
@@ -256,7 +257,11 @@ func generate(s *source, bases []string) genResult {
 		dirName = "d0"
 		ctx = append(ctx,
 			fileSpec{name: "d0/f0", content: "d0-f0\n", mode: 0o644},
-			fileSpec{name: "d0/f1", content: "d0-f1\n", mode: 0o600})
+			fileSpec{name: "d0/f1", content: "d0-f1\n", mode: 0o600},
+			fileSpec{name: "d0/sub/f2", content: "d0-sub-f2\n", mode: 0o644},
+			// a mode no destination draws, so the one a COPY applies to an existing
+			// subdirectory is visible
+			fileSpec{name: "d0/sub", kind: kindDir, mode: 0o751})
 	}
 	// A source with a space in its name, to exercise odd-path handling.
 	oddName := ""
@@ -391,7 +396,7 @@ func generate(s *source, bases []string) genResult {
 			// has a real built file to COPY --from, exercising cross-stage ownership
 			// and timestamp handling rather than just copying a base-image file.
 			fmt.Fprintf(&b, "FROM %s AS stage%d\n", base, stage)
-			fmt.Fprintf(&b, "RUN mkdir -p /stage && echo stage%d > /stage/artifact\n", stage)
+			fmt.Fprintf(&b, "RUN mkdir -p /stage/sub && chmod 0751 /stage/sub && echo stage%d > /stage/artifact\n", stage)
 			// Register an ONBUILD trigger that fires when a later stage does FROM this one
 			// (pkg/commands/onbuild.go). Cover exec triggers (RUN/COPY) and metadata
 			// triggers (LABEL/ENV), which take different handling paths.
@@ -433,11 +438,11 @@ func generate(s *source, bases []string) genResult {
 
 		ninstr := 2 + s.intn(6)
 		for i := 0; i < ninstr; i++ {
-			c := s.intn(39)
+			c := s.intn(47)
 			// An empty base has no shell, so RUN-based instructions cannot execute at build
 			// time; remap them to a context COPY, which scratch supports. Metadata and other
 			// file instructions are already scratch-safe (ADD url downloads into the empty fs).
-			if scratch && (c == 10 || c == 11 || c == 12 || c == 20 || c == 28 || c == 29 || c == 30 || c == 32 || c == 33 || c == 34) {
+			if scratch && (c == 10 || c == 11 || c == 12 || c == 20 || c == 28 || c == 29 || c == 30 || c == 32 || c == 33 || c == 34 || (c >= 40 && c != 44)) {
 				c = 0
 			}
 			switch c {
@@ -869,6 +874,118 @@ func generate(s *source, bases []string) genResult {
 					fmt.Fprintf(&b, "COPY%s --from=stage%d /stage /ex%d/\n", opt, namedStages[s.intn(from)], i)
 				default:
 					fmt.Fprintf(&b, "COPY%s %s /ex%d/\n", opt, srcPick(s, regulars), i)
+				}
+			case 39:
+				// A relative destination resolves against WORKDIR, or the root without one, on
+				// every source ADD and COPY take (mz1339).
+				switch s.intn(4) {
+				case 0:
+					src := srcPick(s, regulars)
+					if tarName != "" && s.chance(2) {
+						src = tarName
+					}
+					fmt.Fprintf(&b, "ADD %s rel%d/\n", src, i)
+				case 1:
+					fmt.Fprintf(&b, "ADD %s relurl%d.txt\n", addURL, i)
+				case 2:
+					fmt.Fprintf(&b, "ADD --unpack=true %s relarc%d/\n", addArcURL, i)
+				case 3:
+					f := srcPick(s, regulars)
+					fmt.Fprintf(&b, "COPY %s relc%d/%s\n", f, i, f)
+				}
+			case 40:
+				// A destination whose parent is a symlink to a directory is written through it,
+				// whichever source the instruction fetches (mz1152).
+				fmt.Fprintf(&b, "RUN mkdir -p /real%d && ln -s /real%d /ln%d\n", i, i, i)
+				switch s.intn(4) {
+				case 0:
+					fmt.Fprintf(&b, "ADD %s /ln%d/\n", addURL, i)
+				case 1:
+					fmt.Fprintf(&b, "ADD %s ln%d/rel%d\n", addURL, i, i)
+				case 2:
+					fmt.Fprintf(&b, "ADD --unpack=true %s /ln%d/\n", addArcURL, i)
+				case 3:
+					fmt.Fprintf(&b, "COPY %s /ln%d/\n", srcPick(s, regulars), i)
+				}
+			case 41:
+				// A relative bind target resolves against WORKDIR (mz1213).
+				if s.chance(2) {
+					fmt.Fprintf(&b, "WORKDIR /bw%d\n", i)
+				}
+				f := srcPick(s, regulars)
+				fmt.Fprintf(&b, "RUN --mount=type=bind,source=%s,target=mnt%d/%s cat mnt%d/%s > /bwout%d\n", f, i, f, i, f, i)
+			case 42:
+				// A mount target whose parents do not exist yet. The RUN creates them, and they
+				// stay in the layer only where the command wrote into them (mz1336).
+				var mnt string
+				switch s.intn(4) {
+				case 0:
+					mnt = fmt.Sprintf("type=cache,target=/mp%d/sub/c", i)
+				case 1:
+					usesSecret = true
+					mnt = fmt.Sprintf("type=secret,id=%s,target=/mp%d/sub/s", secretID, i)
+				case 2:
+					mnt = fmt.Sprintf("type=bind,source=%s,target=/mp%d/sub/b", srcPick(s, regulars), i)
+				case 3:
+					mnt = fmt.Sprintf("type=tmpfs,target=/mp%d/sub/t", i)
+				}
+				if s.chance(2) {
+					fmt.Fprintf(&b, "RUN --mount=%s echo kept > /mp%d/out\n", mnt, i)
+				} else {
+					fmt.Fprintf(&b, "RUN --mount=%s true\n", mnt)
+				}
+			case 43:
+				// tmpfs: an empty directory for the command whose content is discarded, over a
+				// fresh path or one an earlier layer filled.
+				opt := srcPick(s, []string{"", ",size=1m"})
+				if s.chance(2) {
+					fmt.Fprintf(&b, "RUN --mount=type=tmpfs,target=/tmp/t%d%s echo t > /tmp/t%d/f && cp /tmp/t%d/f /tout%d\n", i, opt, i, i, i)
+				} else {
+					fmt.Fprintf(&b, "RUN mkdir -p /td%d && echo keep > /td%d/k\n", i, i)
+					fmt.Fprintf(&b, "RUN --mount=type=tmpfs,target=/td%d%s test ! -e /td%d/k && echo n > /td%d/n\n", i, opt, i, i)
+				}
+			case 44:
+				// An ARG and an ENV of the same name, the ENV wins wherever it is declared, and the
+				// dependency prepass has to resolve COPY --from paths the same way (mz1233).
+				from := len(namedStages)
+				if !last {
+					from--
+				}
+				copyLine := fmt.Sprintf("COPY --from=%s /$CP%d/hostname /dest/envarg%d\n", srcPick(s, bases), i, i)
+				envLine := fmt.Sprintf("ENV CP%d=etc\n", i)
+				if from > 0 && s.chance(2) {
+					copyLine = fmt.Sprintf("COPY --from=stage%d /$CP%d/artifact /dest/envarg%d\n", namedStages[s.intn(from)], i, i)
+					envLine = fmt.Sprintf("ENV CP%d=stage\n", i)
+				}
+				argLine := fmt.Sprintf("ARG CP%d=nope\n", i)
+				if s.chance(2) {
+					b.WriteString(argLine + envLine + copyLine)
+				} else {
+					b.WriteString(envLine + argLine + copyLine)
+				}
+			case 45:
+				// A directory COPY onto a subdirectory that already exists gives it the source
+				// mode (mz1258).
+				fmt.Fprintf(&b, "RUN mkdir -p /sd%d/sub && chmod %s /sd%d/sub\n", i, srcPick(s, []string{"0700", "0755", "0777"}), i)
+				from := len(namedStages)
+				if !last {
+					from--
+				}
+				switch {
+				case dirName != "" && s.chance(2):
+					fmt.Fprintf(&b, "COPY %s /sd%d/\n", dirName, i)
+				case from > 0:
+					fmt.Fprintf(&b, "COPY --from=stage%d /stage /sd%d/\n", namedStages[s.intn(from)], i)
+				default:
+					fmt.Fprintf(&b, "COPY %s /sd%d/sub/\n", srcPick(s, regulars), i)
+				}
+			case 46:
+				// One path in several stages, deleted in some. A stage must not inherit another
+				// stage's files and white them out (mz876, #1316).
+				if s.chance(2) {
+					fmt.Fprintf(&b, "RUN mkdir -p /xs/keep /xs/drop && touch /xs/keep/k /xs/drop/d && rm -rf /xs/drop\n")
+				} else {
+					fmt.Fprintf(&b, "RUN mkdir -p /xs/keep /xs/drop && touch /xs/keep/k /xs/drop/d\n")
 				}
 			}
 		}
