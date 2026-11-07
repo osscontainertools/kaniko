@@ -22,10 +22,6 @@ import (
 	"strings"
 )
 
-// crossStageCopyIdx matches a COPY --from a numeric stage index (COPY --from=0), the
-// other cross-stage form besides a named stage.
-var crossStageCopyIdx = regexp.MustCompile(`COPY --from=[0-9]`)
-
 // knownDivergence recognizes one class of docker-versus-kaniko diff that is
 // already understood. A diff row that matches a known class is counted, not
 // reported. A row that matches nothing is novel and is the output we care about.
@@ -68,49 +64,20 @@ func implicitDirChmodDivergence(row string) bool {
 // matched by shape. That keeps the suppression narrow: an unrelated bug touching some other
 // path still reports, even in a case that also used one of these instructions.
 var (
-	quotedHeredocPath = regexp.MustCompile(`\bhq[0-9]+/`)
-	copyParentsPath   = regexp.MustCompile(`\bparents[0-9]+/`)
-	copyExcludePath   = regexp.MustCompile(`\bexcl[0-9]+/`)
-	copyLinkIntoDir   = regexp.MustCompile(`\blkdir[0-9]+/`)
-	// the downloaded archive lands in the bare dir, the plain download as urlgetN/addfile
-	urlUnpackOwner = regexp.MustCompile(`\burlget[0-9]+/(inside/\S*)?\s+(Uid|Gid) `)
-	// only the pre-existing destination itself, what the COPY creates below it still reports
-	existingDestOwner = regexp.MustCompile(`\bex[0-9]+/\s+(Uid|Gid) `)
+	copyParentsPath = regexp.MustCompile(`\bparents[0-9]+/`)
+	copyExcludePath = regexp.MustCompile(`\bexcl[0-9]+/`)
+	copyLinkIntoDir = regexp.MustCompile(`\blkdir[0-9]+/`)
 )
 
 // dockerKnownDivergences are the classes observed on the docker oracle. The cache
 // oracle passes no allowlist, so any cache diff is treated as novel.
 var dockerKnownDivergences = []knownDivergence{
 	{
-		name: "heredoc-quoted-delimiter-skipped",
-		why:  "mz1025: RUN with a quoted heredoc delimiter (<<'EOF') is silently skipped, so everything the script should have written is missing from the kaniko image. run.go decides a heredoc body is a script by comparing the command line to the bare delimiter, which the quoted form never matches. Remove this entry when mz1025 is fixed",
-		flag: "",
-		match: func(row string) bool {
-			return quotedHeredocPath.MatchString(row)
-		},
-	},
-	{
 		name: "copy-parents-not-implemented",
 		why:  "COPY --parents is accepted by the vendored parser and never read by kaniko (Parents has no references in the tree), so docker preserves the source's parent directories under the destination and kaniko flattens them. Tracked upstream as GoogleContainerTools/kaniko#3165",
 		flag: "",
 		match: func(row string) bool {
 			return copyParentsPath.MatchString(row)
-		},
-	},
-	{
-		name: "add-chown-extracted-archive",
-		why:  "mz1175: ADD --chown is not applied to the entries of an extracted archive, a download unpacked with --unpack=true comes out 0:0 where docker gives it the --chown owner",
-		flag: "",
-		match: func(row string) bool {
-			return urlUnpackOwner.MatchString(row)
-		},
-	},
-	{
-		name: "copy-chown-existing-dest",
-		why:  "mz1254: COPY --chown of a directory source chowns a destination directory that already exists, where buildkit leaves it untouched. MkdirAllWithPermissions chowns the path whether or not it created it",
-		flag: "",
-		match: func(row string) bool {
-			return existingDestOwner.MatchString(row)
 		},
 	},
 	{
@@ -178,17 +145,6 @@ var knownBuildFailures = []knownDivergence{
 		},
 	},
 	{
-		name: "heredoc-subshell-parens",
-		why:  "mz474: a heredoc RUN whose command substitution emits parentheses aborts in kaniko's shell (syntax error: unexpected \"(\") while buildkit runs it. Remove this entry when mz474 is fixed so the fuzzer guards the regression",
-		flag: "",
-		match: func(out string) bool {
-			// busybox ash and debian's dash word the same abort differently, and a case
-			// drawn on the debian base reports the second one
-			return strings.Contains(out, "syntax error: unexpected \"(\"") ||
-				strings.Contains(out, "Syntax error: \"(\" unexpected")
-		},
-	},
-	{
 		name: "chown-named-owner-no-passwd-db",
 		why:  "mz897: COPY/ADD --chown with a named user or group on a base with no /etc/passwd or /etc/group (scratch) fails; kaniko parses the name as a numeric id and errors while docker resolves it",
 		flag: "",
@@ -212,14 +168,6 @@ var knownBuildFailures = []knownDivergence{
 			return strings.Contains(out, "failed to take snapshot: EvalSymlinks: too many links")
 		},
 	},
-	{
-		name: "add-gzip-around-non-tar",
-		why:  "mz1176: ADD of a gzip file whose content is not a tar is extracted as a tar and fails, docker adds it as a file",
-		flag: "",
-		match: func(out string) bool {
-			return strings.Contains(out, "unpacking local tar: unexpected EOF")
-		},
-	},
 }
 
 // knownCrashes recognize a kaniko crash or assertion that is already filed and would
@@ -235,37 +183,12 @@ var knownCrashes = []knownDivergence{
 			return strings.Contains(crash, "executor.build.cache-lookahead")
 		},
 	},
-	{
-		name: "copy-link-key-pass-mismatch",
-		why:  "mz1201: with FF_KANIKO_COPY_LINK and --cache a COPY --link after WORKDIR gets a different layer key in the optimize and the build pass, and the executor.compositekey.pass-match assertion fires",
-		flag: "FF_KANIKO_COPY_LINK",
-		match: func(crash string) bool {
-			return strings.Contains(crash, "executor.compositekey.pass-match") && strings.Contains(crash, "COPY --link")
-		},
-	},
 }
 
 // knownWarmerGaps recognize an image the executor pulls and the warmer does not warm that
 // is already understood, matched against a warmerPlanOracle row. Remove an entry once its
 // fix is on main so the fuzzer guards the regression.
-var knownWarmerGaps = []knownDivergence{
-	{
-		name: "warmer-build-arg-over-default",
-		why:  "mz1207: in the warmer an ARG default wins over an explicit --build-arg, so FROM $SBASE warms the default base while the executor pulls the overridden one",
-		flag: "FF_KANIKO_WARMER_BUILD_ARGS",
-		match: func(row string) bool {
-			return strings.HasPrefix(row, "FROM base not warmed (build-arg base): ")
-		},
-	},
-	{
-		name: "copy-from-images-bypass-cache",
-		why:  "mz1212: the executor fetches COPY --from images from the registry, never from --cache-dir, and the warmer does not warm them",
-		flag: "",
-		match: func(row string) bool {
-			return strings.HasPrefix(row, "COPY --from image not warmed: ")
-		},
-	},
-}
+var knownWarmerGaps = []knownDivergence{}
 
 // knownCrashName returns the class name if the crash line matches a known filed crash,
 // else "". Used to count-not-report crashes that are already understood.
@@ -278,18 +201,26 @@ func knownCrashName(crash string) string {
 	return ""
 }
 
-// mz876CrossStage names the cross-stage snapshot-nondeterminism class. A cache or
-// reproducible-determinism diff on a Dockerfile with a cross-stage reference is mz876,
-// which is filed and load-dependent. It dominates campaigns (20+ of a run), so it is
-// counted, not reported, to keep genuinely novel findings visible.
-const mz876CrossStage = "mz876-snapshot-map-leak"
+// mz876CachedLayer names the cached-layer half of mz876: a layer served from the cache is
+// extracted onto the filesystem without entering the layered map, so a command snapshotted
+// after it in the same build attributes those files to the wrong layer. It needs a build that
+// mixes cache hits with re-snapshotted commands.
+const mz876CachedLayer = "mz876-cached-layer-map"
 
-// isCrossStage reports whether the Dockerfile references an earlier stage (FROM a stage
-// or COPY --from a stage), the shape that triggers the mz876 shared-snapshotter bug.
-func isCrossStage(dockerfile string) bool {
-	return strings.Contains(dockerfile, "FROM stage") ||
-		strings.Contains(dockerfile, "COPY --from=stage") ||
-		crossStageCopyIdx.MatchString(dockerfile)
+// layerAttributionOnly reports whether a kaniko-vs-kaniko diff only moves entries between
+// layers, which is all mz876 does. A row about content, mode, ownership or config is
+// something else.
+func layerAttributionOnly(diff string) bool {
+	rows := diffRows(diff)
+	if len(rows) == 0 {
+		return false
+	}
+	for _, row := range rows {
+		if !strings.HasPrefix(row, "Layer") || !(strings.Contains(row, "only appears in") || strings.Contains(row, "length mismatch")) {
+			return false
+		}
+	}
+	return true
 }
 
 // allKnownClasses is every known class, for reporting the campaign baseline.
@@ -299,7 +230,7 @@ func allKnownClasses() []knownDivergence {
 	classes = append(classes, knownCrashes...)
 	classes = append(classes, knownWarmerGaps...)
 	// Structural classes, counted by the oracle rather than matched on diff text.
-	return append(classes, knownDivergence{name: mz876CrossStage, why: "cross-stage snapshot nondeterminism (mz876), load-dependent", flag: ""})
+	return append(classes, knownDivergence{name: mz876CachedLayer, why: "a cached layer never enters the layered map, so a later snapshot misattributes its files (mz876)", flag: ""})
 }
 
 // diffTypes are the leading tokens diffoci uses for a diff row. A line starting
