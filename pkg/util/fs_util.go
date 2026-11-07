@@ -216,12 +216,13 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 	}
 
 	// Compressed() of a layer backed by an uncompressed tarball, like a
-	// snapshot of an earlier stage, gzips it first. Only registry layers are
-	// known to serve the stored blob.
+	// snapshot of an earlier stage, gzips it first. Only registry and stored
+	// layers are known to serve the stored blob.
 	_, fromRegistry := l.(*remote.MountableLayer)
+	_, fromLayout := l.(*StoredBlobLayer)
 	isGzip := mediaType == types.DockerLayer || mediaType == types.OCILayer || mediaType == types.DockerForeignLayer || mediaType == types.OCIRestrictedLayer
 	var r io.ReadCloser
-	if config.FF.ParallelGunzip && fromRegistry && isGzip {
+	if config.FF.ParallelGunzip && (fromRegistry || fromLayout) && isGzip {
 		rc, err := l.Compressed()
 		if err != nil {
 			return nil, err

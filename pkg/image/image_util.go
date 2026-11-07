@@ -128,7 +128,14 @@ func ociImage(index int) (v1.Image, error) {
 	}
 
 	hash := idxManifest.Manifests[0].Digest
-	return p.Image(hash)
+	img, err := p.Image(hash)
+	if err != nil {
+		return nil, err
+	}
+	if config.FF.ParallelGunzip {
+		img = util.WithStoredBlobs(img)
+	}
+	return img, nil
 }
 
 func cachedImage(opts *config.KanikoOptions, image string) (v1.Image, error) {
