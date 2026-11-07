@@ -229,7 +229,8 @@ func (b *Bakefile) Resolve(selected []string) ([]ResolvedTarget, error) {
 			if targetCtx != "" && !filepath.IsAbs(targetCtx) && b.Dir != "" && !isURL(targetCtx) {
 				targetCtx = filepath.Join(b.Dir, targetCtx)
 			}
-			if targetDockerfile != "" && !filepath.IsAbs(targetDockerfile) && !isURL(targetDockerfile) {
+			// A relative dockerfile in a remote context is joined once the context is unpacked.
+			if targetDockerfile != "" && !filepath.IsAbs(targetDockerfile) && !isURL(targetDockerfile) && !isURL(targetCtx) {
 				if targetCtx != "" {
 					targetDockerfile = filepath.Join(targetCtx, targetDockerfile)
 				} else if b.Dir != "" {
@@ -251,7 +252,7 @@ func (b *Bakefile) Resolve(selected []string) ([]ResolvedTarget, error) {
 }
 
 func isURL(path string) bool {
-	return strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") || strings.Contains(path, "://")
+	return strings.Contains(path, "://")
 }
 
 type Override struct {
