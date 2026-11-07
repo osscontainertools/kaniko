@@ -677,12 +677,10 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		if !cacheSame {
 			real, evidence := diagnoseCacheDiff(v0, v1, cacheIgnores, cacheDiff)
 			if real {
-				// The mz876 snapshot map-leak: a cache diff on a cross-stage case, or any
-				// case with --cache-run-layers=false (which forces the consume RUN to
-				// re-snapshot after a cached COPY whose files never entered the map). Filed;
-				// count, do not report, so novel cache bugs stay visible.
-				if isCrossStage(gen.dockerfile) || hasFlag(gen.kanikoFlags, "--cache-run-layers=false") {
-					f := &finding{seed: seed, sev: sevClean, known: map[string]int{mz876CrossStage: 1}}
+				// --cache-run-layers=false makes the consume RUN re-snapshot after a cached
+				// COPY whose files never entered the layered map (mz876).
+				if hasFlag(gen.kanikoFlags, "--cache-run-layers=false") && layerAttributionOnly(cacheDiff) {
+					f := &finding{seed: seed, sev: sevClean, known: map[string]int{mz876CachedLayer: 1}}
 					mergeKnown(f, dockerCls.known)
 					return f
 				}
@@ -760,13 +758,6 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	// different classes, so a divergence is a nondeterminism bug either way.
 	if os.Getenv("FUZZ_DETERMINISM") == "1" {
 		if f := determinismOracle(label, dir, kanikoImage, gen.kanikoFlags, gen.envFlags, fail, crashOr, gen.mounts...); f != nil {
-			// A cross-stage reproducible-determinism diff is the filed mz876 class (load
-			// dependent); count, do not report, so novel nondeterminism stays visible.
-			if f.sev == sevDeterminismDiff && isCrossStage(gen.dockerfile) {
-				kf := &finding{seed: seed, sev: sevClean, known: map[string]int{mz876CrossStage: 1}}
-				mergeKnown(kf, dockerCls.known)
-				return kf
-			}
 			mergeKnown(f, dockerCls.known)
 			return f
 		}
@@ -788,14 +779,6 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		}
 		wf := warmerOracle(label, dir, gen.dockerfile, gen.buildArgs, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr)
 		if wf != nil {
-			differ := wf.sev == sevWarmerDiff && strings.Contains(wf.summary, "builds differ")
-			if differ && isCrossStage(gen.dockerfile) {
-				// Warm and cold are two independent builds, so a cross-stage diff is the mz876
-				// class the determinism oracle counts too.
-				kf := &finding{seed: seed, sev: sevClean, known: map[string]int{mz876CrossStage: 1}}
-				mergeKnown(kf, dockerCls.known)
-				return kf
-			}
 			mergeKnown(wf, dockerCls.known)
 			return wf
 		}
@@ -2300,12 +2283,11 @@ func sharedCacheOracle(seed int64, label, dir, dockerfile string, argNames, flag
 	ignores := []string{"--ignore-image-name", "--ignore-image-timestamps", "--ignore-file-timestamps"}
 	diff, same, _ := runFuzzDiffoci(imgBClean, imgBShared, ignores)
 	if !same {
-		// A cross-stage case is the mz876 map-leak class (still filed, load-dependent), so
-		// count it. Otherwise the colliding-arg sets now hash apart under the recursive
-		// composite key (mz873 fixed on main), so set A's pre-population must not change set
-		// B's output; a diff here is a genuine regression worth reporting.
-		if isCrossStage(dockerfile) {
-			return &finding{seed: seed, sev: sevClean, known: map[string]int{mz876CrossStage: 1}}
+		// Set B hits A's layers for every command before the first arg reference and
+		// re-snapshots the rest, the mix mz876 needs. A served colliding layer (mz873) changes
+		// file content, which mz876 never does.
+		if layerAttributionOnly(diff) {
+			return &finding{seed: seed, sev: sevClean, known: map[string]int{mz876CachedLayer: 1}}
 		}
 		return fail(sevCacheDiff, "shared-cache: set B output depends on colliding set A (mz873 regression)", diff)
 	}
@@ -2631,16 +2613,11 @@ func diagnoseCacheDiff(v0, v1 string, ignores []string, firstDetail string) (boo
 	return true, b.String()
 }
 
-// classifyContextDiff decides what a dir-vs-context image diff means. A cross-stage case is
-// the load-dependent mz876 snapshot-map-leak class (a wrong layer mis-attributed under
-// concurrent builds); count it, do not report. Otherwise the diff is diagnosed against
-// registry ground truth and a fresh-pull re-compare (diagnoseCacheDiff): a diff that does
-// not reproduce is a docker-daemon measurement artifact, also not reported. Only a stable,
-// non-cross-stage diff is a real build-context divergence.
+// classifyContextDiff decides what a dir-vs-context image diff means. The diff is diagnosed
+// against registry ground truth and a fresh-pull re-compare (diagnoseCacheDiff): a diff that
+// does not reproduce is a docker-daemon measurement artifact, not reported. Only a stable
+// diff is a real build-context divergence.
 func classifyContextDiff(seed int64, dockerfile, dirImage, otherImage string, ignores []string, diff, summary string, fail func(severity, string, string) *finding) *finding {
-	if isCrossStage(dockerfile) {
-		return &finding{seed: seed, sev: sevClean, known: map[string]int{mz876CrossStage: 1}}
-	}
 	real, evidence := diagnoseCacheDiff(dirImage, otherImage, ignores, diff)
 	if !real {
 		return nil
