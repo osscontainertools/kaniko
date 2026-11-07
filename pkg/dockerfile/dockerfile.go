@@ -294,7 +294,6 @@ func resolveCrossStageCommands(cmds []instructions.Command, stageNameToIdx map[s
 	return nil
 }
 
-// CrossStageMounts returns the bind mounts of a RUN that read from a stage or an image.
 func CrossStageMounts(cmd *instructions.RunCommand) []*instructions.Mount {
 	var mounts []*instructions.Mount
 	for _, m := range instructions.GetMounts(cmd) {

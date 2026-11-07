@@ -643,7 +643,6 @@ func runCmdFilesUsedFromContext(
 	return files, nil
 }
 
-// MountSources returns the stages and images a RUN binds files from.
 func MountSources(command DockerCommand) []string {
 	var sources []string
 	run, ok := command.(runInstruction)
@@ -659,8 +658,8 @@ type runInstruction interface {
 	instruction() *instructions.RunCommand
 }
 
-// ExpandRunCommand expands the flags of a RUN. buildkit reparses the mounts
-// from the raw flag, so the stage index resolved into from= is put back.
+// buildkit reparses the mounts from the raw flag, so the stage index
+// resolved into from= is put back.
 func ExpandRunCommand(cmd *instructions.RunCommand, expand instructions.SingleWordExpander) error {
 	mounts := instructions.GetMounts(cmd)
 	if err := cmd.Expand(expand); err != nil {
