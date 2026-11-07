@@ -214,6 +214,20 @@ The cache warmer only pre-fetches base image layers into a `--cache-dir`, so whe
 
 It runs in two modes for the same reason the determinism oracle does. The structural mode ignores file timestamps, since the two builds run at different wall-clock times, and catches content, mode, ownership, and layout differences. The reproducible mode builds both sides with `--reproducible`, which pins timestamps, so the two can be compared byte-strict apart from image name. Combined with `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`, which carries base layers through unrewritten, that byte-strict pass catches a warmer that stores a base layer even a byte differently from a fresh pull, which the timestamp-tolerant mode would hide. This oracle also grows coverage into `pkg/warmer`, which no other oracle reaches. Gated behind `FUZZ_WARMER` because it adds a warmer run plus extra builds per case.
 
+### Cache flags and image format
+
+The cache oracle names its cache one of three ways per case. `--cache-repo` on both builds. `--cache-from` and `--cache-to` of one repo on both. Or the populate build writes the main repo and the consume build reads an empty branch repo layered over it and writes to the branch, the way a CI branch build reuses main's cache. Every way has to give the byte-identical consume image.
+
+`FUZZ_CACHEFORMAT=1` adds one more build that reads the populated cache under the `--image-format` the consume build did not use. With `FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY` the keys do not depend on the format, so that build may not miss the cache more often than the consume build did. The miss count comes from the `No cached layer found` log line.
+
+### Provenance
+
+`FUZZ_PROVENANCE=1` builds the case `--reproducible` with and without `--provenance`. The index has to name the digest the plain build pushed, and the attestation has to reference it. Every other seed adds `--predefined-annotations` to both builds.
+
+### Bake
+
+`FUZZ_BAKE=1` names the final stage in a copy of the Dockerfile and builds every stage as a target of one `executor bake`. The target the fresh build produced and one other stage are compared with standalone builds of the same stage. Targets build one after another in one process, so a difference is state one target left for the next.
+
 ### Deferred or arbitration-only
 
 - Previous-release regression. HEAD executor versus a pinned prior release on the same input. This is a CI regression guard, not a bug finder for now, so it belongs in the scheduled job rather than the local campaign.
