@@ -11,16 +11,19 @@ Usage: `/kaniko-perf-validation <pr-number>`
 
 - Never run `out/executor` on the host. Every build runs inside `docker run --rm --net=host <image>`.
 - Pick configs from the diff:
-  - Every change sits behind the flag: two configs from one binary, flag off and flag on.
+  - Every change sits behind a new flag: two configs from one binary, flag off and flag on.
+  - The change modifies code behind an existing flag: add `main-ff` (merge base, flag on). `main-ff` vs `branch-ff` proves no regression in the flagged path.
   - Any change outside the flag's activation: three configs, `main` (the merge base, name its SHA), `branch` (PR binary, flag off), `branch-ff` (PR binary, flag on). `main` vs `branch` proves no regression, `branch-ff` shows the win.
   - No flag: `main` and `branch`.
 - Two scenarios: `extreme`, a synthetic Dockerfile that amplifies the mechanism, and `ex01`, Akihiro Suda's buildbench example as the regular case. Clone `github.com/AkihiroSuda/buildbench` and use `examples/ex01`. Swap `ex01` for another regular build only when it never reaches the changed code path, and say why in the comment.
 - Five runs per config per scenario, interleaved and randomly ordered: each round runs every config once, in an order drawn with `shuf`, and records each run's position. Interleaving without shuffling is not enough, timings can depend on run order.
 - One warm-up build per scenario before round 1, discarded.
 - Pin every base image by digest.
-- Pair wall time with a deterministic mechanism count that stays constant across rounds, ie. sockets/requests from the registry log, `Deleting filesystem` or extraction lines from the build log, mounts/blob uploads, bytes, peak RSS (`VmHWM` polled from `/proc/<pid>/status` of the executor process). The count carries the claim when the clock is noisy.
+- Pair wall time with a deterministic mechanism count that stays constant across rounds, ie. sockets/requests from the registry log, `Deleting filesystem` or extraction lines from the build log, mounts/blob uploads, bytes. The count carries the claim when the clock is noisy.
+- Peak RSS (`VmHWM` polled from `/proc/<pid>/status` of the executor process) varies between runs. Report it like wall time, median and mean ± sd, not as a count.
 - Use a local `registry:2` on `localhost:5000` as cache repo and push target unless the mechanism needs distance (bandwidth, round trips). Then say so and use the remote setup.
-- Use a fresh cache repo per run when the scenario measures cold behaviour.
+- Use a fresh cache repo and a fresh push target repo per run when the scenario measures cold behaviour. The registry skips blobs it already has, so a reused push target hides uploads.
+- A build that exits non-zero aborts the benchmark. Never record its timing.
 
 ## Steps
 

@@ -38,7 +38,7 @@ kaniko implements the [Dockerfile specification](https://docs.docker.com/referen
 
 ### Behavior changes ship behind a feature flag
 
-Any change to kaniko's output or semantics ships behind an `FF_KANIKO_*` flag. Patch releases stay stable. See [releases.md](releases.md) for when a flag is needed, its exceptions, and how it becomes the default.
+Changes to kaniko's output or semantics ship behind an `FF_KANIKO_*` flag. Patch releases stay stable. See [releases.md](releases.md) for when a flag is needed, its exceptions, and how it becomes the default.
 
 ### Retired flag names are never reused
 
