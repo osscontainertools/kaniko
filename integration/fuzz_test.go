@@ -853,6 +853,15 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		}
 	}
 
+	// bake oracle: every stage as a target of one bake, compared with standalone builds.
+	// Gated behind FUZZ_BAKE; adds the bake and one standalone build.
+	if os.Getenv("FUZZ_BAKE") == "1" {
+		if f := bakeOracle(seed, label, dir, kanikoImage, gen, covDir, fail, crashOr); f != nil {
+			mergeKnown(f, dockerCls.known)
+			return f
+		}
+	}
+
 	// provenance oracle: --provenance adds an attestation beside the image and must not
 	// change the image. Gated behind FUZZ_PROVENANCE; adds two builds.
 	if os.Getenv("FUZZ_PROVENANCE") == "1" {
@@ -2278,6 +2287,122 @@ func provenanceOracle(seed int64, label, dir string, flags, envFlags []string, c
 			fmt.Sprintf("plain build: %s\nindex names: %s\n\n%s", wantDigest, image.Digest, raw))
 	case attestation.Annotations["vnd.docker.reference.digest"] != wantDigest:
 		return fail(sevInvarianceDiff, "the attestation does not reference the image", string(raw))
+	}
+	return nil
+}
+
+// bakeFinalStage names the final stage in the bake oracle's copy of the Dockerfile, a
+// bakefile target builds a stage by name.
+const bakeFinalStage = "fuzzfinal"
+
+// bakeOracle builds every stage of the case in one `executor bake` and compares two of the
+// targets with standalone builds of the same stage: the one the fresh build produced, and
+// one other named stage the seed picks. Targets build one after another in one process, so a
+// target that differs from its standalone build picked up state from an earlier one.
+func bakeOracle(seed int64, label, dir, freshImage string, gen genResult, covDir string, fail func(severity, string, string) *finding, crashOr func(string) *finding) *finding {
+	lines := strings.Split(gen.dockerfile, "\n")
+	var stages []string
+	last := -1
+	for i, line := range lines {
+		f := strings.Fields(line)
+		if len(f) >= 2 && f[0] == "FROM" {
+			last = i
+			if len(f) >= 4 && strings.EqualFold(f[2], "AS") {
+				stages = append(stages, f[3])
+			}
+		}
+	}
+	if last < 0 || len(strings.Fields(lines[last])) > 2 {
+		return nil
+	}
+	lines[last] += " AS " + bakeFinalStage
+	stages = append(stages, bakeFinalStage)
+	dockerfile := strings.Join(lines, "\n")
+
+	bakeCtx, err := os.MkdirTemp("", "kaniko-fuzz-bakectx-")
+	if err != nil {
+		return nil
+	}
+	defer os.RemoveAll(bakeCtx)
+	if err := copyFuzzContext(dir, bakeCtx, dockerfile); err != nil {
+		return nil
+	}
+	// The bakefile stays out of the context, a COPY . would pick it up.
+	bakeDir, err := os.MkdirTemp("", "kaniko-fuzz-bakefile-")
+	if err != nil {
+		return nil
+	}
+	defer os.RemoveAll(bakeDir)
+	images := map[string]string{}
+	var hcl strings.Builder
+	for _, s := range stages {
+		images[s] = strings.ToLower(config.imageRepo + kanikoPrefix + label + "-bake-" + s)
+		fmt.Fprintf(&hcl, "target %q {\n  destination = [%q]\n}\n\n", s, images[s])
+	}
+	if err := os.WriteFile(filepath.Join(bakeDir, "kaniko-bake.hcl"), []byte(hcl.String()), 0o644); err != nil {
+		return nil
+	}
+	var flags []string
+	for _, f := range gen.kanikoFlags {
+		if !strings.HasPrefix(f, "--target=") {
+			flags = append(flags, f)
+		}
+	}
+	defer func() {
+		for _, img := range images {
+			runFuzzBounded(exec.Command("docker", "rmi", "-f", img))
+		}
+	}()
+
+	args := []string{"run", "--rm", "--net=host", "-v", bakeCtx + ":/workspace:ro", "-v", bakeDir + ":/bake:ro"}
+	args = append(args, fuzzMountFlags(gen.mounts)...)
+	for _, e := range append(append([]string{}, KanikoEnv...), gen.envFlags...) {
+		args = append(args, "-e", e)
+	}
+	if covDir != "" {
+		args = append(args, "-v", covDir+":/covdata", "-e", "GOCOVERDIR=/covdata")
+	}
+	args = append(args, ExecutorImage, "bake", "/bake/kaniko-bake.hcl", "-f", path.Join(buildContextPath, "Dockerfile"), "-c", buildContextPath)
+	out, berr := runFuzzBounded(exec.Command("docker", append(args, flags...)...))
+	if f := crashOr(string(out)); f != nil {
+		return f
+	}
+	if berr != nil {
+		return fail(sevInvarianceDiff, "bake failed on a case the executor builds", string(out))
+	}
+
+	compareTo := map[string]string{bakeFinalStage: freshImage}
+	if gen.target != "" {
+		compareTo = map[string]string{gen.target: freshImage}
+	}
+	var others []string
+	for _, s := range stages {
+		if _, ok := compareTo[s]; !ok {
+			others = append(others, s)
+		}
+	}
+	if len(others) > 0 {
+		s := others[int(seed)%len(others)]
+		img := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-alone-" + s)
+		defer runFuzzBounded(exec.Command("docker", "rmi", "-f", img))
+		aOut, aErr := runFuzzKanikoEnv(bakeCtx, img, append(append([]string{}, flags...), "--target="+s), covDir, gen.envFlags, gen.mounts...)
+		if f := crashOr(aOut); f != nil {
+			return f
+		}
+		if aErr == nil {
+			compareTo[s] = img
+		}
+	}
+	ignores := []string{"--ignore-image-name", "--ignore-image-timestamps", "--ignore-file-timestamps"}
+	for _, s := range stages {
+		alone, ok := compareTo[s]
+		if !ok {
+			continue
+		}
+		diff, same, _ := runFuzzDiffoci(alone, images[s], ignores)
+		if !same {
+			return classifyContextDiff(seed, dockerfile, alone, images[s], ignores, diff, "bake target "+s+" differs from its standalone build", fail)
+		}
 	}
 	return nil
 }
