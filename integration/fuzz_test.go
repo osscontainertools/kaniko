@@ -780,6 +780,9 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	// different classes, so a divergence is a nondeterminism bug either way.
 	if os.Getenv("FUZZ_DETERMINISM") == "1" {
 		if f := determinismOracle(label, dir, kanikoImage, gen.kanikoFlags, gen.envFlags, fail, crashOr, gen.mounts...); f != nil {
+			if f.sev == sevDeterminismDiff && reproducibleStageMtimes(gen.dockerfile, f.detail) {
+				f = &finding{seed: seed, sev: sevClean, known: map[string]int{mz1365ReproducibleStage: 1}}
+			}
 			mergeKnown(f, dockerCls.known)
 			return f
 		}
@@ -801,6 +804,9 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		}
 		wf := warmerOracle(label, dir, gen.dockerfile, gen.buildArgs, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr)
 		if wf != nil {
+			if wf.sev == sevWarmerDiff && reproducibleStageMtimes(gen.dockerfile, wf.detail) {
+				wf = &finding{seed: seed, sev: sevClean, known: map[string]int{mz1365ReproducibleStage: 1}}
+			}
 			mergeKnown(wf, dockerCls.known)
 			return wf
 		}

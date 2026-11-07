@@ -215,6 +215,34 @@ func knownCrashName(crash string) string {
 // mixes cache hits with re-snapshotted commands.
 const mz876CachedLayer = "mz876-cached-layer-map"
 
+// mz1365ReproducibleStage names a --reproducible diff of only file timestamps on a case
+// where a stage is both a FROM base and a COPY --from source. That stage's layers are
+// preserved like base image layers and keep their build-time mtimes.
+const mz1365ReproducibleStage = "mz1365-reproducible-stage-mtimes"
+
+var fromStage = regexp.MustCompile(`(?m)^FROM (stage[0-9]+)\b`)
+
+// reproducibleStageMtimes reports whether a diff between two --reproducible builds is the
+// mz1365 class.
+func reproducibleStageMtimes(dockerfile, diff string) bool {
+	shape := false
+	for _, m := range fromStage.FindAllStringSubmatch(dockerfile, -1) {
+		if strings.Contains(dockerfile, "--from="+m[1]+" ") || strings.Contains(dockerfile, "--from="+strings.TrimPrefix(m[1], "stage")+" ") {
+			shape = true
+		}
+	}
+	rows := diffRows(diff)
+	if !shape || len(rows) == 0 {
+		return false
+	}
+	for _, row := range rows {
+		if !strings.HasPrefix(row, "File") || strings.Count(row, " GMT") != 2 {
+			return false
+		}
+	}
+	return true
+}
+
 // layerAttributionOnly reports whether a kaniko-vs-kaniko diff only moves entries between
 // layers, which is all mz876 does. A row about content, mode, ownership or config is
 // something else.
@@ -238,6 +266,7 @@ func allKnownClasses() []knownDivergence {
 	classes = append(classes, knownCrashes...)
 	classes = append(classes, knownWarmerGaps...)
 	// Structural classes, counted by the oracle rather than matched on diff text.
+	classes = append(classes, knownDivergence{name: mz1365ReproducibleStage, why: "--reproducible keeps build-time mtimes of a stage that is both a FROM base and a COPY --from source (mz1365)", flag: "FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS"})
 	return append(classes, knownDivergence{name: mz876CachedLayer, why: "a cached layer never enters the layered map, so a later snapshot misattributes its files (mz876)", flag: ""})
 }
 
