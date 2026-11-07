@@ -492,10 +492,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 				finalCacheKey = ""
 				continue // RUN is never MetadataOnly, safe to skip
 			}
-			if len(mountKeys) > 0 {
-				seed = seed.Clone()
-				seed.AddKey(mountKeys...)
-			}
+			seed.AddKey(mountKeys...)
 			if crossStageCopy && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
 				inferredKey, err := populateCompositeKey(command, nil, seed.Clone(), args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 				if err == nil {
@@ -787,10 +784,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				if !ok {
 					return false, fmt.Errorf("no cache key for the mount sources of %s", command.String())
 				}
-				if len(mountKeys) > 0 {
-					seed = seed.Clone()
-					seed.AddKey(mountKeys...)
-				}
+				seed.AddKey(mountKeys...)
 				layerKey, err = populateCompositeKey(command, files, seed, s.args, s.cf.Config.Env, fileContext, nil, nil)
 				if err != nil {
 					return false, err
