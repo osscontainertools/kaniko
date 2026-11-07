@@ -1,0 +1,9 @@
+# Through v1.29.0 a base image symlink into /kaniko over a mounted directory made kaniko move its own directory.
+# The harness mounts a file at /data/lib.so, and the base ships /data as a symlink to /kaniko.
+ARG IMAGE_REPO
+FROM busybox AS base
+RUN ln -s /kaniko /data
+
+FROM ${IMAGE_REPO}mounted-symlink-kaniko-base:latest
+# Forces kaniko to unpack the base, a bare FROM reuses its layers untouched.
+RUN true

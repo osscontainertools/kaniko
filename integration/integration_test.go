@@ -176,6 +176,9 @@ func buildRequiredImages() error {
 		name:    "Building mz1073 base image",
 		command: []string{"docker", "build", "--push", "-t", config.mz1073BaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz1073", "--target", "base", "."},
 	}, {
+		name:    "Building mounted symlink base image",
+		command: []string{"docker", "build", "--push", "-t", config.mountedSymlinkBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_mounted_symlink_kaniko", "--target", "base", "."},
+	}, {
 		name:    "Building mz1113 base image",
 		command: []string{"docker", "build", "--push", "-t", config.mz1113BaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz1113", "--target", "base", "."},
 	}, {
@@ -2368,6 +2371,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 	c.mz1073BaseImage = c.imageRepo + "test-issue-mz1073-base:latest"
 	c.mz1113BaseImage = c.imageRepo + "test-issue-mz1113-base:latest"
 	c.mz1172BaseImage = c.imageRepo + "test-issue-mz1172-base:latest"
+	c.mountedSymlinkBaseImage = c.imageRepo + "mounted-symlink-kaniko-base:latest"
 	c.singleManifestBaseImage = c.imageRepo + "single-manifest-base:latest"
 	return &c
 }

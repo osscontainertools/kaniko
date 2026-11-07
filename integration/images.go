@@ -1243,6 +1243,9 @@ var extraDockerRunFlags = map[string]func(contextDir string) []string{
 		}
 		return flags
 	},
+	"Dockerfile_test_mounted_symlink_kaniko": func(ctx string) []string {
+		return []string{"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/data/lib.so:ro"}
+	},
 	// both names of one pair are pinned, so the mount moves rather than the link
 	"Dockerfile_test_issue_mz1113": func(ctx string) []string {
 		lib := filepath.Join(ctx, "testdata/Dockerfile.trivial")
