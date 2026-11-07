@@ -359,6 +359,10 @@ func generate(s *source, bases []string) genResult {
 			base = fmt.Sprintf("stage%d", namedStages[s.intn(len(namedStages))])
 		} else if baseArg != "" && s.chance(2) {
 			base = "$" + baseArg // build-arg base (FROM $SBASE)
+		} else if len(bases) > 1 && s.chance(8) {
+			// The platform args are predefined in FROM, and the warmer has to resolve them the
+			// way the executor does (#1210).
+			base = fuzzArchBaseRef()
 		}
 		swapBase := strings.Contains(base, symlinkBaseTag) || stageSwap[base] || (baseArg != "" && base == "$"+baseArg && argBaseSwap)
 		stageSwap[fmt.Sprintf("stage%d", stage)] = swapBase
