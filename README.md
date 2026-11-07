@@ -109,6 +109,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--registry-client-cert`](#flag---registry-client-cert)
       - [Flag `--registry-map`](#flag---registry-map)
       - [Flag `--registry-mirror`](#flag---registry-mirror)
+      - [Flag `--require-digest`](#flag---require-digest)
       - [Flag `--skip-default-registry-fallback`](#flag---skip-default-registry-fallback)
       - [Flag `--reproducible`](#flag---reproducible)
       - [Flag `--secret`](#flag---secret)
@@ -1071,6 +1072,10 @@ are:
 - `192.168.0.1:5000`
 - `mycompany-docker-virtual.jfrog.io`
 - `harbor.private.io/theproject`
+
+#### Flag `--require-digest`
+
+Fail if a base image is not pinned by digest, e.g. `debian:13.7@sha256:...`. Build args are resolved first. Also available on the warmer.
 
 #### Flag `--skip-default-registry-fallback`
 

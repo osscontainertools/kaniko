@@ -57,6 +57,15 @@ func WarmCache(opts *config.WarmerOptions) error {
 	cacheDir := opts.CacheDir
 	images := opts.Images
 
+	if opts.RequireDigest {
+		for _, image := range images {
+			_, err := name.NewDigest(image)
+			if err != nil {
+				return fmt.Errorf("--require-digest: %w", err)
+			}
+		}
+	}
+
 	// if opts.image is empty,we need to parse dockerfilepath to get images list
 	if opts.DockerfilePath != "" {
 		var err error
@@ -384,6 +393,12 @@ outer:
 		for j := range i {
 			if stages[j].Name == strings.ToLower(resolvedBaseName) {
 				continue outer
+			}
+		}
+		if opts.RequireDigest {
+			_, err = name.NewDigest(resolvedBaseName)
+			if err != nil {
+				return nil, fmt.Errorf("--require-digest: %w", err)
 			}
 		}
 		// deduplicate
