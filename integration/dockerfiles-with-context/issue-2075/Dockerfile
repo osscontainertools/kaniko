@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM docker.io/debian:bullseye-slim AS base
+FROM docker.io/debian:trixie-slim AS base
 FROM base AS build
 RUN \
   set -eu; \

@@ -92,18 +92,17 @@ var (
 // push to every specified destination.
 func CheckPushPermissions(opts *config.KanikoOptions) error {
 	targets := opts.Destinations
-	// When no push and no push cache are set, we don't need to check permissions
 	if opts.SkipPushPermissionCheck {
 		targets = []string{}
-	} else if opts.NoPush && opts.NoPushCache {
-		targets = []string{}
-	} else if opts.NoPush && !opts.NoPushCache {
-		// When no push is set, we want to check permissions for the cache repo
+	} else if opts.NoPush {
+		// When no push is set, we want to check permissions for the cache repos
 		// instead of the destinations
-		if isOCILayout(opts.CacheRepo) {
-			targets = []string{} // no need to check push permissions if we're just writing to disk
-		} else {
-			targets = []string{opts.CacheRepo}
+		targets = []string{}
+		for _, repo := range opts.CacheTo {
+			// no need to check push permissions if we're just writing to disk
+			if !isOCILayout(repo) {
+				targets = append(targets, repo)
+			}
 		}
 	}
 
@@ -428,10 +427,6 @@ func pushCacheImage(image v1.Image, dest string, opts *config.KanikoOptions, par
 	if isOCILayout(dest) {
 		return writeOCILayout(image, nil, strings.TrimPrefix(dest, "oci:"), parent)
 	}
-	if opts.NoPushCache {
-		logrus.Info("Skipping push to cache due to --no-push-cache flag")
-		return nil
-	}
 	destRef, err := name.NewTag(dest, name.WeakValidation)
 	if err != nil {
 		return fmt.Errorf("getting tag for destination: %w", err)
@@ -470,8 +465,7 @@ func writeImageOutputs(image v1.Image, destRefs []name.Tag) error {
 	return nil
 }
 
-// pushLayerToCache pushes layer (tagged with cacheKey) to opts.CacheRepo
-// if opts.CacheRepo doesn't exist, infer the cache from the given destination
+// pushLayerToCache pushes layer (tagged with cacheKey) to every cache in opts.CacheTo
 func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath string, createdBy string, parent trace.Span) error {
 	t := timing.StartChild(parent, "Pushing cached layer")
 	defer t.End()
@@ -497,11 +491,6 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 		return err
 	}
 
-	cache, err := cache.Destination(opts, cacheKey)
-	if err != nil {
-		return fmt.Errorf("getting cache destination: %w", err)
-	}
-	logrus.Infof("Pushing layer %s to cache now", cache)
 	empty := empty.Image
 	empty, err = mutate.CreatedAt(empty, v1.Time{Time: time.Now()})
 	if err != nil {
@@ -520,20 +509,27 @@ func pushLayerToCache(opts *config.KanikoOptions, cacheKey string, tarPath strin
 	if err != nil {
 		return fmt.Errorf("appending layer onto empty image: %w", err)
 	}
-	if config.FF.IsolateCachePush {
-		return pushCacheImage(empty, cache, opts, t)
+	var errs []error
+	for _, repo := range opts.CacheTo {
+		cache := cache.Ref(repo, cacheKey)
+		logrus.Infof("Pushing layer %s to cache now", cache)
+		if config.FF.IsolateCachePush {
+			errs = append(errs, pushCacheImage(empty, cache, opts, t))
+		} else {
+			cacheOpts := *opts
+			cacheOpts.TarPath = "" // tarPath doesn't make sense for Docker layers
+			cacheOpts.NoPush = false
+			cacheOpts.Destinations = []string{cache}
+			cacheOpts.InsecureRegistries = opts.InsecureRegistries
+			cacheOpts.SkipTLSVerifyRegistries = opts.SkipTLSVerifyRegistries
+			if isOCILayout(cache) {
+				cacheOpts.OCILayoutPath = strings.TrimPrefix(cache, "oci:")
+				cacheOpts.NoPush = true
+			}
+			errs = append(errs, DoPush(&Output{Image: empty}, &cacheOpts, t))
+		}
 	}
-	cacheOpts := *opts
-	cacheOpts.TarPath = ""              // tarPath doesn't make sense for Docker layers
-	cacheOpts.NoPush = opts.NoPushCache // we do not want to push cache if --no-push-cache is set.
-	cacheOpts.Destinations = []string{cache}
-	cacheOpts.InsecureRegistries = opts.InsecureRegistries
-	cacheOpts.SkipTLSVerifyRegistries = opts.SkipTLSVerifyRegistries
-	if isOCILayout(cache) {
-		cacheOpts.OCILayoutPath = strings.TrimPrefix(cache, "oci:")
-		cacheOpts.NoPush = true
-	}
-	return DoPush(&Output{Image: empty}, &cacheOpts, t)
+	return errors.Join(errs...)
 }
 
 const cachePointerLabel = "kaniko.cache.pointer-target"
@@ -544,12 +540,6 @@ const cachePointerLabel = "kaniko.cache.pointer-target"
 func pushCachePointer(opts *config.KanikoOptions, inferredKey, contentKey string, parent trace.Span) error {
 	t := timing.StartChild(parent, "Pushing cache pointer")
 	defer t.End()
-	dest, err := cache.Destination(opts, inferredKey)
-	if err != nil {
-		return fmt.Errorf("getting cache destination for pointer: %w", err)
-	}
-	logrus.Infof("Pushing cache pointer %v -> %v", dest, contentKey)
-
 	cf := &v1.ConfigFile{}
 	cf.Created = v1.Time{Time: time.Now()}
 	cf.Config.Labels = map[string]string{cachePointerLabel: contentKey}
@@ -558,20 +548,27 @@ func pushCachePointer(opts *config.KanikoOptions, inferredKey, contentKey string
 		return fmt.Errorf("building pointer image: %w", err)
 	}
 
-	if config.FF.IsolateCachePush {
-		return pushCacheImage(img, dest, opts, t)
+	var errs []error
+	for _, repo := range opts.CacheTo {
+		dest := cache.Ref(repo, inferredKey)
+		logrus.Infof("Pushing cache pointer %v -> %v", dest, contentKey)
+		if config.FF.IsolateCachePush {
+			errs = append(errs, pushCacheImage(img, dest, opts, t))
+		} else {
+			cacheOpts := *opts
+			cacheOpts.TarPath = ""
+			cacheOpts.NoPush = false
+			cacheOpts.Destinations = []string{dest}
+			cacheOpts.InsecureRegistries = opts.InsecureRegistries
+			cacheOpts.SkipTLSVerifyRegistries = opts.SkipTLSVerifyRegistries
+			if isOCILayout(dest) {
+				cacheOpts.OCILayoutPath = strings.TrimPrefix(dest, "oci:")
+				cacheOpts.NoPush = true
+			}
+			errs = append(errs, DoPush(&Output{Image: img}, &cacheOpts, t))
+		}
 	}
-	cacheOpts := *opts
-	cacheOpts.TarPath = ""
-	cacheOpts.NoPush = opts.NoPushCache
-	cacheOpts.Destinations = []string{dest}
-	cacheOpts.InsecureRegistries = opts.InsecureRegistries
-	cacheOpts.SkipTLSVerifyRegistries = opts.SkipTLSVerifyRegistries
-	if isOCILayout(dest) {
-		cacheOpts.OCILayoutPath = strings.TrimPrefix(dest, "oci:")
-		cacheOpts.NoPush = true
-	}
-	return DoPush(&Output{Image: img}, &cacheOpts, t)
+	return errors.Join(errs...)
 }
 
 // resolveCachePointer checks whether img is a pointer entry pushed by pushCachePointer

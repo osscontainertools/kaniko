@@ -13,7 +13,7 @@
 # limitations under the License.
 
 ARG BUILDPLATFORM
-FROM --platform=$BUILDPLATFORM golang:1.27.3@sha256:f20d83a83e18dbd2a4714b8ffd4b30b287b6243962dd75608e86abcc63ba4efc AS builder-base
+FROM --platform=$BUILDPLATFORM golang:1.27.3@sha256:0c050feb47802ae436b9030833694a0b80160d08e3b3049ad30bf7c9e724e09d AS builder-base
 WORKDIR /src
 
 # This arg is passed by docker buildx & contains the target CPU architecture (e.g., amd64, arm64, etc.)
@@ -37,7 +37,8 @@ RUN mkdir -p /licenses/go \
 
 FROM builder-base AS builder
 ARG COVER=""
-RUN make COVER="$COVER" out/executor out/warmer \
+ARG RACE=""
+RUN make COVER="$COVER" RACE="$RACE" out/executor out/warmer \
     && rm -rf /root/.cache
 
 # The helper names must match the argv[0] dispatch in pkg/creds.
@@ -52,12 +53,13 @@ RUN mkdir -p /dist/executor /dist/warmer \
 
 FROM builder-base AS builder-slim
 ARG COVER=""
-RUN make COVER="$COVER" out/executor-slim \
+ARG RACE=""
+RUN make COVER="$COVER" RACE="$RACE" out/executor-slim \
     && rm -rf /root/.cache
 
 # use musl busybox since it's staticly compiled on all platforms
 # Keep in sync with deploy/sources/busybox.spdx.json.
-FROM busybox:musl@sha256:ea2b9914a16a4ac1981994af97b318f7c7d4db76b580c56177f08bf76f4a0be8 AS busybox
+FROM busybox:musl@sha256:80e38f9a1b39188b8bdb28879178edb322a4402b081a9aedda1924609decd6f6 AS busybox
 RUN mkdir -m 777 -p /kaniko
 
 FROM scratch AS busybox-licenses
@@ -149,7 +151,7 @@ COPY --from=builder /dist/executor/ /kaniko/
 
 ENTRYPOINT ["/kaniko/executor"]
 
-FROM alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS kaniko-alpine
+FROM alpine:3.24.4@sha256:93b41ef40b1677fce8fcc64ff4af09daddfacf5040afde618bc46c1e2d1cc7d4 AS kaniko-alpine
 
 RUN apk add --no-cache ca-certificates git
 

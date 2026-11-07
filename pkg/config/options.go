@@ -70,6 +70,7 @@ type KanikoOptions struct {
 	SrcContext                   string
 	SnapshotMode                 string
 	SnapshotModeDeprecated       string
+	SnapshotHashWorkers          int
 	CustomPlatform               string
 	CustomPlatformDeprecated     string
 	Bucket                       string
@@ -78,6 +79,8 @@ type KanikoOptions struct {
 	KanikoDir                    string
 	Target                       []string
 	CacheRepo                    string
+	CacheFrom                    []string
+	CacheTo                      []string
 	DigestFile                   string
 	ImageNameDigestFile          string
 	ImageNameTagDigestFile       string
@@ -108,6 +111,7 @@ type KanikoOptions struct {
 	Materialize                  bool
 	Secrets                      SecretOptions
 	Dryrun                       bool
+	RequireDigest                bool
 }
 
 type KanikoGitOptions struct {
@@ -229,6 +233,7 @@ type WarmerOptions struct {
 	DockerfilePath string
 	BuildArgs      multiArg
 	Dryrun         bool
+	RequireDigest  bool
 }
 
 func EnvBool(key string) bool {

@@ -366,7 +366,7 @@ COPY --from=second /bar /bat
 			if err != nil {
 				t.Errorf("Failed to parse stages to Kaniko Stages: %s", err)
 			}
-			got, err := CalculateDependencies(kanikoStages, opts)
+			got, _, err := CalculateDependencies(kanikoStages, opts)
 			if err != nil {
 				t.Errorf("got error: %s,", err)
 			}
@@ -540,14 +540,14 @@ func TestInitializeConfig(t *testing.T) {
 
 func Test_newLayerCache_defaultCache(t *testing.T) {
 	t.Run("default layer cache is registry cache", func(t *testing.T) {
-		layerCache := NewLayerCache(&config.KanikoOptions{CacheRepo: "some-cache-repo"})
-		foundCache, ok := layerCache.(*cache.RegistryCache)
+		layerCache := NewLayerCache(&config.KanikoOptions{CacheFrom: []string{"some-cache-repo"}})
+		foundCache, ok := layerCache.(cache.Sources)[0].(*cache.RegistryCache)
 		if !ok {
 			t.Error("expected layer cache to be a registry cache")
 		}
-		if foundCache.Opts.CacheRepo != "some-cache-repo" {
+		if foundCache.Repo != "some-cache-repo" {
 			t.Errorf(
-				"expected cache repo to be 'some-cache-repo'; got %q", foundCache.Opts.CacheRepo,
+				"expected cache repo to be 'some-cache-repo'; got %q", foundCache.Repo,
 			)
 		}
 	})
@@ -555,14 +555,14 @@ func Test_newLayerCache_defaultCache(t *testing.T) {
 
 func Test_newLayerCache_layoutCache(t *testing.T) {
 	t.Run("when cache repo has 'oci:' prefix layer cache is layout cache", func(t *testing.T) {
-		layerCache := NewLayerCache(&config.KanikoOptions{CacheRepo: "oci:/some-cache-repo"})
-		foundCache, ok := layerCache.(*cache.LayoutCache)
+		layerCache := NewLayerCache(&config.KanikoOptions{CacheFrom: []string{"oci:/some-cache-repo"}})
+		foundCache, ok := layerCache.(cache.Sources)[0].(*cache.LayoutCache)
 		if !ok {
 			t.Error("expected layer cache to be a layout cache")
 		}
-		if foundCache.Opts.CacheRepo != "oci:/some-cache-repo" {
+		if foundCache.Repo != "oci:/some-cache-repo" {
 			t.Errorf(
-				"expected cache repo to be 'oci:/some-cache-repo'; got %q", foundCache.Opts.CacheRepo,
+				"expected cache repo to be 'oci:/some-cache-repo'; got %q", foundCache.Repo,
 			)
 		}
 	})
@@ -926,7 +926,7 @@ func Test_stageBuilder_build(t *testing.T) {
 			return testcase{
 				description:       "fake command cache enabled but key not in cache",
 				config:            &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
-				opts:              &config.KanikoOptions{Cache: true},
+				opts:              &config.KanikoOptions{Cache: true, CacheTo: []string{"some-cache-repo"}},
 				expectedCacheKeys: []string{hash},
 				pushedCacheKeys:   []string{hash},
 				commands:          []commands.DockerCommand{command},
@@ -1044,6 +1044,7 @@ func Test_stageBuilder_build(t *testing.T) {
 				DockerfilePath:  f.Name(),
 				Cache:           true,
 				CacheCopyLayers: true,
+				CacheTo:         []string{"some-cache-repo"},
 			}
 			testStages, metaArgs, err := dockerfile.ParseStages(opts)
 			if err != nil {
@@ -1109,6 +1110,7 @@ COPY %s foo.txt
 				DockerfilePath:  f.Name(),
 				Cache:           true,
 				CacheCopyLayers: true,
+				CacheTo:         []string{"some-cache-repo"},
 			}
 
 			testStages, metaArgs, err := dockerfile.ParseStages(opts)
@@ -1201,7 +1203,7 @@ COPY %s bar.txt
 			cmds := stage.Commands
 			return testcase{
 				description: "cached run command followed by uncached copy command results in consistent read and write hashes",
-				opts:        &config.KanikoOptions{Cache: true, CacheCopyLayers: true, CacheRunLayers: true},
+				opts:        &config.KanikoOptions{Cache: true, CacheCopyLayers: true, CacheRunLayers: true, CacheTo: []string{"some-cache-repo"}},
 				rootDir:     dir,
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: destDir}},
 				layerCache: &fakeLayerCache{
@@ -1392,7 +1394,7 @@ RUN foobar
 			return testcase{
 				description: "cached run command with another build arg pushes layer",
 				config:      &v1.ConfigFile{Config: v1.Config{WorkingDir: dir}},
-				opts:        &config.KanikoOptions{Cache: true},
+				opts:        &config.KanikoOptions{Cache: true, CacheTo: []string{"some-cache-repo"}},
 				args: map[string]string{
 					"arg": "anotherValue",
 				},
@@ -1485,7 +1487,7 @@ RUN foobar
 			if err != nil {
 				t.Errorf("failed to optimize instructions: %v", err)
 			}
-			_, err = sb.build(*compositeKey, tc.opts, util.FileContext{}, snap, tc.crossStageDeps, map[int]string{}, nil, lc, ci)
+			_, err = sb.build(*compositeKey, tc.opts, util.FileContext{}, snap, tc.crossStageDeps, nil, map[int]string{}, nil, lc, ci)
 			if err != nil {
 				t.Errorf("Expected error to be nil but was %v", err)
 			}

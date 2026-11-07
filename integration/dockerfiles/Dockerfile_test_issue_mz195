@@ -1,4 +1,4 @@
-FROM debian:12.10 AS first-stage
+FROM debian:13.7 AS first-stage
 
 FROM first-stage AS second-stage
 
@@ -14,5 +14,5 @@ COPY --from=third-stage test test
 
 # When we optimize stages out this should not
 # impact squashing logic at all
-FROM debian:12.10 AS noise
+FROM debian:13.7 AS noise
 FROM fourth-stage AS fifth-stage

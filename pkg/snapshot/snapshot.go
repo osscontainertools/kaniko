@@ -38,14 +38,21 @@ var snapshotPathPrefix = ""
 
 // Snapshotter holds the root directory from which to take snapshots, and a list of snapshots taken
 type Snapshotter struct {
-	l          *LayeredMap
-	directory  string
-	ignorelist []util.IgnoreListEntry
+	l           *LayeredMap
+	directory   string
+	ignorelist  []util.IgnoreListEntry
+	synced      bool
+	hashWorkers int
 }
 
 // NewSnapshotter creates a new snapshotter rooted at d
-func NewSnapshotter(l *LayeredMap, d string) *Snapshotter {
-	return &Snapshotter{l: l, directory: d, ignorelist: util.IgnoreList()}
+func NewSnapshotter(l *LayeredMap, d string, hashWorkers int) *Snapshotter {
+	return &Snapshotter{l: l, directory: d, ignorelist: util.IgnoreList(), hashWorkers: hashWorkers}
+}
+
+func (s *Snapshotter) Reset() {
+	s.l = NewLayeredMap(s.l.hasher)
+	s.synced = false
 }
 
 // Init initializes a new snapshotter
@@ -54,7 +61,11 @@ func (s *Snapshotter) Init() error {
 	assert.Assert("snapshot.init.directory-set", s.directory != "", "Snapshotter.Init: directory must be non-empty")
 	logrus.Info("Initializing snapshotter ...")
 	_, _, err := s.scanFullFilesystem()
-	return err
+	if err != nil {
+		return err
+	}
+	s.synced = true
+	return nil
 }
 
 // TakeSnapshot takes a snapshot of the specified files, avoiding directories in the ignorelist, and creates
@@ -86,17 +97,20 @@ func (s *Snapshotter) TakeSnapshot(files []string, shdCheckDelete bool) (string,
 
 	// Add files to current layer.
 	for _, file := range filesToAdd {
-		if err := s.l.Add(file); err != nil {
+		hash, err := s.l.hasher(file)
+		if err != nil {
 			return "", nil, nil, fmt.Errorf("unable to add file %s to layered map: %w", file, err)
 		}
+		s.l.Add(file, hash)
 	}
 
 	// Get whiteout paths
 	var filesToWhiteout []string
 	if shdCheckDelete {
-		_, deletedFiles, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), func(_ string) (bool, error) {
-			return true, nil
-		})
+		assert.Assert("snapshot.takesnapshot.synced", s.synced, "Snapshotter.TakeSnapshot: layered map must be synced with the filesystem before detecting deletes")
+		_, _, deletedFiles, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), func(_ string) (string, bool, error) {
+			return "", true, nil
+		}, 0)
 		if err != nil {
 			return "", nil, nil, err
 		}
@@ -143,6 +157,7 @@ func (s *Snapshotter) TakeSnapshotFS() (string, []string, []string, error) {
 	if err != nil {
 		return "", nil, nil, err
 	}
+	s.synced = true
 
 	if err := writeToTar(t, filesToAdd, filesToWhiteOut); err != nil {
 		return "", nil, nil, err
@@ -189,7 +204,11 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 
 	logrus.Debugf("Current image filesystem: %v", s.l.currentImage)
 
-	changedPaths, deletedPaths, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), s.l.CheckFileChange)
+	workers := 0
+	if config.FF.ParallelHash {
+		workers = s.hashWorkers
+	}
+	changedPaths, hashes, deletedPaths, err := util.WalkFS(s.directory, s.l.GetCurrentPaths(), s.l.CheckFileChange, workers)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -215,9 +234,15 @@ func (s *Snapshotter) scanFullFilesystem() ([]string, []string, error) {
 
 	// Add files to the layered map
 	for _, file := range filesToAdd {
-		if err := s.l.Add(file); err != nil {
-			return nil, nil, fmt.Errorf("unable to add file %s to layered map: %w", file, err)
+		hash, ok := hashes[file]
+		if !ok {
+			var err error
+			hash, err = s.l.hasher(file)
+			if err != nil {
+				return nil, nil, fmt.Errorf("unable to add file %s to layered map: %w", file, err)
+			}
 		}
+		s.l.Add(file, hash)
 	}
 	for file := range deletedPaths {
 		if err := s.l.AddDelete(file); err != nil {

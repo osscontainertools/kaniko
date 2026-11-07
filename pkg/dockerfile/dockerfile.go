@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/moby/buildkit/frontend/dockerfile/linter"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
@@ -375,6 +376,12 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		} else if baseImageStoredLocally {
 			onBuild = getOnBuild(stages[baseImageIndex].Commands)
 		} else {
+			if opts.RequireDigest {
+				_, err = name.NewDigest(stage.BaseName)
+				if err != nil {
+					return nil, fmt.Errorf("stage %d: --require-digest: %w", i, err)
+				}
+			}
 			onBuild, baseImageDigest, err = GetRemoteOnBuild(stage.BaseName, metaArgs, opts)
 			if err != nil {
 				return nil, err

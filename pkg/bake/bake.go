@@ -32,6 +32,8 @@ import (
 type Target struct {
 	Target      string   `hcl:"target"`
 	Destination []string `hcl:"destination"`
+	CacheFrom   []string `hcl:"cache_from"`
+	CacheTo     []string `hcl:"cache_to"`
 }
 
 type Bakefile struct {
@@ -42,6 +44,8 @@ type ResolvedTarget struct {
 	ID          string
 	Stage       string
 	Destination []string
+	CacheFrom   []string
+	CacheTo     []string
 }
 
 func Parse(path string) (*Bakefile, error) {
@@ -80,7 +84,7 @@ func parse(data []byte) (*Bakefile, error) {
 
 var (
 	topKeys    = []string{"target"}
-	targetKeys = []string{"target", "destination"}
+	targetKeys = []string{"target", "destination", "cache_from", "cache_to"}
 )
 
 // Keys a docker-bake.hcl would use. The bakefile keeps kaniko's own vocabulary, so
@@ -92,6 +96,8 @@ var bakeHints = map[string]string{
 	"args":       "use the --build-arg flag",
 	"platforms":  "use the --custom-platform flag",
 	"inherits":   "which is not supported",
+	"cache-from": "use cache_from",
+	"cache-to":   "use cache_to",
 }
 
 func validate(list *ast.ObjectList) error {
@@ -204,7 +210,7 @@ func (b *Bakefile) Resolve(selected []string) ([]ResolvedTarget, error) {
 		if stage == "" {
 			stage = id
 		}
-		resolved = append(resolved, ResolvedTarget{ID: id, Stage: stage, Destination: t.Destination})
+		resolved = append(resolved, ResolvedTarget{ID: id, Stage: stage, Destination: t.Destination, CacheFrom: t.CacheFrom, CacheTo: t.CacheTo})
 	}
 	return resolved, nil
 }
@@ -233,6 +239,8 @@ func ApplyOverrides(targets []ResolvedTarget, overrides []Override) error {
 		idx[t.ID] = i
 	}
 	dests := map[int][]string{}
+	froms := map[int][]string{}
+	tos := map[int][]string{}
 	for _, o := range overrides {
 		i, ok := idx[o.Target]
 		if !ok {
@@ -241,12 +249,22 @@ func ApplyOverrides(targets []ResolvedTarget, overrides []Override) error {
 		switch o.Field {
 		case "destination":
 			dests[i] = append(dests[i], o.Value)
+		case "cache_from":
+			froms[i] = append(froms[i], o.Value)
+		case "cache_to":
+			tos[i] = append(tos[i], o.Value)
 		default:
 			return fmt.Errorf("--set field %q is not supported", o.Field)
 		}
 	}
 	for i, d := range dests {
 		targets[i].Destination = d
+	}
+	for i, f := range froms {
+		targets[i].CacheFrom = f
+	}
+	for i, t := range tos {
+		targets[i].CacheTo = t
 	}
 	return nil
 }

@@ -48,6 +48,8 @@ New behavior that would change kaniko's output or semantics must ship behind a f
 The code in this repo should follow best practices, specifically:
 
 - [Go code review comments](https://go.dev/wiki/CodeReviewComments)
+- [docs/principles.md](docs/principles.md)
+- [docs/coding-guidelines.md](docs/coding-guidelines.md)
 
 ## Finding something to work on
 

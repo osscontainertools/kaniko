@@ -1,4 +1,4 @@
-FROM alpine:3.11 AS base
+FROM alpine:3.24.3 AS base
 RUN echo base > /base
 
 FROM base AS app

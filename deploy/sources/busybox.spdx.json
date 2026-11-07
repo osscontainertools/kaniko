@@ -5,7 +5,7 @@
   "name": "busybox",
   "documentNamespace": "https://github.com/osscontainertools/kaniko/deploy/sources/busybox.spdx.json",
   "creationInfo": {
-    "created": "2026-10-20T00:00:00Z",
+    "created": "2026-10-25T00:00:00Z",
     "creators": ["Organization: OSS Container Tools"]
   },
   "packages": [
@@ -26,10 +26,11 @@
       }]
     },
     {
-      "SPDXID": "SPDXRef-docker-library-busybox",
-      "name": "docker-library-busybox",
+      "SPDXID": "SPDXRef-docker-library-busybox-builder",
+      "name": "docker-library-busybox-builder",
       "versionInfo": "fd0ca34e75d3f1aba2da4955a0f8e049aba8f7fe",
-      "downloadLocation": "git+https://github.com/docker-library/busybox@fd0ca34e75d3f1aba2da4955a0f8e049aba8f7fe",
+      "downloadLocation": "https://raw.githubusercontent.com/docker-library/busybox/fd0ca34e75d3f1aba2da4955a0f8e049aba8f7fe/latest/musl/Dockerfile.builder",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "072c8603576e36a730235440b4d48609a3b7b8c6cf8882e65d278c363fdf2b07"}],
       "licenseConcluded": "Apache-2.0",
       "licenseDeclared": "Apache-2.0",
       "copyrightText": "NOASSERTION",
@@ -37,7 +38,39 @@
       "externalRefs": [{
         "referenceCategory": "PACKAGE-MANAGER",
         "referenceType": "purl",
-        "referenceLocator": "pkg:github/docker-library/busybox@fd0ca34e75d3f1aba2da4955a0f8e049aba8f7fe"
+        "referenceLocator": "pkg:github/docker-library/busybox@fd0ca34e75d3f1aba2da4955a0f8e049aba8f7fe#latest/musl/Dockerfile.builder"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-docker-library-busybox-no-cbq.patch",
+      "name": "docker-library-busybox-no-cbq.patch",
+      "versionInfo": "fd0ca34e75d3f1aba2da4955a0f8e049aba8f7fe",
+      "downloadLocation": "https://raw.githubusercontent.com/docker-library/busybox/fd0ca34e75d3f1aba2da4955a0f8e049aba8f7fe/.patches/no-cbq.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "8451446ee0c7128f3eaca0322f113dadc11d1c05f616f6543a77908648f50785"}],
+      "licenseConcluded": "GPL-2.0-only",
+      "licenseDeclared": "GPL-2.0-only",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/docker-library/busybox@fd0ca34e75d3f1aba2da4955a0f8e049aba8f7fe#.patches/no-cbq.patch"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-docker-library-busybox-hackfix-to-disable-HW-acceleration-for-MD5-SHA1-on-x86.patch",
+      "name": "docker-library-busybox-hackfix-to-disable-HW-acceleration-for-MD5-SHA1-on-x86.patch",
+      "versionInfo": "fd0ca34e75d3f1aba2da4955a0f8e049aba8f7fe",
+      "downloadLocation": "https://raw.githubusercontent.com/docker-library/busybox/fd0ca34e75d3f1aba2da4955a0f8e049aba8f7fe/.patches/hackfix-to-disable-HW-acceleration-for-MD5-SHA1-on-x86.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "2371dab4d540b155ca248702a104b27b47844ed9dad31cdabef6d07dcb7c193f"}],
+      "licenseConcluded": "GPL-2.0-only",
+      "licenseDeclared": "GPL-2.0-only",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/docker-library/busybox@fd0ca34e75d3f1aba2da4955a0f8e049aba8f7fe#.patches/hackfix-to-disable-HW-acceleration-for-MD5-SHA1-on-x86.patch"
       }]
     },
     {
@@ -54,6 +87,374 @@
         "referenceCategory": "PACKAGE-MANAGER",
         "referenceType": "purl",
         "referenceLocator": "pkg:generic/musl@1.2.5-r23?distro=alpine-3.23.6&checksum=sha256:a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4&download_url=https://distfiles.alpinelinux.org/distfiles/v3.23/musl-1.2.5.tar.gz&vcs_url=git+https://gitlab.alpinelinux.org/alpine/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-APKBUILD",
+      "name": "musl-aports-APKBUILD",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/APKBUILD",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "29c85021c46eb31c3f0cb2b1c22b79c47a7396413769ca921d606af4995250c4"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/APKBUILD"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-handle-aux-at-base.patch",
+      "name": "musl-aports-handle-aux-at_base.patch",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/handle-aux-at_base.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "2a65e03b94217063d72fe998e5fb2e25cd01716078a3ba1b0ab574ab205111e6"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/handle-aux-at_base.patch"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-isatty-glibc-align.patch",
+      "name": "musl-aports-isatty-glibc-align.patch",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/isatty-glibc-align.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "1321d542b40921a4c248bb2d15dbd03fcbbf008c8725eb2043d3cab62faeba48"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/isatty-glibc-align.patch"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-ldso-fix-non-functional-fix-to-early-dynamic-PAGE-SI.patch",
+      "name": "musl-aports-ldso-fix-non-functional-fix-to-early-dynamic-PAGE_SI.patch",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/ldso-fix-non-functional-fix-to-early-dynamic-PAGE_SI.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "7f5806124d4a89536e53a07bfe95fcd0a8f1b7a27fc0dfc89c78c724dea1c924"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/ldso-fix-non-functional-fix-to-early-dynamic-PAGE_SI.patch"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-loongarch64-Add-lsx-and-lasx-vector-structure-defini.patch",
+      "name": "musl-aports-loongarch64-Add-lsx-and-lasx-vector-structure-defini.patch",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/loongarch64-Add-lsx-and-lasx-vector-structure-defini.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "28efacd507c01b89e1725ed33723f3f9fdfe6cb83eb78ffea1e2acb7fda8a52c"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/loongarch64-Add-lsx-and-lasx-vector-structure-defini.patch"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-loongarch64-add-TLSDESC-support.patch",
+      "name": "musl-aports-loongarch64-add-TLSDESC-support.patch",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/loongarch64-add-TLSDESC-support.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "1efb4604e0b28b84e10faf37d17bad448510e73f6a3db89c8be47d38b9e85138"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/loongarch64-add-TLSDESC-support.patch"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-loongarch64-add-fpu-and-simd-context-to-signal.h.patch",
+      "name": "musl-aports-loongarch64-add-fpu-and-simd-context-to-signal.h.patch",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/loongarch64-add-fpu-and-simd-context-to-signal.h.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "d73f85a90fe52930dd8b5d16cb7f3369a994918c0e41ae3c3dc9a25df4b45099"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/loongarch64-add-fpu-and-simd-context-to-signal.h.patch"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-loongarch64-add-bits-hwcap.h.patch",
+      "name": "musl-aports-loongarch64-add-bits-hwcap.h.patch",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/loongarch64-add-bits-hwcap.h.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "8849080b49dff046b1f29db24e54ffe6262b5884078091994db77efdafca2505"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/loongarch64-add-bits-hwcap.h.patch"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-LoongArch64-add-new-reloc-types-and-NT-LOONGARCH-HW-.patch",
+      "name": "musl-aports-LoongArch64-add-new-reloc-types-and-NT_LOONGARCH_HW_.patch",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/LoongArch64-add-new-reloc-types-and-NT_LOONGARCH_HW_.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "8a9b516a62b5d7f2fd739ac4f67080a6a9137a1074429e23be5d5b69e5cc4280"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/LoongArch64-add-new-reloc-types-and-NT_LOONGARCH_HW_.patch"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-CVE-2025-26519.patch",
+      "name": "musl-aports-CVE-2025-26519.patch",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/CVE-2025-26519.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "ab382da2bb5e1cc32d8904be28fb13f8ad3ce813967bd4bf7f5b1c6baee33e17"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/CVE-2025-26519.patch"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-stdio-skip-empty-iovec-when-buffering-is-disabled.patch",
+      "name": "musl-aports-stdio-skip-empty-iovec-when-buffering-is-disabled.patch",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/stdio-skip-empty-iovec-when-buffering-is-disabled.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "7b405d6faf271cf13b415bc9688c1fbd728510fdef25d134fbd4a1b93db83e18"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/stdio-skip-empty-iovec-when-buffering-is-disabled.patch"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-backport-posix-getdents.patch",
+      "name": "musl-aports-backport-posix_getdents.patch",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/backport-posix_getdents.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "b49cee4c3c095a30855d788cccb84436868e5c568f821967437c73004f330025"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/backport-posix_getdents.patch"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-0001-add-stub-for-pthread-mutexattr-setprioceiling.patch",
+      "name": "musl-aports-0001-add-stub-for-pthread_mutexattr_setprioceiling.patch",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/0001-add-stub-for-pthread_mutexattr_setprioceiling.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "b2067680c66af9eb9f4fdc1fa5d9337a9fd62bdab2c437b416aa97d79eb884ee"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/0001-add-stub-for-pthread_mutexattr_setprioceiling.patch"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-s390x-dont-allow-br-r0-in-crtjmp.patch",
+      "name": "musl-aports-s390x-dont-allow-br-r0-in-crtjmp.patch",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/s390x-dont-allow-br-r0-in-crtjmp.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "3568d09f086e1d8957542d195e7a5f14d17ae8805e4d793fd30a3b331eafe537"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/s390x-dont-allow-br-r0-in-crtjmp.patch"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-fix-loongarch64-zero-len-extcontext.patch",
+      "name": "musl-aports-fix-loongarch64-zero-len-extcontext.patch",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/fix-loongarch64-zero-len-extcontext.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "92c8e965798ed516c15cb2a4e7c4ac45ec1eb68b6abff16c73adff2a3bae1b14"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/fix-loongarch64-zero-len-extcontext.patch"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-NR-riscv-hwprobe.patch",
+      "name": "musl-aports-__NR_riscv_hwprobe.patch",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/__NR_riscv_hwprobe.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "8dc4d0771e915149a3b75205e4611f0093a57f1fe0f8365362c697dbec83655c"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/__NR_riscv_hwprobe.patch"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-CVE-2026-6042.patch",
+      "name": "musl-aports-CVE-2026-6042.patch",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/CVE-2026-6042.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "1d0be2e72b9d5bd16546b923aa8af861d271322f01644716a81823bec4065c99"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/CVE-2026-6042.patch"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-CVE-2026-40200.patch",
+      "name": "musl-aports-CVE-2026-40200.patch",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/CVE-2026-40200.patch",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "1ee29f64f9ca8e8ad7c349779d661ff6b52126a27575d3586981357a52c406fb"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/CVE-2026-40200.patch"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-ldconfig",
+      "name": "musl-aports-ldconfig",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/ldconfig",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "7065021e04a5060957b5c6907af671a7028230d91927fb0c25892cadd9312b7c"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/ldconfig"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-stack-chk-fail-local.c",
+      "name": "musl-aports-__stack_chk_fail_local.c",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/__stack_chk_fail_local.c",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "299a7d75a09de3e2e11e7fb4acc3182e4a14e868093d2f30938fce9bfcff13da"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/__stack_chk_fail_local.c"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-getconf.c",
+      "name": "musl-aports-getconf.c",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/getconf.c",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "d87d0cbb3690ae2c5d8cc218349fd8278b93855dd625deaf7ae50e320aad247c"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/getconf.c"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-getent.c",
+      "name": "musl-aports-getent.c",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/getent.c",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "a6171c2db641cdd99c164169d3c5c6ca323617483cedec4cbbe3eb39c5834df0"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/getent.c"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-musl-aports-iconv.c",
+      "name": "musl-aports-iconv.c",
+      "versionInfo": "1.2.5-r23",
+      "downloadLocation": "https://raw.githubusercontent.com/alpinelinux/aports/258256b3380c945961196d5dd80c9a0c3ae1b0d8/main/musl/iconv.c",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "f79a2930a2e5bb0624321589edf8b889d1e9b603e01e6b7ae214616605b3fdd7"}],
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:github/alpinelinux/aports@258256b3380c945961196d5dd80c9a0c3ae1b0d8#main/musl/iconv.c"
       }]
     },
     {
@@ -76,8 +477,33 @@
   "relationships": [
     {"spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES", "relatedSpdxElement": "SPDXRef-busybox"},
     {"spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES", "relatedSpdxElement": "SPDXRef-getconf"},
-    {"spdxElementId": "SPDXRef-docker-library-busybox", "relationshipType": "BUILD_DEPENDENCY_OF", "relatedSpdxElement": "SPDXRef-busybox"},
+    {"spdxElementId": "SPDXRef-docker-library-busybox-builder", "relationshipType": "BUILD_DEPENDENCY_OF", "relatedSpdxElement": "SPDXRef-busybox"},
+    {"spdxElementId": "SPDXRef-docker-library-busybox-no-cbq.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-busybox"},
+    {"spdxElementId": "SPDXRef-docker-library-busybox-hackfix-to-disable-HW-acceleration-for-MD5-SHA1-on-x86.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-busybox"},
     {"spdxElementId": "SPDXRef-busybox", "relationshipType": "STATIC_LINK", "relatedSpdxElement": "SPDXRef-musl"},
-    {"spdxElementId": "SPDXRef-getconf", "relationshipType": "STATIC_LINK", "relatedSpdxElement": "SPDXRef-musl"}
+    {"spdxElementId": "SPDXRef-getconf", "relationshipType": "STATIC_LINK", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-APKBUILD", "relationshipType": "BUILD_DEPENDENCY_OF", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-handle-aux-at-base.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-isatty-glibc-align.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-ldso-fix-non-functional-fix-to-early-dynamic-PAGE-SI.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-loongarch64-Add-lsx-and-lasx-vector-structure-defini.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-loongarch64-add-TLSDESC-support.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-loongarch64-add-fpu-and-simd-context-to-signal.h.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-loongarch64-add-bits-hwcap.h.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-LoongArch64-add-new-reloc-types-and-NT-LOONGARCH-HW-.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-CVE-2025-26519.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-stdio-skip-empty-iovec-when-buffering-is-disabled.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-backport-posix-getdents.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-0001-add-stub-for-pthread-mutexattr-setprioceiling.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-s390x-dont-allow-br-r0-in-crtjmp.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-fix-loongarch64-zero-len-extcontext.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-NR-riscv-hwprobe.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-CVE-2026-6042.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-CVE-2026-40200.patch", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-ldconfig", "relationshipType": "BUILD_DEPENDENCY_OF", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-stack-chk-fail-local.c", "relationshipType": "BUILD_DEPENDENCY_OF", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-getconf.c", "relationshipType": "BUILD_DEPENDENCY_OF", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-getent.c", "relationshipType": "BUILD_DEPENDENCY_OF", "relatedSpdxElement": "SPDXRef-musl"},
+    {"spdxElementId": "SPDXRef-musl-aports-iconv.c", "relationshipType": "BUILD_DEPENDENCY_OF", "relatedSpdxElement": "SPDXRef-musl"}
   ]
 }

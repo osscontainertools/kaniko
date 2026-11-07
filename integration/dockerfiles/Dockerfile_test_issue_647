@@ -1,4 +1,5 @@
-FROM alpine:3.8 AS foo
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS foo
 RUN mkdir /foo
 WORKDIR /foo
 RUN mkdir some_dir
@@ -7,6 +8,6 @@ RUN chmod 777 some_dir
 RUN chmod 666 some_file
 RUN ls -l
 
-FROM alpine:3.8
+FROM ${IMAGE_REPO}busybox
 COPY --from=foo /foo /bar
 RUN ls -l /bar

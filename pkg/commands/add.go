@@ -89,6 +89,11 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		}
 	}
 
+	var chownOwner *util.Owner
+	if kConfig.FF.AddChownTar && a.cmd.Chown != "" {
+		chownOwner = owner
+	}
+
 	srcs, dest, err := util.ResolveEnvAndWildcards(a.cmd.SourcesAndDest, a.fileContext, replacementEnvs)
 	if err != nil {
 		return err
@@ -131,6 +136,11 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		defer os.RemoveAll(staging)
 	}
 
+	cwd := config.WorkingDir
+	if !filepath.IsAbs(cwd) {
+		cwd = filepath.Join(kConfig.RootDir, cwd)
+	}
+
 	var unresolvedSrcs []string
 	// If any of the sources are local tar archives:
 	// 	1. Unpack them to the specified destination
@@ -140,7 +150,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 	for _, src := range srcs {
 		fullPath := filepath.Join(a.fileContext.Root, src)
 		if util.IsSrcRemoteFileURL(src) {
-			urlDest, err := util.URLDestinationFilepath(src, dest, config.WorkingDir, replacementEnvs)
+			urlDest, err := util.URLDestinationFilepath(src, dest, cwd, replacementEnvs)
 			if err != nil {
 				return err
 			}
@@ -152,6 +162,12 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				if err != nil {
 					return fmt.Errorf("materializing link destination: %w", err)
 				}
+			} else if kConfig.FF.AddFollowSymlink {
+				urlDest, err = resolveIfSymlink(urlDest)
+				if err != nil {
+					return fmt.Errorf("resolving dest symlink: %w", err)
+				}
+				download = urlDest
 			}
 			logrus.Infof("Adding remote URL %s to %s", src, urlDest)
 			if err := util.DownloadFileToDest(src, download, owner, chmod.Apply(0o600), checksum); err != nil {
@@ -162,7 +178,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 			case !unpackRemote:
 				a.snapshotFiles = append(a.snapshotFiles, urlDest)
 			case util.IsFileTarArchive(download):
-				tarDest, err := util.DestinationFilepath("", dest, config.WorkingDir)
+				tarDest, err := util.DestinationFilepath("", dest, cwd)
 				if err != nil {
 					return fmt.Errorf("determining dest for tar: %w", err)
 				}
@@ -172,8 +188,19 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 						return fmt.Errorf("materializing link destination: %w", err)
 					}
 				}
+				if chownOwner != nil {
+					_, err := os.Stat(tarDest)
+					if os.IsNotExist(err) {
+						if err := util.MkdirAllWithPermissions(tarDest, 0o755, *chownOwner, true); err != nil {
+							return fmt.Errorf("creating tar destination directory: %w", err)
+						}
+						a.snapshotFiles = append(a.snapshotFiles, tarDest)
+					} else if err != nil {
+						return fmt.Errorf("checking tar destination: %w", err)
+					}
+				}
 				logrus.Infof("Unpacking remote archive %s to %s", src, tarDest)
-				extractedFiles, err := util.UnpackLocalTarArchive(download, tarDest)
+				extractedFiles, err := util.UnpackLocalTarArchive(download, tarDest, chownOwner)
 				if err != nil {
 					return fmt.Errorf("unpacking remote archive: %w", err)
 				}
@@ -195,7 +222,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 					if owner != nil {
 						dirOwner = *owner
 					}
-					if err := util.MkdirAllWithPermissions(parent, 0o755, dirOwner); err != nil {
+					if err := util.MkdirAllWithPermissions(parent, 0o755, dirOwner, false); err != nil {
 						return err
 					}
 				} else if err != nil {
@@ -217,7 +244,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 					return err
 				}
 			}
-			tarDest, err := util.DestinationFilepath("", dest, config.WorkingDir)
+			tarDest, err := util.DestinationFilepath("", dest, cwd)
 			if err != nil {
 				return fmt.Errorf("determining dest for tar: %w", err)
 			}
@@ -227,8 +254,19 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 					return fmt.Errorf("materializing link destination: %w", err)
 				}
 			}
+			if chownOwner != nil {
+				_, err := os.Stat(tarDest)
+				if os.IsNotExist(err) {
+					if err := util.MkdirAllWithPermissions(tarDest, 0o755, *chownOwner, true); err != nil {
+						return fmt.Errorf("creating tar destination directory: %w", err)
+					}
+					a.snapshotFiles = append(a.snapshotFiles, tarDest)
+				} else if err != nil {
+					return fmt.Errorf("checking tar destination: %w", err)
+				}
+			}
 			logrus.Infof("Unpacking local tar archive %s to %s", src, tarDest)
-			extractedFiles, err := util.UnpackLocalTarArchive(fullPath, tarDest)
+			extractedFiles, err := util.UnpackLocalTarArchive(fullPath, tarDest, chownOwner)
 			if err != nil {
 				return fmt.Errorf("unpacking local tar: %w", err)
 			}

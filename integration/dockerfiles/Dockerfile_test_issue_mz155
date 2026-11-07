@@ -1,4 +1,4 @@
-FROM debian:12.10 AS first-image
+FROM debian:13.7 AS first-image
 
 RUN mkdir -p /tmp/testdir \
     && echo "hello" > /tmp/testdir/file.txt \
@@ -25,7 +25,7 @@ RUN if ls -l /proc/1/exe | grep -q '/kaniko/executor'; then \
         echo "PID1 is not Kaniko, skipping check"; \
     fi
 
-FROM debian:12.10 AS second-image
+FROM debian:13.7 AS second-image
 
 COPY --from=first-image /tmp/testdir /tmp/testdir
 

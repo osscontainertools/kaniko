@@ -1,0 +1,24 @@
+FROM alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS app
+  FETCH alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+  UNPACK alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+RUN install
+  CACHE MISS: 4505832199e31afb00152819849fa5b6d6c29429f1137fd9eb988ce562f87428
+  UPLOAD example.com/app/cache/feature:4505832199e31afb00152819849fa5b6d6c29429f1137fd9eb988ce562f87428
+RUN build app
+  CACHE MISS: 73603ae50fa5510113ff22b9aa7a17d0d734a44f219aa83a33211b4177680c1f
+  UPLOAD example.com/app/cache/feature:73603ae50fa5510113ff22b9aa7a17d0d734a44f219aa83a33211b4177680c1f
+PUSH [example.com/app:latest]
+  UPLOAD sha256:55afa1ecc21d2bb5e5045f32dafee56272ffd89860bac26f6c32123439af26a4
+  MOUNT RUN install FROM example.com/app/cache/feature
+  MOUNT RUN build app FROM example.com/app/cache/feature
+FROM alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS tools
+  FETCH alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+  UNPACK alpine@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b
+RUN install
+  CACHE MISS: 4505832199e31afb00152819849fa5b6d6c29429f1137fd9eb988ce562f87428
+RUN build tools
+  CACHE MISS: da2bfe085b2ed21c8d27fb2f98d5fde281b9b6123c4d5928ce638799e8f42238
+PUSH [example.com/tools:latest]
+  UPLOAD sha256:55afa1ecc21d2bb5e5045f32dafee56272ffd89860bac26f6c32123439af26a4
+  UPLOAD RUN install
+  UPLOAD RUN build tools

@@ -1,4 +1,4 @@
-FROM debian:12.10
+FROM debian:13.7
 CMD ["command", "one"]
 CMD ["command", "two"]
 CMD echo "hello"

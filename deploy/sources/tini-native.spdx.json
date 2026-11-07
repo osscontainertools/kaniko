@@ -5,7 +5,7 @@
   "name": "tini",
   "documentNamespace": "https://github.com/osscontainertools/kaniko/deploy/sources/tini-native.spdx.json",
   "creationInfo": {
-    "created": "2026-10-20T00:00:00Z",
+    "created": "2026-10-25T00:00:00Z",
     "creators": ["Organization: OSS Container Tools"]
   },
   "packages": [
@@ -29,8 +29,8 @@
       "SPDXID": "SPDXRef-glibc",
       "name": "glibc",
       "versionInfo": "2.23-0ubuntu10",
-      "downloadLocation": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu10/glibc_2.23-0ubuntu10.dsc",
-      "checksums": [{"algorithm": "SHA256", "checksumValue": "422c3e17758e3378474bed63e2ed140364045c671f913fa99928a6eeff64adb6"}],
+      "downloadLocation": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu10/glibc_2.23.orig.tar.xz",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "bf6c528eeebefcacc295270068b79330c1fb2b22458ff66285b4175d23442c96"}],
       "licenseConcluded": "LGPL-2.1-or-later",
       "licenseDeclared": "LGPL-2.1-or-later",
       "copyrightText": "NOASSERTION",
@@ -38,12 +38,29 @@
       "externalRefs": [{
         "referenceCategory": "PACKAGE-MANAGER",
         "referenceType": "purl",
-        "referenceLocator": "pkg:generic/glibc@2.23-0ubuntu10?arch=source&distro=ubuntu-16.04&checksum=sha256:422c3e17758e3378474bed63e2ed140364045c671f913fa99928a6eeff64adb6&download_url=https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu10/glibc_2.23-0ubuntu10.dsc"
+        "referenceLocator": "pkg:generic/glibc@2.23-0ubuntu10?arch=source&distro=ubuntu-16.04&checksum=sha256:bf6c528eeebefcacc295270068b79330c1fb2b22458ff66285b4175d23442c96&download_url=https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu10/glibc_2.23.orig.tar.xz"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-glibc-ubuntu-patches",
+      "name": "glibc-ubuntu-patches",
+      "versionInfo": "2.23-0ubuntu10",
+      "downloadLocation": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu10/glibc_2.23-0ubuntu10.debian.tar.xz",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "4918baa16af87741a50aa349ebe12294f856d73bd052d8558f5385c0607fc05e"}],
+      "licenseConcluded": "LGPL-2.1-or-later",
+      "licenseDeclared": "LGPL-2.1-or-later",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:generic/glibc-ubuntu-patches@2.23-0ubuntu10?arch=source&distro=ubuntu-16.04&checksum=sha256:4918baa16af87741a50aa349ebe12294f856d73bd052d8558f5385c0607fc05e&download_url=https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu10/glibc_2.23-0ubuntu10.debian.tar.xz"
       }]
     }
   ],
   "relationships": [
     {"spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES", "relatedSpdxElement": "SPDXRef-tini"},
-    {"spdxElementId": "SPDXRef-tini", "relationshipType": "STATIC_LINK", "relatedSpdxElement": "SPDXRef-glibc"}
+    {"spdxElementId": "SPDXRef-tini", "relationshipType": "STATIC_LINK", "relatedSpdxElement": "SPDXRef-glibc"},
+    {"spdxElementId": "SPDXRef-glibc-ubuntu-patches", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-glibc"}
   ]
 }

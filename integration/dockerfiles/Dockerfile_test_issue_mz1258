@@ -1,0 +1,11 @@
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}alpine AS build
+RUN mkdir -p /src/sub && chmod 0751 /src/sub && echo a > /src/sub/a
+
+FROM ${IMAGE_REPO}alpine
+
+# mz1258: COPY of a directory keeps the mode of a subdirectory that already exists.
+# Diverges from buildkit on kaniko v1.28.6: buildkit gives the existing subdirectory
+# the source mode, kaniko replaces its owner but keeps its old mode.
+RUN mkdir -p /app/sub && chmod 0700 /app/sub
+COPY --from=build /src /app/

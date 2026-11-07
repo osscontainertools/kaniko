@@ -1,3 +1,5 @@
 # Tests extraction of symlink, hardlink and regular files to a path that is a non-empty directory
 ARG IMAGE_REPO
 FROM ${IMAGE_REPO}extraction-base-image:latest
+# Forces kaniko to unpack the base, a bare FROM reuses its layers untouched.
+RUN cat /reg /sym /hard && test -L /sym && test ! -d /reg && test ! -d /hard

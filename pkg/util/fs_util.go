@@ -20,6 +20,7 @@ import (
 	"archive/tar"
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -29,6 +30,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -44,6 +46,7 @@ import (
 	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
 	mode "github.com/tonistiigi/dchapes-mode"
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/unix"
 )
 
@@ -357,7 +360,7 @@ func removeAllSkipIgnored(path string) (skip bool, err error) {
 	return true, err
 }
 
-func UnTar(r io.Reader, dest string) ([]string, error) {
+func UnTar(r io.Reader, dest string, chownOwner *Owner) ([]string, error) {
 	var extractedFiles []string
 	tr := tar.NewReader(r)
 	for {
@@ -372,7 +375,7 @@ func UnTar(r io.Reader, dest string) ([]string, error) {
 		if cleanedName == "." && config.FF.UntarSkipRoot {
 			continue
 		}
-		if err := ExtractFile(dest, hdr, cleanedName, tr); err != nil {
+		if err := ExtractFileWithChown(dest, hdr, cleanedName, tr, chownOwner); err != nil {
 			return nil, err
 		}
 		extractedFiles = append(extractedFiles, filepath.Join(dest, cleanedName))
@@ -381,6 +384,10 @@ func UnTar(r io.Reader, dest string) ([]string, error) {
 }
 
 func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader) error {
+	return ExtractFileWithChown(dest, hdr, cleanedName, tr, nil)
+}
+
+func ExtractFileWithChown(dest string, hdr *tar.Header, cleanedName string, tr io.Reader, chownOwner *Owner) error {
 	if cleanedName == ".." || strings.HasPrefix(cleanedName, "../") {
 		return fmt.Errorf("tar entry %q is not allowed: references parent directory", hdr.Name)
 	}
@@ -411,10 +418,15 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		logrus.Debugf("Not adding %s because it is ignored", path)
 		return nil
 	}
-	if int64(hdr.Uid) > math.MaxUint32 || int64(hdr.Gid) > math.MaxUint32 {
-		return fmt.Errorf("user-id %d and group-id %d must fit a 32 bit id", hdr.Uid, hdr.Gid)
+	var owner Owner
+	if chownOwner != nil {
+		owner = *chownOwner
+	} else {
+		if int64(hdr.Uid) > math.MaxUint32 || int64(hdr.Gid) > math.MaxUint32 {
+			return fmt.Errorf("user-id %d and group-id %d must fit a 32 bit id", hdr.Uid, hdr.Gid)
+		}
+		owner = Owner{UID: uint32(hdr.Uid), GID: uint32(hdr.Gid)}
 	}
-	owner := Owner{UID: uint32(hdr.Uid), GID: uint32(hdr.Gid)}
 
 	switch hdr.Typeflag {
 	case tar.TypeReg:
@@ -448,7 +460,10 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 			return err
 		}
 
-		if _, err = io.Copy(currFile, tr); err != nil {
+		buf := copyBufPool.Get().(*[]byte)
+		defer copyBufPool.Put(buf)
+		// hide currFile's ReaderFrom, otherwise CopyBuffer ignores buf
+		if _, err = io.CopyBuffer(struct{ io.Writer }{currFile}, tr, *buf); err != nil {
 			return err
 		}
 
@@ -476,7 +491,7 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 				return fmt.Errorf("error removing symlink %s to make way for new directory: %w", path, err)
 			}
 		}
-		if err := MkdirAllWithPermissions(path, mode, owner); err != nil {
+		if err := MkdirAllWithPermissions(path, mode, owner, false); err != nil {
 			return err
 		}
 		// For existing directories, MkdirAll doesn't change the permissions, so run Chmod
@@ -487,13 +502,36 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 
 	case tar.TypeLink:
 		logrus.Tracef("Link from %s to %s", hdr.Linkname, path)
-		abs, err := filepath.Abs(hdr.Linkname)
-		if err != nil {
-			return err
+		if !config.FF.ConfineHardlinkTarget {
+			abs, err := filepath.Abs(hdr.Linkname)
+			if err != nil {
+				return err
+			}
+			if CheckCleanedPathAgainstIgnoreList(abs) {
+				logrus.Tracef("Skipping link from %s to %s because %s is ignored", hdr.Linkname, path, hdr.Linkname)
+				return nil
+			}
 		}
-		if CheckCleanedPathAgainstIgnoreList(abs) {
-			logrus.Tracef("Skipping link from %s to %s because %s is ignored", hdr.Linkname, path, hdr.Linkname)
-			return nil
+		var link string
+		if config.FF.ConfineHardlinkTarget {
+			cleanedLink := filepath.Clean(hdr.Linkname)
+			if cleanedLink == ".." || strings.HasPrefix(cleanedLink, "../") {
+				return fmt.Errorf("hardlink target %q is not allowed: references parent directory", hdr.Linkname)
+			}
+			resolved, err := securejoin.SecureJoin(dest, hdr.Linkname)
+			if err != nil {
+				return fmt.Errorf("invalid hardlink target %q: %w", hdr.Linkname, err)
+			}
+			absLink, err := filepath.Abs(resolved)
+			if err != nil {
+				return err
+			}
+			// SecureJoin follows symlinks, so an earlier entry can route Linkname into an ignored path.
+			if CheckCleanedPathAgainstIgnoreList(absLink) && !checkIgnoreListRoot(dest) {
+				logrus.Warnf("Skipping hardlink %s: its target %s resolves to ignored path %s", hdr.Name, hdr.Linkname, absLink)
+				return nil
+			}
+			link = resolved
 		}
 		// The base directory for a link may not exist before it is created.
 		if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -510,18 +548,24 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 				return nil
 			}
 		}
-		cleanedLink := filepath.Clean(hdr.Linkname)
-		if cleanedLink == ".." || strings.HasPrefix(cleanedLink, "../") {
-			return fmt.Errorf("hardlink target %q is not allowed: references parent directory", hdr.Linkname)
+		if !config.FF.ConfineHardlinkTarget {
+			cleanedLink := filepath.Clean(hdr.Linkname)
+			if cleanedLink == ".." || strings.HasPrefix(cleanedLink, "../") {
+				return fmt.Errorf("hardlink target %q is not allowed: references parent directory", hdr.Linkname)
+			}
+			resolved, err := securejoin.SecureJoin(dest, hdr.Linkname)
+			if err != nil {
+				return fmt.Errorf("invalid hardlink target %q: %w", hdr.Linkname, err)
+			}
+			link = resolved
 		}
-		var link string
-		resolved, err := securejoin.SecureJoin(dest, hdr.Linkname)
-		if err != nil {
-			return fmt.Errorf("invalid hardlink target %q: %w", hdr.Linkname, err)
-		}
-		link = resolved
 		if err := os.Link(link, path); err != nil {
 			return err
+		}
+		if chownOwner != nil {
+			if err := os.Lchown(path, int(owner.UID), int(owner.GID)); err != nil {
+				return err
+			}
 		}
 
 	case tar.TypeSymlink:
@@ -550,6 +594,11 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 		}
 		if err := os.Symlink(hdr.Linkname, path); err != nil {
 			return err
+		}
+		if chownOwner != nil {
+			if err := os.Lchown(path, int(owner.UID), int(owner.GID)); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -820,10 +869,10 @@ func CopyDir(src, dest string, context FileContext, owner *Owner, chmod mode.Set
 	if err != nil {
 		return nil, fmt.Errorf("copying dir: %w", err)
 	}
-	return copyDirInner(files, src, dest, context, owner, chmod, useDefaultChmod, false, true)
+	return copyDirInner(files, src, dest, context, owner, chmod, useDefaultChmod, false, true, config.FF.CopyKeepDestOwner)
 }
 
-func copyDirInner(files []string, src, dest string, context FileContext, owner *Owner, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool, collect bool) ([]string, error) {
+func copyDirInner(files []string, src, dest string, context FileContext, owner *Owner, chmod mode.Set, useDefaultChmod bool, skipIgnoreList bool, collect bool, keepDestOwner bool) ([]string, error) {
 	var copiedFiles []string
 	var updates []timestampUpdate
 	hardlinksSeen := make(map[hardlinkKey]string)
@@ -856,17 +905,17 @@ func copyDirInner(files []string, src, dest string, context FileContext, owner *
 				perm = chmod.Apply(fi.Mode()) & ^umask
 			}
 
-			if err := MkdirAllWithPermissions(destPath, perm, DetermineTargetFileOwnership(fi, owner)); err != nil {
+			if err := MkdirAllWithPermissions(destPath, perm, DetermineTargetFileOwnership(fi, owner), keepDestOwner); err != nil {
 				return nil, err
 			}
 			updates = append(updates, timestampUpdate{src: fi, dest: destPath})
 		} else if fi.IsDir() {
 			logrus.Tracef("Creating directory %s", destPath)
 
-			if err := MkdirAllWithPermissions(destPath, fi.Mode(), DetermineTargetFileOwnership(fi, owner)); err != nil {
+			if err := MkdirAllWithPermissions(destPath, fi.Mode(), DetermineTargetFileOwnership(fi, owner), false); err != nil {
 				return nil, err
 			}
-			if !useDefaultChmod {
+			if !useDefaultChmod || config.FF.CopySubdirMode {
 				// For existing directories, MkdirAll doesn't change the permissions, so run Chmod
 				// To force permissions into what is configured via the chmod parameter
 				if err = os.Chmod(destPath, chmod.Apply(fi.Mode())); err != nil {
@@ -998,7 +1047,7 @@ func CopyTree(src, dest string, context FileContext, skipIgnoreList bool) error 
 	if err != nil {
 		return err
 	}
-	_, err = copyDirInner(files, src, dest, context, nil, mode.Set{}, true, skipIgnoreList, false)
+	_, err = copyDirInner(files, src, dest, context, nil, mode.Set{}, true, skipIgnoreList, false, false)
 	return err
 }
 
@@ -1258,7 +1307,7 @@ func Volumes() []string {
 	return volumes
 }
 
-func MkdirAllWithPermissions(path string, mode os.FileMode, owner Owner) error {
+func MkdirAllWithPermissions(path string, mode os.FileMode, owner Owner, keepOwner bool) error {
 	// Check if a file already exists on the path, if yes then delete it
 	info, err := os.Lstat(path)
 	if err == nil && !info.IsDir() {
@@ -1269,6 +1318,9 @@ func MkdirAllWithPermissions(path string, mode os.FileMode, owner Owner) error {
 	}
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("error calling stat on %s: %w", path, err)
+	}
+	if keepOwner && err == nil && info.IsDir() {
+		return nil
 	}
 
 	var parents []string
@@ -1452,7 +1504,7 @@ func CopyPaths(srcRoot, dstRoot string, paths []string) error {
 			}
 		}
 	}
-	_, err := copyDirInner(files, srcRoot, dstRoot, FileContext{}, nil, mode.Set{}, true, true, false)
+	_, err := copyDirInner(files, srcRoot, dstRoot, FileContext{}, nil, mode.Set{}, true, true, false, false)
 	return err
 }
 
@@ -1590,21 +1642,25 @@ func InitIgnoreList() error {
 
 type walkFSResult struct {
 	filesAdded    []string
+	hashes        map[string]string
 	existingPaths map[string]struct{}
 	err           error
 }
 
 // WalkFS given a directory dir and list of existing files existingPaths,
-// returns a list of changed files determined by `changeFunc` and a list
-// of deleted files. Input existingPaths is changed inside this function and
-// returned as deleted files map.
+// returns a list of changed files determined by `changeFunc`, the hashes of
+// all walked files and a list of deleted files. Input existingPaths is changed
+// inside this function and returned as deleted files map.
 // It timesout after 90 mins which can be configured via setting an environment variable
 // SNAPSHOT_TIMEOUT in the kaniko pod definition.
+// With workers > 0 changeFunc runs on that many goroutines after the walk
+// (FF_KANIKO_PARALLEL_HASH), and must be safe for concurrent use.
 func WalkFS(
 	dir string,
 	existingPaths map[string]struct{},
-	changeFunc func(string) (bool, error),
-) ([]string, map[string]struct{}, error) {
+	changeFunc func(string) (string, bool, error),
+	workers int,
+) ([]string, map[string]string, map[string]struct{}, error) {
 	timeOutStr := os.Getenv(snapshotTimeout)
 	if timeOutStr == "" {
 		logrus.Tracef("Environment '%s' not set. Using default snapshot timeout '%s'", snapshotTimeout, defaultTimeout)
@@ -1619,25 +1675,27 @@ func WalkFS(
 	ch := make(chan walkFSResult, 1)
 
 	go func() {
-		filesAdded, existingPaths, err := gowalkDir(dir, existingPaths, changeFunc)
-		ch <- walkFSResult{filesAdded, existingPaths, err}
+		filesAdded, hashes, existingPaths, err := gowalkDir(dir, existingPaths, changeFunc, workers)
+		ch <- walkFSResult{filesAdded, hashes, existingPaths, err}
 	}()
 
 	// Listen on our channel AND a timeout channel - which ever happens first.
 	select {
 	case res := <-ch:
 		timer.End()
-		return res.filesAdded, res.existingPaths, res.err
+		return res.filesAdded, res.hashes, res.existingPaths, res.err
 	case <-time.After(timeOut):
 		timer.End()
 		logrus.Fatalf("Timed out snapshotting FS in %s", timeOutStr)
-		return nil, nil, fmt.Errorf("Timed out snapshotting FS in %s", timeOutStr)
+		return nil, nil, nil, fmt.Errorf("Timed out snapshotting FS in %s", timeOutStr)
 	}
 }
 
-func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(string) (bool, error)) ([]string, map[string]struct{}, error) {
+func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(string) (string, bool, error), workers int) ([]string, map[string]string, map[string]struct{}, error) {
 	foundPaths := make([]string, 0)
+	hashes := map[string]string{}
 	deletedFiles := existingPaths // Make a reference.
+	paths := make([]string, 0)
 
 	callback := func(path string, info fs.DirEntry, err error) error {
 		logrus.Tracef("Analyzing path '%s'", path)
@@ -1656,10 +1714,17 @@ func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(st
 		// File is existing on disk, remove it from deleted files.
 		delete(deletedFiles, path)
 
-		if isChanged, err := changeFunc(path); err != nil {
-			return err
-		} else if isChanged {
-			foundPaths = append(foundPaths, path)
+		if workers > 0 {
+			paths = append(paths, path)
+		} else {
+			hash, isChanged, err := changeFunc(path)
+			if err != nil {
+				return err
+			}
+			hashes[path] = hash
+			if isChanged {
+				foundPaths = append(foundPaths, path)
+			}
 		}
 
 		return nil
@@ -1667,10 +1732,53 @@ func gowalkDir(dir string, existingPaths map[string]struct{}, changeFunc func(st
 
 	err := fs.WalkDir(FSys, dir, callback)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	return foundPaths, deletedFiles, nil
+	if workers > 0 {
+		hashed, changed, err := runChangeFunc(paths, changeFunc, workers)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		hashes = make(map[string]string, len(paths))
+		for i, path := range paths {
+			hashes[path] = hashed[i]
+			if changed[i] {
+				foundPaths = append(foundPaths, path)
+			}
+		}
+	}
+
+	return foundPaths, hashes, deletedFiles, nil
+}
+
+// runChangeFunc calls changeFunc on every path with workers goroutines. It
+// returns, per index, the hash and whether the path changed, or the first
+// error any worker hit.
+func runChangeFunc(paths []string, changeFunc func(string) (string, bool, error), workers int) ([]string, []bool, error) {
+	hashed := make([]string, len(paths))
+	changed := make([]bool, len(paths))
+	var next atomic.Int64
+	g, ctx := errgroup.WithContext(context.Background())
+	for range min(workers, len(paths)) {
+		g.Go(func() error {
+			for ctx.Err() == nil {
+				i := next.Add(1) - 1
+				if i >= int64(len(paths)) {
+					return nil
+				}
+				hash, isChanged, err := changeFunc(paths[i])
+				if err != nil {
+					return err
+				}
+				hashed[i] = hash
+				changed[i] = isChanged
+			}
+			return nil
+		})
+	}
+	err := g.Wait()
+	return hashed, changed, err
 }
 
 // GetFSInfoMap given a directory gets a map of FileInfo for all files

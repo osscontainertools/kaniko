@@ -1,0 +1,15 @@
+# mz1175: through kaniko v1.29.0, ADD --chown was not applied to the entries of an extracted archive.
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
+RUN yes | adduser -u 1001 dev
+
+ADD --chown=dev:dev context/tars/file.tar.gz /local_gz/
+ADD --chown=1001:1001 context/tars/sys.tar.gz /local_sys/
+ADD --chown=1001:1001 context/tars/sys.tar.gz /nested/a/b/
+ADD --chown=1001:1001 context/tars/file.tar.gz /tmp/
+ADD --chown=1001:1001 --unpack=true https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz /remote/
+
+USER dev
+
+RUN mkdir /local_gz/new_dir
+RUN mkdir /local_sys/sys/fs/new_dir

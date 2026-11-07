@@ -27,8 +27,8 @@ var Tests = types.GoldenTests{
 			// example.com/img anyway.
 			Args: []string{"-d", "example.com/img:latest", "--cache", "--cache-repo", "example.com/cache"},
 			CachedKeys: []string{
-				"3da159ee0182e9c6251bd02915edc2b5be6f4f22a8119fcd25a71fb61b9fbcd1",
-				"62e7ee4103dd49492957774b4a6fedd82a693d8b89e3e67285bd6d3a98108b89",
+				"8328b762de0f48ec6cc90c110378e61ce0db514e86ab810971769b55975eabef",
+				"583d4732963f7897a17b5d92572eea389ce2b85cc21431f1df1999457e1cbe70",
 			},
 			Plan: "cache_hit",
 		},
@@ -44,8 +44,8 @@ var Tests = types.GoldenTests{
 			// not the blob the cache repo holds. These uploads must stay uploads.
 			Args: []string{"-d", "example.com/img:latest", "--cache", "--cache-repo", "example.com/cache", "--compression", "zstd"},
 			CachedKeys: []string{
-				"3da159ee0182e9c6251bd02915edc2b5be6f4f22a8119fcd25a71fb61b9fbcd1",
-				"62e7ee4103dd49492957774b4a6fedd82a693d8b89e3e67285bd6d3a98108b89",
+				"8328b762de0f48ec6cc90c110378e61ce0db514e86ab810971769b55975eabef",
+				"583d4732963f7897a17b5d92572eea389ce2b85cc21431f1df1999457e1cbe70",
 			},
 			CacheMediaType: "application/vnd.oci.image.layer.v1.tar+zstd",
 			Plan:           "rekeyed",
@@ -54,14 +54,14 @@ var Tests = types.GoldenTests{
 			// A layout cache has no repository to mount from.
 			Args: []string{"-d", "example.com/img:latest", "--cache", "--cache-repo", "oci:/cache"},
 			CachedKeys: []string{
-				"3da159ee0182e9c6251bd02915edc2b5be6f4f22a8119fcd25a71fb61b9fbcd1",
-				"62e7ee4103dd49492957774b4a6fedd82a693d8b89e3e67285bd6d3a98108b89",
+				"8328b762de0f48ec6cc90c110378e61ce0db514e86ab810971769b55975eabef",
+				"583d4732963f7897a17b5d92572eea389ce2b85cc21431f1df1999457e1cbe70",
 			},
 			Plan: "layout_cache",
 		},
 		{
 			// The docker gzip entries are relabeled into the oci image. The relabel keeps the
-			// digest, so they still mount.
+			// digest, so they still mount. The keys are the ones cache_hit looks up.
 			Args: []string{"-d", "example.com/img:latest", "--cache", "--cache-repo", "example.com/cache", "--image-format", "oci"},
 			CachedKeys: []string{
 				"8328b762de0f48ec6cc90c110378e61ce0db514e86ab810971769b55975eabef",

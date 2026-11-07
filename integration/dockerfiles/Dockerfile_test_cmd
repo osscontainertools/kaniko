@@ -1,4 +1,4 @@
-FROM debian:12 AS first
+FROM debian:13 AS first
 CMD ["mycmd"]
 FROM first AS nosquash
 FROM first AS final

@@ -41,6 +41,10 @@ import (
 	testissuemz1126 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1126"
 	testissuemz1128 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1128"
 	testissuemz1133 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1133"
+	testissuemz1212 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1212"
+	testissuemz1233 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1233"
+	testissuemz1346 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1346"
+	testissuemz1349 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1349"
 	testissuemz195 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz195"
 	testissuemz333 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz333"
 	testissuemz334 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz334"
@@ -56,6 +60,7 @@ import (
 	testunittests "github.com/osscontainertools/kaniko/golden/testdata/test_unittests"
 	testwarmer "github.com/osscontainertools/kaniko/golden/testdata/test_warmer"
 	"github.com/osscontainertools/kaniko/golden/types"
+	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/executor"
@@ -70,7 +75,7 @@ import (
 const cachePointerLabel = "kaniko.cache.pointer-target"
 
 type fakeLayerCache struct {
-	opts       *config.KanikoOptions
+	repo       string
 	cachedKeys []string
 	mediaType  ggcrtypes.MediaType
 }
@@ -111,10 +116,9 @@ func (f *fakeLayerCache) RetrieveLayer(key string) (v1.Image, error) {
 	}
 	var layer v1.Layer = &fakeLayer{key: key, mediaType: f.mediaType}
 	var tag name.Tag
-	dest, err := cache.Destination(f.opts, key)
-	remoteCache := err == nil && !strings.HasPrefix(dest, "oci:")
+	remoteCache := f.repo != "" && !strings.HasPrefix(f.repo, "oci:")
 	if remoteCache {
-		tag, err = name.NewTag(dest, name.WeakValidation)
+		tag, err = name.NewTag(cache.Ref(f.repo, key), name.WeakValidation)
 		remoteCache = err == nil
 	}
 	// Layers read through remote.Image are mountable, layers read from a layout are not.
@@ -167,20 +171,26 @@ var allTests = map[string][]types.GoldenTests{
 	"test_issue_mz989":  {testissuemz989.Tests},
 	"test_issue_mz1128": {testissuemz1128.Tests},
 	"test_issue_mz1133": {testissuemz1133.Tests},
+	"test_issue_mz1233": testissuemz1233.Tests,
+	"test_issue_mz1346": {testissuemz1346.Tests},
 	"test_unittests":    testunittests.Tests,
 }
 var update bool
 
 // sync with the Preview profile in README.md
 var previewEnv = map[string]string{
-	"FF_KANIKO_CACHE_IMAGE_INDEX":      "1",
-	"FF_KANIKO_COPY_LINK":              "1",
-	"FF_KANIKO_DEFER_CACHE_PUSH":       "1",
-	"FF_KANIKO_ISOLATE_CACHE_PUSH":     "1",
-	"FF_KANIKO_NATIVE_INIT":            "1",
-	"FF_KANIKO_RUN_HEREDOC_SCRIPT":     "1",
-	"FF_KANIKO_WARMER_BUILD_ARGS":      "1",
-	"FF_KANIKO_WARMER_PREDEFINED_ARGS": "1",
+	"FF_KANIKO_CACHE_COPY_FROM":              "1",
+	"FF_KANIKO_CACHE_IMAGE_INDEX":            "1",
+	"FF_KANIKO_COPY_KEEP_DEST_OWNER":         "1",
+	"FF_KANIKO_COPY_LINK":                    "1",
+	"FF_KANIKO_COPY_SUBDIR_MODE":             "1",
+	"FF_KANIKO_DEFER_CACHE_PUSH":             "1",
+	"FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY": "1",
+	"FF_KANIKO_ISOLATE_CACHE_PUSH":           "1",
+	"FF_KANIKO_NATIVE_INIT":                  "1",
+	"FF_KANIKO_RUN_HEREDOC_SCRIPT":           "1",
+	"FF_KANIKO_WARMER_BUILD_ARGS":            "1",
+	"FF_KANIKO_WARMER_PREDEFINED_ARGS":       "1",
 }
 
 func TestMain(m *testing.M) {
@@ -198,7 +208,19 @@ func renderPlan(t *testing.T, opts *config.KanikoOptions, test types.GoldenTest)
 	}
 	origNewLayerCache := executor.NewLayerCache
 	executor.NewLayerCache = func(opts *config.KanikoOptions) cache.LayerCache {
-		return &fakeLayerCache{opts: opts, cachedKeys: test.CachedKeys, mediaType: cacheMediaType}
+		if test.CachedKeysByRepo != nil {
+			sources := make(cache.Sources, 0, len(opts.CacheFrom))
+			for _, repo := range opts.CacheFrom {
+				sources = append(sources, &fakeLayerCache{repo: repo, cachedKeys: test.CachedKeysByRepo[repo], mediaType: cacheMediaType})
+			}
+			return sources
+		} else {
+			var repo string
+			if len(opts.CacheFrom) > 0 {
+				repo = opts.CacheFrom[0]
+			}
+			return &fakeLayerCache{repo: repo, cachedKeys: test.CachedKeys, mediaType: cacheMediaType}
+		}
 	}
 	t.Cleanup(func() { executor.NewLayerCache = origNewLayerCache })
 
@@ -269,6 +291,9 @@ func TestRun(t *testing.T) {
 								t.Fatal(err)
 							}
 							cmd.ValidateFlags(&opts)
+							if err := cmd.ApplyTarget(&opts, bake.ResolvedTarget{Destination: opts.Destinations, CacheFrom: opts.CacheFrom, CacheTo: opts.CacheTo}); err != nil {
+								t.Fatal(err)
+							}
 
 							output := renderPlan(t, &opts, test)
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), output)
@@ -281,7 +306,8 @@ func TestRun(t *testing.T) {
 }
 
 var bakeTests = map[string][]types.GoldenTests{
-	"test_bake": {testbake.Tests},
+	"test_bake":         {testbake.Tests},
+	"test_issue_mz1349": {testissuemz1349.Tests},
 }
 
 func TestBake(t *testing.T) {
@@ -330,8 +356,11 @@ func TestBake(t *testing.T) {
 
 							var output string
 							for _, target := range targets {
-								cmd.ApplyTarget(&opts, target)
-								output += renderPlan(t, &opts, test)
+								topts := opts
+								if err := cmd.ApplyTarget(&topts, target); err != nil {
+									t.Fatal(err)
+								}
+								output += renderPlan(t, &topts, test)
 							}
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), output)
 						})
@@ -345,6 +374,7 @@ func TestBake(t *testing.T) {
 var warmerTests = map[string][]types.GoldenTests{
 	"test_warmer":       {testwarmer.Tests},
 	"test_issue_mz1126": {testissuemz1126.Tests},
+	"test_issue_mz1212": {testissuemz1212.Tests},
 }
 
 // fakeRemoteImage derives the image and its index from its reference, so their digests are stable across runs.

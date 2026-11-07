@@ -1,0 +1,10 @@
+FROM scratch AS src
+RUN echo source
+SAVE FILES [/arg/f] /kaniko/deps/0
+CLEAN
+
+FROM scratch
+ARG FOO=first
+ENV FOO=env
+ARG FOO=arg
+COPY --from=src /$FOO/f /f

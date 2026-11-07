@@ -5,7 +5,7 @@
   "name": "tini",
   "documentNamespace": "https://github.com/osscontainertools/kaniko/deploy/sources/tini-cross.spdx.json",
   "creationInfo": {
-    "created": "2026-10-20T00:00:00Z",
+    "created": "2026-10-25T00:00:00Z",
     "creators": ["Organization: OSS Container Tools"]
   },
   "packages": [
@@ -29,8 +29,8 @@
       "SPDXID": "SPDXRef-glibc",
       "name": "glibc",
       "versionInfo": "2.23-0ubuntu3",
-      "downloadLocation": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu3/glibc_2.23-0ubuntu3.dsc",
-      "checksums": [{"algorithm": "SHA256", "checksumValue": "647f33e229b3d838ff72b3dcb80242d2c6c61ff93aa9798009962b9a21992260"}],
+      "downloadLocation": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu3/glibc_2.23.orig.tar.xz",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "bf6c528eeebefcacc295270068b79330c1fb2b22458ff66285b4175d23442c96"}],
       "licenseConcluded": "LGPL-2.1-or-later",
       "licenseDeclared": "LGPL-2.1-or-later",
       "copyrightText": "NOASSERTION",
@@ -38,15 +38,31 @@
       "externalRefs": [{
         "referenceCategory": "PACKAGE-MANAGER",
         "referenceType": "purl",
-        "referenceLocator": "pkg:generic/glibc@2.23-0ubuntu3?arch=source&distro=ubuntu-16.04&checksum=sha256:647f33e229b3d838ff72b3dcb80242d2c6c61ff93aa9798009962b9a21992260&download_url=https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu3/glibc_2.23-0ubuntu3.dsc"
+        "referenceLocator": "pkg:generic/glibc@2.23-0ubuntu3?arch=source&distro=ubuntu-16.04&checksum=sha256:bf6c528eeebefcacc295270068b79330c1fb2b22458ff66285b4175d23442c96&download_url=https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu3/glibc_2.23.orig.tar.xz"
+      }]
+    },
+    {
+      "SPDXID": "SPDXRef-glibc-ubuntu-patches",
+      "name": "glibc-ubuntu-patches",
+      "versionInfo": "2.23-0ubuntu3",
+      "downloadLocation": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu3/glibc_2.23-0ubuntu3.debian.tar.xz",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "5e01dd448c8d78e850661ca88f5009f19011b00c6a7031f7578fe09c330a41d3"}],
+      "licenseConcluded": "LGPL-2.1-or-later",
+      "licenseDeclared": "LGPL-2.1-or-later",
+      "copyrightText": "NOASSERTION",
+      "filesAnalyzed": false,
+      "externalRefs": [{
+        "referenceCategory": "PACKAGE-MANAGER",
+        "referenceType": "purl",
+        "referenceLocator": "pkg:generic/glibc-ubuntu-patches@2.23-0ubuntu3?arch=source&distro=ubuntu-16.04&checksum=sha256:5e01dd448c8d78e850661ca88f5009f19011b00c6a7031f7578fe09c330a41d3&download_url=https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/glibc/2.23-0ubuntu3/glibc_2.23-0ubuntu3.debian.tar.xz"
       }]
     },
     {
       "SPDXID": "SPDXRef-cross-toolchain-base",
       "name": "cross-toolchain-base",
       "versionInfo": "10ubuntu1",
-      "downloadLocation": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/cross-toolchain-base/10ubuntu1/cross-toolchain-base_10ubuntu1.dsc",
-      "checksums": [{"algorithm": "SHA256", "checksumValue": "11265ed751cb009555bf546809fc4168f731ff1f95da5e4534737adb84e33364"}],
+      "downloadLocation": "https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/cross-toolchain-base/10ubuntu1/cross-toolchain-base_10ubuntu1.tar.xz",
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "4ad675289604ff38a49f625e026acba11e87bcba1c4128db9b71f8688f89e056"}],
       "licenseConcluded": "NOASSERTION",
       "licenseDeclared": "NOASSERTION",
       "copyrightText": "NOASSERTION",
@@ -54,13 +70,14 @@
       "externalRefs": [{
         "referenceCategory": "PACKAGE-MANAGER",
         "referenceType": "purl",
-        "referenceLocator": "pkg:generic/cross-toolchain-base@10ubuntu1?arch=source&distro=ubuntu-16.04&checksum=sha256:11265ed751cb009555bf546809fc4168f731ff1f95da5e4534737adb84e33364&download_url=https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/cross-toolchain-base/10ubuntu1/cross-toolchain-base_10ubuntu1.dsc"
+        "referenceLocator": "pkg:generic/cross-toolchain-base@10ubuntu1?arch=source&distro=ubuntu-16.04&checksum=sha256:4ad675289604ff38a49f625e026acba11e87bcba1c4128db9b71f8688f89e056&download_url=https://launchpad.net/ubuntu/+archive/primary/+sourcefiles/cross-toolchain-base/10ubuntu1/cross-toolchain-base_10ubuntu1.tar.xz"
       }]
     }
   ],
   "relationships": [
     {"spdxElementId": "SPDXRef-DOCUMENT", "relationshipType": "DESCRIBES", "relatedSpdxElement": "SPDXRef-tini"},
     {"spdxElementId": "SPDXRef-tini", "relationshipType": "STATIC_LINK", "relatedSpdxElement": "SPDXRef-glibc"},
+    {"spdxElementId": "SPDXRef-glibc-ubuntu-patches", "relationshipType": "PATCH_APPLIED", "relatedSpdxElement": "SPDXRef-glibc"},
     {"spdxElementId": "SPDXRef-cross-toolchain-base", "relationshipType": "BUILD_DEPENDENCY_OF", "relatedSpdxElement": "SPDXRef-glibc"}
   ]
 }

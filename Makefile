@@ -14,8 +14,8 @@
 
 # Bump these on release
 VERSION_MAJOR ?= 1
-VERSION_MINOR ?= 28
-VERSION_BUILD ?= 6
+VERSION_MINOR ?= 29
+VERSION_BUILD ?= 0
 
 VERSION ?= v$(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_BUILD)
 VERSION_PACKAGE = $(REPOPATH/pkg/version)
@@ -35,6 +35,7 @@ GO_LDFLAGS := '-extldflags "-static"
 GO_LDFLAGS += -X $(VERSION_PACKAGE).version=$(VERSION)
 GO_LDFLAGS += -w -s # Drop debugging symbols.
 GO_LDFLAGS += -buildid= # Drop build ID to make builds reproducible.
+GO_LDFLAGS += $(if $(RACE),-linkmode=external) # -race needs cgo, -extldflags only applies to the external linker
 GO_LDFLAGS += '
 
 EXECUTOR_PACKAGE = $(REPOPATH)/cmd/executor
@@ -42,6 +43,13 @@ WARMER_PACKAGE = $(REPOPATH)/cmd/warmer
 KANIKO_PROJECT = $(REPOPATH)/kaniko
 BUILD_ARG ?=
 COVER ?=
+RACE ?=
+# archive/tar stays instrumented, excluding it reports false races in go-containerregistry's push
+# bufio is excluded because compress/flate reads gzip layers from it one byte at a time
+# klauspost/compress stays instrumented, excluding it reports false races between two zstd decoders of one layer
+RACE_GCFLAGS := -gcflags='compress/...=-race=false' -gcflags='hash/...=-race=false' -gcflags='bufio=-race=false' -gcflags='github.com/minio/highwayhash=-race=false'
+# the image has no glibc NSS for cgo user and host lookups
+RACE_TAGS := ,netgo,osusergo
 
 # Force using Go Modules and always read the dependencies from
 # the `vendor` folder.
@@ -52,13 +60,13 @@ export GOFLAGS = -mod=vendor -buildvcs=false -trimpath
 export GO_TAGS = otel,git,google,aws,azure
 
 out/executor: $(GO_FILES)
-	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=0 go build -tags $(GO_TAGS) $(if $(COVER),-cover) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
+	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build -tags $(GO_TAGS)$(if $(RACE),$(RACE_TAGS)) $(if $(COVER),-cover) $(if $(RACE),-race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
 
 out/executor-slim: $(GO_FILES)
-	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=0 go build $(if $(COVER),-cover) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
+	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build $(if $(COVER),-cover) $(if $(RACE),-tags $(RACE_TAGS) -race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
 
 out/warmer: $(GO_FILES)
-	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=0 go build -tags $(GO_TAGS) $(if $(COVER),-cover) -ldflags $(GO_LDFLAGS) -o $@ $(WARMER_PACKAGE)
+	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build -tags $(GO_TAGS)$(if $(RACE),$(RACE_TAGS)) $(if $(COVER),-cover) $(if $(RACE),-race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(WARMER_PACKAGE)
 
 .PHONY: install-diffoci
 install-diffoci:

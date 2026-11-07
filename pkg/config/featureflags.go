@@ -28,30 +28,39 @@ import (
 
 type FeatureFlags struct {
 	AddChecksum                    bool
+	AddChownTar                    bool
+	AddFollowSymlink               bool
 	AddUnpack                      bool
+	CacheCopyFrom                  bool
 	CacheHashBlake3                bool
 	CacheImageIndex                bool
 	CacheLookahead                 bool
 	CacheProbeAfterMiss            bool
 	ChownOnImplicitDirs            bool
 	ConfineCopySource              bool
+	ConfineHardlinkTarget          bool
 	CopyAsRoot                     bool
 	CopyChmodOnImplicitDirs        bool
+	CopyKeepDestOwner              bool
 	CopyLink                       bool
 	CopySkipSpecialFiles           bool
+	CopySubdirMode                 bool
 	CrossRepoMount                 bool
 	DeferCachePush                 bool
 	DeprecateLayerlessCacheEntries bool
 	DisableHTTP2                   bool
 	ExpandHeredoc                  bool
+	FormatIndependentCacheKey      bool
 	HashDirFraming                 bool
 	ImageStages                    bool
 	InferCrossStageCacheKey        bool
 	IsolateCachePush               bool
 	LayerHints                     bool
+	LocalUnpackRequiresTar         bool
 	NativeCopy                     bool
 	NativeInit                     bool
 	OCIScratchBase                 bool
+	ParallelHash                   bool
 	PathScopedRegistryAuth         bool
 	PeekArchiveHeader              bool
 	PlatformCacheKey               bool
@@ -65,6 +74,8 @@ type FeatureFlags struct {
 	RunCrossStageBindMount         bool
 	RunHeredocScript               bool
 	RunHonorGroup                  bool
+	RunMountBindRelative           bool
+	RunMountTmpfs                  bool
 	RunViaTini                     bool
 	ScopedDockerignore             bool
 	ScopedRegistryCertificates     bool
@@ -113,30 +124,39 @@ func InitFeatureFlags() {
 
 	FF = FeatureFlags{
 		AddChecksum:                    featureFlag("FF_KANIKO_ADD_CHECKSUM", true),
+		AddChownTar:                    featureFlag("FF_KANIKO_ADD_CHOWN_TAR", false),
+		AddFollowSymlink:               featureFlag("FF_KANIKO_ADD_FOLLOW_SYMLINK", false),
 		AddUnpack:                      featureFlag("FF_KANIKO_ADD_UNPACK", true),
+		CacheCopyFrom:                  featureFlag("FF_KANIKO_CACHE_COPY_FROM", false),
 		CacheHashBlake3:                featureFlag("FF_KANIKO_CACHE_HASH_BLAKE3", true),
 		CacheImageIndex:                featureFlag("FF_KANIKO_CACHE_IMAGE_INDEX", false),
 		CacheLookahead:                 featureFlag("FF_KANIKO_CACHE_LOOKAHEAD", true),
 		CacheProbeAfterMiss:            featureFlag("FF_KANIKO_CACHE_PROBE_AFTER_MISS", false),
 		ChownOnImplicitDirs:            featureFlag("FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS", false),
 		ConfineCopySource:              featureFlag("FF_KANIKO_CONFINE_COPY_SOURCE", true),
+		ConfineHardlinkTarget:          featureFlag("FF_KANIKO_CONFINE_HARDLINK_TARGET", true),
 		CopyAsRoot:                     featureFlag("FF_KANIKO_COPY_AS_ROOT", false),
 		CopyChmodOnImplicitDirs:        featureFlag("FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS", false),
+		CopyKeepDestOwner:              featureFlag("FF_KANIKO_COPY_KEEP_DEST_OWNER", false),
 		CopyLink:                       featureFlag("FF_KANIKO_COPY_LINK", false),
 		CopySkipSpecialFiles:           featureFlag("FF_KANIKO_COPY_SKIP_SPECIAL_FILES", true),
+		CopySubdirMode:                 featureFlag("FF_KANIKO_COPY_SUBDIR_MODE", false),
 		CrossRepoMount:                 featureFlag("FF_KANIKO_CROSS_REPO_MOUNT", true),
 		DeferCachePush:                 featureFlag("FF_KANIKO_DEFER_CACHE_PUSH", false),
 		DeprecateLayerlessCacheEntries: featureFlag("FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES", true),
 		DisableHTTP2:                   featureFlag("FF_KANIKO_DISABLE_HTTP2", false),
 		ExpandHeredoc:                  featureFlag("FF_KANIKO_EXPAND_HEREDOC", true),
+		FormatIndependentCacheKey:      featureFlag("FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY", false),
 		HashDirFraming:                 featureFlag("FF_KANIKO_HASH_DIR_FRAMING", true),
 		ImageStages:                    featureFlag("FF_KANIKO_IMAGE_STAGES", true),
 		InferCrossStageCacheKey:        featureFlag("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", true),
 		IsolateCachePush:               featureFlag("FF_KANIKO_ISOLATE_CACHE_PUSH", false),
 		LayerHints:                     featureFlag("FF_KANIKO_LAYER_HINTS", true),
+		LocalUnpackRequiresTar:         featureFlag("FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR", false),
 		NativeCopy:                     featureFlag("FF_KANIKO_NATIVE_COPY", true),
 		NativeInit:                     featureFlag("FF_KANIKO_NATIVE_INIT", false),
 		OCIScratchBase:                 featureFlag("FF_KANIKO_OCI_SCRATCH_BASE", false),
+		ParallelHash:                   featureFlag("FF_KANIKO_PARALLEL_HASH", false),
 		PathScopedRegistryAuth:         featureFlag("FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH", true),
 		PeekArchiveHeader:              featureFlag("FF_KANIKO_PEEK_ARCHIVE_HEADER", true),
 		PlatformCacheKey:               featureFlag("FF_KANIKO_PLATFORM_CACHE_KEY", true),
@@ -150,6 +170,8 @@ func InitFeatureFlags() {
 		RunCrossStageBindMount:         featureFlag("FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT", false),
 		RunHeredocScript:               featureFlag("FF_KANIKO_RUN_HEREDOC_SCRIPT", false),
 		RunHonorGroup:                  featureFlag("FF_KANIKO_RUN_HONOR_GROUP", true),
+		RunMountBindRelative:           featureFlag("FF_KANIKO_RUN_MOUNT_BIND_RELATIVE", false),
+		RunMountTmpfs:                  featureFlag("FF_KANIKO_RUN_MOUNT_TMPFS", false),
 		RunViaTini:                     featureFlag("FF_KANIKO_RUN_VIA_TINI", false),
 		ScopedDockerignore:             featureFlag("FF_KANIKO_SCOPED_DOCKERIGNORE", false),
 		ScopedRegistryCertificates:     featureFlag("FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES", true),

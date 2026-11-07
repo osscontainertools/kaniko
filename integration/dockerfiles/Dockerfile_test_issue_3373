@@ -1,4 +1,4 @@
-FROM busybox:1.31
+FROM busybox:1.38
 
 # 3373: ADD --checksum was parsed and never verified, so a substituted download
 # passed. Every digest here matches the release asset, so the build succeeds and

@@ -1,6 +1,6 @@
 ARG REGISTRY=docker.io
 ARG IMAGE=debian
-ARG TAG=9.11
+ARG TAG=13.7
 ARG WORD=hello
 ARG W0RD2=hey
 

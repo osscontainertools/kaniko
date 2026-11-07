@@ -24,6 +24,7 @@ type integrationTestConfig struct {
 	onbuildBaseImage        string
 	onbuildCopyImage        string
 	hardlinkBaseImage       string
+	extractionBaseImage     string
 	hijackBaseImage         string
 	malformedOCIImage       string
 	mixedMediaTypeImage     string
@@ -31,6 +32,7 @@ type integrationTestConfig struct {
 	mz1073BaseImage         string
 	mz1113BaseImage         string
 	mz1172BaseImage         string
+	mountedSymlinkBaseImage string
 	singleManifestBaseImage string
 	dockerMajorVersion      int
 	dockerfilesPattern      string
