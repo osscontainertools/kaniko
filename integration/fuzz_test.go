@@ -1268,6 +1268,16 @@ func writeContext(dir string, gen genResult) error {
 			if err := writeGzipPlain(p); err != nil {
 				return err
 			}
+		case kindDir:
+			if err := os.MkdirAll(p, 0o755); err != nil {
+				return err
+			}
+			if err := os.Chmod(p, f.mode); err != nil {
+				return err
+			}
+			if err := os.Chtimes(p, fixed, fixed); err != nil {
+				return err
+			}
 		default:
 			// f.name may contain a subdirectory (e.g. d0/f0), so ensure the parent exists.
 			if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
