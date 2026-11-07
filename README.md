@@ -680,8 +680,6 @@ for how to use with kubernetes clusters and persistent cache volumes.
 
 `--dryrun` prints which images are already cached and which would be fetched, without writing to the cache. `KANIKO_PRINT_PLAN=1` prints the same plan before warming.
 
-`--require-digest` works with `--dockerfile` on the warmer as well: it rejects any `FROM` instruction in the parsed dockerfile that is not pinned by a digest reference (except `FROM scratch`), so only digest-pinned base images are warmed into the cache.
-
 ### Pushing to Different Registries
 
 For registry-specific setup instructions (Docker Hub, GCR, ECR, ACR, JFrog,
@@ -1077,24 +1075,7 @@ are:
 
 #### Flag `--require-digest`
 
-When set to `true`, Kaniko rejects any `FROM` instruction that is not pinned by
-a digest reference (e.g. `debian:13.7@sha256:abc123...`). `FROM scratch` is
-exempt because it has no registry digest. Build args are resolved before the
-check, so `FROM ${IMAGE}` passes when `IMAGE` resolves to a digest-pinned
-reference and fails when it resolves to a bare tag.
-
-This is an opt-in validation flag; it defaults to `false` and does not change
-existing behaviour unless enabled. It applies to both the executor and the cache
-warmer.
-
-Example:
-
-```
-kaniko executor --require-digest \
-  -f Dockerfile \
-  -c /workspace \
-  -d myregistry.example.com/myimage:latest
-```
+Fail the build if a `FROM` base image is not pinned by digest, e.g. `debian:13.7@sha256:...`. Build args are resolved first. Also available on the warmer.
 
 #### Flag `--skip-default-registry-fallback`
 
