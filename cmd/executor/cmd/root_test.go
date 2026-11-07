@@ -19,48 +19,8 @@ package cmd
 import (
 	"testing"
 
-	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/testutil"
 )
-
-func TestBakeTargetsHaveDockerfiles(t *testing.T) {
-	tests := []struct {
-		name    string
-		targets []bake.ResolvedTarget
-		want    bool
-	}{
-		{
-			name: "all targets have Dockerfiles",
-			targets: []bake.ResolvedTarget{
-				{ID: "app", Dockerfile: "/workspace/app/Dockerfile"},
-				{ID: "tools", Dockerfile: "/workspace/tools/Dockerfile"},
-			},
-			want: true,
-		},
-		{
-			name: "a target uses the shared Dockerfile",
-			targets: []bake.ResolvedTarget{
-				{ID: "app", Dockerfile: "/workspace/app/Dockerfile"},
-				{ID: "tools"},
-			},
-		},
-		{
-			name: "not bake targets",
-			targets: []bake.ResolvedTarget{
-				{Dockerfile: "/workspace/Dockerfile"},
-			},
-		},
-		{
-			name: "no targets",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			testutil.CheckDeepEqual(t, tt.want, bakeTargetsHaveDockerfiles(tt.targets))
-		})
-	}
-}
 
 func TestSkipPath(t *testing.T) {
 	tests := []struct {

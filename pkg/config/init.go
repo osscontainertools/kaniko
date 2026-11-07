@@ -140,6 +140,18 @@ func CleanupBuild() error {
 	return safeRemove(KanikoLayersDir)
 }
 
+func CleanupInputs() error {
+	err := safeRemove(DockerfilePath)
+	if err != nil {
+		return err
+	}
+	err = safeRemove(DockerfilePath + ".dockerignore")
+	if err != nil {
+		return err
+	}
+	return safeRemove(BuildContextDir)
+}
+
 func Cleanup() error {
 	err := safeRemove(DockerfilePath)
 	if err != nil {
