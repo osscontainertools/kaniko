@@ -1519,6 +1519,7 @@ Currently no plans to activate.
 kaniko decompresses gzip base layers on the same thread that writes their files to disk.
 Set this flag to `true` to decompress them ahead of extraction on a separate thread.
 Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_PARALLEL_HASH`
 

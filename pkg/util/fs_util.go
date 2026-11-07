@@ -36,6 +36,9 @@ import (
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/klauspost/pgzip"
 	"github.com/moby/go-archive"
 	"github.com/moby/patternmatcher"
 	"github.com/moby/patternmatcher/ignorefile"
@@ -280,6 +283,55 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 		extractedFiles = append(extractedFiles, filepath.Join(root, cleanedName))
 	}
 	return extractedFiles, nil
+}
+
+// gunzipReadAhead returns the uncompressed stream of l. Registry gzip layers
+// are decompressed with pgzip, which inflates ahead on its own goroutine.
+// Every other layer goes through l.Uncompressed().
+func gunzipReadAhead(l v1.Layer) (io.ReadCloser, error) {
+	mediaType, err := l.MediaType()
+	if err != nil {
+		return nil, err
+	}
+	// Compressed() of a layer backed by an uncompressed tarball, like a
+	// snapshot of an earlier stage, gzips it first. Only registry layers are
+	// known to serve the stored blob.
+	_, fromRegistry := l.(*remote.MountableLayer)
+	switch {
+	case !fromRegistry:
+		return l.Uncompressed()
+	case mediaType != types.DockerLayer && mediaType != types.OCILayer && mediaType != types.DockerForeignLayer && mediaType != types.OCIRestrictedLayer:
+		return l.Uncompressed()
+	}
+
+	rc, err := l.Compressed()
+	if err != nil {
+		return nil, err
+	}
+	gz, err := pgzip.NewReader(rc)
+	switch {
+	case errors.Is(err, pgzip.ErrHeader):
+		// ggcr picks the decompressor from the content, not the media type.
+		rc.Close()
+		return l.Uncompressed()
+	case err != nil:
+		rc.Close()
+		return nil, err
+	}
+	return &gunzipReadCloser{Reader: gz, src: rc}, nil
+}
+
+type gunzipReadCloser struct {
+	*pgzip.Reader
+	src io.Closer
+}
+
+// Close closes the source first. pgzip's Close waits for its read-ahead,
+// which can be blocked reading the source.
+func (g *gunzipReadCloser) Close() error {
+	err := g.src.Close()
+	g.Reader.Close()
+	return err
 }
 
 // DeleteFilesystem deletes the extracted image file system
