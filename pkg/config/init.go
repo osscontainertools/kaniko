@@ -52,7 +52,7 @@ var DockerfilePath = KanikoDir + "/Dockerfile"
 // for example, a tarball from a GCS bucket will be unpacked here
 var BuildContextDir = KanikoDir + "/buildcontext/"
 
-var KanikoInputsDir = KanikoDir + "/inputs/"
+var KanikoBuildContextsDir = KanikoDir + "/buildcontexts/"
 
 // KanikoIntermediateStagesDir is where we will store intermediate stages
 // as tarballs in case they are needed later on
@@ -159,15 +159,15 @@ func Cleanup() error {
 	if err != nil {
 		return err
 	}
-	err = safeRemove(KanikoInputsDir)
-	if err != nil {
-		return err
-	}
 	err = safeRemove(KanikoSecretsDir)
 	if err != nil {
 		return err
 	}
 	err = safeRemove(KanikoSwapDir)
+	if err != nil {
+		return err
+	}
+	err = safeRemove(KanikoBuildContextsDir)
 	if err != nil {
 		return err
 	}

@@ -413,8 +413,8 @@ type targetInputs struct {
 func resolveInputs(opts *config.KanikoOptions, targets []bake.ResolvedTarget) ([]targetInputs, error) {
 	store := len(targets) > 1
 	if store {
-		if err := os.MkdirAll(config.KanikoInputsDir, 0o755); err != nil {
-			return nil, fmt.Errorf("creating %s: %w", config.KanikoInputsDir, err)
+		if err := os.MkdirAll(config.KanikoBuildContextsDir, 0o755); err != nil {
+			return nil, fmt.Errorf("creating %s: %w", config.KanikoBuildContextsDir, err)
 		}
 	}
 	type resolvedContext struct {
@@ -454,7 +454,7 @@ func resolveInputs(opts *config.KanikoOptions, targets []bake.ResolvedTarget) ([
 				c.inputs.source = buildenv.ResolveSource(c.inputs.ci, buildenv.GitSource(dir, cloneURL))
 			}
 			if store {
-				stored := filepath.Join(config.KanikoInputsDir, fmt.Sprintf("context-%d", len(contexts)))
+				stored := filepath.Join(config.KanikoBuildContextsDir, fmt.Sprintf("context-%d", len(contexts)))
 				if local {
 					if err := util.CopyTree(topts.SrcContext, stored, util.FileContext{}, true); err != nil {
 						return nil, fmt.Errorf("storing context %s: %w", srcContext, err)
@@ -482,7 +482,7 @@ func resolveInputs(opts *config.KanikoOptions, targets []bake.ResolvedTarget) ([
 		in := c.inputs
 		in.dockerfile = topts.DockerfilePath
 		if store && !isURL(in.dockerfile) {
-			in.dockerfile = filepath.Join(config.KanikoInputsDir, fmt.Sprintf("Dockerfile-%d", i))
+			in.dockerfile = filepath.Join(config.KanikoBuildContextsDir, fmt.Sprintf("Dockerfile-%d", i))
 			if err := os.Rename(config.DockerfilePath, in.dockerfile); err != nil {
 				return nil, fmt.Errorf("storing dockerfile of target %q: %w", target.ID, err)
 			}
