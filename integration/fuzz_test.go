@@ -853,6 +853,15 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		}
 	}
 
+	// provenance oracle: --provenance adds an attestation beside the image and must not
+	// change the image. Gated behind FUZZ_PROVENANCE; adds two builds.
+	if os.Getenv("FUZZ_PROVENANCE") == "1" {
+		if f := provenanceOracle(seed, label, dir, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
+			mergeKnown(f, dockerCls.known)
+			return f
+		}
+	}
+
 	// context-sub-path oracle: the same context nested one level down and reached with
 	// --context-sub-path must give the same image. Gated behind FUZZ_SUBPATHCONTEXT.
 	if os.Getenv("FUZZ_SUBPATHCONTEXT") == "1" {
@@ -2210,6 +2219,65 @@ func digestFileOracle(seed int64, label, dir string, flags, envFlags []string, c
 	if strings.TrimSpace(string(got)) != strings.TrimSpace(string(want)) {
 		return fail(sevInvarianceDiff, "--digest-file content differs from the pushed image digest",
 			fmt.Sprintf("digest-file:  %s\ncrane digest: %s", strings.TrimSpace(string(got)), strings.TrimSpace(string(want))))
+	}
+	return nil
+}
+
+// provenanceOracle builds the case --reproducible with and without --provenance. The
+// attestation goes next to the image in an index, so the image the index names has to be the
+// one the plain build pushed, and the attestation has to reference it. Every other seed adds
+// --predefined-annotations to both builds, which annotates the image and the index.
+func provenanceOracle(seed int64, label, dir string, flags, envFlags []string, covDir string, fail func(severity, string, string) *finding, crashOr func(string) *finding) *finding {
+	plain := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-noprov")
+	withProv := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-prov")
+	defer runFuzzBounded(exec.Command("docker", "rmi", "-f", plain, withProv))
+	args := append([]string{"--reproducible"}, flags...)
+	if seed%2 == 0 {
+		args = append(args, "--predefined-annotations")
+	}
+	out, err := runFuzzKanikoEnv(dir, plain, args, covDir, envFlags)
+	if f := crashOr(out); f != nil {
+		return f
+	}
+	if err != nil {
+		return nil // the determinism oracle owns a failing reproducible build
+	}
+	pOut, pErr := runFuzzKanikoEnv(dir, withProv, append(args, "--provenance"), covDir, envFlags)
+	if f := crashOr(pOut); f != nil {
+		return f
+	}
+	if pErr != nil {
+		return fail(sevInvarianceDiff, "--provenance build failed while the plain build succeeded", pOut)
+	}
+	want, werr := runFuzzBounded(exec.Command("crane", "digest", plain))
+	raw, rerr := runFuzzBounded(exec.Command("crane", "manifest", withProv))
+	if werr != nil || rerr != nil {
+		return nil
+	}
+	var idx struct {
+		MediaType string `json:"mediaType"`
+		Manifests []struct {
+			Digest   string `json:"digest"`
+			Platform struct {
+				OS string `json:"os"`
+			} `json:"platform"`
+			Annotations map[string]string `json:"annotations"`
+		} `json:"manifests"`
+	}
+	if err := json.Unmarshal(raw, &idx); err != nil || len(idx.Manifests) != 2 {
+		return fail(sevInvarianceDiff, "--provenance did not push an index of an image and its attestation", string(raw))
+	}
+	image, attestation := idx.Manifests[0], idx.Manifests[1]
+	if image.Platform.OS == "unknown" {
+		image, attestation = attestation, image
+	}
+	wantDigest := strings.TrimSpace(string(want))
+	switch {
+	case image.Digest != wantDigest:
+		return fail(sevInvarianceDiff, "--provenance changes the image",
+			fmt.Sprintf("plain build: %s\nindex names: %s\n\n%s", wantDigest, image.Digest, raw))
+	case attestation.Annotations["vnd.docker.reference.digest"] != wantDigest:
+		return fail(sevInvarianceDiff, "the attestation does not reference the image", string(raw))
 	}
 	return nil
 }
