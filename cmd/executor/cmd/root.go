@@ -50,7 +50,6 @@ import (
 
 var (
 	opts         = &config.KanikoOptions{}
-	ctxSubPath   string
 	force        bool
 	logLevel     string
 	logFormat    string
@@ -133,22 +132,6 @@ func setupBuild() error {
 	}
 
 	resolveEnvironmentBuildArgs(opts.BuildArgs, os.Getenv)
-	srcContext := opts.SrcContext
-	if err := resolveSourceContext(); err != nil {
-		return fmt.Errorf("error resolving source context: %w", err)
-	}
-	if opts.PredefinedAnnotations || opts.Provenance {
-		dir, cloneURL := opts.SrcContext, ""
-		gitContext, isGit := strings.CutPrefix(srcContext, constants.GitBuildContextPrefix)
-		if isGit {
-			dir, cloneURL = config.BuildContextDir, buildcontext.GitURL(gitContext)
-		}
-		opts.CI = buildenv.DetectCI()
-		opts.ContextSource = buildenv.ResolveSource(opts.CI, buildenv.GitSource(dir, cloneURL))
-	}
-	if err := resolveDockerfilePath(); err != nil {
-		return fmt.Errorf("error resolving dockerfile path: %w", err)
-	}
 	// Update ignored paths
 	if opts.IgnoreVarRun {
 		// /var/run is a special case. It's common to mount in /var/run/docker.sock
@@ -240,7 +223,17 @@ var RootCmd = &cobra.Command{
 }
 
 func runBuild(opts *config.KanikoOptions) error {
-	return runBuildTargets(opts, []bake.ResolvedTarget{{Destination: opts.Destinations, CacheFrom: opts.CacheFrom, CacheTo: opts.CacheTo}})
+	targets := []bake.ResolvedTarget{{Destination: opts.Destinations, CacheFrom: opts.CacheFrom, CacheTo: opts.CacheTo}}
+	if err := prepareBuild(opts, targets); err != nil {
+		return err
+	}
+	if err := resolveContext(opts); err != nil {
+		return err
+	}
+	if err := resolveDockerfilePath(opts); err != nil {
+		return fmt.Errorf("error resolving dockerfile path: %w", err)
+	}
+	return runBuildTargets(opts, targets, nil)
 }
 
 // ApplyTarget points opts at a single target. A target with no stage keeps whatever
@@ -250,6 +243,16 @@ func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
 		opts.Target = []string{target.Stage}
 	}
 	opts.Destinations = target.Destination
+	if target.Context != "" {
+		opts.SrcContext = target.Context
+		opts.Bucket = ""
+	}
+	if target.ContextSubPath != "" {
+		opts.ContextSubPath = target.ContextSubPath
+	}
+	if target.Dockerfile != "" {
+		opts.DockerfilePath = target.Dockerfile
+	}
 	opts.CacheFrom = target.CacheFrom
 	opts.CacheTo = target.CacheTo
 	if opts.NoPushCache {
@@ -283,7 +286,7 @@ func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
 	return nil
 }
 
-func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) error {
+func prepareBuild(opts *config.KanikoOptions, targets []bake.ResolvedTarget) error {
 	for _, target := range targets {
 		err := cacheFlagsValid(opts, target)
 		if err != nil {
@@ -294,9 +297,10 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 	_, endSetup := timing.Scope("Setting up build")
 	err := setupBuild()
 	endSetup()
-	if err != nil {
-		return err
-	}
+	return err
+}
+
+func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget, inputs []targetInputs) error {
 	if !checkContained() {
 		if !force {
 			return errors.New("kaniko should only be run inside of a container, run with the --force flag if you are sure you want to continue")
@@ -361,6 +365,18 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 		if err := ApplyTarget(&topts, target); err != nil {
 			return err
 		}
+		if inputs != nil {
+			in := inputs[i]
+			if in.stored != "" {
+				if err := config.CleanupBuildContext(); err != nil {
+					return fmt.Errorf("cleaning build context before target %q: %w", target.ID, err)
+				}
+				if err := util.CopyTree(in.stored, config.BuildContextDir, util.FileContext{AllowedPath: config.KanikoDir}, true); err != nil {
+					return fmt.Errorf("copying build context for target %q: %w", target.ID, err)
+				}
+			}
+			topts.SrcContext, topts.DockerfilePath, topts.ContextSource, topts.CI = in.srcContext, in.dockerfile, in.source, in.ci
+		}
 		if target.ID != "" {
 			logrus.Infof("Building target %q [stage: %q]", target.ID, target.Stage)
 		}
@@ -392,6 +408,23 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 	return nil
 }
 
+func resolveContext(opts *config.KanikoOptions) error {
+	srcContext := opts.SrcContext
+	if err := resolveSourceContext(opts); err != nil {
+		return fmt.Errorf("error resolving source context: %w", err)
+	}
+	if opts.PredefinedAnnotations || opts.Provenance {
+		dir, cloneURL := opts.SrcContext, ""
+		gitContext, isGit := strings.CutPrefix(srcContext, constants.GitBuildContextPrefix)
+		if isGit {
+			dir, cloneURL = config.BuildContextDir, buildcontext.GitURL(gitContext)
+		}
+		opts.CI = buildenv.DetectCI()
+		opts.ContextSource = buildenv.ResolveSource(opts.CI, buildenv.GitSource(dir, cloneURL))
+	}
+	return nil
+}
+
 // addKanikoOptionsFlags configures opts
 func AddKanikoOptionsFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	AddSharedBuildFlags(cmd, opts)
@@ -404,7 +437,7 @@ func AddKanikoOptionsFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().StringVarP(&opts.DockerfilePath, "dockerfile", "f", "Dockerfile", "Path to the dockerfile to be built.")
 	cmd.Flags().StringVarP(&opts.SrcContext, "context", "c", "/workspace/", "Path to the dockerfile build context.")
-	cmd.Flags().StringVarP(&ctxSubPath, "context-sub-path", "", "", "Sub path within the given context.")
+	cmd.Flags().StringVarP(&opts.ContextSubPath, "context-sub-path", "", "", "Sub path within the given context.")
 	cmd.Flags().StringVarP(&opts.Bucket, "bucket", "b", "", "Name of the GCS bucket from which to access build context as tarball.")
 	cmd.Flags().StringVarP(&opts.SnapshotMode, "snapshot-mode", "", "full", "Change the file attributes inspected during snapshotting")
 	cmd.Flags().IntVar(&opts.SnapshotHashWorkers, "snapshot-hash-workers", min(runtime.GOMAXPROCS(0), 8), "Number of goroutines hashing files during a snapshot. Defaults to GOMAXPROCS, at most 8.")
@@ -581,7 +614,7 @@ func validateCompressionLevel(compression config.Compression, level int) error {
 }
 
 // resolveDockerfilePath resolves the Dockerfile path to an absolute path
-func resolveDockerfilePath() error {
+func resolveDockerfilePath(opts *config.KanikoOptions) error {
 	if isURL(opts.DockerfilePath) {
 		return nil
 	}
@@ -591,7 +624,7 @@ func resolveDockerfilePath() error {
 			return fmt.Errorf("getting absolute path for dockerfile: %w", err)
 		}
 		opts.DockerfilePath = abs
-		return copyDockerfile()
+		return copyDockerfile(opts)
 	}
 	// Otherwise, check if the path relative to the build context exists
 	if util.FilepathExists(filepath.Join(opts.SrcContext, opts.DockerfilePath)) {
@@ -600,7 +633,7 @@ func resolveDockerfilePath() error {
 			return fmt.Errorf("getting absolute path for src context/dockerfile path: %w", err)
 		}
 		opts.DockerfilePath = abs
-		return copyDockerfile()
+		return copyDockerfile(opts)
 	}
 	return errors.New("please provide a valid path to a Dockerfile within the build context with --dockerfile")
 }
@@ -649,7 +682,7 @@ func resolveEnvironmentBuildArgs(arguments []string, resolver func(string) strin
 
 // copy Dockerfile to /kaniko/Dockerfile so that if it's specified in the .dockerignore
 // it won't be copied into the image
-func copyDockerfile() error {
+func copyDockerfile(opts *config.KanikoOptions) error {
 	if err := util.CopyFileInternal(opts.DockerfilePath, config.DockerfilePath, util.FileContext{}); err != nil {
 		return fmt.Errorf("copying dockerfile: %w", err)
 	}
@@ -665,7 +698,7 @@ func copyDockerfile() error {
 
 // resolveSourceContext unpacks the source context if it is a tar in a bucket or in kaniko container
 // it resets srcContext to be the path to the unpacked build context within the image
-func resolveSourceContext() error {
+func resolveSourceContext(opts *config.KanikoOptions) error {
 	if opts.SrcContext == "" && opts.Bucket == "" {
 		return errors.New("please specify a path to the build context with the --context flag or a bucket with the --bucket flag")
 	}
@@ -702,8 +735,8 @@ func resolveSourceContext() error {
 	if err != nil {
 		return err
 	}
-	if ctxSubPath != "" {
-		opts.SrcContext = filepath.Join(opts.SrcContext, ctxSubPath)
+	if opts.ContextSubPath != "" {
+		opts.SrcContext = filepath.Join(opts.SrcContext, opts.ContextSubPath)
 		if _, err := os.Stat(opts.SrcContext); os.IsNotExist(err) {
 			return err
 		}

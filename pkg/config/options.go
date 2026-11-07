@@ -68,6 +68,7 @@ type KanikoOptions struct {
 	IgnorePaths                  multiArg
 	DockerfilePath               string
 	SrcContext                   string
+	ContextSubPath               string
 	SnapshotMode                 string
 	SnapshotModeDeprecated       string
 	SnapshotHashWorkers          int

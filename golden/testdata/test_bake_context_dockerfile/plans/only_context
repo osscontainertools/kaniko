@@ -1,0 +1,4 @@
+FROM scratch AS app
+COPY default.txt /app.txt
+PUSH [registry.example.com/only_context:latest]
+  UPLOAD COPY default.txt /app.txt
