@@ -173,6 +173,7 @@ func exportLocked(ctx context.Context) {
 		)
 		if err != nil {
 			logrus.Debugf("tracing disabled: failed to create OTLP exporter: %v", err)
+			dp.drop()
 			return
 		}
 		res, err := buildResource(ctx, &o, content)
@@ -186,10 +187,11 @@ func exportLocked(ctx context.Context) {
 // The provider's resource is fixed before the build is known, so every span is
 // handed on with the resource Export resolved.
 type deferredProcessor struct {
-	mu   sync.Mutex
-	next sdktrace.SpanProcessor
-	res  *resource.Resource
-	held []sdktrace.ReadOnlySpan
+	mu      sync.Mutex
+	next    sdktrace.SpanProcessor
+	res     *resource.Resource
+	held    []sdktrace.ReadOnlySpan
+	dropped bool
 }
 
 type withResource struct {
@@ -209,15 +211,22 @@ func (p *deferredProcessor) attach(next sdktrace.SpanProcessor, res *resource.Re
 	p.held = nil
 }
 
+func (p *deferredProcessor) drop() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.held, p.dropped = nil, true
+}
+
 func (p *deferredProcessor) OnStart(context.Context, sdktrace.ReadWriteSpan) {}
 
 func (p *deferredProcessor) OnEnd(s sdktrace.ReadOnlySpan) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.next == nil {
-		p.held = append(p.held, s)
-	} else {
+	switch {
+	case p.next != nil:
 		p.next.OnEnd(withResource{s, p.res})
+	case !p.dropped:
+		p.held = append(p.held, s)
 	}
 }
 
