@@ -154,13 +154,14 @@ func exportLocked(ctx context.Context) {
 		}
 	}
 
+	envHeaders, req := exportAuth()
 	o := *opts
 	done := make(chan struct{})
 	exported = done
 	go func() {
 		defer close(done)
 		loginStart := time.Now()
-		headers, auth := exportHeaders(ctx)
+		headers, auth := exportHeaders(ctx, envHeaders, req)
 		loginEnd := time.Now()
 		span.SetAttributes(attribute.String("kaniko.telemetry.auth", auth))
 		if auth != "env" {
