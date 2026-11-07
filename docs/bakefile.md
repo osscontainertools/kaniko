@@ -80,7 +80,7 @@ executor bake /workspace/kaniko-bake.hcl \
   --context /workspace
 ```
 
-`context`, `context_sub_path` and `dockerfile` can also be overridden with `--set`:
+`context`, `context_sub_path` and `dockerfile` can also be overridden with `--set`. Relative paths resolve the same way as in the bakefile:
 
 ```shell
 executor bake /workspace/kaniko-bake.hcl \

@@ -61,6 +61,9 @@ func ConfigureFromBakefile(opts *config.KanikoOptions, path string, selection, s
 	if err := bake.ApplyOverrides(targets, overrides); err != nil {
 		return nil, err
 	}
+	for i := range targets {
+		targets[i].Context, targets[i].Dockerfile = bake.ResolvePaths(bakefile.Dir, targets[i].Context, targets[i].Dockerfile)
+	}
 	for _, t := range targets {
 		if !opts.NoPush && len(t.Destination) == 0 {
 			return nil, fmt.Errorf("target %q has no destination, set one in the bakefile or use --no-push", t.ID)

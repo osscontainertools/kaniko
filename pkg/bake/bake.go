@@ -217,24 +217,11 @@ func (b *Bakefile) Resolve(selected []string) ([]ResolvedTarget, error) {
 		if stage == "" {
 			stage = id
 		}
-		targetCtx := t.Context
-		targetDockerfile := t.Dockerfile
-		if targetCtx != "" && !filepath.IsAbs(targetCtx) && b.Dir != "" && !isURL(targetCtx) {
-			targetCtx = filepath.Join(b.Dir, targetCtx)
-		}
-		// A relative dockerfile in a remote context is joined once the context is unpacked.
-		if targetDockerfile != "" && !filepath.IsAbs(targetDockerfile) && !isURL(targetDockerfile) && !isURL(targetCtx) {
-			if targetCtx != "" {
-				targetDockerfile = filepath.Join(targetCtx, targetDockerfile)
-			} else if b.Dir != "" {
-				targetDockerfile = filepath.Join(b.Dir, targetDockerfile)
-			}
-		}
 		resolved = append(resolved, ResolvedTarget{
 			ID:             id,
-			Context:        targetCtx,
+			Context:        t.Context,
 			ContextSubPath: t.ContextSubPath,
-			Dockerfile:     targetDockerfile,
+			Dockerfile:     t.Dockerfile,
 			Stage:          stage,
 			Destination:    t.Destination,
 			CacheFrom:      t.CacheFrom,
@@ -242,6 +229,21 @@ func (b *Bakefile) Resolve(selected []string) ([]ResolvedTarget, error) {
 		})
 	}
 	return resolved, nil
+}
+
+func ResolvePaths(dir, context, dockerfile string) (string, string) {
+	if context != "" && !filepath.IsAbs(context) && dir != "" && !isURL(context) {
+		context = filepath.Join(dir, context)
+	}
+	// A relative dockerfile in a remote context is joined once the context is unpacked.
+	if dockerfile != "" && !filepath.IsAbs(dockerfile) && !isURL(dockerfile) && !isURL(context) {
+		if context != "" {
+			dockerfile = filepath.Join(context, dockerfile)
+		} else if dir != "" {
+			dockerfile = filepath.Join(dir, dockerfile)
+		}
+	}
+	return context, dockerfile
 }
 
 func isURL(path string) bool {
