@@ -1280,8 +1280,13 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 	images := make(map[int]v1.Image)
 	depGraph := map[int][]string{}
 	copySources := map[*instructions.CopyCommand][]string{}
+	baseArgs := dockerfile.NewBuildArgs(opts.BuildArgs)
+	err := baseArgs.InitPredefinedArgs(opts.CustomPlatform, stages[len(stages)-1].Name)
+	if err != nil {
+		return nil, nil, err
+	}
 	for _, s := range stages {
-		ba := dockerfile.NewBuildArgs(opts.BuildArgs)
+		ba := baseArgs.Clone()
 		ba.AddMetaArgs(s.MetaArgs)
 		var image v1.Image
 		var err error

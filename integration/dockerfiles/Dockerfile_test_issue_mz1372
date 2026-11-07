@@ -1,0 +1,11 @@
+# mz1372: a COPY --from source using a predefined build arg is not saved
+# for the later stage. Fails on v1.29.0.
+# Dependency planning resolved the source without the predefined args,
+# so it looked for /out- instead of /out-<arch>.
+FROM busybox:1.37 AS build
+ARG TARGETARCH
+RUN echo hello > /out-$TARGETARCH
+
+FROM busybox:1.37
+ARG TARGETARCH
+COPY --from=build /out-${TARGETARCH} /value
