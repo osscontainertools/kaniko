@@ -220,32 +220,41 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 	// known to serve the stored blob.
 	_, fromRegistry := l.(*remote.MountableLayer)
 	isGzip := mediaType == types.DockerLayer || mediaType == types.OCILayer || mediaType == types.DockerForeignLayer || mediaType == types.OCIRestrictedLayer
-	var r io.ReadCloser
+	var r io.Reader
 	if config.FF.ParallelGunzip && fromRegistry && isGzip {
-		var rc io.ReadCloser
-		rc, err = l.Compressed()
+		rc, err := l.Compressed()
 		if err != nil {
 			return nil, err
 		}
-		var gz *pgzip.Reader
-		gz, err = pgzip.NewReader(rc)
-		switch {
-		case errors.Is(err, pgzip.ErrHeader):
+		gz, err := pgzip.NewReader(rc)
+		if err == nil {
+			// pgzip's Close waits for its read-ahead, which can be blocked reading rc.
+			defer func() {
+				rc.Close()
+				gz.Close()
+			}()
+			r = gz
+		} else {
 			rc.Close()
+			if !errors.Is(err, pgzip.ErrHeader) {
+				return nil, err
+			}
 			// ggcr picks the decompressor from the content, not the media type.
-			r, err = l.Uncompressed()
-		case err != nil:
-			rc.Close()
-		default:
-			r = &gunzipReadCloser{Reader: gz, src: rc}
+			uc, err := l.Uncompressed()
+			if err != nil {
+				return nil, err
+			}
+			defer uc.Close()
+			r = uc
 		}
 	} else {
-		r, err = l.Uncompressed()
+		rc, err := l.Uncompressed()
+		if err != nil {
+			return nil, err
+		}
+		defer rc.Close()
+		r = rc
 	}
-	if err != nil {
-		return nil, err
-	}
-	defer r.Close()
 
 	extractedFiles := []string{}
 	tr := tar.NewReader(r)
@@ -304,19 +313,6 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 		extractedFiles = append(extractedFiles, filepath.Join(root, cleanedName))
 	}
 	return extractedFiles, nil
-}
-
-type gunzipReadCloser struct {
-	*pgzip.Reader
-	src io.Closer
-}
-
-// Close closes the source first. pgzip's Close waits for its read-ahead,
-// which can be blocked reading the source.
-func (g *gunzipReadCloser) Close() error {
-	err := g.src.Close()
-	g.Reader.Close()
-	return err
 }
 
 // DeleteFilesystem deletes the extracted image file system
