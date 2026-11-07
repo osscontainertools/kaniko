@@ -1807,6 +1807,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	var pushIndex v1.ImageIndex
 	// the stage whose remote base sits at the bottom of each stage's chain of local bases
 	remoteBase := make([]config.KanikoStage, lastStage.Index+1)
+	remoteBaseImage := make([]v1.Image, lastStage.Index+1)
 	for _, stage := range kanikoStages {
 		remoteBase[stage.Index] = stage
 		if stage.BaseImageStoredLocally {
@@ -1825,9 +1826,11 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 			return nil, fmt.Errorf("failed to get baseImage: %w", err)
 		}
 		baseImage = image_util.WithoutAnnotations(baseImage)
+		remoteBaseImage[stage.Index] = baseImage
 
 		args := baseArgs
 		if stage.BaseImageStoredLocally {
+			remoteBaseImage[stage.Index] = remoteBaseImage[stage.BaseImageIndex]
 			args = stageArgs[stage.BaseImageIndex]
 		}
 		assert.Assert("executor.build.stage-order", args != nil, "stages must be processed in order: base stage %d not yet in stageArgs", stage.BaseImageIndex)
@@ -1943,7 +1946,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 					return nil, err
 				}
 				if config.FF.ReproduciblePreserveBaseLayers {
-					sourceImage, err = image_util.ReplaceBase(sourceImage, baseImage, outMediaType)
+					sourceImage, err = image_util.ReplaceBase(sourceImage, remoteBaseImage[stage.Index], outMediaType)
 					if err != nil {
 						reproducibleTimer.End()
 						return nil, err

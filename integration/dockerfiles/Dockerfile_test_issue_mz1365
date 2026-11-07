@@ -1,0 +1,10 @@
+# mz1365: --reproducible keeps build-time mtimes of a stage that is both
+# FROM base and COPY --from source. Broken since v1.29.0.
+# The COPY --from keeps s0 from being squashed into the final stage, so the
+# final stage builds on s0's local image. Preserving base layers spliced all
+# of s0's layers back in, not only the ones pulled from the registry.
+FROM alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a AS s0
+RUN mkdir /stage && echo a > /stage/artifact
+
+FROM s0
+COPY --from=s0 /stage/artifact /x

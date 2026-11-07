@@ -848,6 +848,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_copy_reproducible": {},
 		"Dockerfile_test_issue_mz731":       {},
 		"Dockerfile_test_issue_mz851":       {},
+		"Dockerfile_test_issue_mz1365":      {},
 	}
 	d.TestKanikoOnlyDockerfiles = map[string]struct{}{
 		"Dockerfile_test_issue_2567":     {},
