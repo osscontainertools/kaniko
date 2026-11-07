@@ -1075,7 +1075,7 @@ are:
 
 #### Flag `--require-digest`
 
-Fail the build if a `FROM` base image is not pinned by digest, e.g. `debian:13.7@sha256:...`. Build args are resolved first. Also available on the warmer.
+Fail if a base image is not pinned by digest, e.g. `debian:13.7@sha256:...`. Build args are resolved first. Also available on the warmer.
 
 #### Flag `--skip-default-registry-fallback`
 
