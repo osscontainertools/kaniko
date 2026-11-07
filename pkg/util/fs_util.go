@@ -502,13 +502,15 @@ func ExtractFileWithChown(dest string, hdr *tar.Header, cleanedName string, tr i
 
 	case tar.TypeLink:
 		logrus.Tracef("Link from %s to %s", hdr.Linkname, path)
-		abs, err := filepath.Abs(hdr.Linkname)
-		if err != nil {
-			return err
-		}
-		if CheckCleanedPathAgainstIgnoreList(abs) {
-			logrus.Tracef("Skipping link from %s to %s because %s is ignored", hdr.Linkname, path, hdr.Linkname)
-			return nil
+		if !config.FF.ConfineHardlinkTarget {
+			abs, err := filepath.Abs(hdr.Linkname)
+			if err != nil {
+				return err
+			}
+			if CheckCleanedPathAgainstIgnoreList(abs) {
+				logrus.Tracef("Skipping link from %s to %s because %s is ignored", hdr.Linkname, path, hdr.Linkname)
+				return nil
+			}
 		}
 		var link string
 		if config.FF.ConfineHardlinkTarget {
