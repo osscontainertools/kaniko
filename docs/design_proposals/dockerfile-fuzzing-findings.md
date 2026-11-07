@@ -17,7 +17,7 @@ This report lists the docker versus kaniko divergences surfaced by the different
 | history for metadata instructions | `ENV`, `LABEL`, ... | one history row each | no row emitted | expected divergence |
 | no-op RUN unchanged dir layer | a RUN with no net change on an existing dir | empty layer | layer holds the unchanged dir | expected divergence |
 | copy symlink dereference | `COPY symlink /dest/` | dereferences to a file | preserves the symlink | expected, kaniko correct |
-| removing a swapped symlink | `RUN rm -rf` a base symlink a mount pins | builds | build fails, Resource busy | fixed by #1114 |
+| removing a swapped symlink | `RUN rm -rf` a base symlink a mount pins | builds | build fails, Resource busy | fixed by #1114 for one symlink, mz1369 through two |
 | oci vs docker media type | any build | OCI by default | mirrors the base | dismissed, harness artifact |
 
 ## Filed bugs
@@ -101,7 +101,9 @@ The base ships `/opt/driver -> /opt/real` and `/opt/real/far -> /opt/elsewhere`.
 
 Three variants pin what causes it. With the flag off and the same mount the build succeeds, and the image matches docker apart from timestamps and history. With the flag on and no mount it succeeds. With the flag off and `rm -rf /opt/driver/far`, the name the runtime actually mounted, it fails the same way.
 
-So this is not swap bookkeeping. Unlinking a bind mount needs privileges kaniko does not have, and the failure already existed for the mounted path itself. What the swap changes is which names reach it: the base image's symlink name now resolves into the pinned directory too, so a Dockerfile that deletes the symlink aborts where it used to build. #1114 fixed it by moving the directory that holds the mount to the name the base image symlink points at, so the symlink goes down as declared. The fuzzer no longer counts this failure, so a regression reports.
+So this is not swap bookkeeping. Unlinking a bind mount needs privileges kaniko does not have, and the failure already existed for the mounted path itself. What the swap changes is which names reach it: the base image's symlink name now resolves into the pinned directory too, so a Dockerfile that deletes the symlink aborts where it used to build. #1114 fixed it by moving the directory that holds the mount to the name the base image symlink points at, so the symlink goes down as declared.
+
+It did not fix the reproducer above. There the mount at `/opt/driver/far` reaches the symlink `/opt/real/far` through the symlink `/opt/driver`, and the build still fails with the same `rm` error, or on the #1114 merge commit already while moving the mount. The fuzzer reported it again once it stopped counting the class. Filed as mz1369 and counted again.
 
 ### mz1112: FF_KANIKO_COPY_AS_ROOT does not cover ADD from a URL
 

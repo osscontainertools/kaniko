@@ -179,6 +179,15 @@ var knownBuildFailures = []knownDivergence{
 		},
 	},
 	{
+		name: "rm-symlink-behind-symlink-busy",
+		why:  "mz1369: removing a base image symlink that a runtime mount reaches through a second symlink hits the busy mount",
+		flag: "FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS",
+		match: func(out string) bool {
+			// busybox and coreutils word EBUSY differently
+			return strings.Contains(out, "can't remove '/opt/") && strings.Contains(out, "esource busy")
+		},
+	},
+	{
 		name: "run-self-referential-symlink",
 		why:  "mz1174: a RUN that leaves a symlink pointing at itself fails the snapshot, ResolvePaths follows every changed link and aborts on the loop",
 		flag: "",
