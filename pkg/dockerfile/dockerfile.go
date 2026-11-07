@@ -278,15 +278,13 @@ func resolveCrossStageCommands(cmds []instructions.Command, stageNameToIdx map[s
 			}
 		case *instructions.RunCommand:
 			if config.FF.RunCrossStageBindMount {
-				for _, m := range instructions.GetMounts(c) {
-					if m.Type == instructions.MountTypeBind {
-						if val, ok := stageNameToIdx[strings.ToLower(m.From)]; ok {
-							m.From = strconv.Itoa(val)
-						}
-						if idx, err := strconv.Atoi(m.From); err == nil {
-							if idx < 0 || idx >= nStages {
-								return fmt.Errorf("RUN --mount=from=%d refers to a stage that does not exist", idx)
-							}
+				for _, m := range CrossStageMounts(c) {
+					if val, ok := stageNameToIdx[strings.ToLower(m.From)]; ok {
+						m.From = strconv.Itoa(val)
+					}
+					if idx, err := strconv.Atoi(m.From); err == nil {
+						if idx < 0 || idx >= nStages {
+							return fmt.Errorf("RUN --mount=from=%d refers to a stage that does not exist", idx)
 						}
 					}
 				}
@@ -408,9 +406,8 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 				}
 			case *instructions.RunCommand:
 				if config.FF.RunCrossStageBindMount {
-					for _, m := range instructions.GetMounts(cmd) {
-						fromIndex, err := strconv.Atoi(m.From)
-						if m.Type == instructions.MountTypeBind && err == nil {
+					for _, m := range CrossStageMounts(cmd) {
+						if fromIndex, err := strconv.Atoi(m.From); err == nil {
 							copyDependencies[fromIndex]++
 						}
 					}
