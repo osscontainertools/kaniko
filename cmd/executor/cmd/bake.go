@@ -88,8 +88,9 @@ var bakeCmd = &cobra.Command{
 	Short: "Build a target defined in a bakefile",
 	Long: `Build a target defined in a bakefile. The bakefile may define several
 targets, name the one to build (it may be omitted when there is only one). The
-target's stage and push destination come from the bakefile. Context, dockerfile,
-build args and other settings come from the usual flags.
+target's stage and push destination come from the bakefile. Context and
+dockerfile come from the usual flags unless the target sets its own. Build args
+and other settings come from the usual flags.
 
 The bakefile is HCL and looks like this:
 

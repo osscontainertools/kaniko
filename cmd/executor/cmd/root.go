@@ -133,24 +133,6 @@ func setupBuild() error {
 	}
 
 	resolveEnvironmentBuildArgs(opts.BuildArgs, os.Getenv)
-	if !config.FF.BakeContextDockerfile {
-		srcContext := opts.SrcContext
-		if err := resolveSourceContext(opts); err != nil {
-			return fmt.Errorf("error resolving source context: %w", err)
-		}
-		if opts.PredefinedAnnotations || opts.Provenance {
-			dir, cloneURL := opts.SrcContext, ""
-			gitContext, isGit := strings.CutPrefix(srcContext, constants.GitBuildContextPrefix)
-			if isGit {
-				dir, cloneURL = config.BuildContextDir, buildcontext.GitURL(gitContext)
-			}
-			opts.CI = buildenv.DetectCI()
-			opts.ContextSource = buildenv.ResolveSource(opts.CI, buildenv.GitSource(dir, cloneURL))
-		}
-		if err := resolveDockerfilePath(opts); err != nil {
-			return fmt.Errorf("error resolving dockerfile path: %w", err)
-		}
-	}
 	// Update ignored paths
 	if opts.IgnoreVarRun {
 		// /var/run is a special case. It's common to mount in /var/run/docker.sock
@@ -252,14 +234,12 @@ func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
 		opts.Target = []string{target.Stage}
 	}
 	opts.Destinations = target.Destination
-	if config.FF.BakeContextDockerfile {
-		if target.Context != "" {
-			opts.SrcContext = target.Context
-			opts.Bucket = ""
-		}
-		if target.Dockerfile != "" {
-			opts.DockerfilePath = target.Dockerfile
-		}
+	if target.Context != "" {
+		opts.SrcContext = target.Context
+		opts.Bucket = ""
+	}
+	if target.Dockerfile != "" {
+		opts.DockerfilePath = target.Dockerfile
 	}
 	opts.CacheFrom = target.CacheFrom
 	opts.CacheTo = target.CacheTo
@@ -301,13 +281,16 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 			return fmt.Errorf("cache flags invalid: %w", err)
 		}
 	}
-	tracing.Init(context.Background(), opts)
+	// tracing reads the Dockerfile through this pointer when it exports.
+	topts := *opts
+	tracing.Init(context.Background(), &topts)
 	_, endSetup := timing.Scope("Setting up build")
-	err := setupBuild()
+	first, wd, err := setupFirstTarget(opts, targets[0])
 	endSetup()
 	if err != nil {
 		return err
 	}
+	topts = first
 	if !checkContained() {
 		if !force {
 			return errors.New("kaniko should only be run inside of a container, run with the --force flag if you are sure you want to continue")
@@ -339,20 +322,6 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 			}
 		}
 	}
-	// resolveRelativePaths would resolve a context-relative Dockerfile against the working
-	// directory, so the targets start from the flags as given and resolve against wd themselves.
-	srcContext, dockerfilePath := opts.SrcContext, opts.DockerfilePath
-	var wd string
-	if config.FF.BakeContextDockerfile {
-		var err error
-		wd, err = os.Getwd()
-		if err != nil {
-			return fmt.Errorf("error getting working dir: %w", err)
-		}
-	}
-	if err := resolveRelativePaths(); err != nil {
-		return fmt.Errorf("error resolving relative paths to absolute paths: %w", err)
-	}
 	if err := os.Chdir("/"); err != nil {
 		return fmt.Errorf("error changing to root dir: %w", err)
 	}
@@ -377,46 +346,12 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 			if err := config.CleanupBuild(); err != nil {
 				return fmt.Errorf("cleaning kaniko dir before target %q: %w", target.ID, err)
 			}
-			if config.FF.BakeContextDockerfile {
-				if err := config.CleanupInputs(); err != nil {
-					return fmt.Errorf("cleaning build inputs before target %q: %w", target.ID, err)
-				}
+			if err := config.CleanupInputs(); err != nil {
+				return fmt.Errorf("cleaning build inputs before target %q: %w", target.ID, err)
 			}
-		}
-		// Copy, so nothing a build writes back into its options reaches the next target.
-		topts := *opts
-		if config.FF.BakeContextDockerfile {
-			topts.SrcContext, topts.DockerfilePath = srcContext, dockerfilePath
-		}
-		if err := ApplyTarget(&topts, target); err != nil {
-			return err
-		}
-		if config.FF.BakeContextDockerfile {
-			rawContext := topts.SrcContext
-			if rawContext != "" && !strings.Contains(rawContext, "://") && !filepath.IsAbs(rawContext) {
-				topts.SrcContext = filepath.Join(wd, rawContext)
-			}
-			if err := resolveSourceContext(&topts); err != nil {
-				return fmt.Errorf("error resolving source context for target %q: %w", target.ID, err)
-			}
-			if topts.PredefinedAnnotations || topts.Provenance {
-				dir, cloneURL := topts.SrcContext, ""
-				gitContext, isGit := strings.CutPrefix(rawContext, constants.GitBuildContextPrefix)
-				if isGit {
-					dir, cloneURL = config.BuildContextDir, buildcontext.GitURL(gitContext)
-				}
-				topts.CI = buildenv.DetectCI()
-				topts.ContextSource = buildenv.ResolveSource(topts.CI, buildenv.GitSource(dir, cloneURL))
-			}
-			if !isURL(topts.DockerfilePath) && !filepath.IsAbs(topts.DockerfilePath) {
-				if util.FilepathExists(filepath.Join(wd, topts.DockerfilePath)) {
-					topts.DockerfilePath = filepath.Join(wd, topts.DockerfilePath)
-				} else {
-					topts.DockerfilePath = filepath.Join(topts.SrcContext, topts.DockerfilePath)
-				}
-			}
-			if err := resolveDockerfilePath(&topts); err != nil {
-				return fmt.Errorf("error resolving dockerfile path for target %q: %w", target.ID, err)
+			topts, err = targetOptions(opts, target, wd)
+			if err != nil {
+				return fmt.Errorf("target %q: %w", target.ID, err)
 			}
 		}
 		if target.ID != "" {
@@ -448,6 +383,57 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 	util.LogRegistryConnections()
 	tracing.Shutdown(nil)
 	return nil
+}
+
+func setupFirstTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) (config.KanikoOptions, string, error) {
+	if err := setupBuild(); err != nil {
+		return config.KanikoOptions{}, "", err
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return config.KanikoOptions{}, "", fmt.Errorf("error getting working dir: %w", err)
+	}
+	if err := resolveRelativePaths(); err != nil {
+		return config.KanikoOptions{}, "", fmt.Errorf("error resolving relative paths to absolute paths: %w", err)
+	}
+	topts, err := targetOptions(opts, target, wd)
+	return topts, wd, err
+}
+
+// Relative paths resolve against wd, later targets run after the chdir to /.
+func targetOptions(opts *config.KanikoOptions, target bake.ResolvedTarget, wd string) (config.KanikoOptions, error) {
+	// Copy, so nothing a build writes back into its options reaches the next target.
+	topts := *opts
+	if err := ApplyTarget(&topts, target); err != nil {
+		return topts, err
+	}
+	srcContext := topts.SrcContext
+	if srcContext != "" && !strings.Contains(srcContext, "://") && !filepath.IsAbs(srcContext) {
+		topts.SrcContext = filepath.Join(wd, srcContext)
+	}
+	if err := resolveSourceContext(&topts); err != nil {
+		return topts, fmt.Errorf("error resolving source context: %w", err)
+	}
+	if topts.PredefinedAnnotations || topts.Provenance {
+		dir, cloneURL := topts.SrcContext, ""
+		gitContext, isGit := strings.CutPrefix(srcContext, constants.GitBuildContextPrefix)
+		if isGit {
+			dir, cloneURL = config.BuildContextDir, buildcontext.GitURL(gitContext)
+		}
+		topts.CI = buildenv.DetectCI()
+		topts.ContextSource = buildenv.ResolveSource(topts.CI, buildenv.GitSource(dir, cloneURL))
+	}
+	if !isURL(topts.DockerfilePath) && !filepath.IsAbs(topts.DockerfilePath) {
+		if util.FilepathExists(filepath.Join(wd, topts.DockerfilePath)) {
+			topts.DockerfilePath = filepath.Join(wd, topts.DockerfilePath)
+		} else {
+			topts.DockerfilePath = filepath.Join(topts.SrcContext, topts.DockerfilePath)
+		}
+	}
+	if err := resolveDockerfilePath(&topts); err != nil {
+		return topts, fmt.Errorf("error resolving dockerfile path: %w", err)
+	}
+	return topts, nil
 }
 
 // addKanikoOptionsFlags configures opts
@@ -772,8 +758,6 @@ func resolveSourceContext(opts *config.KanikoOptions) error {
 
 func resolveRelativePaths() error {
 	optsPaths := []*string{
-		&opts.DockerfilePath,
-		&opts.SrcContext,
 		&opts.CacheDir,
 		&opts.TarPath,
 		&opts.DigestFile,

@@ -9,27 +9,22 @@ var Tests = types.GoldenTests{
 		{
 			Args: []string{"both"},
 			Plan: "both",
-			Env:  map[string]string{"FF_KANIKO_BAKE_CONTEXT_DOCKERFILE": "1"},
 		},
 		{
 			Args: []string{"only_context"},
 			Plan: "only_context",
-			Env:  map[string]string{"FF_KANIKO_BAKE_CONTEXT_DOCKERFILE": "1"},
 		},
 		{
 			Args: []string{"only_dockerfile"},
 			Plan: "only_dockerfile",
-			Env:  map[string]string{"FF_KANIKO_BAKE_CONTEXT_DOCKERFILE": "1"},
 		},
 		{
 			Args: []string{"neither"},
 			Plan: "neither",
-			Env:  map[string]string{"FF_KANIKO_BAKE_CONTEXT_DOCKERFILE": "1"},
 		},
 		{
 			Args: []string{},
 			Plan: "all",
-			Env:  map[string]string{"FF_KANIKO_BAKE_CONTEXT_DOCKERFILE": "1"},
 		},
 	},
 }

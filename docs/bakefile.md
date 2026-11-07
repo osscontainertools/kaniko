@@ -2,7 +2,7 @@
 
 `executor bake <bakefile> [target]` builds several images from one multi-stage Dockerfile in a single invocation.
 
-The bakefile says which stage each image is built from, where it is pushed and which layer caches it uses. The context, dockerfile, build args and registry settings come from the usual flags and are shared by every target.
+The bakefile says which stage each image is built from, where it is pushed and which layer caches it uses. Each target is built on its own, as if `executor` ran once per target. The context and dockerfile come from the usual flags unless the target sets its own. Build args and registry settings come from the usual flags and are shared by every target.
 
 It is the analogue of a `docker-bake.hcl`, expressed in kaniko's commands rather than buildx's. A `docker-bake.hcl` will not parse, see [Relationship to docker-bake.hcl](#relationship-to-docker-bakehcl).
 
@@ -40,7 +40,7 @@ target "app" {
 }
 ```
 
-When `FF_KANIKO_BAKE_CONTEXT_DOCKERFILE` is enabled, targets can also specify per-target `context` and `dockerfile`:
+A target can also set its own `context` and `dockerfile`:
 
 ```hcl
 target "app" {
@@ -79,7 +79,7 @@ executor bake /workspace/kaniko-bake.hcl \
   --context /workspace
 ```
 
-When `FF_KANIKO_BAKE_CONTEXT_DOCKERFILE` is enabled, `context` and `dockerfile` can also be overridden with `--set`:
+`context` and `dockerfile` can also be overridden with `--set`:
 
 ```shell
 executor bake /workspace/kaniko-bake.hcl \
@@ -106,7 +106,7 @@ Name a single target to use them.
 
 ## Relationship to docker-bake.hcl
 
-kaniko uses its own names. An image reference is a `destination`, not a `tag`. When `FF_KANIKO_BAKE_CONTEXT_DOCKERFILE` is enabled, per-target `context` and `dockerfile` are supported. Variables, functions, `group`, `inherits`, `matrix` and attestations are not supported.
+kaniko uses its own names. An image reference is a `destination`, not a `tag`. Variables, functions, `group`, `inherits`, `matrix` and attestations are not supported.
 
 A buildx bakefile fails with the construct it does not understand named:
 

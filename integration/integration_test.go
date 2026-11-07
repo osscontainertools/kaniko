@@ -47,7 +47,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	ggcrtypes "github.com/google/go-containerregistry/pkg/v1/types"
-	kanikoconfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/provenance"
 	"github.com/osscontainertools/kaniko/testutil"
 )
@@ -96,14 +95,6 @@ func runIntegrationTests(m *testing.M) int {
 		fmt.Println("Missing required tools")
 		return 1
 	}
-
-	// The test_context_dockerfile bake fixture uses per-target `context` and
-	// `dockerfile` keys, which are only accepted when
-	// FF_KANIKO_BAKE_CONTEXT_DOCKERFILE is enabled. The flag is passed to the
-	// executor container via KanikoEnv, but bake.Parse/Resolve run in this
-	// process, so enable it here as well.
-	os.Setenv("FF_KANIKO_BAKE_CONTEXT_DOCKERFILE", "1")
-	kanikoconfig.InitFeatureFlags()
 
 	// buildkit wraps the export in an index when it attaches provenance, kaniko never does
 	os.Setenv("BUILDX_NO_DEFAULT_ATTESTATIONS", "1")
