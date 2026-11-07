@@ -67,6 +67,8 @@ var (
 	copyParentsPath = regexp.MustCompile(`\bparents[0-9]+/`)
 	copyExcludePath = regexp.MustCompile(`\bexcl[0-9]+/`)
 	copyLinkIntoDir = regexp.MustCompile(`\blkdir[0-9]+/`)
+	// a directory the --link shape writes under, its owner rows only
+	copyLinkParentOwner = regexp.MustCompile(`\blk(s|[0-9]+)/\s+(Uid|Gid) `)
 )
 
 // dockerKnownDivergences are the classes observed on the docker oracle. The cache
@@ -86,6 +88,14 @@ var dockerKnownDivergences = []knownDivergence{
 		flag: "FF_KANIKO_COPY_LINK",
 		match: func(row string) bool {
 			return copyLinkIntoDir.MatchString(row)
+		},
+	},
+	{
+		name: "copy-link-chown-existing-parent",
+		why:  "mz1214: COPY --link --chown keeps the owner of a parent directory an earlier layer made, where buildkit's link layer carries the parent with the --chown owner",
+		flag: "",
+		match: func(row string) bool {
+			return copyLinkParentOwner.MatchString(row)
 		},
 	},
 	{
