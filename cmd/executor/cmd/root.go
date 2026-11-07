@@ -132,9 +132,82 @@ func setupBuild(targets []bake.ResolvedTarget) ([]targetInputs, error) {
 	}
 
 	resolveEnvironmentBuildArgs(opts.BuildArgs, os.Getenv)
-	inputs, err := resolveInputs(opts, targets)
-	if err != nil {
-		return nil, err
+	// The filesystem is deleted between targets, so with several targets the inputs live in the kaniko dir.
+	store := len(targets) > 1
+	if store {
+		if err := os.MkdirAll(config.KanikoBuildContextsDir, 0o755); err != nil {
+			return nil, fmt.Errorf("creating %s: %w", config.KanikoBuildContextsDir, err)
+		}
+	}
+	type resolvedContext struct {
+		inputs         targetInputs
+		dockerfileBase string
+	}
+	contexts := map[string]resolvedContext{}
+	inputs := make([]targetInputs, len(targets))
+	for i, target := range targets {
+		topts := *opts
+		if err := ApplyTarget(&topts, target); err != nil {
+			return nil, err
+		}
+		srcContext := topts.SrcContext
+		key := strings.Join([]string{srcContext, topts.Bucket, topts.ContextSubPath}, "\x00")
+		c, seen := contexts[key]
+		if !seen {
+			local := srcContext != "" && !strings.Contains(srcContext, "://")
+			if local {
+				abs, err := filepath.Abs(srcContext)
+				if err != nil {
+					return nil, fmt.Errorf("getting absolute path for context: %w", err)
+				}
+				topts.SrcContext = abs
+			}
+			in, err := resolveContext(&topts)
+			if err != nil {
+				return nil, err
+			}
+			c = resolvedContext{inputs: in, dockerfileBase: in.srcContext}
+			if store {
+				stored := filepath.Join(config.KanikoBuildContextsDir, fmt.Sprintf("context-%d", len(contexts)))
+				if local {
+					if err := util.CopyTree(topts.SrcContext, stored, util.FileContext{}, true); err != nil {
+						return nil, fmt.Errorf("storing context %s: %w", srcContext, err)
+					}
+					c.inputs.srcContext = filepath.Clean(config.BuildContextDir)
+				} else {
+					rel, err := filepath.Rel(config.BuildContextDir, topts.SrcContext)
+					if err != nil {
+						return nil, fmt.Errorf("locating context in %s: %w", config.BuildContextDir, err)
+					}
+					if err := os.Rename(filepath.Clean(config.BuildContextDir), stored); err != nil {
+						return nil, fmt.Errorf("storing context %s: %w", srcContext, err)
+					}
+					c.dockerfileBase = filepath.Join(stored, rel)
+					c.inputs.srcContext = filepath.Join(config.BuildContextDir, rel)
+				}
+				c.inputs.stored = stored
+			}
+			contexts[key] = c
+		}
+		topts.SrcContext = c.dockerfileBase
+		if err := resolveDockerfilePath(&topts); err != nil {
+			return nil, fmt.Errorf("error resolving dockerfile path: %w", err)
+		}
+		in := c.inputs
+		in.dockerfile = topts.DockerfilePath
+		if store && !isURL(in.dockerfile) {
+			in.dockerfile = filepath.Join(config.KanikoBuildContextsDir, fmt.Sprintf("Dockerfile-%d", i))
+			if err := os.Rename(config.DockerfilePath, in.dockerfile); err != nil {
+				return nil, fmt.Errorf("storing dockerfile of target %q: %w", target.ID, err)
+			}
+			ignore := config.DockerfilePath + ".dockerignore"
+			if util.FilepathExists(ignore) {
+				if err := os.Rename(ignore, in.dockerfile+".dockerignore"); err != nil {
+					return nil, fmt.Errorf("storing dockerignore of target %q: %w", target.ID, err)
+				}
+			}
+		}
+		inputs[i] = in
 	}
 	// tracing reads the first target's Dockerfile through opts when it exports.
 	opts.SrcContext, opts.DockerfilePath, opts.ContextSource, opts.CI = inputs[0].srcContext, inputs[0].dockerfile, inputs[0].source, inputs[0].ci
@@ -407,87 +480,6 @@ type targetInputs struct {
 	dockerfile string
 	source     buildenv.Source
 	ci         buildenv.CI
-}
-
-// The filesystem is deleted between targets, so with several targets the inputs live in the kaniko dir.
-func resolveInputs(opts *config.KanikoOptions, targets []bake.ResolvedTarget) ([]targetInputs, error) {
-	store := len(targets) > 1
-	if store {
-		if err := os.MkdirAll(config.KanikoBuildContextsDir, 0o755); err != nil {
-			return nil, fmt.Errorf("creating %s: %w", config.KanikoBuildContextsDir, err)
-		}
-	}
-	type resolvedContext struct {
-		inputs         targetInputs
-		dockerfileBase string
-	}
-	contexts := map[string]resolvedContext{}
-	inputs := make([]targetInputs, len(targets))
-	for i, target := range targets {
-		topts := *opts
-		if err := ApplyTarget(&topts, target); err != nil {
-			return nil, err
-		}
-		srcContext := topts.SrcContext
-		key := strings.Join([]string{srcContext, topts.Bucket, topts.ContextSubPath}, "\x00")
-		c, seen := contexts[key]
-		if !seen {
-			local := srcContext != "" && !strings.Contains(srcContext, "://")
-			if local {
-				abs, err := filepath.Abs(srcContext)
-				if err != nil {
-					return nil, fmt.Errorf("getting absolute path for context: %w", err)
-				}
-				topts.SrcContext = abs
-			}
-			in, err := resolveContext(&topts)
-			if err != nil {
-				return nil, err
-			}
-			c = resolvedContext{inputs: in, dockerfileBase: in.srcContext}
-			if store {
-				stored := filepath.Join(config.KanikoBuildContextsDir, fmt.Sprintf("context-%d", len(contexts)))
-				if local {
-					if err := util.CopyTree(topts.SrcContext, stored, util.FileContext{}, true); err != nil {
-						return nil, fmt.Errorf("storing context %s: %w", srcContext, err)
-					}
-					c.inputs.srcContext = filepath.Clean(config.BuildContextDir)
-				} else {
-					rel, err := filepath.Rel(config.BuildContextDir, topts.SrcContext)
-					if err != nil {
-						return nil, fmt.Errorf("locating context in %s: %w", config.BuildContextDir, err)
-					}
-					if err := os.Rename(filepath.Clean(config.BuildContextDir), stored); err != nil {
-						return nil, fmt.Errorf("storing context %s: %w", srcContext, err)
-					}
-					c.dockerfileBase = filepath.Join(stored, rel)
-					c.inputs.srcContext = filepath.Join(config.BuildContextDir, rel)
-				}
-				c.inputs.stored = stored
-			}
-			contexts[key] = c
-		}
-		topts.SrcContext = c.dockerfileBase
-		if err := resolveDockerfilePath(&topts); err != nil {
-			return nil, fmt.Errorf("error resolving dockerfile path: %w", err)
-		}
-		in := c.inputs
-		in.dockerfile = topts.DockerfilePath
-		if store && !isURL(in.dockerfile) {
-			in.dockerfile = filepath.Join(config.KanikoBuildContextsDir, fmt.Sprintf("Dockerfile-%d", i))
-			if err := os.Rename(config.DockerfilePath, in.dockerfile); err != nil {
-				return nil, fmt.Errorf("storing dockerfile of target %q: %w", target.ID, err)
-			}
-			ignore := config.DockerfilePath + ".dockerignore"
-			if util.FilepathExists(ignore) {
-				if err := os.Rename(ignore, in.dockerfile+".dockerignore"); err != nil {
-					return nil, fmt.Errorf("storing dockerignore of target %q: %w", target.ID, err)
-				}
-			}
-		}
-		inputs[i] = in
-	}
-	return inputs, nil
 }
 
 func resolveContext(opts *config.KanikoOptions) (targetInputs, error) {
