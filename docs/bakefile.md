@@ -2,7 +2,7 @@
 
 `executor bake <bakefile> [target]` builds several images from one multi-stage Dockerfile in a single invocation.
 
-The bakefile says which stage each image is built from, where it is pushed and which layer caches it uses. Each target is built on its own, as if `executor` ran once per target. The context and dockerfile come from the usual flags unless the target sets its own. Build args and registry settings come from the usual flags and are shared by every target. With several targets, every distinct context is copied into the kaniko directory before the first build.
+The bakefile says which stage each image is built from, where it is pushed and which layer caches it uses. Each target is built on its own, as if `executor` ran once per target. The context and dockerfile come from the usual flags unless the target sets its own. Build args and registry settings come from the usual flags and are shared by every target. Every distinct context is copied into the kaniko directory before the first build.
 
 It is the analogue of a `docker-bake.hcl`, expressed in kaniko's commands rather than buildx's. A `docker-bake.hcl` will not parse, see [Relationship to docker-bake.hcl](#relationship-to-docker-bakehcl).
 
