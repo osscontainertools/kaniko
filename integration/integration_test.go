@@ -247,8 +247,6 @@ func buildRequiredImages() error {
 	return nil
 }
 
-// pushHardlinkEscapeImage appends a layer to the busybox base that symlinks
-// "escape" to /kaniko and then hardlinks "probe" to "escape/executor".
 func pushHardlinkEscapeImage(baseRef, imageRef string) error {
 	src, err := name.ParseReference(baseRef, name.WeakValidation)
 	if err != nil {

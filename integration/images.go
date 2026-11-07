@@ -698,6 +698,7 @@ var expectedWarnings = map[string]string{
 	"Dockerfile_test_issue_mz991": "is deprecated",
 	// 1599: a fifo COPY into /kaniko must warn and be skipped like any other file.
 	"Dockerfile_test_issue_1599_2": "Skipping copy targeting kaniko directory",
+	"Dockerfile_test_issue_cg533":  "Skipping hardlink probe",
 }
 
 func checkNoWarnings(dockerfile string, out []byte) error {
