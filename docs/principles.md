@@ -16,7 +16,7 @@ When an operation would leave an unwanted change on the filesystem, don't perfor
 
 ### kaniko is invisible on the filesystem
 
-Reading the filesystem must not change it. kaniko, the snapshotter included, never touches the timestamps of the files it inspects. Every read goes through `util.FSys`, which opens files with `O_NOATIME`, never through `os` directly.
+Reading the filesystem kaniko builds must not change it. kaniko, the snapshotter included, never touches the timestamps of the files it inspects. Every read of that filesystem goes through `util.FSys`, which opens files with `O_NOATIME`, never through `os` directly. The build context is an input, not part of the build, and is not covered.
 
 ### kaniko keeps its state in its own directory
 
