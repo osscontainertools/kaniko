@@ -226,7 +226,7 @@ The cache oracle names its cache one of three ways per case. `--cache-repo` on b
 
 ### Bake
 
-`FUZZ_BAKE=1` names the final stage in a copy of the Dockerfile and builds every stage as a target of one `executor bake`. The target the fresh build produced and one other stage are compared with standalone builds of the same stage. Targets build one after another in one process, so a difference is state one target left for the next.
+`FUZZ_BAKE=1` names the final stage in a copy of the Dockerfile and builds two stages as targets of one `executor bake`, the one the fresh build produced and one other stage that builds standalone. Each target is compared with its standalone build. A stage a `--target` build never reaches may not build at all, so it is not baked. Targets build one after another in one process, so a difference is state one target left for the next.
 
 ### Deferred or arbitration-only
 
