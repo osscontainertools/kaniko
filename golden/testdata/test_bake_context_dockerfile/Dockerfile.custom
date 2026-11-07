@@ -1,0 +1,2 @@
+FROM scratch AS custom_df
+COPY default.txt /custom_df.txt

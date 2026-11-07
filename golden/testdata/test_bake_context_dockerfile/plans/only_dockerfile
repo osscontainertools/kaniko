@@ -1,0 +1,4 @@
+FROM scratch AS custom_df
+COPY default.txt /custom_df.txt
+PUSH [registry.example.com/only_dockerfile:latest]
+  UPLOAD COPY default.txt /custom_df.txt

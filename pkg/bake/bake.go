@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -30,22 +31,29 @@ import (
 )
 
 type Target struct {
-	Target      string   `hcl:"target"`
-	Destination []string `hcl:"destination"`
-	CacheFrom   []string `hcl:"cache_from"`
-	CacheTo     []string `hcl:"cache_to"`
+	Context        string   `hcl:"context"`
+	ContextSubPath string   `hcl:"context_sub_path"`
+	Dockerfile     string   `hcl:"dockerfile"`
+	Target         string   `hcl:"target"`
+	Destination    []string `hcl:"destination"`
+	CacheFrom      []string `hcl:"cache_from"`
+	CacheTo        []string `hcl:"cache_to"`
 }
 
 type Bakefile struct {
+	Dir     string
 	Targets map[string]Target `hcl:"target"`
 }
 
 type ResolvedTarget struct {
-	ID          string
-	Stage       string
-	Destination []string
-	CacheFrom   []string
-	CacheTo     []string
+	ID             string
+	Context        string
+	ContextSubPath string
+	Dockerfile     string
+	Stage          string
+	Destination    []string
+	CacheFrom      []string
+	CacheTo        []string
 }
 
 func Parse(path string) (*Bakefile, error) {
@@ -57,6 +65,7 @@ func Parse(path string) (*Bakefile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
+	b.Dir = filepath.Dir(path)
 	return b, nil
 }
 
@@ -84,15 +93,13 @@ func parse(data []byte) (*Bakefile, error) {
 
 var (
 	topKeys    = []string{"target"}
-	targetKeys = []string{"target", "destination", "cache_from", "cache_to"}
+	targetKeys = []string{"target", "destination", "cache_from", "cache_to", "context", "context_sub_path", "dockerfile"}
 )
 
 // Keys a docker-bake.hcl would use. The bakefile keeps kaniko's own vocabulary, so
 // point at the kaniko spelling rather than accepting both.
 var bakeHints = map[string]string{
 	"tags":       "use destination",
-	"context":    "use the --context flag",
-	"dockerfile": "use the --dockerfile flag",
 	"args":       "use the --build-arg flag",
 	"platforms":  "use the --custom-platform flag",
 	"inherits":   "which is not supported",
@@ -210,9 +217,37 @@ func (b *Bakefile) Resolve(selected []string) ([]ResolvedTarget, error) {
 		if stage == "" {
 			stage = id
 		}
-		resolved = append(resolved, ResolvedTarget{ID: id, Stage: stage, Destination: t.Destination, CacheFrom: t.CacheFrom, CacheTo: t.CacheTo})
+		resolved = append(resolved, ResolvedTarget{
+			ID:             id,
+			Context:        t.Context,
+			ContextSubPath: t.ContextSubPath,
+			Dockerfile:     t.Dockerfile,
+			Stage:          stage,
+			Destination:    t.Destination,
+			CacheFrom:      t.CacheFrom,
+			CacheTo:        t.CacheTo,
+		})
 	}
 	return resolved, nil
+}
+
+func ResolvePaths(dir, context, dockerfile string) (string, string) {
+	if context != "" && !filepath.IsAbs(context) && dir != "" && !isURL(context) {
+		context = filepath.Join(dir, context)
+	}
+	// A relative dockerfile in a remote context is joined once the context is unpacked.
+	if dockerfile != "" && !filepath.IsAbs(dockerfile) && !isURL(dockerfile) && !isURL(context) {
+		if context != "" {
+			dockerfile = filepath.Join(context, dockerfile)
+		} else if dir != "" {
+			dockerfile = filepath.Join(dir, dockerfile)
+		}
+	}
+	return context, dockerfile
+}
+
+func isURL(path string) bool {
+	return strings.Contains(path, "://")
 }
 
 type Override struct {
@@ -241,6 +276,9 @@ func ApplyOverrides(targets []ResolvedTarget, overrides []Override) error {
 	dests := map[int][]string{}
 	froms := map[int][]string{}
 	tos := map[int][]string{}
+	contexts := map[int]string{}
+	contextSubPaths := map[int]string{}
+	dockerfiles := map[int]string{}
 	for _, o := range overrides {
 		i, ok := idx[o.Target]
 		if !ok {
@@ -253,6 +291,12 @@ func ApplyOverrides(targets []ResolvedTarget, overrides []Override) error {
 			froms[i] = append(froms[i], o.Value)
 		case "cache_to":
 			tos[i] = append(tos[i], o.Value)
+		case "context":
+			contexts[i] = o.Value
+		case "context_sub_path":
+			contextSubPaths[i] = o.Value
+		case "dockerfile":
+			dockerfiles[i] = o.Value
 		default:
 			return fmt.Errorf("--set field %q is not supported", o.Field)
 		}
@@ -265,6 +309,15 @@ func ApplyOverrides(targets []ResolvedTarget, overrides []Override) error {
 	}
 	for i, t := range tos {
 		targets[i].CacheTo = t
+	}
+	for i, c := range contexts {
+		targets[i].Context = c
+	}
+	for i, p := range contextSubPaths {
+		targets[i].ContextSubPath = p
+	}
+	for i, df := range dockerfiles {
+		targets[i].Dockerfile = df
 	}
 	return nil
 }

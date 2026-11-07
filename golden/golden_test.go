@@ -38,6 +38,7 @@ import (
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
 	warmercmd "github.com/osscontainertools/kaniko/cmd/warmer/cmd"
 	testbake "github.com/osscontainertools/kaniko/golden/testdata/test_bake"
+	testbakecontextdockerfile "github.com/osscontainertools/kaniko/golden/testdata/test_bake_context_dockerfile"
 	testissuemz1126 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1126"
 	testissuemz1128 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1128"
 	testissuemz1133 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1133"
@@ -306,8 +307,9 @@ func TestRun(t *testing.T) {
 }
 
 var bakeTests = map[string][]types.GoldenTests{
-	"test_bake":         {testbake.Tests},
-	"test_issue_mz1349": {testissuemz1349.Tests},
+	"test_bake":                    {testbake.Tests},
+	"test_bake_context_dockerfile": {testbakecontextdockerfile.Tests},
+	"test_issue_mz1349":            {testissuemz1349.Tests},
 }
 
 func TestBake(t *testing.T) {

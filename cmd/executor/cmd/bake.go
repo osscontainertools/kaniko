@@ -61,6 +61,9 @@ func ConfigureFromBakefile(opts *config.KanikoOptions, path string, selection, s
 	if err := bake.ApplyOverrides(targets, overrides); err != nil {
 		return nil, err
 	}
+	for i := range targets {
+		targets[i].Context, targets[i].Dockerfile = bake.ResolvePaths(bakefile.Dir, targets[i].Context, targets[i].Dockerfile)
+	}
 	for _, t := range targets {
 		if !opts.NoPush && len(t.Destination) == 0 {
 			return nil, fmt.Errorf("target %q has no destination, set one in the bakefile or use --no-push", t.ID)
@@ -88,8 +91,9 @@ var bakeCmd = &cobra.Command{
 	Short: "Build a target defined in a bakefile",
 	Long: `Build a target defined in a bakefile. The bakefile may define several
 targets, name the one to build (it may be omitted when there is only one). The
-target's stage and push destination come from the bakefile. Context, dockerfile,
-build args and other settings come from the usual flags.
+target's stage and push destination come from the bakefile. Context and
+dockerfile come from the usual flags unless the target sets its own. Build args
+and other settings come from the usual flags.
 
 The bakefile is HCL and looks like this:
 

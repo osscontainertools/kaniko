@@ -2,7 +2,7 @@
 
 `executor bake <bakefile> [target]` builds several images from one multi-stage Dockerfile in a single invocation.
 
-The bakefile says which stage each image is built from, where it is pushed and which layer caches it uses. The context, dockerfile, build args and registry settings come from the usual flags and are shared by every target.
+The bakefile says which stage each image is built from, where it is pushed and which layer caches it uses. Each target is built on its own, as if `executor` ran once per target. The context and dockerfile come from the usual flags unless the target sets its own. Build args and registry settings come from the usual flags and are shared by every target. With several targets, every distinct context is copied into the kaniko directory before the first build.
 
 It is the analogue of a `docker-bake.hcl`, expressed in kaniko's commands rather than buildx's. A `docker-bake.hcl` will not parse, see [Relationship to docker-bake.hcl](#relationship-to-docker-bakehcl).
 
@@ -40,6 +40,21 @@ target "app" {
 }
 ```
 
+A target can also set its own `context` and `dockerfile`:
+
+```hcl
+target "app" {
+  context    = "services/app"
+  dockerfile = "Dockerfile"
+  target     = "app"
+  destination = ["registry.example.com/app:latest"]
+}
+```
+
+- `context`: Path to the build context for this target. Relative paths are resolved relative to the bakefile.
+- `context_sub_path`: Sub path within the target's context, like [`--context-sub-path`](../README.md#flag---context-sub-path).
+- `dockerfile`: Path to the Dockerfile for this target. Relative paths are resolved relative to the target's context (or bakefile).
+
 ## Choosing Targets
 
 With no target named on the command line, every target in the file is built:
@@ -54,14 +69,23 @@ Name one to build only that one:
 executor bake /workspace/kaniko-bake.hcl app --context /workspace
 ```
 
-## Overriding Destinations
+## Overriding Target Attributes
 
-`--set <target>.destination=<ref>` replaces a target's destinations:
+`--set <target>.<field>=<value>` replaces a target's field:
 
 ```shell
 executor bake /workspace/kaniko-bake.hcl \
   --set app.destination=$CI_REGISTRY_IMAGE/app:$CI_COMMIT_SHA \
   --set tools.destination=$CI_REGISTRY_IMAGE/tools:$CI_COMMIT_SHA \
+  --context /workspace
+```
+
+`context`, `context_sub_path` and `dockerfile` can also be overridden with `--set`. Relative paths resolve the same way as in the bakefile:
+
+```shell
+executor bake /workspace/kaniko-bake.hcl \
+  --set app.context=/custom/context \
+  --set app.dockerfile=/custom/context/Dockerfile \
   --context /workspace
 ```
 
@@ -83,7 +107,7 @@ Name a single target to use them.
 
 ## Relationship to docker-bake.hcl
 
-kaniko uses its own names. An image reference is a `destination`, not a `tag`. There is no per-target `context` or `dockerfile`, those are flags. Variables, functions, `group`, `inherits`, `matrix` and attestations are not supported.
+kaniko uses its own names. An image reference is a `destination`, not a `tag`. Variables, functions, `group`, `inherits`, `matrix` and attestations are not supported.
 
 A buildx bakefile fails with the construct it does not understand named:
 

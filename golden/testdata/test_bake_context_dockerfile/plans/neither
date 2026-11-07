@@ -1,0 +1,4 @@
+FROM scratch AS fallback
+COPY default.txt /default.txt
+PUSH [registry.example.com/neither:latest]
+  UPLOAD COPY default.txt /default.txt
