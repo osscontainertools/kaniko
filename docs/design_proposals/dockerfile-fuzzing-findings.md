@@ -167,6 +167,23 @@ A RUN that makes no net filesystem change on an existing directory produces an e
 
 The fuzzer first reported a media-type divergence on every case. It was a harness artifact. kaniko emits whatever media type the base image carries, docker emits OCI by default and docker v2 when provenance is disabled. The harness now detects the final base image's media type with `crane` and tells docker to emit the same, so this class no longer appears. It was removed from the classifier rather than kept, because it describes no real kaniko behavior.
 
+## Found outside the fuzzer
+
+These bugs were fixed on main between the v1.29.0 rebase and 2026-11-07, and the fuzzer never reported them. Each one needed a shape the generator did not emit or an oracle that did not exist. The generator and oracles now cover them.
+
+| Bug | What the fuzzer lacked | Now |
+|---|---|---|
+| #1339 relative ADD destination without WORKDIR left the layer empty | every ADD destination was absolute | ADD and COPY to relative destinations, local, url and unpacked url |
+| mz1152 ADD url through a symlinked directory | no symlink in a destination parent | `ln -s` a directory, then ADD url or COPY through it |
+| mz1213 relative bind mount target | bind targets were absolute | relative target, sometimes after a WORKDIR |
+| #1336 mount parents the command wrote into | every mount target had an existing parent | cache, secret, bind and tmpfs targets under a missing parent |
+| mz1233 ARG and ENV of one name in the dependency prepass | no name was both an ARG and an ENV | `ARG CP=nope` and `ENV CP=...` in either order, then `COPY --from` through `$CP` |
+| mz1258 existing subdirectory keeps its mode | context dirs and stage artifacts had no subdirectory | `d0/sub` at 0751 and `/stage/sub`, copied onto an existing subdir |
+| mz876 cross-stage whiteouts (#1316) | every cross-stage diff was counted as mz876, and no path was shared across stages | the cross-stage suppression is gone, `/xs` is created and deleted in several stages |
+| #1210 warmer leaves TARGETARCH empty in FROM | no FROM used a predefined arg | `FROM <repo>/fuzz-arch-base:$TARGETARCH` |
+| 37003efef --image-format in the cache key | no build read a cache under another format | `FUZZ_CACHEFORMAT` |
+| #1315 tmpfs mounts, #1346 --cache-from/--cache-to, #1230 --provenance, bake | new features | tmpfs in the generator, cache modes in the cache oracle, `FUZZ_PROVENANCE`, `FUZZ_BAKE` |
+
 ## Method note
 
 Findings came from `TestFuzz` with minimal `diffoci` ignores, so the two oracles compared as strictly as reasonably possible. The docker oracle excuses only image name, image-config timestamps, and cross-tool file timestamps. The cache oracle excuses only image name and image-config timestamps and is otherwise byte-strict. Every candidate was reproduced in isolation and confirmed by reading the config, the layer tars, or the kaniko source before being classified as real, expected, or artifact. That is how the media-type artifact was caught before it could be recorded as a bug, and it is why the classifier baseline is trusted: a case that is not one of the known classes is a genuinely new divergence.
