@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 // reportable is true for any finding worth reporting and shrinking.
@@ -81,14 +82,18 @@ func sameClass(target, cand *finding) bool {
 // shrinkFinding greedily removes instructions from a reproducing Dockerfile while
 // the same finding class still reproduces, returning the finding of the minimal
 // reproducer so its dockerfile and diff detail stay consistent. FROM is always
-// kept. The cache oracle is skipped unless the target is a cache diff, so shrinking
-// a docker or crash finding does not pay for cache builds per candidate.
-func shrinkFinding(t *testing.T, target *finding, gen genResult) *finding {
+// kept. Each candidate runs only the oracle that reported the finding, and the cache
+// oracle only for a cache finding, so a candidate costs a few builds instead of every
+// oracle the campaign runs. It stops at the campaign deadline with the smallest
+// reproducer so far.
+func shrinkFinding(t *testing.T, target *finding, gen genResult, deadline time.Time) *finding {
 	lines := splitDockerfile(gen.dockerfile)
 	if len(lines) <= 2 {
 		return target
 	}
-	skipCache := target.sev != sevCacheDiff
+	// FUZZ_INVARIANCE and FUZZ_CACHEFORMAT compare against the cache oracle's builds
+	skipCache := target.oracle != "cache" && target.oracle != "FUZZ_INVARIANCE" && target.oracle != "FUZZ_CACHEFORMAT"
+	oracles := map[string]bool{target.oracle: target.oracle != ""}
 
 	candidate := 0
 	reproduces := func(cand genResult) *finding {
@@ -96,7 +101,7 @@ func shrinkFinding(t *testing.T, target *finding, gen genResult) *finding {
 		// Label carries the seed so concurrent shrinks of different findings do not
 		// collide on image tags or cache repos.
 		label := fmt.Sprintf("fuzz-shrink-%d-%d", target.seed, candidate)
-		f := buildAndClassify(t, target.seed, label, cand, "", skipCache)
+		f := buildAndClassify(t, target.seed, label, cand, "", skipCache, oracles)
 		if sameClass(target, f) {
 			return f
 		}
@@ -108,6 +113,9 @@ func shrinkFinding(t *testing.T, target *finding, gen genResult) *finding {
 	for changed {
 		changed = false
 		for i := 1; i < len(lines); i++ { // keep FROM at index 0
+			if !deadline.IsZero() && time.Now().After(deadline) {
+				return best
+			}
 			reduced := removeAt(lines, i)
 			if f := reproduces(genFromLines(reduced, gen)); f != nil {
 				lines = reduced

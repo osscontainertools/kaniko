@@ -89,6 +89,7 @@ type finding struct {
 	detail     string
 	dockerfile string
 	known      map[string]int // known divergence classes seen on this case, counted not reported
+	oracle     string         // the FUZZ_* gate of the oracle that reported it, "cache", or "" for the docker oracle
 	// Full invocation, so a written finding can be replayed exactly. Without these a
 	// finding's flags/env/context were lost and triage had to guess them.
 	flags            []string
@@ -412,7 +413,7 @@ RUN rm -rf /opt/driver && ln -s /opt/real /opt/driver
 			}
 			mu.Unlock()
 
-			f, newCov := runFuzzCase(t, seed, input, tracker)
+			f, newCov := runFuzzCase(t, seed, input, tracker, deadline)
 
 			mu.Lock()
 			if newCov > 0 {
@@ -484,9 +485,22 @@ RUN rm -rf /opt/driver && ln -s /opt/real /opt/driver
 // buildAndClassify builds gen with docker and kaniko under the given label, runs
 // the oracles, and returns the highest-severity finding. covDir, when set, is
 // mounted as the fresh build's GOCOVERDIR. skipCache omits the cache oracle, which
-// the shrinker sets when the target finding is not a cache divergence. It holds no
+// the shrinker sets when the target finding is not a cache divergence. oracles are the
+// FUZZ_* gates to run. A finding from a gated oracle records its gate. It holds no
 // coverage or corpus logic so the shrinker can reuse it as a reproduce predicate.
-func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, covDir string, skipCache bool) *finding {
+func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, covDir string, skipCache bool, oracles map[string]bool) (res *finding) {
+	gate := ""
+	on := func(g string) bool {
+		if oracles[g] {
+			gate = g
+		}
+		return oracles[g]
+	}
+	defer func() {
+		if res != nil && res.sev != sevClean {
+			res.oracle = gate
+		}
+	}()
 	dir, err := os.MkdirTemp("", "kaniko-fuzz-ctx-")
 	if err != nil {
 		t.Logf("[%s] tempdir: %v", label, err)
@@ -609,6 +623,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	// building the identical context, so the comparison is byte-strict. Only the
 	// image name and config timestamp are excused, nothing at the file level.
 	if !skipCache {
+		gate = "cache"
 		v0 := GetVersionedKanikoImage(config.imageRepo, label, 0)
 		v1 := GetVersionedKanikoImage(config.imageRepo, label, 1)
 		// The cache backend is part of the search space: a registry repo, or an on-disk
@@ -704,7 +719,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		// format oracle: with FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY the cache keys do not
 		// depend on the manifest format, so a build under the other --image-format has to
 		// hit every layer the consume build hit. Gated behind FUZZ_CACHEFORMAT; adds a build.
-		if os.Getenv("FUZZ_CACHEFORMAT") == "1" && !slices.Contains(gen.envFlags, "FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY=0") {
+		if !slices.Contains(gen.envFlags, "FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY=0") && on("FUZZ_CACHEFORMAT") {
 			if f := cacheFormatOracle(label, gen, cacheRepo, c1, crashOr, fail, func(image string, flags []string) (string, error) {
 				return runCache(image, covDir, flags, gen.envFlags)
 			}); f != nil {
@@ -718,7 +733,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		// flags off, then compare the cache-consume image to the lookahead-on one (v1).
 		// A divergence is a lookahead bug (mz872 is the crashing variant; this catches
 		// the silent variant where a wrong cached layer is served). Gated: adds builds.
-		if os.Getenv("FUZZ_INVARIANCE") == "1" {
+		if on("FUZZ_INVARIANCE") {
 			// Keep the case's fuzzed env flags on both sides so only the lookahead family
 			// differs; docker keeps the last -e, so the =0 overrides win over KanikoEnv.
 			offEnv := append(append([]string{}, gen.envFlags...), "FF_KANIKO_CACHE_LOOKAHEAD=0", "FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=0", "FF_KANIKO_RESOLVE_CACHE_KEY=0")
@@ -778,7 +793,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	// builds of the same context, docker out of the loop. Gated behind
 	// FUZZ_DETERMINISM because it adds kaniko builds per case. Two modes catch
 	// different classes, so a divergence is a nondeterminism bug either way.
-	if os.Getenv("FUZZ_DETERMINISM") == "1" {
+	if on("FUZZ_DETERMINISM") {
 		if f := determinismOracle(label, dir, kanikoImage, gen.kanikoFlags, gen.envFlags, fail, crashOr, gen.mounts...); f != nil {
 			if f.sev == sevDeterminismDiff && reproducibleStageMtimes(gen.dockerfile, f.detail) {
 				f = &finding{seed: seed, sev: sevClean, known: map[string]int{mz1365ReproducibleStage: 1}}
@@ -794,7 +809,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	// compare. A divergence is a warmer bug (wrong, corrupted, or restamped base
 	// layer served from cache). Gated behind FUZZ_WARMER because it adds a warmer run
 	// plus two cache-dir builds per case.
-	if os.Getenv("FUZZ_WARMER") == "1" {
+	if on("FUZZ_WARMER") {
 		if dockerCls.known == nil {
 			dockerCls.known = map[string]int{}
 		}
@@ -817,7 +832,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	// case from a tar context and compare to the fresh dir-context image. A divergence
 	// is a build-context bug. Gated behind FUZZ_TARCONTEXT; adds a build and exercises
 	// pkg/buildcontext, which the default local-dir path never reaches.
-	if os.Getenv("FUZZ_TARCONTEXT") == "1" {
+	if on("FUZZ_TARCONTEXT") {
 		if f := tarContextOracle(seed, label, dir, kanikoImage, gen.dockerfile, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
 			mergeKnown(f, dockerCls.known)
 			return f
@@ -827,7 +842,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	// https-context oracle: the same invariance over pkg/buildcontext's HTTPSTar handler,
 	// fetching the context as an https:// tarball from the campaign's local TLS server.
 	// Gated behind FUZZ_HTTPSCONTEXT and only if the server came up.
-	if os.Getenv("FUZZ_HTTPSCONTEXT") == "1" && httpsServedDir != "" {
+	if httpsServedDir != "" && on("FUZZ_HTTPSCONTEXT") {
 		if f := httpsContextOracle(seed, label, dir, kanikoImage, gen.dockerfile, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
 			mergeKnown(f, dockerCls.known)
 			return f
@@ -836,7 +851,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 
 	// two-step oracle: build to a tarball (--no-push --tar-path) then push it separately must
 	// equal a direct build+push. Gated behind FUZZ_TWOSTEP; adds a build plus a crane push.
-	if os.Getenv("FUZZ_TWOSTEP") == "1" {
+	if on("FUZZ_TWOSTEP") {
 		if f := twoStepPushOracle(seed, label, dir, kanikoImage, gen.dockerfile, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
 			mergeKnown(f, dockerCls.known)
 			return f
@@ -845,7 +860,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 
 	// dockerfile-http oracle: fetching the Dockerfile over http (-f <url>) must produce the
 	// same image as a local Dockerfile. Gated behind FUZZ_DFHTTP; reuses the ADD-url server.
-	if os.Getenv("FUZZ_DFHTTP") == "1" {
+	if on("FUZZ_DFHTTP") {
 		if f := dockerfileHTTPOracle(seed, label, dir, kanikoImage, gen.dockerfile, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
 			mergeKnown(f, dockerCls.known)
 			return f
@@ -854,7 +869,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 
 	// digest-file oracle: --digest-file must record the digest the registry actually stored.
 	// Gated behind FUZZ_DIGESTFILE; adds one build per case.
-	if os.Getenv("FUZZ_DIGESTFILE") == "1" {
+	if on("FUZZ_DIGESTFILE") {
 		if f := digestFileOracle(seed, label, dir, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
 			mergeKnown(f, dockerCls.known)
 			return f
@@ -863,7 +878,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 
 	// bake oracle: every stage as a target of one bake, compared with standalone builds.
 	// Gated behind FUZZ_BAKE; adds the bake and one standalone build.
-	if os.Getenv("FUZZ_BAKE") == "1" {
+	if on("FUZZ_BAKE") {
 		if f := bakeOracle(seed, label, dir, kanikoImage, gen, covDir, fail, crashOr); f != nil {
 			mergeKnown(f, dockerCls.known)
 			return f
@@ -872,7 +887,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 
 	// provenance oracle: --provenance adds an attestation beside the image and must not
 	// change the image. Gated behind FUZZ_PROVENANCE; adds two builds.
-	if os.Getenv("FUZZ_PROVENANCE") == "1" {
+	if on("FUZZ_PROVENANCE") {
 		if f := provenanceOracle(seed, label, dir, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
 			mergeKnown(f, dockerCls.known)
 			return f
@@ -881,7 +896,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 
 	// context-sub-path oracle: the same context nested one level down and reached with
 	// --context-sub-path must give the same image. Gated behind FUZZ_SUBPATHCONTEXT.
-	if os.Getenv("FUZZ_SUBPATHCONTEXT") == "1" {
+	if on("FUZZ_SUBPATHCONTEXT") {
 		if f := subPathContextOracle(seed, label, dir, kanikoImage, gen.dockerfile, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
 			mergeKnown(f, dockerCls.known)
 			return f
@@ -890,7 +905,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 
 	// stdin-context oracle: the context piped in as a gzipped tar must give the same image as
 	// the dir context. Gated behind FUZZ_STDINCONTEXT; adds a build and a tar per case.
-	if os.Getenv("FUZZ_STDINCONTEXT") == "1" {
+	if on("FUZZ_STDINCONTEXT") {
 		if f := stdinContextOracle(seed, label, dir, kanikoImage, gen.dockerfile, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
 			mergeKnown(f, dockerCls.known)
 			return f
@@ -900,7 +915,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	// tracing oracle: OTLP tracing is instrumentation, so the traced image must equal the
 	// untraced one, and the collector must actually receive spans. Gated behind FUZZ_TRACING
 	// and only if the sink bound its port.
-	if os.Getenv("FUZZ_TRACING") == "1" && otlpUp {
+	if otlpUp && on("FUZZ_TRACING") {
 		if f := tracingOracle(seed, label, dir, kanikoImage, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
 			mergeKnown(f, dockerCls.known)
 			return f
@@ -910,7 +925,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	// registry-mirror oracle: the same case built from docker.io refs with the mirror
 	// redirecting to the campaign registry must give the same image. Gated behind
 	// FUZZ_REGISTRYMIRROR; only fires on cases whose bases are all alpine or debian.
-	if os.Getenv("FUZZ_REGISTRYMIRROR") == "1" {
+	if on("FUZZ_REGISTRYMIRROR") {
 		if f := registryMirrorOracle(seed, label, dir, kanikoImage, gen.dockerfile, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
 			mergeKnown(f, dockerCls.known)
 			return f
@@ -919,7 +934,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 
 	// dryrun oracle: --dryrun renders the plan and must not push (mz992). Gated behind
 	// FUZZ_DRYRUN; adds one build per case, and no registry write to clean up.
-	if os.Getenv("FUZZ_DRYRUN") == "1" {
+	if on("FUZZ_DRYRUN") {
 		if f := dryrunOracle(label, dir, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
 			mergeKnown(f, dockerCls.known)
 			return f
@@ -930,7 +945,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	// layers between each other, even when their composite keys collide (mz873), and the
 	// cache-lookahead precompute must not mis-resolve a colliding cross-stage pointer
 	// (mz872). Gated behind FUZZ_SHAREDCACHE; only runs on cases that declare >=2 args.
-	if os.Getenv("FUZZ_SHAREDCACHE") == "1" {
+	if on("FUZZ_SHAREDCACHE") {
 		if f := sharedCacheOracle(seed, label, dir, gen.dockerfile, gen.argNames, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr); f != nil {
 			mergeKnown(f, dockerCls.known)
 			return f
@@ -941,7 +956,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	// toggles flipped on or off, purely to exercise flag-gated branches for coverage. No
 	// image comparison, so non-output-neutral flips cannot pollute the parity oracles; only
 	// a novel crash is a finding. Gated behind FUZZ_CHAOSFLAGS.
-	if os.Getenv("FUZZ_CHAOSFLAGS") == "1" && len(gen.chaosEnv) > 0 {
+	if len(gen.chaosEnv) > 0 && on("FUZZ_CHAOSFLAGS") {
 		chaosImg := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-chaos")
 		defer runFuzzBounded(exec.Command("docker", "rmi", "-f", chaosImg))
 		cout, _ := runFuzzKanikoEnv(dir, chaosImg, gen.kanikoFlags, covDir, gen.chaosEnv, gen.mounts...)
@@ -957,6 +972,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 
 	// A docker diff made only of known classes is the expected baseline: counted,
 	// not reported. Only a row that matches no known class is a finding.
+	gate = ""
 	if len(dockerCls.novel) > 0 {
 		f := fail(sevDockerDiff, "docker and kaniko differ (novel)", strings.Join(dockerCls.novel, "\n"))
 		f.known = dockerCls.known
@@ -1290,9 +1306,25 @@ func warmerPlanOracle(label, dir string, gen genResult, covDir string, known map
 	return nil
 }
 
+// fuzzOracleGates are the oracles a campaign turns on with FUZZ_<NAME>=1.
+var fuzzOracleGates = []string{
+	"FUZZ_CACHEFORMAT", "FUZZ_INVARIANCE", "FUZZ_DETERMINISM", "FUZZ_WARMER", "FUZZ_TARCONTEXT",
+	"FUZZ_HTTPSCONTEXT", "FUZZ_TWOSTEP", "FUZZ_DFHTTP", "FUZZ_DIGESTFILE", "FUZZ_BAKE",
+	"FUZZ_PROVENANCE", "FUZZ_SUBPATHCONTEXT", "FUZZ_STDINCONTEXT", "FUZZ_TRACING",
+	"FUZZ_REGISTRYMIRROR", "FUZZ_DRYRUN", "FUZZ_SHAREDCACHE", "FUZZ_CHAOSFLAGS",
+}
+
+func fuzzOracles() map[string]bool {
+	on := map[string]bool{}
+	for _, g := range fuzzOracleGates {
+		on[g] = os.Getenv(g) == "1"
+	}
+	return on
+}
+
 // runFuzzCase generates the case for one seed, evaluates it, records the coverage
 // it reached, and shrinks any reportable finding to a minimal reproducer.
-func runFuzzCase(t *testing.T, seed int64, input []byte, tracker *coverageTracker) (*finding, int) {
+func runFuzzCase(t *testing.T, seed int64, input []byte, tracker *coverageTracker, deadline time.Time) (*finding, int) {
 	gen := generate(&source{b: input}, fuzzBaseRefs())
 	label := fmt.Sprintf("fuzz-seed-%d", seed)
 
@@ -1316,7 +1348,7 @@ func runFuzzCase(t *testing.T, seed int64, input []byte, tracker *coverageTracke
 	// FUZZ_NOCACHE aims a campaign at the docker oracle: the cache oracle is two of the
 	// four builds a case makes, so dropping it roughly doubles the cases per minute that
 	// reach a docker comparison.
-	f := buildAndClassify(t, seed, label, gen, covDir, os.Getenv("FUZZ_NOCACHE") == "1")
+	f := buildAndClassify(t, seed, label, gen, covDir, os.Getenv("FUZZ_NOCACHE") == "1", fuzzOracles())
 
 	newCov := 0
 	if n, cerr := tracker.observe(covDir); cerr != nil {
@@ -1327,7 +1359,7 @@ func runFuzzCase(t *testing.T, seed int64, input []byte, tracker *coverageTracke
 
 	if f != nil && reportable(f.sev) && os.Getenv("FUZZ_NO_SHRINK") != "1" {
 		before := instructionCount(f.dockerfile)
-		min := shrinkFinding(t, f, gen)
+		min := shrinkFinding(t, f, gen, deadline)
 		// Adopt the minimal reproducer's dockerfile and diff detail so the report
 		// is self-consistent; keep the original seed and known-class counts.
 		f.dockerfile, f.detail, f.summary = min.dockerfile, min.detail, min.summary
