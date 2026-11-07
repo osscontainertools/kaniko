@@ -312,6 +312,22 @@ func crossStageCacheKey(command commands.DockerCommand, stageFinalCacheKeys map[
 	return cacheKey, ok
 }
 
+func mountCacheKeys(command commands.DockerCommand, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string) ([]string, bool) {
+	var keys []string
+	for _, from := range commands.MountSources(command) {
+		key, ok := externalImageDigests[from]
+		fromIdx, err := strconv.Atoi(from)
+		if err == nil {
+			key, ok = stageFinalCacheKeys[fromIdx]
+		}
+		if !ok {
+			return nil, false
+		}
+		keys = append(keys, key)
+	}
+	return keys, true
+}
+
 func populateCompositeKey(command commands.DockerCommand, files []string, compositeKey CompositeCache, args *dockerfile.BuildArgs, env []string, fileContext util.FileContext, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string) (CompositeCache, error) {
 	assert.Assert("executor.compositekey.mutual-exclusion", files == nil || stageFinalCacheKeys == nil, "populateCompositeKey: files and stageFinalCacheKeys are mutually exclusive")
 	assert.Assert("executor.compositekey.command-nonnull", command != nil, "populateCompositeKey called with nil command")
@@ -467,6 +483,15 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 				// WorkingDir and User pick the destination and the ownership
 				seed = *NewCompositeCache(cfg.WorkingDir, cfg.User)
 			}
+			mountKeys, ok := mountCacheKeys(command, stageFinalCacheKeys, externalImageDigests)
+			if !ok {
+				// the source stage stopped caching in the precompute pass
+				stopCache = true
+				keyValid = false
+				finalCacheKey = ""
+				continue // RUN is never MetadataOnly, safe to skip
+			}
+			seed.AddKey(mountKeys...)
 			if crossStageCopy && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
 				inferredKey, err := populateCompositeKey(command, nil, seed.Clone(), args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 				if err == nil {
@@ -754,6 +779,11 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				return false, fmt.Errorf("failed to get files used from context: %w", err)
 			}
 			if opts.Cache {
+				mountKeys, ok := mountCacheKeys(command, stageFinalCacheKeys, externalImageDigests)
+				if !ok {
+					return false, fmt.Errorf("no cache key for the mount sources of %s", command.String())
+				}
+				seed.AddKey(mountKeys...)
 				layerKey, err = populateCompositeKey(command, files, seed, s.args, s.cf.Config.Env, fileContext, nil, nil)
 				if err != nil {
 					return false, err
@@ -1288,6 +1318,22 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 					}
 					depGraph[i] = append(depGraph[i], resolved...)
 				}
+			case *instructions.RunCommand:
+				if config.FF.RunCrossStageBindMount {
+					replacementEnvs := ba.ReplacementEnvs(cfg.Config.Env)
+					err := commands.ExpandRunCommand(cmd, func(word string) (string, error) {
+						return util.ResolveEnvironmentReplacement(word, replacementEnvs, false)
+					})
+					if err != nil {
+						return nil, nil, err
+					}
+					for _, m := range dockerfile.CrossStageMounts(cmd) {
+						i, err := strconv.Atoi(m.From)
+						if err == nil {
+							depGraph[i] = append(depGraph[i], m.Source)
+						}
+					}
+				}
 			case *instructions.EnvCommand:
 				if err := util.UpdateConfigEnv(cmd.Env, &cfg.Config, ba.ReplacementEnvs(cfg.Config.Env)); err != nil {
 					return nil, nil, err
@@ -1682,6 +1728,13 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 				case *commands.CopyCommand:
 					if copyFromIndex, err := strconv.Atoi(cmd.From()); err == nil {
 						copyDependencies[copyFromIndex]++
+					}
+				case *commands.RunCommand, *commands.RunMarkerCommand:
+					for _, from := range commands.MountSources(cmd) {
+						fromIndex, err := strconv.Atoi(from)
+						if err == nil {
+							copyDependencies[fromIndex]++
+						}
 					}
 				}
 			}
@@ -2147,44 +2200,55 @@ func resolveExtraStageDigests(stages []config.KanikoStage, opts *config.KanikoOp
 	images := make(map[string]v1.Image)
 	for _, s := range stages {
 		for _, cmd := range s.Commands {
-			c, ok := cmd.(*instructions.CopyCommand)
-			if !ok || c.From == "" {
-				continue
-			}
-
-			// FROMs at this point are guaranteed to be either an integer referring to a previous stage,
-			// or a name of a remote image.
-
-			if fromIndex, err := strconv.Atoi(c.From); err == nil {
-				// If it is an integer stage index, validate that it is actually a previous index
-				if s.Index <= fromIndex || fromIndex < 0 {
-					return nil, nil, fmt.Errorf("%s refers to invalid stage: %d", c.String(), fromIndex)
+			var froms []string
+			switch c := cmd.(type) {
+			case *instructions.CopyCommand:
+				if c.From != "" {
+					froms = append(froms, c.From)
 				}
-				continue
+			case *instructions.RunCommand:
+				if config.FF.RunCrossStageBindMount {
+					for _, m := range dockerfile.CrossStageMounts(c) {
+						froms = append(froms, m.From)
+					}
+				}
 			}
 
-			if _, ok := images[c.From]; ok {
-				continue
-			}
+			for _, from := range froms {
+				// FROMs at this point are guaranteed to be either an integer referring to a previous stage,
+				// or a name of a remote image.
 
-			// This must be an image name, fetch its manifest.
-			logrus.Debugf("Found extra base image stage %s", c.From)
-			var sourceImage v1.Image
-			var err error
-			if config.FF.CacheCopyFrom {
-				sourceImage, err = image_util.RetrieveSourceImageInternal(c.From, false, 0, nil, opts)
-			} else {
-				sourceImage, err = remote.RetrieveRemoteImage(c.From, opts.RegistryOptions, opts.CustomPlatform)
+				if fromIndex, err := strconv.Atoi(from); err == nil {
+					// If it is an integer stage index, validate that it is actually a previous index
+					if s.Index <= fromIndex || fromIndex < 0 {
+						return nil, nil, fmt.Errorf("%s refers to invalid stage: %d", cmd, fromIndex)
+					}
+					continue
+				}
+
+				if _, ok := images[from]; ok {
+					continue
+				}
+
+				// This must be an image name, fetch its manifest.
+				logrus.Debugf("Found extra base image stage %s", from)
+				var sourceImage v1.Image
+				var err error
+				if config.FF.CacheCopyFrom {
+					sourceImage, err = image_util.RetrieveSourceImageInternal(from, false, 0, nil, opts)
+				} else {
+					sourceImage, err = remote.RetrieveRemoteImage(from, opts.RegistryOptions, opts.CustomPlatform)
+				}
+				if err != nil {
+					return nil, nil, err
+				}
+				digest, err := sourceImage.Digest()
+				if err != nil {
+					return nil, nil, err
+				}
+				externalImageDigests[from] = digest.String()
+				images[from] = sourceImage
 			}
-			if err != nil {
-				return nil, nil, err
-			}
-			digest, err := sourceImage.Digest()
-			if err != nil {
-				return nil, nil, err
-			}
-			externalImageDigests[c.From] = digest.String()
-			images[c.From] = sourceImage
 		}
 	}
 	return externalImageDigests, images, nil

@@ -177,6 +177,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT`](#flag-ff_kaniko_reproducible_preserve_format)
       - [Flag `FF_KANIKO_RESOLVE_CACHE_KEY`](#flag-ff_kaniko_resolve_cache_key)
       - [Flag `FF_KANIKO_ROLLING_CACHE_KEY`](#flag-ff_kaniko_rolling_cache_key)
+      - [Flag `FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT`](#flag-ff_kaniko_run_cross_stage_bind_mount)
       - [Flag `FF_KANIKO_RUN_HEREDOC_SCRIPT`](#flag-ff_kaniko_run_heredoc_script)
       - [Flag `FF_KANIKO_RUN_HONOR_GROUP`](#flag-ff_kaniko_run_honor_group)
       - [Flag `FF_KANIKO_RUN_MOUNT_BIND_RELATIVE`](#flag-ff_kaniko_run_mount_bind_relative)
@@ -1599,6 +1600,12 @@ This flag switches to a rolling hash, think git, where `state = SHA256(state || 
 Set this flag to `true` to enable the rolling cache key.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT`
+
+Kaniko skips `RUN --mount=type=bind` flags with `from=<stage>` or `from=<image>`.
+Set this flag to `true` to mount files from another stage or image. Writes to the mount are discarded.
+Defaults to `false`.
 
 #### Flag `FF_KANIKO_RUN_HEREDOC_SCRIPT`
 

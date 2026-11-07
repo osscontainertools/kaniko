@@ -72,7 +72,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 		expand := func(word string) (string, error) {
 			return util.ResolveEnvironmentReplacement(word, replacementEnvs, false)
 		}
-		err := cmdRun.Expand(expand)
+		err := ExpandRunCommand(cmdRun, expand)
 		if err != nil {
 			return err
 		}
@@ -267,11 +267,15 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 
 			// https://docs.docker.com/reference/dockerfile/#run---mounttypebind
 			case m.Type == instructions.MountTypeBind:
+				mountFileContext := fileContext
 				if m.From != "" && m.From != "context" {
-					logrus.Warnf("Kaniko does not support cross-stage bind mounts (from=%s) - skipping", m.From)
-					continue
+					if !kConfig.FF.RunCrossStageBindMount {
+						logrus.Warnf("Kaniko does not support cross-stage bind mounts (from=%s) - skipping", m.From)
+						continue
+					}
+					mountFileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoInterStageDepsDir, m.From)}
 				}
-				src := filepath.Join(fileContext.Root, m.Source)
+				src := filepath.Join(mountFileContext.Root, m.Source)
 				target := m.Target
 				if kConfig.FF.RunMountBindRelative {
 					target = ToAbsPath(target, config.WorkingDir)
@@ -311,7 +315,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				}
 
 				if kConfig.FF.NativeCopy {
-					err = util.CopyTree(src, target, fileContext, false)
+					err = util.CopyTree(src, target, mountFileContext, false)
 				} else {
 					err = otiai10Cpy.Copy(src, target, otiai10Cpy.Options{
 						PreserveTimes:     true,
@@ -319,7 +323,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 						PermissionControl: otiai10Cpy.PerservePermission,
 						FS:                util.FSys,
 						Skip: func(_ os.FileInfo, srcPath, _ string) (bool, error) {
-							return fileContext.ExcludesFile(srcPath), nil
+							return mountFileContext.ExcludesFile(srcPath), nil
 						},
 					})
 				}
@@ -521,6 +525,10 @@ func (r *RunCommand) CacheKey(replacementEnvs []string) (string, error) {
 	return runCacheKey(r.cmd), nil
 }
 
+func (r *RunCommand) instruction() *instructions.RunCommand {
+	return r.cmd
+}
+
 // runCacheKey appends the raw heredoc bodies to the instruction text
 func runCacheKey(cmd *instructions.RunCommand) string {
 	var key strings.Builder
@@ -580,6 +588,10 @@ func (cr *CachingRunCommand) CacheKey(replacementEnvs []string) (string, error) 
 	return runCacheKey(cr.cmd), nil
 }
 
+func (cr *CachingRunCommand) instruction() *instructions.RunCommand {
+	return cr.cmd
+}
+
 func (cr *CachingRunCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
 	return runCmdFilesUsedFromContext(config, buildArgs, cr.cmd, cr.fileContext)
 }
@@ -607,7 +619,7 @@ func runCmdFilesUsedFromContext(
 	expand := func(word string) (string, error) {
 		return util.ResolveEnvironmentReplacement(word, replacementEnvs, false)
 	}
-	if err := cmd.Expand(expand); err != nil {
+	if err := ExpandRunCommand(cmd, expand); err != nil {
 		return nil, err
 	}
 
@@ -617,7 +629,9 @@ func runCmdFilesUsedFromContext(
 			continue
 		}
 		if m.From != "" && m.From != "context" {
-			logrus.Warnf("Kaniko does not support cross-stage bind mounts (from=%s) - skipping", m.From)
+			if !kConfig.FF.RunCrossStageBindMount {
+				logrus.Warnf("Kaniko does not support cross-stage bind mounts (from=%s) - skipping", m.From)
+			}
 			continue
 		}
 		fullPath := filepath.Join(fileContext.Root, m.Source)
@@ -627,6 +641,34 @@ func runCmdFilesUsedFromContext(
 	logrus.Debugf("Using files from context: %v", files)
 
 	return files, nil
+}
+
+func MountSources(command DockerCommand) []string {
+	var sources []string
+	run, ok := command.(runInstruction)
+	if ok && kConfig.FF.RunCrossStageBindMount {
+		for _, m := range dockerfile.CrossStageMounts(run.instruction()) {
+			sources = append(sources, m.From)
+		}
+	}
+	return sources
+}
+
+type runInstruction interface {
+	instruction() *instructions.RunCommand
+}
+
+// buildkit reparses the mounts from the raw flag, so the stage index
+// resolved into from= is put back.
+func ExpandRunCommand(cmd *instructions.RunCommand, expand instructions.SingleWordExpander) error {
+	mounts := instructions.GetMounts(cmd)
+	if err := cmd.Expand(expand); err != nil {
+		return err
+	}
+	for i, m := range instructions.GetMounts(cmd) {
+		m.From = mounts[i].From
+	}
+	return nil
 }
 
 // todo: this should create the workdir if it doesn't exist, atleast this is what docker does
