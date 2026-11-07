@@ -312,7 +312,6 @@ func crossStageCacheKey(command commands.DockerCommand, stageFinalCacheKeys map[
 	return cacheKey, ok
 }
 
-// mountCacheKeys returns the cache keys of the stages and images a RUN binds files from.
 func mountCacheKeys(command commands.DockerCommand, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string) ([]string, bool) {
 	var keys []string
 	for _, from := range commands.MountSources(command) {
