@@ -34,10 +34,11 @@ import (
 
 type AddCommand struct {
 	BaseCommand
-	cmd           *instructions.AddCommand
-	fileContext   util.FileContext
-	snapshotFiles []string
-	shdCache      bool
+	cmd                *instructions.AddCommand
+	fileContext        util.FileContext
+	snapshotFiles      []string
+	shdCache           bool
+	requireAddChecksum bool
 }
 
 // ExecuteCommand executes the ADD command
@@ -99,8 +100,16 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		return err
 	}
 
+	if a.requireAddChecksum {
+		for _, src := range srcs {
+			if util.IsSrcRemoteFileURL(src) && a.cmd.Checksum == "" {
+				return fmt.Errorf("ADD %s is not pinned by a checksum; --require-add-checksum requires all remote ADD sources to specify --checksum", src)
+			}
+		}
+	}
+
 	var checksum digest.Digest
-	if a.cmd.Checksum != "" && kConfig.FF.AddChecksum {
+	if a.cmd.Checksum != "" && (kConfig.FF.AddChecksum || a.requireAddChecksum) {
 		if len(srcs) > 1 {
 			return errors.New("checksum can't be specified for multiple sources")
 		}

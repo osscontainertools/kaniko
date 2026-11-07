@@ -381,6 +381,8 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1230_oci":           {"--provenance", "--image-format=oci", "--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
 	"Dockerfile_test_require_digest":             {"--require-digest"},
 	"Dockerfile_test_require_digest_fail":        {"--require-digest"},
+	"Dockerfile_test_require_add_checksum":       {"--require-add-checksum"},
+	"Dockerfile_test_require_add_checksum_fail":  {"--require-add-checksum"},
 }
 
 var expectErr = map[string]int{
@@ -403,6 +405,7 @@ var expectErr = map[string]int{
 	"Dockerfile_test_issue_mz1230_tar_no_index": 1,
 	"Dockerfile_test_require_digest_fail":       1,
 	"Dockerfile_test_issue_mz1378":              1,
+	"Dockerfile_test_require_add_checksum_fail": 1,
 }
 
 var expectErrOutput = map[string]string{
