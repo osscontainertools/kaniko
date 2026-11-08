@@ -192,6 +192,7 @@ var previewEnv = map[string]string{
 	"FF_KANIKO_ISOLATE_CACHE_PUSH":           "1",
 	"FF_KANIKO_NATIVE_INIT":                  "1",
 	"FF_KANIKO_RUN_HEREDOC_SCRIPT":           "1",
+	"FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS": "1",
 	"FF_KANIKO_WARMER_BUILD_ARGS":            "1",
 	"FF_KANIKO_WARMER_PREDEFINED_ARGS":       "1",
 }

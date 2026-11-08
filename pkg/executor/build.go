@@ -857,7 +857,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 					return false, fmt.Errorf("extracting fs from image: %w", err)
 				}
 				// mz876: the layered map never saw the extracted layer, rebuild it from disk before the next snapshot
-				if !opts.SingleSnapshot {
+				if config.FF.SnapshotTrackCachedLayers && !opts.SingleSnapshot {
 					snapshotter.Reset()
 					initSnapshotTaken = false
 				}
