@@ -558,14 +558,17 @@ func TestExpectError(t *testing.T) {
 			expectedExitCode := expectedExitCode
 			t.Parallel()
 
+			expectedOutput, ok := expectErrOutput[dockerfile]
+			if !ok {
+				t.Fatalf("%s has no entry in expectErrOutput", dockerfile)
+			}
+
 			out, err := imageBuilder.BuildKanikoImage(t, config, dockerfilesPath, dockerfile)
 
 			var exitErr *exec.ExitError
 			if errors.As(err, &exitErr) && exitErr.ExitCode() == expectedExitCode {
-				if expectedOutput, ok := expectErrOutput[dockerfile]; ok {
-					if !strings.Contains(string(out), expectedOutput) {
-						t.Errorf("expected output %q not found in failing build output:\n%s", expectedOutput, string(out))
-					}
+				if !strings.Contains(string(out), expectedOutput) {
+					t.Errorf("expected output %q not found in failing build output:\n%s", expectedOutput, string(out))
 				}
 				return
 			}

@@ -403,8 +403,25 @@ var expectErr = map[string]int{
 	"Dockerfile_test_require_digest_fail":       1,
 }
 
-// Expected output substrings for failing dockerfiles, checked in TestExpectError.
-var expectErrOutput = map[string]string{}
+var expectErrOutput = map[string]string{
+	"Dockerfile_test_issue_cg326_1":             "is not allowed: references parent directory",
+	"Dockerfile_test_issue_mz1140":              "must fit a 32 bit id",
+	"Dockerfile_test_add_404":                   "invalid response status 404",
+	"Dockerfile_test_issue_3373_1":              "digest mismatch",
+	"Dockerfile_test_issue_3373_2":              "checksum requires HTTP(S) sources",
+	"Dockerfile_test_issue_3373_3":              "digest mismatch",
+	"Dockerfile_test_issue_3373_4":              "checksum can't be specified for multiple sources",
+	"Dockerfile_test_issue_mz1160_1":            "in the kaniko directory",
+	"Dockerfile_test_issue_mz1160_2":            "in the kaniko directory",
+	"Dockerfile_test_issue_mz1160_3":            "in the kaniko directory",
+	"Dockerfile_test_issue_mz1160_4":            "in the kaniko directory",
+	"Dockerfile_test_issue_mz881":               "x509: certificate signed by unknown authority",
+	"Dockerfile_test_issue_mz1133_2":            "COPY --link needs a numeric USER or --chown",
+	"Dockerfile_test_issue_mz1230_no_index":     "--index-file requires --provenance",
+	"Dockerfile_test_issue_mz1230_no_push_tar":  "--provenance with --no-push stores the attestation only in --oci-layout-path",
+	"Dockerfile_test_issue_mz1230_tar_no_index": "--tar-path with --provenance requires --index-file",
+	"Dockerfile_test_require_digest_fail":       "--require-digest:",
+}
 
 var crossCompileArch = func() string {
 	if runtime.GOARCH == "amd64" {
