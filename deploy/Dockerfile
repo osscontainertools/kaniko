@@ -151,7 +151,7 @@ COPY --from=builder /dist/executor/ /kaniko/
 
 ENTRYPOINT ["/kaniko/executor"]
 
-FROM alpine:3.24.4@sha256:93b41ef40b1677fce8fcc64ff4af09daddfacf5040afde618bc46c1e2d1cc7d4 AS kaniko-alpine
+FROM alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS kaniko-alpine
 
 RUN apk add --no-cache ca-certificates git
 
