@@ -290,13 +290,13 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 	return nil
 }
 
-func (a *AddCommand) RequireChecksum(replacementEnvs []string) error {
-	srcs, _, err := util.ResolveEnvAndWildcards(a.cmd.SourcesAndDest, a.fileContext, replacementEnvs)
+func RequireAddChecksum(cmd *instructions.AddCommand, fileContext util.FileContext, replacementEnvs []string) error {
+	srcs, _, err := util.ResolveEnvAndWildcards(cmd.SourcesAndDest, fileContext, replacementEnvs)
 	if err != nil {
 		return err
 	}
-	if a.cmd.Checksum != "" {
-		_, err := resolveChecksum(a.cmd.Checksum, srcs, replacementEnvs)
+	if cmd.Checksum != "" {
+		_, err := resolveChecksum(cmd.Checksum, srcs, replacementEnvs)
 		return err
 	}
 	for _, src := range srcs {

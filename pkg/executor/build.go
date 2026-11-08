@@ -469,13 +469,6 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 				return "", ci, v1.Config{}, err
 			}
 		}
-		addCmd, isAdd := command.(*commands.AddCommand)
-		if isAdd && opts.RequireAddChecksum && !opts.Dryrun {
-			err := addCmd.RequireChecksum(args.ReplacementEnvs(cfg.Env))
-			if err != nil {
-				return "", ci, v1.Config{}, err
-			}
-		}
 		if opts.Cache && keyValid {
 			// mz334: cross-stage copies key off the inferred pointer first, the
 			// source files do not exist during precompute or after elimination.
@@ -634,8 +627,6 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 
 func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool, copySources map[*instructions.CopyCommand][]string, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string, layerCache cache.LayerCache, ci *stageCacheInfo) (bool, error) {
 	assert.Assert("executor.stagebuilder.config-nonnull", s.cf != nil, "stageBuilder (index %d) has nil config file", s.index)
-	// --require-add-checksum is enforced in optimize, with and without a cache
-	assert.Assert("executor.build.optimized", ci != nil && len(ci.cacheKeys) == len(s.cmds), "stage %d is built without an optimize pass over its commands", s.index)
 	// Unpack file system to root if we need to.
 	shouldUnpack := false
 	for _, cmd := range s.cmds {
@@ -1285,7 +1276,7 @@ func saveLayerToImage(image v1.Image, layer v1.Layer, createdBy string, opts *co
 	return image, layer, err
 }
 
-func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptions) (map[int][]string, map[*instructions.CopyCommand][]string, error) {
+func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext) (map[int][]string, map[*instructions.CopyCommand][]string, error) {
 	images := make(map[int]v1.Image)
 	depGraph := map[int][]string{}
 	copySources := map[*instructions.CopyCommand][]string{}
@@ -1314,6 +1305,13 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 
 		for _, c := range cmds {
 			switch cmd := c.(type) {
+			case *instructions.AddCommand:
+				if opts.RequireAddChecksum {
+					err := commands.RequireAddChecksum(cmd, fileContext, ba.ReplacementEnvs(cfg.Config.Env))
+					if err != nil {
+						return nil, nil, err
+					}
+				}
 			case *instructions.CopyCommand:
 				if cmd.From != "" {
 					resolved, err := util.ResolveEnvironmentReplacementList(cmd.SourcePaths, ba.ReplacementEnvs(cfg.Config.Env), true)
@@ -1606,7 +1604,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		return nil, err
 	}
 
-	crossStageDependencies, copySources, err := CalculateDependencies(kanikoStages, opts)
+	crossStageDependencies, copySources, err := CalculateDependencies(kanikoStages, opts, fileContext)
 	if err != nil {
 		return nil, err
 	}
