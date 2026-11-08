@@ -18,6 +18,7 @@ package snapshot
 
 import (
 	"maps"
+	"path/filepath"
 
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/timing"
@@ -41,6 +42,13 @@ func NewLayeredMap(h func(string) (string, error)) *LayeredMap {
 
 	l.currentImage = map[string]string{}
 	return &l
+}
+
+// Clone returns a new layered map whose image starts as the current image of l.
+func (l *LayeredMap) Clone() *LayeredMap {
+	c := NewLayeredMap(l.hasher)
+	maps.Copy(c.currentImage, l.getCurrentImage())
+	return c
 }
 
 // Snapshot creates a new layer.
@@ -115,6 +123,24 @@ func (l *LayeredMap) AddDelete(s string) error {
 	l.isCurrentImageValid = false
 
 	l.deletes[len(l.deletes)-1][s] = struct{}{}
+	return nil
+}
+
+// AddDeleteBelow deletes every path of the current image that lies below one of roots.
+func (l *LayeredMap) AddDeleteBelow(roots map[string]struct{}) error {
+	for p := range l.getCurrentImage() {
+		for a := filepath.Dir(p); ; a = filepath.Dir(a) {
+			if _, ok := roots[a]; ok {
+				if err := l.AddDelete(p); err != nil {
+					return err
+				}
+				break
+			}
+			if a == filepath.Dir(a) {
+				break
+			}
+		}
+	}
 	return nil
 }
 
