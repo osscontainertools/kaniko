@@ -39,7 +39,7 @@ Usage: `/release <version>`
    ### Caching         cache correctness or cache-hit-rate improvements
    ### Performance     speed/resource
    ### Usability       FF flags or options adding new user-facing capabilities
-   ### Telemetry       anything a user observes through tracing: span structure, attributes, `KANIKO_TELEMETRY_*` env vars
+   ### Telemetry       anything a user observes through tracing: span structure, attributes, `KANIKO_TELEMETRY_*` env vars; also any change, performance included, that only affects builds with tracing enabled
    ### Packaging       the published images: contents, SBOM, licenses, platforms, image variants
    ### Maintenance     build(deps): bumps
    ### Fork Related    test infra, CI, internal tooling; preparatory work with no user benefit until follow-up lands; if there is an associated FF flag, prefix the entry with it even if this PR does not introduce the flag
