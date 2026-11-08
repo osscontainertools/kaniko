@@ -157,9 +157,10 @@ var argsMap = map[string][]string{
 		"file=context/foo",
 		"file3=context/b*",
 	},
-	"Dockerfile_test_multistage":  {"file=/foo2"},
-	"Dockerfile_test_issue_mz655": {"BASE_TAG=1.38.0"},
-	"Dockerfile_test_issue_3373":  {"DIGEST=sha256:a680e90a30faae7b193edf63b088a11edf856f731d93c25f1fd7c1a21cf82d06"},
+	"Dockerfile_test_multistage":   {"file=/foo2"},
+	"Dockerfile_test_issue_mz655":  {"BASE_TAG=1.38.0"},
+	"Dockerfile_test_issue_3373":   {"DIGEST=sha256:a680e90a30faae7b193edf63b088a11edf856f731d93c25f1fd7c1a21cf82d06"},
+	"Dockerfile_test_issue_mz1378": {"TAG=13.7"},
 }
 
 var argsMapVersion1 = map[string][]string{
@@ -401,6 +402,7 @@ var expectErr = map[string]int{
 	"Dockerfile_test_issue_mz1230_no_push_tar":  1,
 	"Dockerfile_test_issue_mz1230_tar_no_index": 1,
 	"Dockerfile_test_require_digest_fail":       1,
+	"Dockerfile_test_issue_mz1378":              1,
 }
 
 var expectErrOutput = map[string]string{
@@ -421,6 +423,7 @@ var expectErrOutput = map[string]string{
 	"Dockerfile_test_issue_mz1230_no_push_tar":  "--provenance with --no-push stores the attestation only in --oci-layout-path",
 	"Dockerfile_test_issue_mz1230_tar_no_index": "--tar-path with --provenance requires --index-file",
 	"Dockerfile_test_require_digest_fail":       "--require-digest:",
+	"Dockerfile_test_issue_mz1378":              "variables are not supported in --from",
 }
 
 var crossCompileArch = func() string {

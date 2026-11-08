@@ -267,6 +267,13 @@ func resolveCrossStageCommands(cmds []instructions.Command, stageNameToIdx map[s
 		switch c := cmd.(type) {
 		case *instructions.CopyCommand:
 			if c.From != "" {
+				expanded, err := util.ResolveEnvironmentReplacement(c.From, nil, false)
+				if err != nil {
+					return err
+				}
+				if expanded != c.From {
+					return fmt.Errorf("COPY --from=%s: variables are not supported in --from, use them in a FROM stage instead", c.From)
+				}
 				if val, ok := stageNameToIdx[strings.ToLower(c.From)]; ok {
 					c.From = strconv.Itoa(val)
 				}
