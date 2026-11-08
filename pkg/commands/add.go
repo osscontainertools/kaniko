@@ -290,7 +290,6 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 	return nil
 }
 
-// RequireChecksum rejects remote sources of an ADD without a --checksum.
 func (a *AddCommand) RequireChecksum(replacementEnvs []string) error {
 	srcs, _, err := util.ResolveEnvAndWildcards(a.cmd.SourcesAndDest, a.fileContext, replacementEnvs)
 	if err != nil {
