@@ -1,0 +1,12 @@
+FROM scratch AS build
+ARG TARGETARCH
+ARG VARIANT=foo
+RUN echo hello > /out-$TARGETARCH && echo hello > /out-$VARIANT
+
+FROM build AS variant
+COPY --from=build /out-${VARIANT} /value
+
+FROM scratch
+ARG TARGETARCH
+COPY --from=build /out-${TARGETARCH} /arch
+COPY --from=variant /value /variant
