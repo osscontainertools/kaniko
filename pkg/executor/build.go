@@ -237,7 +237,7 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 	}
 
 	for _, cmd := range stage.Commands {
-		command, err := commands.GetCommand(cmd, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers, opts.RequireAddChecksum)
+		command, err := commands.GetCommand(cmd, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
 		if err != nil {
 			return nil, err
 		}
@@ -462,7 +462,6 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 		if command == nil {
 			continue
 		}
-		skipCacheForCmd := false
 		if workdirCmd, ok := command.(*commands.WorkdirCommand); ok {
 			// only safe because the WORKDIR cache key does not read the working dir
 			err := workdirCmd.ApplyMetadata(&cfg, args)
@@ -470,23 +469,14 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 				return "", ci, v1.Config{}, err
 			}
 		}
-		if opts.RequireAddChecksum && !opts.Dryrun {
-			if addCmd, ok := command.(*commands.AddCommand); ok {
-				if err := addCmd.ValidateRequireAddChecksum(args.ReplacementEnvs(cfg.Env), fileContext); err != nil {
-					return "", ci, v1.Config{}, err
-				}
-				// --require-add-checksum requires re-downloading and verifying
-				// remote ADD sources on every build. Cached content may have
-				// been stored without verification under FF_KANIKO_ADD_CHECKSUM=false,
-				// so never serve a cached layer for a remote ADD source.
-				skipCacheForCmd = false
-				hasRemote, err := addCmd.HasRemoteSources(args.ReplacementEnvs(cfg.Env), fileContext)
-				if err != nil {
-					return "", ci, v1.Config{}, err
-				}
-				if hasRemote {
-					skipCacheForCmd = true
-				}
+		addCmd, isAdd := command.(*commands.AddCommand)
+		if isAdd && opts.RequireAddChecksum && !opts.Dryrun {
+			src, err := addCmd.UnpinnedRemoteSource(args.ReplacementEnvs(cfg.Env))
+			if err != nil {
+				return "", ci, v1.Config{}, err
+			}
+			if src != "" {
+				return "", ci, v1.Config{}, fmt.Errorf("--require-add-checksum: ADD %s has no --checksum", src)
 			}
 		}
 		if opts.Cache && keyValid {
@@ -595,7 +585,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 			// a precompute-resolved copy must apply its cached layer even after
 			// an earlier miss, its source stage may be eliminated. An independently
 			// keyed layer holds nothing from below, so no earlier miss reaches it.
-			if command.ShouldCacheOutput() && !skipCacheForCmd && (!stopCache || independentKey || (precomputed && config.FF.SkipCachedStages)) {
+			if command.ShouldCacheOutput() && (!stopCache || independentKey || (precomputed && config.FF.SkipCachedStages)) {
 				img, err := layerCache.RetrieveLayer(ck)
 				if err != nil {
 					logrus.Debugf("Failed to retrieve layer: %s", err)
@@ -1469,7 +1459,7 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 		}
 		stageMediaTypes[s.Index] = mediaType
 		for jdx, c := range s.Commands {
-			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers, opts.RequireAddChecksum)
+			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
 			if err != nil {
 				return err
 			}

@@ -75,7 +75,7 @@ type CacheKeyResolver interface {
 	CacheKey(replacementEnvs []string) (string, error)
 }
 
-func GetCommand(cmd instructions.Command, fileContext util.FileContext, secrets config.SecretOptions, useNewRun bool, cacheCopy bool, cacheRun bool, requireAddChecksum bool) (DockerCommand, error) {
+func GetCommand(cmd instructions.Command, fileContext util.FileContext, secrets config.SecretOptions, useNewRun bool, cacheCopy bool, cacheRun bool) (DockerCommand, error) {
 	switch c := cmd.(type) {
 	case *instructions.RunCommand:
 		if useNewRun {
@@ -91,7 +91,7 @@ func GetCommand(cmd instructions.Command, fileContext util.FileContext, secrets 
 	case *instructions.WorkdirCommand:
 		return &WorkdirCommand{cmd: c, shdCache: cacheRun}, nil
 	case *instructions.AddCommand:
-		return &AddCommand{cmd: c, fileContext: fileContext, shdCache: cacheCopy, requireAddChecksum: requireAddChecksum}, nil
+		return &AddCommand{cmd: c, fileContext: fileContext, shdCache: cacheCopy}, nil
 	case *instructions.CmdCommand:
 		return &CmdCommand{cmd: c}, nil
 	case *instructions.EntrypointCommand:

@@ -427,7 +427,7 @@ var expectErrOutput = map[string]string{
 	"Dockerfile_test_issue_mz1230_tar_no_index": "--tar-path with --provenance requires --index-file",
 	"Dockerfile_test_require_digest_fail":       "--require-digest:",
 	"Dockerfile_test_issue_mz1378":              "variables are not supported in --from",
-	"Dockerfile_test_require_add_checksum_fail": "is not pinned by a checksum; --require-add-checksum requires all remote ADD sources to specify --checksum",
+	"Dockerfile_test_require_add_checksum_fail": "--require-add-checksum: ADD https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz has no --checksum",
 }
 
 var crossCompileArch = func() string {

@@ -34,11 +34,10 @@ import (
 
 type AddCommand struct {
 	BaseCommand
-	cmd                *instructions.AddCommand
-	fileContext        util.FileContext
-	snapshotFiles      []string
-	shdCache           bool
-	requireAddChecksum bool
+	cmd           *instructions.AddCommand
+	fileContext   util.FileContext
+	snapshotFiles []string
+	shdCache      bool
 }
 
 // ExecuteCommand executes the ADD command
@@ -100,12 +99,8 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		return err
 	}
 
-	if err := a.ValidateRequireAddChecksum(replacementEnvs, a.fileContext); err != nil {
-		return err
-	}
-
 	var checksum digest.Digest
-	if a.cmd.Checksum != "" && (kConfig.FF.AddChecksum || a.requireAddChecksum) {
+	if a.cmd.Checksum != "" && kConfig.FF.AddChecksum {
 		if len(srcs) > 1 {
 			return errors.New("checksum can't be specified for multiple sources")
 		}
@@ -304,37 +299,25 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 	return nil
 }
 
-// ValidateRequireAddChecksum rejects remote ADD sources that lack a checksum
-// when --require-add-checksum is set. It runs before cached layers can be
-// reused, so it applies to cache hits as well as fresh downloads.
-func (a *AddCommand) ValidateRequireAddChecksum(replacementEnvs []string, fileContext util.FileContext) error {
-	if !a.requireAddChecksum {
-		return nil
-	}
-	srcs, _, err := util.ResolveEnvAndWildcards(a.cmd.SourcesAndDest, fileContext, replacementEnvs)
+// UnpinnedRemoteSource returns the first remote source of an ADD without a checksum, or "".
+func (a *AddCommand) UnpinnedRemoteSource(replacementEnvs []string) (string, error) {
+	checksum, err := util.ResolveEnvironmentReplacement(a.cmd.Checksum, replacementEnvs, false)
 	if err != nil {
-		return err
+		return "", fmt.Errorf("resolving checksum: %w", err)
 	}
-	for _, src := range srcs {
-		if util.IsSrcRemoteFileURL(src) && a.cmd.Checksum == "" {
-			return fmt.Errorf("ADD %s is not pinned by a checksum; --require-add-checksum requires all remote ADD sources to specify --checksum", src)
-		}
+	if checksum != "" {
+		return "", nil
 	}
-	return nil
-}
-
-// HasRemoteSources reports whether any ADD source resolves to a remote file URL.
-func (a *AddCommand) HasRemoteSources(replacementEnvs []string, fileContext util.FileContext) (bool, error) {
-	srcs, _, err := util.ResolveEnvAndWildcards(a.cmd.SourcesAndDest, fileContext, replacementEnvs)
+	srcs, err := util.ResolveEnvironmentReplacementList(a.cmd.SourcePaths, replacementEnvs, true)
 	if err != nil {
-		return false, err
+		return "", fmt.Errorf("resolving sources: %w", err)
 	}
 	for _, src := range srcs {
 		if util.IsSrcRemoteFileURL(src) {
-			return true, nil
+			return src, nil
 		}
 	}
-	return false, nil
+	return "", nil
 }
 
 // FilesToSnapshot should return an empty array if still nil; no files were changed
