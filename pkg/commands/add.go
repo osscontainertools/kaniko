@@ -323,6 +323,20 @@ func (a *AddCommand) ValidateRequireAddChecksum(replacementEnvs []string, fileCo
 	return nil
 }
 
+// HasRemoteSources reports whether any ADD source resolves to a remote file URL.
+func (a *AddCommand) HasRemoteSources(replacementEnvs []string, fileContext util.FileContext) (bool, error) {
+	srcs, _, err := util.ResolveEnvAndWildcards(a.cmd.SourcesAndDest, fileContext, replacementEnvs)
+	if err != nil {
+		return false, err
+	}
+	for _, src := range srcs {
+		if util.IsSrcRemoteFileURL(src) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // FilesToSnapshot should return an empty array if still nil; no files were changed
 func (a *AddCommand) FilesToSnapshot() []string {
 	return a.snapshotFiles
