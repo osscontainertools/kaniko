@@ -19,6 +19,7 @@ package integration
 import (
 	"fmt"
 	"io/fs"
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -331,6 +332,15 @@ func generate(s *source, bases []string) genResult {
 		}
 		argBaseSwap = strings.Contains(argBase, symlinkBaseTag)
 	}
+	// Meta ARGs that refer to themselves and to each other, read back in the final stage.
+	proxyArgs := false
+	metaChain := s.chance(4)
+	if metaChain {
+		fmt.Fprintf(&b, "ARG G0=z\nARG GA=${G0}a\nARG GA=${GA}-b\nARG GB=${GA:-x}-c\n")
+		if s.chance(2) {
+			buildArgs = append(buildArgs, "GA=z")
+		}
+	}
 	// Sometimes build from an empty base (FROM scratch), which has no shell or base
 	// filesystem, so the stage carries only file and metadata instructions, no RUN. A
 	// scratch build's output media type is governed by FF_KANIKO_OCI_SCRATCH_BASE, tested
@@ -374,6 +384,9 @@ func generate(s *source, bases []string) genResult {
 		usesSwapBase = usesSwapBase || swapBase
 		if last {
 			fmt.Fprintf(&b, "FROM %s\n", base)
+			if metaChain {
+				fmt.Fprintf(&b, "ARG GA\nARG GB\nLABEL fuzz.meta=${GA}/${GB}\n")
+			}
 			// A full-context COPY makes .dockerignore observable: docker and kaniko must
 			// copy the same file set. Only when a .dockerignore is present, so it excludes
 			// build-meta and the copied set is well-defined.
@@ -410,7 +423,16 @@ func generate(s *source, bases []string) genResult {
 			// (pkg/commands/onbuild.go). Cover exec triggers (RUN/COPY) and metadata
 			// triggers (LABEL/ENV), which take different handling paths.
 			if s.chance(2) {
-				switch s.intn(4) {
+				switch s.intn(6) {
+				case 4:
+					// A trigger that pulls in another stage or an image, resolved in the child.
+					if len(namedStages) > 0 && s.chance(2) {
+						fmt.Fprintf(&b, "ONBUILD COPY --from=stage%d /stage/artifact /onbuild/from%d\n", namedStages[s.intn(len(namedStages))], stage)
+					} else {
+						fmt.Fprintf(&b, "ONBUILD COPY --from=%s /etc/hostname /onbuild/from%d\n", srcPick(s, bases), stage)
+					}
+				case 5:
+					fmt.Fprintf(&b, "ONBUILD RUN <<EOF\nmkdir -p /onbuild\necho hd%d > /onbuild/hd%d\nEOF\n", stage, stage)
 				case 0:
 					fmt.Fprintf(&b, "ONBUILD RUN mkdir -p /onbuild && echo ob%d > /onbuild/m%d\n", stage, stage)
 				case 1:
@@ -447,7 +469,7 @@ func generate(s *source, bases []string) genResult {
 
 		ninstr := 2 + s.intn(6)
 		for i := 0; i < ninstr; i++ {
-			c := s.intn(48)
+			c := s.intn(55)
 			// An empty base has no shell, so RUN-based instructions cannot execute at build
 			// time; remap them to a context COPY, which scratch supports. Metadata and other
 			// file instructions are already scratch-safe (ADD url downloads into the empty fs).
@@ -1030,6 +1052,127 @@ func generate(s *source, bases []string) genResult {
 					fmt.Fprintf(&b, "RUN mkdir -p /xo%d && echo keep > /xo%d/k\n", i, i)
 					fmt.Fprintf(&b, "RUN --mount=type=bind,from=%s,source=/stage,target=/xo%d ls /xo%d > /xbind%d\n", src, i, i, i)
 				}
+			case 48:
+				// Parameter expansion modifiers in instructions the builder expands itself.
+				// MU is declared without a value, ME is empty and MS is set, the states that
+				// "-" and ":-" tell apart. A --build-arg can set MU to empty.
+				u, e, m := fmt.Sprintf("MU%d", i), fmt.Sprintf("ME%d", i), fmt.Sprintf("MS%d", i)
+				fmt.Fprintf(&b, "ARG %s\nARG %s=\nARG %s=stage\n", u, e, m)
+				if s.chance(3) {
+					buildArgs = append(buildArgs, u+"=")
+				}
+				switch s.intn(5) {
+				case 0:
+					fmt.Fprintf(&b, "ENV MOD%d=\"${%s:-a}-${%s-b}-${%s:-c}-${%s-d}-${%s:+e}-${%s:+g}-${%s+f}\"\n", i, u, u, e, e, m, u, m)
+				case 1:
+					fmt.Fprintf(&b, "LABEL fuzz.mod%d=\"${%s#st}|${%s##*a}|${%s%%ge}|${%s%%%%a*}|${%s/ta/TA}|${%s//a/A}|${%s:?unset}\"\n", i, m, m, m, m, m, m, m)
+				case 2:
+					fmt.Fprintf(&b, "COPY %s /${%s:-dest}/${%s%%e}%d\n", srcPick(s, regulars), u, m, i)
+				case 3:
+					fmt.Fprintf(&b, "WORKDIR /w${%s#s}${%s:+x}%d\n", m, u, i)
+				default:
+					fmt.Fprintf(&b, "ENV LIT%d=\\$%s DOLLAR%d=a$ MIX%d=${%s}\\${%s}\n", i, m, i, i, m, m)
+				}
+			case 49:
+				// "." and "./" as the destination resolve against WORKDIR.
+				fmt.Fprintf(&b, "WORKDIR /cd%d\n", i)
+				switch s.intn(5) {
+				case 4:
+					// Several URL sources into one directory.
+					fmt.Fprintf(&b, "ADD %s %s ./\n", addURL, addArcURL)
+				case 0:
+					fmt.Fprintf(&b, "COPY %s .\n", srcPick(s, regulars))
+				case 1:
+					fmt.Fprintf(&b, "COPY %s ./\n", srcPick(s, regulars))
+				case 2:
+					fmt.Fprintf(&b, "ADD %s .\n", srcPick(s, regulars))
+				default:
+					fmt.Fprintf(&b, "COPY ctx* .\n")
+				}
+			case 50:
+				// Heredoc forms beyond a plain RUN <<EOF.
+				switch s.intn(7) {
+				case 0:
+					fmt.Fprintf(&b, "RUN <<-EOF\n\tmkdir -p /hc%d\n\techo chomp > /hc%d/out\n\tEOF\n", i, i)
+				case 1:
+					// A heredoc starting with a shebang runs as a script file.
+					fmt.Fprintf(&b, "RUN <<EOF\n#!/bin/sh\nset -e\nmkdir -p /hs%d\necho shebang > /hs%d/out\nEOF\n", i, i)
+				case 2:
+					fmt.Fprintf(&b, "RUN cat <<EOF > /hi%d\nin-command %d\nEOF\n", i, i)
+				case 3:
+					fmt.Fprintf(&b, "RUN <<A%d cat > /hm%da && <<B%d cat > /hm%db\nfirst\nA%d\nsecond\nB%d\n", i, i, i, i, i, i)
+				case 4:
+					fmt.Fprintf(&b, "COPY <<A%d <<B%d /hcp%d/\nfirst\nA%d\nsecond\nB%d\n", i, i, i, i, i)
+				case 5:
+					// An unquoted COPY heredoc expands args, a quoted one keeps them.
+					fmt.Fprintf(&b, "ARG HX%d=hx\nCOPY <<EOF /hx%d\n${HX%d:-d} $HX%d\nEOF\nCOPY <<'EOF' /hq%d\n$HX%d\nEOF\n", i, i, i, i, i, i)
+				default:
+					fmt.Fprintf(&b, "COPY --chmod=0755 <<-EOF /hcc%d\n\t#!/bin/sh\n\techo x\n\tEOF\n", i)
+				}
+			case 51:
+				// ENV and LABEL forms: several pairs, quoting, legacy space syntax, and a pair
+				// that references one set on the same line.
+				switch s.intn(6) {
+				case 0:
+					fmt.Fprintf(&b, "ENV E1_%d=\"x y\" E2_%d=c\\ d E3_%d='q $HOME'\n", i, i, i)
+				case 1:
+					fmt.Fprintf(&b, "ENV EL%d legacy value %d\n", i, i)
+				case 2:
+					fmt.Fprintf(&b, "LABEL \"fuzz.q%d\"=\"x y\" fuzz.r%d=s\n", i, i)
+				case 3:
+					fmt.Fprintf(&b, "LABEL fuzz.legacy%d v w\n", i)
+				case 4:
+					fmt.Fprintf(&b, "MAINTAINER fuzz <fuzz@example.invalid>\n")
+				default:
+					fmt.Fprintf(&b, "ENV EA%d=a EB%d=${EA%d}b\n", i, i, i)
+				}
+			case 52:
+				// Mount options: read-only spellings, rw writes that are discarded, a cache
+				// gid without uid, a cache shared by id, and a required secret.
+				f := srcPick(s, regulars)
+				switch s.intn(5) {
+				case 0:
+					fmt.Fprintf(&b, "RUN --mount=type=bind,source=%s,target=/mro%d,%s cat /mro%d > /mroout%d\n", f, i, srcPick(s, []string{"ro", "readonly", "readonly=true", "rw=false", "readwrite=false"}), i, i)
+				case 1:
+					fmt.Fprintf(&b, "RUN --mount=type=bind,source=%s,target=/mrw%d,rw=true echo w >> /mrw%d && cat /mrw%d > /mrwout%d\n", f, i, i, i, i)
+				case 2:
+					fmt.Fprintf(&b, "RUN --mount=type=cache,target=/cg%d,gid=%s stat -c '%%g' /cg%d > /cgout%d\n", i, srcPick(s, uids), i, i)
+				case 3:
+					fmt.Fprintf(&b, "RUN --mount=type=cache,id=shared%d,target=/cs%da echo x > /cs%da/f\n", i, i, i)
+					fmt.Fprintf(&b, "RUN --mount=type=cache,id=shared%d,target=/cs%db,sharing=locked cat /cs%db/f > /csout%d\n", i, i, i, i)
+				default:
+					usesSecret = true
+					fmt.Fprintf(&b, "RUN --mount=type=secret,id=%s,%s wc -c < /run/secrets/%s > /sreq%d\n", secretID, srcPick(s, []string{"required", "required=true"}), secretID, i)
+				}
+			case 53:
+				// HEALTHCHECK options, EXPOSE ranges and protocols, and STOPSIGNAL, USER and
+				// EXPOSE through args.
+				switch s.intn(7) {
+				case 0:
+					fmt.Fprintf(&b, "HEALTHCHECK --interval=30s --timeout=5s --start-period=1s --start-interval=2s --retries=3 CMD /bin/true\n")
+				case 1:
+					fmt.Fprintf(&b, "HEALTHCHECK --interval=1m30s CMD [\"/bin/true\"]\n")
+				case 2:
+					fmt.Fprintf(&b, "EXPOSE 8000-8010/tcp 53/udp 9000/sctp\n")
+				case 3:
+					fmt.Fprintf(&b, "ARG PORT%d=7000\nEXPOSE ${PORT%d}/udp $PORT%d\n", i, i, i)
+				case 4:
+					fmt.Fprintf(&b, "ARG SIG%d=SIGINT\nSTOPSIGNAL $SIG%d\n", i, i)
+				case 5:
+					fmt.Fprintf(&b, "ARG U%d=0\nUSER ${U%d}:${U%d:-0}\n", i, i, i)
+				default:
+					fmt.Fprintf(&b, "SHELL [\"/bin/sh\", \"-e\", \"-c\"]\n")
+				}
+			case 54:
+				// Proxy build args are predefined and stay out of the image history.
+				if !proxyArgs {
+					proxyArgs = true
+					buildArgs = append(buildArgs, "HTTP_PROXY=http://127.0.0.1:9", "no_proxy=example.invalid")
+				}
+				if s.chance(2) {
+					fmt.Fprintf(&b, "ARG HTTP_PROXY\n")
+				}
+				fmt.Fprintf(&b, "RUN echo \"$HTTP_PROXY $no_proxy\" > /proxy%d\n", i)
 			}
 		}
 	}
@@ -1268,6 +1411,7 @@ func generate(s *source, bases []string) genResult {
 	cacheMode := s.intn(3)
 
 	dockerfile, indirectArgs := argIndirection(s, b.String())
+	dockerfile = lineSyntax(s, dockerfile)
 	buildArgs = append(buildArgs, indirectArgs...)
 	for _, kv := range indirectArgs {
 		flags = append(flags, "--build-arg="+kv)
@@ -1286,6 +1430,51 @@ func generate(s *source, bases []string) genResult {
 // parent stage, writes /stage/arch-$TARGETOS-$TARGETARCH, and some of its instructions
 // spell /stage/ and /dest/ through them. The values are the literals they replace, so
 // the case keeps its meaning.
+var heredocStart = regexp.MustCompile(`<<-?['"]?([A-Za-z0-9_]+)`)
+
+// lineSyntax varies how instructions are spelled without changing what they do: an
+// escape directive, RUN lines continued over several lines, and comments and empty
+// lines inside a continuation. The backtick escape only applies when no line uses a
+// backslash, whose meaning it would change.
+func lineSyntax(s *source, dockerfile string) string {
+	esc := `\`
+	var out []string
+	if !strings.ContainsAny(dockerfile, "\\`") && s.chance(4) {
+		esc = "`"
+		out = append(out, "# escape=`")
+	}
+	if s.chance(4) {
+		out = append(out, "# check=skip=all")
+	}
+	var pending []string
+	for line := range strings.SplitSeq(strings.TrimRight(dockerfile, "\n"), "\n") {
+		opens := heredocStart.FindAllStringSubmatch(line, -1)
+		switch {
+		case len(pending) > 0:
+			if strings.TrimLeft(line, "\t") == pending[0] {
+				pending = pending[1:]
+			}
+			opens = nil
+		case len(opens) == 0 && strings.HasPrefix(line, "RUN ") && strings.Contains(line, " && ") && s.chance(3):
+			sep := " " + esc + "\n"
+			switch s.intn(3) {
+			case 0:
+				sep += "# continued\n"
+			case 1:
+				sep += "\n"
+			}
+			line = strings.Replace(line, " && ", sep+"    && ", 1)
+		case len(opens) == 0 && s.chance(8):
+			out = append(out, "# comment")
+		}
+		out = append(out, line)
+		for _, m := range opens {
+			pending = append(pending, m[1])
+		}
+	}
+	return strings.Join(out, "\n") + "\n"
+}
+
 func argIndirection(s *source, dockerfile string) (string, []string) {
 	scoped := map[string]bool{}
 	var meta bool
@@ -1293,12 +1482,17 @@ func argIndirection(s *source, dockerfile string) (string, []string) {
 	var out []string
 	inScope := false
 	archFile := false
-	heredoc := false
+	// Terminators of the open heredocs, in the order their bodies follow.
+	var pending []string
 	for line := range strings.SplitSeq(strings.TrimRight(dockerfile, "\n"), "\n") {
 		fields := strings.Fields(line)
+		opens := heredocStart.FindAllStringSubmatch(line, -1)
 		switch {
-		case heredoc:
-			heredoc = line != "EOF"
+		case len(pending) > 0:
+			if strings.TrimLeft(line, "\t") == pending[0] {
+				pending = pending[1:]
+			}
+			opens = nil
 			out = append(out, line)
 		case len(fields) > 0 && fields[0] == "FROM":
 			out = append(out, line)
@@ -1335,8 +1529,7 @@ func argIndirection(s *source, dockerfile string) (string, []string) {
 			archFile = true
 			out = append(out, line+" && cp /stage/artifact /stage/arch-$TARGETOS-$TARGETARCH")
 		default:
-			heredoc = strings.Contains(line, "<<")
-			rewritable := !heredoc && !strings.ContainsAny(line, "'[") && slices.Contains([]string{"COPY", "ADD", "RUN", "WORKDIR", "VOLUME", "ENV", "LABEL"}, fields[0])
+			rewritable := len(opens) == 0 && !strings.ContainsAny(line, "'[") && slices.Contains([]string{"COPY", "ADD", "RUN", "WORKDIR", "VOLUME", "ENV", "LABEL"}, fields[0])
 			if rewritable && s.chance(2) {
 				if s.chance(2) && stageArchSource(line, scoped) {
 					line = strings.Replace(line, "/stage/artifact", "/stage/arch-${TARGETOS}-${TARGETARCH}", 1)
@@ -1347,6 +1540,9 @@ func argIndirection(s *source, dockerfile string) (string, []string) {
 				line = strings.ReplaceAll(line, "/dest/", "/${FZD}/")
 			}
 			out = append(out, line)
+		}
+		for _, m := range opens {
+			pending = append(pending, m[1])
 		}
 	}
 	if meta {
