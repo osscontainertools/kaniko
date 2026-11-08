@@ -25,6 +25,7 @@
 * `FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES=true` scope `--registry-certificate` CAs to their registry: https://github.com/osscontainertools/kaniko/pull/1162
 * 🔗 `FF_KANIKO_CONFINE_HARDLINK_TARGET=true` skip a hardlink whose target reaches the kaniko directory through a symlink: by @stevebeattie in https://github.com/osscontainertools/kaniko/pull/1367
 * a mounted directory under a base image symlink to `/kaniko` makes kaniko move its own files: https://github.com/osscontainertools/kaniko/pull/1370
+* 🔗 `FF_DOCKER_ACR_STRICT_HOST_CHECK=true` stricter ACR host check: by @8none1 in https://github.com/osscontainertools/docker-credential-acr/pull/56 https://github.com/osscontainertools/kaniko/pull/1382
 
 ### Bugfixes
 * cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3
