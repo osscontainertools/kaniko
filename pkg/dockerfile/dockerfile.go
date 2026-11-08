@@ -329,6 +329,9 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	if len(stages) == 0 {
 		return nil, errors.New("dockerfile must contain at least one FROM instruction")
 	}
+	if !config.FF.AddChecksum && opts.RequireAddChecksum {
+		return nil, errors.New("--require-add-checksum cannot be used with FF_KANIKO_ADD_CHECKSUM=false, checksums would not be verified")
+	}
 	targetStages, err := targetStages(stages, opts.Target)
 	if err != nil {
 		return nil, fmt.Errorf("error finding target stage: %w", err)

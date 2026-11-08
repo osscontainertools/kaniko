@@ -109,6 +109,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--registry-client-cert`](#flag---registry-client-cert)
       - [Flag `--registry-map`](#flag---registry-map)
       - [Flag `--registry-mirror`](#flag---registry-mirror)
+      - [Flag `--require-add-checksum`](#flag---require-add-checksum)
       - [Flag `--require-digest`](#flag---require-digest)
       - [Flag `--skip-default-registry-fallback`](#flag---skip-default-registry-fallback)
       - [Flag `--reproducible`](#flag---reproducible)
@@ -1074,6 +1075,10 @@ are:
 - `192.168.0.1:5000`
 - `mycompany-docker-virtual.jfrog.io`
 - `harbor.private.io/theproject`
+
+#### Flag `--require-add-checksum`
+
+Fail if an `ADD` instruction pulls a remote URL (HTTP/HTTPS) without a `--checksum` digest. Executor only.
 
 #### Flag `--require-digest`
 

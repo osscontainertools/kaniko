@@ -113,6 +113,7 @@ type KanikoOptions struct {
 	Secrets                      SecretOptions
 	Dryrun                       bool
 	RequireDigest                bool
+	RequireAddChecksum           bool
 }
 
 type KanikoGitOptions struct {

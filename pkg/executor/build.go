@@ -1276,7 +1276,7 @@ func saveLayerToImage(image v1.Image, layer v1.Layer, createdBy string, opts *co
 	return image, layer, err
 }
 
-func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptions) (map[int][]string, map[*instructions.CopyCommand][]string, error) {
+func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext) (map[int][]string, map[*instructions.CopyCommand][]string, error) {
 	images := make(map[int]v1.Image)
 	depGraph := map[int][]string{}
 	copySources := map[*instructions.CopyCommand][]string{}
@@ -1305,6 +1305,13 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 
 		for _, c := range cmds {
 			switch cmd := c.(type) {
+			case *instructions.AddCommand:
+				if opts.RequireAddChecksum {
+					err := commands.RequireAddChecksum(cmd, fileContext, ba.ReplacementEnvs(cfg.Config.Env))
+					if err != nil {
+						return nil, nil, err
+					}
+				}
 			case *instructions.CopyCommand:
 				if cmd.From != "" {
 					resolved, err := util.ResolveEnvironmentReplacementList(cmd.SourcePaths, ba.ReplacementEnvs(cfg.Config.Env), true)
@@ -1597,7 +1604,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		return nil, err
 	}
 
-	crossStageDependencies, copySources, err := CalculateDependencies(kanikoStages, opts)
+	crossStageDependencies, copySources, err := CalculateDependencies(kanikoStages, opts, fileContext)
 	if err != nil {
 		return nil, err
 	}
