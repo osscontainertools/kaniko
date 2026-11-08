@@ -1445,5 +1445,5 @@ func buildKanikoImage(
 	if err := checkNoWarnings(dockerfile, out); err != nil {
 		return out, err
 	}
-	return nil, nil
+	return out, nil
 }
