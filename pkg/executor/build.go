@@ -81,6 +81,7 @@ type snapShotter interface {
 	Init() error
 	TakeSnapshotFS() (string, []string, []string, error)
 	TakeSnapshot([]string, bool) (string, []string, []string, error)
+	Reset()
 }
 
 // stageBuilder contains all fields necessary to build one stage of a Dockerfile
@@ -854,6 +855,11 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				t.End()
 				if err != nil {
 					return false, fmt.Errorf("extracting fs from image: %w", err)
+				}
+				// mz876: the layered map never saw the extracted layer, rebuild it from disk before the next snapshot
+				if !opts.SingleSnapshot {
+					snapshotter.Reset()
+					initSnapshotTaken = false
 				}
 			}
 		}
