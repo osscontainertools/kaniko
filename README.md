@@ -1698,9 +1698,8 @@ Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS`
 
-With `--cache`, a cached layer that kaniko extracts after an uncached command is not seen by the snapshotter, so the next snapshot adds that layer's files again, or whites out its deleted files again.
-Set this flag to `true` to rebuild the snapshot baseline from disk after a cached layer.
-Defaults to `false`.
+With `--cache`, a cache hit after an uncached command repeats its files in the next layer, so the image differs from the build that filled the cache.
+Set this flag to `true` to keep cached files out of later layers. Defaults to `false`.
 Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_UNPACK_XZ`
