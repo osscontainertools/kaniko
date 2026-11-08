@@ -1153,7 +1153,7 @@ func generate(s *source, bases []string) genResult {
 				case 1:
 					fmt.Fprintf(&b, "HEALTHCHECK --interval=1m30s CMD [\"/bin/true\"]\n")
 				case 2:
-					fmt.Fprintf(&b, "EXPOSE 8000-8010/tcp 53/udp 9000/sctp\n")
+					fmt.Fprintf(&b, "EXPOSE 8000-8010/tcp 53/udp 9000\n")
 				case 3:
 					fmt.Fprintf(&b, "ARG PORT%d=7000\nEXPOSE ${PORT%d}/udp $PORT%d\n", i, i, i)
 				case 4:
