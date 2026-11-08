@@ -1287,7 +1287,6 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 		return nil, nil, err
 	}
 	for _, s := range stages {
-		// Match DoBuild: a stage built on an earlier stage starts from its args.
 		ba := baseArgs.Clone()
 		if s.BaseImageStoredLocally {
 			ba = stageArgs[s.BaseImageIndex].Clone()
