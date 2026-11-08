@@ -10,7 +10,7 @@
 * golang.org/x/net v0.61.0: CVE-2026-78661 CVE-2026-97045
 * 🔗 `FF_KANIKO_CONFINE_HARDLINK_TARGET=true` skip a hardlink whose target reaches the kaniko directory through a symlink: by @stevebeattie in https://github.com/osscontainertools/kaniko/pull/1367
 * a mounted directory under a base image symlink to `/kaniko` makes kaniko move its own files: https://github.com/osscontainertools/kaniko/pull/1370
-* 🔗 `FF_DOCKER_ACR_STRICT_HOST_CHECK=true` stricter ACR host check: by @8none1 in https://github.com/osscontainertools/docker-credential-acr/pull/56 https://github.com/osscontainertools/kaniko/pull/1382
+* build(deps): bump github.com/osscontainertools/docker-credential-acr from 1.0.0 to 1.0.1: https://github.com/osscontainertools/kaniko/pull/1382
 
 ### Bugfixes
 * a later stage whites out the files of an earlier stage: by @mvdberge in https://github.com/osscontainertools/kaniko/pull/1316
