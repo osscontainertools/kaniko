@@ -1,11 +1,17 @@
-# mz1372: a COPY --from source using a predefined build arg is not saved
-# for the later stage. Fails since v1.25.3.
-# Dependency planning resolved the source without the predefined args,
-# so it looked for /out- instead of /out-<arch>.
+# mz1372: a COPY --from source using a predefined build arg or an ARG
+# inherited from the parent stage is not saved for the later stage.
+# Predefined args fail since v1.25.3, inherited ARGs since v1.27.3.
+# Dependency planning resolved the source without these args,
+# so the planned path missed the file.
 FROM busybox:1.37 AS build
 ARG TARGETARCH
-RUN echo hello > /out-$TARGETARCH
+ARG VARIANT=foo
+RUN echo hello > /out-$TARGETARCH && echo hello > /out-$VARIANT
+
+FROM build AS variant
+COPY --from=build /out-${VARIANT} /value
 
 FROM busybox:1.37
 ARG TARGETARCH
-COPY --from=build /out-${TARGETARCH} /value
+COPY --from=build /out-${TARGETARCH} /arch
+COPY --from=variant /value /variant
