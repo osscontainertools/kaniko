@@ -5,7 +5,7 @@
 
 @tran4774 made their first contribution in https://github.com/osscontainertools/kaniko/pull/1251. They put substantial work into making kaniko faster, from build metrics to cached file hashes. Parallel snapshot hashing behind `FF_KANIKO_PARALLEL_HASH` is the first piece to land.
 
-A special shoutout to @gary-wall, who landed 13 changes this release. Most notably cross-stage bind mounts, and `--cache-from` and `--cache-to`.
+A special shoutout to @gary-wall, who landed 13 changes this release. Most notably cross-stage bind mounts and `--cache-from`/`--cache-to` separation.
 
 ## What's Changed
 ### Security
