@@ -23,7 +23,7 @@
 * prevent Azure token disclosure to lookalike `azurecr.io` hostnames: https://github.com/osscontainertools/kaniko/pull/1004
 * `FF_KANIKO_CONFINE_COPY_SOURCE=true` block `COPY` and `ADD` from the kaniko directory: https://github.com/osscontainertools/kaniko/pull/1160
 * `FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES=true` scope `--registry-certificate` CAs to their registry: https://github.com/osscontainertools/kaniko/pull/1162
-* 🔗 `FF_KANIKO_CONFINE_HARDLINK_TARGET=true` skip a hardlink whose target reaches the kaniko directory through a symlink: https://github.com/osscontainertools/kaniko/pull/1367
+* 🔗 `FF_KANIKO_CONFINE_HARDLINK_TARGET=true` skip a hardlink whose target reaches the kaniko directory through a symlink: by @stevebeattie in https://github.com/osscontainertools/kaniko/pull/1367
 * a mounted directory under a base image symlink to `/kaniko` makes kaniko move its own files: https://github.com/osscontainertools/kaniko/pull/1370
 
 ### Bugfixes

@@ -1281,8 +1281,10 @@ FF_KANIKO_ISOLATE_CACHE_PUSH=true
 FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR=true
 FF_KANIKO_NATIVE_INIT=true
 FF_KANIKO_PARALLEL_HASH=true
+FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=true
 FF_KANIKO_RUN_HEREDOC_SCRIPT=true
 FF_KANIKO_RUN_MOUNT_BIND_RELATIVE=true
+FF_KANIKO_RUN_MOUNT_TMPFS=true
 FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS=true
 FF_KANIKO_WARMER_BUILD_ARGS=true
 FF_KANIKO_WARMER_PREDEFINED_ARGS=true
@@ -1297,8 +1299,6 @@ FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS=true
 FF_KANIKO_COPY_AS_ROOT=true
 FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=true
 FF_KANIKO_COPY_LINK=true
-FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=true
-FF_KANIKO_RUN_MOUNT_TMPFS=true
 FF_KANIKO_UNPACK_XZ=true
 ```
 
@@ -1620,6 +1620,7 @@ Will be deprecated in `v1.30.0`.
 Kaniko skips `RUN --mount=type=bind` flags with `from=<stage>` or `from=<image>`.
 Set this flag to `true` to mount files from another stage or image. Writes to the mount are discarded.
 Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_RUN_HEREDOC_SCRIPT`
 
@@ -1652,6 +1653,7 @@ Becomes default in `v1.30.0`.
 Supports `--mount=type=tmpfs` flags in `RUN` instructions. The target is an empty directory for the duration of the command, and its contents are discarded afterwards.
 Set this flag to `true` to enable tmpfs mounts in `RUN` statements.
 Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_RUN_VIA_TINI`
 

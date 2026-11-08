@@ -1,14 +1,14 @@
 # v1.29.1 Release 2026-11-08
 
 ## Community Update
-@mvdberge made their first contribution in https://github.com/osscontainertools/kaniko/pull/1316. A later stage no longer whites out the files of an earlier stage.
+@mvdberge made their first contribution in https://github.com/osscontainertools/kaniko/pull/1316. They traced unreadable `node_modules` entries in a real image to spurious whiteouts that every release since v1.27.0 writes into later stages, and mapped the cached-layer variant fixed in https://github.com/osscontainertools/kaniko/pull/1383.
 
-@tran4774 made their first contribution in https://github.com/osscontainertools/kaniko/pull/1251. Snapshots can now hash files on a worker pool behind `FF_KANIKO_PARALLEL_HASH`.
+@tran4774 made their first contribution in https://github.com/osscontainertools/kaniko/pull/1251. They put substantial work into making kaniko faster, from build metrics to cached file hashes, and parallel snapshot hashing behind `FF_KANIKO_PARALLEL_HASH` is the first piece to land.
 
 ## What's Changed
 ### Security
 * golang.org/x/net v0.61.0: CVE-2026-78661 CVE-2026-97045
-* 🔗 `FF_KANIKO_CONFINE_HARDLINK_TARGET=true` skip a hardlink whose target reaches the kaniko directory through a symlink: https://github.com/osscontainertools/kaniko/pull/1367
+* 🔗 `FF_KANIKO_CONFINE_HARDLINK_TARGET=true` skip a hardlink whose target reaches the kaniko directory through a symlink: by @stevebeattie in https://github.com/osscontainertools/kaniko/pull/1367
 * a mounted directory under a base image symlink to `/kaniko` makes kaniko move its own files: https://github.com/osscontainertools/kaniko/pull/1370
 
 ### Bugfixes
@@ -102,8 +102,9 @@
 ### Fork Related
 * correct the v1.29.0 release notes: https://github.com/osscontainertools/kaniko/pull/1303
 * integration tests run with the race detector: https://github.com/osscontainertools/kaniko/pull/1305 https://github.com/osscontainertools/kaniko/pull/1351 https://github.com/osscontainertools/kaniko/pull/1366
-* test improvements: https://github.com/osscontainertools/kaniko/pull/1300 https://github.com/osscontainertools/kaniko/pull/1302 https://github.com/osscontainertools/kaniko/pull/1341 https://github.com/osscontainertools/kaniko/pull/1342 https://github.com/osscontainertools/kaniko/pull/1379
-* add CodeRabbit config and contributor docs: https://github.com/osscontainertools/kaniko/pull/1359
+* test improvements: https://github.com/osscontainertools/kaniko/pull/1300 https://github.com/osscontainertools/kaniko/pull/1302 https://github.com/osscontainertools/kaniko/pull/1341 https://github.com/osscontainertools/kaniko/pull/1342
+* add CodeRabbit config and contributor docs: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1359
+* failing integration tests check the error message: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1379
 
 
 # v1.29.0 Release 2026-10-25
