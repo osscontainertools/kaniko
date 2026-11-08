@@ -1698,8 +1698,8 @@ Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS`
 
-With `--cache`, a cache hit after an uncached command repeats its files in the next layer, so the image differs from the build that filled the cache.
-Set this flag to `true` to keep cached files out of later layers. Defaults to `false`.
+With `--cache`, a `COPY` served from the cache after an uncached `RUN` has its files stored a second time in the next `RUN` layer.
+Set this flag to `true` to store them once. Defaults to `false`.
 Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_UNPACK_XZ`
