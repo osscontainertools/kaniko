@@ -403,6 +403,26 @@ var expectErr = map[string]int{
 	"Dockerfile_test_require_digest_fail":       1,
 }
 
+var expectErrOutput = map[string]string{
+	"Dockerfile_test_issue_cg326_1":             "is not allowed: references parent directory",
+	"Dockerfile_test_issue_mz1140":              "must fit a 32 bit id",
+	"Dockerfile_test_add_404":                   "invalid response status 404",
+	"Dockerfile_test_issue_3373_1":              "digest mismatch",
+	"Dockerfile_test_issue_3373_2":              "checksum requires HTTP(S) sources",
+	"Dockerfile_test_issue_3373_3":              "digest mismatch",
+	"Dockerfile_test_issue_3373_4":              "checksum can't be specified for multiple sources",
+	"Dockerfile_test_issue_mz1160_1":            "in the kaniko directory",
+	"Dockerfile_test_issue_mz1160_2":            "in the kaniko directory",
+	"Dockerfile_test_issue_mz1160_3":            "in the kaniko directory",
+	"Dockerfile_test_issue_mz1160_4":            "in the kaniko directory",
+	"Dockerfile_test_issue_mz881":               "x509: certificate signed by unknown authority",
+	"Dockerfile_test_issue_mz1133_2":            "COPY --link needs a numeric USER or --chown",
+	"Dockerfile_test_issue_mz1230_no_index":     "--index-file requires --provenance",
+	"Dockerfile_test_issue_mz1230_no_push_tar":  "--provenance with --no-push stores the attestation only in --oci-layout-path",
+	"Dockerfile_test_issue_mz1230_tar_no_index": "--tar-path with --provenance requires --index-file",
+	"Dockerfile_test_require_digest_fail":       "--require-digest:",
+}
+
 var crossCompileArch = func() string {
 	if runtime.GOARCH == "amd64" {
 		return "arm64"
@@ -946,7 +966,7 @@ func (d *DockerFileBuilder) BuildImage(t *testing.T, config *integrationTestConf
 }
 
 // BuildKanikoImage builds dockerfile using only kaniko (no docker build).
-func (d *DockerFileBuilder) BuildKanikoImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile string) error {
+func (d *DockerFileBuilder) BuildKanikoImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile string) ([]byte, error) {
 	cwd := config.dir
 
 	var buildArgs []string
@@ -991,7 +1011,7 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 	}
 
 	kanikoImage := GetKanikoImage(imageRepo, dockerfile)
-	if err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
+	if _, err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
 		contextDir, "", ""); err != nil {
 		return err
 	}
@@ -1372,7 +1392,7 @@ func buildKanikoImage(
 	contextDir string,
 	tlsCACert string,
 	dockerConfig string,
-) error {
+) ([]byte, error) {
 	// build kaniko image
 	additionalFlags := append(buildArgs, kanikoArgs...)
 	additionalFlags = append(additionalFlags,
@@ -1432,15 +1452,15 @@ func buildKanikoImage(
 	t.Logf("%s", out)
 
 	if err != nil {
-		return fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
+		return out, fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
 	}
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
 		if err := outputCheck(dockerfile, out); err != nil {
-			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
+			return out, fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
 	if err := checkNoWarnings(dockerfile, out); err != nil {
-		return err
+		return out, err
 	}
-	return nil
+	return out, nil
 }
