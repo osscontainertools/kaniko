@@ -637,6 +637,8 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 
 func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool, copySources map[*instructions.CopyCommand][]string, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string, layerCache cache.LayerCache, ci *stageCacheInfo) (bool, error) {
 	assert.Assert("executor.stagebuilder.config-nonnull", s.cf != nil, "stageBuilder (index %d) has nil config file", s.index)
+	// --require-add-checksum is enforced in optimize, with and without a cache
+	assert.Assert("executor.build.optimized", ci != nil && len(ci.cacheKeys) == len(s.cmds), "stage %d is built without an optimize pass over its commands", s.index)
 	// Unpack file system to root if we need to.
 	shouldUnpack := false
 	for _, cmd := range s.cmds {
