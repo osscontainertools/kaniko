@@ -1268,6 +1268,8 @@ jq -r '.manifests[] | select(.annotations["vnd.docker.reference.type"] != "attes
 Opting into the Preview profile gives you early access to upcoming performance improvements, bugfixes and features. While these flags are tested and ready to use, implementation details may still change.
 
 ```sh
+FF_KANIKO_ADD_CHOWN_TAR=true
+FF_KANIKO_ADD_FOLLOW_SYMLINK=true
 FF_KANIKO_CACHE_COPY_FROM=true
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_KEEP_DEST_OWNER=true
@@ -1276,8 +1278,13 @@ FF_KANIKO_COPY_SUBDIR_MODE=true
 FF_KANIKO_DEFER_CACHE_PUSH=true
 FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY=true
 FF_KANIKO_ISOLATE_CACHE_PUSH=true
+FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR=true
 FF_KANIKO_NATIVE_INIT=true
+FF_KANIKO_PARALLEL_HASH=true
+FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=true
 FF_KANIKO_RUN_HEREDOC_SCRIPT=true
+FF_KANIKO_RUN_MOUNT_BIND_RELATIVE=true
+FF_KANIKO_RUN_MOUNT_TMPFS=true
 FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS=true
 FF_KANIKO_WARMER_BUILD_ARGS=true
 FF_KANIKO_WARMER_PREDEFINED_ARGS=true
@@ -1613,6 +1620,7 @@ Will be deprecated in `v1.30.0`.
 Kaniko skips `RUN --mount=type=bind` flags with `from=<stage>` or `from=<image>`.
 Set this flag to `true` to mount files from another stage or image. Writes to the mount are discarded.
 Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_RUN_HEREDOC_SCRIPT`
 
@@ -1645,6 +1653,7 @@ Becomes default in `v1.30.0`.
 Supports `--mount=type=tmpfs` flags in `RUN` instructions. The target is an empty directory for the duration of the command, and its contents are discarded afterwards.
 Set this flag to `true` to enable tmpfs mounts in `RUN` statements.
 Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_RUN_VIA_TINI`
 
