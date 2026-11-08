@@ -23,8 +23,8 @@
 * prevent Azure token disclosure to lookalike `azurecr.io` hostnames: https://github.com/osscontainertools/kaniko/pull/1004
 * `FF_KANIKO_CONFINE_COPY_SOURCE=true` block `COPY` and `ADD` from the kaniko directory: https://github.com/osscontainertools/kaniko/pull/1160
 * `FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES=true` scope `--registry-certificate` CAs to their registry: https://github.com/osscontainertools/kaniko/pull/1162
-* 🔗 `FF_KANIKO_CONFINE_HARDLINK_TARGET=true` skip a hardlink whose target reaches the kaniko directory through a symlink: by @stevebeattie in https://github.com/osscontainertools/kaniko/pull/1367
-* a mounted directory under a base image symlink to `/kaniko` makes kaniko move its own files: https://github.com/osscontainertools/kaniko/pull/1370
+* 🔗 `FF_KANIKO_CONFINE_HARDLINK_TARGET=true` block hardlinks into the kaniko directory: by @stevebeattie in https://github.com/osscontainertools/kaniko/pull/1367
+* skip mount relocation into ignored paths: https://github.com/osscontainertools/kaniko/pull/1370
 
 ### Bugfixes
 * cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3
@@ -53,7 +53,7 @@
 * `FF_KANIKO_ISOLATE_CACHE_PUSH=false` every cache push also writes the build outputs: https://github.com/osscontainertools/kaniko/pull/1223
 * `FF_KANIKO_WARMER_BUILD_ARGS=false` warmer lets an `ARG` default win over `--build-arg`: https://github.com/osscontainertools/kaniko/pull/1207
 * `ADD` to a relative destination without `WORKDIR` leaves the layer empty: https://github.com/osscontainertools/kaniko/pull/1339
-* `COPY --from` source paths that use a predefined or inherited `ARG` are not saved for the later stage: https://github.com/osscontainertools/kaniko/pull/1376
+* `COPY --from` ignores predefined and inherited `ARG`s: https://github.com/osscontainertools/kaniko/pull/1376
 
 ### Standardization
 * sticky bit gets lost on COPY: https://github.com/mzihlmann/kaniko/pull/45
@@ -97,13 +97,13 @@
 * `FF_KANIKO_RUN_HEREDOC_SCRIPT=false` run a lone `RUN` heredoc body as the script: https://github.com/osscontainertools/kaniko/pull/1216
 * `FF_KANIKO_COPY_KEEP_DEST_OWNER=false` `COPY --chown` keeps the owner of an existing destination directory: https://github.com/osscontainertools/kaniko/pull/1257
 * `FF_KANIKO_COPY_SUBDIR_MODE=false` directory `COPY` applies the source mode to existing subdirectories: https://github.com/osscontainertools/kaniko/pull/1259
-* `FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR=false` add a local gzip file that is not a tar as it is: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1330
-* `FF_KANIKO_ADD_CHOWN_TAR=false` `ADD --chown` applies to the files of an extracted tar: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1333
+* `FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR=false` `ADD` copies a non-tar archive as is: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1330
+* `FF_KANIKO_ADD_CHOWN_TAR=false` honour `ADD --chown` on extracted archives: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1333
 * `FF_KANIKO_RUN_MOUNT_TMPFS=false` support `RUN --mount=type=tmpfs`: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1315
-* `FF_KANIKO_ADD_FOLLOW_SYMLINK=false` `ADD <url>` writes through a destination symlink: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1338 https://github.com/osscontainertools/kaniko/pull/1340
-* `FF_KANIKO_RUN_MOUNT_BIND_RELATIVE=false` resolve a relative `RUN --mount=type=bind` target against `WORKDIR`: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1337
-* `FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=false` mount files from another stage or image with `RUN --mount=type=bind,from`: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1280
-* a variable in `COPY --from` fails with a clear error: https://github.com/osscontainertools/kaniko/pull/1378
+* `FF_KANIKO_ADD_FOLLOW_SYMLINK=false` `ADD <url>` follows a destination symlink: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1338 https://github.com/osscontainertools/kaniko/pull/1340
+* `FF_KANIKO_RUN_MOUNT_BIND_RELATIVE=false` resolve relative bind mounts against `WORKDIR`: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1337
+* `FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=false` support `RUN --mount=type=bind,from`: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1280
+* reject variables in `COPY --from`: https://github.com/osscontainertools/kaniko/pull/1378
 
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
@@ -124,8 +124,8 @@
 * `FF_KANIKO_PLATFORM_CACHE_KEY=true` add the target platform to the cache key: https://github.com/osscontainertools/kaniko/pull/1029
 * `FF_KANIKO_CACHE_IMAGE_INDEX=false` warmer caches the image index of index-pinned bases: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1225
 * `FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY=false` keep `--image-format` out of cache keys: https://github.com/osscontainertools/kaniko/pull/1276
-* `FF_KANIKO_CACHE_COPY_FROM=false` warmer and executor cache `COPY --from=<image>` like a `FROM` base image: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1334
-* `FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS=false` a cached `COPY` is stored a second time in the next `RUN` layer: https://github.com/osscontainertools/kaniko/pull/1383
+* `FF_KANIKO_CACHE_COPY_FROM=false` warmer caches `COPY --from=<image>`: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1334
+* `FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS=false` stop storing cached files twice: https://github.com/osscontainertools/kaniko/pull/1383
 
 ### Performance
 * squash stages together, speeding up build: https://github.com/mzihlmann/kaniko/pull/141 https://github.com/osscontainertools/kaniko/pull/283
@@ -144,8 +144,8 @@
 * `FF_KANIKO_DEFER_CACHE_PUSH=false` push cache layers in the background: https://github.com/osscontainertools/kaniko/pull/1163
 * `FF_KANIKO_PEEK_ARCHIVE_HEADER=true` `ADD` detect compression from the header alone: https://github.com/osscontainertools/kaniko/pull/1171
 * `FF_KANIKO_IMAGE_STAGES=true` skip unpacking the rootfs for fully cached stages: https://github.com/osscontainertools/kaniko/pull/1144
-* file hashing, layer tar writing, extraction and cache hashing reuse pooled copy buffers: https://github.com/osscontainertools/kaniko/pull/1313 https://github.com/osscontainertools/kaniko/pull/1314
-* `FF_KANIKO_PARALLEL_HASH=false` hash snapshot files on a worker pool: by @tran4774 in https://github.com/osscontainertools/kaniko/pull/1251
+* reuse pooled copy buffers: https://github.com/osscontainertools/kaniko/pull/1313 https://github.com/osscontainertools/kaniko/pull/1314
+* `FF_KANIKO_PARALLEL_HASH=false` hash snapshot files in parallel: by @tran4774 in https://github.com/osscontainertools/kaniko/pull/1251
 
 ### Usability
 * if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
@@ -179,11 +179,11 @@
 * `--predefined-annotations` sets the OCI source, revision, version and base image annotations: https://github.com/osscontainertools/kaniko/pull/1227
 * `--provenance` attaches a SLSA provenance attestation: https://github.com/osscontainertools/kaniko/pull/1230
 * `FF_KANIKO_NATIVE_INIT=false` kaniko acts as its own init process: https://github.com/osscontainertools/kaniko/pull/1222
-* `--cache-from` and `--cache-to` read and push the layer cache separately: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1346
-* bake targets set `cache_from` and `cache_to`: https://github.com/osscontainertools/kaniko/pull/1350
-* `--require-digest` rejects a `FROM` that is not pinned to a digest: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1362
-* bake targets set their own `context` and `dockerfile`: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1345
-* `--require-add-checksum` fails the build when a remote `ADD` has no `--checksum`: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1375
+* `--cache-from` and `--cache-to`: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1346
+* bake per-target `cache_from` and `cache_to`: https://github.com/osscontainertools/kaniko/pull/1350
+* `--require-digest` rejects unpinned bases: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1362
+* bake per-target `context` and `dockerfile`: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1345
+* `--require-add-checksum` rejects remote `ADD` without `--checksum`: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1375
 
 ### Telemetry
 * opt-in OpenTelemetry tracing via `KANIKO_TELEMETRY_ENDPOINT`, one trace per build: by @babs in https://github.com/osscontainertools/kaniko/pull/902 https://github.com/osscontainertools/kaniko/pull/951 https://github.com/osscontainertools/kaniko/pull/913 https://github.com/osscontainertools/kaniko/pull/931 https://github.com/osscontainertools/kaniko/pull/1019
@@ -200,7 +200,7 @@
 * report layer size and digest: https://github.com/osscontainertools/kaniko/pull/1120
 * trace the push, planning and the `--reproducible` rewrite: https://github.com/osscontainertools/kaniko/pull/1217
 * trace fetching the build context: https://github.com/osscontainertools/kaniko/pull/1343
-* telemetry export no longer blocks the build: https://github.com/osscontainertools/kaniko/pull/1344
+* background telemetry export: https://github.com/osscontainertools/kaniko/pull/1344
 
 ### Packaging
 * bootstrap image: https://github.com/mzihlmann/kaniko/pull/59
