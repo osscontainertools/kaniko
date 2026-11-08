@@ -146,7 +146,6 @@
 * `FF_KANIKO_IMAGE_STAGES=true` skip unpacking the rootfs for fully cached stages: https://github.com/osscontainertools/kaniko/pull/1144
 * file hashing, layer tar writing, extraction and cache hashing reuse pooled copy buffers: https://github.com/osscontainertools/kaniko/pull/1313 https://github.com/osscontainertools/kaniko/pull/1314
 * `FF_KANIKO_PARALLEL_HASH=false` hash snapshot files on a worker pool: by @tran4774 in https://github.com/osscontainertools/kaniko/pull/1251
-* trace export runs in the background: https://github.com/osscontainertools/kaniko/pull/1344
 
 ### Usability
 * if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
@@ -201,6 +200,7 @@
 * report layer size and digest: https://github.com/osscontainertools/kaniko/pull/1120
 * trace the push, planning and the `--reproducible` rewrite: https://github.com/osscontainertools/kaniko/pull/1217
 * trace fetching the build context: https://github.com/osscontainertools/kaniko/pull/1343
+* telemetry export no longer blocks the build: https://github.com/osscontainertools/kaniko/pull/1344
 
 ### Packaging
 * bootstrap image: https://github.com/mzihlmann/kaniko/pull/59

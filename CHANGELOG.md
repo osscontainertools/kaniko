@@ -36,7 +36,6 @@
 ### Performance
 * file hashing, layer tar writing, extraction and cache hashing reuse pooled copy buffers: https://github.com/osscontainertools/kaniko/pull/1313 https://github.com/osscontainertools/kaniko/pull/1314
 * `FF_KANIKO_PARALLEL_HASH=false` hash snapshot files on a worker pool: by @tran4774 in https://github.com/osscontainertools/kaniko/pull/1251
-* trace export runs in the background: https://github.com/osscontainertools/kaniko/pull/1344
 
 ### Usability
 * `--cache-from` and `--cache-to` read and push the layer cache separately: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1346
@@ -47,6 +46,7 @@
 
 ### Telemetry
 * trace fetching the build context: https://github.com/osscontainertools/kaniko/pull/1343
+* telemetry export no longer blocks the build: https://github.com/osscontainertools/kaniko/pull/1344
 
 ### Packaging
 * list every source file in the image SBOMs: https://github.com/osscontainertools/kaniko/pull/1304
