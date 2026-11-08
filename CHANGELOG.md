@@ -5,6 +5,8 @@
 
 @tran4774 made their first contribution in https://github.com/osscontainertools/kaniko/pull/1251. They put substantial work into making kaniko faster, from build metrics to cached file hashes. Parallel snapshot hashing behind `FF_KANIKO_PARALLEL_HASH` is the first piece to land.
 
+@gary-wall landed 13 changes this release, from `--cache-from` and `--cache-to` and per-target bake options to tmpfs and cross-stage bind mounts.
+
 ## What's Changed
 ### Security
 * golang.org/x/net v0.61.0: CVE-2026-78661 CVE-2026-97045
