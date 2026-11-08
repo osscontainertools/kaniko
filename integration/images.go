@@ -170,7 +170,8 @@ var argsMap = map[string][]string{
 }
 
 var argsMapVersion1 = map[string][]string{
-	"Dockerfile_test_issue_mz655": {"BASE_TAG=1.37.0"},
+	"Dockerfile_test_issue_mz655":      {"BASE_TAG=1.37.0"},
+	"Dockerfile_test_issue_mz876_link": {"V=1"},
 }
 
 // Environment to build Dockerfiles with, used for both docker and kaniko builds
@@ -337,6 +338,8 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz334":                {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz960":                {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz876":                {"--use-new-run"},
+	"Dockerfile_test_issue_mz876_add":            {"--cache-copy-layers=true", "--cache-run-layers=false", "--reproducible"},
+	"Dockerfile_test_issue_mz876_link":           {"--cache-copy-layers=true", "--reproducible"},
 	"Dockerfile_test_issue_mz879":                {"--cache-copy-layers=true", "--use-new-run"},
 	"Dockerfile_test_issue_mz896":                {"--cache-copy-layers=true", "--cache-run-layers=false"},
 	"Dockerfile_test_issue_mz787":                {"--cache=true"},
@@ -870,6 +873,8 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz775":        {},
 		"Dockerfile_test_issue_mz782":        {},
 		"Dockerfile_test_issue_mz873":        {},
+		"Dockerfile_test_issue_mz876_add":    {},
+		"Dockerfile_test_issue_mz876_link":   {},
 		"Dockerfile_test_issue_mz879":        {},
 		"Dockerfile_test_issue_mz896":        {},
 		"Dockerfile_test_issue_mz960":        {},

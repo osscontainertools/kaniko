@@ -1,0 +1,8 @@
+# mz876: a cached layer extracted after Init adds files the layered map never saw.
+# The second build serves the COPY from cache after the first RUN ran Init, and the last RUN
+# snapshotted /dest a second time, so the build that hit the cache differed from the one that filled it.
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox
+RUN touch /a
+COPY context/foo /dest
+RUN touch /b
