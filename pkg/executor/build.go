@@ -471,12 +471,9 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 		}
 		addCmd, isAdd := command.(*commands.AddCommand)
 		if isAdd && opts.RequireAddChecksum && !opts.Dryrun {
-			src, err := addCmd.UnpinnedRemoteSource(args.ReplacementEnvs(cfg.Env))
+			err := addCmd.RequireChecksum(args.ReplacementEnvs(cfg.Env))
 			if err != nil {
 				return "", ci, v1.Config{}, err
-			}
-			if src != "" {
-				return "", ci, v1.Config{}, fmt.Errorf("--require-add-checksum: ADD %s has no --checksum", src)
 			}
 		}
 		if opts.Cache && keyValid {

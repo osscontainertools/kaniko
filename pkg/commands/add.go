@@ -99,24 +99,9 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		return err
 	}
 
-	var checksum digest.Digest
-	if a.cmd.Checksum != "" && kConfig.FF.AddChecksum {
-		if len(srcs) > 1 {
-			return errors.New("checksum can't be specified for multiple sources")
-		}
-		resolved, err := util.ResolveEnvironmentReplacement(a.cmd.Checksum, replacementEnvs, false)
-		if err != nil {
-			return fmt.Errorf("resolving checksum: %w", err)
-		}
-		checksum, err = digest.Parse(resolved)
-		if err != nil {
-			return fmt.Errorf("invalid checksum digest format: %w", err)
-		}
-		for _, src := range srcs {
-			if !util.IsSrcRemoteFileURL(src) {
-				return fmt.Errorf("checksum requires HTTP(S) sources, got %s", src)
-			}
-		}
+	checksum, err := resolveChecksum(a.cmd.Checksum, srcs, replacementEnvs, false)
+	if err != nil {
+		return err
 	}
 
 	// a local archive is unpacked and a download is not, --unpack overrides both
@@ -299,25 +284,42 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 	return nil
 }
 
-// UnpinnedRemoteSource returns the first remote source of an ADD without a checksum, or "".
-func (a *AddCommand) UnpinnedRemoteSource(replacementEnvs []string) (string, error) {
-	checksum, err := util.ResolveEnvironmentReplacement(a.cmd.Checksum, replacementEnvs, false)
+// RequireChecksum checks the --checksum of an ADD like ExecuteCommand does, and
+// additionally rejects remote sources without one.
+func (a *AddCommand) RequireChecksum(replacementEnvs []string) error {
+	srcs, _, err := util.ResolveEnvAndWildcards(a.cmd.SourcesAndDest, a.fileContext, replacementEnvs)
 	if err != nil {
-		return "", fmt.Errorf("resolving checksum: %w", err)
+		return err
 	}
-	if checksum != "" {
-		return "", nil
-	}
-	srcs, err := util.ResolveEnvironmentReplacementList(a.cmd.SourcePaths, replacementEnvs, true)
-	if err != nil {
-		return "", fmt.Errorf("resolving sources: %w", err)
-	}
-	for _, src := range srcs {
-		if util.IsSrcRemoteFileURL(src) {
-			return src, nil
+	_, err = resolveChecksum(a.cmd.Checksum, srcs, replacementEnvs, true)
+	return err
+}
+
+func resolveChecksum(raw string, srcs []string, replacementEnvs []string, required bool) (digest.Digest, error) {
+	var checksum digest.Digest
+	if raw != "" && kConfig.FF.AddChecksum {
+		if len(srcs) > 1 {
+			return "", errors.New("checksum can't be specified for multiple sources")
+		}
+		resolved, err := util.ResolveEnvironmentReplacement(raw, replacementEnvs, false)
+		if err != nil {
+			return "", fmt.Errorf("resolving checksum: %w", err)
+		}
+		checksum, err = digest.Parse(resolved)
+		if err != nil {
+			return "", fmt.Errorf("invalid checksum digest format: %w", err)
 		}
 	}
-	return "", nil
+	for _, src := range srcs {
+		remote := util.IsSrcRemoteFileURL(src)
+		switch {
+		case checksum != "" && !remote:
+			return "", fmt.Errorf("checksum requires HTTP(S) sources, got %s", src)
+		case required && checksum == "" && remote:
+			return "", fmt.Errorf("--require-add-checksum: ADD %s has no --checksum", src)
+		}
+	}
+	return checksum, nil
 }
 
 // FilesToSnapshot should return an empty array if still nil; no files were changed
