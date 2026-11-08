@@ -190,6 +190,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_SKIP_CACHED_STAGES`](#flag-ff_kaniko_skip_cached_stages)
       - [Flag `FF_KANIKO_SKIP_RELABEL_RECOMPRESS`](#flag-ff_kaniko_skip_relabel_recompress)
       - [Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`](#flag-ff_kaniko_skip_write_whiteouts)
+      - [Flag `FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS`](#flag-ff_kaniko_snapshot_track_cached_layers)
       - [Flag `FF_KANIKO_UNPACK_XZ`](#flag-ff_kaniko_unpack_xz)
       - [Flag `FF_KANIKO_UNPACK_ZSTD`](#flag-ff_kaniko_unpack_zstd)
       - [Flag `FF_KANIKO_UNTAR_SKIP_ROOT`](#flag-ff_kaniko_untar_skip_root)
@@ -1277,6 +1278,7 @@ FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY=true
 FF_KANIKO_ISOLATE_CACHE_PUSH=true
 FF_KANIKO_NATIVE_INIT=true
 FF_KANIKO_RUN_HEREDOC_SCRIPT=true
+FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS=true
 FF_KANIKO_WARMER_BUILD_ARGS=true
 FF_KANIKO_WARMER_PREDEFINED_ARGS=true
 ```
@@ -1693,6 +1695,12 @@ Will be deprecated in `v1.30.0`.
 When kaniko extracts a cached layer it applies the layer's whiteouts by deleting the target files, but it also writes the `.wh.<name>` marker files onto the working filesystem. With `--cache-copy-layers` a later cross-stage `COPY --from=<stage>` copies such a marker verbatim and commits it as a real whiteout, so a cache-hit build deletes a file that the cache-miss build kept.
 Set this flag to `true` to skip writing the marker files, the deletion alone already applies the whiteout. Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS`
+
+With `--cache`, a `COPY` served from the cache after an uncached `RUN` has its files stored a second time in the next `RUN` layer.
+Set this flag to `true` to store them once. Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_UNPACK_XZ`
 

@@ -50,6 +50,8 @@ func (f *fakeSnapShotter) TakeSnapshot(_ []string, _ bool) (string, []string, []
 	return f.tarPath, nil, nil, nil
 }
 
+func (f *fakeSnapShotter) Reset() {}
+
 type MockDockerCommand struct {
 	command             string
 	contextFiles        []string
