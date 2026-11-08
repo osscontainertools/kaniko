@@ -1004,10 +1004,31 @@ func generate(s *source, bases []string) genResult {
 				if !last {
 					from--
 				}
-				if from > 0 && s.chance(2) {
-					fmt.Fprintf(&b, "RUN --mount=type=bind,from=stage%d,source=/stage/artifact,target=/xb%d cat /xb%d > /xbind%d\n", namedStages[s.intn(from)], i, i, i)
-				} else {
+				if from == 0 {
 					fmt.Fprintf(&b, "RUN --mount=type=bind,from=%s,source=/etc,target=/xb%d cat /xb%d/hostname > /xbind%d\n", srcPick(s, bases), i, i, i)
+					break
+				}
+				src := fmt.Sprintf("stage%d", namedStages[s.intn(from)])
+				switch s.intn(7) {
+				case 0:
+					fmt.Fprintf(&b, "RUN --mount=type=bind,from=%s,source=/stage/artifact,target=/xb%d cat /xb%d > /xbind%d\n", src, i, i, i)
+				case 1:
+					// A directory source keeps its mode and owner in the mount.
+					fmt.Fprintf(&b, "RUN --mount=type=bind,from=%s,source=/stage,target=/xb%d stat -c '%%a %%u %%g %%n' /xb%d /xb%d/* > /xbind%d\n", src, i, i, i, i)
+				case 2:
+					// No source mounts the stage root, a relative source resolves from it.
+					fmt.Fprintf(&b, "RUN --mount=type=bind,from=%s,target=/xb%d cat /xb%d/stage/artifact > /xbind%d\n", src, i, i, i)
+				case 3:
+					fmt.Fprintf(&b, "RUN --mount=type=bind,from=%s,source=stage/artifact,target=/xb%d cat /xb%d > /xbind%d\n", src, i, i, i)
+				case 4:
+					// Writes to an rw mount are discarded, in the image and in the source stage.
+					fmt.Fprintf(&b, "RUN --mount=type=bind,from=%s,source=/stage,target=/xb%d,rw echo w > /xb%d/artifact && rm -rf /xb%d/sub && ls /xb%d > /xbind%d\n", src, i, i, i, i, i)
+				case 5:
+					fmt.Fprintf(&b, "RUN --mount=type=bind,from=%s,source=/stage/artifact,target=/xb%d/a --mount=type=bind,from=%s,source=/etc,target=/xb%d/e cat /xb%d/a /xb%d/e/hostname > /xbind%d\n", src, i, srcPick(s, bases), i, i, i, i)
+				default:
+					// A mount over a directory the stage has hides it only for the RUN.
+					fmt.Fprintf(&b, "RUN mkdir -p /xo%d && echo keep > /xo%d/k\n", i, i)
+					fmt.Fprintf(&b, "RUN --mount=type=bind,from=%s,source=/stage,target=/xo%d ls /xo%d > /xbind%d\n", src, i, i, i)
 				}
 			}
 		}
@@ -1322,6 +1343,7 @@ func argIndirection(s *source, dockerfile string) (string, []string) {
 				}
 				line = strings.ReplaceAll(line, "/stage/", "/${FZS}/")
 				line = strings.ReplaceAll(line, "/stage ", "/${FZS} ")
+				line = strings.ReplaceAll(line, "/stage,", "/${FZS},")
 				line = strings.ReplaceAll(line, "/dest/", "/${FZD}/")
 			}
 			out = append(out, line)
