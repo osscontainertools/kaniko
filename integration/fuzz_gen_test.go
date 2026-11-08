@@ -19,6 +19,7 @@ package integration
 import (
 	"fmt"
 	"io/fs"
+	"slices"
 	"strings"
 )
 
@@ -446,7 +447,7 @@ func generate(s *source, bases []string) genResult {
 
 		ninstr := 2 + s.intn(6)
 		for i := 0; i < ninstr; i++ {
-			c := s.intn(47)
+			c := s.intn(48)
 			// An empty base has no shell, so RUN-based instructions cannot execute at build
 			// time; remap them to a context COPY, which scratch supports. Metadata and other
 			// file instructions are already scratch-safe (ADD url downloads into the empty fs).
@@ -996,6 +997,18 @@ func generate(s *source, bases []string) genResult {
 				} else {
 					fmt.Fprintf(&b, "RUN mkdir -p /xs/keep /xs/drop && touch /xs/keep/k /xs/drop/d\n")
 				}
+			case 47:
+				// RUN --mount=type=bind,from=<stage|image>: the dependency prepass has to save
+				// the mounted source for the later stage (#1280).
+				from := len(namedStages)
+				if !last {
+					from--
+				}
+				if from > 0 && s.chance(2) {
+					fmt.Fprintf(&b, "RUN --mount=type=bind,from=stage%d,source=/stage/artifact,target=/xb%d cat /xb%d > /xbind%d\n", namedStages[s.intn(from)], i, i, i)
+				} else {
+					fmt.Fprintf(&b, "RUN --mount=type=bind,from=%s,source=/etc,target=/xb%d cat /xb%d/hostname > /xbind%d\n", srcPick(s, bases), i, i, i)
+				}
 			}
 		}
 	}
@@ -1233,13 +1246,111 @@ func generate(s *source, bases []string) genResult {
 
 	cacheMode := s.intn(3)
 
-	return genResult{dockerfile: b.String(), context: ctx, kanikoFlags: flags, buildArgs: buildArgs, argNames: argNames, envFlags: envFlags, cacheCompression: cacheCompression, cacheLocal: cacheLocal, cacheMode: cacheMode, target: target, labels: labels, annotations: annotations, usesSecret: usesSecret, chaosEnv: chaosEnv, mounts: mounts}
+	dockerfile, indirectArgs := argIndirection(s, b.String())
+	buildArgs = append(buildArgs, indirectArgs...)
+	for _, kv := range indirectArgs {
+		flags = append(flags, "--build-arg="+kv)
+	}
+
+	return genResult{dockerfile: dockerfile, context: ctx, kanikoFlags: flags, buildArgs: buildArgs, argNames: argNames, envFlags: envFlags, cacheCompression: cacheCompression, cacheLocal: cacheLocal, cacheMode: cacheMode, target: target, labels: labels, annotations: annotations, usesSecret: usesSecret, chaosEnv: chaosEnv, mounts: mounts}
 }
 
 // argValue returns a build-arg value drawn from a pool biased toward strings that stress
 // the composite cache key. The last case emits a value containing "-<name>=", the
 // delimiter-overlap shape that made two distinct arg sets join to the same cache key in
 // mz873, so the fuzzer exercises that surface rather than only benign values.
+// argIndirection routes paths through args that every planning pass has to resolve the
+// way the build does (mz1372). A stage gets FZS=stage, FZD=dest and the predefined
+// TARGETOS and TARGETARCH from its own default, a global meta ARG, a --build-arg, or its
+// parent stage, writes /stage/arch-$TARGETOS-$TARGETARCH, and some of its instructions
+// spell /stage/ and /dest/ through them. The values are the literals they replace, so
+// the case keeps its meaning.
+func argIndirection(s *source, dockerfile string) (string, []string) {
+	scoped := map[string]bool{}
+	var meta bool
+	var buildArgs []string
+	var out []string
+	inScope := false
+	archFile := false
+	heredoc := false
+	for line := range strings.SplitSeq(strings.TrimRight(dockerfile, "\n"), "\n") {
+		fields := strings.Fields(line)
+		switch {
+		case heredoc:
+			heredoc = line != "EOF"
+			out = append(out, line)
+		case len(fields) > 0 && fields[0] == "FROM":
+			out = append(out, line)
+			name := ""
+			if len(fields) == 4 {
+				name = fields[3]
+			}
+			inScope = scoped[fields[1]]
+			archFile = false
+			switch {
+			case inScope && s.chance(2):
+				out = append(out, "ARG TARGETOS", "ARG TARGETARCH")
+			case inScope:
+			case s.chance(2):
+				inScope = true
+				out = append(out, "ARG TARGETOS", "ARG TARGETARCH")
+				switch s.intn(3) {
+				case 0:
+					out = append(out, "ARG FZS=stage", "ARG FZD=dest")
+				case 1:
+					meta = true
+					out = append(out, "ARG FZS", "ARG FZD")
+				default:
+					if len(buildArgs) == 0 {
+						buildArgs = []string{"FZS=stage", "FZD=dest"}
+					}
+					out = append(out, "ARG FZS", "ARG FZD")
+				}
+			}
+			scoped[name] = inScope
+		case !inScope || len(fields) == 0:
+			out = append(out, line)
+		case !archFile && strings.HasPrefix(line, "RUN mkdir -p /stage/sub "):
+			archFile = true
+			out = append(out, line+" && cp /stage/artifact /stage/arch-$TARGETOS-$TARGETARCH")
+		default:
+			heredoc = strings.Contains(line, "<<")
+			rewritable := !heredoc && !strings.ContainsAny(line, "'[") && slices.Contains([]string{"COPY", "ADD", "RUN", "WORKDIR", "VOLUME", "ENV", "LABEL"}, fields[0])
+			if rewritable && s.chance(2) {
+				if s.chance(2) && stageArchSource(line, scoped) {
+					line = strings.Replace(line, "/stage/artifact", "/stage/arch-${TARGETOS}-${TARGETARCH}", 1)
+				}
+				line = strings.ReplaceAll(line, "/stage/", "/${FZS}/")
+				line = strings.ReplaceAll(line, "/stage ", "/${FZS} ")
+				line = strings.ReplaceAll(line, "/dest/", "/${FZD}/")
+			}
+			out = append(out, line)
+		}
+	}
+	if meta {
+		out = append([]string{"ARG FZS=stage", "ARG FZD=dest"}, out...)
+	}
+	return strings.Join(out, "\n") + "\n", buildArgs
+}
+
+// stageArchSource reports whether line reads /stage/artifact from a stage that writes
+// the arch file, named or by index.
+func stageArchSource(line string, scoped map[string]bool) bool {
+	if !strings.Contains(line, "/stage/artifact") {
+		return false
+	}
+	for f := range strings.SplitSeq(strings.ReplaceAll(line, ",", " "), " ") {
+		ref, ok := strings.CutPrefix(strings.TrimPrefix(f, "--"), "from=")
+		if ok {
+			if !strings.HasPrefix(ref, "stage") {
+				ref = "stage" + ref
+			}
+			return scoped[ref]
+		}
+	}
+	return false
+}
+
 func argValue(s *source, names []string) string {
 	switch s.intn(6) {
 	case 0:
