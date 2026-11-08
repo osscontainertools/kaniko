@@ -3,7 +3,7 @@
 ## Community Update
 @mvdberge made their first contribution in https://github.com/osscontainertools/kaniko/pull/1316. They traced unreadable `node_modules` entries in a real image to spurious whiteouts that every release since v1.27.0 writes into later stages, and mapped the cached-layer variant fixed in https://github.com/osscontainertools/kaniko/pull/1383.
 
-@tran4774 made their first contribution in https://github.com/osscontainertools/kaniko/pull/1251. They put substantial work into making kaniko faster, from build metrics to cached file hashes, and parallel snapshot hashing behind `FF_KANIKO_PARALLEL_HASH` is the first piece to land.
+@tran4774 made their first contribution in https://github.com/osscontainertools/kaniko/pull/1251. They put substantial work into making kaniko faster, from build metrics to cached file hashes. Parallel snapshot hashing behind `FF_KANIKO_PARALLEL_HASH` is the first piece to land.
 
 ## What's Changed
 ### Security
