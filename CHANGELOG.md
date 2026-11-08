@@ -100,7 +100,7 @@
 * build(deps): bump github.com/spf13/pflag from 1.0.10 to 1.1.0: https://github.com/osscontainertools/kaniko/pull/1382
 
 ### Fork Related
-* correct the v1.29.0 release notes: https://github.com/osscontainertools/kaniko/pull/1303
+* update docs: https://github.com/osscontainertools/kaniko/pull/1303
 * integration tests run with the race detector: https://github.com/osscontainertools/kaniko/pull/1305 https://github.com/osscontainertools/kaniko/pull/1351 https://github.com/osscontainertools/kaniko/pull/1366
 * test improvements: https://github.com/osscontainertools/kaniko/pull/1300 https://github.com/osscontainertools/kaniko/pull/1302 https://github.com/osscontainertools/kaniko/pull/1341 https://github.com/osscontainertools/kaniko/pull/1342
 * add CodeRabbit config and contributor docs: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1359
