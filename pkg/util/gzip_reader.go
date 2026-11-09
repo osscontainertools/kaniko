@@ -34,9 +34,8 @@ func NewParallelGzipReader(r io.Reader) (io.ReadCloser, error) {
 	return pgzip.NewReader(r)
 }
 
-// WithGzipReader decompresses the gzip layers of img with newReader. The
-// Compressed() of every layer of img must read the stored blob, as it does for
-// images read from a registry or an OCI layout.
+// The Compressed() of every layer of img must read the stored blob, as it does
+// for images read from a registry or an OCI layout.
 func WithGzipReader(img v1.Image, newReader GzipReader) v1.Image {
 	return &gzipReaderImage{Image: img, newReader: newReader}
 }
