@@ -46,14 +46,14 @@ type Bakefile struct {
 }
 
 type ResolvedTarget struct {
-	ID             string
-	Context        string
-	ContextSubPath string
-	Dockerfile     string
-	Stage          string
-	Destination    []string
-	CacheFrom      []string
-	CacheTo        []string
+	ID             string   `json:"-"`
+	Context        string   `json:"context,omitempty"`
+	ContextSubPath string   `json:"context_sub_path,omitempty"`
+	Dockerfile     string   `json:"dockerfile,omitempty"`
+	Stage          string   `json:"target,omitempty"`
+	Destination    []string `json:"destination,omitempty"`
+	CacheFrom      []string `json:"cache_from,omitempty"`
+	CacheTo        []string `json:"cache_to,omitempty"`
 }
 
 func Parse(path string) (*Bakefile, error) {
