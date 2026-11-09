@@ -482,6 +482,7 @@ func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	opts.Secrets = make(config.SecretOptions)
 	cmd.Flags().VarP(&opts.Secrets, "secret", "", "Set build secrets in key=value format. Set it repeatedly for multiple secrets.")
 	cmd.Flags().BoolVarP(&opts.Dryrun, "dryrun", "", false, "Whether to only run a plan")
+	cmd.Flags().BoolVarP(&opts.RequireAddChecksum, "require-add-checksum", "", false, "Fail if a remote ADD source does not specify a checksum")
 	cmd.Flags().BoolVarP(&opts.RequireDigest, "require-digest", "", false, "Fail if a base image is not pinned by digest")
 
 	AddRegistryOptionsFlags(cmd, &opts.RegistryOptions)

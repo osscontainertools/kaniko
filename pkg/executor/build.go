@@ -81,6 +81,7 @@ type snapShotter interface {
 	Init() error
 	TakeSnapshotFS() (string, []string, []string, error)
 	TakeSnapshot([]string, bool) (string, []string, []string, error)
+	Reset()
 }
 
 // stageBuilder contains all fields necessary to build one stage of a Dockerfile
@@ -855,6 +856,10 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				if err != nil {
 					return false, fmt.Errorf("extracting fs from image: %w", err)
 				}
+				if config.FF.SnapshotTrackCachedLayers && !opts.SingleSnapshot {
+					snapshotter.Reset()
+					initSnapshotTaken = false
+				}
 			}
 		}
 		files = command.FilesToSnapshot()
@@ -1276,12 +1281,21 @@ func saveLayerToImage(image v1.Image, layer v1.Layer, createdBy string, opts *co
 	return image, layer, err
 }
 
-func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptions) (map[int][]string, map[*instructions.CopyCommand][]string, error) {
+func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext) (map[int][]string, map[*instructions.CopyCommand][]string, error) {
 	images := make(map[int]v1.Image)
+	stageArgs := make(map[int]*dockerfile.BuildArgs)
 	depGraph := map[int][]string{}
 	copySources := map[*instructions.CopyCommand][]string{}
+	baseArgs := dockerfile.NewBuildArgs(opts.BuildArgs)
+	err := baseArgs.InitPredefinedArgs(opts.CustomPlatform, stages[len(stages)-1].Name)
+	if err != nil {
+		return nil, nil, err
+	}
 	for _, s := range stages {
-		ba := dockerfile.NewBuildArgs(opts.BuildArgs)
+		ba := baseArgs.Clone()
+		if s.BaseImageStoredLocally {
+			ba = stageArgs[s.BaseImageIndex].Clone()
+		}
 		ba.AddMetaArgs(s.MetaArgs)
 		var image v1.Image
 		var err error
@@ -1305,6 +1319,13 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 
 		for _, c := range cmds {
 			switch cmd := c.(type) {
+			case *instructions.AddCommand:
+				if opts.RequireAddChecksum {
+					err := commands.RequireAddChecksum(cmd, fileContext, ba.ReplacementEnvs(cfg.Config.Env))
+					if err != nil {
+						return nil, nil, err
+					}
+				}
 			case *instructions.CopyCommand:
 				if cmd.From != "" {
 					resolved, err := util.ResolveEnvironmentReplacementList(cmd.SourcePaths, ba.ReplacementEnvs(cfg.Config.Env), true)
@@ -1357,6 +1378,7 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 			}
 		}
 		images[s.Index] = image
+		stageArgs[s.Index] = ba
 	}
 	for i := range depGraph {
 		slices.Sort(depGraph[i])
@@ -1597,7 +1619,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		return nil, err
 	}
 
-	crossStageDependencies, copySources, err := CalculateDependencies(kanikoStages, opts)
+	crossStageDependencies, copySources, err := CalculateDependencies(kanikoStages, opts, fileContext)
 	if err != nil {
 		return nil, err
 	}

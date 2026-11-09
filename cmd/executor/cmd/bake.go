@@ -30,10 +30,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var bakeSet []string
+var (
+	bakeSet   []string
+	bakePrint bool
+)
 
 func init() {
 	AddBakeFlags(bakeCmd, opts, &bakeSet)
+	bakeCmd.Flags().BoolVar(&bakePrint, "print", false, "Print the resolved targets as JSON and exit without building")
 	addHiddenFlags(bakeCmd)
 	RootCmd.AddCommand(bakeCmd)
 }
@@ -44,9 +48,6 @@ func AddBakeFlags(cmd *cobra.Command, opts *config.KanikoOptions, set *[]string)
 }
 
 func ConfigureFromBakefile(opts *config.KanikoOptions, path string, selection, set []string) ([]bake.ResolvedTarget, error) {
-	if err := validateOutputFlags(opts); err != nil {
-		return nil, err
-	}
 	bakefile, err := bake.Parse(path)
 	if err != nil {
 		return nil, err
@@ -81,9 +82,16 @@ func ConfigureFromBakefile(opts *config.KanikoOptions, path string, selection, s
 			}
 		}
 	}
+	return targets, nil
+}
+
+func ValidateBakeBuild(opts *config.KanikoOptions, targets []bake.ResolvedTarget) error {
+	if err := validateOutputFlags(opts); err != nil {
+		return err
+	}
 	for _, t := range targets {
 		if !opts.NoPush && len(t.Destination) == 0 {
-			return nil, fmt.Errorf("target %q has no destination, set one in the bakefile or use --no-push", t.ID)
+			return fmt.Errorf("target %q has no destination, set one in the bakefile or use --no-push", t.ID)
 		}
 	}
 	if len(targets) > 1 {
@@ -96,11 +104,11 @@ func ConfigureFromBakefile(opts *config.KanikoOptions, path string, selection, s
 			{"--oci-layout-path", opts.OCILayoutPath},
 		} {
 			if f.value != "" {
-				return nil, fmt.Errorf("%s writes a single file and cannot be used when building several targets, name one target to build", f.name)
+				return fmt.Errorf("%s writes a single file and cannot be used when building several targets, name one target to build", f.name)
 			}
 		}
 	}
-	return targets, nil
+	return nil
 }
 
 var bakeCmd = &cobra.Command{
@@ -137,6 +145,17 @@ and inherits are not supported.`,
 		}
 		targets, err := ConfigureFromBakefile(opts, args[0], args[1:], bakeSet)
 		if err != nil {
+			return err
+		}
+		if bakePrint {
+			out, err := bake.Print(targets)
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Println(string(out))
+			return err
+		}
+		if err := ValidateBakeBuild(opts, targets); err != nil {
 			return err
 		}
 		if err := prepareBuild(opts, targets); err != nil {

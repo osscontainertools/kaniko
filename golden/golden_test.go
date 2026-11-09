@@ -47,6 +47,7 @@ import (
 	testissuemz1280 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1280"
 	testissuemz1346 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1346"
 	testissuemz1349 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1349"
+	testissuemz1372 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1372"
 	testissuemz195 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz195"
 	testissuemz333 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz333"
 	testissuemz334 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz334"
@@ -176,6 +177,7 @@ var allTests = map[string][]types.GoldenTests{
 	"test_issue_mz1233": testissuemz1233.Tests,
 	"test_issue_mz1280": {testissuemz1280.Tests},
 	"test_issue_mz1346": {testissuemz1346.Tests},
+	"test_issue_mz1372": testissuemz1372.Tests,
 	"test_unittests":    testunittests.Tests,
 }
 var update bool
@@ -192,6 +194,7 @@ var previewEnv = map[string]string{
 	"FF_KANIKO_ISOLATE_CACHE_PUSH":           "1",
 	"FF_KANIKO_NATIVE_INIT":                  "1",
 	"FF_KANIKO_RUN_HEREDOC_SCRIPT":           "1",
+	"FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS": "1",
 	"FF_KANIKO_WARMER_BUILD_ARGS":            "1",
 	"FF_KANIKO_WARMER_PREDEFINED_ARGS":       "1",
 }
@@ -357,6 +360,9 @@ func TestBake(t *testing.T) {
 							if err != nil {
 								t.Fatal(err)
 							}
+							if err := cmd.ValidateBakeBuild(&opts, targets); err != nil {
+								t.Fatal(err)
+							}
 
 							var output string
 							for _, target := range targets {
@@ -367,6 +373,46 @@ func TestBake(t *testing.T) {
 								output += renderPlan(t, &topts, test)
 							}
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), output)
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestBakePrint(t *testing.T) {
+	for testName, testSuites := range bakeTests {
+		t.Run(testName, func(t *testing.T) {
+			testDir := filepath.Join("testdata", testName)
+			for _, testSuite := range testSuites {
+				t.Run(testSuite.Name, func(t *testing.T) {
+					for _, test := range testSuite.Tests {
+						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
+							opts := config.KanikoOptions{}
+							var set []string
+							exec := &cobra.Command{Use: "bake"}
+							cmd.AddBakeFlags(exec, &opts, &set)
+							args := []string{
+								filepath.Join(testDir, "kaniko-bake.hcl"),
+								"--dockerfile=" + filepath.Join(testDir, testSuite.Dockerfile),
+							}
+							args = append(args, test.Args...)
+							if err := exec.ParseFlags(args); err != nil {
+								t.Fatal(err)
+							}
+							cmd.ValidateFlags(&opts)
+
+							rest := exec.Flags().Args()
+							targets, err := cmd.ConfigureFromBakefile(&opts, rest[0], rest[1:], set)
+							if err != nil {
+								t.Fatal(err)
+							}
+							printed, err := bake.Print(targets)
+							if err != nil {
+								t.Fatal(err)
+							}
+							comparePlan(t, filepath.Join(testDir, "prints", test.Plan+".json"), string(printed)+"\n")
 						})
 					}
 				})

@@ -17,6 +17,7 @@ limitations under the License.
 package bake
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -46,14 +47,14 @@ type Bakefile struct {
 }
 
 type ResolvedTarget struct {
-	ID             string
-	Context        string
-	ContextSubPath string
-	Dockerfile     string
-	Stage          string
-	Destination    []string
-	CacheFrom      []string
-	CacheTo        []string
+	ID             string   `json:"-"`
+	Context        string   `json:"context,omitempty"`
+	ContextSubPath string   `json:"context_sub_path,omitempty"`
+	Dockerfile     string   `json:"dockerfile,omitempty"`
+	Stage          string   `json:"target,omitempty"`
+	Destination    []string `json:"destination,omitempty"`
+	CacheFrom      []string `json:"cache_from,omitempty"`
+	CacheTo        []string `json:"cache_to,omitempty"`
 }
 
 func Parse(path string) (*Bakefile, error) {
@@ -235,6 +236,14 @@ type Override struct {
 	Target string
 	Field  string
 	Value  string
+}
+
+func Print(targets []ResolvedTarget) ([]byte, error) {
+	byID := make(map[string]ResolvedTarget, len(targets))
+	for _, t := range targets {
+		byID[t.ID] = t
+	}
+	return json.MarshalIndent(map[string]any{"target": byID}, "", "  ")
 }
 
 func ParseOverride(s string) (Override, error) {

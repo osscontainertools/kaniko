@@ -109,6 +109,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--registry-client-cert`](#flag---registry-client-cert)
       - [Flag `--registry-map`](#flag---registry-map)
       - [Flag `--registry-mirror`](#flag---registry-mirror)
+      - [Flag `--require-add-checksum`](#flag---require-add-checksum)
       - [Flag `--require-digest`](#flag---require-digest)
       - [Flag `--skip-default-registry-fallback`](#flag---skip-default-registry-fallback)
       - [Flag `--reproducible`](#flag---reproducible)
@@ -190,6 +191,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_SKIP_CACHED_STAGES`](#flag-ff_kaniko_skip_cached_stages)
       - [Flag `FF_KANIKO_SKIP_RELABEL_RECOMPRESS`](#flag-ff_kaniko_skip_relabel_recompress)
       - [Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`](#flag-ff_kaniko_skip_write_whiteouts)
+      - [Flag `FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS`](#flag-ff_kaniko_snapshot_track_cached_layers)
       - [Flag `FF_KANIKO_UNPACK_XZ`](#flag-ff_kaniko_unpack_xz)
       - [Flag `FF_KANIKO_UNPACK_ZSTD`](#flag-ff_kaniko_unpack_zstd)
       - [Flag `FF_KANIKO_UNTAR_SKIP_ROOT`](#flag-ff_kaniko_untar_skip_root)
@@ -1076,6 +1078,10 @@ are:
 - `mycompany-docker-virtual.jfrog.io`
 - `harbor.private.io/theproject`
 
+#### Flag `--require-add-checksum`
+
+Fail if an `ADD` instruction pulls a remote URL (HTTP/HTTPS) without a `--checksum` digest. Executor only.
+
 #### Flag `--require-digest`
 
 Fail if a base image is not pinned by digest, e.g. `debian:13.7@sha256:...`. Build args are resolved first. Also available on the warmer.
@@ -1263,6 +1269,8 @@ jq -r '.manifests[] | select(.annotations["vnd.docker.reference.type"] != "attes
 Opting into the Preview profile gives you early access to upcoming performance improvements, bugfixes and features. While these flags are tested and ready to use, implementation details may still change.
 
 ```sh
+FF_KANIKO_ADD_CHOWN_TAR=true
+FF_KANIKO_ADD_FOLLOW_SYMLINK=true
 FF_KANIKO_CACHE_COPY_FROM=true
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_KEEP_DEST_OWNER=true
@@ -1271,8 +1279,14 @@ FF_KANIKO_COPY_SUBDIR_MODE=true
 FF_KANIKO_DEFER_CACHE_PUSH=true
 FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY=true
 FF_KANIKO_ISOLATE_CACHE_PUSH=true
+FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR=true
 FF_KANIKO_NATIVE_INIT=true
+FF_KANIKO_PARALLEL_HASH=true
+FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=true
 FF_KANIKO_RUN_HEREDOC_SCRIPT=true
+FF_KANIKO_RUN_MOUNT_BIND_RELATIVE=true
+FF_KANIKO_RUN_MOUNT_TMPFS=true
+FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS=true
 FF_KANIKO_WARMER_BUILD_ARGS=true
 FF_KANIKO_WARMER_PREDEFINED_ARGS=true
 ```
@@ -1614,6 +1628,7 @@ Will be deprecated in `v1.30.0`.
 Kaniko skips `RUN --mount=type=bind` flags with `from=<stage>` or `from=<image>`.
 Set this flag to `true` to mount files from another stage or image. Writes to the mount are discarded.
 Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_RUN_HEREDOC_SCRIPT`
 
@@ -1646,6 +1661,7 @@ Becomes default in `v1.30.0`.
 Supports `--mount=type=tmpfs` flags in `RUN` instructions. The target is an empty directory for the duration of the command, and its contents are discarded afterwards.
 Set this flag to `true` to enable tmpfs mounts in `RUN` statements.
 Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_RUN_VIA_TINI`
 
@@ -1696,6 +1712,12 @@ Will be deprecated in `v1.30.0`.
 When kaniko extracts a cached layer it applies the layer's whiteouts by deleting the target files, but it also writes the `.wh.<name>` marker files onto the working filesystem. With `--cache-copy-layers` a later cross-stage `COPY --from=<stage>` copies such a marker verbatim and commits it as a real whiteout, so a cache-hit build deletes a file that the cache-miss build kept.
 Set this flag to `true` to skip writing the marker files, the deletion alone already applies the whiteout. Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS`
+
+With `--cache`, a `COPY` served from the cache after an uncached `RUN` has its files stored a second time in the next `RUN` layer.
+Set this flag to `true` to store them once. Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_UNPACK_XZ`
 

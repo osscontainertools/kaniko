@@ -1,0 +1,10 @@
+{
+  "target": {
+    "app": {
+      "target": "app",
+      "destination": [
+        "registry.example.com/app:override"
+      ]
+    }
+  }
+}

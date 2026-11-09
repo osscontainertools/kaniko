@@ -1,0 +1,18 @@
+FROM scratch AS build
+ARG TARGETARCH
+ARG VARIANT=foo
+RUN echo hello > /out-$TARGETARCH && echo hello > /out-$VARIANT
+SAVE STAGE /kaniko/stages/0
+SAVE FILES [/out-amd64 /out-foo] /kaniko/deps/0
+CLEAN
+
+FROM build AS variant
+  UNPACK /kaniko/stages/0
+RUN --mount=type=bind,from=build,source=/out-${VARIANT},target=/value cp /value /variant
+SAVE FILES [/variant] /kaniko/deps/1
+CLEAN
+
+FROM scratch
+ARG TARGETARCH
+RUN --mount=type=bind,from=build,source=/out-${TARGETARCH},target=/arch cat /arch
+COPY --from=variant /variant /variant

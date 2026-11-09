@@ -157,13 +157,21 @@ var argsMap = map[string][]string{
 		"file=context/foo",
 		"file3=context/b*",
 	},
-	"Dockerfile_test_multistage":  {"file=/foo2"},
-	"Dockerfile_test_issue_mz655": {"BASE_TAG=1.38.0"},
-	"Dockerfile_test_issue_3373":  {"DIGEST=sha256:a680e90a30faae7b193edf63b088a11edf856f731d93c25f1fd7c1a21cf82d06"},
+	"Dockerfile_test_multistage":   {"file=/foo2"},
+	"Dockerfile_test_issue_mz655":  {"BASE_TAG=1.38.0"},
+	"Dockerfile_test_issue_3373":   {"DIGEST=sha256:a680e90a30faae7b193edf63b088a11edf856f731d93c25f1fd7c1a21cf82d06"},
+	"Dockerfile_test_issue_mz1378": {"TAG=13.7"},
+	"Dockerfile_test_issue_mz1375": {
+		"URL=https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz",
+		"SHA=sha256:a680e90a30faae7b193edf63b088a11edf856f731d93c25f1fd7c1a21cf82d06",
+	},
+	"Dockerfile_test_issue_mz1375_arg_fail":       {"URL=https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz"},
+	"Dockerfile_test_issue_mz1375_empty_arg_fail": {"SHA="},
 }
 
 var argsMapVersion1 = map[string][]string{
-	"Dockerfile_test_issue_mz655": {"BASE_TAG=1.37.0"},
+	"Dockerfile_test_issue_mz655":      {"BASE_TAG=1.37.0"},
+	"Dockerfile_test_issue_mz876_link": {"V=1"},
 }
 
 // Environment to build Dockerfiles with, used for both docker and kaniko builds
@@ -237,6 +245,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_SHARED_BASE_CACHE=1",
 	"FF_KANIKO_SKIP_RELABEL_RECOMPRESS=1",
 	"FF_KANIKO_SKIP_WRITE_WHITEOUTS=1",
+	"FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS=1",
 	"FF_KANIKO_UNPACK_XZ=1",
 	"FF_KANIKO_UNPACK_ZSTD=1",
 	"FF_KANIKO_UNTAR_SKIP_ROOT=1",
@@ -331,6 +340,8 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz334":                {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz960":                {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz876":                {"--use-new-run"},
+	"Dockerfile_test_issue_mz876_add":            {"--cache-copy-layers=true", "--cache-run-layers=false", "--reproducible"},
+	"Dockerfile_test_issue_mz876_link":           {"--cache-copy-layers=true", "--reproducible"},
 	"Dockerfile_test_issue_mz879":                {"--cache-copy-layers=true", "--use-new-run"},
 	"Dockerfile_test_issue_mz896":                {"--cache-copy-layers=true", "--cache-run-layers=false"},
 	"Dockerfile_test_issue_mz787":                {"--cache=true"},
@@ -364,23 +375,28 @@ var additionalKanikoFlagsMap = map[string][]string{
 		"--registry-certificate=127.0.0.2:5001=/kaniko/ssl/certs/ca-certificates.crt",
 		"--destination=127.0.0.2:5001/kaniko/mz881:latest",
 	},
-	"Dockerfile_test_issue_mz1227":               {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1227_ci":            {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1227_mismatch":      {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1227_reproducible":  {"--predefined-annotations", "--reproducible"},
-	"Dockerfile_test_issue_mz1227_annotation":    {"--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
-	"Dockerfile_test_issue_mz1227_detached":      {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1227_merged_result": {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1227_squash":        {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1230":               {"--provenance", "--predefined-annotations", "--index-file=/index/index.json"},
-	"Dockerfile_test_issue_mz1230_no_index":      {"--index-file=/tmp/index.json"},
-	"Dockerfile_test_issue_mz1230_no_push_tar":   {"--provenance", "--no-push", "--tar-path=/tmp/image.tar", "--index-file=/tmp/index.json"},
-	"Dockerfile_test_issue_mz1230_tar_no_index":  {"--provenance", "--tar-path=/tmp/image.tar"},
-	"Dockerfile_test_issue_mz1230_tar":           {"--provenance", "--tar-path=/index/image.tar", "--index-file=/index/index.json"},
-	"Dockerfile_test_issue_mz1230_reproducible":  {"--provenance", "--predefined-annotations", "--reproducible"},
-	"Dockerfile_test_issue_mz1230_oci":           {"--provenance", "--image-format=oci", "--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
-	"Dockerfile_test_require_digest":             {"--require-digest"},
-	"Dockerfile_test_require_digest_fail":        {"--require-digest"},
+	"Dockerfile_test_issue_mz1227":                {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1227_ci":             {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1227_mismatch":       {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1227_reproducible":   {"--predefined-annotations", "--reproducible"},
+	"Dockerfile_test_issue_mz1227_annotation":     {"--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
+	"Dockerfile_test_issue_mz1227_detached":       {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1227_merged_result":  {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1227_squash":         {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1230":                {"--provenance", "--predefined-annotations", "--index-file=/index/index.json"},
+	"Dockerfile_test_issue_mz1230_no_index":       {"--index-file=/tmp/index.json"},
+	"Dockerfile_test_issue_mz1230_no_push_tar":    {"--provenance", "--no-push", "--tar-path=/tmp/image.tar", "--index-file=/tmp/index.json"},
+	"Dockerfile_test_issue_mz1230_tar_no_index":   {"--provenance", "--tar-path=/tmp/image.tar"},
+	"Dockerfile_test_issue_mz1230_tar":            {"--provenance", "--tar-path=/index/image.tar", "--index-file=/index/index.json"},
+	"Dockerfile_test_issue_mz1230_reproducible":   {"--provenance", "--predefined-annotations", "--reproducible"},
+	"Dockerfile_test_issue_mz1230_oci":            {"--provenance", "--image-format=oci", "--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
+	"Dockerfile_test_require_digest":              {"--require-digest"},
+	"Dockerfile_test_require_digest_fail":         {"--require-digest"},
+	"Dockerfile_test_issue_mz1375":                {"--require-add-checksum"},
+	"Dockerfile_test_issue_mz1375_fail":           {"--require-add-checksum"},
+	"Dockerfile_test_issue_mz1375_arg_fail":       {"--require-add-checksum"},
+	"Dockerfile_test_issue_mz1375_empty_arg_fail": {"--require-add-checksum"},
+	"Dockerfile_test_issue_mz1375_stage_fail":     {"--require-add-checksum"},
 }
 
 var expectErr = map[string]int{
@@ -398,10 +414,40 @@ var expectErr = map[string]int{
 	"Dockerfile_test_issue_mz881":    1,
 	"Dockerfile_test_issue_mz1133_2": 1,
 
-	"Dockerfile_test_issue_mz1230_no_index":     1,
-	"Dockerfile_test_issue_mz1230_no_push_tar":  1,
-	"Dockerfile_test_issue_mz1230_tar_no_index": 1,
-	"Dockerfile_test_require_digest_fail":       1,
+	"Dockerfile_test_issue_mz1230_no_index":       1,
+	"Dockerfile_test_issue_mz1230_no_push_tar":    1,
+	"Dockerfile_test_issue_mz1230_tar_no_index":   1,
+	"Dockerfile_test_require_digest_fail":         1,
+	"Dockerfile_test_issue_mz1378":                1,
+	"Dockerfile_test_issue_mz1375_fail":           1,
+	"Dockerfile_test_issue_mz1375_arg_fail":       1,
+	"Dockerfile_test_issue_mz1375_empty_arg_fail": 1,
+	"Dockerfile_test_issue_mz1375_stage_fail":     1,
+}
+
+var expectErrOutput = map[string]string{
+	"Dockerfile_test_issue_cg326_1":               "is not allowed: references parent directory",
+	"Dockerfile_test_issue_mz1140":                "must fit a 32 bit id",
+	"Dockerfile_test_add_404":                     "invalid response status 404",
+	"Dockerfile_test_issue_3373_1":                "digest mismatch",
+	"Dockerfile_test_issue_3373_2":                "checksum requires HTTP(S) sources",
+	"Dockerfile_test_issue_3373_3":                "digest mismatch",
+	"Dockerfile_test_issue_3373_4":                "checksum can't be specified for multiple sources",
+	"Dockerfile_test_issue_mz1160_1":              "in the kaniko directory",
+	"Dockerfile_test_issue_mz1160_2":              "in the kaniko directory",
+	"Dockerfile_test_issue_mz1160_3":              "in the kaniko directory",
+	"Dockerfile_test_issue_mz1160_4":              "in the kaniko directory",
+	"Dockerfile_test_issue_mz881":                 "x509: certificate signed by unknown authority",
+	"Dockerfile_test_issue_mz1133_2":              "COPY --link needs a numeric USER or --chown",
+	"Dockerfile_test_issue_mz1230_no_index":       "--index-file requires --provenance",
+	"Dockerfile_test_issue_mz1230_no_push_tar":    "--provenance with --no-push stores the attestation only in --oci-layout-path",
+	"Dockerfile_test_issue_mz1230_tar_no_index":   "--tar-path with --provenance requires --index-file",
+	"Dockerfile_test_require_digest_fail":         "--require-digest:",
+	"Dockerfile_test_issue_mz1378":                "variables are not supported in --from",
+	"Dockerfile_test_issue_mz1375_fail":           "--require-add-checksum: ADD https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz has no --checksum",
+	"Dockerfile_test_issue_mz1375_arg_fail":       "--require-add-checksum: ADD https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz has no --checksum",
+	"Dockerfile_test_issue_mz1375_empty_arg_fail": "invalid checksum digest format",
+	"Dockerfile_test_issue_mz1375_stage_fail":     "--require-add-checksum: ADD https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz has no --checksum",
 }
 
 var crossCompileArch = func() string {
@@ -829,6 +875,8 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz775":        {},
 		"Dockerfile_test_issue_mz782":        {},
 		"Dockerfile_test_issue_mz873":        {},
+		"Dockerfile_test_issue_mz876_add":    {},
+		"Dockerfile_test_issue_mz876_link":   {},
 		"Dockerfile_test_issue_mz879":        {},
 		"Dockerfile_test_issue_mz896":        {},
 		"Dockerfile_test_issue_mz960":        {},
@@ -947,7 +995,7 @@ func (d *DockerFileBuilder) BuildImage(t *testing.T, config *integrationTestConf
 }
 
 // BuildKanikoImage builds dockerfile using only kaniko (no docker build).
-func (d *DockerFileBuilder) BuildKanikoImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile string) error {
+func (d *DockerFileBuilder) BuildKanikoImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile string) ([]byte, error) {
 	cwd := config.dir
 
 	var buildArgs []string
@@ -992,7 +1040,7 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 	}
 
 	kanikoImage := GetKanikoImage(imageRepo, dockerfile)
-	if err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
+	if _, err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
 		contextDir, "", ""); err != nil {
 		return err
 	}
@@ -1373,7 +1421,7 @@ func buildKanikoImage(
 	contextDir string,
 	tlsCACert string,
 	dockerConfig string,
-) error {
+) ([]byte, error) {
 	// build kaniko image
 	additionalFlags := append(buildArgs, kanikoArgs...)
 	additionalFlags = append(additionalFlags,
@@ -1433,15 +1481,15 @@ func buildKanikoImage(
 	t.Logf("%s", out)
 
 	if err != nil {
-		return fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
+		return out, fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
 	}
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
 		if err := outputCheck(dockerfile, out); err != nil {
-			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
+			return out, fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
 	if err := checkNoWarnings(dockerfile, out); err != nil {
-		return err
+		return out, err
 	}
-	return nil
+	return out, nil
 }
