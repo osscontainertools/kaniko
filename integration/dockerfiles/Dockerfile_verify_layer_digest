@@ -1,0 +1,5 @@
+# The base ships /probe/a and /probe/b in its top layer.
+# TestVerifyLayerDigest serves other bytes for that layer digest, so /seen.txt records what was extracted.
+ARG BASE
+FROM ${BASE}
+RUN cat /probe/a > /seen.txt && ls /probe >> /seen.txt
