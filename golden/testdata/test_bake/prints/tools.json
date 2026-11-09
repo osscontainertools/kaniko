@@ -1,0 +1,10 @@
+{
+  "target": {
+    "tools": {
+      "target": "tools",
+      "destination": [
+        "registry.example.com/tools:latest"
+      ]
+    }
+  }
+}

@@ -93,6 +93,30 @@ Set it repeatedly to override several targets, or to give one target several ref
 
 `--set <target>.cache_from=<repo>` and `--set <target>.cache_to=<repo>` replace a target's caches the same way.
 
+## Printing the Resolved Targets
+
+`--print` prints the selected targets as JSON after `--set` is applied, then exits without building. Fields a target does not set are left out and come from the flags:
+
+```shell
+executor bake /workspace/kaniko-bake.hcl app --print \
+  --set app.context=/custom/context \
+  --set app.destination=registry.example.com/app:dev
+```
+
+```json
+{
+  "target": {
+    "app": {
+      "context": "/custom/context",
+      "target": "app",
+      "destination": [
+        "registry.example.com/app:dev"
+      ]
+    }
+  }
+}
+```
+
 ## Flags That Write One File
 
 These flags write to a single path and cannot be used when building more than one target:

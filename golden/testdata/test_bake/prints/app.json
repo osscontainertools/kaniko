@@ -1,0 +1,11 @@
+{
+  "target": {
+    "app": {
+      "target": "app",
+      "destination": [
+        "registry.example.com/app:latest",
+        "registry.example.com/app:v1"
+      ]
+    }
+  }
+}
