@@ -17,6 +17,7 @@ limitations under the License.
 package bake
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -235,6 +236,14 @@ type Override struct {
 	Target string
 	Field  string
 	Value  string
+}
+
+func Print(targets []ResolvedTarget) ([]byte, error) {
+	byID := make(map[string]ResolvedTarget, len(targets))
+	for _, t := range targets {
+		byID[t.ID] = t
+	}
+	return json.MarshalIndent(map[string]any{"target": byID}, "", "  ")
 }
 
 func ParseOverride(s string) (Override, error) {

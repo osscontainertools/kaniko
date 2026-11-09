@@ -1,0 +1,10 @@
+{
+  "target": {
+    "neither": {
+      "target": "fallback",
+      "destination": [
+        "registry.example.com/neither:latest"
+      ]
+    }
+  }
+}

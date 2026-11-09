@@ -1,0 +1,11 @@
+{
+  "target": {
+    "only_dockerfile": {
+      "dockerfile": "testdata/test_bake_context_dockerfile/Dockerfile.custom",
+      "target": "custom_df",
+      "destination": [
+        "registry.example.com/only_dockerfile:latest"
+      ]
+    }
+  }
+}

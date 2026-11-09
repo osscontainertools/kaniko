@@ -1,0 +1,11 @@
+{
+  "target": {
+    "only_context": {
+      "context": "testdata/test_bake_context_dockerfile/app",
+      "target": "app",
+      "destination": [
+        "registry.example.com/only_context:latest"
+      ]
+    }
+  }
+}

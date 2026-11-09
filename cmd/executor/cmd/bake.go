@@ -17,7 +17,6 @@ limitations under the License.
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -149,11 +148,7 @@ and inherits are not supported.`,
 			return err
 		}
 		if bakePrint {
-			byID := make(map[string]bake.ResolvedTarget, len(targets))
-			for _, t := range targets {
-				byID[t.ID] = t
-			}
-			out, err := json.MarshalIndent(map[string]any{"target": byID}, "", "  ")
+			out, err := bake.Print(targets)
 			if err != nil {
 				return err
 			}

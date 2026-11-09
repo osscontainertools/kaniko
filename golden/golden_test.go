@@ -360,6 +360,9 @@ func TestBake(t *testing.T) {
 							if err != nil {
 								t.Fatal(err)
 							}
+							if err := cmd.ValidateBakeBuild(&opts, targets); err != nil {
+								t.Fatal(err)
+							}
 
 							var output string
 							for _, target := range targets {
@@ -370,6 +373,46 @@ func TestBake(t *testing.T) {
 								output += renderPlan(t, &topts, test)
 							}
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), output)
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestBakePrint(t *testing.T) {
+	for testName, testSuites := range bakeTests {
+		t.Run(testName, func(t *testing.T) {
+			testDir := filepath.Join("testdata", testName)
+			for _, testSuite := range testSuites {
+				t.Run(testSuite.Name, func(t *testing.T) {
+					for _, test := range testSuite.Tests {
+						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
+							opts := config.KanikoOptions{}
+							var set []string
+							exec := &cobra.Command{Use: "bake"}
+							cmd.AddBakeFlags(exec, &opts, &set)
+							args := []string{
+								filepath.Join(testDir, "kaniko-bake.hcl"),
+								"--dockerfile=" + filepath.Join(testDir, testSuite.Dockerfile),
+							}
+							args = append(args, test.Args...)
+							if err := exec.ParseFlags(args); err != nil {
+								t.Fatal(err)
+							}
+							cmd.ValidateFlags(&opts)
+
+							rest := exec.Flags().Args()
+							targets, err := cmd.ConfigureFromBakefile(&opts, rest[0], rest[1:], set)
+							if err != nil {
+								t.Fatal(err)
+							}
+							printed, err := bake.Print(targets)
+							if err != nil {
+								t.Fatal(err)
+							}
+							comparePlan(t, filepath.Join(testDir, "prints", test.Plan+".json"), string(printed)+"\n")
 						})
 					}
 				})
