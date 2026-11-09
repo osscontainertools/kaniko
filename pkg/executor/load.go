@@ -23,6 +23,8 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
 func LoadImage(path string) (*Output, error) {
@@ -58,6 +60,9 @@ func loadFromOCILayout(path string) (*Output, error) {
 		if err != nil {
 			return nil, err
 		}
+		if config.FF.ParallelGunzip {
+			img = util.WithGzipReader(img, util.NewParallelGzipReader)
+		}
 		return &Output{Image: img}, nil
 	}
 	pushed, err := idx.ImageIndex(desc.Digest)
@@ -73,6 +78,9 @@ func loadFromOCILayout(path string) (*Output, error) {
 			img, err := pushed.Image(child.Digest)
 			if err != nil {
 				return nil, err
+			}
+			if config.FF.ParallelGunzip {
+				img = util.WithGzipReader(img, util.NewParallelGzipReader)
 			}
 			return &Output{Image: img, Index: pushed}, nil
 		}

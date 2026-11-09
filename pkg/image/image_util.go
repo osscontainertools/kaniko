@@ -133,7 +133,7 @@ func ociImage(index int) (v1.Image, error) {
 		return nil, err
 	}
 	if config.FF.ParallelGunzip {
-		img = util.WithStoredBlobs(img)
+		img = util.WithGzipReader(img, util.NewParallelGzipReader)
 	}
 	return img, nil
 }

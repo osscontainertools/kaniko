@@ -117,6 +117,9 @@ func (rc *RegistryCache) RetrieveLayer(ck string) (v1.Image, error) {
 	if err != nil {
 		return nil, err
 	}
+	if config.FF.ParallelGunzip {
+		img = util.WithGzipReader(img, util.NewParallelGzipReader)
+	}
 
 	if err = verifyImage(img, rc.Opts.CacheTTL, cache); err != nil {
 		return nil, err
@@ -194,7 +197,7 @@ func locateImage(path string) (v1.Image, error) {
 		return nil, errors.New("path contains no images")
 	}
 	if config.FF.ParallelGunzip {
-		img = util.WithStoredBlobs(img)
+		img = util.WithGzipReader(img, util.NewParallelGzipReader)
 	}
 	return img, nil
 }
@@ -326,7 +329,7 @@ func ociCachedImageFromPath(tarPath string) (v1.Image, error) {
 		return nil, err
 	}
 	if config.FF.ParallelGunzip {
-		img = util.WithStoredBlobs(img)
+		img = util.WithGzipReader(img, util.NewParallelGzipReader)
 	}
 	return img, nil
 }

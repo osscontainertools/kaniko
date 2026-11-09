@@ -2332,9 +2332,6 @@ func loadSharedBase(digest string) (v1.Image, error) {
 	if d.String() != digest {
 		return nil, fmt.Errorf("store entry holds %s", d)
 	}
-	if config.FF.ParallelGunzip {
-		img = util.WithStoredBlobs(img)
-	}
 	return img, nil
 }
 

@@ -36,9 +36,6 @@ import (
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/klauspost/pgzip"
 	"github.com/moby/go-archive"
 	"github.com/moby/patternmatcher"
 	"github.com/moby/patternmatcher/ignorefile"
@@ -208,52 +205,17 @@ func GetFSFromLayers(root string, layers []v1.Layer, opts ...FSOpt) ([]string, e
 }
 
 func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, error) {
-	mediaType, err := l.MediaType()
-	if err == nil {
+	if mediaType, err := l.MediaType(); err == nil {
 		logrus.Tracef("Extracting layer %d of media type %s", i, mediaType)
 	} else {
 		logrus.Tracef("Extracting layer %d", i)
 	}
 
-	// Compressed() of a layer backed by an uncompressed tarball, like a
-	// snapshot of an earlier stage, gzips it first. Only registry and stored
-	// layers are known to serve the stored blob.
-	_, fromRegistry := l.(*remote.MountableLayer)
-	_, fromLayout := l.(*StoredBlobLayer)
-	isGzip := mediaType == types.DockerLayer || mediaType == types.OCILayer || mediaType == types.DockerForeignLayer || mediaType == types.OCIRestrictedLayer
-	var r io.ReadCloser
-	if config.FF.ParallelGunzip && (fromRegistry || fromLayout) && isGzip {
-		rc, err := l.Compressed()
-		if err != nil {
-			return nil, err
-		}
-		gz, err := pgzip.NewReader(rc)
-		if err == nil {
-			// pgzip's Close waits for its read-ahead, which can be blocked reading rc.
-			defer func() {
-				rc.Close()
-				gz.Close()
-			}()
-			r = gz
-		} else {
-			rc.Close()
-			if !errors.Is(err, pgzip.ErrHeader) {
-				return nil, err
-			}
-			// ggcr picks the decompressor from the content, not the media type.
-			r, err = l.Uncompressed()
-			if err != nil {
-				return nil, err
-			}
-			defer r.Close()
-		}
-	} else {
-		r, err = l.Uncompressed()
-		if err != nil {
-			return nil, err
-		}
-		defer r.Close()
+	r, err := l.Uncompressed()
+	if err != nil {
+		return nil, err
 	}
+	defer r.Close()
 
 	extractedFiles := []string{}
 	tr := tar.NewReader(r)
