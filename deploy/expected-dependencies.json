@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "description": "Generated from deploy/Dockerfile (single source of truth) by scripts/generate-expected-dependencies.py. Do not edit by hand; run `make generate-expected-dependencies` and commit. The provenance verifier checks BuildKit resolvedDependencies against this manifest.",
+  "dependencies": [
+    {
+      "url": "https://raw.githubusercontent.com/mirror/busybox/371fe9f71d445d18be28c82a2a6d82115c8af19d/LICENSE",
+      "sha256": "bbfc9843646d483c334664f651c208b9839626891d8f17604db2146962f43548"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/kraj/musl/v1.2.5/COPYRIGHT",
+      "sha256": "f9bc4423732350eb0b3f7ed7e91d530298476f8fec0c6c427a1c04ade22655af"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/krallin/tini/v0.19.0/LICENSE",
+      "sha256": "e5f46bca81266bdd511cf08018d66866870531794569c04f9b45f50dd23c28b0"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/bminor/glibc/glibc-2.23/COPYING.LIB",
+      "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/bminor/glibc/glibc-2.23/LICENSES",
+      "sha256": "61abdd6930c9c599062d89e916b3e7968783879b6be0ee1c6229dd6169def431"
+    },
+    {
+      "url": "https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-amd64",
+      "sha256": "c5b0666b4cb676901f90dfcb37106783c5fe2077b04590973b885950611b30ee"
+    },
+    {
+      "url": "https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-armhf",
+      "sha256": "d33a3731dce1e7db7754ed92edf97236ca7c7b786455abe3b286cda82205a4ae"
+    },
+    {
+      "url": "https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-arm64",
+      "sha256": "eae1d3aa50c48fb23b8cbdf4e369d0910dfc538566bfd09df89a774aa84a48b9"
+    },
+    {
+      "url": "https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-s390x",
+      "sha256": "95657aec2459ff06123e0674565da625c50704b1db86373cd91afc3c0dcce997"
+    },
+    {
+      "url": "https://github.com/krallin/tini/releases/download/v0.19.0/tini-static-ppc64le",
+      "sha256": "b913a6d5be168a14cfe5f27238a181a12aece281e30a57e5d31a148bc5dfb687"
+    }
+  ]
+}
