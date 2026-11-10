@@ -1287,6 +1287,7 @@ FF_KANIKO_ISOLATE_CACHE_PUSH=true
 FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR=true
 FF_KANIKO_NATIVE_INIT=true
 FF_KANIKO_PARALLEL_HASH=true
+FF_KANIKO_PROBE_CREDENTIALS=true
 FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=true
 FF_KANIKO_RUN_HEREDOC_SCRIPT=true
 FF_KANIKO_RUN_MOUNT_BIND_RELATIVE=true
@@ -1608,9 +1609,10 @@ Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_PROBE_CREDENTIALS`
 
-kaniko uses the first credential source that has an entry for the registry, even when the registry rejects it. In GitLab CI a `DOCKER_AUTH_CONFIG` set for the runner shadows the job token and the push fails. On gitlab.com runners the google keychain picks up a metadata-server token that cannot pull, so a public `gcr.io` base image fails to pull.
-Set this flag to `true` to try each source in priority order and use the first one the registry accepts for that repository. The push permission check probes destinations, which must pass, and cache repositories, which only warn. Base images are probed when the Dockerfile is resolved, falling back to anonymous. Once the plan is settled, repositories not seen before use the first source as before.
+kaniko uses the first credential source that has an entry for a repository, even when the registry rejects it. A `DOCKER_AUTH_CONFIG` that can only pull then fails the push, and a Google metadata-server token without registry access fails the pull of a public `gcr.io` image.
+Set this flag to `true` to use the first credential source the registry accepts for each repository, or no credential for a pull.
 Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`
 
