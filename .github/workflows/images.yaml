@@ -236,12 +236,11 @@ jobs:
           IMAGE_REPO: ${{ steps.context.outputs.image_name }}
           PUSHED_DIGEST: ${{ steps.build-and-push.outputs.digest }}
           ISSUER: https://token.actions.githubusercontent.com
-          IDENTITY_RE: '.*'
+          IDENTITY_RE: 'https://github.com/${{ github.repository }}/.github/workflows/images.yaml@.*'
           EXPECTED_PLATFORMS: ${{ steps.platforms.outputs.platforms }}
         run: |
           set -euo pipefail
           INDEX_IMAGE="${IMAGE_REPO}@${PUSHED_DIGEST}"
-          # Sign the pushed image index.
           cosign sign --yes "$INDEX_IMAGE"
 
           # Attest and verify per-platform provenance (preserves exported BuildKit predicates).
