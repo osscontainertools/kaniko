@@ -34,6 +34,28 @@ var googleKeychain, ecrKeychain, acrKeychain func() authn.Keychain
 
 // GetKeychain returns a keychain for accessing container registries.
 func GetKeychain(opts *config.RegistryOptions) authn.Keychain {
+	srcs := sources(opts)
+	if config.FF.ProbeCredentials {
+		return probingKeychain{opts: opts, sources: srcs}
+	}
+	return multiKeychain(srcs)
+}
+
+func multiKeychain(srcs []source) authn.Keychain {
+	keychains := make([]authn.Keychain, 0, len(srcs))
+	for _, s := range srcs {
+		keychains = append(keychains, s.keychain)
+	}
+	return authn.NewMultiKeychain(keychains...)
+}
+
+type source struct {
+	name     string
+	keychain authn.Keychain
+}
+
+// sources returns the credential sources in priority order.
+func sources(opts *config.RegistryOptions) []source {
 	var helpers []string
 	var prios []string
 
@@ -59,38 +81,38 @@ func GetKeychain(opts *config.RegistryOptions) authn.Keychain {
 	if config.FF.PathScopedRegistryAuth {
 		defaultKeychain = PathScopedKeychain
 	}
-	keychains := []authn.Keychain{defaultKeychain}
-	for _, source := range helpers {
-		switch source {
+	srcs := []source{{"docker config", defaultKeychain}}
+	for _, helper := range helpers {
+		switch helper {
 		case "":
 			logrus.Info("all credential helpers disabled")
 		case "env":
-			keychains = append(keychains,
+			srcs = append(srcs, source{helper,
 				authn.NewKeychainFromHelper(EnvCredentialsHelper),
-			)
+			})
 		case "google":
 			if googleKeychain != nil {
-				keychains = append(keychains, googleKeychain())
+				srcs = append(srcs, source{helper, googleKeychain()})
 			}
 		case "ecr":
 			if ecrKeychain != nil {
-				keychains = append(keychains, ecrKeychain())
+				srcs = append(srcs, source{helper, ecrKeychain()})
 			}
 		case "acr":
 			if acrKeychain != nil {
-				keychains = append(keychains, acrKeychain())
+				srcs = append(srcs, source{helper, acrKeychain()})
 			}
 		case "gitlab":
-			keychains = append(keychains,
+			srcs = append(srcs, source{helper,
 				authn.NewKeychainFromHelper(
 					gitlab.NewGitLabCredentialsHelper(),
 				),
-			)
+			})
 		default:
-			logrus.Warnf("Unknown cred-source %q, skipping.", source)
+			logrus.Warnf("Unknown cred-source %q, skipping.", helper)
 		}
 	}
 
 	logrus.Infof("credential providers by priority: [%s]", strings.Join(prios, ", "))
-	return authn.NewMultiKeychain(keychains...)
+	return srcs
 }

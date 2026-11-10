@@ -24,9 +24,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -106,6 +108,18 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 		}
 	}
 
+	// cache pushes are not required to succeed, so their repositories only get a credential pinned
+	probeOnly := map[string]bool{}
+	if config.FF.ProbeCredentials && !opts.SkipPushPermissionCheck && !opts.NoPush {
+		targets = slices.Clip(targets)
+		for _, repo := range opts.CacheTo {
+			if !isOCILayout(repo) {
+				targets = append(targets, repo)
+				probeOnly[repo] = true
+			}
+		}
+	}
+
 	checked := map[string]bool{}
 	for _, destination := range targets {
 		destRef, err := name.NewTag(destination, name.WeakValidation)
@@ -129,8 +143,21 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 			return fmt.Errorf("making transport for registry %q: %w", registryName, err)
 		}
 		tr := newRetry(rt)
-		if err := checkRemotePushPermission(destRef, creds.GetKeychain(&opts.RegistryOptions), tr); err != nil {
-			return fmt.Errorf("checking push permission for %q: %w", destRef, err)
+		source := ""
+		if config.FF.ProbeCredentials {
+			source, err = creds.PinPushCredential(&opts.RegistryOptions, destRef.Context(), func(kc authn.Keychain) error {
+				return checkRemotePushPermission(destRef, kc, tr)
+			})
+			if err != nil {
+				return fmt.Errorf("probing push credentials for %q: %w", destRef, err)
+			}
+		}
+		if source != "" {
+			logrus.Infof("pushing to %s with the credential from %s", destRef.Context(), source)
+		} else if !probeOnly[destination] {
+			if err := checkRemotePushPermission(destRef, creds.GetKeychain(&opts.RegistryOptions), tr); err != nil {
+				return fmt.Errorf("checking push permission for %q: %w", destRef, err)
+			}
 		}
 		checked[destRef.Context().String()] = true
 	}

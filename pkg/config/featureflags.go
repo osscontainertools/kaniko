@@ -69,6 +69,7 @@ type FeatureFlags struct {
 	PoolRegistryConnections        bool
 	PrecompileDockerignore         bool
 	PreserveMountedSymlinks        bool
+	ProbeCredentials               bool
 	ReproduciblePreserveBaseLayers bool
 	ReproduciblePreserveFormat     bool
 	ResolveCacheKey                bool
@@ -168,6 +169,7 @@ func InitFeatureFlags() {
 		PoolRegistryConnections:        featureFlag("FF_KANIKO_POOL_REGISTRY_CONNECTIONS", true),
 		PrecompileDockerignore:         featureFlag("FF_KANIKO_PRECOMPILE_DOCKERIGNORE", true),
 		PreserveMountedSymlinks:        featureFlag("FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS", true),
+		ProbeCredentials:               featureFlag("FF_KANIKO_PROBE_CREDENTIALS", false),
 		ReproduciblePreserveBaseLayers: featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS", true),
 		ReproduciblePreserveFormat:     featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT", true),
 		ResolveCacheKey:                featureFlag("FF_KANIKO_RESOLVE_CACHE_KEY", true),
