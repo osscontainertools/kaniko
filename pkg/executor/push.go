@@ -108,7 +108,7 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 		}
 	}
 
-	// cache access is not required to succeed, so cache repositories only warn
+	// cache access is not required to succeed, so cache repositories next to a push only warn
 	cacheTo := map[string]bool{}
 	cacheFrom := map[string]bool{}
 	if config.FF.ProbeCredentials && !opts.SkipPushPermissionCheck {
@@ -154,12 +154,9 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 		tr := newRetry(rt)
 		pinned := false
 		if config.FF.ProbeCredentials && !cacheFrom[destination] {
-			pinned, err = creds.PinPush(&opts.RegistryOptions, destRef.Context(), func(kc authn.Keychain) error {
+			pinned = creds.PinPush(&opts.RegistryOptions, destRef.Context(), func(kc authn.Keychain) error {
 				return checkRemotePushPermission(destRef, kc, tr)
 			})
-			if err != nil {
-				return fmt.Errorf("probing push credentials for %q: %w", destRef, err)
-			}
 		}
 		switch {
 		case cacheFrom[destination]:

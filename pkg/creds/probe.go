@@ -116,20 +116,21 @@ func canPull(opts *config.RegistryOptions, repo name.Repository, auth authn.Auth
 	return fmt.Errorf("listing tags: %s", resp.Status)
 }
 
-func PinPush(opts *config.RegistryOptions, repo name.Repository, check func(authn.Keychain) error) (bool, error) {
+func PinPush(opts *config.RegistryOptions, repo name.Repository, check func(authn.Keychain) error) bool {
 	for _, kc := range sourceKeychains(opts) {
 		auth, err := kc.Resolve(repo)
-		if err != nil {
-			return false, err
-		}
-		if auth != authn.Anonymous {
+		switch {
+		case err != nil:
+			logrus.Debugf("failed to resolve a credential for %s: %v", repo, err)
+		case auth == authn.Anonymous:
+		default:
 			err = check(kc)
 			if err == nil {
 				pins.Store(repo.String(), kc)
-				return true, nil
+				return true
 			}
 			logrus.Debugf("credential cannot push to %s: %v", repo, err)
 		}
 	}
-	return false, nil
+	return false
 }
