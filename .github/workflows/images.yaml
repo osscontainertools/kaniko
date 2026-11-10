@@ -239,21 +239,65 @@ jobs:
           PUSHED_DIGEST: ${{ steps.build-and-push.outputs.digest }}
           ISSUER: https://token.actions.githubusercontent.com
           IDENTITY_RE: '.*'
+          EXPECTED_PLATFORMS: ${{ steps.platforms.outputs.platforms }}
         run: |
           set -euo pipefail
           INDEX_IMAGE="${IMAGE_REPO}@${PUSHED_DIGEST}"
           # Sign the pushed image index (preserves existing behavior).
           cosign sign --yes "$INDEX_IMAGE"
 
-          python3 - "$OCI_LAYOUT" "$IMAGE_REPO" "$ISSUER" "$IDENTITY_RE" <<'PY'
-          import json, os, subprocess, sys, tempfile
+          python3 - "$OCI_LAYOUT" "$IMAGE_REPO" "$ISSUER" "$IDENTITY_RE" "$EXPECTED_PLATFORMS" <<'PY'
+          import base64
+          import json
+          import os
+          import subprocess
+          import sys
+          import tempfile
 
-          layout, repo, issuer, identity_re = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+          layout, repo, issuer, identity_re, expected_platforms_raw = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
+
+          expected_platforms = [p.strip() for p in expected_platforms_raw.split(',') if p.strip()]
+          if not expected_platforms:
+              raise SystemExit('no expected platforms provided')
+          verified_by_platform = {p: 0 for p in expected_platforms}
+
+          def normalize_platform(p):
+              if not p:
+                  return None
+              os_name = p.get('os') or 'linux'
+              arch = p.get('architecture') or ''
+              variant = p.get('variant') or ''
+              if arch in ('', 'unknown') or os_name in ('', 'unknown'):
+                  return None
+              name = f"{os_name}/{arch}"
+              if variant:
+                  name += f"/{variant}"
+              return name
 
           def load_blob(digest):
               algo, h = digest.split(':', 1)
               with open(os.path.join(layout, 'blobs', algo, h), 'rb') as f:
                   return f.read()
+
+          def decode_attestation_payloads(verify_output):
+              stmts = []
+              for line in verify_output.splitlines():
+                  line = line.strip()
+                  if not line:
+                      continue
+                  try:
+                      obj = json.loads(line)
+                  except json.JSONDecodeError:
+                      continue
+                  payload = obj.get('payload')
+                  if not payload:
+                      continue
+                  try:
+                      decoded = base64.b64decode(payload)
+                      stmts.append(json.loads(decoded))
+                  except Exception:
+                      continue
+              return stmts
 
           with open(os.path.join(layout, 'index.json')) as f:
               idx = json.load(f)
@@ -271,13 +315,13 @@ jobs:
                   if ref != 'attestation-manifest':
                       continue
                   am = json.loads(load_blob(m['digest']))
-                  # Attestation manifest's subject digest identifies the attested image manifest.
                   subj = am.get('subject') or {}
                   subject_digest = subj.get('digest')
                   platform = (m.get('platform') or {})
                   if not subject_digest:
                       raise SystemExit(f"attestation manifest missing subject digest: {m.get('digest')}")
                   target = f"{repo}@{subject_digest}"
+                  want = subject_digest.split(':', 1)[1]
                   for layer in (am.get('layers') or []):
                       ann = layer.get('annotations') or {}
                       ptype = ann.get('in-toto.io/predicate-type', '')
@@ -285,35 +329,67 @@ jobs:
                           continue
                       blob = load_blob(layer['digest'])
                       stmt = json.loads(blob)
-                      # Retain the full in-toto statement (subject + predicate) and verify
-                      # it binds to the matching pushed platform manifest.
+                      # Ensure the BuildKit statement binds to the matching platform manifest.
                       subj_digests = [s.get('digest', {}).get('sha256') for s in (stmt.get('subject') or []) if isinstance(s, dict)]
-                      want = subject_digest.split(':', 1)[1]
                       if want not in subj_digests:
                           raise SystemExit(f"statement subject {subj_digests} does not bind to attested manifest {subject_digest}")
-                      with tempfile.NamedTemporaryFile('wb', suffix='.intoto.jsonl', delete=False) as tf:
-                          tf.write(blob)
-                          tname = tf.name
+
+                      # cosign attest --predicate expects a predicate, not a full in-toto statement.
+                      # Provide the BuildKit predicate so cosign produces a correctly structured
+                      # SLSA provenance statement (outer _type/subject/predicateType/predicate)
+                      # bound to the target manifest, preserving the predicate content.
+                      predicate = stmt.get('predicate', stmt)
+                      if isinstance(stmt, dict) and '_type' not in stmt and 'buildDefinition' in stmt and 'predicate' not in stmt:
+                          # stmt already predicate-shaped
+                          predicate = stmt
+                      pred_path = None
                       try:
-                          subprocess.run(['cosign', 'attest', '--yes', '--type', 'slsaprovenance', '--predicate', tname, target], check=True)
+                          with tempfile.NamedTemporaryFile('w', suffix='.predicate.json', delete=False) as tf:
+                              json.dump(predicate, tf)
+                              pred_path = tf.name
+                          subprocess.run([
+                              'cosign', 'attest', '--yes',
+                              '--type', 'slsaprovenance',
+                              '--predicate', pred_path,
+                              target,
+                          ], check=True)
                           out = subprocess.check_output([
-                              'cosign', 'verify-attestation', '--type', 'slsaprovenance',
+                              'cosign', 'verify-attestation',
+                              '--type', 'slsaprovenance',
                               '--certificate-oidc-issuer', issuer,
                               '--certificate-identity-regexp', identity_re,
                               target,
                           ], text=True)
-                          # verify signature succeeded; also confirm predicate type present in payloads
-                          if 'https://slsa.dev/provenance' not in out and '"predicateType"' not in out:
-                              raise SystemExit(f"verify-attestation output missing provenance predicate for {target}")
+                          verified = decode_attestation_payloads(out)
+                          ok = False
+                          for vstmt in verified:
+                              vptype = vstmt.get('predicateType', '')
+                              vsubs = [s.get('digest', {}).get('sha256') for s in (vstmt.get('subject') or []) if isinstance(s, dict)]
+                              if 'slsa.dev/provenance' in vptype and want in vsubs and 'predicate' in vstmt:
+                                  ok = True
+                                  break
+                          if not ok:
+                              raise SystemExit(f"verified attestation payload missing expected provenance predicate/subject for {target}")
                       finally:
-                          os.unlink(tname)
-                      print(f"OK: signed+verified provenance for {target} platform={platform.get('architecture','?')}/{platform.get('os','?')}")
+                          if pred_path and os.path.exists(pred_path):
+                              os.unlink(pred_path)
+                      pnorm = normalize_platform(platform)
+                      if pnorm in verified_by_platform:
+                          verified_by_platform[pnorm] += 1
+                      elif len(expected_platforms) == 1 and pnorm is None:
+                          # single-arch attestation manifests may lack explicit platform
+                          verified_by_platform[expected_platforms[0]] += 1
+                      print(f"OK: signed+verified provenance for {target} platform={pnorm or 'unknown'}")
 
           walk(idx.get('manifests') or [])
+
+          missing = [p for p, c in verified_by_platform.items() if c < 1]
+          if missing:
+              raise SystemExit(f"missing verified provenance for expected platform(s): {', '.join(missing)} (verified={verified_by_platform})")
+          print(f"OK: verified provenance for all expected platforms: {verified_by_platform}")
           PY
 
-          # Verify the pushed index's provenance attestations (signature + predicate + subject).
-          # For a multi-arch index, attestations are per-platform (verified above); for a
+          # For a multi-arch index, attestations are per-platform (verified above). For a
           # single-arch image the index and manifest may coincide. Best-effort index check:
           cosign verify-attestation \
             --type slsaprovenance \
@@ -326,11 +402,6 @@ jobs:
           if [[ -n "$SBOM" ]]; then
             cosign attest --yes --predicate "$SBOM" --type spdx "$INDEX_IMAGE"
             cosign verify-attestation \
-              --type slsaprovenance \
-              --certificate-oidc-issuer "$ISSUER" \
-              --certificate-identity-regexp "$IDENTITY_RE" \
-              "$INDEX_IMAGE" >/dev/null 2>&1 || true
-            cosign verify-attestation \
               --type spdx \
               --certificate-oidc-issuer "$ISSUER" \
               --certificate-identity-regexp "$IDENTITY_RE" \
@@ -341,7 +412,7 @@ jobs:
             echo "WARN: no sbom.spdx.json found in export (SBOM should be preserved; review)"
           fi
 
-          echo "OK: provenance signed and verified (predicate+subject+signature) for $INDEX_IMAGE (pushed digest $PUSHED_DIGEST)"
+          echo "OK: provenance signed and verified for all expected platforms (predicate+subject+signature) for $INDEX_IMAGE (pushed digest $PUSHED_DIGEST)"
 
       # If a tag push, use crane to add more tags.
       - if: steps.context.outputs.is_release == 'true'
