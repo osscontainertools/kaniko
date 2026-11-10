@@ -250,5 +250,14 @@ if errors:
         print(f"  - {e}", file=sys.stderr)
     sys.exit(1)
 print(f"\nPASSED: provenance verified against {len(manifest_by_url)} manifest entries.")
-
 PY
+
+status=0
+for prov in "${PROVENANCE_FILES[@]}"; do
+  echo "== Verifying provenance: ${prov} =="
+  if ! python3 "$TMP_PY" "$prov" "$MANIFEST" "$ALLOW_MISSING_REQUEST"; then
+    status=1
+  fi
+done
+rm -f "$TMP_PY"
+exit "$status"
