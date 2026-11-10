@@ -115,6 +115,7 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 
 	if config.FF.ProbeCredentials && !opts.SkipPushPermissionCheck {
 		targets = slices.Clip(targets)
+		// under --no-push the cache-to repositories are already targets from above
 		if !opts.NoPush {
 			for _, repo := range opts.CacheTo {
 				if !isOCILayout(repo) && !slices.Contains(targets, repo) {
