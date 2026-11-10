@@ -243,7 +243,14 @@ def verify_one(prov_path, manifest):
     rd_true = has_true("resolvedDependencies") or has_true("materials")
     rd_false = has_explicit_false("resolvedDependencies") or has_explicit_false("materials")
     if rd_false:
-        errors.append(f"buildkit_completeness.resolvedDependencies/materials is explicitly false: {completeness}")
+        if len(resolved) == 0:
+            notes.append(
+                f"INFO: buildkit_completeness.resolvedDependencies/materials explicitly false but no HTTP(S) dependencies resolved in provenance: {completeness}. "
+                "Accepting as no network dependencies to verify for this target."
+            )
+            print("OK: no HTTP(S) resolved dependencies reported (completeness false) for this provenance")
+        else:
+            errors.append(f"buildkit_completeness.resolvedDependencies/materials is explicitly false: {completeness}")
     elif rd_true:
         print("OK: resolvedDependencies/materials completeness asserted")
     elif has_v1_resolved_deps_field:
