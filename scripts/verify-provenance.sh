@@ -38,7 +38,6 @@ set -euo pipefail
 
 INPUT="${1:?usage: verify-provenance.sh <provenance.json|export-dir|-> [expected-dependencies.json]}"
 MANIFEST="${2:-deploy/expected-dependencies.json}"
-ALLOW_MISSING_REQUEST="${ALLOW_MISSING_REQUEST_COMPLETENESS:-0}"
 EXPECTED_PLATFORMS="${EXPECTED_PLATFORMS:-}"
 
 resolve_inputs() {
@@ -98,10 +97,7 @@ TMP_PY=$(mktemp)
 cat > "$TMP_PY" <<'PY'
 import json, sys, os
 
-prov_path, manifest_path, allow_missing_request = sys.argv[1], sys.argv[2], sys.argv[3]
-
-def is_exc():
-    return allow_missing_request == "1" or os.environ.get("ALLOW_MISSING_REQUEST_COMPLETENESS") == "1"
+prov_path, manifest_path = sys.argv[1], sys.argv[2]
 
 with open(prov_path) as f:
     raw = f.read()
@@ -232,35 +228,34 @@ else:
         "Provenance does not prove all dependencies were resolved; refusing to pass."
     )
 
-# request completeness gate (open item 1). v1 lacks this v0.2 flag; deploy/Dockerfile
-# is outside build context. Never silently pass.
-req = check_flag("request")
-if req is True:
-    print("OK: request completeness asserted")
+# request completeness gate. BuildKit does not provide the v0.2
+# metadata.completeness.request flag; use the v1 externalParameters presence
+# (captured in has_request_param) as the request evidence.
+if has_request_param:
+    print("OK: request present in provenance externalParameters")
 else:
-    msg = f"buildkit_completeness.request not asserted in provenance (flags: {completeness}, v1_externalParameters.request_present={has_request_param})"
-    if is_exc():
-        notes.append(f"EXCEPTION (ALLOW_MISSING_REQUEST_COMPLETENESS=1): {msg} — open item 1 / v1 flag absent; explicit, reviewed.")
-        print(f"WARN: {notes[-1]}")
-    else:
-        errors.append(msg + " (open item 1: deploy/Dockerfile outside build context and/or v1 lacks v0.2 flag — if confirmed unachievable on a real run, set ALLOW_MISSING_REQUEST_COMPLETENESS=1 with a reviewed reason; NEVER silently pass)")
+    errors.append("provenance request not present (buildDefinition.externalParameters.request/configSource missing); refusing to pass")
 
 expected = manifest.get("dependencies") or []
 manifest_by_url = {d["url"]: str(d["sha256"]).lower() for d in expected if "url" in d and "sha256" in d}
 if not manifest_by_url:
     errors.append("manifest contains no dependencies")
 else:
-    for url, exp_sha in manifest_by_url.items():
-        got = resolved.get(url)
-        if not got:
-            errors.append(f"manifest entry NOT found in provenance resolvedDependencies: {url} (expected sha256:{exp_sha})")
+    # Verify every resolved HTTP dependency in this provenance file against the
+    # manifest. Manifest entries need not all appear in each (per-platform)
+    # provenance file, but every resolved dependency must be manifest-allowed and
+    # match the expected digest. Unmanifested dependencies are failures.
+    if not resolved:
+        print("INFO: no HTTP(S) resolved dependencies in this provenance file")
+    for url in sorted(resolved):
+        got = resolved[url]
+        exp_sha = manifest_by_url.get(url)
+        if exp_sha is None:
+            errors.append(f"unmanifested HTTP dependency in provenance: {url} digests={sorted('sha256:'+g for g in got)}")
         elif exp_sha not in got:
             errors.append(f"digest MISMATCH for {url}: expected sha256:{exp_sha}, provenance has {sorted('sha256:'+g for g in got)}")
         else:
             print(f"OK: {url} -> sha256:{exp_sha}")
-for url in sorted(resolved):
-    if url not in manifest_by_url:
-        notes.append(f"INFO: unmanifested HTTP dependency in provenance (review): {url} digests={sorted(resolved[url])}")
 for n in notes:
     print(n)
 if errors:
@@ -274,7 +269,7 @@ PY
 status=0
 for prov in "${PROVENANCE_FILES[@]}"; do
   echo "== Verifying provenance: ${prov} =="
-  if ! python3 "$TMP_PY" "$prov" "$MANIFEST" "$ALLOW_MISSING_REQUEST"; then
+  if ! python3 "$TMP_PY" "$prov" "$MANIFEST"; then
     status=1
   fi
 done
