@@ -39,8 +39,9 @@ set -euo pipefail
 INPUT="${1:?usage: verify-provenance.sh <provenance.json|export-dir|-> [expected-dependencies.json]}"
 MANIFEST="${2:-deploy/expected-dependencies.json}"
 ALLOW_MISSING_REQUEST="${ALLOW_MISSING_REQUEST_COMPLETENESS:-0}"
+EXPECTED_PLATFORMS="${EXPECTED_PLATFORMS:-}"
 
-resolve_input() {
+resolve_inputs() {
   local p="$1"
   if [[ "$p" == "-" ]]; then
     local tmp
@@ -50,16 +51,29 @@ resolve_input() {
     return
   fi
   if [[ -d "$p" ]]; then
-    local found
-    found=$(find "$p" -name 'provenance.json' -print -quit 2>/dev/null || true)
-    if [[ -z "$found" ]]; then
-      found=$(find "$p" -name 'provenance*.json' -print -quit 2>/dev/null || true)
-    fi
-    if [[ -z "$found" ]]; then
+    local found=()
+    while IFS= read -r f; do
+      [[ -n "$f" ]] && found+=("$f")
+    done < <(find "$p" \( -name 'provenance.json' -o -name 'provenance*.json' \) -type f 2>/dev/null | sort -u)
+    if [[ ${#found[@]} -eq 0 ]]; then
       echo "ERROR: no provenance*.json found under directory: $p" >&2
       exit 1
     fi
-    echo "$found"
+    if [[ -n "$EXPECTED_PLATFORMS" ]]; then
+      local expected_count
+      expected_count=$(python3 - "$EXPECTED_PLATFORMS" <<'PYCOUNT'
+import sys
+plats=[x.strip() for x in sys.argv[1].split(',') if x.strip()]
+print(len(plats))
+PYCOUNT
+)
+      if [[ ${#found[@]} -ne "$expected_count" ]]; then
+        echo "ERROR: provenance file count ${#found[@]} does not match expected platforms ${expected_count} (${EXPECTED_PLATFORMS}). Found:" >&2
+        printf '  %s\n' "${found[@]}" >&2
+        exit 1
+      fi
+    fi
+    printf '%s\n' "${found[@]}"
     return
   fi
   if [[ -f "$p" ]]; then
@@ -70,13 +84,18 @@ resolve_input() {
   exit 1
 }
 
-PROVENANCE=$(resolve_input "$INPUT")
+mapfile -t PROVENANCE_FILES < <(resolve_inputs "$INPUT")
+if [[ ${#PROVENANCE_FILES[@]} -eq 0 ]]; then
+  echo "ERROR: no provenance files resolved from: $INPUT" >&2
+  exit 1
+fi
 if [[ ! -f "$MANIFEST" ]]; then
   echo "ERROR: manifest file not found: $MANIFEST" >&2
   exit 1
 fi
 
-python3 - "$PROVENANCE" "$MANIFEST" "$ALLOW_MISSING_REQUEST" <<'PY'
+TMP_PY=$(mktemp)
+cat > "$TMP_PY" <<'PY'
 import json, sys, os
 
 prov_path, manifest_path, allow_missing_request = sys.argv[1], sys.argv[2], sys.argv[3]
