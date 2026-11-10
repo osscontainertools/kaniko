@@ -1609,7 +1609,7 @@ Will be deprecated in `v1.30.0`.
 #### Flag `FF_KANIKO_PROBE_CREDENTIALS`
 
 kaniko uses the first credential source that has an entry for the registry, even when the registry rejects it. In GitLab CI a `DOCKER_AUTH_CONFIG` set for the runner shadows the job token and the push fails. On gitlab.com runners the google keychain picks up a metadata-server token that cannot pull, so a public `gcr.io` base image fails to pull.
-Set this flag to `true` to try each source in priority order and use the first one the registry accepts for that repository. Pushes are probed during the push permission check, cache repositories included but not required to pass. Pulls are probed on first use and fall back to anonymous.
+Set this flag to `true` to try each source in priority order and use the first one the registry accepts for that repository. Pushes are probed during the push permission check, cache repositories included but not required to pass. Base images and cache sources are probed before the first pull and fall back to anonymous. Any other repository uses the first source as before.
 Defaults to `false`.
 
 #### Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`

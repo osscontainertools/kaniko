@@ -35,6 +35,7 @@ import (
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
+	"github.com/osscontainertools/kaniko/pkg/creds"
 	image_util "github.com/osscontainertools/kaniko/pkg/image"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
@@ -361,6 +362,19 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		return nil, fmt.Errorf("resolving args: %w", err)
 	}
 	stages = stages[:finalStage+1]
+
+	if config.FF.ProbeCredentials {
+		for i, stage := range stages {
+			if stage.BaseName != constants.NoBaseImage && baseImageIndex(i, stages) == -1 {
+				creds.PinPull(&opts.RegistryOptions, stage.BaseName, opts.InsecurePull)
+			}
+		}
+		for _, repo := range opts.CacheFrom {
+			if !strings.HasPrefix(repo, "oci:") {
+				creds.PinPull(&opts.RegistryOptions, repo, opts.Insecure)
+			}
+		}
+	}
 
 	stageByName := make(map[string]int)
 	for idx, s := range stages {

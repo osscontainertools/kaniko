@@ -145,7 +145,7 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 		tr := newRetry(rt)
 		pinned := false
 		if config.FF.ProbeCredentials {
-			pinned, err = creds.PinPushCredential(creds.GetKeychain(&opts.RegistryOptions), destRef.Context(), func(kc authn.Keychain) error {
+			pinned, err = creds.PinPush(&opts.RegistryOptions, destRef.Context(), func(kc authn.Keychain) error {
 				return checkRemotePushPermission(destRef, kc, tr)
 			})
 			if err != nil {
