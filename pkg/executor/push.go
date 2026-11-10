@@ -115,10 +115,12 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 
 	if config.FF.ProbeCredentials && !opts.SkipPushPermissionCheck {
 		targets = slices.Clip(targets)
-		for _, repo := range opts.CacheTo {
-			if !isOCILayout(repo) && !slices.Contains(targets, repo) {
-				targets = append(targets, repo)
-				cacheTo[repo] = true
+		if !opts.NoPush {
+			for _, repo := range opts.CacheTo {
+				if !isOCILayout(repo) && !slices.Contains(targets, repo) {
+					targets = append(targets, repo)
+					cacheTo[repo] = true
+				}
 			}
 		}
 		for _, repo := range opts.CacheFrom {
