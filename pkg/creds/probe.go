@@ -30,7 +30,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var pushPins, pullPins sync.Map
+var pins sync.Map
 
 type anonymousKeychain struct{}
 
@@ -38,31 +38,55 @@ func (anonymousKeychain) Resolve(authn.Resource) (authn.Authenticator, error) {
 	return authn.Anonymous, nil
 }
 
-type probingKeychain struct {
-	opts      *config.RegistryOptions
-	keychains []authn.Keychain
+type pinnedKeychain struct {
+	fallback authn.Keychain
 }
 
-func (k probingKeychain) Resolve(target authn.Resource) (authn.Authenticator, error) {
-	kc, ok := pushPins.Load(target.String())
-	if !ok {
-		kc, ok = pullPins.Load(target.String())
+func (k pinnedKeychain) Resolve(target authn.Resource) (authn.Authenticator, error) {
+	kc, ok := pins.Load(target.String())
+	if ok {
+		return kc.(authn.Keychain).Resolve(target)
 	}
-	if !ok {
-		repo, isRepo := target.(name.Repository)
-		if isRepo {
-			kc, ok = probePull(k.opts, k.keychains, repo)
+	return k.fallback.Resolve(target)
+}
+
+func PinPush(opts *config.RegistryOptions, repo name.Repository, check func(authn.Keychain) error) (bool, error) {
+	for _, kc := range sourceKeychains(opts) {
+		auth, err := kc.Resolve(repo)
+		if err != nil {
+			return false, err
+		}
+		if auth != authn.Anonymous {
+			err = check(kc)
+			if err == nil {
+				pins.Store(repo.String(), kc)
+				return true, nil
+			}
+			logrus.Debugf("credential cannot push to %s: %v", repo, err)
 		}
 	}
-	if !ok {
-		return authn.NewMultiKeychain(k.keychains...).Resolve(target)
-	}
-	return kc.(authn.Keychain).Resolve(target)
+	return false, nil
 }
 
-func probePull(opts *config.RegistryOptions, keychains []authn.Keychain, repo name.Repository) (authn.Keychain, bool) {
-	candidates := append(keychains[:len(keychains):len(keychains)], anonymousKeychain{})
-	for _, kc := range candidates {
+func PinPull(opts *config.RegistryOptions, image string, insecure bool) {
+	ref, err := name.ParseReference(image, name.WeakValidation)
+	if err != nil {
+		logrus.Debugf("not probing pull credentials for %s: %v", image, err)
+		return
+	}
+	repo := ref.Context()
+	if insecure || opts.InsecureRegistries.Contains(repo.RegistryStr()) {
+		repo.Registry, err = name.NewRegistry(repo.RegistryStr(), name.WeakValidation, name.Insecure)
+		if err != nil {
+			logrus.Debugf("not probing pull credentials for %s: %v", image, err)
+			return
+		}
+	}
+	_, pinned := pins.Load(repo.String())
+	if pinned {
+		return
+	}
+	for _, kc := range append(sourceKeychains(opts), anonymousKeychain{}) {
 		auth, err := kc.Resolve(repo)
 		switch {
 		case err != nil:
@@ -71,13 +95,12 @@ func probePull(opts *config.RegistryOptions, keychains []authn.Keychain, repo na
 		default:
 			err = canPull(opts, repo, auth)
 			if err == nil {
-				pullPins.Store(repo.String(), kc)
-				return kc, true
+				pins.Store(repo.String(), kc)
+				return
 			}
 			logrus.Debugf("credential cannot pull from %s: %v", repo, err)
 		}
 	}
-	return nil, false
 }
 
 // canPull lists one tag, because some token servers hand out a token without access instead of refusing.
@@ -106,26 +129,4 @@ func canPull(opts *config.RegistryOptions, repo name.Repository, auth authn.Auth
 		return nil
 	}
 	return fmt.Errorf("listing tags: %s", resp.Status)
-}
-
-func PinPushCredential(keychain authn.Keychain, repo name.Repository, check func(authn.Keychain) error) (bool, error) {
-	k, ok := keychain.(probingKeychain)
-	if !ok {
-		return false, nil
-	}
-	for _, kc := range k.keychains {
-		auth, err := kc.Resolve(repo)
-		if err != nil {
-			return false, err
-		}
-		if auth != authn.Anonymous {
-			err = check(kc)
-			if err == nil {
-				pushPins.Store(repo.String(), kc)
-				return true, nil
-			}
-			logrus.Debugf("credential cannot push to %s: %v", repo, err)
-		}
-	}
-	return false, nil
 }
