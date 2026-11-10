@@ -426,18 +426,172 @@ jobs:
             fi
           fi
 
-          SBOM=$(find "$EXPORT" -name 'sbom*.spdx.json' -print -quit)
-          if [[ -n "$SBOM" ]]; then
-            cosign attest --yes --predicate "$SBOM" --type spdx "$INDEX_IMAGE"
-            cosign verify-attestation \
-              --type spdx \
-              --certificate-oidc-issuer "$ISSUER" \
-              --certificate-identity-regexp "$IDENTITY_RE" \
-              "$INDEX_IMAGE" >/dev/null
-            echo "OK: SBOM attestation verified for $INDEX_IMAGE"
-          else
-            echo "WARN: no sbom.spdx.json found in export (SBOM should be preserved; review)"
-          fi
+          python3 - "$EXPORT" "$OCI_LAYOUT" "$IMAGE_REPO" "$ISSUER" "$IDENTITY_RE" "$EXPECTED_PLATFORMS" <<'PY'
+          import base64
+          import glob
+          import json
+          import os
+          import subprocess
+          import sys
+          import tempfile
+
+          export_dir, layout, repo, issuer, identity_re, expected_platforms_raw = sys.argv[1:7]
+          expected_platforms = [p.strip() for p in expected_platforms_raw.split(',') if p.strip()]
+
+          def normalize_platform(p):
+              if not p:
+                  return None
+              os_name = p.get('os') or 'linux'
+              arch = p.get('architecture') or ''
+              variant = p.get('variant') or ''
+              if arch in ('', 'unknown') or os_name in ('', 'unknown'):
+                  return None
+              name = f"{os_name}/{arch}"
+              if variant:
+                  name += f"/{variant}"
+              return name
+
+          def load_blob(digest):
+              algo, h = digest.split(':', 1)
+              with open(os.path.join(layout, 'blobs', algo, h), 'rb') as f:
+                  return f.read()
+
+          with open(os.path.join(layout, 'index.json')) as f:
+              idx = json.load(f)
+
+          digest_to_platform = {}
+          platform_to_digest = {}
+
+          def collect_platforms(manifests, depth=0):
+              if depth > 8:
+                  return
+              for m in manifests or []:
+                  mt = m.get('mediaType', '')
+                  if 'index' in mt:
+                      doc = json.loads(load_blob(m['digest']))
+                      collect_platforms(doc.get('manifests') or [], depth + 1)
+                      continue
+                  ref = (m.get('annotations') or {}).get('vnd.docker.reference.type')
+                  if ref == 'attestation-manifest':
+                      continue
+                  pnorm = normalize_platform(m.get('platform') or {})
+                  if pnorm and m.get('digest'):
+                      digest_to_platform[m['digest']] = pnorm
+                      platform_to_digest[pnorm] = m['digest']
+
+          collect_platforms(idx.get('manifests') or [])
+
+          # Find all exported SBOMs
+          sbom_files = sorted(set(glob.glob(os.path.join(export_dir, '**', 'sbom*.spdx.json'), recursive=True) +
+                                   glob.glob(os.path.join(export_dir, '**', 'sbom*.json'), recursive=True) +
+                                   glob.glob(os.path.join(export_dir, 'sbom*.spdx.json')) +
+                                   glob.glob(os.path.join(export_dir, 'sbom*.json'))))
+          # filter to likely spdx
+          sbom_files = [p for p in sbom_files if os.path.isfile(p)]
+
+          if not sbom_files:
+              print('WARN: no sbom*.json found in export (SBOM should be preserved; review)')
+              sys.exit(0)
+
+          def decode_attestation_payloads(verify_output):
+              stmts = []
+              for line in verify_output.splitlines():
+                  line = line.strip()
+                  if not line:
+                      continue
+                  try:
+                      obj = json.loads(line)
+                  except Exception:
+                      continue
+                  payload = obj.get('payload')
+                  if not payload:
+                      continue
+                  try:
+                      decoded = base64.b64decode(payload)
+                      stmts.append(json.loads(decoded))
+                  except Exception:
+                      continue
+              return stmts
+
+          def match_target(path, stmt_or_doc):
+              # 1) in-toto statement subject digest
+              if isinstance(stmt_or_doc, dict) and stmt_or_doc.get('_type','').startswith('https://in-toto.io/Statement'):
+                  subs = stmt_or_doc.get('subject') or []
+                  for sub in subs:
+                      d = (sub.get('digest') or {}).get('sha256')
+                      if d:
+                          cand = 'sha256:' + d
+                          if cand in digest_to_platform:
+                              return cand, digest_to_platform[cand]
+              # 2) platform hint in filename/path
+              low = path.lower().replace('\\', '/')
+              for plat, dig in platform_to_digest.items():
+                  key = plat.replace('/', '-')
+                  if key in low or plat in low:
+                      return dig, plat
+                  # also try arch-only tokens
+                  arch = plat.split('/')
+                  if len(arch) >= 2 and arch[1] in low:
+                      # avoid ambiguous matches
+                      matches = [p for p in platform_to_digest if p.split('/')[1] == arch[1]]
+                      if len(matches) == 1:
+                          d2 = platform_to_digest[matches[0]]
+                          return d2, matches[0]
+              # 3) single platform/exported image
+              if len(platform_to_digest) == 1:
+                  plat, dig = next(iter(platform_to_digest.items()))
+                  return dig, plat
+              return None, None
+
+          attested = set()
+          for path in sbom_files:
+              with open(path) as f:
+                  obj = json.load(f)
+              if isinstance(obj, dict) and obj.get('_type','').startswith('https://in-toto.io/Statement') and 'predicate' in obj:
+                  pred = obj['predicate']
+                  stmt_like = obj
+              else:
+                  pred = obj
+                  stmt_like = obj
+              target_digest, pnorm = match_target(path, stmt_like)
+              if not target_digest:
+                  raise SystemExit(f'could not match SBOM to a platform manifest: {path} (known platforms={sorted(platform_to_digest)})')
+              target = f"{repo}@{target_digest}"
+              with tempfile.NamedTemporaryFile('w', suffix='.spdx.json', delete=False) as tf:
+                  json.dump(pred, tf)
+                  pred_path = tf.name
+              verify_out = None
+              try:
+                  subprocess.run(['cosign', 'attest', '--yes', '--type', 'spdx', '--predicate', pred_path, target], check=True)
+                  verify_out = subprocess.check_output([
+                      'cosign', 'verify-attestation', '--type', 'spdx',
+                      '--certificate-oidc-issuer', issuer,
+                      '--certificate-identity-regexp', identity_re,
+                      target,
+                  ], text=True)
+              finally:
+                  os.unlink(pred_path)
+              ok = False
+              for vstmt in decode_attestation_payloads(verify_out or ''):
+                  vpred = vstmt.get('predicate') or {}
+                  vsubs = [s.get('digest', {}).get('sha256') for s in (vstmt.get('subject') or []) if isinstance(s, dict)]
+                  want = target_digest.split(':', 1)[1]
+                  if isinstance(vpred, dict) and vpred.get('spdxVersion') and vpred.get('SPDXID') and vpred.get('dataLicense') and want in vsubs:
+                      ok = True
+                      break
+              if not ok:
+                  raise SystemExit(f'verified SBOM attestation missing valid SPDX predicate schema/subject for {target} (from {path})')
+              attested.add(pnorm or target_digest)
+              print(f'OK: SBOM attested+verified for {target} platform={pnorm or "unknown"} ({os.path.basename(path)})')
+
+          # ensure coverage for expected platforms when known
+          if expected_platforms and platform_to_digest:
+              missing = [p for p in expected_platforms if platform_to_digest.get(p) and p not in attested]
+              # if a platform manifest exists but got no SBOM, fail
+              if missing:
+                  raise SystemExit(f'missing SBOM attestation for expected platform(s): {", ".join(missing)}')
+          print(f'OK: SBOM attestations verified for {len(attested)} platform manifest(s)')
+          PY
 
           echo "OK: provenance signed and verified for all expected platforms (predicate+subject+signature) for $INDEX_IMAGE (pushed digest $PUSHED_DIGEST)"
 
