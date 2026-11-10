@@ -166,6 +166,7 @@ completeness = {}
 resolved = {}
 has_v1_resolved_deps_field = False
 has_request_param = False
+request_v1_vals = []
 
 def add_resolved(uri, digests):
     if not uri or not isinstance(uri, str):
@@ -187,6 +188,10 @@ for pred in predicates:
     rdmeta = ((pred.get("runDetails") or {}).get("metadata") or {})
     for k, v in ((rdmeta.get("completeness") or {}).items()):
         completeness.setdefault(k, []).append(v)
+    bk_comp = rdmeta.get("buildkit_completeness") or {}
+    if "request" in bk_comp:
+        request_v1_vals.append(bk_comp.get("request"))
+        completeness.setdefault("request", []).append(bk_comp.get("request"))
     for m in (pred.get("materials") or []):
         if isinstance(m, dict):
             add_resolved(m.get("uri") or m.get("url"), m.get("digest"))
@@ -228,10 +233,12 @@ else:
         "Provenance does not prove all dependencies were resolved; refusing to pass."
     )
 
-# request completeness gate. BuildKit does not provide the v0.2
-# metadata.completeness.request flag; use the v1 externalParameters presence
-# (captured in has_request_param) as the request evidence.
-if has_request_param:
+# request completeness gate. Check BuildKit v1 completeness flag when present;
+# reject if explicitly false. Otherwise accept based on externalParameters
+# request/configSource presence (has_request_param).
+if any(v is False for v in request_v1_vals):
+    errors.append("provenance rejected: runDetails.metadata.buildkit_completeness.request is explicitly false")
+elif has_request_param:
     print("OK: request present in provenance externalParameters")
 else:
     errors.append("provenance request not present (buildDefinition.externalParameters.request/configSource missing); refusing to pass")
