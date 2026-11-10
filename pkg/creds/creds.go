@@ -54,7 +54,6 @@ type source struct {
 	keychain authn.Keychain
 }
 
-// sources returns the credential sources in priority order.
 func sources(opts *config.RegistryOptions) []source {
 	var helpers []string
 	var prios []string

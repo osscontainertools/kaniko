@@ -30,7 +30,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// pushPins and pullPins map a repository to the keychain whose credential the registry accepted.
 var pushPins, pullPins sync.Map
 
 type anonymousKeychain struct{}
@@ -39,8 +38,6 @@ func (anonymousKeychain) Resolve(authn.Resource) (authn.Authenticator, error) {
 	return authn.Anonymous, nil
 }
 
-// probingKeychain answers with the pinned credential of a repository. A repository without
-// a pin gets a pull credential probed on first use.
 type probingKeychain struct {
 	opts    *config.RegistryOptions
 	sources []source
@@ -63,7 +60,6 @@ func (k probingKeychain) Resolve(target authn.Resource) (authn.Authenticator, er
 	return kc.(authn.Keychain).Resolve(target)
 }
 
-// probePull pins the first source, or anonymous, that may list the tags of repo.
 func probePull(opts *config.RegistryOptions, srcs []source, repo name.Repository) (authn.Keychain, bool) {
 	candidates := append(srcs[:len(srcs):len(srcs)], source{"anonymous", anonymousKeychain{}})
 	for _, s := range candidates {
@@ -114,8 +110,6 @@ func canPull(opts *config.RegistryOptions, repo name.Repository, auth authn.Auth
 	return fmt.Errorf("listing tags: %s", resp.Status)
 }
 
-// PinPushCredential runs check against each credential source in priority order and pins the
-// first one it accepts to repo. It returns the name of the pinned source, or "" if none was accepted.
 func PinPushCredential(opts *config.RegistryOptions, repo name.Repository, check func(authn.Keychain) error) (string, error) {
 	for _, s := range sources(opts) {
 		auth, err := s.keychain.Resolve(repo)
