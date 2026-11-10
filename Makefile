@@ -140,5 +140,7 @@ generate-expected-dependencies:
 	python3 scripts/generate-expected-dependencies.py deploy/Dockerfile deploy/expected-dependencies.json
 
 check-expected-dependencies:
-	python3 scripts/generate-expected-dependencies.py deploy/Dockerfile /tmp/expected-dependencies.generated.json
-	diff -u deploy/expected-dependencies.json /tmp/expected-dependencies.generated.json
+	@tmp=$$(mktemp /tmp/expected-dependencies.XXXXXX.json) && \
+	trap 'rm -f "$$tmp"' EXIT; \
+	python3 scripts/generate-expected-dependencies.py deploy/Dockerfile "$$tmp" && \
+	diff -u deploy/expected-dependencies.json "$$tmp"
