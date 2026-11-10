@@ -32,12 +32,30 @@ import (
 )
 
 var (
-	pins    sync.Map
-	settled atomic.Bool
+	pins   sync.Map
+	frozen atomic.Pointer[map[string]authn.Keychain]
 )
 
-func SetSettled(s bool) {
-	settled.Store(s)
+func Open() {
+	frozen.Store(nil)
+}
+
+// Settle freezes the pins, later lookups of unseen repositories fall back to the source order.
+func Settle() {
+	m := map[string]authn.Keychain{}
+	pins.Range(func(k, v any) bool {
+		m[k.(string)] = v.(authn.Keychain)
+		return true
+	})
+	frozen.Store(&m)
+}
+
+func loadPin(key string) (authn.Keychain, bool) {
+	kc, ok := pins.Load(key)
+	if !ok {
+		return nil, false
+	}
+	return kc.(authn.Keychain), true
 }
 
 type anonymousKeychain struct{}
@@ -52,18 +70,23 @@ type pinnedKeychain struct {
 }
 
 func (k pinnedKeychain) Resolve(target authn.Resource) (authn.Authenticator, error) {
-	kc, ok := pins.Load(target.String())
-	if !ok {
+	var kc authn.Keychain
+	var ok bool
+	settled := frozen.Load()
+	if settled != nil {
+		kc, ok = (*settled)[target.String()]
+	} else {
+		kc, ok = loadPin(target.String())
 		repo, isRepo := target.(name.Repository)
-		if isRepo && !settled.Load() {
+		if !ok && isRepo {
 			PinPull(k.opts, repo)
-			kc, ok = pins.Load(target.String())
+			kc, ok = loadPin(target.String())
 		}
 	}
 	if !ok {
 		return authn.NewMultiKeychain(k.keychains...).Resolve(target)
 	}
-	return kc.(authn.Keychain).Resolve(target)
+	return kc.Resolve(target)
 }
 
 // When no source may pull, PinPull remembers the plain source order so repo is not probed again.
