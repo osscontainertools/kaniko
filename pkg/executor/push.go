@@ -156,20 +156,17 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 			return fmt.Errorf("making transport for registry %q: %w", registryName, err)
 		}
 		tr := newRetry(rt)
-		pinned := false
-		if config.FF.ProbeCredentials && !cacheFrom[destination] {
-			pinned = creds.PinPush(&opts.RegistryOptions, destRef.Context())
-		}
 		switch {
 		case cacheFrom[destination]:
 			if !creds.PinPull(&opts.RegistryOptions, destRef.Context()) {
 				logrus.Warnf("no credential can pull from cache %s", destRef.Context())
 			}
-		case pinned:
+		case config.FF.ProbeCredentials && creds.PinPush(&opts.RegistryOptions, destRef.Context()):
 		case cacheTo[destination]:
 			logrus.Warnf("no credential can push to cache %s", destRef.Context())
 		default:
-			if err := checkRemotePushPermission(destRef, creds.GetKeychain(&opts.RegistryOptions), tr); err != nil {
+			err = checkRemotePushPermission(destRef, creds.GetKeychain(&opts.RegistryOptions), tr)
+			if err != nil {
 				return fmt.Errorf("checking push permission for %q: %w", destRef, err)
 			}
 		}
