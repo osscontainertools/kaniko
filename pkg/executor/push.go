@@ -107,13 +107,17 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 		}
 	}
 
-	// cache repositories that are not already targets only warn
+	// cache repositories only warn, unless they are also an image destination
 	cacheTo := map[string]bool{}
 	cacheFrom := map[string]bool{}
 	if config.FF.ProbeCredentials && !opts.SkipPushPermissionCheck {
 		targets = slices.Clip(targets)
 		for _, repo := range opts.CacheTo {
-			if !isOCILayout(repo) && !slices.Contains(targets, repo) {
+			switch {
+			case isOCILayout(repo):
+			case opts.NoPush:
+				cacheTo[repo] = true
+			case !slices.Contains(targets, repo):
 				targets = append(targets, repo)
 				cacheTo[repo] = true
 			}
