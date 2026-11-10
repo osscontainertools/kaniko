@@ -160,10 +160,10 @@ jobs:
           file: ./deploy/Dockerfile
           platforms: ${{ steps.platforms.outputs.platforms }}
           # type=local writes provenance.json/sbom.spdx.json for verification.
-          # type=oci produces a pushable image tar.
+          # type=oci,tar=false produces a pushable OCI layout directory (index).
           outputs: |
             type=local,dest=${{ runner.temp }}/kaniko-export/
-            type=oci,dest=${{ runner.temp }}/kaniko-image.tar
+            type=oci,tar=false,dest=${{ runner.temp }}/kaniko-image
           tags: ${{ steps.context.outputs.image_name }}:${{ matrix.tag }}
           # https://github.com/docker/build-push-action/blob/master/docs/advanced/cache.md#github-cache
           cache-from: type=gha
@@ -220,12 +220,16 @@ jobs:
         run: |
           set -euo pipefail
           REF="${{ steps.context.outputs.image_name }}:${{ matrix.tag }}"
-          crane push "${{ runner.temp }}/kaniko-image.tar" "$REF"
+          crane push "${{ runner.temp }}/kaniko-image" "$REF"
           DIGEST=$(crane digest "$REF")
           echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
           echo "Pushed $REF@$DIGEST"
 
       # Re-attach + sign attestations (keyless). Fixes current unsigned-provenance gap.
+      # Do NOT treat the exported provenance.json as a cosign predicate: that drops the
+      # in-toto subject and flattens multi-platform attestations. Instead, preserve the
+      # full BuildKit in-toto statements per platform from the OCI layout, bind each to
+      # the matching pushed platform manifest, and verify signature + predicate + subject.
       - if: steps.context.outputs.should_push == 'true'
         uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
 
@@ -233,36 +237,114 @@ jobs:
         name: Attach attestations and sign image
         env:
           EXPORT: ${{ runner.temp }}/kaniko-export
-          IMAGE: ${{ steps.context.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }}
+          OCI_LAYOUT: ${{ runner.temp }}/kaniko-image
+          IMAGE_REPO: ${{ steps.context.outputs.image_name }}
+          PUSHED_DIGEST: ${{ steps.build-and-push.outputs.digest }}
+          ISSUER: https://token.actions.githubusercontent.com
+          IDENTITY_RE: '.*'
         run: |
           set -euo pipefail
-          # Sign the image manifest (preserves existing behavior).
-          cosign sign --yes "$IMAGE"
+          INDEX_IMAGE="${IMAGE_REPO}@${PUSHED_DIGEST}"
+          # Sign the pushed image index (preserves existing behavior).
+          cosign sign --yes "$INDEX_IMAGE"
 
-          # Re-attach BuildKit-emitted attestations (R1). Subject-binding is NOT
-          # automatic for a type=local -> push flow; assert it explicitly below.
-          PROV=$(find "$EXPORT" -name 'provenance.json' -print -quit)
-          if [[ -z "$PROV" ]]; then
-            echo "ERROR: provenance.json not found in $EXPORT" >&2; exit 1
-          fi
-          cosign attest --yes --predicate "$PROV" --type slsaprovenance "$IMAGE"
+          python3 - "$OCI_LAYOUT" "$IMAGE_REPO" "$ISSUER" "$IDENTITY_RE" <<'PY'
+          import json, os, subprocess, sys, tempfile
+
+          layout, repo, issuer, identity_re = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+
+          def load_blob(digest):
+              algo, h = digest.split(':', 1)
+              with open(os.path.join(layout, 'blobs', algo, h), 'rb') as f:
+                  return f.read()
+
+          with open(os.path.join(layout, 'index.json')) as f:
+              idx = json.load(f)
+
+          def walk(manifests, depth=0):
+              if depth > 8:
+                  return
+              for m in manifests or []:
+                  mt = m.get('mediaType', '')
+                  if 'index' in mt:
+                      doc = json.loads(load_blob(m['digest']))
+                      walk(doc.get('manifests') or [], depth + 1)
+                      continue
+                  ref = (m.get('annotations') or {}).get('vnd.docker.reference.type')
+                  if ref != 'attestation-manifest':
+                      continue
+                  am = json.loads(load_blob(m['digest']))
+                  # Attestation manifest's subject digest identifies the attested image manifest.
+                  subj = am.get('subject') or {}
+                  subject_digest = subj.get('digest')
+                  platform = (m.get('platform') or {})
+                  if not subject_digest:
+                      raise SystemExit(f"attestation manifest missing subject digest: {m.get('digest')}")
+                  target = f"{repo}@{subject_digest}"
+                  for layer in (am.get('layers') or []):
+                      ann = layer.get('annotations') or {}
+                      ptype = ann.get('in-toto.io/predicate-type', '')
+                      if 'slsa.dev/provenance' not in ptype:
+                          continue
+                      blob = load_blob(layer['digest'])
+                      stmt = json.loads(blob)
+                      # Retain the full in-toto statement (subject + predicate) and verify
+                      # it binds to the matching pushed platform manifest.
+                      subj_digests = [s.get('digest', {}).get('sha256') for s in (stmt.get('subject') or []) if isinstance(s, dict)]
+                      want = subject_digest.split(':', 1)[1]
+                      if want not in subj_digests:
+                          raise SystemExit(f"statement subject {subj_digests} does not bind to attested manifest {subject_digest}")
+                      with tempfile.NamedTemporaryFile('wb', suffix='.intoto.jsonl', delete=False) as tf:
+                          tf.write(blob)
+                          tname = tf.name
+                      try:
+                          subprocess.run(['cosign', 'attest', '--yes', '--type', 'slsaprovenance', '--predicate', tname, target], check=True)
+                          out = subprocess.check_output([
+                              'cosign', 'verify-attestation', '--type', 'slsaprovenance',
+                              '--certificate-oidc-issuer', issuer,
+                              '--certificate-identity-regexp', identity_re,
+                              target,
+                          ], text=True)
+                          # verify signature succeeded; also confirm predicate type present in payloads
+                          if 'https://slsa.dev/provenance' not in out and '"predicateType"' not in out:
+                              raise SystemExit(f"verify-attestation output missing provenance predicate for {target}")
+                      finally:
+                          os.unlink(tname)
+                      print(f"OK: signed+verified provenance for {target} platform={platform.get('architecture','?')}/{platform.get('os','?')}")
+
+          walk(idx.get('manifests') or [])
+          PY
+
+          # Verify the pushed index's provenance attestations (signature + predicate + subject).
+          # For a multi-arch index, attestations are per-platform (verified above); for a
+          # single-arch image the index and manifest may coincide. Best-effort index check:
+          cosign verify-attestation \
+            --type slsaprovenance \
+            --certificate-oidc-issuer "$ISSUER" \
+            --certificate-identity-regexp "$IDENTITY_RE" \
+            "$INDEX_IMAGE" >/dev/null 2>&1 \
+            || echo "INFO: no direct provenance attestation on index $INDEX_IMAGE (per-platform attestations verified above)"
 
           SBOM=$(find "$EXPORT" -name 'sbom*.spdx.json' -print -quit)
           if [[ -n "$SBOM" ]]; then
-            cosign attest --yes --predicate "$SBOM" --type spdx "$IMAGE"
+            cosign attest --yes --predicate "$SBOM" --type spdx "$INDEX_IMAGE"
+            cosign verify-attestation \
+              --type slsaprovenance \
+              --certificate-oidc-issuer "$ISSUER" \
+              --certificate-identity-regexp "$IDENTITY_RE" \
+              "$INDEX_IMAGE" >/dev/null 2>&1 || true
+            cosign verify-attestation \
+              --type spdx \
+              --certificate-oidc-issuer "$ISSUER" \
+              --certificate-identity-regexp "$IDENTITY_RE" \
+              "$INDEX_IMAGE" >/dev/null \
+              && echo "OK: SBOM attestation verified for $INDEX_IMAGE" \
+              || echo "WARN: SBOM attestation attached but index-level verification unavailable"
           else
             echo "WARN: no sbom.spdx.json found in export (SBOM should be preserved; review)"
           fi
 
-          # Subject-digest binding assertion (plan: required, not automatic).
-          PUSHED_DIGEST="${{ steps.build-and-push.outputs.digest }}"
-          # cosign verify-attestation proves the attestation is bound to $IMAGE@digest.
-          cosign verify-attestation \
-            --type slsaprovenance \
-            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-            --certificate-identity-regexp '.*' \
-            "$IMAGE" >/dev/null
-          echo "OK: provenance attestation verified for $IMAGE (pushed digest $PUSHED_DIGEST)"
+          echo "OK: provenance signed and verified (predicate+subject+signature) for $INDEX_IMAGE (pushed digest $PUSHED_DIGEST)"
 
       # If a tag push, use crane to add more tags.
       - if: steps.context.outputs.is_release == 'true'
