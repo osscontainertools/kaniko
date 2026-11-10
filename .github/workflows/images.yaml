@@ -149,23 +149,30 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Single build exported locally with provenance+SBOM → verify → push → re-attach.
+      # PRs (should_push=false): build+verify only, no registry push.
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        id: build-and-push
+        id: build
         env:
           SOURCE_DATE_EPOCH: ${{ steps.build-time.outputs.epoch }}
         with:
           context: .
           file: ./deploy/Dockerfile
           platforms: ${{ steps.platforms.outputs.platforms }}
-          outputs: type=image,push=${{ steps.context.outputs.should_push == 'true' }},rewrite-timestamp=true
+          # type=local writes provenance.json/sbom.spdx.json for verification.
+          # type=oci produces a pushable image tar.
+          outputs: |
+            type=local,dest=${{ runner.temp }}/kaniko-export/
+            type=oci,dest=${{ runner.temp }}/kaniko-image.tar
           tags: ${{ steps.context.outputs.image_name }}:${{ matrix.tag }}
           # https://github.com/docker/build-push-action/blob/master/docs/advanced/cache.md#github-cache
           cache-from: type=gha
           cache-to: type=gha,mode=max
           target: ${{ matrix.target }}
+          # SBOM alongside provenance.
           attests: |
+            type=provenance,mode=max
             "type=sbom,""SELECT_CATALOGERS=image,file,+sbom-cataloger,-binary-classifier-cataloger"""
-          provenance: mode=max
           labels: |
             org.opencontainers.image.created=${{ steps.build-time.outputs.created }}
             org.opencontainers.image.authors=${{ github.repository_owner }}
@@ -191,14 +198,71 @@ jobs:
             index,manifest:org.opencontainers.image.description=Build container images in Kubernetes
             index,manifest:org.opencontainers.image.version=${{ steps.context.outputs.is_release == 'true' && github.ref_name || github.sha }}
 
-      # Sign images if not a PR.
+      - name: Check expected-dependencies manifest is up to date
+        run: make check-expected-dependencies
+
+      - name: Verify provenance against manifest
+        env:
+          # Open item 1: deploy/Dockerfile is outside the build context, which may
+          # prevent buildkit_completeness.request == true. If a real run confirms it
+          # is unachievable, flip this to "1" with an explicit reviewed reason in
+          # the commit message — NEVER silently pass. Keep "0" until confirmed.
+          ALLOW_MISSING_REQUEST_COMPLETENESS: "0"
+        run: ./scripts/verify-provenance.sh "${{ runner.temp }}/kaniko-export" deploy/expected-dependencies.json
+
+      # Push only reached if verify passed. Uses crane to preserve multi-platform.
+      - if: steps.context.outputs.should_push == 'true'
+        uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b # v0.7
+
+      - if: steps.context.outputs.should_push == 'true'
+        name: Push verified image
+        id: build-and-push
+        run: |
+          set -euo pipefail
+          REF="${{ steps.context.outputs.image_name }}:${{ matrix.tag }}"
+          crane push "${{ runner.temp }}/kaniko-image.tar" "$REF"
+          DIGEST=$(crane digest "$REF")
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "Pushed $REF@$DIGEST"
+
+      # Re-attach + sign attestations (keyless). Fixes current unsigned-provenance gap.
       - if: steps.context.outputs.should_push == 'true'
         uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
 
       - if: steps.context.outputs.should_push == 'true'
+        name: Attach attestations and sign image
+        env:
+          EXPORT: ${{ runner.temp }}/kaniko-export
+          IMAGE: ${{ steps.context.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }}
         run: |
-          cosign sign --yes \
-              ${{ steps.context.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }}
+          set -euo pipefail
+          # Sign the image manifest (preserves existing behavior).
+          cosign sign --yes "$IMAGE"
+
+          # Re-attach BuildKit-emitted attestations (R1). Subject-binding is NOT
+          # automatic for a type=local -> push flow; assert it explicitly below.
+          PROV=$(find "$EXPORT" -name 'provenance.json' -print -quit)
+          if [[ -z "$PROV" ]]; then
+            echo "ERROR: provenance.json not found in $EXPORT" >&2; exit 1
+          fi
+          cosign attest --yes --predicate "$PROV" --type slsaprovenance "$IMAGE"
+
+          SBOM=$(find "$EXPORT" -name 'sbom*.spdx.json' -print -quit)
+          if [[ -n "$SBOM" ]]; then
+            cosign attest --yes --predicate "$SBOM" --type spdx "$IMAGE"
+          else
+            echo "WARN: no sbom.spdx.json found in export (SBOM should be preserved; review)"
+          fi
+
+          # Subject-digest binding assertion (plan: required, not automatic).
+          PUSHED_DIGEST="${{ steps.build-and-push.outputs.digest }}"
+          # cosign verify-attestation proves the attestation is bound to $IMAGE@digest.
+          cosign verify-attestation \
+            --type slsaprovenance \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --certificate-identity-regexp '.*' \
+            "$IMAGE" >/dev/null
+          echo "OK: provenance attestation verified for $IMAGE (pushed digest $PUSHED_DIGEST)"
 
       # If a tag push, use crane to add more tags.
       - if: steps.context.outputs.is_release == 'true'

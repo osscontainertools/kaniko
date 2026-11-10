@@ -134,3 +134,11 @@ push:
 	docker push $(REGISTRY)/executor:slim
 	docker push $(REGISTRY)/executor:alpine
 	docker push $(REGISTRY)/warmer:latest
+
+.PHONY: generate-expected-dependencies check-expected-dependencies
+generate-expected-dependencies:
+	python3 scripts/generate-expected-dependencies.py deploy/Dockerfile deploy/expected-dependencies.json
+
+check-expected-dependencies:
+	python3 scripts/generate-expected-dependencies.py deploy/Dockerfile /tmp/expected-dependencies.generated.json
+	diff -u deploy/expected-dependencies.json /tmp/expected-dependencies.generated.json
