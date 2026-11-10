@@ -490,8 +490,7 @@ jobs:
           sbom_files = [p for p in sbom_files if os.path.isfile(p)]
 
           if not sbom_files:
-              print('WARN: no sbom*.json found in export (SBOM should be preserved; review)')
-              sys.exit(0)
+              raise SystemExit('no sbom*.json found in export (SBOM attestation required)')
 
           def decode_attestation_payloads(verify_output):
               stmts = []
@@ -584,10 +583,9 @@ jobs:
               attested.add(pnorm or target_digest)
               print(f'OK: SBOM attested+verified for {target} platform={pnorm or "unknown"} ({os.path.basename(path)})')
 
-          # ensure coverage for expected platforms when known
-          if expected_platforms and platform_to_digest:
-              missing = [p for p in expected_platforms if platform_to_digest.get(p) and p not in attested]
-              # if a platform manifest exists but got no SBOM, fail
+          # ensure coverage for every expected platform
+          if expected_platforms:
+              missing = [p for p in expected_platforms if p not in attested]
               if missing:
                   raise SystemExit(f'missing SBOM attestation for expected platform(s): {", ".join(missing)}')
           print(f'OK: SBOM attestations verified for {len(attested)} platform manifest(s)')
