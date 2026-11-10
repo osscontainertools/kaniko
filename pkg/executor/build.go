@@ -52,6 +52,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/commands"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
+	"github.com/osscontainertools/kaniko/pkg/creds"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	image_util "github.com/osscontainertools/kaniko/pkg/image"
 	"github.com/osscontainertools/kaniko/pkg/image/remote"
@@ -1594,6 +1595,9 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	started := time.Now()
 	stageFinalCacheKeys := make(map[int]string)
+	if config.FF.ProbeCredentials {
+		creds.SetSettled(false)
+	}
 
 	_, endPlanning := timing.Scope("Planning")
 	defer endPlanning()
@@ -1796,6 +1800,9 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		kanikoStages = onlyUsedStages
 	}
 
+	if config.FF.ProbeCredentials {
+		creds.SetSettled(true)
+	}
 	tracePlan := os.Getenv(tracing.EndpointEnv) != "" && !config.EnvBool(tracing.OmitDockerfileEnv)
 	var plan bytes.Buffer
 	var sinks []io.Writer

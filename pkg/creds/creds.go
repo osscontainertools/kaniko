@@ -34,11 +34,11 @@ var googleKeychain, ecrKeychain, acrKeychain func() authn.Keychain
 
 // GetKeychain returns a keychain for accessing container registries.
 func GetKeychain(opts *config.RegistryOptions) authn.Keychain {
-	keychain := authn.NewMultiKeychain(sourceKeychains(opts)...)
+	keychains := sourceKeychains(opts)
 	if config.FF.ProbeCredentials {
-		return pinnedKeychain{fallback: keychain}
+		return pinnedKeychain{opts: opts, keychains: keychains}
 	}
-	return keychain
+	return authn.NewMultiKeychain(keychains...)
 }
 
 func sourceKeychains(opts *config.RegistryOptions) []authn.Keychain {

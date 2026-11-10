@@ -108,14 +108,23 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 		}
 	}
 
-	// cache pushes are not required to succeed, so their repositories only get a credential pinned
-	probeOnly := map[string]bool{}
-	if config.FF.ProbeCredentials && !opts.SkipPushPermissionCheck && !opts.NoPush {
+	// cache access is not required to succeed, so cache repositories only warn
+	cacheTo := map[string]bool{}
+	cacheFrom := map[string]bool{}
+	if config.FF.ProbeCredentials && !opts.SkipPushPermissionCheck {
 		targets = slices.Clip(targets)
-		for _, repo := range opts.CacheTo {
-			if !isOCILayout(repo) {
+		if !opts.NoPush {
+			for _, repo := range opts.CacheTo {
+				if !isOCILayout(repo) {
+					targets = append(targets, repo)
+					cacheTo[repo] = true
+				}
+			}
+		}
+		for _, repo := range opts.CacheFrom {
+			if !isOCILayout(repo) && !slices.Contains(opts.CacheTo, repo) {
 				targets = append(targets, repo)
-				probeOnly[repo] = true
+				cacheFrom[repo] = true
 			}
 		}
 	}
@@ -144,7 +153,7 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 		}
 		tr := newRetry(rt)
 		pinned := false
-		if config.FF.ProbeCredentials {
+		if config.FF.ProbeCredentials && !cacheFrom[destination] {
 			pinned, err = creds.PinPush(&opts.RegistryOptions, destRef.Context(), func(kc authn.Keychain) error {
 				return checkRemotePushPermission(destRef, kc, tr)
 			})
@@ -152,7 +161,15 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 				return fmt.Errorf("probing push credentials for %q: %w", destRef, err)
 			}
 		}
-		if !pinned && !probeOnly[destination] {
+		switch {
+		case cacheFrom[destination]:
+			if !creds.PinPull(&opts.RegistryOptions, destRef.Context()) {
+				logrus.Warnf("no credential can pull from cache %s", destRef.Context())
+			}
+		case pinned:
+		case cacheTo[destination]:
+			logrus.Warnf("no credential can push to cache %s", destRef.Context())
+		default:
 			if err := checkRemotePushPermission(destRef, creds.GetKeychain(&opts.RegistryOptions), tr); err != nil {
 				return fmt.Errorf("checking push permission for %q: %w", destRef, err)
 			}
