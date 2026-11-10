@@ -107,17 +107,15 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 		}
 	}
 
-	// cache access is not required to succeed, so cache repositories next to a push only warn
+	// cache repositories that are not already targets only warn
 	cacheTo := map[string]bool{}
 	cacheFrom := map[string]bool{}
 	if config.FF.ProbeCredentials && !opts.SkipPushPermissionCheck {
 		targets = slices.Clip(targets)
-		if !opts.NoPush {
-			for _, repo := range opts.CacheTo {
-				if !isOCILayout(repo) && !slices.Contains(targets, repo) {
-					targets = append(targets, repo)
-					cacheTo[repo] = true
-				}
+		for _, repo := range opts.CacheTo {
+			if !isOCILayout(repo) && !slices.Contains(targets, repo) {
+				targets = append(targets, repo)
+				cacheTo[repo] = true
 			}
 		}
 		for _, repo := range opts.CacheFrom {
