@@ -53,6 +53,11 @@ func (k pinnedKeychain) Resolve(target authn.Resource) (authn.Authenticator, err
 
 // When no source may pull, PinPull remembers the plain source order so repo is not probed again.
 func PinPull(opts *config.RegistryOptions, repo name.Repository) bool {
+	// a push pin, possibly from another bake target, also covers pulls
+	_, pinned := pins.Load(repo.String())
+	if pinned {
+		return true
+	}
 	keychains := sourceKeychains(opts)
 	for _, kc := range keychains {
 		auth, err := kc.Resolve(repo)

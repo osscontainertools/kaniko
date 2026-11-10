@@ -114,14 +114,14 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 		targets = slices.Clip(targets)
 		if !opts.NoPush {
 			for _, repo := range opts.CacheTo {
-				if !isOCILayout(repo) {
+				if !isOCILayout(repo) && !slices.Contains(targets, repo) {
 					targets = append(targets, repo)
 					cacheTo[repo] = true
 				}
 			}
 		}
 		for _, repo := range opts.CacheFrom {
-			if !isOCILayout(repo) && !slices.Contains(opts.CacheTo, repo) {
+			if !isOCILayout(repo) && !slices.Contains(targets, repo) {
 				targets = append(targets, repo)
 				cacheFrom[repo] = true
 			}
