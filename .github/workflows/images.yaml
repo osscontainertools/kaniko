@@ -203,11 +203,6 @@ jobs:
 
       - name: Verify provenance against manifest
         env:
-          # Open item 1: deploy/Dockerfile is outside the build context, which may
-          # prevent buildkit_completeness.request == true. If a real run confirms it
-          # is unachievable, flip this to "1" with an explicit reviewed reason in
-          # the commit message — NEVER silently pass. Keep "0" until confirmed.
-          ALLOW_MISSING_REQUEST_COMPLETENESS: "0"
           # Fail if any platform's provenance file is missing from the export.
           EXPECTED_PLATFORMS: ${{ steps.platforms.outputs.platforms }}
         run: ./scripts/verify-provenance.sh "${{ runner.temp }}/kaniko-export" deploy/expected-dependencies.json
