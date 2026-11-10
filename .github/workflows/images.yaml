@@ -241,7 +241,7 @@ jobs:
         run: |
           set -euo pipefail
           INDEX_IMAGE="${IMAGE_REPO}@${PUSHED_DIGEST}"
-          # Sign the pushed image index (preserves existing behavior).
+          # Sign the pushed image index.
           cosign sign --yes "$INDEX_IMAGE"
 
           python3 - "$OCI_LAYOUT" "$IMAGE_REPO" "$ISSUER" "$IDENTITY_RE" "$EXPECTED_PLATFORMS" <<'PY'
@@ -561,9 +561,9 @@ jobs:
                   pred_path = tf.name
               verify_out = None
               try:
-                  subprocess.run(['cosign', 'attest', '--yes', '--type', 'spdx', '--predicate', pred_path, target], check=True)
+                  subprocess.run(['cosign', 'attest', '--yes', '--type', 'spdxjson', '--predicate', pred_path, target], check=True)
                   verify_out = subprocess.check_output([
-                      'cosign', 'verify-attestation', '--type', 'spdx',
+                      'cosign', 'verify-attestation', '--type', 'spdxjson',
                       '--certificate-oidc-issuer', issuer,
                       '--certificate-identity-regexp', identity_re,
                       target,
@@ -575,11 +575,11 @@ jobs:
                   vpred = vstmt.get('predicate') or {}
                   vsubs = [s.get('digest', {}).get('sha256') for s in (vstmt.get('subject') or []) if isinstance(s, dict)]
                   want = target_digest.split(':', 1)[1]
-                  if isinstance(vpred, dict) and vpred.get('spdxVersion') and vpred.get('SPDXID') and vpred.get('dataLicense') and want in vsubs:
+                  if isinstance(vpred, dict) and vpred == pred and vpred.get('spdxVersion') and vpred.get('SPDXID') and vpred.get('dataLicense') and want in vsubs:
                       ok = True
                       break
               if not ok:
-                  raise SystemExit(f'verified SBOM attestation missing valid SPDX predicate schema/subject for {target} (from {path})')
+                  raise SystemExit(f'verified SBOM attestation missing valid SPDX predicate schema/subject/predicate match for {target} (from {path})')
               attested.add(pnorm or target_digest)
               print(f'OK: SBOM attested+verified for {target} platform={pnorm or "unknown"} ({os.path.basename(path)})')
 
