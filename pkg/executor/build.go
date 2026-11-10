@@ -1596,7 +1596,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	started := time.Now()
 	stageFinalCacheKeys := make(map[int]string)
 	if config.FF.ProbeCredentials {
-		creds.SetSettled(false)
+		creds.Open()
 	}
 
 	_, endPlanning := timing.Scope("Planning")
@@ -1801,7 +1801,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	}
 
 	if config.FF.ProbeCredentials {
-		creds.SetSettled(true)
+		creds.Settle()
 	}
 	tracePlan := os.Getenv(tracing.EndpointEnv) != "" && !config.EnvBool(tracing.OmitDockerfileEnv)
 	var plan bytes.Buffer
