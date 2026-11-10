@@ -437,6 +437,7 @@ var expectErr = map[string]int{
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": 1,
 	"Dockerfile_test_issue_mz1375_stage_fail":     1,
 	"Dockerfile_test_issue_mz1374":                1,
+	"Dockerfile_test_verify_layer_digest":         1,
 }
 
 var expectErrOutput = map[string]string{
@@ -463,6 +464,7 @@ var expectErrOutput = map[string]string{
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": "invalid checksum digest format",
 	"Dockerfile_test_issue_mz1375_stage_fail":     "--require-add-checksum: ADD https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz has no --checksum",
 	"Dockerfile_test_issue_mz1374":                "resolves to excluded path",
+	"Dockerfile_test_verify_layer_digest":         "verifying layer",
 }
 
 var crossCompileArch = func() string {

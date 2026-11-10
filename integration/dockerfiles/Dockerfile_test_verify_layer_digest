@@ -1,0 +1,4 @@
+# The proxy on localhost:5003 serves the top layer of this base corrupted under its genuine digest.
+# kaniko must refuse the layer instead of building on it.
+FROM localhost:5003/verify-layer-digest:latest
+RUN true

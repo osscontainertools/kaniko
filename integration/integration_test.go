@@ -20,6 +20,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"cmp"
+	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -28,6 +29,10 @@ import (
 	"io"
 	"log"
 	"math"
+	"net"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -206,6 +211,95 @@ func buildRequiredImages() error {
 		return err
 	}
 
+	err = serveCorruptedLayerImage(config.busyboxBaseImage, config.imageRepo)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// serveCorruptedLayerImage pushes verify-layer-digest:latest to the root of the imageRepo registry
+// and serves it on localhost:5003 with its top layer blob corrupted, the way a broken mirror would.
+func serveCorruptedLayerImage(baseRef, imageRepo string) error {
+	src, err := name.ParseReference(baseRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing base ref %s: %v", baseRef, err)
+	}
+	base, err := remote.Image(src, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		return fmt.Errorf("pulling verify-layer-digest base image: %v", err)
+	}
+	man, err := base.Manifest()
+	if err != nil {
+		return fmt.Errorf("reading verify-layer-digest base manifest: %v", err)
+	}
+	mediaType := ggcrtypes.DockerLayer
+	if strings.Contains(string(man.MediaType), ggcrtypes.OCIVendorPrefix) {
+		mediaType = ggcrtypes.OCILayer
+	}
+
+	probe, err := buildTar([]tarEntry{{"probe", tar.TypeReg, 0o644, "genuine\n"}})
+	if err != nil {
+		return err
+	}
+	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(probe)), nil
+	}, tarball.WithMediaType(mediaType), tarball.WithCompressionLevel(gzip.NoCompression))
+	if err != nil {
+		return fmt.Errorf("creating verify-layer-digest layer: %v", err)
+	}
+	rc, err := layer.Compressed()
+	if err != nil {
+		return err
+	}
+	blob, err := io.ReadAll(rc)
+	rc.Close()
+	if err != nil {
+		return err
+	}
+	// stored deflate blocks carry the file bytes verbatim, so the same-size edit still inflates and only the gzip CRC and the digest disagree
+	corrupted := bytes.Replace(blob, []byte("genuine\n"), []byte("corrupt\n"), 1)
+	if bytes.Equal(corrupted, blob) {
+		return fmt.Errorf("the verify-layer-digest blob does not hold the file bytes verbatim")
+	}
+	digest, err := layer.Digest()
+	if err != nil {
+		return err
+	}
+
+	img, err := mutate.AppendLayers(base, layer)
+	if err != nil {
+		return err
+	}
+	registry, _, _ := strings.Cut(imageRepo, "/")
+	ref, err := name.ParseReference(registry+"/verify-layer-digest:latest", name.WeakValidation)
+	if err != nil {
+		return err
+	}
+	err = remote.Write(ref, img, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		return fmt.Errorf("pushing verify-layer-digest image: %v", err)
+	}
+
+	proxy := httputil.NewSingleHostReverseProxy(&url.URL{Scheme: "http", Host: registry})
+	ln, err := net.Listen("tcp", "localhost:5003")
+	if err != nil {
+		return fmt.Errorf("listening for the verify-layer-digest proxy: %v", err)
+	}
+	go func() {
+		err := http.Serve(ln, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/blobs/"+digest.String()) {
+				_, err := w.Write(corrupted)
+				if err != nil {
+					log.Printf("serving the corrupted verify-layer-digest blob: %v", err)
+				}
+			} else {
+				proxy.ServeHTTP(w, r)
+			}
+		}))
+		log.Printf("verify-layer-digest proxy stopped: %v", err)
+	}()
 	return nil
 }
 
