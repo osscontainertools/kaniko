@@ -39,8 +39,8 @@ func (anonymousKeychain) Resolve(authn.Resource) (authn.Authenticator, error) {
 }
 
 type probingKeychain struct {
-	opts    *config.RegistryOptions
-	sources []source
+	opts      *config.RegistryOptions
+	keychains []authn.Keychain
 }
 
 func (k probingKeychain) Resolve(target authn.Resource) (authn.Authenticator, error) {
@@ -51,32 +51,30 @@ func (k probingKeychain) Resolve(target authn.Resource) (authn.Authenticator, er
 	if !ok {
 		repo, isRepo := target.(name.Repository)
 		if isRepo {
-			kc, ok = probePull(k.opts, k.sources, repo)
+			kc, ok = probePull(k.opts, k.keychains, repo)
 		}
 	}
 	if !ok {
-		return multiKeychain(k.sources).Resolve(target)
+		return authn.NewMultiKeychain(k.keychains...).Resolve(target)
 	}
 	return kc.(authn.Keychain).Resolve(target)
 }
 
-func probePull(opts *config.RegistryOptions, srcs []source, repo name.Repository) (authn.Keychain, bool) {
-	candidates := append(srcs[:len(srcs):len(srcs)], source{"anonymous", anonymousKeychain{}})
-	for _, s := range candidates {
-		auth, err := s.keychain.Resolve(repo)
+func probePull(opts *config.RegistryOptions, keychains []authn.Keychain, repo name.Repository) (authn.Keychain, bool) {
+	candidates := append(keychains[:len(keychains):len(keychains)], anonymousKeychain{})
+	for _, kc := range candidates {
+		auth, err := kc.Resolve(repo)
 		switch {
 		case err != nil:
-			logrus.Debugf("%s failed to resolve a credential for %s: %v", s.name, repo, err)
-		case auth == authn.Anonymous && s.name != "anonymous":
-			logrus.Debugf("%s has no credential for %s", s.name, repo)
+			logrus.Debugf("failed to resolve a credential for %s: %v", repo, err)
+		case auth == authn.Anonymous && kc != anonymousKeychain{}:
 		default:
 			err = canPull(opts, repo, auth)
 			if err == nil {
-				logrus.Infof("pulling from %s with the credential from %s", repo, s.name)
-				pullPins.Store(repo.String(), s.keychain)
-				return s.keychain, true
+				pullPins.Store(repo.String(), kc)
+				return kc, true
 			}
-			logrus.Debugf("%s cannot pull from %s: %v", s.name, repo, err)
+			logrus.Debugf("credential cannot pull from %s: %v", repo, err)
 		}
 	}
 	return nil, false
@@ -110,22 +108,24 @@ func canPull(opts *config.RegistryOptions, repo name.Repository, auth authn.Auth
 	return fmt.Errorf("listing tags: %s", resp.Status)
 }
 
-func PinPushCredential(opts *config.RegistryOptions, repo name.Repository, check func(authn.Keychain) error) (string, error) {
-	for _, s := range sources(opts) {
-		auth, err := s.keychain.Resolve(repo)
+func PinPushCredential(keychain authn.Keychain, repo name.Repository, check func(authn.Keychain) error) (bool, error) {
+	k, ok := keychain.(probingKeychain)
+	if !ok {
+		return false, nil
+	}
+	for _, kc := range k.keychains {
+		auth, err := kc.Resolve(repo)
 		if err != nil {
-			return "", err
+			return false, err
 		}
-		if auth == authn.Anonymous {
-			logrus.Debugf("%s has no credential for %s", s.name, repo)
-		} else {
-			err = check(s.keychain)
+		if auth != authn.Anonymous {
+			err = check(kc)
 			if err == nil {
-				pushPins.Store(repo.String(), s.keychain)
-				return s.name, nil
+				pushPins.Store(repo.String(), kc)
+				return true, nil
 			}
-			logrus.Debugf("%s cannot push to %s: %v", s.name, repo, err)
+			logrus.Debugf("credential cannot push to %s: %v", repo, err)
 		}
 	}
-	return "", nil
+	return false, nil
 }

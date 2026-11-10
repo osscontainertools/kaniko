@@ -143,18 +143,16 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 			return fmt.Errorf("making transport for registry %q: %w", registryName, err)
 		}
 		tr := newRetry(rt)
-		source := ""
+		pinned := false
 		if config.FF.ProbeCredentials {
-			source, err = creds.PinPushCredential(&opts.RegistryOptions, destRef.Context(), func(kc authn.Keychain) error {
+			pinned, err = creds.PinPushCredential(creds.GetKeychain(&opts.RegistryOptions), destRef.Context(), func(kc authn.Keychain) error {
 				return checkRemotePushPermission(destRef, kc, tr)
 			})
 			if err != nil {
 				return fmt.Errorf("probing push credentials for %q: %w", destRef, err)
 			}
 		}
-		if source != "" {
-			logrus.Infof("pushing to %s with the credential from %s", destRef.Context(), source)
-		} else if !probeOnly[destination] {
+		if !pinned && !probeOnly[destination] {
 			if err := checkRemotePushPermission(destRef, creds.GetKeychain(&opts.RegistryOptions), tr); err != nil {
 				return fmt.Errorf("checking push permission for %q: %w", destRef, err)
 			}
