@@ -24,6 +24,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -31,12 +32,6 @@ import (
 )
 
 var pins sync.Map
-
-type anonymousKeychain struct{}
-
-func (anonymousKeychain) Resolve(authn.Resource) (authn.Authenticator, error) {
-	return authn.Anonymous, nil
-}
 
 type pinnedKeychain struct {
 	opts      *config.RegistryOptions
@@ -59,12 +54,12 @@ func (k pinnedKeychain) Resolve(target authn.Resource) (authn.Authenticator, err
 // When no source may pull, PinPull remembers the plain source order so repo is not probed again.
 func PinPull(opts *config.RegistryOptions, repo name.Repository) bool {
 	keychains := sourceKeychains(opts)
-	for _, kc := range append(keychains, anonymousKeychain{}) {
+	for _, kc := range keychains {
 		auth, err := kc.Resolve(repo)
 		switch {
 		case err != nil:
 			logrus.Debugf("failed to resolve a credential for %s: %v", repo, err)
-		case auth == authn.Anonymous && kc != anonymousKeychain{}:
+		case auth == authn.Anonymous:
 		default:
 			err = canPull(opts, repo, auth)
 			if err == nil {
@@ -74,6 +69,13 @@ func PinPull(opts *config.RegistryOptions, repo name.Repository) bool {
 			logrus.Debugf("credential cannot pull from %s: %v", repo, err)
 		}
 	}
+	err := canPull(opts, repo, authn.Anonymous)
+	if err == nil {
+		// an empty multi keychain always resolves to anonymous
+		pins.Store(repo.String(), authn.NewMultiKeychain())
+		return true
+	}
+	logrus.Debugf("anonymous cannot pull from %s: %v", repo, err)
 	pins.Store(repo.String(), authn.NewMultiKeychain(keychains...))
 	return false
 }
@@ -85,7 +87,7 @@ func canPull(opts *config.RegistryOptions, repo name.Repository, auth authn.Auth
 	if err != nil {
 		return err
 	}
-	tr, err := transport.NewWithContext(ctx, repo.Registry, auth, rt, []string{repo.Scope(transport.PullScope)})
+	tr, err := transport.NewWithContext(ctx, repo.Registry, auth, transport.NewRetry(rt), []string{repo.Scope(transport.PullScope)})
 	if err != nil {
 		return err
 	}
@@ -106,7 +108,7 @@ func canPull(opts *config.RegistryOptions, repo name.Repository, auth authn.Auth
 	return fmt.Errorf("listing tags: %s", resp.Status)
 }
 
-func PinPush(opts *config.RegistryOptions, repo name.Repository, check func(authn.Keychain) error) bool {
+func PinPush(opts *config.RegistryOptions, repo name.Repository) bool {
 	for _, kc := range sourceKeychains(opts) {
 		auth, err := kc.Resolve(repo)
 		switch {
@@ -114,7 +116,7 @@ func PinPush(opts *config.RegistryOptions, repo name.Repository, check func(auth
 			logrus.Debugf("failed to resolve a credential for %s: %v", repo, err)
 		case auth == authn.Anonymous:
 		default:
-			err = check(kc)
+			err = canPush(opts, repo, kc)
 			if err == nil {
 				pins.Store(repo.String(), kc)
 				return true
@@ -123,4 +125,12 @@ func PinPush(opts *config.RegistryOptions, repo name.Repository, check func(auth
 		}
 	}
 	return false
+}
+
+func canPush(opts *config.RegistryOptions, repo name.Repository, kc authn.Keychain) error {
+	rt, err := util.MakeTransport(*opts, repo.RegistryStr())
+	if err != nil {
+		return err
+	}
+	return remote.CheckPushPermission(repo.Tag("latest"), kc, transport.NewRetry(rt))
 }

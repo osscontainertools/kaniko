@@ -28,7 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -154,9 +153,7 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 		tr := newRetry(rt)
 		pinned := false
 		if config.FF.ProbeCredentials && !cacheFrom[destination] {
-			pinned = creds.PinPush(&opts.RegistryOptions, destRef.Context(), func(kc authn.Keychain) error {
-				return checkRemotePushPermission(destRef, kc, tr)
-			})
+			pinned = creds.PinPush(&opts.RegistryOptions, destRef.Context())
 		}
 		switch {
 		case cacheFrom[destination]:
