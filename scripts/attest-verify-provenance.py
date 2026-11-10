@@ -23,77 +23,18 @@ subject, exact predicate). Requires verified provenance for every expected platf
 """
 
 import argparse
-import base64
 import json
 import os
 import subprocess
-import sys
 import tempfile
 
-
-def parse_platforms(raw):
-    plats = [p.strip() for p in (raw or "").split(",") if p.strip()]
-    if not plats:
-        raise SystemExit("no expected platforms provided")
-    return plats
-
-
-def normalize_platform(p):
-    if not p:
-        return None
-    os_name = p.get("os") or "linux"
-    arch = p.get("architecture") or ""
-    variant = p.get("variant") or ""
-    if arch in ("", "unknown") or os_name in ("", "unknown"):
-        return None
-    name = f"{os_name}/{arch}"
-    if variant:
-        name += f"/{variant}"
-    return name
-
-
-def load_blob(layout, digest):
-    algo, h = digest.split(":", 1)
-    with open(os.path.join(layout, "blobs", algo, h), "rb") as f:
-        return f.read()
-
-
-def decode_attestation_payloads(verify_output):
-    stmts = []
-    for line in (verify_output or "").splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            obj = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        payload = obj.get("payload")
-        if not payload:
-            continue
-        try:
-            decoded = base64.b64decode(payload)
-            stmts.append(json.loads(decoded))
-        except Exception:
-            continue
-    return stmts
-
-
-def collect_platforms(layout, manifests, digest_to_platform, depth=0):
-    if depth > 8:
-        return
-    for m in manifests or []:
-        mt = m.get("mediaType", "")
-        if "index" in mt:
-            doc = json.loads(load_blob(layout, m["digest"]))
-            collect_platforms(layout, doc.get("manifests") or [], digest_to_platform, depth + 1)
-            continue
-        ref = (m.get("annotations") or {}).get("vnd.docker.reference.type")
-        if ref == "attestation-manifest":
-            continue
-        pnorm = normalize_platform(m.get("platform") or {})
-        if pnorm and m.get("digest"):
-            digest_to_platform[m["digest"]] = pnorm
+from oci_attestation_utils import (
+    collect_platforms,
+    decode_attestation_payloads,
+    load_blob,
+    normalize_platform,
+    parse_platforms,
+)
 
 
 def walk(layout, manifests, digest_to_platform, repo, issuer, identity_re, expected_platforms, verified_by_platform, depth=0):
@@ -182,7 +123,7 @@ def main():
     ap.add_argument("--expected-platforms", required=True)
     args = ap.parse_args()
 
-    expected_platforms = parse_platforms(args.expected_platforms)
+    expected_platforms = parse_platforms(args.expected_platforms, required=True)
     verified_by_platform = {p: 0 for p in expected_platforms}
 
     with open(os.path.join(args.oci_layout, "index.json")) as f:
