@@ -93,6 +93,9 @@ var (
 // push to every specified destination.
 func CheckPushPermissions(opts *config.KanikoOptions) error {
 	targets := opts.Destinations
+	// cache repositories only warn, unless they are also an image destination
+	cacheTo := map[string]bool{}
+	cacheFrom := map[string]bool{}
 	if opts.SkipPushPermissionCheck {
 		targets = []string{}
 	} else if opts.NoPush {
@@ -103,25 +106,22 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 			// no need to check push permissions if we're just writing to disk
 			if !isOCILayout(repo) {
 				targets = append(targets, repo)
+				if config.FF.ProbeCredentials {
+					cacheTo[repo] = true
+				}
 			}
 		}
-	}
-
-	// cache repositories only warn, unless they are also an image destination
-	cacheTo := map[string]bool{}
-	cacheFrom := map[string]bool{}
-	if config.FF.ProbeCredentials && !opts.SkipPushPermissionCheck {
+	} else if config.FF.ProbeCredentials {
 		targets = slices.Clip(targets)
 		for _, repo := range opts.CacheTo {
-			switch {
-			case isOCILayout(repo):
-			case opts.NoPush:
-				cacheTo[repo] = true
-			case !slices.Contains(targets, repo):
+			if !isOCILayout(repo) && !slices.Contains(targets, repo) {
 				targets = append(targets, repo)
 				cacheTo[repo] = true
 			}
 		}
+	}
+
+	if config.FF.ProbeCredentials && !opts.SkipPushPermissionCheck {
 		for _, repo := range opts.CacheFrom {
 			if !isOCILayout(repo) && !slices.Contains(targets, repo) {
 				targets = append(targets, repo)
