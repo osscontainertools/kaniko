@@ -111,7 +111,9 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 				}
 			}
 		}
-	} else if config.FF.ProbeCredentials {
+	}
+
+	if config.FF.ProbeCredentials && !opts.SkipPushPermissionCheck {
 		targets = slices.Clip(targets)
 		for _, repo := range opts.CacheTo {
 			if !isOCILayout(repo) && !slices.Contains(targets, repo) {
@@ -119,9 +121,6 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 				cacheTo[repo] = true
 			}
 		}
-	}
-
-	if config.FF.ProbeCredentials && !opts.SkipPushPermissionCheck {
 		for _, repo := range opts.CacheFrom {
 			if !isOCILayout(repo) && !slices.Contains(targets, repo) {
 				targets = append(targets, repo)
