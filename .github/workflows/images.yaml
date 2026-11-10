@@ -222,9 +222,7 @@ jobs:
           echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
           echo "Pushed $REF@$DIGEST"
 
-      # Re-attach + sign attestations (keyless). Fixes current unsigned-provenance gap.
-      # Do NOT treat the exported provenance.json as a cosign predicate: that drops the
-      # in-toto subject and flattens multi-platform attestations. Instead, preserve the
+      # Re-attach + sign attestations (keyless). Preserve the
       # full BuildKit in-toto statements per platform from the OCI layout, bind each to
       # the matching pushed platform manifest, and verify signature + predicate + subject.
       - if: steps.context.outputs.should_push == 'true'
@@ -413,12 +411,20 @@ jobs:
 
           # For a multi-arch index, attestations are per-platform (verified above). For a
           # single-arch image the index and manifest may coincide. Best-effort index check:
-          cosign verify-attestation \
+          if out=$(cosign verify-attestation \
             --type slsaprovenance \
             --certificate-oidc-issuer "$ISSUER" \
             --certificate-identity-regexp "$IDENTITY_RE" \
-            "$INDEX_IMAGE" >/dev/null 2>&1 \
-            || echo "INFO: no direct provenance attestation on index $INDEX_IMAGE (per-platform attestations verified above)"
+            "$INDEX_IMAGE" 2>&1); then
+            echo "OK: provenance attestation verified for index $INDEX_IMAGE"
+          else
+            if echo "$out" | grep -qi 'no matching attestations'; then
+              echo "INFO: no direct provenance attestation on index $INDEX_IMAGE (per-platform attestations verified above)"
+            else
+              echo "WARN: index-level provenance verification failed for $INDEX_IMAGE (per-platform attestations verified above):" >&2
+              echo "$out" >&2
+            fi
+          fi
 
           SBOM=$(find "$EXPORT" -name 'sbom*.spdx.json' -print -quit)
           if [[ -n "$SBOM" ]]; then
@@ -427,9 +433,8 @@ jobs:
               --type spdx \
               --certificate-oidc-issuer "$ISSUER" \
               --certificate-identity-regexp "$IDENTITY_RE" \
-              "$INDEX_IMAGE" >/dev/null \
-              && echo "OK: SBOM attestation verified for $INDEX_IMAGE" \
-              || echo "WARN: SBOM attestation attached but index-level verification unavailable"
+              "$INDEX_IMAGE" >/dev/null
+            echo "OK: SBOM attestation verified for $INDEX_IMAGE"
           else
             echo "WARN: no sbom.spdx.json found in export (SBOM should be preserved; review)"
           fi
