@@ -302,6 +302,25 @@ jobs:
           with open(os.path.join(layout, 'index.json')) as f:
               idx = json.load(f)
 
+          # Map attested image manifest digest -> platform from non-attestation descriptors.
+          digest_to_platform = {}
+
+          def collect_platforms(manifests, depth=0):
+              if depth > 8:
+                  return
+              for m in manifests or []:
+                  mt = m.get('mediaType', '')
+                  if 'index' in mt:
+                      doc = json.loads(load_blob(m['digest']))
+                      collect_platforms(doc.get('manifests') or [], depth + 1)
+                      continue
+                  ref = (m.get('annotations') or {}).get('vnd.docker.reference.type')
+                  if ref == 'attestation-manifest':
+                      continue
+                  pnorm = normalize_platform(m.get('platform') or {})
+                  if pnorm and m.get('digest'):
+                      digest_to_platform[m['digest']] = pnorm
+
           def walk(manifests, depth=0):
               if depth > 8:
                   return
@@ -317,7 +336,7 @@ jobs:
                   am = json.loads(load_blob(m['digest']))
                   subj = am.get('subject') or {}
                   subject_digest = subj.get('digest')
-                  platform = (m.get('platform') or {})
+                  attestation_platform = (m.get('platform') or {})
                   if not subject_digest:
                       raise SystemExit(f"attestation manifest missing subject digest: {m.get('digest')}")
                   target = f"{repo}@{subject_digest}"
@@ -334,14 +353,14 @@ jobs:
                       if want not in subj_digests:
                           raise SystemExit(f"statement subject {subj_digests} does not bind to attested manifest {subject_digest}")
 
-                      # cosign attest --predicate expects a predicate, not a full in-toto statement.
-                      # Provide the BuildKit predicate so cosign produces a correctly structured
-                      # SLSA provenance statement (outer _type/subject/predicateType/predicate)
-                      # bound to the target manifest, preserving the predicate content.
+                      # Use the original predicate and predicate type from BuildKit; cosign attest
+                      # expects a predicate and will wrap it with its own subject/predicateType,
+                      # but we must supply the exported predicate verbatim and verify the resulting
+                      # statement matches that predicate exactly.
                       predicate = stmt.get('predicate', stmt)
                       if isinstance(stmt, dict) and '_type' not in stmt and 'buildDefinition' in stmt and 'predicate' not in stmt:
-                          # stmt already predicate-shaped
                           predicate = stmt
+                      pred_type = stmt.get('predicateType') or ann.get('in-toto.io/predicate-type') or 'https://slsa.dev/provenance/v1'
                       pred_path = None
                       try:
                           with tempfile.NamedTemporaryFile('w', suffix='.predicate.json', delete=False) as tf:
@@ -349,13 +368,13 @@ jobs:
                               pred_path = tf.name
                           subprocess.run([
                               'cosign', 'attest', '--yes',
-                              '--type', 'slsaprovenance',
+                              '--type', pred_type,
                               '--predicate', pred_path,
                               target,
                           ], check=True)
                           out = subprocess.check_output([
                               'cosign', 'verify-attestation',
-                              '--type', 'slsaprovenance',
+                              '--type', pred_type,
                               '--certificate-oidc-issuer', issuer,
                               '--certificate-identity-regexp', identity_re,
                               target,
@@ -365,15 +384,17 @@ jobs:
                           for vstmt in verified:
                               vptype = vstmt.get('predicateType', '')
                               vsubs = [s.get('digest', {}).get('sha256') for s in (vstmt.get('subject') or []) if isinstance(s, dict)]
-                              if 'slsa.dev/provenance' in vptype and want in vsubs and 'predicate' in vstmt:
+                              vp = vstmt.get('predicate')
+                              if vptype == pred_type and want in vsubs and vp == predicate:
                                   ok = True
                                   break
                           if not ok:
-                              raise SystemExit(f"verified attestation payload missing expected provenance predicate/subject for {target}")
+                              raise SystemExit(f"verified attestation payload predicate/predicateType/subject mismatch for {target} (expected predicateType={pred_type})")
                       finally:
                           if pred_path and os.path.exists(pred_path):
                               os.unlink(pred_path)
-                      pnorm = normalize_platform(platform)
+                      # Resolve platform from the attested image manifest (not attestation descriptor).
+                      pnorm = digest_to_platform.get(subject_digest) or normalize_platform(attestation_platform)
                       if pnorm in verified_by_platform:
                           verified_by_platform[pnorm] += 1
                       elif len(expected_platforms) == 1 and pnorm is None:
@@ -381,6 +402,7 @@ jobs:
                           verified_by_platform[expected_platforms[0]] += 1
                       print(f"OK: signed+verified provenance for {target} platform={pnorm or 'unknown'}")
 
+          collect_platforms(idx.get('manifests') or [])
           walk(idx.get('manifests') or [])
 
           missing = [p for p, c in verified_by_platform.items() if c < 1]
