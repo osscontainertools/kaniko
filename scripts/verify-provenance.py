@@ -31,16 +31,64 @@ def parse_platforms(raw):
     return [p.strip() for p in (raw or "").split(",") if p.strip()]
 
 
+def find_provenance_files(directory):
+    found = []
+    try:
+        names = sorted(os.listdir(directory))
+    except OSError:
+        return found
+    for name in names:
+        if name == "provenance.json" or (name.startswith("provenance") and name.endswith(".json")):
+            full = os.path.join(directory, name)
+            if os.path.isfile(full):
+                found.append(full)
+    return found
+
+
+def platform_dir_candidates(root, platform):
+    # Established platform naming conventions for export dirs (deterministic order).
+    norm = platform.replace("\\", "/").strip("/")
+    variants = [
+        norm,
+        norm.replace("/", "_"),
+        norm.replace("/", "-"),
+    ]
+    if norm.startswith("linux/"):
+        rest = norm[len("linux/"):]
+        variants.extend([
+            rest,
+            rest.replace("/", "_"),
+            rest.replace("/", "-"),
+        ])
+    seen = set()
+    out = []
+    for v in variants:
+        if not v or v in seen:
+            continue
+        seen.add(v)
+        cand = os.path.join(root, v)
+        if os.path.isdir(cand):
+            out.append(cand)
+    return out
+
+
 def resolve_inputs(input_path, expected_platforms):
     if input_path == "-":
         return ["-"]
     if os.path.isdir(input_path):
-        found = []
-        for name in sorted(os.listdir(input_path)):
-            if name == "provenance.json" or (name.startswith("provenance") and name.endswith(".json")):
-                full = os.path.join(input_path, name)
-                if os.path.isfile(full):
-                    found.append(full)
+        found = find_provenance_files(input_path)
+        if not found:
+            plats = parse_platforms(expected_platforms)
+            if plats:
+                for plat in plats:
+                    pf = None
+                    for pdir in platform_dir_candidates(input_path, plat):
+                        pfiles = find_provenance_files(pdir)
+                        if pfiles:
+                            pf = pfiles[0]
+                            break
+                    if pf:
+                        found.append(pf)
         if not found:
             print(f"ERROR: no provenance*.json found under directory: {input_path}", file=sys.stderr)
             sys.exit(1)
@@ -161,6 +209,10 @@ def verify_one(prov_path, manifest):
         if "request" in bk_comp:
             request_v1_vals.append(bk_comp.get("request"))
             completeness.setdefault("request", []).append(bk_comp.get("request"))
+        if "resolvedDependencies" in bk_comp:
+            completeness.setdefault("resolvedDependencies", []).append(bk_comp.get("resolvedDependencies"))
+        if "materials" in bk_comp:
+            completeness.setdefault("materials", []).append(bk_comp.get("materials"))
         for m in (pred.get("materials") or []):
             if isinstance(m, dict):
                 add_resolved(m.get("uri") or m.get("url"), m.get("digest"))
@@ -174,24 +226,29 @@ def verify_one(prov_path, manifest):
         if isinstance(ep, dict) and ("request" in ep or "configSource" in ep):
             has_request_param = True
 
-    def check_flag(name):
-        vals = completeness.get(name)
-        if vals is None:
-            return None
-        return any(v is True for v in vals)
+    def flag_vals(name):
+        return completeness.get(name)
+
+    def has_true(name):
+        vals = flag_vals(name)
+        return vals is not None and any(v is True for v in vals)
+
+    def has_explicit_false(name):
+        vals = flag_vals(name)
+        return vals is not None and any(v is False for v in vals)
 
     print(f"Completeness flags seen: { {k:v for k,v in completeness.items()} }")
     print(f"Resolved HTTP(S) dependencies found: {len(resolved)}")
 
-    resdep = check_flag("resolvedDependencies")
-    materials_flag = check_flag("materials")
-    if resdep is True or materials_flag is True:
+    rd_true = has_true("resolvedDependencies") or has_true("materials")
+    rd_false = has_explicit_false("resolvedDependencies") or has_explicit_false("materials")
+    if rd_false:
+        errors.append(f"buildkit_completeness.resolvedDependencies/materials is explicitly false: {completeness}")
+    elif rd_true:
         print("OK: resolvedDependencies/materials completeness asserted")
     elif has_v1_resolved_deps_field:
         notes.append("INFO: v0.2 completeness.resolvedDependencies flag absent (SLSA v1/BuildKit shape); accepting buildDefinition.resolvedDependencies presence and verifying contents against manifest.")
         print("OK: buildDefinition.resolvedDependencies present (v1 shape); verifying contents")
-    elif resdep is False or materials_flag is False:
-        errors.append(f"buildkit_completeness.resolvedDependencies/materials is false: {completeness}")
     else:
         errors.append(
             f"buildkit_completeness.resolvedDependencies not asserted and no buildDefinition.resolvedDependencies field (flags: {completeness}, v1_field={has_v1_resolved_deps_field}). "
