@@ -1,0 +1,6 @@
+# mz1126: predefined platform args resolve to empty in FROM.
+# Fails on v1.28.5 with a pull of the image "base-".
+# BuildKit defines TARGETARCH in the global scope without a declaration.
+FROM busybox:1.38 AS base-amd64
+FROM busybox:1.38 AS base-arm64
+FROM base-${TARGETARCH}

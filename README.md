@@ -158,6 +158,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_DISABLE_HTTP2`](#flag-ff_kaniko_disable_http2)
       - [Flag `FF_KANIKO_EXPAND_HEREDOC`](#flag-ff_kaniko_expand_heredoc)
       - [Flag `FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY`](#flag-ff_kaniko_format_independent_cache_key)
+      - [Flag `FF_KANIKO_FROM_PREDEFINED_ARGS`](#flag-ff_kaniko_from_predefined_args)
       - [Flag `FF_KANIKO_HASH_DIR_FRAMING`](#flag-ff_kaniko_hash_dir_framing)
       - [Flag `FF_KANIKO_IMAGE_STAGES`](#flag-ff_kaniko_image_stages)
       - [Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`](#flag-ff_kaniko_infer_cross_stage_cache_key)
@@ -1277,6 +1278,7 @@ FF_KANIKO_COPY_LINK=true
 FF_KANIKO_COPY_SUBDIR_MODE=true
 FF_KANIKO_DEFER_CACHE_PUSH=true
 FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY=true
+FF_KANIKO_FROM_PREDEFINED_ARGS=true
 FF_KANIKO_ISOLATE_CACHE_PUSH=true
 FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR=true
 FF_KANIKO_NATIVE_INIT=true
@@ -1464,6 +1466,13 @@ Will be deprecated in `v1.30.0`.
 
 Cache keys depend on the manifest format of the base image, so switching `--image-format` rebuilds every layer even though the cached layers are the same.
 Set this flag to `true` to compute cache keys independently of the manifest format.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
+
+#### Flag `FF_KANIKO_FROM_PREDEFINED_ARGS`
+
+The predefined platform args such as `TARGETARCH` resolve to empty in `FROM`.
+Set this flag to `true` to resolve them from `--customPlatform` and the host.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
 

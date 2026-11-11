@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/containerd/platforms"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/moby/buildkit/frontend/dockerfile/linter"
@@ -342,6 +343,25 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	finalStage := targetStages[len(targetStages)-1]
 
 	args := unifyArgs(metaArgs, opts.BuildArgs)
+	if config.FF.FromPredefinedArgs {
+		build := platforms.Normalize(platforms.DefaultSpec())
+		target, err := platforms.Parse(opts.CustomPlatform)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse target platform %q: %w", opts.CustomPlatform, err)
+		}
+		args = append([]string{
+			"BUILDPLATFORM=" + platforms.Format(build),
+			"BUILDOS=" + build.OS,
+			"BUILDOSVERSION=" + build.OSVersion,
+			"BUILDARCH=" + build.Architecture,
+			"BUILDVARIANT=" + build.Variant,
+			"TARGETPLATFORM=" + opts.CustomPlatform,
+			"TARGETOS=" + target.OS,
+			"TARGETOSVERSION=" + target.OSVersion,
+			"TARGETARCH=" + target.Architecture,
+			"TARGETVARIANT=" + target.Variant,
+		}, args...)
+	}
 	if err := resolveStagesArgs(stages, args); err != nil {
 		return nil, fmt.Errorf("resolving args: %w", err)
 	}
