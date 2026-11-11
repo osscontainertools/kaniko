@@ -271,7 +271,7 @@ def verify_one(prov_path: str, manifest: Dict[str, Any]) -> bool:
                 "accepted as caused by known local file: Dockerfile source outside build context. "
                 "Resolved HTTP(S) dependencies will be verified against manifest and must cover all manifest entries applicable to the target."
             )
-            print("WARN: resolvedDependencies/materials completeness flagged false (known local file: Dockerfile); verifying resolved HTTP dependencies against manifest")
+            print("INFO: resolvedDependencies/materials completeness flagged false (known local file: Dockerfile); verifying resolved HTTP dependencies against manifest")
         else:
             errors.append(
                 f"buildkit_completeness.resolvedDependencies/materials explicitly false and not attributable to known local file: Dockerfile source: {completeness}"
