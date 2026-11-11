@@ -35,6 +35,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
@@ -90,6 +91,12 @@ func WarmCache(opts *config.WarmerOptions) error {
 		}
 	}
 
+	return warmImagesInto(cacheDir, images, opts)
+}
+
+// warmImagesInto warms the given images into cacheDir using opts. It performs no
+// Dockerfile parsing or plan rendering; callers handle those concerns.
+func warmImagesInto(cacheDir string, images []string, opts *config.WarmerOptions) error {
 	errs := 0
 	for _, img := range images {
 		err := ociWarmToFile(cacheDir, img, opts)
@@ -441,4 +448,22 @@ outer:
 	}
 
 	return baseNames, nil
+}
+
+// TargetCacheDir returns the OCI layout directory a resolved bake target should be
+// warmed into. It returns the first cache_from entry with an "oci:" prefix (prefix
+// stripped) or globalCacheDir if no such entry exists. Non-oci entries are ignored.
+func TargetCacheDir(resolved *bake.ResolvedTarget, globalCacheDir string) string {
+	for _, ref := range resolved.CacheFrom {
+		if strings.HasPrefix(ref, "oci:") {
+			return strings.TrimPrefix(ref, "oci:")
+		}
+	}
+	return globalCacheDir
+}
+
+// WarmImagesInto warms the given images into cacheDir using opts. It performs no
+// Dockerfile parsing or plan rendering; callers handle those concerns.
+func WarmImagesInto(cacheDir string, images []string, opts *config.WarmerOptions) error {
+	return warmImagesInto(cacheDir, images, opts)
 }
