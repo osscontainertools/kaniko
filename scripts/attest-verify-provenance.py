@@ -22,11 +22,14 @@ predicate type), and verifies signature + decoded payload (predicateType, bound
 subject, exact predicate). Requires verified provenance for every expected platform.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import os
 import subprocess
 import tempfile
+from typing import Any, Dict, List
 
 from oci_attestation_utils import (
     collect_platforms,
@@ -37,7 +40,17 @@ from oci_attestation_utils import (
 )
 
 
-def walk(layout, manifests, digest_to_platform, repo, issuer, identity_re, expected_platforms, verified_by_platform, depth=0):
+def walk(
+    layout: str,
+    manifests: List[Dict[str, Any]],
+    digest_to_platform: Dict[str, str],
+    repo: str,
+    issuer: str,
+    identity_re: str,
+    expected_platforms: List[str],
+    verified_by_platform: Dict[str, int],
+    depth: int = 0,
+) -> None:
     if depth > 8:
         return
     for m in manifests or []:
@@ -114,7 +127,7 @@ def walk(layout, manifests, digest_to_platform, repo, issuer, identity_re, expec
             print(f"OK: signed+verified provenance for {target} platform={pnorm or 'unknown'}")
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--oci-layout", required=True)
     ap.add_argument("--image-repo", required=True)
@@ -129,7 +142,7 @@ def main():
     with open(os.path.join(args.oci_layout, "index.json")) as f:
         idx = json.load(f)
 
-    digest_to_platform = {}
+    digest_to_platform: Dict[str, str] = {}
     collect_platforms(args.oci_layout, idx.get("manifests") or [], digest_to_platform)
     walk(args.oci_layout, idx.get("manifests") or [], digest_to_platform, args.image_repo, args.issuer, args.identity_regexp, expected_platforms, verified_by_platform)
 

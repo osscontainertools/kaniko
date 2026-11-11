@@ -24,54 +24,67 @@ Usage:
   scripts/generate-expected-dependencies.py [Dockerfile] [output.json]
 Defaults: deploy/Dockerfile -> deploy/expected-dependencies.json
 """
+
+from __future__ import annotations
+
 import json
 import os
 import re
 import sys
+from typing import Any, Dict, List, Set, Tuple
 
-dockerfile = sys.argv[1] if len(sys.argv) > 1 else "deploy/Dockerfile"
-out_path = sys.argv[2] if len(sys.argv) > 2 else "deploy/expected-dependencies.json"
 
-with open(dockerfile) as f:
-    # join backslash-continued lines so ADD args span lines
-    text = f.read().replace("\\\n", " ")
+def generate(dockerfile: str, out_path: str) -> int:
+    with open(dockerfile) as f:
+        # join backslash-continued lines so ADD args span lines
+        text = f.read().replace("\\\n", " ")
 
-deps = []
-for m in re.finditer(
-    r"\bADD\b(?P<args>[^#\n]*?--checksum=sha256:(?P<sha>[0-9a-fA-F]{64})[^#\n]*?(?P<url>https?://\S+))",
-    text,
-):
-    sha = m.group("sha").lower()
-    url = m.group("url").rstrip()  # strip any trailing whitespace
-    deps.append({"url": url, "sha256": sha})
+    deps: List[Dict[str, str]] = []
+    for m in re.finditer(
+        r"\bADD\b(?P<args>[^#\n]*?--checksum=sha256:(?P<sha>[0-9a-fA-F]{64})[^#\n]*?(?P<url>https?://\S+))",
+        text,
+    ):
+        sha = m.group("sha").lower()
+        url = m.group("url").rstrip()
+        deps.append({"url": url, "sha256": sha})
 
-# de-dup by (url, sha) preserving order
-seen = set()
-uniq = []
-for d in deps:
-    k = (d["url"], d["sha256"])
-    if k not in seen:
-        seen.add(k)
-        uniq.append(d)
+    seen: Set[Tuple[str, str]] = set()
+    uniq: List[Dict[str, str]] = []
+    for d in deps:
+        k = (d["url"], d["sha256"])
+        if k not in seen:
+            seen.add(k)
+            uniq.append(d)
 
-if not uniq:
-    print(f"ERROR: no network ADD --checksum entries found in {dockerfile}", file=sys.stderr)
-    sys.exit(1)
+    if not uniq:
+        print(f"ERROR: no network ADD --checksum entries found in {dockerfile}", file=sys.stderr)
+        return 1
 
-doc = {
-    "version": 1,
-    "description": (
-        "Generated from deploy/Dockerfile (single source of truth) by "
-        "scripts/generate-expected-dependencies.py. Do not edit by hand; "
-        "run `make generate-expected-dependencies` and commit. "
-        "The provenance verifier checks BuildKit resolvedDependencies against this manifest."
-    ),
-    "dependencies": uniq,
-}
+    doc: Dict[str, Any] = {
+        "version": 1,
+        "description": (
+            "Generated from deploy/Dockerfile (single source of truth) by "
+            "scripts/generate-expected-dependencies.py. Do not edit by hand; "
+            "run `make generate-expected-dependencies` and commit. "
+            "The provenance verifier checks BuildKit resolvedDependencies against this manifest."
+        ),
+        "dependencies": uniq,
+    }
 
-os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
-with open(out_path, "w") as f:
-    json.dump(doc, f, indent=2)
-    f.write("\n")
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+    with open(out_path, "w") as f:
+        json.dump(doc, f, indent=2)
+        f.write("\n")
 
-print(f"Wrote {len(uniq)} dependencies to {out_path}")
+    print(f"Wrote {len(uniq)} dependencies to {out_path}")
+    return 0
+
+
+def main() -> int:
+    dockerfile = sys.argv[1] if len(sys.argv) > 1 else "deploy/Dockerfile"
+    out_path = sys.argv[2] if len(sys.argv) > 2 else "deploy/expected-dependencies.json"
+    return generate(dockerfile, out_path)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
