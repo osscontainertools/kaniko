@@ -173,8 +173,10 @@ def main() -> None:
                 break
         if not ok:
             raise SystemExit(f"verified SBOM attestation missing valid SPDX predicate schema/subject/predicate match for {target} (from {path})")
-        attested.add(pnorm or target_digest)
-        print(f'OK: SBOM attested+verified for {target} platform={pnorm or "unknown"} ({os.path.basename(path)})')
+        if not pnorm:
+            raise SystemExit(f"matched SBOM to manifest {target} but could not determine platform for {path}")
+        attested.add(pnorm)
+        print(f'OK: SBOM attested+verified for {target} platform={pnorm} ({os.path.basename(path)})')
 
     if expected_platforms:
         missing = [p for p in expected_platforms if p not in attested]

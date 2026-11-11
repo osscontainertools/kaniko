@@ -295,7 +295,7 @@ def verify_one(prov_path: str, manifest: Dict[str, Any]) -> bool:
         errors.append("provenance request not present (buildDefinition.externalParameters.request/configSource missing); refusing to pass")
 
     expected = manifest.get("dependencies") or []
-    manifest_by_url: Dict[str, str] = {d["url"]: str(d["sha256"]).lower() for d in expected if "url" in d and "sha256" in d}
+    manifest_by_url: Dict[str, str] = {d["url"]: str(d["sha256"]).lower() for d in expected if isinstance(d, dict) and "url" in d and "sha256" in d}
     if not manifest_by_url:
         errors.append("manifest contains no dependencies")
     else:

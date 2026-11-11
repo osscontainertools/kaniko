@@ -36,7 +36,6 @@ from typing import Any, Dict, List, Set, Tuple
 
 def generate(dockerfile: str, out_path: str) -> int:
     with open(dockerfile) as f:
-        # join backslash-continued lines so ADD args span lines
         text = f.read().replace("\\\n", " ")
 
     deps: List[Dict[str, str]] = []

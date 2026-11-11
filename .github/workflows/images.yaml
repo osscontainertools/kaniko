@@ -203,13 +203,8 @@ jobs:
 
       - name: Verify provenance against manifest
         env:
-          # Fail if any platform's provenance file is missing from the export.
           EXPECTED_PLATFORMS: ${{ steps.platforms.outputs.platforms }}
-          # deploy/Dockerfile is provided via file: outside the build context.
           KNOWN_LOCAL_FILE_DOCKERFILE: "1"
-        # deploy/Dockerfile is passed via file: and is outside the build context, so
-        # BuildKit may report resolvedDependencies completeness as false; the verifier
-        # still checks all resolved HTTP(S) dependencies against deploy/expected-dependencies.json.
         run: ./scripts/verify-provenance.py "${{ runner.temp }}/kaniko-export" deploy/expected-dependencies.json
 
       # Push only reached if verify passed. Uses crane to preserve multi-platform.
@@ -244,13 +239,11 @@ jobs:
           EXPECTED_PLATFORMS: ${{ steps.platforms.outputs.platforms }}
         run: |
           set -euo pipefail
-          # Pin to this repo's images workflow on branch/tag refs; escape regex metacharacters.
           REPO_ESCAPED=$(printf '%s' "$GITHUB_REPOSITORY" | sed 's/[][(){}.^$*+?|\\]/\\&/g')
           IDENTITY_RE="^https://github.com/${REPO_ESCAPED}/\\.github/workflows/images\\.yaml@refs/(heads|tags)/.+$"
           INDEX_IMAGE="${IMAGE_REPO}@${PUSHED_DIGEST}"
           cosign sign --yes "$INDEX_IMAGE"
 
-          # Attest and verify per-platform provenance (preserves exported BuildKit predicates).
           python3 scripts/attest-verify-provenance.py \
             --oci-layout "$OCI_LAYOUT" \
             --image-repo "$IMAGE_REPO" \
@@ -258,8 +251,6 @@ jobs:
             --identity-regexp "$IDENTITY_RE" \
             --expected-platforms "$EXPECTED_PLATFORMS"
 
-          # Index-level provenance check: multi-platform images publish per-platform attestations
-          # (verified above) and the index has no direct provenance; single-platform images do.
           IFS=',' read -r -a _platforms <<< "$EXPECTED_PLATFORMS"
           if [[ ${#_platforms[@]} -gt 1 ]]; then
             if out=$(cosign verify-attestation \
@@ -285,7 +276,6 @@ jobs:
             echo "OK: provenance attestation verified for single-platform image $INDEX_IMAGE"
           fi
 
-          # Attest and verify per-platform SBOMs (SPDX predicate, schema+subject+predicate match).
           python3 scripts/attest-verify-sbom.py \
             --export-dir "$EXPORT" \
             --oci-layout "$OCI_LAYOUT" \
@@ -296,7 +286,6 @@ jobs:
 
           echo "OK: provenance and SBOM signed and verified for all expected platforms for $INDEX_IMAGE (pushed digest $PUSHED_DIGEST)"
 
-      # If a tag push, use crane to add more tags.
       - if: steps.context.outputs.is_release == 'true'
         uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b # v0.7
 
@@ -319,7 +308,6 @@ jobs:
                 ${{ steps.context.outputs.image_name }}:${tag}-${{ matrix.release-tag }}
           fi
 
-      # If a tag push, distribute to other registries too
       - if: steps.context.outputs.is_release == 'true'
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
         with:
