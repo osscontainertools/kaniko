@@ -19,8 +19,10 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 import os
+import sys
 from typing import Any, Dict, List, Optional
 
 
@@ -59,7 +61,9 @@ def decode_attestation_payloads(verify_output: Optional[str]) -> List[Dict[str, 
             continue
         try:
             obj = json.loads(line)
-        except Exception:
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(obj, dict):
             continue
         payload = obj.get("payload")
         if not payload:
@@ -69,7 +73,8 @@ def decode_attestation_payloads(verify_output: Optional[str]) -> List[Dict[str, 
             stmt = json.loads(decoded)
             if isinstance(stmt, dict):
                 stmts.append(stmt)
-        except Exception:
+        except (json.JSONDecodeError, ValueError, binascii.Error) as e:
+            print(f"WARN: failed to decode attestation payload: {e}", file=sys.stderr)
             continue
     return stmts
 
