@@ -77,6 +77,17 @@ func ParseStages(dockerfilePath string, predefinedArgs, buildArgs []string) ([]i
 	return stages, metaArgs, nil
 }
 
+// StageIndices maps each named stage to its index.
+func StageIndices(stages []instructions.Stage) map[string]int {
+	stageByName := make(map[string]int)
+	for idx, s := range stages {
+		if s.Name != "" {
+			stageByName[s.Name] = idx
+		}
+	}
+	return stageByName
+}
+
 // BaseImageIndex returns the index of the stage the current stage is built off
 // returns -1 if the current stage isn't built off a previous stage
 func BaseImageIndex(currentStage int, stages []instructions.Stage) int {
@@ -355,12 +366,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	}
 	stages = stages[:finalStage+1]
 
-	stageByName := make(map[string]int)
-	for idx, s := range stages {
-		if s.Name != "" {
-			stageByName[s.Name] = idx
-		}
-	}
+	stageByName := StageIndices(stages)
 
 	kanikoStages := make([]config.KanikoStage, len(stages))
 	// We now "count" references, it is only safe to squash

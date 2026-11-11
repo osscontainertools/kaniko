@@ -346,12 +346,7 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 	}
 
 	if config.FF.CacheCopyFrom {
-		stageByName := make(map[string]int)
-		for idx, s := range stages {
-			if s.Name != "" {
-				stageByName[s.Name] = idx
-			}
-		}
+		stageByName := dockerfile.StageIndices(stages)
 		for _, s := range stages {
 			for _, cmd := range s.Commands {
 				c, ok := cmd.(*instructions.CopyCommand)
