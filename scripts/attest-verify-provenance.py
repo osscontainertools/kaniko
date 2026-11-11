@@ -121,10 +121,17 @@ def walk(
 
             pnorm = digest_to_platform.get(subject_digest) or normalize_platform(attestation_platform)
             if pnorm in verified_by_platform:
-                verified_by_platform[pnorm] += 1
+                effective_platform = pnorm
             elif len(expected_platforms) == 1 and pnorm is None:
-                verified_by_platform[expected_platforms[0]] += 1
-            print(f"OK: signed+verified provenance for {target} platform={pnorm or 'unknown'}")
+                # single-arch attestation manifests may lack explicit platform
+                effective_platform = expected_platforms[0]
+            else:
+                raise SystemExit(
+                    f"verified attestation platform {pnorm!r} is outside expected platforms {expected_platforms} for {target}"
+                )
+            # count each platform only once so repeated attestations cannot satisfy coverage for multiple platforms
+            verified_by_platform[effective_platform] = 1
+            print(f"OK: signed+verified provenance for {target} platform={effective_platform}")
 
 
 def main() -> None:
