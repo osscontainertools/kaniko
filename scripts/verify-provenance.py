@@ -133,7 +133,11 @@ def resolve_inputs(input_path: str, expected_platforms: Optional[str]) -> List[s
                     mapped.append(pf)
             found = mapped
         elif found and plats:
-            found = map_files_to_platforms(found, plats, input_path)
+            if len(plats) == 1 and len(found) == 1 and os.path.basename(found[0]) == "provenance.json":
+                # Single-platform exports may emit a root-level provenance.json without a platform suffix.
+                pass
+            else:
+                found = map_files_to_platforms(found, plats, input_path)
         if not found:
             print(f"ERROR: no provenance*.json found under directory: {input_path}", file=sys.stderr)
             sys.exit(1)
