@@ -198,6 +198,17 @@ func convertKVStringsToMap(values []string) map[string]*string {
 	return result
 }
 
+// ResolveEnvironmentBuildArgs replace build args without value by the same named environment variable
+func ResolveEnvironmentBuildArgs(arguments []string, resolver func(string) string) {
+	for index, argument := range arguments {
+		found := strings.Contains(argument, "=")
+		if !found {
+			value := resolver(argument)
+			arguments[index] = fmt.Sprintf("%s=%s", argument, value)
+		}
+	}
+}
+
 // Initialize predefined build args s.a.: TARGETOS, TARGETARCH, BUILDPLATFORM, TARGETPLATFORM ...
 func (b *BuildArgs) InitPredefinedArgs(customPlatform string, lastStage string) error {
 	predefinedArgs, err := PredefinedArgs(customPlatform)
