@@ -3021,6 +3021,7 @@ func TestWarmerBake(t *testing.T) {
 			"bake", "/workspace/kaniko-bake.hcl", "app",
 			"-c", "/workspace",
 			"--cache-from", "oci:/workspace/cache/app",
+			"--cache-dir", "/workspace/cache/app",
 			"--set", "app.destination="+image,
 		)
 		cmd := exec.Command("docker", dockerRunFlags...)
@@ -3029,11 +3030,12 @@ func TestWarmerBake(t *testing.T) {
 		if err != nil {
 			t.Fatalf("executor bake failed: %v\n%s", err, execOut)
 		}
-		if !strings.Contains(string(execOut), "Using caching version of base image") && !strings.Contains(string(execOut), "Found cached base image") {
-			// different kaniko versions/logs; accept either cache-hit indicator
-			if !strings.Contains(strings.ToLower(string(execOut)), "cache") {
-				t.Logf("warning: did not find explicit cache hit marker, build succeeded with warmed cache present")
-			}
+		execOutStr := string(execOut)
+		if !strings.Contains(execOutStr, "Using caching version of base image") && !strings.Contains(execOutStr, "Found cached base image") {
+			t.Fatalf("expected base-image cache hit in executor output, got:\n%s", execOutStr)
+		}
+		if strings.Contains(execOutStr, "Error while retrieving image from cache") {
+			t.Fatalf("unexpected cache-load error in executor output:\n%s", execOutStr)
 		}
 	})
 
@@ -3048,23 +3050,23 @@ func TestWarmerBake(t *testing.T) {
 		if !strings.Contains(string(out)+err.Error(), "mixing per-target oci caches with shared --cache-dir is not supported") {
 			t.Fatalf("expected mixing error message, got: %v\n%s", err, out)
 		}
-		entries, _ := os.ReadDir(cacheHost)
+		entries, err := os.ReadDir(cacheHost)
+		if err != nil {
+			t.Fatalf("reading cache dir: %v", err)
+		}
 		if len(entries) != 0 {
 			t.Fatalf("expected no cache dirs created on mixing error, got: %v", entries)
 		}
 	})
 
-	t.Run("mixing_error_named_subset", func(t *testing.T) {
+	t.Run("named_non_oci_from_mixed_ok", func(t *testing.T) {
 		t.Parallel()
 		ctxDir := filepath.Join(cwd, "bakefiles", "test_warmer_bake_mixed")
 		cacheHost := t.TempDir()
-		// a has oci, b does not -> mixed subset
-		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "a", "b", "--cache-dir=/workspace/cache")
-		if err == nil {
-			t.Fatalf("expected mixing error, got success:\n%s", out)
-		}
-		if !strings.Contains(string(out)+err.Error(), "mixing per-target oci caches with shared --cache-dir is not supported") {
-			t.Fatalf("expected mixing error message, got: %v\n%s", err, out)
+		// b has no oci in a mixed bakefile; selecting only b is a consistent (shared) subset
+		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "b", "--dryrun", "--cache-dir=/workspace/cache")
+		if err != nil {
+			t.Fatalf("expected named non-oci target from mixed bakefile to be allowed when selected alone: %v\n%s", err, out)
 		}
 	})
 
@@ -3072,7 +3074,7 @@ func TestWarmerBake(t *testing.T) {
 		t.Parallel()
 		ctxDir := filepath.Join(cwd, "bakefiles", "test_warmer_bake_mixed")
 		cacheHost := t.TempDir()
-		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "a", "c", "--dryrun", "--cache-dir=/workspace/cache")
+		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "a", "--dryrun", "--cache-dir=/workspace/cache")
 		if err != nil {
 			t.Fatalf("expected named oci-only subset to be allowed: %v\n%s", err, out)
 		}

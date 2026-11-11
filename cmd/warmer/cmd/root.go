@@ -78,7 +78,8 @@ var RootCmd = &cobra.Command{
 		}
 
 		if !opts.Dryrun {
-			if err := os.MkdirAll(opts.CacheDir, 0o755); err != nil {
+			err := os.MkdirAll(opts.CacheDir, 0o755)
+			if err != nil {
 				return fmt.Errorf("failed to create cache directory: %w", err)
 			}
 		}
@@ -198,9 +199,12 @@ every target must have an oci: cache_from entry or none may.`,
 			cacheDir := warmer.TargetCacheDir(&t, globalCacheDir)
 			dockerfilePath := t.Dockerfile
 			if dockerfilePath == "" {
+				dockerfilePath = opts.DockerfilePath
+			}
+			if dockerfilePath == "" && !bakePrint {
 				return fmt.Errorf("target %q has no dockerfile", t.ID)
 			}
-			if !filepath.IsAbs(dockerfilePath) {
+			if dockerfilePath != "" && !filepath.IsAbs(dockerfilePath) {
 				if t.Context != "" {
 					ctx := t.Context
 					if !filepath.IsAbs(ctx) && !strings.Contains(ctx, "://") {
@@ -209,12 +213,20 @@ every target must have an oci: cache_from entry or none may.`,
 					if !strings.Contains(ctx, "://") {
 						dockerfilePath = filepath.Join(ctx, dockerfilePath)
 					} else {
-						// Dockerfile relative to remote context is not supported for warmer
-						dockerfilePath = filepath.Join(bakefile.Dir, dockerfilePath)
+						return fmt.Errorf("target %q: relative dockerfile with remote context is not supported", t.ID)
 					}
 				} else {
 					dockerfilePath = filepath.Join(bakefile.Dir, dockerfilePath)
 				}
+			}
+
+			if bakePrint {
+				plans = append(plans, bakeTargetPlan{
+					ID:         t.ID,
+					CacheDir:   cacheDir,
+					Dockerfile: dockerfilePath,
+				})
+				continue
 			}
 
 			topts := *opts
@@ -222,7 +234,7 @@ every target must have an oci: cache_from entry or none may.`,
 			topts.CacheDir = cacheDir
 			topts.Images = nil
 			topts.Dryrun = false
-			images, err := warmer.ParseDockerfile(&topts)
+			images, err := warmer.ParseDockerfileForStage(&topts, t.Stage)
 			if err != nil {
 				return fmt.Errorf("target %q: parsing dockerfile %s: %w", t.ID, dockerfilePath, err)
 			}
@@ -271,7 +283,8 @@ every target must have an oci: cache_from entry or none may.`,
 		}
 
 		for _, w := range works {
-			if err := os.MkdirAll(w.cacheDir, 0o755); err != nil {
+			err := os.MkdirAll(w.cacheDir, 0o755)
+			if err != nil {
 				return fmt.Errorf("failed to create cache directory %s: %w", w.cacheDir, err)
 			}
 			if err := warmer.WarmImagesInto(w.cacheDir, w.images, w.opts); err != nil {

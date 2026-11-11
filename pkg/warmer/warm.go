@@ -311,6 +311,17 @@ func (w *OciWarmer) Write(cacheRef name.Reference, img v1.Image) error {
 }
 
 func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
+	return parseDockerfile(opts, "")
+}
+
+// ParseDockerfileForStage parses the Dockerfile and returns base images needed to
+// build the given stage, including its dependency stages. If stage is empty, all
+// stages are considered.
+func ParseDockerfileForStage(opts *config.WarmerOptions, stage string) ([]string, error) {
+	return parseDockerfile(opts, stage)
+}
+
+func parseDockerfile(opts *config.WarmerOptions, targetStage string) ([]string, error) {
 	var err error
 	var d []uint8
 	var baseNames []string
@@ -386,8 +397,17 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 	if config.FF.WarmerBuildArgs {
 		args = append(args, opts.BuildArgs...)
 	}
+
+	included, err := includedStageIndices(stages, targetStage)
+	if err != nil {
+		return nil, err
+	}
+
 outer:
 	for i, s := range stages {
+		if targetStage != "" && !included[i] {
+			continue
+		}
 		resolvedBaseName, err := util.ResolveEnvironmentReplacement(s.BaseName, args, false)
 		if err != nil {
 			return nil, fmt.Errorf("resolving base name %s: %w", s.BaseName, err)
@@ -424,7 +444,10 @@ outer:
 				stageByName[s.Name] = idx
 			}
 		}
-		for _, s := range stages {
+		for idx, s := range stages {
+			if targetStage != "" && !included[idx] {
+				continue
+			}
 			for _, cmd := range s.Commands {
 				c, ok := cmd.(*instructions.CopyCommand)
 				if !ok || c.From == "" {
@@ -448,6 +471,72 @@ outer:
 	}
 
 	return baseNames, nil
+}
+
+func includedStageIndices(stages []instructions.Stage, targetStage string) (map[int]bool, error) {
+	if targetStage == "" {
+		return nil, nil
+	}
+	targetIdx, err := findStageIndex(stages, targetStage)
+	if err != nil {
+		return nil, err
+	}
+	included := map[int]bool{}
+	var add func(int)
+	add = func(i int) {
+		if i < 0 || i >= len(stages) || included[i] {
+			return
+		}
+		included[i] = true
+		if j, ok := stageRefIndex(stages, stages[i].BaseName); ok {
+			add(j)
+		}
+		if config.FF.CacheCopyFrom {
+			for _, cmd := range stages[i].Commands {
+				c, ok := cmd.(*instructions.CopyCommand)
+				if !ok || c.From == "" {
+					continue
+				}
+				if j, ok := stageRefIndex(stages, c.From); ok {
+					add(j)
+				}
+			}
+		}
+	}
+	add(targetIdx)
+	return included, nil
+}
+
+func findStageIndex(stages []instructions.Stage, target string) (int, error) {
+	if idx, err := strconv.Atoi(target); err == nil {
+		if idx >= 0 && idx < len(stages) {
+			return idx, nil
+		}
+		return -1, fmt.Errorf("target stage %d not found", idx)
+	}
+	for i, s := range stages {
+		if strings.EqualFold(s.Name, target) {
+			return i, nil
+		}
+	}
+	return -1, fmt.Errorf("target stage %q not found", target)
+}
+
+func stageRefIndex(stages []instructions.Stage, ref string) (int, bool) {
+	if ref == "" {
+		return -1, false
+	}
+	for i, s := range stages {
+		if s.Name != "" && strings.EqualFold(s.Name, ref) {
+			return i, true
+		}
+	}
+	if idx, err := strconv.Atoi(ref); err == nil {
+		if idx >= 0 && idx < len(stages) {
+			return idx, true
+		}
+	}
+	return -1, false
 }
 
 // TargetCacheDir returns the OCI layout directory a resolved bake target should be
