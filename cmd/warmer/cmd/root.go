@@ -72,7 +72,8 @@ var RootCmd = &cobra.Command{
 		}
 
 		if opts.DockerfilePath != "" {
-			if err := validateDockerfilePath(); err != nil {
+			err := validateDockerfilePath()
+			if err != nil {
 				return fmt.Errorf("error validating dockerfile path: %w", err)
 			}
 		}
@@ -83,7 +84,8 @@ var RootCmd = &cobra.Command{
 				return fmt.Errorf("failed to create cache directory: %w", err)
 			}
 		}
-		if err := warmer.WarmCache(opts); err != nil {
+		err := warmer.WarmCache(opts)
+		if err != nil {
 			return fmt.Errorf("failed warming cache: %w", err)
 		}
 		util.LogRegistryConnections()
@@ -92,7 +94,8 @@ var RootCmd = &cobra.Command{
 }
 
 func configureWarmerCommon(opts *config.WarmerOptions) error {
-	if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {
+	err := logging.Configure(logLevel, logFormat, logTimestamp)
+	if err != nil {
 		return err
 	}
 	config.LogFeatureFlags()
@@ -104,7 +107,8 @@ func configureWarmerCommon(opts *config.WarmerOptions) error {
 	// some users use warmer with --regisry-mirror before v1.21.0
 	// TODO may need all executors validation in here
 
-	if val, ok := os.LookupEnv("KANIKO_REGISTRY_MAP"); ok {
+	val, ok := os.LookupEnv("KANIKO_REGISTRY_MAP")
+	if ok {
 		err := opts.RegistryMaps.Set(val)
 		if err != nil {
 			return err
@@ -172,18 +176,22 @@ every target must have an oci: cache_from entry or none may.`,
 			}
 			overrides = append(overrides, o)
 		}
-		if err := bake.ApplyOverrides(targets, overrides); err != nil {
+		err = bake.ApplyOverrides(targets, overrides)
+		if err != nil {
 			return err
 		}
 
-		if err := validateBakeCacheConsistency(targets); err != nil {
+		err = validateBakeCacheConsistency(targets)
+		if err != nil {
 			return err
 		}
 
 		globalCacheDir := opts.CacheDir
-		if ociDir, ok, err := globalOCICacheDirFromFlags(bakeCacheFrom); err != nil {
+		ociDir, ok, err := globalOCICacheDirFromFlags(bakeCacheFrom)
+		if err != nil {
 			return err
-		} else if ok {
+		}
+		if ok {
 			globalCacheDir = ociDir
 		}
 
@@ -240,7 +248,8 @@ every target must have an oci: cache_from entry or none may.`,
 			}
 			if opts.RequireDigest {
 				for _, img := range images {
-					if _, err := name.NewDigest(img); err != nil {
+					_, err := name.NewDigest(img)
+					if err != nil {
 						return fmt.Errorf("--require-digest: %w", err)
 					}
 				}
@@ -273,7 +282,8 @@ every target must have an oci: cache_from entry or none may.`,
 				if err != nil {
 					return err
 				}
-				if err := warmer.RenderPlan(os.Stdout, works[i].images, works[i].opts); err != nil {
+				err = warmer.RenderPlan(os.Stdout, works[i].images, works[i].opts)
+				if err != nil {
 					return err
 				}
 			}
@@ -287,7 +297,8 @@ every target must have an oci: cache_from entry or none may.`,
 			if err != nil {
 				return fmt.Errorf("failed to create cache directory %s: %w", w.cacheDir, err)
 			}
-			if err := warmer.WarmImagesInto(w.cacheDir, w.images, w.opts); err != nil {
+			err = warmer.WarmImagesInto(w.cacheDir, w.images, w.opts)
+			if err != nil {
 				return err
 			}
 		}
@@ -407,7 +418,8 @@ func AddWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
 	if opts.CustomPlatform == "" {
 		opts.CustomPlatform = platforms.Format(platforms.Normalize(platforms.DefaultSpec()))
 	}
-	if _, err := v1.ParsePlatform(opts.CustomPlatform); err != nil {
+	_, err := v1.ParsePlatform(opts.CustomPlatform)
+	if err != nil {
 		logrus.Fatalf("Invalid platform %q: %v", opts.CustomPlatform, err)
 	}
 }
