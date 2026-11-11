@@ -396,9 +396,3 @@ func isURL(path string) bool {
 	}
 	return false
 }
-
-func exit(err error) {
-	fmt.Println(err)
-	util.LogRegistryConnections()
-	os.Exit(1)
-}
