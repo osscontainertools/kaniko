@@ -1,0 +1,7 @@
+# mz1126: predefined platform args resolve to empty in global ARG defaults.
+# Fails on v1.28.5 with a pull of the image "base-".
+# A global ARG default sees TARGETARCH like FROM does.
+ARG BASE=base-${TARGETARCH}
+FROM busybox:1.38 AS base-amd64
+FROM busybox:1.38 AS base-arm64
+FROM ${BASE}

@@ -29,7 +29,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/containerd/platforms"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -331,7 +330,15 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 		return nil, fmt.Errorf("parsing dockerfile: %w", err)
 	}
 
-	var prevArgs []string
+	var predefinedArgs []string
+	if config.FF.WarmerPredefinedArgs {
+		predefinedArgs, err = dockerfile.PredefinedArgs(opts.CustomPlatform)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	prevArgs := slices.Clone(predefinedArgs)
 	for i, marg := range metaArgs {
 		for j, arg := range marg.Args {
 			if arg.Value != nil {
@@ -351,23 +358,7 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 		args = nil
 	}
 	if config.FF.WarmerPredefinedArgs {
-		build := platforms.Normalize(platforms.DefaultSpec())
-		target, err := platforms.Parse(opts.CustomPlatform)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse target platform %q: %w", opts.CustomPlatform, err)
-		}
-		args = append([]string{
-			"BUILDPLATFORM=" + platforms.Format(build),
-			"BUILDOS=" + build.OS,
-			"BUILDOSVERSION=" + build.OSVersion,
-			"BUILDARCH=" + build.Architecture,
-			"BUILDVARIANT=" + build.Variant,
-			"TARGETPLATFORM=" + opts.CustomPlatform,
-			"TARGETOS=" + target.OS,
-			"TARGETOSVERSION=" + target.OSVersion,
-			"TARGETARCH=" + target.Architecture,
-			"TARGETVARIANT=" + target.Variant,
-		}, args...)
+		args = append(predefinedArgs, args...)
 	}
 	for _, marg := range metaArgs {
 		for _, arg := range marg.Args {

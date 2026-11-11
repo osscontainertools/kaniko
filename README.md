@@ -1471,7 +1471,7 @@ Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_FROM_PREDEFINED_ARGS`
 
-The predefined platform args such as `TARGETARCH` resolve to empty in `FROM`.
+The predefined platform args such as `TARGETARCH` resolve to empty in `FROM` and in global `ARG` defaults.
 Set this flag to `true` to resolve them from `--customPlatform` and the host.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
@@ -1750,7 +1750,7 @@ Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_WARMER_PREDEFINED_ARGS`
 
-In warmer the predefined platform args such as `TARGETARCH` resolve to empty in `FROM`.
+In warmer the predefined platform args such as `TARGETARCH` resolve to empty in `FROM` and in global `ARG` defaults.
 Set this flag to `true` to resolve them from `--customPlatform` and the host.
 Defaults to `false`.
 Becomes default in `v1.30.0`.

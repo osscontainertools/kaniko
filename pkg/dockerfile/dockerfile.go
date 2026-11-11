@@ -69,7 +69,14 @@ func ParseStages(opts *config.KanikoOptions) ([]instructions.Stage, []instructio
 		return nil, nil, fmt.Errorf("parsing dockerfile: %w", err)
 	}
 
-	metaArgs, err = expandNestedArgs(metaArgs, opts.BuildArgs)
+	var predefinedArgs []string
+	if config.FF.FromPredefinedArgs {
+		predefinedArgs, err = PredefinedArgs(opts.CustomPlatform)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	metaArgs, err = expandNestedArgs(metaArgs, predefinedArgs, opts.BuildArgs)
 	if err != nil {
 		return nil, nil, fmt.Errorf("expanding meta ARGs: %w", err)
 	}
@@ -129,8 +136,8 @@ func Parse(b []byte) ([]instructions.Stage, []instructions.ArgCommand, error) {
 }
 
 // expandNestedArgs tries to resolve nested ARG value against the previously defined ARGs
-func expandNestedArgs(metaArgs []instructions.ArgCommand, buildArgs []string) ([]instructions.ArgCommand, error) {
-	var prevArgs []string
+func expandNestedArgs(metaArgs []instructions.ArgCommand, predefinedArgs, buildArgs []string) ([]instructions.ArgCommand, error) {
+	prevArgs := predefinedArgs
 	for i, marg := range metaArgs {
 		for j, arg := range marg.Args {
 			v := arg.Value
@@ -344,23 +351,11 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 
 	args := unifyArgs(metaArgs, opts.BuildArgs)
 	if config.FF.FromPredefinedArgs {
-		build := platforms.Normalize(platforms.DefaultSpec())
-		target, err := platforms.Parse(opts.CustomPlatform)
+		predefinedArgs, err := PredefinedArgs(opts.CustomPlatform)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse target platform %q: %w", opts.CustomPlatform, err)
+			return nil, err
 		}
-		args = append([]string{
-			"BUILDPLATFORM=" + platforms.Format(build),
-			"BUILDOS=" + build.OS,
-			"BUILDOSVERSION=" + build.OSVersion,
-			"BUILDARCH=" + build.Architecture,
-			"BUILDVARIANT=" + build.Variant,
-			"TARGETPLATFORM=" + opts.CustomPlatform,
-			"TARGETOS=" + target.OS,
-			"TARGETOSVERSION=" + target.OSVersion,
-			"TARGETARCH=" + target.Architecture,
-			"TARGETVARIANT=" + target.Variant,
-		}, args...)
+		args = append(predefinedArgs, args...)
 	}
 	if err := resolveStagesArgs(stages, args); err != nil {
 		return nil, fmt.Errorf("resolving args: %w", err)
@@ -480,6 +475,27 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		}
 	}
 	return onlyUsedStages, nil
+}
+
+// PredefinedArgs returns the platform args that FROM and global ARG defaults resolve without a declaration.
+func PredefinedArgs(customPlatform string) ([]string, error) {
+	build := platforms.Normalize(platforms.DefaultSpec())
+	target, err := platforms.Parse(customPlatform)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse target platform %q: %w", customPlatform, err)
+	}
+	return []string{
+		"BUILDPLATFORM=" + platforms.Format(build),
+		"BUILDOS=" + build.OS,
+		"BUILDOSVERSION=" + build.OSVersion,
+		"BUILDARCH=" + build.Architecture,
+		"BUILDVARIANT=" + build.Variant,
+		"TARGETPLATFORM=" + customPlatform,
+		"TARGETOS=" + target.OS,
+		"TARGETOSVERSION=" + target.OSVersion,
+		"TARGETARCH=" + target.Architecture,
+		"TARGETVARIANT=" + target.Variant,
+	}, nil
 }
 
 // unifyArgs returns the unified args between metaArgs and --build-arg
