@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -64,27 +65,78 @@ def platform_dir_candidates(root: str, platform: str) -> List[str]:
     return out
 
 
+def _platform_match_keys(platform: str) -> List[str]:
+    norm = platform.replace("\\", "/").strip("/").lower()
+    keys = [norm, norm.replace("/", "_"), norm.replace("/", "-")]
+    if norm.startswith("linux/"):
+        rest = norm[len("linux/"):]
+        keys.extend([rest, rest.replace("/", "_"), rest.replace("/", "-")])
+    # de-dup preserve order, prefer more specific (longer) keys first
+    seen: Set[str] = set()
+    uniq: List[str] = []
+    for k in keys:
+        if k and k not in seen:
+            seen.add(k)
+            uniq.append(k)
+    uniq.sort(key=len, reverse=True)
+    return uniq
+
+
+def _file_matches_platform(path: str, platform: str) -> bool:
+    hay = path.replace("\\", "/").lower()
+    for key in _platform_match_keys(platform):
+        # match as complete token/component sequence in filename/path
+        if re.search(r"(?<![a-z0-9])" + re.escape(key) + r"(?![a-z0-9])", hay):
+            return True
+    return False
+
+
+def map_files_to_platforms(files: List[str], platforms: List[str], base_dir: str) -> List[str]:
+    remaining = list(files)
+    mapped: List[str] = []
+    missing: List[str] = []
+    for plat in platforms:
+        candidates = [f for f in remaining if _file_matches_platform(os.path.relpath(f, base_dir), plat) or _file_matches_platform(os.path.basename(f), plat)]
+        if len(candidates) != 1:
+            missing.append(plat)
+            continue
+        chosen = candidates[0]
+        mapped.append(chosen)
+        remaining.remove(chosen)
+    if missing or remaining:
+        print("ERROR: could not map every provenance file to a unique expected platform.", file=sys.stderr)
+        if missing:
+            print(f"  Unmapped/missing expected platforms: {missing}", file=sys.stderr)
+        if remaining:
+            print(f"  Unmapped provenance files: {remaining}", file=sys.stderr)
+        print(f"  Expected platforms: {platforms}", file=sys.stderr)
+        sys.exit(1)
+    return mapped
+
+
 def resolve_inputs(input_path: str, expected_platforms: Optional[str]) -> List[str]:
     if input_path == "-":
         return ["-"]
     if os.path.isdir(input_path):
+        plats = parse_platforms(expected_platforms)
         found = find_provenance_files(input_path)
-        if not found:
-            plats = parse_platforms(expected_platforms)
-            if plats:
-                for plat in plats:
-                    pf: Optional[str] = None
-                    for pdir in platform_dir_candidates(input_path, plat):
-                        pfiles = find_provenance_files(pdir)
-                        if pfiles:
-                            pf = pfiles[0]
-                            break
-                    if pf:
-                        found.append(pf)
+        if not found and plats:
+            mapped: List[str] = []
+            for plat in plats:
+                pf: Optional[str] = None
+                for pdir in platform_dir_candidates(input_path, plat):
+                    pfiles = find_provenance_files(pdir)
+                    if pfiles:
+                        pf = pfiles[0]
+                        break
+                if pf:
+                    mapped.append(pf)
+            found = mapped
+        elif found and plats:
+            found = map_files_to_platforms(found, plats, input_path)
         if not found:
             print(f"ERROR: no provenance*.json found under directory: {input_path}", file=sys.stderr)
             sys.exit(1)
-        plats = parse_platforms(expected_platforms)
         if plats and len(found) != len(plats):
             print(f"ERROR: provenance file count {len(found)} does not match expected platforms {len(plats)} ({expected_platforms}). Found:", file=sys.stderr)
             for f in found:
