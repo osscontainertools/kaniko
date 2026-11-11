@@ -205,6 +205,9 @@ jobs:
         env:
           # Fail if any platform's provenance file is missing from the export.
           EXPECTED_PLATFORMS: ${{ steps.platforms.outputs.platforms }}
+        # deploy/Dockerfile is passed via file: and is outside the build context, so
+        # BuildKit may report resolvedDependencies completeness as false; the verifier
+        # still checks all resolved HTTP(S) dependencies against deploy/expected-dependencies.json.
         run: ./scripts/verify-provenance.py "${{ runner.temp }}/kaniko-export" deploy/expected-dependencies.json
 
       # Push only reached if verify passed. Uses crane to preserve multi-platform.
@@ -236,10 +239,12 @@ jobs:
           IMAGE_REPO: ${{ steps.context.outputs.image_name }}
           PUSHED_DIGEST: ${{ steps.build-and-push.outputs.digest }}
           ISSUER: https://token.actions.githubusercontent.com
-          IDENTITY_RE: 'https://github.com/${{ github.repository }}/.github/workflows/images.yaml@.*'
           EXPECTED_PLATFORMS: ${{ steps.platforms.outputs.platforms }}
         run: |
           set -euo pipefail
+          # Pin to this repo's images workflow on branch/tag refs; escape regex metacharacters.
+          REPO_ESCAPED=$(printf '%s' "$GITHUB_REPOSITORY" | sed 's/[][(){}.^$*+?|\\]/\\&/g')
+          IDENTITY_RE="^https://github.com/${REPO_ESCAPED}/\\.github/workflows/images\\.yaml@refs/(heads|tags)/.+$"
           INDEX_IMAGE="${IMAGE_REPO}@${PUSHED_DIGEST}"
           cosign sign --yes "$INDEX_IMAGE"
 
@@ -251,21 +256,31 @@ jobs:
             --identity-regexp "$IDENTITY_RE" \
             --expected-platforms "$EXPECTED_PLATFORMS"
 
-          # For a multi-arch index, attestations are per-platform (verified above). For a
-          # single-arch image the index and manifest may coincide. Best-effort index check:
-          if out=$(cosign verify-attestation \
-            --type slsaprovenance \
-            --certificate-oidc-issuer "$ISSUER" \
-            --certificate-identity-regexp "$IDENTITY_RE" \
-            "$INDEX_IMAGE" 2>&1); then
-            echo "OK: provenance attestation verified for index $INDEX_IMAGE"
-          else
-            if echo "$out" | grep -qi 'no matching attestations'; then
-              echo "INFO: no direct provenance attestation on index $INDEX_IMAGE (per-platform attestations verified above)"
+          # Index-level provenance check: multi-platform images publish per-platform attestations
+          # (verified above) and the index has no direct provenance; single-platform images do.
+          IFS=',' read -r -a _platforms <<< "$EXPECTED_PLATFORMS"
+          if [[ ${#_platforms[@]} -gt 1 ]]; then
+            if out=$(cosign verify-attestation \
+              --type slsaprovenance \
+              --certificate-oidc-issuer "$ISSUER" \
+              --certificate-identity-regexp "$IDENTITY_RE" \
+              "$INDEX_IMAGE" 2>&1); then
+              echo "OK: provenance attestation verified for multi-arch index $INDEX_IMAGE"
             else
-              echo "WARN: index-level provenance verification failed for $INDEX_IMAGE (per-platform attestations verified above):" >&2
-              echo "$out" >&2
+              if echo "$out" | grep -qi 'no matching attestations'; then
+                echo "INFO: no direct provenance attestation on multi-arch index $INDEX_IMAGE (per-platform attestations verified above)"
+              else
+                echo "WARN: index-level provenance verification failed for multi-arch index $INDEX_IMAGE (per-platform attestations verified above):" >&2
+                echo "$out" >&2
+              fi
             fi
+          else
+            cosign verify-attestation \
+              --type slsaprovenance \
+              --certificate-oidc-issuer "$ISSUER" \
+              --certificate-identity-regexp "$IDENTITY_RE" \
+              "$INDEX_IMAGE"
+            echo "OK: provenance attestation verified for single-platform image $INDEX_IMAGE"
           fi
 
           # Attest and verify per-platform SBOMs (SPDX predicate, schema+subject+predicate match).

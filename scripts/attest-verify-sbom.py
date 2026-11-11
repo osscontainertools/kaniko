@@ -22,14 +22,16 @@ schema, bound subject, exact predicate). Requires coverage for every expected
 platform.
 """
 
+from __future__ import annotations
+
 import argparse
 import glob
 import json
 import os
 import re
 import subprocess
-import sys
 import tempfile
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from oci_attestation_utils import (
     collect_platforms,
@@ -40,30 +42,25 @@ from oci_attestation_utils import (
 )
 
 
-def parse_platforms(raw):
-    return [p.strip() for p in (raw or "").split(",") if p.strip()]
-
-
-def platform_tokens(plat):
+def platform_tokens(plat: str) -> List[str]:
     parts = [x for x in plat.split("/") if x]
     if len(parts) < 2:
         return []
     os_name, arch = parts[0], parts[1]
     variant = parts[2] if len(parts) > 2 else None
-    toks = []
+    toks: List[str] = []
     if variant:
-        toks.append(f"{os_name}/{arch}/{variant}")
-        toks.append(f"{os_name}-{arch}-{variant}")
-        toks.append(f"{os_name}_{arch}_{variant}")
-        toks.append(f"{arch}-{variant}")
-        toks.append(f"{arch}_{variant}")
-        toks.append(f"{arch}{variant}")
-    toks.append(f"{os_name}/{arch}")
-    toks.append(f"{os_name}-{arch}")
-    toks.append(f"{os_name}_{arch}")
-    toks.append(arch)
-    seen = set()
-    out = []
+        toks.extend([
+            f"{os_name}/{arch}/{variant}",
+            f"{os_name}-{arch}-{variant}",
+            f"{os_name}_{arch}_{variant}",
+            f"{arch}-{variant}",
+            f"{arch}_{variant}",
+            f"{arch}{variant}",
+        ])
+    toks.extend([f"{os_name}/{arch}", f"{os_name}-{arch}", f"{os_name}_{arch}", arch])
+    seen: Set[str] = set()
+    out: List[str] = []
     for t in toks:
         if t and t not in seen:
             seen.add(t)
@@ -71,21 +68,28 @@ def platform_tokens(plat):
     return out
 
 
-def has_token(text, token):
+def has_token(text: str, token: str) -> bool:
     return re.search(r"(?<![A-Za-z0-9])" + re.escape(token) + r"(?![A-Za-z0-9])", text) is not None
 
 
-def match_target(path, stmt_or_doc, digest_to_platform, platform_to_digest):
-    if isinstance(stmt_or_doc, dict) and stmt_or_doc.get("_type", "").startswith("https://in-toto.io/Statement"):
+def match_target(
+    path: str,
+    stmt_or_doc: Any,
+    digest_to_platform: Dict[str, str],
+    platform_to_digest: Dict[str, str],
+) -> Tuple[Optional[str], Optional[str]]:
+    if isinstance(stmt_or_doc, dict) and str(stmt_or_doc.get("_type", "")).startswith("https://in-toto.io/Statement"):
         subs = stmt_or_doc.get("subject") or []
         for sub in subs:
+            if not isinstance(sub, dict):
+                continue
             d = (sub.get("digest") or {}).get("sha256")
             if d:
-                cand = "sha256:" + d
+                cand = "sha256:" + str(d)
                 if cand in digest_to_platform:
                     return cand, digest_to_platform[cand]
     low = path.lower().replace("\\", "/")
-    candidates = []
+    candidates: List[Tuple[int, int, str, str]] = []
     for plat, dig in platform_to_digest.items():
         toks = platform_tokens(plat.lower())
         matched = [t for t in toks if has_token(low, t)]
@@ -103,7 +107,7 @@ def match_target(path, stmt_or_doc, digest_to_platform, platform_to_digest):
     return None, None
 
 
-def main():
+def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--export-dir", required=True)
     ap.add_argument("--oci-layout", required=True)
@@ -117,25 +121,27 @@ def main():
 
     with open(os.path.join(args.oci_layout, "index.json")) as f:
         idx = json.load(f)
-    digest_to_platform = {}
-    platform_to_digest = {}
+    digest_to_platform: Dict[str, str] = {}
+    platform_to_digest: Dict[str, str] = {}
     collect_platforms(args.oci_layout, idx.get("manifests") or [], digest_to_platform, platform_to_digest)
 
-    sbom_files = sorted(set(glob.glob(os.path.join(args.export_dir, "**", "sbom*.spdx.json"), recursive=True) +
-                             glob.glob(os.path.join(args.export_dir, "**", "sbom*.json"), recursive=True) +
-                             glob.glob(os.path.join(args.export_dir, "sbom*.spdx.json")) +
-                             glob.glob(os.path.join(args.export_dir, "sbom*.json"))))
+    sbom_files = sorted(set(
+        glob.glob(os.path.join(args.export_dir, "**", "sbom*.spdx.json"), recursive=True)
+        + glob.glob(os.path.join(args.export_dir, "**", "sbom*.json"), recursive=True)
+        + glob.glob(os.path.join(args.export_dir, "sbom*.spdx.json"))
+        + glob.glob(os.path.join(args.export_dir, "sbom*.json"))
+    ))
     sbom_files = [p for p in sbom_files if os.path.isfile(p)]
     if not sbom_files:
         raise SystemExit("no sbom*.json found in export (SBOM attestation required)")
 
-    attested = set()
+    attested: Set[str] = set()
     for path in sbom_files:
         with open(path) as f:
             obj = json.load(f)
-        if isinstance(obj, dict) and obj.get("_type", "").startswith("https://in-toto.io/Statement") and "predicate" in obj:
+        if isinstance(obj, dict) and str(obj.get("_type", "")).startswith("https://in-toto.io/Statement") and "predicate" in obj:
             pred = obj["predicate"]
-            stmt_like = obj
+            stmt_like: Any = obj
         else:
             pred = obj
             stmt_like = obj
