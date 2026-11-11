@@ -470,9 +470,12 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	return onlyUsedStages, nil
 }
 
-// PredefinedArgs returns the platform args that FROM and global ARG defaults resolve without a declaration.
+// PredefinedArgs returns the predefined platform args, targeting the host when customPlatform is empty.
 func PredefinedArgs(customPlatform string) ([]string, error) {
 	build := platforms.Normalize(platforms.DefaultSpec())
+	if customPlatform == "" {
+		customPlatform = platforms.Format(build)
+	}
 	target, err := platforms.Parse(customPlatform)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse target platform %q: %w", customPlatform, err)

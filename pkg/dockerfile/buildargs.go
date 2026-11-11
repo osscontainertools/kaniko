@@ -21,7 +21,6 @@ import (
 	"maps"
 	"strings"
 
-	"github.com/containerd/platforms"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/assert"
 )
@@ -201,18 +200,9 @@ func convertKVStringsToMap(values []string) map[string]*string {
 
 // Initialize predefined build args s.a.: TARGETOS, TARGETARCH, BUILDPLATFORM, TARGETPLATFORM ...
 func (b *BuildArgs) InitPredefinedArgs(customPlatform string, lastStage string) error {
-	buildSpec := platforms.Normalize(platforms.DefaultSpec())
-	build := platforms.Format(buildSpec)
-
-	target := build
-	targetSpec := buildSpec
-	var err error
-	if customPlatform != "" {
-		target = customPlatform
-		targetSpec, err = platforms.Parse(customPlatform)
-		if err != nil {
-			return fmt.Errorf("failed to parse target platform %q: %v", customPlatform, err)
-		}
+	predefinedArgs, err := PredefinedArgs(customPlatform)
+	if err != nil {
+		return err
 	}
 
 	targetStage := "default"
@@ -220,18 +210,6 @@ func (b *BuildArgs) InitPredefinedArgs(customPlatform string, lastStage string) 
 		targetStage = lastStage
 	}
 
-	b.predefinedArgs = map[string]*string{
-		"BUILDPLATFORM":   &build,
-		"BUILDOS":         &buildSpec.OS,
-		"BUILDOSVERSION":  &buildSpec.OSVersion,
-		"BUILDARCH":       &buildSpec.Architecture,
-		"BUILDVARIANT":    &buildSpec.Variant,
-		"TARGETPLATFORM":  &target,
-		"TARGETOS":        &targetSpec.OS,
-		"TARGETOSVERSION": &targetSpec.OSVersion,
-		"TARGETARCH":      &targetSpec.Architecture,
-		"TARGETVARIANT":   &targetSpec.Variant,
-		"TARGETSTAGE":     &targetStage,
-	}
+	b.predefinedArgs = convertKVStringsToMap(append(predefinedArgs, "TARGETSTAGE="+targetStage))
 	return nil
 }
