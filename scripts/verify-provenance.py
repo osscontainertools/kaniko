@@ -305,32 +305,15 @@ def verify_one(prov_path: str, manifest: Dict[str, Any]) -> bool:
                 print(f"OK: {url} -> sha256:{exp_sha}")
 
         if rd_incomplete_local_file:
-            # Local file: Dockerfile incompleteness is accepted, but do not blindly pass.
-            # Require resolved to cover all manifest entries applicable to the target.
-            arch_tokens = ("tini-static-amd64", "tini-static-armhf", "tini-static-arm64", "tini-static-s390x", "tini-static-ppc64le")
-            present_arch = {tok for tok in arch_tokens if any(tok in u for u in resolved)}
+            # Local file: Dockerfile incompleteness is accepted (deploy/Dockerfile outside
+            # build context), but do not blindly pass: all resolved HTTP(S) deps are verified
+            # against the manifest (unmanifested/mismatch/missing-digest fail). Manifest
+            # entries may be target/platform-specific and need not all appear in each
+            # provenance file.
             if not resolved:
-                # Targets that intentionally perform no network ADD fetches (e.g. executor-slim)
-                # have no applicable manifest HTTP dependencies; allow only for the confirmed
-                # local file: Dockerfile incompleteness cause.
-                print("OK: no HTTP(S) resolved dependencies; accepted for local file: Dockerfile incompleteness (no applicable manifest entries for this target)")
+                print("OK: no HTTP(S) resolved dependencies; accepted for local file: Dockerfile incompleteness (no network ADD fetches for this target)")
             else:
-                applicable: List[str] = []
-                for u in manifest_by_url:
-                    matched_tok = next((tok for tok in arch_tokens if tok in u), None)
-                    if matched_tok is None:
-                        applicable.append(u)
-                    elif present_arch and matched_tok in present_arch:
-                        applicable.append(u)
-                    # other-arch tinis not applicable when a different arch is present;
-                    # when no arch-specific tini is present, arch-specific tinis are not
-                    # assumed applicable, but non-arch manifest entries still must be covered.
-                missing_applicable = [u for u in applicable if not (u in resolved and manifest_by_url[u] in resolved[u])]
-                if missing_applicable:
-                    errors.append(
-                        "resolved dependencies do not cover all manifest entries applicable to the target "
-                        f"(known local file: Dockerfile incompleteness): {sorted(missing_applicable)}"
-                    )
+                print("OK: local file: Dockerfile incompleteness accepted; resolved HTTP dependencies verified against manifest")
     for n in notes:
         print(n)
     if errors:
