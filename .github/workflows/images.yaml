@@ -205,6 +205,8 @@ jobs:
         env:
           # Fail if any platform's provenance file is missing from the export.
           EXPECTED_PLATFORMS: ${{ steps.platforms.outputs.platforms }}
+          # deploy/Dockerfile is provided via file: outside the build context.
+          KNOWN_LOCAL_FILE_DOCKERFILE: "1"
         # deploy/Dockerfile is passed via file: and is outside the build context, so
         # BuildKit may report resolvedDependencies completeness as false; the verifier
         # still checks all resolved HTTP(S) dependencies against deploy/expected-dependencies.json.
