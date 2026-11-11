@@ -234,20 +234,41 @@ def verify_one(prov_path: str, manifest: Dict[str, Any]) -> bool:
 
     rd_true = has_true("resolvedDependencies") or has_true("materials")
     rd_false = has_explicit_false("resolvedDependencies") or has_explicit_false("materials")
+    rd_incomplete_local_file = False
+
+    def _has_local_file_dockerfile() -> bool:
+        # Confirm incompleteness attributable to known local file: Dockerfile source
+        # (deploy/Dockerfile passed via file: outside build context).
+        for pred in predicates:
+            bd = pred.get("buildDefinition") or {}
+            ep = bd.get("externalParameters") or {}
+            if isinstance(ep, dict):
+                cs = ep.get("configSource")
+                if isinstance(cs, dict):
+                    uri = str(cs.get("uri") or "")
+                    if uri.lower().startswith("file:") and "dockerfile" in uri.lower():
+                        return True
+                try:
+                    blob = json.dumps(ep, sort_keys=True).lower()
+                except Exception:
+                    blob = str(ep).lower()
+                if "file:" in blob and "dockerfile" in blob:
+                    return True
+        return False
+
     if rd_false:
-        if len(resolved) == 0:
-            notes.append(
-                f"INFO: buildkit_completeness.resolvedDependencies/materials explicitly false but no HTTP(S) dependencies resolved in provenance: {completeness}. "
-                "deploy/Dockerfile is outside the build context (file:). Accepting as no network dependencies to verify for this target."
-            )
-            print("OK: no HTTP(S) resolved dependencies reported (completeness false) for this provenance")
-        else:
+        if _has_local_file_dockerfile():
+            rd_incomplete_local_file = True
             notes.append(
                 f"INFO: buildkit_completeness.resolvedDependencies/materials explicitly false ({completeness}); "
-                f"continuing because {len(resolved)} HTTP(S) resolved dependency(ies) are present and will be verified against the manifest "
-                "(deploy/Dockerfile is outside the build context via file:)."
+                "accepted as caused by known local file: Dockerfile source outside build context. "
+                "Resolved HTTP(S) dependencies will be verified against manifest and must cover all manifest entries applicable to the target."
             )
-            print("WARN: resolvedDependencies/materials completeness flagged false; verifying resolved HTTP dependencies against manifest")
+            print("WARN: resolvedDependencies/materials completeness flagged false (known local file: Dockerfile); verifying resolved HTTP dependencies against manifest")
+        else:
+            errors.append(
+                f"buildkit_completeness.resolvedDependencies/materials explicitly false and not attributable to known local file: Dockerfile source: {completeness}"
+            )
     elif rd_true:
         print("OK: resolvedDependencies/materials completeness asserted")
     elif has_v1_resolved_deps_field:
@@ -282,6 +303,34 @@ def verify_one(prov_path: str, manifest: Dict[str, Any]) -> bool:
                 errors.append(f"digest MISMATCH for {url}: expected sha256:{exp_sha}, provenance has {sorted('sha256:'+g for g in got)}")
             else:
                 print(f"OK: {url} -> sha256:{exp_sha}")
+
+        if rd_incomplete_local_file:
+            # Local file: Dockerfile incompleteness is accepted, but do not blindly pass.
+            # Require resolved to cover all manifest entries applicable to the target.
+            arch_tokens = ("tini-static-amd64", "tini-static-armhf", "tini-static-arm64", "tini-static-s390x", "tini-static-ppc64le")
+            present_arch = {tok for tok in arch_tokens if any(tok in u for u in resolved)}
+            if not resolved:
+                # Targets that intentionally perform no network ADD fetches (e.g. executor-slim)
+                # have no applicable manifest HTTP dependencies; allow only for the confirmed
+                # local file: Dockerfile incompleteness cause.
+                print("OK: no HTTP(S) resolved dependencies; accepted for local file: Dockerfile incompleteness (no applicable manifest entries for this target)")
+            else:
+                applicable: List[str] = []
+                for u in manifest_by_url:
+                    matched_tok = next((tok for tok in arch_tokens if tok in u), None)
+                    if matched_tok is None:
+                        applicable.append(u)
+                    elif present_arch and matched_tok in present_arch:
+                        applicable.append(u)
+                    # other-arch tinis not applicable when a different arch is present;
+                    # when no arch-specific tini is present, arch-specific tinis are not
+                    # assumed applicable, but non-arch manifest entries still must be covered.
+                missing_applicable = [u for u in applicable if not (u in resolved and manifest_by_url[u] in resolved[u])]
+                if missing_applicable:
+                    errors.append(
+                        "resolved dependencies do not cover all manifest entries applicable to the target "
+                        f"(known local file: Dockerfile incompleteness): {sorted(missing_applicable)}"
+                    )
     for n in notes:
         print(n)
     if errors:
