@@ -398,20 +398,26 @@ func parseDockerfile(opts *config.WarmerOptions, targetStage string) ([]string, 
 		args = append(args, opts.BuildArgs...)
 	}
 
-	included, err := includedStageIndices(stages, targetStage)
+	resolvedBases := make([]string, len(stages))
+	for i, s := range stages {
+		resolvedBaseName, err := util.ResolveEnvironmentReplacement(s.BaseName, args, false)
+		if err != nil {
+			return nil, fmt.Errorf("resolving base name %s: %w", s.BaseName, err)
+		}
+		resolvedBases[i] = resolvedBaseName
+	}
+
+	included, err := includedStageIndices(stages, targetStage, resolvedBases)
 	if err != nil {
 		return nil, err
 	}
 
 outer:
-	for i, s := range stages {
+	for i := range stages {
 		if targetStage != "" && !included[i] {
 			continue
 		}
-		resolvedBaseName, err := util.ResolveEnvironmentReplacement(s.BaseName, args, false)
-		if err != nil {
-			return nil, fmt.Errorf("resolving base name %s: %w", s.BaseName, err)
-		}
+		resolvedBaseName := resolvedBases[i]
 		if resolvedBaseName == constants.NoBaseImage {
 			continue
 		}
@@ -473,7 +479,7 @@ outer:
 	return baseNames, nil
 }
 
-func includedStageIndices(stages []instructions.Stage, targetStage string) (map[int]bool, error) {
+func includedStageIndices(stages []instructions.Stage, targetStage string, resolvedBases []string) (map[int]bool, error) {
 	if targetStage == "" {
 		return nil, nil
 	}
@@ -488,7 +494,7 @@ func includedStageIndices(stages []instructions.Stage, targetStage string) (map[
 			return
 		}
 		included[i] = true
-		if j, ok := stageRefIndex(stages, stages[i].BaseName); ok {
+		if j, ok := stageRefIndex(stages, resolvedBases[i]); ok {
 			add(j)
 		}
 		if config.FF.CacheCopyFrom {
