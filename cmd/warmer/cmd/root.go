@@ -137,6 +137,9 @@ the targets to warm, or omit them to warm all. Each target's dockerfile is parse
 as a whole, its stage is ignored, and so are destination, cache_from and cache_to.`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
+		if len(opts.Images) > 0 {
+			return errors.New("--image cannot be used with bake, base images come from the targets' dockerfiles")
+		}
 		targets, err := bake.Load(args[0], args[1:], bakeSet)
 		if err != nil {
 			return err
