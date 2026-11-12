@@ -398,18 +398,34 @@ func parseDockerfile(opts *config.WarmerOptions, targetStage string) ([]string, 
 		args = append(args, opts.BuildArgs...)
 	}
 
-	resolvedBases := make([]string, len(stages))
-	for i, s := range stages {
-		resolvedBaseName, err := util.ResolveEnvironmentReplacement(s.BaseName, args, false)
-		if err != nil {
-			return nil, fmt.Errorf("resolving base name %s: %w", s.BaseName, err)
+	cache := make([]string, len(stages))
+	done := make([]bool, len(stages))
+	resolve := func(i int) (string, error) {
+		if done[i] {
+			return cache[i], nil
 		}
-		resolvedBases[i] = resolvedBaseName
+		v, err := util.ResolveEnvironmentReplacement(stages[i].BaseName, args, false)
+		if err != nil {
+			return "", fmt.Errorf("resolving base name %s: %w", stages[i].BaseName, err)
+		}
+		cache[i] = v
+		done[i] = true
+		return v, nil
 	}
 
-	included, err := includedStageIndices(stages, targetStage, resolvedBases)
-	if err != nil {
-		return nil, err
+	var included map[int]bool
+	if targetStage == "" {
+		for i := range stages {
+			_, err := resolve(i)
+			if err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		included, err = includedStageIndices(stages, targetStage, resolve)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 outer:
@@ -417,7 +433,10 @@ outer:
 		if targetStage != "" && !included[i] {
 			continue
 		}
-		resolvedBaseName := resolvedBases[i]
+		resolvedBaseName, err := resolve(i)
+		if err != nil {
+			return nil, err
+		}
 		if resolvedBaseName == constants.NoBaseImage {
 			continue
 		}
@@ -479,7 +498,7 @@ outer:
 	return baseNames, nil
 }
 
-func includedStageIndices(stages []instructions.Stage, targetStage string, resolvedBases []string) (map[int]bool, error) {
+func includedStageIndices(stages []instructions.Stage, targetStage string, resolve func(int) (string, error)) (map[int]bool, error) {
 	if targetStage == "" {
 		return nil, nil
 	}
@@ -488,14 +507,24 @@ func includedStageIndices(stages []instructions.Stage, targetStage string, resol
 		return nil, err
 	}
 	included := map[int]bool{}
-	var add func(int)
-	add = func(i int) {
+	var add func(int) error
+	add = func(i int) error {
 		if i < 0 || i >= len(stages) || included[i] {
-			return
+			return nil
 		}
 		included[i] = true
-		if j, ok := stageRefIndex(stages, resolvedBases[i]); ok {
-			add(j)
+		base, err := resolve(i)
+		if err != nil {
+			return err
+		}
+		for j := range i {
+			if stages[j].Name != "" && strings.EqualFold(stages[j].Name, base) {
+				err = add(j)
+				if err != nil {
+					return err
+				}
+				break
+			}
 		}
 		if config.FF.CacheCopyFrom {
 			for _, cmd := range stages[i].Commands {
@@ -504,12 +533,19 @@ func includedStageIndices(stages []instructions.Stage, targetStage string, resol
 					continue
 				}
 				if j, ok := stageRefIndex(stages, c.From); ok {
-					add(j)
+					err = add(j)
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}
+		return nil
 	}
-	add(targetIdx)
+	err = add(targetIdx)
+	if err != nil {
+		return nil, err
+	}
 	return included, nil
 }
 

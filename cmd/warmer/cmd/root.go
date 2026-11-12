@@ -57,6 +57,7 @@ func init() {
 	AddWarmerFlags(RootCmd, opts)
 	addHiddenFlags(RootCmd)
 
+	AddWarmerRuntimeFlags(bakeCmd, opts)
 	AddWarmerBakeFlags(bakeCmd)
 	RootCmd.AddCommand(bakeCmd)
 }
@@ -390,9 +391,8 @@ func AddWarmerBakeFlags(cmd *cobra.Command) {
 	cmd.Flags().StringArrayVar(&bakeCacheFrom, "cache-from", nil, "OCI layout cache directory to warm into as an alternative to --cache-dir for targets without per-target oci: cache_from (e.g. oci:/cache).")
 }
 
-// AddWarmerFlags configures opts
-func AddWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
-	cmd.Flags().VarP(&opts.Images, "image", "i", "Image to cache. Set it repeatedly for multiple images.")
+// AddWarmerRuntimeFlags configures warmer options applicable to both root and bake commands.
+func AddWarmerRuntimeFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
 	cmd.Flags().StringVarP(&opts.CacheDir, "cache-dir", "c", "/cache", "Directory of the cache.")
 	cmd.Flags().BoolVarP(&opts.Force, "force", "f", false, "Force cache overwriting.")
 	cmd.Flags().DurationVarP(&opts.CacheTTL, "cache-ttl", "", time.Hour*336, "Cache timeout in hours. Defaults to two weeks.")
@@ -424,9 +424,17 @@ func AddWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
 	}
 }
 
+// AddWarmerFlags configures opts for the root warmer command.
+func AddWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
+	AddWarmerRuntimeFlags(cmd, opts)
+	cmd.Flags().VarP(&opts.Images, "image", "i", "Image to cache. Set it repeatedly for multiple images.")
+}
+
 // addHiddenFlags marks certain flags as hidden from the help text
 func addHiddenFlags(cmd *cobra.Command) {
-	cmd.Flags().MarkHidden("azure-container-registry-config")
+	if cmd.Flags().Lookup("azure-container-registry-config") != nil {
+		_ = cmd.Flags().MarkHidden("azure-container-registry-config")
+	}
 }
 
 func validateDockerfilePath() error {
