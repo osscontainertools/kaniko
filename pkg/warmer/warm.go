@@ -35,7 +35,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
-	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
@@ -91,12 +90,6 @@ func WarmCache(opts *config.WarmerOptions) error {
 		}
 	}
 
-	return warmImagesInto(cacheDir, images, opts)
-}
-
-// warmImagesInto warms the given images into cacheDir using opts. It performs no
-// Dockerfile parsing or plan rendering; callers handle those concerns.
-func warmImagesInto(cacheDir string, images []string, opts *config.WarmerOptions) error {
 	errs := 0
 	for _, img := range images {
 		err := ociWarmToFile(cacheDir, img, opts)
@@ -311,17 +304,6 @@ func (w *OciWarmer) Write(cacheRef name.Reference, img v1.Image) error {
 }
 
 func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
-	return parseDockerfile(opts, "")
-}
-
-// ParseDockerfileForStage parses the Dockerfile and returns base images needed to
-// build the given stage, including its dependency stages. If stage is empty, all
-// stages are considered.
-func ParseDockerfileForStage(opts *config.WarmerOptions, stage string) ([]string, error) {
-	return parseDockerfile(opts, stage)
-}
-
-func parseDockerfile(opts *config.WarmerOptions, targetStage string) ([]string, error) {
 	var err error
 	var d []uint8
 	var baseNames []string
@@ -397,45 +379,11 @@ func parseDockerfile(opts *config.WarmerOptions, targetStage string) ([]string, 
 	if config.FF.WarmerBuildArgs {
 		args = append(args, opts.BuildArgs...)
 	}
-
-	cache := make([]string, len(stages))
-	done := make([]bool, len(stages))
-	resolve := func(i int) (string, error) {
-		if done[i] {
-			return cache[i], nil
-		}
-		v, err := util.ResolveEnvironmentReplacement(stages[i].BaseName, args, false)
-		if err != nil {
-			return "", fmt.Errorf("resolving base name %s: %w", stages[i].BaseName, err)
-		}
-		cache[i] = v
-		done[i] = true
-		return v, nil
-	}
-
-	var included map[int]bool
-	if targetStage == "" {
-		for i := range stages {
-			_, err := resolve(i)
-			if err != nil {
-				return nil, err
-			}
-		}
-	} else {
-		included, err = includedStageIndices(stages, targetStage, resolve)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 outer:
-	for i := range stages {
-		if targetStage != "" && !included[i] {
-			continue
-		}
-		resolvedBaseName, err := resolve(i)
+	for i, s := range stages {
+		resolvedBaseName, err := util.ResolveEnvironmentReplacement(s.BaseName, args, false)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("resolving base name %s: %w", s.BaseName, err)
 		}
 		if resolvedBaseName == constants.NoBaseImage {
 			continue
@@ -469,10 +417,7 @@ outer:
 				stageByName[s.Name] = idx
 			}
 		}
-		for idx, s := range stages {
-			if targetStage != "" && !included[idx] {
-				continue
-			}
+		for _, s := range stages {
 			for _, cmd := range s.Commands {
 				c, ok := cmd.(*instructions.CopyCommand)
 				if !ok || c.From == "" {
@@ -496,105 +441,4 @@ outer:
 	}
 
 	return baseNames, nil
-}
-
-func includedStageIndices(stages []instructions.Stage, targetStage string, resolve func(int) (string, error)) (map[int]bool, error) {
-	if targetStage == "" {
-		return nil, nil
-	}
-	targetIdx, err := findStageIndex(stages, targetStage)
-	if err != nil {
-		return nil, err
-	}
-	included := map[int]bool{}
-	var add func(int) error
-	add = func(i int) error {
-		if i < 0 || i >= len(stages) || included[i] {
-			return nil
-		}
-		included[i] = true
-		base, err := resolve(i)
-		if err != nil {
-			return err
-		}
-		for j := range i {
-			if stages[j].Name != "" && strings.EqualFold(stages[j].Name, base) {
-				err = add(j)
-				if err != nil {
-					return err
-				}
-				break
-			}
-		}
-		if config.FF.CacheCopyFrom {
-			for _, cmd := range stages[i].Commands {
-				c, ok := cmd.(*instructions.CopyCommand)
-				if !ok || c.From == "" {
-					continue
-				}
-				if j, ok := stageRefIndex(stages, c.From); ok {
-					err = add(j)
-					if err != nil {
-						return err
-					}
-				}
-			}
-		}
-		return nil
-	}
-	err = add(targetIdx)
-	if err != nil {
-		return nil, err
-	}
-	return included, nil
-}
-
-func findStageIndex(stages []instructions.Stage, target string) (int, error) {
-	if idx, err := strconv.Atoi(target); err == nil {
-		if idx >= 0 && idx < len(stages) {
-			return idx, nil
-		}
-		return -1, fmt.Errorf("target stage %d not found", idx)
-	}
-	for i, s := range stages {
-		if strings.EqualFold(s.Name, target) {
-			return i, nil
-		}
-	}
-	return -1, fmt.Errorf("target stage %q not found", target)
-}
-
-func stageRefIndex(stages []instructions.Stage, ref string) (int, bool) {
-	if ref == "" {
-		return -1, false
-	}
-	for i, s := range stages {
-		if s.Name != "" && strings.EqualFold(s.Name, ref) {
-			return i, true
-		}
-	}
-	if idx, err := strconv.Atoi(ref); err == nil {
-		if idx >= 0 && idx < len(stages) {
-			return idx, true
-		}
-	}
-	return -1, false
-}
-
-// TargetCacheDir returns the OCI layout directory a resolved bake target should be
-// warmed into. It returns the first cache_from entry with an "oci:" prefix (prefix
-// stripped) or globalCacheDir if no such entry exists. Non-oci entries are ignored.
-func TargetCacheDir(resolved *bake.ResolvedTarget, globalCacheDir string) string {
-	for _, ref := range resolved.CacheFrom {
-		if strings.HasPrefix(ref, "oci:") {
-			return strings.TrimPrefix(ref, "oci:")
-		}
-	}
-	return globalCacheDir
-}
-
-// WarmImagesInto warms the given images into cacheDir using opts. It performs no
-// Dockerfile parsing or plan rendering; callers handle those concerns.
-func WarmImagesInto(cacheDir string, images []string, opts *config.WarmerOptions) error {
-	return warmImagesInto(cacheDir, images, opts)
 }

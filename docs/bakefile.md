@@ -139,48 +139,11 @@ A buildx bakefile fails with the construct it does not understand named:
 4:3: "tags" in target "app" is a docker-bake.hcl key, use destination
 ```
 
-## Warmer Bake Mode
-
-`warmer bake <bakefile> [target]` warms base image caches for targets defined in the same bakefile consumed by `executor bake`. It parses each selected target's Dockerfile, resolves base images, and writes them into OCI-layout cache directories that the executor can read via `--cache-from oci:<dir>`.
+## Warmer
 
 ```shell
-warmer bake /workspace/kaniko-bake.hcl --cache-dir=/workspace/cache
-warmer bake /workspace/kaniko-bake.hcl app --cache-dir=/workspace/cache
+warmer bake /workspace/kaniko-bake.hcl app --cache-dir=/cache
+executor bake /workspace/kaniko-bake.hcl app --cache-dir=/cache
 ```
 
-### Cache write location
-
-- If a target has an `oci:`-prefixed `cache_from` entry (e.g. `cache_from = ["oci:/workspace/cache/app", "registry.example.com/app/cache"]`), the warmer writes that target's base images into the directory named by the first `oci:` entry (prefix stripped). Non-`oci:` `cache_from` entries (registry refs) are ignored by the warmer.
-- If a target has no `oci:` `cache_from` entry, the warmer writes into the global cache directory (`--cache-dir`, default `/cache`), shared by all such targets.
-
-### Consistency rule
-
-Across all targets warmed in a single invocation, either **every** target must have an `oci:` `cache_from` entry or **none** may. Mixing per-target `oci:` caches with the shared global `--cache-dir` is not supported and returns an error:
-
-```text
-mixing per-target oci caches with shared --cache-dir is not supported
-```
-
-The consistency check runs after `--set` overrides are applied and considers only the targets being warmed (so naming a subset that is consistently all-`oci:` or all-shared is allowed).
-
-### `--print` and `--dryrun`
-
-- `--print` resolves targets (after `--set` overrides) and prints JSON including the computed `resolved_cache_dir` for each target, then exits without writing anything.
-- `--dryrun` prints a per-target plan (target id, resolved cache dir, and each base image with hit/miss status) and exits without creating directories or writing cache entries.
-
-### Overriding cache location
-
-Use `--set <target>.cache_from=oci:/path` to override a target's write location:
-
-```shell
-warmer bake /workspace/kaniko-bake.hcl app \
-  --set app.cache_from=oci:/workspace/cache/app-override
-```
-
-Warm per-target caches and point executor at the matching directory:
-
-```shell
-warmer bake /workspace/kaniko-bake.hcl app --cache-dir=/workspace/cache
-executor bake /workspace/kaniko-bake.hcl app -c /workspace \
-  --cache-dir /workspace/cache/app
-```
+`warmer bake` warms the base images of every stage in each target's dockerfile into `--cache-dir`. It reads `context` and `dockerfile`, and ignores `target`, `destination`, `cache_from` and `cache_to`. A target with a remote `context` needs a `dockerfile` that is a local path or URL. `--set` and `--print` work as in `executor bake`.

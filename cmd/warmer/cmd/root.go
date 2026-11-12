@@ -17,7 +17,6 @@ limitations under the License.
 package cmd
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -43,9 +42,8 @@ var (
 	logLevel     string
 	logFormat    string
 	logTimestamp bool
-
-	bakeSet   []string
-	bakePrint bool
+	bakeSet      []string
+	bakePrint    bool
 )
 
 func init() {
@@ -54,251 +52,125 @@ func init() {
 	RootCmd.PersistentFlags().BoolVar(&logTimestamp, "log-timestamp", logging.DefaultLogTimestamp, "Timestamp in log output")
 
 	AddWarmerFlags(RootCmd, opts)
-	addHiddenFlags(RootCmd)
+	addHiddenFlags()
 
-	AddWarmerRuntimeFlags(bakeCmd, opts)
-	AddWarmerBakeFlags(bakeCmd)
+	AddWarmerFlags(bakeCmd, opts)
+	bakeCmd.Flags().StringArrayVar(&bakeSet, "set", nil, "Override a bakefile target field: <target>.<field>=<value>. Set it repeatedly for multiple overrides.")
+	bakeCmd.Flags().BoolVar(&bakePrint, "print", false, "Print the resolved targets as JSON and exit without warming")
 	RootCmd.AddCommand(bakeCmd)
 }
 
 var RootCmd = &cobra.Command{
 	Use: "cache warmer",
-	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-		if cmd.Name() == "bake" && bakePrint {
-			return nil
+	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+		if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {
+			return err
 		}
-		return configureWarmerCommon(opts)
+		config.LogFeatureFlags()
+
+		// Allow setting --registry-maps using an environment variable.
+		// some users use warmer with --regisry-mirror before v1.21.0
+		// TODO may need all executors validation in here
+
+		if val, ok := os.LookupEnv("KANIKO_REGISTRY_MAP"); ok {
+			err := opts.RegistryMaps.Set(val)
+			if err != nil {
+				return err
+			}
+		}
+
+		for _, target := range opts.RegistryMirrors {
+			err := opts.RegistryMaps.Set(fmt.Sprintf("%s=%s", name.DefaultRegistry, target))
+			if err != nil {
+				return err
+			}
+		}
+
+		if len(opts.RegistryMaps) > 0 {
+			for src, dsts := range opts.RegistryMaps {
+				logrus.Debugf("registry-map remaps %s to %s.", src, strings.Join(dsts, ", "))
+			}
+		}
+
+		if config.FF.WarmerBuildArgs {
+			for i, arg := range opts.BuildArgs {
+				if !strings.Contains(arg, "=") {
+					opts.BuildArgs[i] = fmt.Sprintf("%s=%s", arg, os.Getenv(arg))
+				}
+			}
+		}
+
+		return nil
 	},
-	RunE: func(_ *cobra.Command, _ []string) error {
+	PreRunE: func(_ *cobra.Command, _ []string) error {
 		if len(opts.Images) == 0 && opts.DockerfilePath == "" {
 			return errors.New("you must select at least one image to cache or a dockerfilepath to parse")
 		}
 
 		if opts.DockerfilePath != "" {
-			err := validateDockerfilePath()
-			if err != nil {
+			if err := validateDockerfilePath(); err != nil {
 				return fmt.Errorf("error validating dockerfile path: %w", err)
 			}
 		}
 
+		return nil
+	},
+	Run: func(_ *cobra.Command, _ []string) {
 		if !opts.Dryrun {
 			err := os.MkdirAll(opts.CacheDir, 0o755)
 			if err != nil {
-				return fmt.Errorf("failed to create cache directory: %w", err)
+				exit(fmt.Errorf("failed to create cache directory: %w", err))
 			}
 		}
-		err := warmer.WarmCache(opts)
-		if err != nil {
-			return fmt.Errorf("failed warming cache: %w", err)
+		if err := warmer.WarmCache(opts); err != nil {
+			exit(fmt.Errorf("failed warming cache: %w", err))
 		}
 		util.LogRegistryConnections()
-		return nil
 	},
-}
-
-func configureWarmerCommon(opts *config.WarmerOptions) error {
-	err := logging.Configure(logLevel, logFormat, logTimestamp)
-	if err != nil {
-		return err
-	}
-	config.LogFeatureFlags()
-	if opts.CustomPlatform == "" {
-		opts.CustomPlatform = platforms.Format(platforms.Normalize(platforms.DefaultSpec()))
-	}
-
-	// Allow setting --registry-maps using an environment variable.
-	// some users use warmer with --regisry-mirror before v1.21.0
-	// TODO may need all executors validation in here
-
-	val, ok := os.LookupEnv("KANIKO_REGISTRY_MAP")
-	if ok {
-		err := opts.RegistryMaps.Set(val)
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, target := range opts.RegistryMirrors {
-		err := opts.RegistryMaps.Set(fmt.Sprintf("%s=%s", name.DefaultRegistry, target))
-		if err != nil {
-			return err
-		}
-	}
-
-	if len(opts.RegistryMaps) > 0 {
-		for src, dsts := range opts.RegistryMaps {
-			logrus.Debugf("registry-map remaps %s to %s.", src, strings.Join(dsts, ", "))
-		}
-	}
-
-	if config.FF.WarmerBuildArgs {
-		for i, arg := range opts.BuildArgs {
-			if !strings.Contains(arg, "=") {
-				opts.BuildArgs[i] = fmt.Sprintf("%s=%s", arg, os.Getenv(arg))
-			}
-		}
-	}
-
-	return nil
-}
-
-type bakeTargetPlan struct {
-	ID         string   `json:"id"`
-	CacheDir   string   `json:"cache_dir"`
-	Dockerfile string   `json:"dockerfile"`
-	Images     []string `json:"images"`
 }
 
 var bakeCmd = &cobra.Command{
-	Use:   "bake <bakefile> [target]",
-	Short: "Warm base image caches for targets defined in a bakefile",
-	Long: `Warm base image caches for targets defined in a bakefile. The bakefile may define several
-targets; name the one to warm (it may be omitted when there is only one). Each target writes
-base images to its own cache directory when it sets an oci:-prefixed cache_from entry, or to
-the global --cache-dir when it does not. Across targets warmed in a single invocation, either
-every target must have an oci: cache_from entry or none may.`,
-	Args: cobra.RangeArgs(1, 2),
-	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
-		if bakePrint {
-			return nil
-		}
-		return configureWarmerCommon(opts)
-	},
+	Use:   "bake <bakefile> [target...]",
+	Short: "Warm the base images of targets defined in a bakefile",
+	Long: `Warm the base images of targets defined in a bakefile into --cache-dir. Name
+the targets to warm, or omit them to warm all. Each target's dockerfile is parsed
+as a whole, its stage is ignored, and so are destination, cache_from and cache_to.`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
-		bakefile, err := bake.Parse(args[0])
+		targets, err := bake.Load(args[0], args[1:], bakeSet)
 		if err != nil {
 			return err
 		}
-		selection := args[1:]
-		targets, err := bakefile.Resolve(selection)
-		if err != nil {
-			return err
-		}
-		overrides := make([]bake.Override, 0, len(bakeSet))
-		for _, s := range bakeSet {
-			o, err := bake.ParseOverride(s)
-			if err != nil {
-				return err
-			}
-			overrides = append(overrides, o)
-		}
-		err = bake.ApplyOverrides(targets, overrides)
-		if err != nil {
-			return err
-		}
-
-		err = validateBakeCacheConsistency(targets)
-		if err != nil {
-			return err
-		}
-
-		globalCacheDir := opts.CacheDir
-
-		plans := make([]bakeTargetPlan, 0, len(targets))
-		type targetWork struct {
-			cacheDir string
-			images   []string
-			opts     *config.WarmerOptions
-		}
-		works := make([]targetWork, 0, len(targets))
-
-		for _, t := range targets {
-			cacheDir := warmer.TargetCacheDir(&t, globalCacheDir)
-			dockerfilePath := t.Dockerfile
-			if dockerfilePath == "" {
-				dockerfilePath = opts.DockerfilePath
-			}
-			if dockerfilePath == "" && !bakePrint {
-				return fmt.Errorf("target %q has no dockerfile", t.ID)
-			}
-			if dockerfilePath != "" && !filepath.IsAbs(dockerfilePath) {
-				if t.Context != "" {
-					ctx := t.Context
-					if !filepath.IsAbs(ctx) && !strings.Contains(ctx, "://") {
-						ctx = filepath.Join(bakefile.Dir, ctx)
-					}
-					if !strings.Contains(ctx, "://") {
-						dockerfilePath = filepath.Join(ctx, dockerfilePath)
-					} else {
-						return fmt.Errorf("target %q: relative dockerfile with remote context is not supported", t.ID)
-					}
-				} else {
-					dockerfilePath = filepath.Join(bakefile.Dir, dockerfilePath)
-				}
-			}
-
-			if bakePrint {
-				plans = append(plans, bakeTargetPlan{
-					ID:         t.ID,
-					CacheDir:   cacheDir,
-					Dockerfile: dockerfilePath,
-				})
-				continue
-			}
-
-			topts := *opts
-			topts.DockerfilePath = dockerfilePath
-			topts.CacheDir = cacheDir
-			topts.Images = nil
-			topts.Dryrun = false
-			images, err := warmer.ParseDockerfileForStage(&topts, t.Stage)
-			if err != nil {
-				return fmt.Errorf("target %q: parsing dockerfile %s: %w", t.ID, dockerfilePath, err)
-			}
-			if opts.RequireDigest {
-				for _, img := range images {
-					_, err := name.NewDigest(img)
-					if err != nil {
-						return fmt.Errorf("--require-digest: %w", err)
-					}
-				}
-			}
-			plans = append(plans, bakeTargetPlan{
-				ID:         t.ID,
-				CacheDir:   cacheDir,
-				Dockerfile: dockerfilePath,
-				Images:     images,
-			})
-			works = append(works, targetWork{cacheDir: cacheDir, images: images, opts: &topts})
-		}
-
 		if bakePrint {
-			out, err := json.MarshalIndent(map[string]any{"target": plansToJSON(targets, plans)}, "", "  ")
+			out, err := bake.Print(targets)
 			if err != nil {
 				return err
 			}
 			_, err = fmt.Println(string(out))
 			return err
 		}
-
-		if opts.Dryrun || config.EnvBool("KANIKO_PRINT_PLAN") {
-			for i, p := range plans {
-				_, err := fmt.Fprintf(os.Stdout, "TARGET %s\n", p.ID)
-				if err != nil {
-					return err
-				}
-				_, err = fmt.Fprintf(os.Stdout, "  CACHE_DIR %s\n", p.CacheDir)
-				if err != nil {
-					return err
-				}
-				err = warmer.RenderPlan(os.Stdout, works[i].images, works[i].opts)
-				if err != nil {
-					return err
-				}
-			}
-			if opts.Dryrun {
-				return nil
+		if !opts.Dryrun {
+			err := os.MkdirAll(opts.CacheDir, 0o755)
+			if err != nil {
+				return fmt.Errorf("failed to create cache directory: %w", err)
 			}
 		}
-
-		for _, w := range works {
-			err := os.MkdirAll(w.cacheDir, 0o755)
-			if err != nil {
-				return fmt.Errorf("failed to create cache directory %s: %w", w.cacheDir, err)
+		for _, t := range targets {
+			topts := *opts
+			remote := strings.Contains(t.Context, "://")
+			switch {
+			case isURL(t.Dockerfile) || (t.Dockerfile != "" && !remote):
+				topts.DockerfilePath = t.Dockerfile
+			case remote:
+				return fmt.Errorf("target %q: the warmer does not unpack remote context %s, set dockerfile to a local path or URL", t.ID, t.Context)
+			case t.Context != "":
+				topts.DockerfilePath = filepath.Join(t.Context, "Dockerfile")
+			default:
+				topts.DockerfilePath = filepath.Join(filepath.Dir(args[0]), "Dockerfile")
 			}
-			err = warmer.WarmImagesInto(w.cacheDir, w.images, w.opts)
+			err := warmer.WarmCache(&topts)
 			if err != nil {
-				return err
+				return fmt.Errorf("target %q: failed warming cache: %w", t.ID, err)
 			}
 		}
 		util.LogRegistryConnections()
@@ -306,69 +178,9 @@ every target must have an oci: cache_from entry or none may.`,
 	},
 }
 
-func plansToJSON(targets []bake.ResolvedTarget, plans []bakeTargetPlan) map[string]any {
-	// Return resolved target info enriched with computed cache_dir for --print
-	byID := make(map[string]any, len(targets))
-	for i, t := range targets {
-		m := map[string]any{}
-		if t.Context != "" {
-			m["context"] = t.Context
-		}
-		if t.ContextSubPath != "" {
-			m["context_sub_path"] = t.ContextSubPath
-		}
-		if t.Dockerfile != "" {
-			m["dockerfile"] = t.Dockerfile
-		}
-		if t.Stage != "" {
-			m["target"] = t.Stage
-		}
-		if len(t.Destination) > 0 {
-			m["destination"] = t.Destination
-		}
-		if len(t.CacheFrom) > 0 {
-			m["cache_from"] = t.CacheFrom
-		}
-		if len(t.CacheTo) > 0 {
-			m["cache_to"] = t.CacheTo
-		}
-		m["resolved_cache_dir"] = plans[i].CacheDir
-		byID[t.ID] = m
-	}
-	return byID
-}
-
-func validateBakeCacheConsistency(targets []bake.ResolvedTarget) error {
-	hasOci := false
-	hasNonOci := false
-	for _, t := range targets {
-		found := false
-		for _, ref := range t.CacheFrom {
-			if strings.HasPrefix(ref, "oci:") {
-				found = true
-				break
-			}
-		}
-		if found {
-			hasOci = true
-		} else {
-			hasNonOci = true
-		}
-	}
-	if hasOci && hasNonOci {
-		return errors.New("mixing per-target oci caches with shared --cache-dir is not supported")
-	}
-	return nil
-}
-
-// AddWarmerBakeFlags configures bake-specific flags
-func AddWarmerBakeFlags(cmd *cobra.Command) {
-	cmd.Flags().StringArrayVar(&bakeSet, "set", nil, "Override a bakefile target field: <target>.<field>=<value>. Set it repeatedly for multiple overrides.")
-	cmd.Flags().BoolVar(&bakePrint, "print", false, "Print the resolved targets as JSON and exit without warming")
-}
-
-// AddWarmerRuntimeFlags configures warmer options applicable to both root and bake commands.
-func AddWarmerRuntimeFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
+// AddWarmerFlags configures opts
+func AddWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
+	cmd.Flags().VarP(&opts.Images, "image", "i", "Image to cache. Set it repeatedly for multiple images.")
 	cmd.Flags().StringVarP(&opts.CacheDir, "cache-dir", "c", "/cache", "Directory of the cache.")
 	cmd.Flags().BoolVarP(&opts.Force, "force", "f", false, "Force cache overwriting.")
 	cmd.Flags().DurationVarP(&opts.CacheTTL, "cache-ttl", "", time.Hour*336, "Cache timeout in hours. Defaults to two weeks.")
@@ -394,23 +206,14 @@ func AddWarmerRuntimeFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
 	if opts.CustomPlatform == "" {
 		opts.CustomPlatform = platforms.Format(platforms.Normalize(platforms.DefaultSpec()))
 	}
-	_, err := v1.ParsePlatform(opts.CustomPlatform)
-	if err != nil {
+	if _, err := v1.ParsePlatform(opts.CustomPlatform); err != nil {
 		logrus.Fatalf("Invalid platform %q: %v", opts.CustomPlatform, err)
 	}
 }
 
-// AddWarmerFlags configures opts for the root warmer command.
-func AddWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
-	AddWarmerRuntimeFlags(cmd, opts)
-	cmd.Flags().VarP(&opts.Images, "image", "i", "Image to cache. Set it repeatedly for multiple images.")
-}
-
-// addHiddenFlags marks certain flags as hidden from the help text
-func addHiddenFlags(cmd *cobra.Command) {
-	if cmd.Flags().Lookup("azure-container-registry-config") != nil {
-		_ = cmd.Flags().MarkHidden("azure-container-registry-config")
-	}
+// addHiddenFlags marks certain flags as hidden from the executor help text
+func addHiddenFlags() {
+	RootCmd.Flags().MarkHidden("azure-container-registry-config")
 }
 
 func validateDockerfilePath() error {
@@ -434,4 +237,10 @@ func isURL(path string) bool {
 		return true
 	}
 	return false
+}
+
+func exit(err error) {
+	fmt.Println(err)
+	util.LogRegistryConnections()
+	os.Exit(1)
 }

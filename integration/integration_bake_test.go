@@ -54,12 +54,6 @@ func TestBake(t *testing.T) {
 
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			if _, err := os.Stat(filepath.Join(ctxDir, "docker-bake.hcl")); err != nil {
-				if os.IsNotExist(err) {
-					t.Skip("no docker-bake.hcl fixture")
-				}
-				t.Fatal(err)
-			}
 
 			bakefile, err := bake.Parse(filepath.Join(ctxDir, "kaniko-bake.hcl"))
 			if err != nil {

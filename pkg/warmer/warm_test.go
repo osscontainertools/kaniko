@@ -20,7 +20,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/config"
 )
 
@@ -155,29 +154,4 @@ func TestParseDockerfile_InvalidsDockerfile(t *testing.T) {
 	if len(baseNames) != 0 {
 		t.Fatalf("expected no base names, got %d", len(baseNames))
 	}
-}
-
-func TestTargetCacheDir(t *testing.T) {
-	t.Run("uses first oci cache_from and strips prefix", func(t *testing.T) {
-		rt := &bake.ResolvedTarget{
-			CacheFrom: []string{"registry.example.com/cache", "oci:/workspace/cache/app", "oci:/workspace/cache/other"},
-		}
-		if got := TargetCacheDir(rt, "/cache"); got != "/workspace/cache/app" {
-			t.Fatalf("got %q, want %q", got, "/workspace/cache/app")
-		}
-	})
-	t.Run("falls back to global cache dir when no oci entry", func(t *testing.T) {
-		rt := &bake.ResolvedTarget{
-			CacheFrom: []string{"registry.example.com/cache"},
-		}
-		if got := TargetCacheDir(rt, "/cache"); got != "/cache" {
-			t.Fatalf("got %q, want %q", got, "/cache")
-		}
-	})
-	t.Run("falls back to global cache dir when empty", func(t *testing.T) {
-		rt := &bake.ResolvedTarget{}
-		if got := TargetCacheDir(rt, "/cache"); got != "/cache" {
-			t.Fatalf("got %q, want %q", got, "/cache")
-		}
-	})
 }

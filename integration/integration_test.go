@@ -2777,6 +2777,50 @@ func diffociCmd(image1, image2, platform string, flags ...string) *exec.Cmd {
 	return exec.Command("diffoci", flags...)
 }
 
+func TestWarmerBake(t *testing.T) {
+	t.Parallel()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"test_context_dockerfile", "test_issue_mz351"} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			ctxDir := filepath.Join(cwd, "bakefiles", name)
+			cacheDir := t.TempDir()
+
+			warmFlags := []string{"run", "--rm", "--net=host", "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())}
+			warmFlags = addAuthFlags(warmFlags)
+			warmFlags = addCoverageFlags(warmFlags)
+			for _, envVariable := range WarmerEnv {
+				warmFlags = append(warmFlags, "-e", envVariable)
+			}
+			warmFlags = append(warmFlags, "-v", ctxDir+":/workspace", "-v", cacheDir+":/cache", WarmerImage,
+				"bake", "/workspace/kaniko-bake.hcl", "--cache-dir=/cache")
+			out, err := RunCommandWithoutTest(exec.Command("docker", warmFlags...))
+			t.Logf("warmer bake output:\n%s", out)
+			if err != nil {
+				t.Fatalf("warmer bake failed: %v", err)
+			}
+
+			buildFlags := []string{"run", "--rm", "--net=host", "-v", ctxDir + ":/workspace", "-v", cacheDir + ":/cache"}
+			buildFlags = addAuthFlags(buildFlags)
+			buildFlags = addCoverageFlags(buildFlags)
+			buildFlags = addKanikoEnvFlags(buildFlags, t.Name())
+			buildFlags = append(buildFlags, ExecutorImage,
+				"bake", "/workspace/kaniko-bake.hcl", "-c", "/workspace", "--no-push", "--cache-dir=/cache")
+			out, err = RunCommandWithoutTest(exec.Command("docker", buildFlags...))
+			t.Logf("executor bake output:\n%s", out)
+			if err != nil {
+				t.Fatalf("executor bake failed: %v", err)
+			}
+			if !strings.Contains(string(out), "in local cache") {
+				t.Fatal("executor bake did not use the warmed base images")
+			}
+		})
+	}
+}
+
 // diffoci compares the container images image1 and image2 and fails if they differ.
 func diffoci(t *testing.T, image1, image2 string, flags ...string) {
 	var platform string
@@ -2787,339 +2831,4 @@ func diffoci(t *testing.T, image1, image2 string, flags ...string) {
 	flags = append(flags, diffArgsMap[t.Name()]...)
 	diff := RunCommand(diffociCmd(image1, image2, platform, flags...), t)
 	t.Logf("diff = %s", string(diff))
-}
-
-func TestWarmerBake(t *testing.T) {
-	t.Parallel()
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	baseImage := "debian:13.7@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308"
-
-	runWarmer := func(t *testing.T, ctxDir string, cacheHostDir string, args ...string) ([]byte, error) {
-		t.Helper()
-		dockerRunFlags := []string{"run", "--rm", "--net=host"}
-		dockerRunFlags = append(dockerRunFlags, "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()))
-		dockerRunFlags = addAuthFlags(dockerRunFlags)
-		dockerRunFlags = addCoverageFlags(dockerRunFlags)
-		for _, envVariable := range WarmerEnv {
-			dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
-		}
-		dockerRunFlags = append(dockerRunFlags,
-			"-v", ctxDir+":/workspace",
-			"-v", cacheHostDir+":/workspace/cache",
-			WarmerImage,
-		)
-		dockerRunFlags = append(dockerRunFlags, args...)
-		cmd := exec.Command("docker", dockerRunFlags...)
-		out, err := RunCommandWithoutTest(cmd)
-		t.Logf("warmer %v output:\n%s", args, out)
-		return out, err
-	}
-
-	dirExists := func(path string) bool {
-		st, err := os.Stat(path)
-		return err == nil && st.IsDir()
-	}
-
-	t.Run("single_target_all", func(t *testing.T) {
-		t.Parallel()
-		ctxDir := filepath.Join(cwd, "bakefiles", "test_warmer_bake_single")
-		cacheHost := t.TempDir()
-		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "--cache-dir=/workspace/cache")
-		if err != nil {
-			t.Fatalf("warmer bake failed: %v\n%s", err, out)
-		}
-		if !dirExists(filepath.Join(cacheHost, "app")) {
-			t.Fatalf("expected /workspace/cache/app to exist")
-		}
-	})
-
-	t.Run("multi_target_all_per_target", func(t *testing.T) {
-		t.Parallel()
-		ctxDir := filepath.Join(cwd, "bakefiles", "test_warmer_bake")
-		cacheHost := t.TempDir()
-		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "--cache-dir=/workspace/cache")
-		if err != nil {
-			t.Fatalf("warmer bake failed: %v\n%s", err, out)
-		}
-		if !dirExists(filepath.Join(cacheHost, "app")) {
-			t.Fatalf("expected app cache dir")
-		}
-		if !dirExists(filepath.Join(cacheHost, "tools")) {
-			t.Fatalf("expected tools cache dir")
-		}
-	})
-
-	t.Run("named_target_only", func(t *testing.T) {
-		t.Parallel()
-		ctxDir := filepath.Join(cwd, "bakefiles", "test_warmer_bake")
-		cacheHost := t.TempDir()
-		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "app", "--cache-dir=/workspace/cache")
-		if err != nil {
-			t.Fatalf("warmer bake failed: %v\n%s", err, out)
-		}
-		if !dirExists(filepath.Join(cacheHost, "app")) {
-			t.Fatalf("expected app cache dir")
-		}
-		if dirExists(filepath.Join(cacheHost, "tools")) {
-			t.Fatalf("did not expect tools cache dir when only app targeted")
-		}
-	})
-
-	t.Run("global_shared_cache", func(t *testing.T) {
-		t.Parallel()
-		ctxDir := filepath.Join(cwd, "bakefiles", "test_warmer_bake_shared")
-		cacheHost := t.TempDir()
-		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "--cache-dir=/workspace/cache")
-		if err != nil {
-			t.Fatalf("warmer bake failed: %v\n%s", err, out)
-		}
-		// shared cache should contain digest-named layout dirs, not per-target subdirs "app"/"tools"
-		if dirExists(filepath.Join(cacheHost, "app")) || dirExists(filepath.Join(cacheHost, "tools")) {
-			t.Fatalf("did not expect per-target dirs in global shared cache")
-		}
-		entries, err := os.ReadDir(cacheHost)
-		if err != nil {
-			t.Fatal(err)
-		}
-		foundDigest := false
-		for _, e := range entries {
-			if strings.HasPrefix(e.Name(), "sha256:") {
-				foundDigest = true
-			}
-		}
-		if !foundDigest {
-			t.Fatalf("expected digest-named cache entry in shared cache, got: %v", entries)
-		}
-	})
-
-	t.Run("set_override", func(t *testing.T) {
-		t.Parallel()
-		ctxDir := filepath.Join(cwd, "bakefiles", "test_warmer_bake")
-		cacheHost := t.TempDir()
-		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "app", "--cache-dir=/workspace/cache",
-			"--set", "app.cache_from=oci:/workspace/cache/app-override")
-		if err != nil {
-			t.Fatalf("warmer bake failed: %v\n%s", err, out)
-		}
-		if !dirExists(filepath.Join(cacheHost, "app-override")) {
-			t.Fatalf("expected app-override cache dir")
-		}
-		if dirExists(filepath.Join(cacheHost, "app")) {
-			t.Fatalf("did not expect original app cache dir when overridden")
-		}
-	})
-
-	t.Run("print", func(t *testing.T) {
-		t.Parallel()
-		ctxDir := filepath.Join(cwd, "bakefiles", "test_warmer_bake")
-		cacheHost := t.TempDir()
-		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "--print", "--cache-dir=/workspace/cache")
-		if err != nil {
-			t.Fatalf("warmer bake --print failed: %v\n%s", err, out)
-		}
-		s := string(out)
-		if !strings.Contains(s, `"app"`) || !strings.Contains(s, `"tools"`) {
-			t.Fatalf("expected targets in print output: %s", s)
-		}
-		if !strings.Contains(s, "resolved_cache_dir") {
-			t.Fatalf("expected resolved_cache_dir in print output: %s", s)
-		}
-		idx := strings.Index(s, "{")
-		if idx < 0 {
-			t.Fatalf("expected JSON in print output: %s", s)
-		}
-		var v struct {
-			Target map[string]struct {
-				ResolvedCacheDir string   `json:"resolved_cache_dir"`
-				CacheFrom        []string `json:"cache_from"`
-			} `json:"target"`
-		}
-		if err := json.Unmarshal([]byte(s[idx:]), &v); err != nil {
-			t.Fatalf("print output not valid JSON: %v\n%s", err, s)
-		}
-		if v.Target["app"].ResolvedCacheDir != "/workspace/cache/app" {
-			t.Fatalf("expected app resolved_cache_dir /workspace/cache/app, got %q", v.Target["app"].ResolvedCacheDir)
-		}
-		if v.Target["tools"].ResolvedCacheDir != "/workspace/cache/tools" {
-			t.Fatalf("expected tools resolved_cache_dir /workspace/cache/tools, got %q", v.Target["tools"].ResolvedCacheDir)
-		}
-		if len(v.Target["app"].CacheFrom) == 0 || v.Target["app"].CacheFrom[0] != "oci:/workspace/cache/app" {
-			t.Fatalf("expected app cache_from to include oci:/workspace/cache/app, got %v", v.Target["app"].CacheFrom)
-		}
-		if dirExists(filepath.Join(cacheHost, "app")) || dirExists(filepath.Join(cacheHost, "tools")) {
-			t.Fatalf("--print should not create cache dirs")
-		}
-	})
-
-	t.Run("dryrun", func(t *testing.T) {
-		t.Parallel()
-		ctxDir := filepath.Join(cwd, "bakefiles", "test_warmer_bake")
-		cacheHost := t.TempDir()
-		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "app", "--dryrun", "--cache-dir=/workspace/cache")
-		if err != nil {
-			t.Fatalf("warmer bake --dryrun failed: %v\n%s", err, out)
-		}
-		s := string(out)
-		if !strings.Contains(s, "TARGET app") {
-			t.Fatalf("expected TARGET app in dryrun: %s", s)
-		}
-		if strings.Contains(s, "TARGET tools") {
-			t.Fatalf("did not expect TARGET tools in dryrun for app only: %s", s)
-		}
-		if !strings.Contains(s, "CACHE_DIR /workspace/cache/app") {
-			t.Fatalf("expected CACHE_DIR /workspace/cache/app in dryrun: %s", s)
-		}
-		if !strings.Contains(s, baseImage) {
-			t.Fatalf("expected base image digest in dryrun: %s", s)
-		}
-		if dirExists(filepath.Join(cacheHost, "app")) || dirExists(filepath.Join(cacheHost, "tools")) {
-			t.Fatalf("--dryrun should not create cache dirs")
-		}
-	})
-
-	t.Run("set_override_dryrun", func(t *testing.T) {
-		t.Parallel()
-		ctxDir := filepath.Join(cwd, "bakefiles", "test_warmer_bake")
-		cacheHost := t.TempDir()
-		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "app", "--dryrun", "--cache-dir=/workspace/cache",
-			"--set", "app.cache_from=oci:/workspace/cache/app-override")
-		if err != nil {
-			t.Fatalf("warmer bake --dryrun with --set failed: %v\n%s", err, out)
-		}
-		s := string(out)
-		if !strings.Contains(s, "TARGET app") || !strings.Contains(s, "CACHE_DIR /workspace/cache/app-override") {
-			t.Fatalf("expected overridden cache dir in dryrun plan: %s", s)
-		}
-		if strings.Contains(s, "CACHE_DIR /workspace/cache/app\n") || strings.Contains(s, "CACHE_DIR /workspace/cache/app\r") {
-			t.Fatalf("did not expect original cache dir in overridden dryrun plan: %s", s)
-		}
-		if dirExists(filepath.Join(cacheHost, "app-override")) || dirExists(filepath.Join(cacheHost, "app")) {
-			t.Fatalf("--dryrun should not create cache dirs")
-		}
-	})
-
-	t.Run("executor_readback", func(t *testing.T) {
-		t.Parallel()
-		ctxDir := filepath.Join(cwd, "bakefiles", "test_warmer_bake")
-		cacheHost := t.TempDir()
-		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "app", "--cache-dir=/workspace/cache")
-		if err != nil {
-			t.Fatalf("warmer bake failed: %v\n%s", err, out)
-		}
-		// build with executor bake using warmed oci cache for app
-		image := GetKanikoImage(config.imageRepo, "test_warmer_bake_readback")
-		dockerRunFlags := []string{"run", "--rm", "--net=host",
-			"-v", ctxDir + ":/workspace",
-			"-v", cacheHost + ":/workspace/cache"}
-		dockerRunFlags = addAuthFlags(dockerRunFlags)
-		dockerRunFlags = addCoverageFlags(dockerRunFlags)
-		dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
-		dockerRunFlags = append(dockerRunFlags, ExecutorImage,
-			"bake", "/workspace/kaniko-bake.hcl", "app",
-			"-c", "/workspace",
-			"--cache=true",
-			"--cache-dir", "/workspace/cache/app",
-			"--set", "app.destination="+image,
-		)
-		cmd := exec.Command("docker", dockerRunFlags...)
-		execOut, err := RunCommandWithoutTest(cmd)
-		t.Logf("executor bake output:\n%s", execOut)
-		if err != nil {
-			t.Fatalf("executor bake failed: %v\n%s", err, execOut)
-		}
-		execOutStr := string(execOut)
-		if !strings.Contains(execOutStr, "Using caching version of base image") &&
-			!strings.Contains(execOutStr, "Found cached base image") &&
-			!strings.Contains(execOutStr, "in local cache") {
-			t.Fatalf("expected base-image cache hit in executor output, got:\n%s", execOutStr)
-		}
-		if strings.Contains(execOutStr, "Error while retrieving image from cache") {
-			t.Fatalf("unexpected cache-load error in executor output:\n%s", execOutStr)
-		}
-	})
-
-	t.Run("mixing_error_all", func(t *testing.T) {
-		t.Parallel()
-		ctxDir := filepath.Join(cwd, "bakefiles", "test_warmer_bake_mixed")
-		cacheHost := t.TempDir()
-		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "--cache-dir=/workspace/cache")
-		if err == nil {
-			t.Fatalf("expected mixing error, got success:\n%s", out)
-		}
-		if !strings.Contains(string(out)+err.Error(), "mixing per-target oci caches with shared --cache-dir is not supported") {
-			t.Fatalf("expected mixing error message, got: %v\n%s", err, out)
-		}
-		entries, err := os.ReadDir(cacheHost)
-		if err != nil {
-			t.Fatalf("reading cache dir: %v", err)
-		}
-		if len(entries) != 0 {
-			t.Fatalf("expected no cache dirs created on mixing error, got: %v", entries)
-		}
-	})
-
-	t.Run("named_non_oci_from_mixed_ok", func(t *testing.T) {
-		t.Parallel()
-		ctxDir := filepath.Join(cwd, "bakefiles", "test_warmer_bake_mixed")
-		cacheHost := t.TempDir()
-		// b has no oci in a mixed bakefile; selecting only b is a consistent (shared) subset
-		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "b", "--dryrun", "--cache-dir=/workspace/cache")
-		if err != nil {
-			t.Fatalf("expected named non-oci target from mixed bakefile to be allowed when selected alone: %v\n%s", err, out)
-		}
-	})
-
-	t.Run("named_oci_subset_ok", func(t *testing.T) {
-		t.Parallel()
-		ctxDir := filepath.Join(cwd, "bakefiles", "test_warmer_bake_mixed")
-		cacheHost := t.TempDir()
-		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "a", "--dryrun", "--cache-dir=/workspace/cache")
-		if err != nil {
-			t.Fatalf("expected named oci-only subset to be allowed: %v\n%s", err, out)
-		}
-	})
-
-	t.Run("unknown_target", func(t *testing.T) {
-		t.Parallel()
-		ctxDir := filepath.Join(cwd, "bakefiles", "test_warmer_bake")
-		cacheHost := t.TempDir()
-		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "nonexistent", "--cache-dir=/workspace/cache")
-		if err == nil {
-			t.Fatalf("expected unknown target error, got success:\n%s", out)
-		}
-		if !strings.Contains(string(out)+err.Error(), "unknown target") {
-			t.Fatalf("expected unknown target error, got: %v\n%s", err, out)
-		}
-	})
-
-	t.Run("bad_set_target", func(t *testing.T) {
-		t.Parallel()
-		ctxDir := filepath.Join(cwd, "bakefiles", "test_warmer_bake")
-		cacheHost := t.TempDir()
-		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "app", "--dryrun",
-			"--set", "nonexistent.cache_from=oci:/x", "--cache-dir=/workspace/cache")
-		if err == nil {
-			t.Fatalf("expected set target not built error, got success:\n%s", out)
-		}
-		if !strings.Contains(string(out)+err.Error(), "is not built") {
-			t.Fatalf("expected 'is not built' error, got: %v\n%s", err, out)
-		}
-	})
-
-	t.Run("bad_set_field", func(t *testing.T) {
-		t.Parallel()
-		ctxDir := filepath.Join(cwd, "bakefiles", "test_warmer_bake")
-		cacheHost := t.TempDir()
-		out, err := runWarmer(t, ctxDir, cacheHost, "bake", "/workspace/kaniko-bake.hcl", "app", "--dryrun",
-			"--set", "app.bogus=x", "--cache-dir=/workspace/cache")
-		if err == nil {
-			t.Fatalf("expected unsupported field error, got success:\n%s", out)
-		}
-		if !strings.Contains(string(out)+err.Error(), "not supported") {
-			t.Fatalf("expected 'not supported' error, got: %v\n%s", err, out)
-		}
-	})
 }
