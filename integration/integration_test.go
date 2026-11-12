@@ -2805,7 +2805,7 @@ func TestWarmerBake(t *testing.T) {
 	buildFlags = addCoverageFlags(buildFlags)
 	buildFlags = addKanikoEnvFlags(buildFlags, t.Name())
 	buildFlags = append(buildFlags, ExecutorImage,
-		"bake", "/workspace/kaniko-bake.hcl", "--no-push", "--cache-dir=/cache")
+		"bake", "/workspace/kaniko-bake.hcl", "--no-push", "--cache=true", "--no-push-cache", "--cache-dir=/cache")
 	out, err = RunCommandWithoutTest(exec.Command("docker", buildFlags...))
 	t.Logf("executor bake output:\n%s", out)
 	if err != nil {
