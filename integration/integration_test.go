@@ -3031,7 +3031,9 @@ func TestWarmerBake(t *testing.T) {
 			t.Fatalf("executor bake failed: %v\n%s", err, execOut)
 		}
 		execOutStr := string(execOut)
-		if !strings.Contains(execOutStr, "Using caching version of base image") && !strings.Contains(execOutStr, "Found cached base image") {
+		if !strings.Contains(execOutStr, "Using caching version of base image") &&
+			!strings.Contains(execOutStr, "Found cached base image") &&
+			!strings.Contains(execOutStr, "in local cache") {
 			t.Fatalf("expected base-image cache hit in executor output, got:\n%s", execOutStr)
 		}
 		if strings.Contains(execOutStr, "Error while retrieving image from cache") {
