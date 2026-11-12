@@ -58,7 +58,7 @@ export GO111MODULE = on
 export GOFLAGS = -mod=vendor -buildvcs=false -trimpath
 
 export GO_TAGS = otel,git,google,aws,azure
-export GOFIPS140 = v1.26.0
+export GOFIPS140 = v1.0.0
 
 out/executor: $(GO_FILES)
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build -tags $(GO_TAGS)$(if $(RACE),$(RACE_TAGS)) $(if $(COVER),-cover) $(if $(RACE),-race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
