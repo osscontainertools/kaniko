@@ -54,8 +54,7 @@ func init() {
 	AddWarmerFlags(RootCmd, opts)
 	addHiddenFlags()
 
-	AddWarmerFlags(bakeCmd, opts)
-	bakeCmd.Flags().StringArrayVar(&bakeSet, "set", nil, "Override a bakefile target field: <target>.<field>=<value>. Set it repeatedly for multiple overrides.")
+	AddWarmerBakeFlags(bakeCmd, opts, &bakeSet)
 	bakeCmd.Flags().BoolVar(&bakePrint, "print", false, "Print the resolved targets as JSON and exit without warming")
 	RootCmd.AddCommand(bakeCmd)
 }
@@ -158,27 +157,40 @@ as a whole, its stage is ignored, and so are destination, cache_from and cache_t
 				return fmt.Errorf("failed to create cache directory: %w", err)
 			}
 		}
-		for _, t := range targets {
-			topts := *opts
-			remote := strings.Contains(t.Context, "://")
-			switch {
-			case isURL(t.Dockerfile) || (t.Dockerfile != "" && !remote):
-				topts.DockerfilePath = t.Dockerfile
-			case remote:
-				return fmt.Errorf("target %q: the warmer does not unpack remote context %s, set dockerfile to a local path or URL", t.ID, t.Context)
-			case t.Context != "":
-				topts.DockerfilePath = filepath.Join(t.Context, "Dockerfile")
-			default:
-				topts.DockerfilePath = filepath.Join(filepath.Dir(args[0]), "Dockerfile")
-			}
-			err := warmer.WarmCache(&topts)
-			if err != nil {
-				return fmt.Errorf("target %q: failed warming cache: %w", t.ID, err)
-			}
+		err = WarmTargets(opts, args[0], targets)
+		if err != nil {
+			return err
 		}
 		util.LogRegistryConnections()
 		return nil
 	},
+}
+
+func AddWarmerBakeFlags(cmd *cobra.Command, opts *config.WarmerOptions, set *[]string) {
+	AddWarmerFlags(cmd, opts)
+	cmd.Flags().StringArrayVar(set, "set", nil, "Override a bakefile target field: <target>.<field>=<value>. Set it repeatedly for multiple overrides.")
+}
+
+func WarmTargets(opts *config.WarmerOptions, bakefile string, targets []bake.ResolvedTarget) error {
+	for _, t := range targets {
+		topts := *opts
+		remote := strings.Contains(t.Context, "://")
+		switch {
+		case isURL(t.Dockerfile) || (t.Dockerfile != "" && !remote):
+			topts.DockerfilePath = t.Dockerfile
+		case remote:
+			return fmt.Errorf("target %q: the warmer does not unpack remote context %s, set dockerfile to a local path or URL", t.ID, t.Context)
+		case t.Context != "":
+			topts.DockerfilePath = filepath.Join(t.Context, "Dockerfile")
+		default:
+			topts.DockerfilePath = filepath.Join(filepath.Dir(bakefile), "Dockerfile")
+		}
+		err := warmer.WarmCache(&topts)
+		if err != nil {
+			return fmt.Errorf("target %q: failed warming cache: %w", t.ID, err)
+		}
+	}
+	return nil
 }
 
 // AddWarmerFlags configures opts

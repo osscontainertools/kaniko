@@ -62,6 +62,7 @@ import (
 	testissuemz989 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz989"
 	testunittests "github.com/osscontainertools/kaniko/golden/testdata/test_unittests"
 	testwarmer "github.com/osscontainertools/kaniko/golden/testdata/test_warmer"
+	testwarmerbake "github.com/osscontainertools/kaniko/golden/testdata/test_warmer_bake"
 	"github.com/osscontainertools/kaniko/golden/types"
 	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/cache"
@@ -439,6 +440,29 @@ func fakeRemoteImage(image string, _ config.RegistryOptions, _ string) (v1.Image
 	return img, index, err
 }
 
+func fakeWarmerSources(t *testing.T, test types.GoldenTest) {
+	t.Cleanup(config.InitFeatureFlags)
+	for k, v := range previewEnv {
+		t.Setenv(k, v)
+	}
+	for k, v := range test.Env {
+		t.Setenv(k, v)
+	}
+	// Feature flags resolve once at startup; re-resolve so
+	// this subtest's env takes effect, and restore afterwards.
+	config.InitFeatureFlags()
+
+	origRemote, origLocal := warmer.RemoteSource, warmer.LocalSource
+	warmer.RemoteSource = fakeRemoteImage
+	warmer.LocalSource = func(_ *config.CacheOptions, key, _ string) (v1.Image, error) {
+		if !slices.Contains(test.CachedKeys, key) {
+			return nil, cache.NotFoundErr{}
+		}
+		return empty.Image, nil
+	}
+	t.Cleanup(func() { warmer.RemoteSource, warmer.LocalSource = origRemote, origLocal })
+}
+
 func TestWarmer(t *testing.T) {
 	logrus.SetLevel(logrus.ErrorLevel)
 
@@ -449,26 +473,7 @@ func TestWarmer(t *testing.T) {
 				t.Run(testSuite.Name, func(t *testing.T) {
 					for _, test := range testSuite.Tests {
 						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
-							t.Cleanup(config.InitFeatureFlags)
-							for k, v := range previewEnv {
-								t.Setenv(k, v)
-							}
-							for k, v := range test.Env {
-								t.Setenv(k, v)
-							}
-							// Feature flags resolve once at startup; re-resolve so
-							// this subtest's env takes effect, and restore afterwards.
-							config.InitFeatureFlags()
-
-							origRemote, origLocal := warmer.RemoteSource, warmer.LocalSource
-							warmer.RemoteSource = fakeRemoteImage
-							warmer.LocalSource = func(_ *config.CacheOptions, key, _ string) (v1.Image, error) {
-								if !slices.Contains(test.CachedKeys, key) {
-									return nil, cache.NotFoundErr{}
-								}
-								return empty.Image, nil
-							}
-							t.Cleanup(func() { warmer.RemoteSource, warmer.LocalSource = origRemote, origLocal })
+							fakeWarmerSources(t, test)
 
 							opts := config.WarmerOptions{}
 							exec := &cobra.Command{Use: "warmer"}
@@ -485,6 +490,52 @@ func TestWarmer(t *testing.T) {
 							var buf bytes.Buffer
 							warmer.Out = &buf
 							if err := warmer.WarmCache(&opts); err != nil {
+								t.Error(err)
+							}
+							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), buf.String())
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
+var warmerBakeTests = map[string][]types.GoldenTests{
+	"test_warmer_bake": {testwarmerbake.Tests},
+}
+
+func TestWarmerBake(t *testing.T) {
+	logrus.SetLevel(logrus.ErrorLevel)
+
+	for testName, testSuites := range warmerBakeTests {
+		t.Run(testName, func(t *testing.T) {
+			testDir := filepath.Join("testdata", testName)
+			for _, testSuite := range testSuites {
+				t.Run(testSuite.Name, func(t *testing.T) {
+					for _, test := range testSuite.Tests {
+						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
+							fakeWarmerSources(t, test)
+
+							opts := config.WarmerOptions{}
+							var set []string
+							exec := &cobra.Command{Use: "bake"}
+							warmercmd.AddWarmerBakeFlags(exec, &opts, &set)
+							args := []string{"--dryrun", filepath.Join(testDir, "kaniko-bake.hcl")}
+							err := exec.ParseFlags(append(args, test.Args...))
+							if err != nil {
+								t.Fatal(err)
+							}
+
+							rest := exec.Flags().Args()
+							targets, err := bake.Load(rest[0], rest[1:], set)
+							if err != nil {
+								t.Fatal(err)
+							}
+							var buf bytes.Buffer
+							warmer.Out = &buf
+							err = warmercmd.WarmTargets(&opts, rest[0], targets)
+							if err != nil {
 								t.Error(err)
 							}
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), buf.String())
