@@ -3020,7 +3020,7 @@ func TestWarmerBake(t *testing.T) {
 		dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 			"bake", "/workspace/kaniko-bake.hcl", "app",
 			"-c", "/workspace",
-			"--cache-from", "oci:/workspace/cache/app",
+			"--cache=true",
 			"--cache-dir", "/workspace/cache/app",
 			"--set", "app.destination="+image,
 		)

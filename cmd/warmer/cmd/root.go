@@ -44,9 +44,8 @@ var (
 	logFormat    string
 	logTimestamp bool
 
-	bakeSet       []string
-	bakePrint     bool
-	bakeCacheFrom []string
+	bakeSet   []string
+	bakePrint bool
 )
 
 func init() {
@@ -188,13 +187,6 @@ every target must have an oci: cache_from entry or none may.`,
 		}
 
 		globalCacheDir := opts.CacheDir
-		ociDir, ok, err := globalOCICacheDirFromFlags(bakeCacheFrom)
-		if err != nil {
-			return err
-		}
-		if ok {
-			globalCacheDir = ociDir
-		}
 
 		plans := make([]bakeTargetPlan, 0, len(targets))
 		type targetWork struct {
@@ -340,27 +332,6 @@ func plansToJSON(targets []bake.ResolvedTarget, plans []bakeTargetPlan) map[stri
 	return byID
 }
 
-func globalOCICacheDirFromFlags(cacheFrom []string) (string, bool, error) {
-	var ociDir string
-	for _, ref := range cacheFrom {
-		if !strings.HasPrefix(ref, "oci:") {
-			return "", false, fmt.Errorf("warmer bake only supports oci: cache-from (got %q)", ref)
-		}
-		dir := strings.TrimPrefix(ref, "oci:")
-		if dir == "" {
-			return "", false, errors.New("oci: cache-from requires a directory path")
-		}
-		if ociDir != "" && ociDir != dir {
-			return "", false, errors.New("multiple oci: cache-from values are not supported")
-		}
-		ociDir = dir
-	}
-	if ociDir == "" {
-		return "", false, nil
-	}
-	return ociDir, true, nil
-}
-
 func validateBakeCacheConsistency(targets []bake.ResolvedTarget) error {
 	hasOci := false
 	hasNonOci := false
@@ -388,7 +359,6 @@ func validateBakeCacheConsistency(targets []bake.ResolvedTarget) error {
 func AddWarmerBakeFlags(cmd *cobra.Command) {
 	cmd.Flags().StringArrayVar(&bakeSet, "set", nil, "Override a bakefile target field: <target>.<field>=<value>. Set it repeatedly for multiple overrides.")
 	cmd.Flags().BoolVar(&bakePrint, "print", false, "Print the resolved targets as JSON and exit without warming")
-	cmd.Flags().StringArrayVar(&bakeCacheFrom, "cache-from", nil, "OCI layout cache directory to warm into as an alternative to --cache-dir for targets without per-target oci: cache_from (e.g. oci:/cache).")
 }
 
 // AddWarmerRuntimeFlags configures warmer options applicable to both root and bake commands.

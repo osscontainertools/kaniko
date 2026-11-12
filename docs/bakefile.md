@@ -151,7 +151,7 @@ warmer bake /workspace/kaniko-bake.hcl app --cache-dir=/workspace/cache
 ### Cache write location
 
 - If a target has an `oci:`-prefixed `cache_from` entry (e.g. `cache_from = ["oci:/workspace/cache/app", "registry.example.com/app/cache"]`), the warmer writes that target's base images into the directory named by the first `oci:` entry (prefix stripped). Non-`oci:` `cache_from` entries (registry refs) are ignored by the warmer.
-- If a target has no `oci:` `cache_from` entry, the warmer writes into the global cache directory (`--cache-dir`, default `/cache`, or `--cache-from oci:<dir>`), shared by all such targets.
+- If a target has no `oci:` `cache_from` entry, the warmer writes into the global cache directory (`--cache-dir`, default `/cache`), shared by all such targets.
 
 ### Consistency rule
 
@@ -177,18 +177,10 @@ warmer bake /workspace/kaniko-bake.hcl app \
   --set app.cache_from=oci:/workspace/cache/app-override
 ```
 
-For a shared global cache without per-target `cache_from` entries, `--cache-from oci:<dir>` can be used instead of `--cache-dir`:
-
-```shell
-warmer bake /workspace/kaniko-bake.hcl --cache-from oci:/workspace/cache
-```
-
-### Consuming with executor
-
 Warm per-target caches and point executor at the matching directory:
 
 ```shell
 warmer bake /workspace/kaniko-bake.hcl app --cache-dir=/workspace/cache
 executor bake /workspace/kaniko-bake.hcl app -c /workspace \
-  --cache-from oci:/workspace/cache/app
+  --cache-dir /workspace/cache/app
 ```
