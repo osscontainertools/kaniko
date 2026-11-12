@@ -847,7 +847,7 @@ go.opentelemetry.io/proto/otlp/collector/trace/v1
 go.opentelemetry.io/proto/otlp/common/v1
 go.opentelemetry.io/proto/otlp/resource/v1
 go.opentelemetry.io/proto/otlp/trace/v1
-# golang.org/x/crypto v0.58.0
+# golang.org/x/crypto v0.59.0
 ## explicit; go 1.26.0
 golang.org/x/crypto/argon2
 golang.org/x/crypto/blake2b
