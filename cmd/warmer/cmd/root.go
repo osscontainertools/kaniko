@@ -63,7 +63,10 @@ func init() {
 
 var RootCmd = &cobra.Command{
 	Use: "cache warmer",
-	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+	PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+		if cmd.Name() == "bake" && bakePrint {
+			return nil
+		}
 		return configureWarmerCommon(opts)
 	},
 	RunE: func(_ *cobra.Command, _ []string) error {
@@ -156,6 +159,9 @@ the global --cache-dir when it does not. Across targets warmed in a single invoc
 every target must have an oci: cache_from entry or none may.`,
 	Args: cobra.RangeArgs(1, 2),
 	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+		if bakePrint {
+			return nil
+		}
 		return configureWarmerCommon(opts)
 	},
 	RunE: func(_ *cobra.Command, args []string) error {
