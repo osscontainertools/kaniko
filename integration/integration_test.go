@@ -2783,41 +2783,33 @@ func TestWarmerBake(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"test_context_dockerfile", "test_issue_mz351"} {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			ctxDir := filepath.Join(cwd, "bakefiles", name)
-			cacheDir := t.TempDir()
+	ctxDir := filepath.Join(cwd, "testdata", "test_warmer_bake")
+	cacheDir := t.TempDir()
 
-			warmFlags := []string{"run", "--rm", "--net=host", "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())}
-			warmFlags = addAuthFlags(warmFlags)
-			warmFlags = addCoverageFlags(warmFlags)
-			for _, envVariable := range WarmerEnv {
-				warmFlags = append(warmFlags, "-e", envVariable)
-			}
-			warmFlags = append(warmFlags, "-v", ctxDir+":/workspace", "-v", cacheDir+":/cache", WarmerImage,
-				"bake", "/workspace/kaniko-bake.hcl", "--cache-dir=/cache")
-			out, err := RunCommandWithoutTest(exec.Command("docker", warmFlags...))
-			t.Logf("warmer bake output:\n%s", out)
-			if err != nil {
-				t.Fatalf("warmer bake failed: %v", err)
-			}
+	warmFlags := []string{"run", "--rm", "--net=host", "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())}
+	warmFlags = addAuthFlags(warmFlags)
+	warmFlags = addCoverageFlags(warmFlags)
+	for _, envVariable := range WarmerEnv {
+		warmFlags = append(warmFlags, "-e", envVariable)
+	}
+	warmFlags = append(warmFlags, "-v", ctxDir+":/workspace", "-v", cacheDir+":/cache", WarmerImage,
+		"bake", "/workspace/kaniko-bake.hcl", "--cache-dir=/cache")
+	out, err := RunCommandWithoutTest(exec.Command("docker", warmFlags...))
+	t.Logf("warmer bake output:\n%s", out)
+	if err != nil {
+		t.Fatalf("warmer bake failed: %v", err)
+	}
 
-			buildFlags := []string{"run", "--rm", "--net=host", "-v", ctxDir + ":/workspace", "-v", cacheDir + ":/cache"}
-			buildFlags = addAuthFlags(buildFlags)
-			buildFlags = addCoverageFlags(buildFlags)
-			buildFlags = addKanikoEnvFlags(buildFlags, t.Name())
-			buildFlags = append(buildFlags, ExecutorImage,
-				"bake", "/workspace/kaniko-bake.hcl", "-c", "/workspace", "--no-push", "--cache-dir=/cache")
-			out, err = RunCommandWithoutTest(exec.Command("docker", buildFlags...))
-			t.Logf("executor bake output:\n%s", out)
-			if err != nil {
-				t.Fatalf("executor bake failed: %v", err)
-			}
-			if !strings.Contains(string(out), "in local cache") {
-				t.Fatal("executor bake did not use the warmed base images")
-			}
-		})
+	// Without a network, the base images can only come from the warmed cache.
+	buildFlags := []string{"run", "--rm", "--network=none", "-v", ctxDir + ":/workspace", "-v", cacheDir + ":/cache"}
+	buildFlags = addCoverageFlags(buildFlags)
+	buildFlags = addKanikoEnvFlags(buildFlags, t.Name())
+	buildFlags = append(buildFlags, ExecutorImage,
+		"bake", "/workspace/kaniko-bake.hcl", "--no-push", "--cache-dir=/cache")
+	out, err = RunCommandWithoutTest(exec.Command("docker", buildFlags...))
+	t.Logf("executor bake output:\n%s", out)
+	if err != nil {
+		t.Fatalf("executor bake failed: %v", err)
 	}
 }
 
