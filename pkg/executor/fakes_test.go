@@ -60,6 +60,7 @@ type MockDockerCommand struct {
 }
 
 func (m MockDockerCommand) ExecuteCommand(_ *v1.Config, _ *dockerfile.BuildArgs) error { return nil }
+
 func (m MockDockerCommand) String() string {
 	return m.command
 }

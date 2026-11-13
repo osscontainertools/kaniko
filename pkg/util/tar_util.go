@@ -110,7 +110,7 @@ func (t *Tar) AddFileToTar(p string) error {
 	if err := t.w.WriteHeader(hdr); err != nil {
 		return err
 	}
-	if !(i.Mode().IsRegular()) || hardlink {
+	if !i.Mode().IsRegular() || hardlink {
 		return nil
 	}
 	r, err := FSys.Open(p)

@@ -2650,7 +2650,8 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 	}
 
 	run := func(credFlags []string, dockerfile string, args ...string) ([]byte, error) {
-		dockerRunFlags := []string{"run", "--rm", "--net=host",
+		dockerRunFlags := []string{
+			"run", "--rm", "--net=host",
 			"-v", cwd + ":/workspace:ro",
 			"-v", caCert + ":/kaniko/ssl/certs/test-registry-ca.crt:ro",
 			"-e", "FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=1",
