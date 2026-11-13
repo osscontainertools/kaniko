@@ -282,6 +282,9 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					if resolveErr != nil {
 						return fmt.Errorf("resolving bind source symlink %s: %w", src, resolveErr)
 					}
+					if mountFileContext.ExcludesFile(resolvedSrc) {
+						return fmt.Errorf("bind source %s resolves to excluded path %s", m.Source, resolvedSrc)
+					}
 					src = resolvedSrc
 				}
 				target := m.Target
@@ -647,6 +650,9 @@ func runCmdFilesUsedFromContext(
 			resolvedPath, resolveErr := securejoin.SecureJoin(fileContext.Root, m.Source)
 			if resolveErr != nil {
 				return nil, fmt.Errorf("resolving bind source symlink %s: %w", fullPath, resolveErr)
+			}
+			if fileContext.ExcludesFile(resolvedPath) {
+				return nil, fmt.Errorf("bind source %s resolves to excluded path %s", m.Source, resolvedPath)
 			}
 			files = append(files, resolvedPath)
 		} else {
