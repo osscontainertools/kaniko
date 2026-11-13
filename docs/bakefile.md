@@ -2,7 +2,7 @@
 
 `executor bake <bakefile> [target]` builds several images from one multi-stage Dockerfile in a single invocation.
 
-The bakefile says which stage each image is built from, where it is pushed and which layer caches it uses. Each target is built on its own, as if `executor` ran once per target. The context and dockerfile come from the usual flags unless the target sets its own. Build args and registry settings come from the usual flags and are shared by every target. With several targets, every distinct context is copied into the kaniko directory before the first build.
+The bakefile says which stage each image is built from, where it is pushed and which layer caches it uses. Each target is built on its own, as if `executor` ran once per target. The context and dockerfile come from the usual flags unless the target sets its own. Build args come from the bakefile. Registry settings come from the usual flags and are shared by every target. With several targets, every distinct context is copied into the kaniko directory before the first build.
 
 It is the analogue of a `docker-bake.hcl`, expressed in kaniko's commands rather than buildx's. A `docker-bake.hcl` will not parse, see [Relationship to docker-bake.hcl](#relationship-to-docker-bakehcl).
 
@@ -37,6 +37,15 @@ target "app" {
   destination = ["registry.example.com/app:latest"]
   cache_from  = ["registry.example.com/app/cache/feature", "registry.example.com/app/cache/main"]
   cache_to    = ["registry.example.com/app/cache/feature"]
+}
+```
+
+`build_arg` is a map of `ARG` values for the target. These are the values [`--build-arg`](../README.md#flag---build-arg) takes, which `bake` does not accept as a flag.
+
+```hcl
+target "app" {
+  destination = ["registry.example.com/app:latest"]
+  build_arg   = { VERSION = "1.2", VARIANT = "slim" }
 }
 ```
 
@@ -93,6 +102,14 @@ Set it repeatedly to override several targets, or to give one target several ref
 
 `--set <target>.cache_from=<repo>` and `--set <target>.cache_to=<repo>` replace a target's caches the same way.
 
+`--set <target>.build_arg.<name>=<value>` sets one build arg and keeps the others:
+
+```shell
+executor bake /workspace/kaniko-bake.hcl \
+  --set app.build_arg.COMMIT=$CI_COMMIT_SHA \
+  --context /workspace
+```
+
 ## Printing the Resolved Targets
 
 `--print` prints the selected targets as JSON after `--set` is applied, then exits without building. Fields a target does not set are left out and come from the flags:
@@ -146,4 +163,4 @@ warmer bake /workspace/kaniko-bake.hcl app --cache-dir=/cache
 executor bake /workspace/kaniko-bake.hcl app --cache-dir=/cache
 ```
 
-`warmer bake` warms the base images of every stage in each target's dockerfile into `--cache-dir`. It reads `context` and `dockerfile`, and ignores `target`, `destination`, `cache_from` and `cache_to`. A target with a remote `context` needs a `dockerfile` that is a local path or URL. `--set` and `--print` work as in `executor bake`.
+`warmer bake` warms the base images of every stage in each target's dockerfile into `--cache-dir`. It reads `context`, `dockerfile` and `build_arg`, and ignores `target`, `destination`, `cache_from` and `cache_to`. A target with a remote `context` needs a `dockerfile` that is a local path or URL. `--set` and `--print` work as in `executor bake`.

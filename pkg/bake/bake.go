@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -32,13 +33,14 @@ import (
 )
 
 type Target struct {
-	Context        string   `hcl:"context"`
-	ContextSubPath string   `hcl:"context_sub_path"`
-	Dockerfile     string   `hcl:"dockerfile"`
-	Target         string   `hcl:"target"`
-	Destination    []string `hcl:"destination"`
-	CacheFrom      []string `hcl:"cache_from"`
-	CacheTo        []string `hcl:"cache_to"`
+	Context        string            `hcl:"context"`
+	ContextSubPath string            `hcl:"context_sub_path"`
+	Dockerfile     string            `hcl:"dockerfile"`
+	Target         string            `hcl:"target"`
+	Destination    []string          `hcl:"destination"`
+	CacheFrom      []string          `hcl:"cache_from"`
+	CacheTo        []string          `hcl:"cache_to"`
+	BuildArg       map[string]string `hcl:"build_arg"`
 }
 
 type Bakefile struct {
@@ -47,14 +49,15 @@ type Bakefile struct {
 }
 
 type ResolvedTarget struct {
-	ID             string   `json:"-"`
-	Context        string   `json:"context,omitempty"`
-	ContextSubPath string   `json:"context_sub_path,omitempty"`
-	Dockerfile     string   `json:"dockerfile,omitempty"`
-	Stage          string   `json:"target,omitempty"`
-	Destination    []string `json:"destination,omitempty"`
-	CacheFrom      []string `json:"cache_from,omitempty"`
-	CacheTo        []string `json:"cache_to,omitempty"`
+	ID             string            `json:"-"`
+	Context        string            `json:"context,omitempty"`
+	ContextSubPath string            `json:"context_sub_path,omitempty"`
+	Dockerfile     string            `json:"dockerfile,omitempty"`
+	Stage          string            `json:"target,omitempty"`
+	Destination    []string          `json:"destination,omitempty"`
+	CacheFrom      []string          `json:"cache_from,omitempty"`
+	CacheTo        []string          `json:"cache_to,omitempty"`
+	BuildArg       map[string]string `json:"build_arg,omitempty"`
 }
 
 func Parse(path string) (*Bakefile, error) {
@@ -94,14 +97,14 @@ func parse(data []byte) (*Bakefile, error) {
 
 var (
 	topKeys    = []string{"target"}
-	targetKeys = []string{"target", "destination", "cache_from", "cache_to", "context", "context_sub_path", "dockerfile"}
+	targetKeys = []string{"target", "destination", "cache_from", "cache_to", "context", "context_sub_path", "dockerfile", "build_arg"}
 )
 
 // Keys a docker-bake.hcl would use. The bakefile keeps kaniko's own vocabulary, so
 // point at the kaniko spelling rather than accepting both.
 var bakeHints = map[string]string{
 	"tags":       "use destination",
-	"args":       "use the --build-arg flag",
+	"args":       "use build_arg",
 	"platforms":  "use the --custom-platform flag",
 	"inherits":   "which is not supported",
 	"cache-from": "use cache_from",
@@ -265,6 +268,7 @@ func (b *Bakefile) Resolve(selected []string) ([]ResolvedTarget, error) {
 			Destination:    t.Destination,
 			CacheFrom:      t.CacheFrom,
 			CacheTo:        t.CacheTo,
+			BuildArg:       maps.Clone(t.BuildArg),
 		})
 	}
 	return resolved, nil
@@ -274,6 +278,14 @@ type Override struct {
 	Target string
 	Field  string
 	Value  string
+}
+
+func (t ResolvedTarget) BuildArgs() []string {
+	args := make([]string, 0, len(t.BuildArg))
+	for _, k := range slices.Sorted(maps.Keys(t.BuildArg)) {
+		args = append(args, k+"="+t.BuildArg[k])
+	}
+	return args
 }
 
 func Print(targets []ResolvedTarget) ([]byte, error) {
@@ -326,7 +338,14 @@ func ApplyOverrides(targets []ResolvedTarget, overrides []Override) error {
 		case "dockerfile":
 			dockerfiles[i] = o.Value
 		default:
-			return fmt.Errorf("--set field %q is not supported", o.Field)
+			key, ok := strings.CutPrefix(o.Field, "build_arg.")
+			if !ok || key == "" {
+				return fmt.Errorf("--set field %q is not supported", o.Field)
+			}
+			if targets[i].BuildArg == nil {
+				targets[i].BuildArg = map[string]string{}
+			}
+			targets[i].BuildArg[key] = o.Value
 		}
 	}
 	for i, d := range dests {
