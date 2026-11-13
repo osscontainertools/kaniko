@@ -14,6 +14,13 @@ updates:
         update-types:
           - "patch"
 
+  - package-ecosystem: gomod
+    directory: /tools
+    schedule:
+      interval: daily
+    cooldown:
+      default-days: 0
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

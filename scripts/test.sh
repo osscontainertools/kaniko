@@ -34,6 +34,7 @@ echo "Running validation scripts..."
 scripts=(
     "${DIR}/../hack/boilerplate.sh"
     "${DIR}/../hack/gofmt.sh"
+    "${DIR}/../hack/golangci-lint.sh"
 )
 fail=0
 for s in "${scripts[@]}"
