@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -92,6 +93,9 @@ var (
 // push to every specified destination.
 func CheckPushPermissions(opts *config.KanikoOptions) error {
 	targets := opts.Destinations
+	// cache repositories only warn, unless they are also an image destination
+	cacheTo := map[string]bool{}
+	cacheFrom := map[string]bool{}
 	if opts.SkipPushPermissionCheck {
 		targets = []string{}
 	} else if opts.NoPush {
@@ -102,6 +106,29 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 			// no need to check push permissions if we're just writing to disk
 			if !isOCILayout(repo) {
 				targets = append(targets, repo)
+				if config.FF.ProbeCredentials {
+					cacheTo[repo] = true
+				}
+			}
+		}
+	}
+
+	if config.FF.ProbeCredentials && !opts.SkipPushPermissionCheck {
+		targets = slices.Clip(targets)
+		for _, repo := range opts.CacheTo {
+			if !isOCILayout(repo) && !slices.Contains(targets, repo) {
+				if opts.NoPush {
+					// under --no-push the cache-to repositories are already targets from above
+					assert.Unreachable("cache-to repository %s is not a target under --no-push", repo)
+				}
+				targets = append(targets, repo)
+				cacheTo[repo] = true
+			}
+		}
+		for _, repo := range opts.CacheFrom {
+			if !isOCILayout(repo) && !slices.Contains(targets, repo) {
+				targets = append(targets, repo)
+				cacheFrom[repo] = true
 			}
 		}
 	}
@@ -129,8 +156,19 @@ func CheckPushPermissions(opts *config.KanikoOptions) error {
 			return fmt.Errorf("making transport for registry %q: %w", registryName, err)
 		}
 		tr := newRetry(rt)
-		if err := checkRemotePushPermission(destRef, creds.GetKeychain(&opts.RegistryOptions), tr); err != nil {
-			return fmt.Errorf("checking push permission for %q: %w", destRef, err)
+		switch {
+		case cacheFrom[destination]:
+			if !creds.PinPull(&opts.RegistryOptions, destRef.Context()) {
+				logrus.Warnf("no credential can pull from cache %s", destRef.Context())
+			}
+		case config.FF.ProbeCredentials && creds.PinPush(&opts.RegistryOptions, destRef.Context()):
+		case cacheTo[destination]:
+			logrus.Warnf("no credential can push to cache %s", destRef.Context())
+		default:
+			err = checkRemotePushPermission(destRef, creds.GetKeychain(&opts.RegistryOptions), tr)
+			if err != nil {
+				return fmt.Errorf("checking push permission for %q: %w", destRef, err)
+			}
 		}
 		checked[destRef.Context().String()] = true
 	}

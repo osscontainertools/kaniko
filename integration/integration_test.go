@@ -2723,6 +2723,27 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 		}
 	})
 
+	// DOCKER_AUTH_CONFIG answers first with userb, only the env helper's usera may access usera/
+	probeFlags := append(configEnv(map[string]string{registry: stranger}),
+		"-e", "FF_KANIKO_PROBE_CREDENTIALS=1",
+		"-e", "KANIKO_127_0_0_2:5001_USER=usera",
+		"-e", "KANIKO_127_0_0_2:5001_PASSWORD=usera",
+	)
+
+	t.Run("probe skips a credential that cannot push", func(t *testing.T) {
+		out, err := run(probeFlags, pushDockerfile, "--destination", registry+"/usera/mz1396:latest", "--cache=true", "--cache-repo", registry+"/usera/mz1396-cache")
+		if err != nil {
+			t.Fatalf("push with the probed credential failed: %v\n%s", err, out)
+		}
+	})
+
+	t.Run("probe skips a credential that cannot pull", func(t *testing.T) {
+		out, err := run(probeFlags, pullDockerfile, "--build-arg", "IMAGE_NAME="+dest, "--no-push", "--no-push-cache")
+		if err != nil {
+			t.Fatalf("pull with the probed credential failed: %v\n%s", err, out)
+		}
+	})
+
 	t.Run("an entry is not offered to a namespace it does not cover", func(t *testing.T) {
 		// the registry accepts kanikotest for every namespace, so a push that succeeds here
 		// was authenticated with an entry that covers userb only

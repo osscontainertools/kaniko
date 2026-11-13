@@ -176,6 +176,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_POOL_REGISTRY_CONNECTIONS`](#flag-ff_kaniko_pool_registry_connections)
       - [Flag `FF_KANIKO_PRECOMPILE_DOCKERIGNORE`](#flag-ff_kaniko_precompile_dockerignore)
       - [Flag `FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS`](#flag-ff_kaniko_preserve_mounted_symlinks)
+      - [Flag `FF_KANIKO_PROBE_CREDENTIALS`](#flag-ff_kaniko_probe_credentials)
       - [Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`](#flag-ff_kaniko_reproducible_preserve_base_layers)
       - [Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT`](#flag-ff_kaniko_reproducible_preserve_format)
       - [Flag `FF_KANIKO_RESOLVE_CACHE_KEY`](#flag-ff_kaniko_resolve_cache_key)
@@ -1286,6 +1287,7 @@ FF_KANIKO_ISOLATE_CACHE_PUSH=true
 FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR=true
 FF_KANIKO_NATIVE_INIT=true
 FF_KANIKO_PARALLEL_HASH=true
+FF_KANIKO_PROBE_CREDENTIALS=true
 FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=true
 FF_KANIKO_RUN_HEREDOC_SCRIPT=true
 FF_KANIKO_RUN_MOUNT_BIND_RELATIVE=true
@@ -1604,6 +1606,13 @@ Will be deprecated in `v1.30.0`.
 Ubuntu ships `/lib` as a symlink to `/usr/lib`. A bind-mount into `/lib`, as the NVIDIA GPU operator does on GPU nodes, forces it to stay a real directory, so kaniko drops the symlink and nothing reaches the base image files through `/lib` any more. Every `RUN` then fails with `fork/exec /bin/sh: no such file or directory`.
 Set this flag to `true` to keep both paths resolving to the same files. Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_PROBE_CREDENTIALS`
+
+kaniko uses the first credential source that has an entry for a repository, even when the registry rejects it. A `DOCKER_AUTH_CONFIG` that can only pull then fails the push, and a Google metadata-server token without registry access fails the pull of a public `gcr.io` image.
+Set this flag to `true` to use the first credential source the registry accepts for each repository, or no credential for a pull.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`
 
