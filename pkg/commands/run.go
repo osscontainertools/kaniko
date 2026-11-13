@@ -278,7 +278,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				}
 				src := filepath.Join(mountFileContext.Root, m.Source)
 				if kConfig.FF.RunMountBindResolveSymlink {
-					resolvedSrc, resolveErr := securejoin.SecureJoin(mountFileContext.Root, m.Source)
+					resolvedSrc, resolveErr := securejoin.SecureJoin(filepath.Clean(mountFileContext.Root), m.Source)
 					if resolveErr != nil {
 						return fmt.Errorf("resolving bind source symlink %s: %w", src, resolveErr)
 					}
@@ -647,7 +647,7 @@ func runCmdFilesUsedFromContext(
 		}
 		fullPath := filepath.Join(fileContext.Root, m.Source)
 		if kConfig.FF.RunMountBindResolveSymlink {
-			resolvedPath, resolveErr := securejoin.SecureJoin(fileContext.Root, m.Source)
+			resolvedPath, resolveErr := securejoin.SecureJoin(filepath.Clean(fileContext.Root), m.Source)
 			if resolveErr != nil {
 				return nil, fmt.Errorf("resolving bind source symlink %s: %w", fullPath, resolveErr)
 			}
