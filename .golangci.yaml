@@ -1,0 +1,37 @@
+version: "2"
+
+run:
+  build-tags:
+    - otel
+    - git
+    - google
+    - aws
+    - azure
+
+linters:
+  default: standard
+  enable:
+    - copyloopvar
+    - makezero
+    - misspell
+    - modernize
+    - unconvert
+    - unparam
+    - wastedassign
+    - whitespace
+  disable:
+    # runs as its own CI step, pinned to the version in DEVELOPMENT.md
+    - staticcheck
+  settings:
+    modernize:
+      disable:
+        # flattening hides which embedded struct a field belongs to
+        - embedlit
+  exclusions:
+    presets:
+      - std-error-handling
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
