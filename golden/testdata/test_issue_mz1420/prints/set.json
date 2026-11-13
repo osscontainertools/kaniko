@@ -1,0 +1,14 @@
+{
+  "target": {
+    "golang": {
+      "target": "app",
+      "destination": [
+        "registry.example.com/golang:latest"
+      ],
+      "build_arg": {
+        "BASE": "golang:1.25",
+        "VERSION": "1.4"
+      }
+    }
+  }
+}

@@ -48,6 +48,7 @@ import (
 	testissuemz1346 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1346"
 	testissuemz1349 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1349"
 	testissuemz1372 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1372"
+	testissuemz1420 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1420"
 	testissuemz195 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz195"
 	testissuemz333 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz333"
 	testissuemz334 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz334"
@@ -317,6 +318,7 @@ var bakeTests = map[string][]types.GoldenTests{
 	"test_bake":                    {testbake.Tests},
 	"test_bake_context_dockerfile": {testbakecontextdockerfile.Tests},
 	"test_issue_mz1349":            {testissuemz1349.Tests},
+	"test_issue_mz1420":            {testissuemz1420.Tests},
 }
 
 func TestBake(t *testing.T) {
@@ -503,7 +505,8 @@ func TestWarmer(t *testing.T) {
 }
 
 var warmerBakeTests = map[string][]types.GoldenTests{
-	"test_warmer_bake": {testwarmerbake.Tests},
+	"test_warmer_bake":  {testwarmerbake.Tests},
+	"test_issue_mz1420": {testissuemz1420.WarmerTests},
 }
 
 func TestWarmerBake(t *testing.T) {
