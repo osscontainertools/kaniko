@@ -152,13 +152,7 @@ TESTS=<pattern> make golden
 
 ### Lint Checks
 
-CI runs staticcheck. To run the same version locally:
-
-```shell
-go run honnef.co/go/tools/cmd/staticcheck@2026.2.2 ./...
-```
-
-CI also runs golangci-lint with [`.golangci.yaml`](./.golangci.yaml):
+CI runs golangci-lint with [`.golangci.yaml`](./.golangci.yaml). To run the same version locally:
 
 ```shell
 go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 run

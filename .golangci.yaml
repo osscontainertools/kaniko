@@ -19,9 +19,6 @@ linters:
     - unparam
     - wastedassign
     - whitespace
-  disable:
-    # runs as its own CI step, pinned to the version in DEVELOPMENT.md
-    - staticcheck
   settings:
     modernize:
       disable:
