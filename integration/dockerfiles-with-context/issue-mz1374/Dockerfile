@@ -19,10 +19,11 @@
 # A mounted absolute link would read the RUN stage's file.
 # The context is passed as /workspace/../workspace, which SecureJoin rejects unless cleaned.
 # The test steps stay because the context harness ignores file content.
-FROM busybox AS src
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS src
 RUN mkdir /real && echo stage-content > /real/value && ln -s /real/value /value
 
-FROM busybox
+FROM ${IMAGE_REPO}busybox
 RUN mkdir /real && echo wrong > /real/value
 RUN --mount=type=bind,source=context/value,target=/mnt/value test "$(cat /mnt/value)" = context-content
 RUN --mount=type=bind,from=src,source=/value,target=/mnt/stage test "$(cat /mnt/stage)" = stage-content
