@@ -51,9 +51,9 @@ target "app" {
 }
 ```
 
-- `context`: Path to the build context for this target. Relative paths are resolved relative to the bakefile.
+- `context`: Path to the build context for this target. Relative paths are resolved relative to the working directory.
 - `context_sub_path`: Sub path within the target's context, like [`--context-sub-path`](../README.md#flag---context-sub-path).
-- `dockerfile`: Path to the Dockerfile for this target. Relative paths are resolved relative to the target's context (or bakefile).
+- `dockerfile`: Path to the Dockerfile for this target. Relative paths are resolved relative to the target's context, or without one to the working directory.
 
 ## Choosing Targets
 

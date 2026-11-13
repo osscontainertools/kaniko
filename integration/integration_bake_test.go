@@ -19,6 +19,7 @@ package integration
 import (
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"testing"
 
@@ -28,6 +29,10 @@ import (
 // Each image ships its fixture at /ctx, a mount would hide it.
 var bakeExecutorImages = map[string]string{
 	"test_bake_unmounted_context": ExecutorImageBakeContext,
+}
+
+var bakefileDirs = map[string]string{
+	"test_issue_mz1418": "sub",
 }
 
 // TestBake is a smoke test for the bake subcommand. For each folder under
@@ -55,7 +60,8 @@ func TestBake(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			bakefile, err := bake.Parse(filepath.Join(ctxDir, "kaniko-bake.hcl"))
+			bakefileDir := bakefileDirs[name]
+			bakefile, err := bake.Parse(filepath.Join(ctxDir, bakefileDir, "kaniko-bake.hcl"))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -66,7 +72,7 @@ func TestBake(t *testing.T) {
 
 			kanikoImages := map[string]string{}
 			dockerImages := map[string]string{}
-			kanikoFlags := []string{"run", "--rm", "--net=host"}
+			kanikoFlags := []string{"run", "--rm", "--net=host", "-w", "/ctx"}
 			executorImage, ok := bakeExecutorImages[name]
 			if !ok {
 				executorImage = ExecutorImage
@@ -76,8 +82,8 @@ func TestBake(t *testing.T) {
 			kanikoFlags = addCoverageFlags(kanikoFlags)
 			kanikoFlags = addKanikoEnvFlags(kanikoFlags, t.Name())
 			// Match buildx's OCI registry output; Kaniko otherwise inherits the base image format.
-			kanikoFlags = append(kanikoFlags, executorImage, "bake", "/ctx/kaniko-bake.hcl", "-c", "/ctx", "--image-format=oci")
-			dockerFlags := []string{"buildx", "bake", "-f", "docker-bake.hcl"}
+			kanikoFlags = append(kanikoFlags, executorImage, "bake", path.Join("/ctx", bakefileDir, "kaniko-bake.hcl"), "-c", "/ctx", "--image-format=oci")
+			dockerFlags := []string{"buildx", "bake", "-f", filepath.Join(bakefileDir, "docker-bake.hcl")}
 			var dockerTargets []string
 			for _, target := range targets {
 				imageName := name + "-" + target.ID

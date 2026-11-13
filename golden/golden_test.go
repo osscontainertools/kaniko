@@ -324,7 +324,11 @@ func TestBake(t *testing.T) {
 
 	for testName, testSuites := range bakeTests {
 		t.Run(testName, func(t *testing.T) {
-			testDir := filepath.Join("testdata", testName)
+			testDir, err := filepath.Abs(filepath.Join("testdata", testName))
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Chdir(testDir)
 			for _, testSuite := range testSuites {
 				t.Run(testSuite.Name, func(t *testing.T) {
 					for _, test := range testSuite.Tests {
@@ -386,7 +390,11 @@ func TestBake(t *testing.T) {
 func TestBakePrint(t *testing.T) {
 	for testName, testSuites := range bakeTests {
 		t.Run(testName, func(t *testing.T) {
-			testDir := filepath.Join("testdata", testName)
+			testDir, err := filepath.Abs(filepath.Join("testdata", testName))
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Chdir(testDir)
 			for _, testSuite := range testSuites {
 				t.Run(testSuite.Name, func(t *testing.T) {
 					for _, test := range testSuite.Tests {
@@ -511,7 +519,11 @@ func TestWarmerBake(t *testing.T) {
 
 	for testName, testSuites := range warmerBakeTests {
 		t.Run(testName, func(t *testing.T) {
-			testDir := filepath.Join("testdata", testName)
+			testDir, err := filepath.Abs(filepath.Join("testdata", testName))
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Chdir(testDir)
 			for _, testSuite := range testSuites {
 				t.Run(testSuite.Name, func(t *testing.T) {
 					for _, test := range testSuite.Tests {
@@ -535,7 +547,7 @@ func TestWarmerBake(t *testing.T) {
 							}
 							var buf bytes.Buffer
 							warmer.Out = &buf
-							err = warmercmd.WarmTargets(&opts, rest[0], targets)
+							err = warmercmd.WarmTargets(&opts, targets)
 							if err != nil {
 								t.Error(err)
 							}

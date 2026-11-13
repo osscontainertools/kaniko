@@ -42,7 +42,6 @@ type Target struct {
 }
 
 type Bakefile struct {
-	Dir     string
 	Targets map[string]Target `hcl:"target"`
 }
 
@@ -66,7 +65,6 @@ func Parse(path string) (*Bakefile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	b.Dir = filepath.Dir(path)
 	return b, nil
 }
 
@@ -221,16 +219,9 @@ func Load(path string, selection, set []string) ([]ResolvedTarget, error) {
 	for i := range targets {
 		t := &targets[i]
 		remote := strings.Contains(t.Context, "://")
-		if t.Context != "" && !filepath.IsAbs(t.Context) && !remote {
-			t.Context = filepath.Join(bakefile.Dir, t.Context)
-		}
 		// A relative dockerfile in a remote context is joined once the context is unpacked.
-		if t.Dockerfile != "" && !filepath.IsAbs(t.Dockerfile) && !strings.Contains(t.Dockerfile, "://") && !remote {
-			if t.Context != "" {
-				t.Dockerfile = filepath.Join(t.Context, t.Dockerfile)
-			} else {
-				t.Dockerfile = filepath.Join(bakefile.Dir, t.Dockerfile)
-			}
+		if t.Dockerfile != "" && t.Context != "" && !filepath.IsAbs(t.Dockerfile) && !strings.Contains(t.Dockerfile, "://") && !remote {
+			t.Dockerfile = filepath.Join(t.Context, t.Dockerfile)
 		}
 	}
 	return targets, nil
