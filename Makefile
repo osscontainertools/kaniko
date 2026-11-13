@@ -30,7 +30,6 @@ REGISTRY?=gcr.io/kaniko-project
 REPOPATH ?= $(ORG)/$(PROJECT)
 VERSION_PACKAGE = $(REPOPATH)/pkg/version
 
-GO_FILES := $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 GO_LDFLAGS := '-extldflags "-static"
 GO_LDFLAGS += -X $(VERSION_PACKAGE).version=$(VERSION)
 GO_LDFLAGS += -w -s # Drop debugging symbols.
@@ -59,13 +58,15 @@ export GOFLAGS = -mod=vendor -buildvcs=false -trimpath
 
 export GO_TAGS = otel,git,google,aws,azure
 
-out/executor: $(GO_FILES)
+.PHONY: out/executor out/executor-slim out/warmer
+
+out/executor:
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build -tags $(GO_TAGS)$(if $(RACE),$(RACE_TAGS)) $(if $(COVER),-cover) $(if $(RACE),-race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
 
-out/executor-slim: $(GO_FILES)
+out/executor-slim:
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build $(if $(COVER),-cover) $(if $(RACE),-tags $(RACE_TAGS) -race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
 
-out/warmer: $(GO_FILES)
+out/warmer:
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build -tags $(GO_TAGS)$(if $(RACE),$(RACE_TAGS)) $(if $(COVER),-cover) $(if $(RACE),-race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(WARMER_PACKAGE)
 
 .PHONY: install-diffoci
