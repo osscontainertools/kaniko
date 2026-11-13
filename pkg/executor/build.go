@@ -2149,6 +2149,11 @@ func filesToSave(deps []string) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
+		literalPath := filepath.Join(config.RootDir, src)
+		_, err = os.Lstat(literalPath)
+		if err == nil {
+			srcs = append(srcs, literalPath)
+		}
 		for _, f := range srcs {
 			if link, err := util.EvalSymLink(f); err == nil {
 				link, err = filepath.Rel(config.RootDir, link)

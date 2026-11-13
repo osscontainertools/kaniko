@@ -276,6 +276,13 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					mountFileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoInterStageDepsDir, m.From)}
 				}
 				src := filepath.Join(mountFileContext.Root, m.Source)
+				_, err = os.Lstat(src)
+				if err != nil && os.IsNotExist(err) && util.ContainsWildcards([]string{m.Source}) {
+					resolved, rerr := util.ResolveSources([]string{m.Source}, mountFileContext.Root)
+					if rerr == nil && len(resolved) == 1 {
+						src = filepath.Join(mountFileContext.Root, resolved[0])
+					}
+				}
 				target := m.Target
 				if kConfig.FF.RunMountBindRelative {
 					target = ToAbsPath(target, config.WorkingDir)

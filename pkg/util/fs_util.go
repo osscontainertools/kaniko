@@ -1292,6 +1292,9 @@ func hasCleanedFilepathPrefix(path, prefix string, prefixMatchOnly bool) bool {
 	}
 
 	for index := range prefixArray {
+		if prefixArray[index] == pathArray[index] {
+			continue
+		}
 		m, err := filepath.Match(prefixArray[index], pathArray[index])
 		if err != nil {
 			return false
