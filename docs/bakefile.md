@@ -1,6 +1,6 @@
 # Building Several Images From One Dockerfile
 
-`executor bake <bakefile> [target]` builds several images from one multi-stage Dockerfile in a single invocation.
+`executor bake <bakefile> [target...]` builds several images from one multi-stage Dockerfile in a single invocation.
 
 The bakefile says which stage each image is built from, where it is pushed and which layer caches it uses. Each target is built on its own, as if `executor` ran once per target. The context and dockerfile come from the usual flags unless the target sets its own. Build args and registry settings come from the usual flags and are shared by every target. With several targets, every distinct context is copied into the kaniko directory before the first build.
 
@@ -63,10 +63,10 @@ With no target named on the command line, every target in the file is built:
 executor bake /workspace/kaniko-bake.hcl --context /workspace
 ```
 
-Name one to build only that one:
+Name targets to build only those:
 
 ```shell
-executor bake /workspace/kaniko-bake.hcl app --context /workspace
+executor bake /workspace/kaniko-bake.hcl app tools --context /workspace
 ```
 
 ## Overriding Target Attributes
