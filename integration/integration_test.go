@@ -1409,7 +1409,10 @@ func TestCache(t *testing.T) {
 
 func TestWarmer(t *testing.T) {
 	t.Parallel()
-	populateVolumeCache(t, config)
+	err := populateVolumeCache(t, config)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for dockerfile := range imageBuilder.TestWarmerDockerfiles {
 		t.Run("test_warmer_"+dockerfile, func(t *testing.T) {
@@ -1870,7 +1873,10 @@ func TestPushFromArtifact(t *testing.T) {
 				t.Fatalf("docker volume create %s: %v\n%s", outFlag, err, out)
 			}
 			t.Cleanup(func() {
-				exec.Command("docker", "volume", "rm", outFlag).Run()
+				out, err := exec.Command("docker", "volume", "rm", outFlag).CombinedOutput()
+				if err != nil {
+					t.Errorf("docker volume rm %s: %v\n%s", outFlag, err, out)
+				}
 			})
 
 			runExecutor := func(executorArgs ...string) {

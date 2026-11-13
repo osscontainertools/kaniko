@@ -88,7 +88,10 @@ func setupTestTemp(t *testing.T) string {
 			if path != srcPath {
 				tempPath := strings.TrimPrefix(path, srcPath)
 				if info.IsDir() {
-					os.MkdirAll(tempDir+"/"+tempPath, 0o777)
+					err := os.MkdirAll(tempDir+"/"+tempPath, 0o777)
+					if err != nil {
+						return err
+					}
 				} else {
 					out, err := os.Create(tempDir + "/" + tempPath)
 					if err != nil {
@@ -668,7 +671,10 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 		}
 
 		another := filepath.Join(testDir, "another")
-		os.Symlink(filepath.Join(testDir, srcDir), another)
+		err = os.Symlink(filepath.Join(testDir, srcDir), another)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		cmd := CopyCommand{
 			cmd: &instructions.CopyCommand{
@@ -758,7 +764,10 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 		}
 
 		another := filepath.Join(testDir, "another")
-		os.Symlink(filepath.Join(testDir, srcDir), another)
+		err = os.Symlink(filepath.Join(testDir, srcDir), another)
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		cmd := CopyCommand{
 			cmd: &instructions.CopyCommand{
@@ -970,7 +979,10 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 		if err := os.MkdirAll(dir, 0o777); err != nil {
 			t.Fatal(err)
 		}
-		os.Symlink("../bam.txt", filepath.Join(dir, "bam_relative.txt"))
+		err := os.Symlink("../bam.txt", filepath.Join(dir, "bam_relative.txt"))
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		dest := filepath.Join(testDir, "copy")
 		cmd := CopyCommand{
@@ -985,7 +997,7 @@ func TestCopyCommand_ExecuteCommand_Extended(t *testing.T) {
 			Env:        []string{},
 			WorkingDir: testDir,
 		}
-		err := cmd.ExecuteCommand(cfg, dockerfile.NewBuildArgs([]string{}))
+		err = cmd.ExecuteCommand(cfg, dockerfile.NewBuildArgs([]string{}))
 		testutil.CheckNoError(t, err)
 		actual, err := os.ReadDir(filepath.Join(dest, "another"))
 		if err != nil {
