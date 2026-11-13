@@ -420,8 +420,8 @@ func resolveIfSymlink(destPath string) (string, error) {
 		break
 	}
 
-	for i := len(nonexistentPaths) - 1; i >= 0; i-- {
-		newPath = filepath.Join(newPath, nonexistentPaths[i])
+	for _, nonexistentPath := range slices.Backward(nonexistentPaths) {
+		newPath = filepath.Join(newPath, nonexistentPath)
 	}
 
 	if destPath != newPath {

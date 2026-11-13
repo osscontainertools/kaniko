@@ -20,11 +20,17 @@ import "testing"
 
 func TestMultiArg_Set_shouldAppendValue(t *testing.T) {
 	var arg multiArg
-	arg.Set("value1")
+	err := arg.Set("value1")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(arg) != 1 || arg[0] != "value1" {
 		t.Error("Fist value was not appended")
 	}
-	arg.Set("value2")
+	err = arg.Set("value2")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(arg) != 2 || arg[1] != "value2" {
 		t.Error("Second value was not appended")
 	}
@@ -32,7 +38,10 @@ func TestMultiArg_Set_shouldAppendValue(t *testing.T) {
 
 func Test_KeyValueArg_Set_shouldSplitArgument(t *testing.T) {
 	arg := make(keyValueArg)
-	arg.Set("key=value")
+	err := arg.Set("key=value")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if arg["key"] != "value" {
 		t.Error("Invalid split. key=value should be split to key=>value")
 	}
@@ -40,7 +49,10 @@ func Test_KeyValueArg_Set_shouldSplitArgument(t *testing.T) {
 
 func Test_KeyValueArg_Set_shouldAcceptEqualAsValue(t *testing.T) {
 	arg := make(keyValueArg)
-	arg.Set("key=value=something")
+	err := arg.Set("key=value=something")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if arg["key"] != "value=something" {
 		t.Error("Invalid split. key=value=something should be split to key=>value=something")
 	}
@@ -48,7 +60,10 @@ func Test_KeyValueArg_Set_shouldAcceptEqualAsValue(t *testing.T) {
 
 func Test_multiKeyMultiValueArg_Set_shouldSplitArgumentLikeKVA(t *testing.T) {
 	arg := make(multiKeyMultiValueArg)
-	arg.Set("key=value")
+	err := arg.Set("key=value")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if arg["key"][0] != "value" {
 		t.Error("Invalid split. key=value should be split to key=>value")
 	}
@@ -56,8 +71,14 @@ func Test_multiKeyMultiValueArg_Set_shouldSplitArgumentLikeKVA(t *testing.T) {
 
 func Test_multiKeyMultiValueArg_Set_ShouldAppendIfRepeated(t *testing.T) {
 	arg := make(multiKeyMultiValueArg)
-	arg.Set("key=v1")
-	arg.Set("key=v2")
+	err := arg.Set("key=v1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = arg.Set("key=v2")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if arg["key"][0] != "v1" || arg["key"][1] != "v2" {
 		t.Error("Invalid repeat behavior. Repeated keys should append values")
 	}
@@ -65,7 +86,10 @@ func Test_multiKeyMultiValueArg_Set_ShouldAppendIfRepeated(t *testing.T) {
 
 func Test_multiKeyMultiValueArg_Set_Composed(t *testing.T) {
 	arg := make(multiKeyMultiValueArg)
-	arg.Set("key1=value1;key2=value2")
+	err := arg.Set("key1=value1;key2=value2")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if arg["key1"][0] != "value1" || arg["key2"][0] != "value2" {
 		t.Error("Invalid composed value parsing. key=value;key2=value2 should generate 2 keys")
 	}

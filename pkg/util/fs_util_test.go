@@ -874,9 +874,12 @@ func TestExtractFile_PathTraversal(t *testing.T) {
 
 	t.Run("relative symlink within dest is allowed", func(t *testing.T) {
 		dest := t.TempDir()
-		os.MkdirAll(filepath.Join(dest, "foo"), 0o755)
+		err := os.MkdirAll(filepath.Join(dest, "foo"), 0o755)
+		if err != nil {
+			t.Fatal(err)
+		}
 		hdr := linkHeader("./foo/link", "../bar")
-		err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
+		err = ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
 		if err != nil {
 			t.Fatalf("symlink within dest should be allowed: %v", err)
 		}
@@ -1238,9 +1241,15 @@ func TestCopySymlink(t *testing.T) {
 			tc := tc
 			t.Parallel()
 			r := t.TempDir()
-			os.MkdirAll(filepath.Join(r, filepath.Dir(tc.linkTarget)), 0o777)
+			err := os.MkdirAll(filepath.Join(r, filepath.Dir(tc.linkTarget)), 0o777)
+			if err != nil {
+				t.Fatal(err)
+			}
 			tc.linkTarget = filepath.Join(r, tc.linkTarget)
-			os.WriteFile(tc.linkTarget, nil, 0o644)
+			err = os.WriteFile(tc.linkTarget, nil, 0o644)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			if tc.beforeLink != nil {
 				if err := tc.beforeLink(r); err != nil {

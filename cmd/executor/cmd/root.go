@@ -45,7 +45,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/util/proc"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 var (
@@ -65,7 +64,10 @@ func init() {
 	AddKanikoOptionsFlags(RootCmd, opts)
 	addHiddenFlags(RootCmd)
 	RootCmd.Flags().BoolVarP(&opts.IgnoreVarRun, "whitelist-var-run", "", true, "Ignore /var/run directory when taking image snapshot. Set it to false to preserve /var/run/ in destination image.")
-	RootCmd.Flags().MarkDeprecated("whitelist-var-run", "Please use ignore-var-run instead.")
+	err := RootCmd.Flags().MarkDeprecated("whitelist-var-run", "Please use ignore-var-run instead.")
+	if err != nil {
+		panic(err)
+	}
 }
 
 func ValidateFlags(opts *config.KanikoOptions) {
@@ -518,10 +520,11 @@ func AddRegistryOptionsFlags(cmd *cobra.Command, opts *config.RegistryOptions) {
 
 // addHiddenFlags marks certain flags as hidden from the executor help text
 func addHiddenFlags(cmd *cobra.Command) {
-	// This flag is added in a vendored directory, hide so that it doesn't come up via --help
-	pflag.CommandLine.MarkHidden("azure-container-registry-config")
 	// Hide this flag as we want to encourage people to use the --context flag instead
-	cmd.Flags().MarkHidden("bucket")
+	err := cmd.Flags().MarkHidden("bucket")
+	if err != nil {
+		panic(err)
+	}
 }
 
 // moveKanikoDir will move the entire kanikoDir and to a new location
@@ -776,8 +779,8 @@ func resolveRelativePaths() error {
 }
 
 func exit(err error) {
-	var execErr *exec.ExitError
-	if errors.As(err, &execErr) {
+	execErr, ok := errors.AsType[*exec.ExitError](err)
+	if ok {
 		// if there is an exit code propagate it
 		exitWithCode(err, execErr.ExitCode())
 	}

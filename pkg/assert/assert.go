@@ -24,8 +24,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var disabledAssertions map[string]struct{}
-var OnAssertionViolation func(name, msg string)
+var (
+	disabledAssertions   map[string]struct{}
+	OnAssertionViolation func(name, msg string)
+)
 
 func init() {
 	val := os.Getenv("KANIKO_IGNORE_ASSERTIONS")

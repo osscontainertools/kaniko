@@ -1735,8 +1735,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 			}
 			position[s.Index] = i
 		}
-		for i := len(kanikoStages) - 1; i >= 0; i-- {
-			s := kanikoStages[i]
+		for _, s := range slices.Backward(kanikoStages) {
 			if !buildTargets[s.Index] && stagesDependencies[s.Index] == 0 && copyDependencies[s.Index] == 0 {
 				// counts only grow from later stages, liveness is final here
 				logrus.Infof("Eliminating stage '%v' [idx: '%v'], all consumers are served from cache", s.BaseName, s.Index)

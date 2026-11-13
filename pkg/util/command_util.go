@@ -509,8 +509,8 @@ func getGIDFromName(groupStr string) (uint32, error) {
 	group, err := user.LookupGroup(groupStr)
 	if err != nil {
 		// unknown group error could relate to a non existing group
-		var groupErr user.UnknownGroupError
-		if errors.As(err, &groupErr) {
+		_, ok := errors.AsType[user.UnknownGroupError](err)
+		if ok {
 			return getGID(groupStr)
 		}
 		group, err = user.LookupGroupId(groupStr)

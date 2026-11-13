@@ -584,7 +584,7 @@ func TestExpectError(t *testing.T) {
 func getBranchCommitAndURL() (string, string, string) {
 	repo := os.Getenv("GITHUB_REPOSITORY")
 	commit := os.Getenv("GITHUB_SHA")
-	branch := ""
+	var branch string
 	if _, isPR := os.LookupEnv("GITHUB_HEAD_REF"); isPR {
 		branch = "main"
 	} else {
@@ -1409,7 +1409,10 @@ func TestCache(t *testing.T) {
 
 func TestWarmer(t *testing.T) {
 	t.Parallel()
-	populateVolumeCache(t, config)
+	err := populateVolumeCache(t, config)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for dockerfile := range imageBuilder.TestWarmerDockerfiles {
 		t.Run("test_warmer_"+dockerfile, func(t *testing.T) {
@@ -1684,10 +1687,10 @@ func TestExitCodePropagation(t *testing.T) {
 		if kanikoErr == nil {
 			t.Fatalf("docker build did not produce an error:\n%s", out)
 		}
-		var dockerCmdExitErr *exec.ExitError
 		var dockerExitCode int
 
-		if errors.As(kanikoErr, &dockerCmdExitErr) {
+		dockerCmdExitErr, ok := errors.AsType[*exec.ExitError](kanikoErr)
+		if ok {
 			dockerExitCode = dockerCmdExitErr.ExitCode()
 			testutil.CheckDeepEqual(t, 42, dockerExitCode)
 			if t.Failed() {
@@ -1720,8 +1723,8 @@ func TestExitCodePropagation(t *testing.T) {
 			t.Fatalf("the kaniko build did not produce the expected error:\n%s", out)
 		}
 
-		var kanikoExitErr *exec.ExitError
-		if errors.As(kanikoErr, &kanikoExitErr) {
+		kanikoExitErr, ok := errors.AsType[*exec.ExitError](kanikoErr)
+		if ok {
 			testutil.CheckDeepEqual(t, dockerExitCode, kanikoExitErr.ExitCode())
 			if t.Failed() {
 				t.Fatalf("Output was:\n%s", out)
@@ -1870,7 +1873,10 @@ func TestPushFromArtifact(t *testing.T) {
 				t.Fatalf("docker volume create %s: %v\n%s", outFlag, err, out)
 			}
 			t.Cleanup(func() {
-				exec.Command("docker", "volume", "rm", outFlag).Run()
+				out, err := exec.Command("docker", "volume", "rm", outFlag).CombinedOutput()
+				if err != nil {
+					t.Errorf("docker volume rm %s: %v\n%s", outFlag, err, out)
+				}
 			})
 
 			runExecutor := func(executorArgs ...string) {
@@ -2650,7 +2656,8 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 	}
 
 	run := func(credFlags []string, dockerfile string, args ...string) ([]byte, error) {
-		dockerRunFlags := []string{"run", "--rm", "--net=host",
+		dockerRunFlags := []string{
+			"run", "--rm", "--net=host",
 			"-v", cwd + ":/workspace:ro",
 			"-v", caCert + ":/kaniko/ssl/certs/test-registry-ca.crt:ro",
 			"-e", "FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=1",

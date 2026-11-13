@@ -57,13 +57,16 @@ ENV test test
 
 From scratch as second
 COPY --from=first copied/bam.txt output/bam.txt`
-		os.WriteFile(filepath.Join(testDir, "workspace", "Dockerfile"), []byte(dockerFile), 0o755)
+		err := os.WriteFile(filepath.Join(testDir, "workspace", "Dockerfile"), []byte(dockerFile), 0o755)
+		if err != nil {
+			t.Fatal(err)
+		}
 		opts := &config.KanikoOptions{
 			DockerfilePath: filepath.Join(testDir, "workspace", "Dockerfile"),
 			SrcContext:     filepath.Join(testDir, "workspace"),
 			SnapshotMode:   constants.SnapshotModeFull,
 		}
-		_, err := DoBuild(opts)
+		_, err = DoBuild(opts)
 		testutil.CheckNoError(t, err)
 		// Check Image has one layer bam.txt
 		files, err := readDirectory(filepath.Join(testDir, "output"))
@@ -84,13 +87,16 @@ ENV test test
 
 From scratch as second
 COPY --from=first copied/bam.txt output/`
-		os.WriteFile(filepath.Join(testDir, "workspace", "Dockerfile"), []byte(dockerFile), 0o755)
+		err := os.WriteFile(filepath.Join(testDir, "workspace", "Dockerfile"), []byte(dockerFile), 0o755)
+		if err != nil {
+			t.Fatal(err)
+		}
 		opts := &config.KanikoOptions{
 			DockerfilePath: filepath.Join(testDir, "workspace", "Dockerfile"),
 			SrcContext:     filepath.Join(testDir, "workspace"),
 			SnapshotMode:   constants.SnapshotModeFull,
 		}
-		_, err := DoBuild(opts)
+		_, err = DoBuild(opts)
 		testutil.CheckNoError(t, err)
 		files, err := readDirectory(filepath.Join(testDir, "output"))
 		if err != nil {
@@ -110,13 +116,16 @@ ENV test test
 
 From scratch as second
 COPY --from=first copied another`
-		os.WriteFile(filepath.Join(testDir, "workspace", "Dockerfile"), []byte(dockerFile), 0o755)
+		err := os.WriteFile(filepath.Join(testDir, "workspace", "Dockerfile"), []byte(dockerFile), 0o755)
+		if err != nil {
+			t.Fatal(err)
+		}
 		opts := &config.KanikoOptions{
 			DockerfilePath: filepath.Join(testDir, "workspace", "Dockerfile"),
 			SrcContext:     filepath.Join(testDir, "workspace"),
 			SnapshotMode:   constants.SnapshotModeFull,
 		}
-		_, err := DoBuild(opts)
+		_, err = DoBuild(opts)
 		testutil.CheckNoError(t, err)
 		// Check Image has one layer bam.txt
 		files, err := readDirectory(filepath.Join(testDir, "another"))
@@ -144,13 +153,16 @@ ENV test test
 
 From scratch as second
 COPY --from=first / output/`
-		os.WriteFile(filepath.Join(testDir, "workspace", "Dockerfile"), []byte(dockerFile), 0o755)
+		err := os.WriteFile(filepath.Join(testDir, "workspace", "Dockerfile"), []byte(dockerFile), 0o755)
+		if err != nil {
+			t.Fatal(err)
+		}
 		opts := &config.KanikoOptions{
 			DockerfilePath: filepath.Join(testDir, "workspace", "Dockerfile"),
 			SrcContext:     filepath.Join(testDir, "workspace"),
 			SnapshotMode:   constants.SnapshotModeFull,
 		}
-		_, err := DoBuild(opts)
+		_, err = DoBuild(opts)
 		testutil.CheckNoError(t, err)
 
 		filesUnderRoot, err := os.ReadDir(filepath.Join(testDir, "output/"))
@@ -200,7 +212,10 @@ func setupMultistageTests(t *testing.T) (string, func()) {
 	if err := os.WriteFile(file, []byte("meow"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	os.Symlink("bam.txt", filepath.Join(workspace, "foo", "bam.link"))
+	err := os.Symlink("bam.txt", filepath.Join(workspace, "foo", "bam.link"))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Make a file with contents link
 	file = filepath.Join(workspace, "exec")
@@ -211,7 +226,10 @@ func setupMultistageTests(t *testing.T) (string, func()) {
 	if err := os.MkdirAll(filepath.Join(workspace, "bin"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	os.Symlink("../exec", filepath.Join(workspace, "bin", "exec.link"))
+	err = os.Symlink("../exec", filepath.Join(workspace, "bin", "exec.link"))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// set up config
 	config.RootDir = testDir

@@ -68,6 +68,6 @@ func TestUpdateLabels(t *testing.T) {
 		"backslashes":     "lots\\ of\\ words",
 		"build_arg_label": "foo",
 	}
-	updateLabels(labels, cfg, buildArgs)
-	testutil.CheckErrorAndDeepEqual(t, false, nil, expectedLabels, cfg.Labels)
+	err := updateLabels(labels, cfg, buildArgs)
+	testutil.CheckErrorAndDeepEqual(t, false, err, expectedLabels, cfg.Labels)
 }
