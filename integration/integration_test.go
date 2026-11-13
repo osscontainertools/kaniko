@@ -584,7 +584,7 @@ func TestExpectError(t *testing.T) {
 func getBranchCommitAndURL() (string, string, string) {
 	repo := os.Getenv("GITHUB_REPOSITORY")
 	commit := os.Getenv("GITHUB_SHA")
-	branch := ""
+	var branch string
 	if _, isPR := os.LookupEnv("GITHUB_HEAD_REF"); isPR {
 		branch = "main"
 	} else {
