@@ -399,6 +399,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1375_arg_fail":       {"--require-add-checksum"},
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": {"--require-add-checksum"},
 	"Dockerfile_test_issue_mz1375_stage_fail":     {"--require-add-checksum"},
+	"issue-mz1374": {"-c", "/workspace/../workspace"},
 }
 
 var expectErr = map[string]int{
@@ -1006,8 +1007,7 @@ func (d *DockerFileBuilder) BuildKanikoImage(t *testing.T, config *integrationTe
 	}
 	buildArgs = append(buildArgs, "--build-arg", "IMAGE_REPO="+config.imageRepo)
 
-	additionalKanikoFlags := additionalKanikoFlagsMap[dockerfile]
-	additionalKanikoFlags = append(additionalKanikoFlags, "-c", buildContextPath)
+	additionalKanikoFlags := append([]string{"-c", buildContextPath}, additionalKanikoFlagsMap[dockerfile]...)
 
 	kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 	return buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
@@ -1035,8 +1035,7 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 		return err
 	}
 
-	additionalKanikoFlags := additionalKanikoFlagsMap[dockerfile]
-	additionalKanikoFlags = append(additionalKanikoFlags, "-c", buildContextPath)
+	additionalKanikoFlags := append([]string{"-c", buildContextPath}, additionalKanikoFlagsMap[dockerfile]...)
 	if _, ok := d.TestReproducibleDockerfiles[dockerfile]; ok {
 		additionalKanikoFlags = append(additionalKanikoFlags, "--reproducible")
 	}
