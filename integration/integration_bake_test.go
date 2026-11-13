@@ -30,9 +30,9 @@ var bakeExecutorImages = map[string]string{
 	"test_bake_unmounted_context": ExecutorImageBakeContext,
 }
 
-// Targets named on the command line, all targets otherwise. Destinations are
-// only injected for the named ones, so building an unnamed target or a second
-// copy of a repeated one fails on the push to the fixture's own destination.
+// Destinations are only injected for the named targets, so building an unnamed
+// target or a second copy of a repeated one fails on the push to the fixture's
+// own destination.
 var bakeSelectedTargets = map[string][]string{
 	"test_context_dockerfile": {"only_context", "tools", "tools"},
 }
