@@ -57,6 +57,9 @@ func getImage(ref name.Reference, options ...remote.Option) (resolvedImage, erro
 	if err != nil {
 		return resolvedImage{}, err
 	}
+	if config.FF.ParallelGunzip {
+		img = util.WithGzipReader(img, util.NewParallelGzipReader)
+	}
 	if desc.MediaType.IsIndex() {
 		return resolvedImage{image: img, index: desc.Manifest}, nil
 	}

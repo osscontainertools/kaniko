@@ -26,6 +26,7 @@ require (
 	github.com/google/subcommands v1.2.0
 	github.com/hashicorp/hcl v1.0.0
 	github.com/klauspost/compress v1.20.4
+	github.com/klauspost/pgzip v1.3.0
 	github.com/minio/highwayhash v1.0.4
 	github.com/moby/buildkit v0.35.0
 	github.com/moby/go-archive v0.3.3

@@ -626,6 +626,7 @@ github.com/kevinburke/ssh_config
 # github.com/klauspost/compress v1.20.4
 ## explicit; go 1.25
 github.com/klauspost/compress
+github.com/klauspost/compress/flate
 github.com/klauspost/compress/fse
 github.com/klauspost/compress/huff0
 github.com/klauspost/compress/internal/cpuinfo
@@ -638,6 +639,9 @@ github.com/klauspost/compress/zstd/internal/xxhash
 ## explicit; go 1.24.0
 github.com/klauspost/cpuid/v2
 github.com/klauspost/cpuid/v2/topology
+# github.com/klauspost/pgzip v1.3.0
+## explicit; go 1.25
+github.com/klauspost/pgzip
 # github.com/kylelemons/godebug v1.1.0
 ## explicit; go 1.11
 github.com/kylelemons/godebug/diff
