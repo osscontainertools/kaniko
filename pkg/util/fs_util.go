@@ -717,7 +717,7 @@ func RelativeFiles(fp string, root string) ([]string, error) {
 func ParentDirectories(path string) []string {
 	dir := filepath.Clean(path)
 	var paths []string
-	for dir != filepath.Clean(config.RootDir) && dir != "" && dir != "." {
+	for !(dir == filepath.Clean(config.RootDir) || dir == "" || dir == ".") {
 		dir, _ = filepath.Split(dir)
 		dir = filepath.Clean(dir)
 		paths = append([]string{dir}, paths...)
@@ -1597,7 +1597,7 @@ func createParentDirectory(path string, owner *Owner, dirPerm ...os.FileMode) er
 
 		dir := baseDir
 		dirs := []string{baseDir}
-		for dir != "/" && dir != "." && dir != "" {
+		for !(dir == "/" || dir == "." || dir == "") {
 			dir = filepath.Dir(dir)
 			dirs = append(dirs, dir)
 		}
