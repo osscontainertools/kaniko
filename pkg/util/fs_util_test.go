@@ -776,7 +776,7 @@ func TestExtractFile(t *testing.T) {
 			defer os.RemoveAll(r)
 
 			for _, hdr := range tc.hdrs {
-				if err := ExtractFile(r, hdr, filepath.Clean(hdr.Name), bytes.NewReader(tc.contents)); err != nil {
+				if err := ExtractFile(r, nil, hdr, filepath.Clean(hdr.Name), bytes.NewReader(tc.contents)); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -796,7 +796,7 @@ func TestExtractFile_PathTraversal(t *testing.T) {
 	t.Run("regular file with dotdot", func(t *testing.T) {
 		dest := t.TempDir()
 		hdr := fileHeader("../outside.txt", "data", 0o644, defaultTestTime)
-		err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader([]byte("data")))
+		err := ExtractFile(dest, nil, hdr, filepath.Clean(hdr.Name), bytes.NewReader([]byte("data")))
 		if err == nil {
 			t.Fatal("expected error for parent directory reference, got nil")
 		}
@@ -808,7 +808,7 @@ func TestExtractFile_PathTraversal(t *testing.T) {
 	t.Run("directory with dotdot", func(t *testing.T) {
 		dest := t.TempDir()
 		hdr := dirHeader("../outsidedir", 0o755)
-		err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
+		err := ExtractFile(dest, nil, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
 		if err == nil {
 			t.Fatal("expected error for parent directory reference, got nil")
 		}
@@ -817,7 +817,7 @@ func TestExtractFile_PathTraversal(t *testing.T) {
 	t.Run("nested dotdot", func(t *testing.T) {
 		dest := t.TempDir()
 		hdr := fileHeader("foo/../../outside.txt", "data", 0o644, defaultTestTime)
-		err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader([]byte("data")))
+		err := ExtractFile(dest, nil, hdr, filepath.Clean(hdr.Name), bytes.NewReader([]byte("data")))
 		if err == nil {
 			t.Fatal("expected error for parent directory reference, got nil")
 		}
@@ -826,11 +826,11 @@ func TestExtractFile_PathTraversal(t *testing.T) {
 	t.Run("hardlink target outside dest", func(t *testing.T) {
 		dest := t.TempDir()
 		legitimateHdr := fileHeader("./legit.txt", "hello", 0o644, defaultTestTime)
-		if err := ExtractFile(dest, legitimateHdr, filepath.Clean(legitimateHdr.Name), bytes.NewReader([]byte("hello"))); err != nil {
+		if err := ExtractFile(dest, nil, legitimateHdr, filepath.Clean(legitimateHdr.Name), bytes.NewReader([]byte("hello"))); err != nil {
 			t.Fatal(err)
 		}
 		hdr := hardlinkHeader("./link", "../somefile")
-		err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
+		err := ExtractFile(dest, nil, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
 		if err == nil {
 			t.Fatal("expected error for hardlink target outside dest, got nil")
 		}
@@ -844,12 +844,12 @@ func TestExtractFile_PathTraversal(t *testing.T) {
 		// Create a file inside dest so there is something to link to after
 		// securejoin confines the absolute path.
 		legitimateHdr := fileHeader("etc/passwd", "confined", 0o644, defaultTestTime)
-		if err := ExtractFile(dest, legitimateHdr, filepath.Clean(legitimateHdr.Name), bytes.NewReader([]byte("confined"))); err != nil {
+		if err := ExtractFile(dest, nil, legitimateHdr, filepath.Clean(legitimateHdr.Name), bytes.NewReader([]byte("confined"))); err != nil {
 			t.Fatal(err)
 		}
 		// Hardlink with absolute target — securejoin should confine it to dest.
 		hdr := hardlinkHeader("./link", "/etc/passwd")
-		err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
+		err := ExtractFile(dest, nil, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
 		if err != nil {
 			t.Fatalf("hardlink with absolute target should be confined, not rejected: %v", err)
 		}
@@ -866,7 +866,7 @@ func TestExtractFile_PathTraversal(t *testing.T) {
 	t.Run("absolute symlink target resolves within dest", func(t *testing.T) {
 		dest := t.TempDir()
 		hdr := linkHeader("./link", "/subdir/target")
-		err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
+		err := ExtractFile(dest, nil, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
 		if err != nil {
 			t.Fatalf("absolute symlink within dest should be allowed: %v", err)
 		}
@@ -876,7 +876,7 @@ func TestExtractFile_PathTraversal(t *testing.T) {
 		dest := t.TempDir()
 		os.MkdirAll(filepath.Join(dest, "foo"), 0o755)
 		hdr := linkHeader("./foo/link", "../bar")
-		err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
+		err := ExtractFile(dest, nil, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil))
 		if err != nil {
 			t.Fatalf("symlink within dest should be allowed: %v", err)
 		}
@@ -890,7 +890,7 @@ func TestExtractFile_PathTraversal(t *testing.T) {
 		// the symlink, not by rejecting the link target.
 		dest := t.TempDir()
 		hdr := linkHeader("./link", "../outside")
-		if err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil)); err != nil {
+		if err := ExtractFile(dest, nil, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil)); err != nil {
 			t.Fatalf("symlink with relative escaping target should be created, not rejected: %v", err)
 		}
 		target, err := os.Readlink(filepath.Join(dest, "link"))
@@ -905,7 +905,7 @@ func TestExtractFile_PathTraversal(t *testing.T) {
 		// parent resolves "link" and clamps it within dest, so the file lands at
 		// dest/outside/written.txt, never at the sibling ../outside.
 		writeHdr := fileHeader("./link/written.txt", "data", 0o644, defaultTestTime)
-		if err := ExtractFile(dest, writeHdr, filepath.Clean(writeHdr.Name), bytes.NewReader([]byte("data"))); err != nil {
+		if err := ExtractFile(dest, nil, writeHdr, filepath.Clean(writeHdr.Name), bytes.NewReader([]byte("data"))); err != nil {
 			t.Fatalf("write through symlink should succeed (confined), got: %v", err)
 		}
 		if _, statErr := os.Stat(filepath.Join(filepath.Dir(dest), "outside", "written.txt")); statErr == nil {
@@ -927,12 +927,12 @@ func TestExtractFile_PathTraversal(t *testing.T) {
 
 		// 1) create the escaping symlink: ./evil -> <outsideDir>/pwned
 		linkHdr := linkHeader("./evil", escaped)
-		if err := ExtractFile(dest, linkHdr, filepath.Clean(linkHdr.Name), bytes.NewReader(nil)); err != nil {
+		if err := ExtractFile(dest, nil, linkHdr, filepath.Clean(linkHdr.Name), bytes.NewReader(nil)); err != nil {
 			t.Fatalf("symlink creation should succeed: %v", err)
 		}
 		// 2) write a regular file at the same name with attacker content
 		fileHdr := fileHeader("./evil", "attacker", 0o644, defaultTestTime)
-		if err := ExtractFile(dest, fileHdr, filepath.Clean(fileHdr.Name), bytes.NewReader([]byte("attacker"))); err != nil {
+		if err := ExtractFile(dest, nil, fileHdr, filepath.Clean(fileHdr.Name), bytes.NewReader([]byte("attacker"))); err != nil {
 			t.Fatalf("overwriting symlink with file should succeed: %v", err)
 		}
 		// dest/evil must now be a regular file (the symlink was Lstat-removed
@@ -971,12 +971,12 @@ func TestExtractFile_PathTraversal(t *testing.T) {
 
 		// 1) escaping symlink ./evil -> <outsideDir>/victim
 		linkHdr := linkHeader("./evil", victim)
-		if err := ExtractFile(dest, linkHdr, filepath.Clean(linkHdr.Name), bytes.NewReader(nil)); err != nil {
+		if err := ExtractFile(dest, nil, linkHdr, filepath.Clean(linkHdr.Name), bytes.NewReader(nil)); err != nil {
 			t.Fatalf("symlink creation should succeed: %v", err)
 		}
 		// 2) same-name directory entry with an attacker-controlled mode
 		dHdr := dirHeader("./evil", 0o777)
-		if err := ExtractFile(dest, dHdr, filepath.Clean(dHdr.Name), bytes.NewReader(nil)); err != nil {
+		if err := ExtractFile(dest, nil, dHdr, filepath.Clean(dHdr.Name), bytes.NewReader(nil)); err != nil {
 			t.Fatalf("dir creation should succeed: %v", err)
 		}
 
@@ -1007,15 +1007,15 @@ func TestExtractFile_PathTraversal(t *testing.T) {
 		// written through an unresolved lexical path (PSEC-1492 ELOOP fallback).
 		dest := t.TempDir()
 		// Build a loop inside dest: a -> b, b -> a.
-		if err := ExtractFile(dest, linkHeader("./a", "b"), "a", bytes.NewReader(nil)); err != nil {
+		if err := ExtractFile(dest, nil, linkHeader("./a", "b"), "a", bytes.NewReader(nil)); err != nil {
 			t.Fatalf("creating symlink a: %v", err)
 		}
-		if err := ExtractFile(dest, linkHeader("./b", "a"), "b", bytes.NewReader(nil)); err != nil {
+		if err := ExtractFile(dest, nil, linkHeader("./b", "a"), "b", bytes.NewReader(nil)); err != nil {
 			t.Fatalf("creating symlink b: %v", err)
 		}
 		// An entry under the looping path must be skipped without error.
 		hdr := fileHeader("./a/foo.txt", "data", 0o644, defaultTestTime)
-		if err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader([]byte("data"))); err != nil {
+		if err := ExtractFile(dest, nil, hdr, filepath.Clean(hdr.Name), bytes.NewReader([]byte("data"))); err != nil {
 			t.Fatalf("entry under symlink loop should be skipped (nil), got: %v", err)
 		}
 		// Nothing should have been written under the looping parent.
@@ -1032,7 +1032,7 @@ func TestExtractFile_PathTraversal(t *testing.T) {
 		name := "usr/lib/jvm/java-21-amazon-corretto/lib/security/cacerts"
 		target := "../../../../../../../../../../etc/pki/java/cacerts"
 		hdr := linkHeader(name, target)
-		if err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil)); err != nil {
+		if err := ExtractFile(dest, nil, hdr, filepath.Clean(hdr.Name), bytes.NewReader(nil)); err != nil {
 			t.Fatalf("excess-dotdot symlink should be allowed: %v", err)
 		}
 		got, err := os.Readlink(filepath.Join(dest, name))
@@ -1047,7 +1047,7 @@ func TestExtractFile_PathTraversal(t *testing.T) {
 	t.Run("legitimate file succeeds", func(t *testing.T) {
 		dest := t.TempDir()
 		hdr := fileHeader("./subdir/file.txt", "content", 0o644, defaultTestTime)
-		err := ExtractFile(dest, hdr, filepath.Clean(hdr.Name), bytes.NewReader([]byte("content")))
+		err := ExtractFile(dest, nil, hdr, filepath.Clean(hdr.Name), bytes.NewReader([]byte("content")))
 		if err != nil {
 			t.Fatalf("legitimate extraction should succeed: %v", err)
 		}
@@ -1436,7 +1436,7 @@ func Test_CopyFile_skips_self(t *testing.T) {
 	}
 }
 
-func fakeExtract(_ string, _ *tar.Header, _ string, _ io.Reader) error {
+func fakeExtract(_ string, _ *os.File, _ *tar.Header, _ string, _ io.Reader) error {
 	return nil
 }
 
