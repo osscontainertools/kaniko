@@ -1590,7 +1590,7 @@ func TestCacheInvalidatesOnAllowlistedFileChange(t *testing.T) {
 		t.Errorf("mz762: images identical after changing the allowlisted COPY --from source — stale cached layer served:\n%s", out)
 	}
 
-	diffoci(t, original, changed, "--semantic", "--extra-ignore-files=app/test.txt")
+	diffoci(t, original, changed, "--semantic", "--ignore-path=app/test.txt")
 }
 
 // https://github.com/GoogleContainerTools/kaniko/issues/2567

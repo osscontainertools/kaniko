@@ -475,9 +475,9 @@ var diffArgsMap = map[string][]string{
 	// it's where we store the docker credentials.
 	"TestWithContext/test_with_context_issue-1020": {"--extra-ignore-files=root/.config/", "--extra-ignore-layer-length-mismatch"},
 	// docker is wrong. we do copy the symlink correctly.
-	"TestRun/test_Dockerfile_test_copy_symlink": {"--extra-ignore-files=workdirAnother/relative_link"},
+	"TestRun/test_Dockerfile_test_copy_symlink": {"--ignore-path=workdirAnother/relative_link"},
 	// docker dereferences the symlink source, we preserve it, so dest/linkS diverges.
-	"TestRun/test_Dockerfile_test_issue_mz921":   {"--extra-ignore-files=dest/linkS", "--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz921":   {"--ignore-path=dest/linkS", "--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_multistage":    {"--extra-ignore-files=new", "--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_cross_compile": {"--platform=linux/" + crossCompileArch},
 	// kaniko adds parent directories of changed paths to the full-filesystem snapshot
@@ -505,7 +505,7 @@ var diffArgsMap = map[string][]string{
 	// mz511: We delete the builtin file /etc/nsswitch.conf to verify that secrets are persisted
 	// But we discovered a new issue with this. For builtins, buildkit will emit "whiteout" files,
 	// to remember that it was removed, we don't. So we end up with a diff in the resulting image.
-	"TestRun/test_Dockerfile_test_issue_mz511": {"--extra-ignore-files=etc/.wh.nsswitch.conf", "--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz511": {"--ignore-path=etc/.wh.nsswitch.conf", "--extra-ignore-layer-length-mismatch"},
 	// 1599: docker copies the fifo into /kaniko, we refuse to write there at all,
 	// so the docker image keeps a /kaniko/tini our image never has.
 	"TestRun/test_Dockerfile_test_issue_1599_2": {"--extra-ignore-files=kaniko/", "--extra-ignore-layer-length-mismatch"},
