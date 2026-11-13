@@ -38,7 +38,6 @@ require (
 	github.com/otiai10/copy v1.14.1
 	github.com/sirupsen/logrus v1.10.2
 	github.com/spf13/cobra v1.10.2
-	github.com/spf13/pflag v1.1.0
 	github.com/tonistiigi/dchapes-mode v0.0.0-20250318174251-73d941a28323
 	github.com/ulikunitz/xz v0.5.17
 	github.com/zeebo/blake3 v0.2.4
@@ -48,7 +47,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.47.0
 	golang.org/x/sync v0.25.0
 	golang.org/x/sys v0.50.0
-	google.golang.org/api v0.314.0
+	google.golang.org/api v0.315.0
 )
 
 require (
@@ -128,6 +127,7 @@ require (
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/skeema/knownhosts v1.3.3 // indirect
+	github.com/spf13/pflag v1.1.0 // indirect
 	github.com/tonistiigi/go-csvvalue v0.0.0-20240814133006-030d3b2625d0 // indirect
 	github.com/toqueteos/webbrowser v1.2.1 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
