@@ -204,10 +204,16 @@ make integration-test-misc
 
 #### Local integration tests
 
-To run integration tests locally against a local registry, set the LOCAL environment variable
+`make integration-test` starts local registries on `localhost:5000` and `127.0.0.2:5001` and pushes to `localhost:5000` unless `IMAGE_REPO` is set.
 
 ```shell
-LOCAL=1 make integration-test
+make integration-test
+```
+
+`make integration-test-k8s` additionally needs a cluster:
+
+```shell
+make k3s-setup
 ```
 
 #### Running integration tests for a specific dockerfile

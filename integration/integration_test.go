@@ -2513,11 +2513,6 @@ func TestPushRepositoryScopedAuth(t *testing.T) {
 func registryLog(t *testing.T) string {
 	t.Helper()
 	out, err := exec.Command("docker", "logs", "kaniko-tls-registry").CombinedOutput()
-	if err == nil {
-		return string(out)
-	}
-	out, err = exec.Command("kubectl", "logs", "-n", "kube-system",
-		"-l", "app=docker-registry,release=local-tls-registry", "--tail=-1").CombinedOutput()
 	if err != nil {
 		t.Fatalf("reading registry log: %v\n%s", err, out)
 	}
