@@ -14,6 +14,16 @@ updates:
         update-types:
           - "patch"
 
+  - package-ecosystem: gomod
+    directory: /tools
+    schedule:
+      interval: daily
+    cooldown:
+      default-days: 0
+    allow:
+      - dependency-name: github.com/golangci/golangci-lint/v2
+        dependency-type: all
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

@@ -60,6 +60,8 @@ docker version
 echo "Running integration tests..."
 make out/executor
 make out/warmer
+DIFFOCI="$(go -C "$(dirname "$0")/../tools" tool -n diffoci)"
+PATH="$(dirname "${DIFFOCI}"):${PATH}"
 
 FLAGS=(
   "--timeout=50m"

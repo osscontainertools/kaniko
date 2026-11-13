@@ -3,6 +3,10 @@
 This doc explains the development workflow so you can get started
 [contributing](CONTRIBUTING.md) to Kaniko!
 
+## Local first
+
+Every CI check runs locally with the same command. A workflow only calls a make target or a script from this repository, and each tool it needs is pinned in the repository, so a failing check reproduces with that one command. Release steps that push images are the exception.
+
 ## Getting started
 
 You will need [Go 1.26+](https://go.dev/dl/) and [Docker](https://docs.docker.com/install/) installed.
@@ -172,7 +176,7 @@ These tests will be kicked off by [reviewers](#reviews) for submitted PRs using 
 
 In either case, you will need the following tools:
 
-* [`diffoci`](https://github.com/mzihlmann/diffoci#installation)
+* [`diffoci`](https://github.com/mzihlmann/diffoci), which `scripts/integration-test.sh` builds from `tools/go.mod`
 
 #### Registry
 
