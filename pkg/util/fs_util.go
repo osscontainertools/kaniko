@@ -439,10 +439,19 @@ func openExtractRoot(dest string) (*os.File, error) {
 	return os.NewFile(uintptr(fd), dest), nil
 }
 
-// resolveInRoot resolves unsafePath like securejoin.SecureJoin, in one openat2 call.
+// resolveInRoot resolves unsafePath like securejoin.SecureJoin, with openat2.
 // It reports false where openat2 fails, ie. on a missing component or a symlink loop.
-func resolveInRoot(root *os.File, unsafePath string) (string, bool) {
+func resolveInRoot(root *os.File, dest, unsafePath string) (string, bool) {
+	// Without a symlink on the way the lexical join is the resolution, and no readlink is needed.
 	fd, err := unix.Openat2(int(root.Fd()), unsafePath, &unix.OpenHow{
+		Flags:   unix.O_PATH | unix.O_CLOEXEC,
+		Resolve: unix.RESOLVE_BENEATH | unix.RESOLVE_NO_SYMLINKS,
+	})
+	if err == nil {
+		unix.Close(fd)
+		return filepath.Join(dest, unsafePath), true
+	}
+	fd, err = unix.Openat2(int(root.Fd()), unsafePath, &unix.OpenHow{
 		Flags:   unix.O_PATH | unix.O_CLOEXEC,
 		Resolve: unix.RESOLVE_IN_ROOT | unix.RESOLVE_NO_MAGICLINKS,
 	})
@@ -475,7 +484,7 @@ func ExtractFileWithChown(dest string, root *os.File, hdr *tar.Header, cleanedNa
 	parent := filepath.Dir(cleanedName)
 	secureDir, resolved := "", false
 	if root != nil {
-		secureDir, resolved = resolveInRoot(root, parent)
+		secureDir, resolved = resolveInRoot(root, dest, parent)
 	}
 	var err error
 	if !resolved {
