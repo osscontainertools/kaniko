@@ -776,8 +776,8 @@ func resolveRelativePaths() error {
 }
 
 func exit(err error) {
-	var execErr *exec.ExitError
-	if errors.As(err, &execErr) {
+	execErr, ok := errors.AsType[*exec.ExitError](err)
+	if ok {
 		// if there is an exit code propagate it
 		exitWithCode(err, execErr.ExitCode())
 	}

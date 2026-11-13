@@ -1,6 +1,4 @@
 //go:build (linux || darwin) && cgo
-// +build linux darwin
-// +build cgo
 
 /*
 Copyright 2020 Google LLC

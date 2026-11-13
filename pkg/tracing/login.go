@@ -132,7 +132,7 @@ func otlpHeaders() map[string]string {
 	}
 
 	headers := map[string]string{}
-	for _, pair := range strings.Split(raw, ",") {
+	for pair := range strings.SplitSeq(raw, ",") {
 		name, value, found := strings.Cut(pair, "=")
 		decoded, err := url.PathUnescape(strings.TrimSpace(value))
 		if !found || err != nil {

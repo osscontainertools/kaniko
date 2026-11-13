@@ -1684,10 +1684,10 @@ func TestExitCodePropagation(t *testing.T) {
 		if kanikoErr == nil {
 			t.Fatalf("docker build did not produce an error:\n%s", out)
 		}
-		var dockerCmdExitErr *exec.ExitError
 		var dockerExitCode int
 
-		if errors.As(kanikoErr, &dockerCmdExitErr) {
+		dockerCmdExitErr, ok := errors.AsType[*exec.ExitError](kanikoErr)
+		if ok {
 			dockerExitCode = dockerCmdExitErr.ExitCode()
 			testutil.CheckDeepEqual(t, 42, dockerExitCode)
 			if t.Failed() {
@@ -1720,8 +1720,8 @@ func TestExitCodePropagation(t *testing.T) {
 			t.Fatalf("the kaniko build did not produce the expected error:\n%s", out)
 		}
 
-		var kanikoExitErr *exec.ExitError
-		if errors.As(kanikoErr, &kanikoExitErr) {
+		kanikoExitErr, ok := errors.AsType[*exec.ExitError](kanikoErr)
+		if ok {
 			testutil.CheckDeepEqual(t, dockerExitCode, kanikoExitErr.ExitCode())
 			if t.Failed() {
 				t.Fatalf("Output was:\n%s", out)
