@@ -43,6 +43,7 @@ WARMER_PACKAGE = $(REPOPATH)/cmd/warmer
 KANIKO_PROJECT = $(REPOPATH)/kaniko
 BUILD_ARG ?=
 COVER ?=
+UPX_COMPRESS ?=
 RACE ?=
 # archive/tar stays instrumented, excluding it reports false races in go-containerregistry's push
 # bufio is excluded because compress/flate reads gzip layers from it one byte at a time
@@ -59,14 +60,27 @@ export GOFLAGS = -mod=vendor -buildvcs=false -trimpath
 
 export GO_TAGS = otel,git,google,aws,azure
 
+define compress_upx
+	@if [ "$(UPX_COMPRESS)" = "true" ] || [ "$(UPX_COMPRESS)" = "1" ]; then \
+		if command -v upx >/dev/null 2>&1; then \
+			upx --best $(1) || echo "UPX compression skipped or unsupported on target platform"; \
+		else \
+			echo "UPX not available for build platform, skipping compression"; \
+		fi; \
+	fi
+endef
+
 out/executor: $(GO_FILES)
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build -tags $(GO_TAGS)$(if $(RACE),$(RACE_TAGS)) $(if $(COVER),-cover) $(if $(RACE),-race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
+	$(call compress_upx,$@)
 
 out/executor-slim: $(GO_FILES)
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build $(if $(COVER),-cover) $(if $(RACE),-tags $(RACE_TAGS) -race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
+	$(call compress_upx,$@)
 
 out/warmer: $(GO_FILES)
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build -tags $(GO_TAGS)$(if $(RACE),$(RACE_TAGS)) $(if $(COVER),-cover) $(if $(RACE),-race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(WARMER_PACKAGE)
+	$(call compress_upx,$@)
 
 .PHONY: install-diffoci
 install-diffoci:
