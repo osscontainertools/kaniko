@@ -182,6 +182,11 @@ and inherits are not supported.`,
 				contexts[key] = c
 			}
 			topts.SrcContext = c.dockerfileBase
+			// resolveDockerfilePath tries the working directory before the context.
+			remote := strings.Contains(target.Context, "://")
+			if target.Context != "" && (target.Dockerfile == "" || remote) && !filepath.IsAbs(topts.DockerfilePath) && !isURL(topts.DockerfilePath) {
+				topts.DockerfilePath = filepath.Join(c.dockerfileBase, topts.DockerfilePath)
+			}
 			if err := resolveDockerfilePath(&topts); err != nil {
 				return fmt.Errorf("error resolving dockerfile path: %w", err)
 			}
