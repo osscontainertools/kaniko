@@ -58,15 +58,16 @@ export GOFLAGS = -mod=vendor -buildvcs=false -trimpath
 
 export GO_TAGS = otel,git,google,aws,azure
 
-.PHONY: out/executor out/executor-slim out/warmer
+.PHONY: FORCE
+FORCE:
 
-out/executor:
+out/executor: FORCE
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build -tags $(GO_TAGS)$(if $(RACE),$(RACE_TAGS)) $(if $(COVER),-cover) $(if $(RACE),-race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
 
-out/executor-slim:
+out/executor-slim: FORCE
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build $(if $(COVER),-cover) $(if $(RACE),-tags $(RACE_TAGS) -race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
 
-out/warmer:
+out/warmer: FORCE
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build -tags $(GO_TAGS)$(if $(RACE),$(RACE_TAGS)) $(if $(COVER),-cover) $(if $(RACE),-race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(WARMER_PACKAGE)
 
 .PHONY: install-diffoci
