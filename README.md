@@ -193,6 +193,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_SKIP_RELABEL_RECOMPRESS`](#flag-ff_kaniko_skip_relabel_recompress)
       - [Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`](#flag-ff_kaniko_skip_write_whiteouts)
       - [Flag `FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS`](#flag-ff_kaniko_snapshot_track_cached_layers)
+      - [Flag `FF_KANIKO_STAT_HASH_CACHE`](#flag-ff_kaniko_stat_hash_cache)
       - [Flag `FF_KANIKO_UNPACK_XZ`](#flag-ff_kaniko_unpack_xz)
       - [Flag `FF_KANIKO_UNPACK_ZSTD`](#flag-ff_kaniko_unpack_zstd)
       - [Flag `FF_KANIKO_UNTAR_SKIP_ROOT`](#flag-ff_kaniko_untar_skip_root)
@@ -1729,6 +1730,13 @@ Will be deprecated in `v1.30.0`.
 With `--cache`, a `COPY` served from the cache after an uncached `RUN` has its files stored a second time in the next `RUN` layer.
 Set this flag to `true` to store them once. Defaults to `false`.
 Becomes default in `v1.30.0`.
+
+#### Flag `FF_KANIKO_STAT_HASH_CACHE`
+
+With `--snapshot-mode=full`, every snapshot after a `RUN` reads and hashes the content of every file in the root filesystem, although most of them did not change.
+Set this flag to `true` to remember the hash of each regular file together with its `lstat` (device, inode, size, mtime, ctime, mode, owner) and to read only the files whose `lstat` changed. Any write, `chmod`, `chown`, `touch` or xattr change moves the ctime of a file, which user space cannot set back. Files changed less than 2 seconds before they are hashed are not remembered, as two writes within one timestamp tick can leave ctime unchanged.
+Not for filesystems that do not keep ctime, or whose files change behind the kernel's back (network filesystems).
+Defaults to `false`.
 
 #### Flag `FF_KANIKO_UNPACK_XZ`
 
