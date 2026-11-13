@@ -52,7 +52,6 @@ func init() {
 	RootCmd.PersistentFlags().BoolVar(&logTimestamp, "log-timestamp", logging.DefaultLogTimestamp, "Timestamp in log output")
 
 	AddWarmerFlags(RootCmd, opts)
-	addHiddenFlags()
 
 	AddWarmerBakeFlags(bakeCmd, opts, &bakeSet)
 	bakeCmd.Flags().BoolVar(&bakePrint, "print", false, "Print the resolved targets as JSON and exit without warming")
@@ -224,11 +223,6 @@ func AddWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
 	if _, err := v1.ParsePlatform(opts.CustomPlatform); err != nil {
 		logrus.Fatalf("Invalid platform %q: %v", opts.CustomPlatform, err)
 	}
-}
-
-// addHiddenFlags marks certain flags as hidden from the executor help text
-func addHiddenFlags() {
-	RootCmd.Flags().MarkHidden("azure-container-registry-config")
 }
 
 func validateDockerfilePath() error {
