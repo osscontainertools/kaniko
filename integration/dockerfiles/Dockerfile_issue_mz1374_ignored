@@ -1,0 +1,3 @@
+FROM busybox
+# testdata/link.tar links to /kaniko/archive.tar, which resolves inside the context and is ignored
+RUN --mount=type=bind,source=testdata/link.tar,target=/mnt/archive.tar true
