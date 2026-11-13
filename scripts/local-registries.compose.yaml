@@ -1,0 +1,47 @@
+name: kaniko-integration
+
+services:
+  registry:
+    image: registry:3
+    ports:
+      - "5000:5000"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "5000"]
+      interval: 1s
+      retries: 30
+
+  auth-server:
+    image: cesanta/docker_auth:1.14.0
+    command: ["/config/auth_config.yml"]
+    ports:
+      - "5002:5002"
+    volumes:
+      - /tmp/kaniko-tls-registry/tls.crt:/certs/tls.crt:ro
+      - /tmp/kaniko-tls-registry/tls.key:/certs/tls.key:ro
+      - /tmp/kaniko-tls-registry/auth_config.yml:/config/auth_config.yml:ro
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "5002"]
+      interval: 1s
+      retries: 30
+
+  tls-registry:
+    image: registry:3
+    # registryLog in integration/integration_test.go reads this container's logs by name
+    container_name: kaniko-tls-registry
+    ports:
+      - "127.0.0.2:5001:5000"
+    volumes:
+      - /tmp/kaniko-tls-registry/tls.crt:/certs/tls.crt:ro
+      - /tmp/kaniko-tls-registry/tls.key:/certs/tls.key:ro
+    environment:
+      REGISTRY_HTTP_TLS_CERTIFICATE: /certs/tls.crt
+      REGISTRY_HTTP_TLS_KEY: /certs/tls.key
+      REGISTRY_AUTH: token
+      REGISTRY_AUTH_TOKEN_REALM: https://localhost:5002/auth
+      REGISTRY_AUTH_TOKEN_SERVICE: kaniko-test-registry
+      REGISTRY_AUTH_TOKEN_ISSUER: kaniko-test-auth
+      REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE: /certs/tls.crt
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "5000"]
+      interval: 1s
+      retries: 30
