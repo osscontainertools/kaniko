@@ -31,7 +31,7 @@ var bakeExecutorImages = map[string]string{
 }
 
 var bakeSelectedTargets = map[string][]string{
-	"test_context_dockerfile": {"only_context", "tools"},
+	"test_context_dockerfile": {"only_context", "tools", "tools"},
 }
 
 // TestBake is a smoke test for the bake subcommand. For each folder under
