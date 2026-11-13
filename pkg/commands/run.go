@@ -278,13 +278,13 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				}
 				src := filepath.Join(mountFileContext.Root, m.Source)
 				if kConfig.FF.RunMountBindResolveSymlink {
-					var err error
-					src, err = securejoin.SecureJoin(filepath.Clean(mountFileContext.Root), m.Source)
-					if err != nil {
-						return fmt.Errorf("resolving bind source symlink %s: %w", m.Source, err)
+					resolvedSrc, resolveErr := securejoin.SecureJoin(filepath.Clean(mountFileContext.Root), m.Source)
+					if resolveErr != nil {
+						return fmt.Errorf("resolving bind source symlink %s: %w", m.Source, resolveErr)
 					}
 					// runCmdFilesUsedFromContext rejects excluded sources before any RUN executes
-					assert.Assert("run.bind-source-not-excluded", !mountFileContext.ExcludesFile(src), "bind source %s resolves to excluded path %s", m.Source, src)
+					assert.Assert("run.bind-source-not-excluded", !mountFileContext.ExcludesFile(resolvedSrc), "bind source %s resolves to excluded path %s", m.Source, resolvedSrc)
+					src = resolvedSrc
 				}
 				target := m.Target
 				if kConfig.FF.RunMountBindRelative {
@@ -646,14 +646,14 @@ func runCmdFilesUsedFromContext(
 		}
 		fullPath := filepath.Join(fileContext.Root, m.Source)
 		if kConfig.FF.RunMountBindResolveSymlink {
-			var err error
-			fullPath, err = securejoin.SecureJoin(filepath.Clean(fileContext.Root), m.Source)
-			if err != nil {
-				return nil, fmt.Errorf("resolving bind source symlink %s: %w", m.Source, err)
+			resolvedPath, resolveErr := securejoin.SecureJoin(filepath.Clean(fileContext.Root), m.Source)
+			if resolveErr != nil {
+				return nil, fmt.Errorf("resolving bind source symlink %s: %w", m.Source, resolveErr)
 			}
-			if fileContext.ExcludesFile(fullPath) {
-				return nil, fmt.Errorf("bind source %s resolves to excluded path %s", m.Source, fullPath)
+			if fileContext.ExcludesFile(resolvedPath) {
+				return nil, fmt.Errorf("bind source %s resolves to excluded path %s", m.Source, resolvedPath)
 			}
+			fullPath = resolvedPath
 		}
 		files = append(files, fullPath)
 	}
