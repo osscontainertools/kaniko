@@ -43,7 +43,6 @@ type Target struct {
 }
 
 type Bakefile struct {
-	Dir     string
 	Targets map[string]Target
 }
 
@@ -85,7 +84,7 @@ func Parse(path string) (*Bakefile, error) {
 	if len(decoded.Targets) == 0 {
 		return nil, fmt.Errorf("%s: bakefile defines no targets", path)
 	}
-	b := &Bakefile{Dir: filepath.Dir(path), Targets: map[string]Target{}}
+	b := &Bakefile{Targets: map[string]Target{}}
 	for _, t := range decoded.Targets {
 		b.Targets[t.Name] = t
 	}
@@ -162,16 +161,9 @@ func Load(path string, selection, set []string) ([]ResolvedTarget, error) {
 	for i := range targets {
 		t := &targets[i]
 		remote := strings.Contains(t.Context, "://")
-		if t.Context != "" && !filepath.IsAbs(t.Context) && !remote {
-			t.Context = filepath.Join(bakefile.Dir, t.Context)
-		}
 		// A relative dockerfile in a remote context is joined once the context is unpacked.
-		if t.Dockerfile != "" && !filepath.IsAbs(t.Dockerfile) && !strings.Contains(t.Dockerfile, "://") && !remote {
-			if t.Context != "" {
-				t.Dockerfile = filepath.Join(t.Context, t.Dockerfile)
-			} else {
-				t.Dockerfile = filepath.Join(bakefile.Dir, t.Dockerfile)
-			}
+		if t.Dockerfile != "" && t.Context != "" && !filepath.IsAbs(t.Dockerfile) && !strings.Contains(t.Dockerfile, "://") && !remote {
+			t.Dockerfile = filepath.Join(t.Context, t.Dockerfile)
 		}
 	}
 	return targets, nil

@@ -1,8 +1,8 @@
 {
   "target": {
     "both": {
-      "context": "testdata/test_bake_context_dockerfile/app",
-      "dockerfile": "testdata/test_bake_context_dockerfile/app/Dockerfile",
+      "context": "app",
+      "dockerfile": "app/Dockerfile",
       "target": "app",
       "destination": [
         "registry.example.com/both:latest"
@@ -15,14 +15,14 @@
       ]
     },
     "only_context": {
-      "context": "testdata/test_bake_context_dockerfile/app",
+      "context": "app",
       "target": "app",
       "destination": [
         "registry.example.com/only_context:latest"
       ]
     },
     "only_dockerfile": {
-      "dockerfile": "testdata/test_bake_context_dockerfile/Dockerfile.custom",
+      "dockerfile": "Dockerfile.custom",
       "target": "custom_df",
       "destination": [
         "registry.example.com/only_dockerfile:latest"

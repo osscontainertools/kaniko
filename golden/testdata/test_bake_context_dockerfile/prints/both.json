@@ -1,8 +1,8 @@
 {
   "target": {
     "both": {
-      "context": "testdata/test_bake_context_dockerfile/app",
-      "dockerfile": "testdata/test_bake_context_dockerfile/app/Dockerfile",
+      "context": "app",
+      "dockerfile": "app/Dockerfile",
       "target": "app",
       "destination": [
         "registry.example.com/both:latest"
