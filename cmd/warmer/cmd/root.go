@@ -30,6 +30,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/logging"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/warmer"
@@ -92,11 +93,7 @@ var RootCmd = &cobra.Command{
 		}
 
 		if config.FF.WarmerBuildArgs {
-			for i, arg := range opts.BuildArgs {
-				if !strings.Contains(arg, "=") {
-					opts.BuildArgs[i] = fmt.Sprintf("%s=%s", arg, os.Getenv(arg))
-				}
-			}
+			dockerfile.ResolveEnvironmentBuildArgs(opts.BuildArgs, os.Getenv)
 		}
 
 		return nil

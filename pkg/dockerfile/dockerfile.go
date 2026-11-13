@@ -42,12 +42,12 @@ import (
 
 var GetRemoteOnBuild = getRemoteOnBuild
 
-func ParseStages(opts *config.KanikoOptions) ([]instructions.Stage, []instructions.ArgCommand, error) {
+func ParseStages(dockerfilePath string, predefinedArgs, buildArgs []string) ([]instructions.Stage, []instructions.ArgCommand, error) {
 	var err error
 	var d []uint8
-	match, _ := regexp.MatchString("^https?://", opts.DockerfilePath)
+	match, _ := regexp.MatchString("^https?://", dockerfilePath)
 	if match {
-		resp, e := http.Get(opts.DockerfilePath) //nolint:noctx
+		resp, e := http.Get(dockerfilePath) //nolint:noctx
 		if e != nil {
 			return nil, nil, e
 		}
@@ -57,11 +57,11 @@ func ParseStages(opts *config.KanikoOptions) ([]instructions.Stage, []instructio
 		}
 		d, err = io.ReadAll(resp.Body)
 	} else {
-		d, err = os.ReadFile(opts.DockerfilePath)
+		d, err = os.ReadFile(dockerfilePath)
 	}
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("reading dockerfile at path %s: %w", opts.DockerfilePath, err)
+		return nil, nil, fmt.Errorf("reading dockerfile at path %s: %w", dockerfilePath, err)
 	}
 
 	stages, metaArgs, err := Parse(d)
@@ -69,14 +69,7 @@ func ParseStages(opts *config.KanikoOptions) ([]instructions.Stage, []instructio
 		return nil, nil, fmt.Errorf("parsing dockerfile: %w", err)
 	}
 
-	var predefinedArgs []string
-	if config.FF.FromPredefinedArgs {
-		predefinedArgs, err = PredefinedArgs(opts.CustomPlatform)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-	metaArgs, err = expandNestedArgs(metaArgs, predefinedArgs, opts.BuildArgs)
+	metaArgs, err = expandNestedArgs(metaArgs, predefinedArgs, buildArgs)
 	if err != nil {
 		return nil, nil, fmt.Errorf("expanding meta ARGs: %w", err)
 	}
@@ -84,9 +77,20 @@ func ParseStages(opts *config.KanikoOptions) ([]instructions.Stage, []instructio
 	return stages, metaArgs, nil
 }
 
-// baseImageIndex returns the index of the stage the current stage is built off
+// StageIndices maps each named stage to its index.
+func StageIndices(stages []instructions.Stage) map[string]int {
+	stageByName := make(map[string]int)
+	for idx, s := range stages {
+		if s.Name != "" {
+			stageByName[s.Name] = idx
+		}
+	}
+	return stageByName
+}
+
+// BaseImageIndex returns the index of the stage the current stage is built off
 // returns -1 if the current stage isn't built off a previous stage
-func baseImageIndex(currentStage int, stages []instructions.Stage) int {
+func BaseImageIndex(currentStage int, stages []instructions.Stage) int {
 	currentStageBaseName := strings.ToLower(stages[currentStage].BaseName)
 
 	for i, stage := range stages {
@@ -319,8 +323,8 @@ func CrossStageMounts(cmd *instructions.RunCommand) []*instructions.Mount {
 	return mounts
 }
 
-// resolveStagesArgs resolves all the args from list of stages
-func resolveStagesArgs(stages []instructions.Stage, args []string) error {
+// ResolveStagesArgs resolves all the args from list of stages
+func ResolveStagesArgs(stages []instructions.Stage, args []string) error {
 	for i, s := range stages {
 		resolvedBaseName, err := util.ResolveEnvironmentReplacement(s.BaseName, args, false)
 		if err != nil {
@@ -349,7 +353,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	targetStages = slices.Compact(targetStages)
 	finalStage := targetStages[len(targetStages)-1]
 
-	args := unifyArgs(metaArgs, opts.BuildArgs)
+	args := UnifyArgs(metaArgs, opts.BuildArgs)
 	if config.FF.FromPredefinedArgs {
 		predefinedArgs, err := PredefinedArgs(opts.CustomPlatform)
 		if err != nil {
@@ -357,17 +361,12 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		}
 		args = append(predefinedArgs, args...)
 	}
-	if err := resolveStagesArgs(stages, args); err != nil {
+	if err := ResolveStagesArgs(stages, args); err != nil {
 		return nil, fmt.Errorf("resolving args: %w", err)
 	}
 	stages = stages[:finalStage+1]
 
-	stageByName := make(map[string]int)
-	for idx, s := range stages {
-		if s.Name != "" {
-			stageByName[s.Name] = idx
-		}
-	}
+	stageByName := StageIndices(stages)
 
 	kanikoStages := make([]config.KanikoStage, len(stages))
 	// We now "count" references, it is only safe to squash
@@ -390,7 +389,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		if len(stage.Name) > 0 {
 			logrus.Infof("Resolved base name of %s to %s", stage.Name, stage.BaseName)
 		}
-		baseImageIndex := baseImageIndex(i, stages)
+		baseImageIndex := BaseImageIndex(i, stages)
 		baseImageStoredLocally := baseImageIndex != -1
 
 		var onBuild []string
@@ -477,9 +476,12 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	return onlyUsedStages, nil
 }
 
-// PredefinedArgs returns the platform args that FROM and global ARG defaults resolve without a declaration.
+// PredefinedArgs returns the predefined platform args, targeting the host when customPlatform is empty.
 func PredefinedArgs(customPlatform string) ([]string, error) {
 	build := platforms.Normalize(platforms.DefaultSpec())
+	if customPlatform == "" {
+		customPlatform = platforms.Format(build)
+	}
 	target, err := platforms.Parse(customPlatform)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse target platform %q: %w", customPlatform, err)
@@ -498,9 +500,9 @@ func PredefinedArgs(customPlatform string) ([]string, error) {
 	}, nil
 }
 
-// unifyArgs returns the unified args between metaArgs and --build-arg
+// UnifyArgs returns the unified args between metaArgs and --build-arg
 // by default --build-arg overrides metaArgs except when --build-arg is empty
-func unifyArgs(metaArgs []instructions.ArgCommand, buildArgs []string) []string {
+func UnifyArgs(metaArgs []instructions.ArgCommand, buildArgs []string) []string {
 	argsMap := make(map[string]string)
 	for _, marg := range metaArgs {
 		for _, arg := range marg.Args {

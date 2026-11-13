@@ -23,7 +23,6 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
-	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/testutil"
 )
 
@@ -57,7 +56,7 @@ func Test_ParseStages_ArgValueWithQuotes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stages, metaArgs, err := ParseStages(&config.KanikoOptions{DockerfilePath: tmpfile.Name()})
+	stages, metaArgs, err := ParseStages(tmpfile.Name(), nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -358,7 +357,7 @@ func Test_baseImageIndex(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			actual := baseImageIndex(test.currentStage, stages)
+			actual := BaseImageIndex(test.currentStage, stages)
 			if actual != test.expected {
 				t.Fatalf("unexpected result, expected %d got %d", test.expected, actual)
 			}
@@ -398,8 +397,8 @@ func Test_ResolveStagesArgs(t *testing.T) {
 				t.Fatal(err)
 			}
 			stagesLen := len(stages)
-			args := unifyArgs(metaArgs, buildArgs)
-			if err := resolveStagesArgs(stages, args); err != nil {
+			args := UnifyArgs(metaArgs, buildArgs)
+			if err := ResolveStagesArgs(stages, args); err != nil {
 				t.Fatalf("fail to resolves args %v: %v", buildArgs, err)
 			}
 			tests := []struct {
