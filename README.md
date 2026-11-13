@@ -1866,10 +1866,6 @@ $ cosign verify \
 
 ### FIPS 140-3 Image
 
-```shell
-docker run -v $(pwd):/workspace ghcr.io/osscontainertools/kaniko:slim-fips --context=/workspace --destination=<image>
-```
-
 The `slim-fips` image is the `slim` executor built with the Go Cryptographic Module v1.0.0 and `GODEBUG=fips140=on` as default.
 Like `slim`, it has no gcr, ecr or acr credential helpers and no git, S3, GCS or Azure build contexts.
 
@@ -1879,7 +1875,6 @@ kaniko still uses non-approved hashes internally for file change detection and l
 - md5 for snapshots in `--snapshot-mode=redo` and `--snapshot-mode=time`
 - blake3 for layer cache keys, or md5 with `FF_KANIKO_CACHE_HASH_BLAKE3=false`
 
-Image layers and manifests are always addressed by sha256.
 We are working on removing the remaining non-approved hashes.
 Until then `GODEBUG=fips140=only` panics in `redo` and `time` snapshot modes.
 
