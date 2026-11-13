@@ -27,6 +27,7 @@ import (
 	"strings"
 	"syscall"
 
+	securejoin "github.com/cyphar/filepath-securejoin"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
@@ -277,7 +278,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				}
 				src := filepath.Join(mountFileContext.Root, m.Source)
 				if kConfig.FF.RunMountBindResolveSymlink {
-					resolvedSrc, resolveErr := filepath.EvalSymlinks(src)
+					resolvedSrc, resolveErr := securejoin.SecureJoin(mountFileContext.Root, m.Source)
 					if resolveErr != nil {
 						return fmt.Errorf("resolving bind source symlink %s: %w", src, resolveErr)
 					}
@@ -643,7 +644,7 @@ func runCmdFilesUsedFromContext(
 		}
 		fullPath := filepath.Join(fileContext.Root, m.Source)
 		if kConfig.FF.RunMountBindResolveSymlink {
-			resolvedPath, resolveErr := filepath.EvalSymlinks(fullPath)
+			resolvedPath, resolveErr := securejoin.SecureJoin(fileContext.Root, m.Source)
 			if resolveErr != nil {
 				return nil, fmt.Errorf("resolving bind source symlink %s: %w", fullPath, resolveErr)
 			}
