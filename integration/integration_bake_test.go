@@ -30,6 +30,13 @@ var bakeExecutorImages = map[string]string{
 	"test_bake_unmounted_context": ExecutorImageBakeContext,
 }
 
+// Targets named on the command line, all targets otherwise. Destinations are
+// only injected for the named ones, so building an unnamed target or a second
+// copy of a repeated one fails on the push to the fixture's own destination.
+var bakeSelectedTargets = map[string][]string{
+	"test_context_dockerfile": {"only_context", "tools", "tools"},
+}
+
 // TestBake is a smoke test for the bake subcommand. For each folder under
 // bakefiles/ it builds the bakefile's target with kaniko and the equivalent
 // docker bake HCL with buildx, then checks the two images match. The push
@@ -59,7 +66,8 @@ func TestBake(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			targets, err := bakefile.Resolve(nil)
+			selected := bakeSelectedTargets[name]
+			targets, err := bakefile.Resolve(selected)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -94,6 +102,7 @@ func TestBake(t *testing.T) {
 			// buildx bake builds the "default" group when no target is named, and the
 			// fixtures define no such group.
 			dockerFlags = append(dockerFlags, dockerTargets...)
+			kanikoFlags = append(kanikoFlags, selected...)
 
 			kanikoCmd := exec.Command("docker", kanikoFlags...)
 			if out, err := RunCommandWithoutTest(kanikoCmd); err != nil {
