@@ -12,10 +12,14 @@ spec:
         workingDir: /workspace
         args: [ "--context=dir:///workspace",
                 "--destination={{.KanikoImage}}"]
-        {{- if .CoverageDir}}
         env:
+        {{- if .CoverageDir}}
         - name: GOCOVERDIR
           value: /covdata
+        {{- end}}
+        {{- range .Env}}
+        - name: {{.Name}}
+          value: {{printf "%q" .Value}}
         {{- end}}
         volumeMounts:
         - name: context
