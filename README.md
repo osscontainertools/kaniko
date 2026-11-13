@@ -1671,9 +1671,8 @@ Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK`
 
-A `RUN --mount=type=bind` source that is a symlink is copied as the symlink itself.
-Set this flag to `true` to resolve the symlink and copy its target. Symlink resolution is applied to context and cross-stage bind mounts, and the resolved path is used for cache keys.
-Defaults to `false`.
+A `RUN --mount=type=bind` source that is a symlink is mounted as the link itself.
+Set this flag to `true` to mount the file it points to. Defaults to `false`.
 Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_RUN_MOUNT_TMPFS`
