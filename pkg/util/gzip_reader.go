@@ -100,19 +100,25 @@ func (l *gzipReaderLayer) Descriptor() (*v1.Descriptor, error) {
 
 var gzipMagic = []byte{0x1f, 0x8b}
 
+const gzipFlagHeaderCRC = 1 << 1
+
 func (l *gzipReaderLayer) Uncompressed() (io.ReadCloser, error) {
 	rc, err := l.Compressed()
 	if err != nil {
 		return nil, err
 	}
 	br := bufio.NewReader(rc)
-	magic, err := br.Peek(len(gzipMagic))
+	header, err := br.Peek(4)
 	switch {
 	case err != nil && !errors.Is(err, io.EOF):
 		rc.Close()
 		return nil, err
-	case !bytes.Equal(magic, gzipMagic):
+	case !bytes.HasPrefix(header, gzipMagic):
 		// ggcr picks the decompressor from the content, not the media type.
+		rc.Close()
+		return l.Layer.Uncompressed()
+	case len(header) < 4 || header[3]&gzipFlagHeaderCRC != 0:
+		// pgzip leaves the optional header fields out of the FHCRC check.
 		rc.Close()
 		return l.Layer.Uncompressed()
 	}
