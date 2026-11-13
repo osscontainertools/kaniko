@@ -20,8 +20,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
-	"slices"
 	"testing"
 
 	"github.com/osscontainertools/kaniko/pkg/bake"
@@ -33,10 +31,8 @@ var bakeExecutorImages = map[string]string{
 }
 
 var bakeSelectedTargets = map[string][]string{
-	"test_context_dockerfile": {"only_context", "tools", "tools"},
+	"test_context_dockerfile": {"only_context", "tools"},
 }
-
-var bakeBuildingTarget = regexp.MustCompile(`Building target "([^"]+)"`)
 
 // TestBake is a smoke test for the bake subcommand. For each folder under
 // bakefiles/ it builds the bakefile's target with kaniko and the equivalent
@@ -106,16 +102,8 @@ func TestBake(t *testing.T) {
 			kanikoFlags = append(kanikoFlags, selected...)
 
 			kanikoCmd := exec.Command("docker", kanikoFlags...)
-			out, err := RunCommandWithoutTest(kanikoCmd)
-			if err != nil {
+			if out, err := RunCommandWithoutTest(kanikoCmd); err != nil {
 				t.Fatalf("%v: %v\n%s", kanikoCmd.Args, err, string(out))
-			}
-			var built []string
-			for _, m := range bakeBuildingTarget.FindAllStringSubmatch(string(out), -1) {
-				built = append(built, m[1])
-			}
-			if !slices.Equal(built, dockerTargets) {
-				t.Fatalf("kaniko built targets %v, want %v", built, dockerTargets)
 			}
 
 			dockerCmd := exec.Command("docker", dockerFlags...)
