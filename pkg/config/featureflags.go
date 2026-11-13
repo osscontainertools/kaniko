@@ -77,6 +77,7 @@ type FeatureFlags struct {
 	RunHeredocScript               bool
 	RunHonorGroup                  bool
 	RunMountBindRelative           bool
+	RunMountBindResolveSymlink     bool
 	RunMountTmpfs                  bool
 	RunViaTini                     bool
 	ScopedDockerignore             bool
@@ -176,6 +177,7 @@ func InitFeatureFlags() {
 		RunHeredocScript:               featureFlag("FF_KANIKO_RUN_HEREDOC_SCRIPT", false),
 		RunHonorGroup:                  featureFlag("FF_KANIKO_RUN_HONOR_GROUP", true),
 		RunMountBindRelative:           featureFlag("FF_KANIKO_RUN_MOUNT_BIND_RELATIVE", false),
+		RunMountBindResolveSymlink:     featureFlag("FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK", false),
 		RunMountTmpfs:                  featureFlag("FF_KANIKO_RUN_MOUNT_TMPFS", false),
 		RunViaTini:                     featureFlag("FF_KANIKO_RUN_VIA_TINI", false),
 		ScopedDockerignore:             featureFlag("FF_KANIKO_SCOPED_DOCKERIGNORE", false),

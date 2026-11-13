@@ -192,6 +192,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1133_1": {"FF_KANIKO_COPY_AS_ROOT=0"},
 	"Dockerfile_test_issue_mz1133_2": {"FF_KANIKO_COPY_AS_ROOT=0"},
 	"Dockerfile_test_issue_mz881":    {"KANIKO_127_0_0_2:5001_USER=kanikotest", "KANIKO_127_0_0_2:5001_PASSWORD=kanikotest"},
+	"issue-mz1374":                   {"FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK=1"},
 }
 
 var KanikoEnv = []string{

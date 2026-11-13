@@ -276,6 +276,13 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					mountFileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoInterStageDepsDir, m.From)}
 				}
 				src := filepath.Join(mountFileContext.Root, m.Source)
+				if kConfig.FF.RunMountBindResolveSymlink {
+					resolvedSrc, resolveErr := filepath.EvalSymlinks(src)
+					if resolveErr != nil {
+						return fmt.Errorf("resolving bind source symlink %s: %w", src, resolveErr)
+					}
+					src = resolvedSrc
+				}
 				target := m.Target
 				if kConfig.FF.RunMountBindRelative {
 					target = ToAbsPath(target, config.WorkingDir)
@@ -635,7 +642,15 @@ func runCmdFilesUsedFromContext(
 			continue
 		}
 		fullPath := filepath.Join(fileContext.Root, m.Source)
-		files = append(files, fullPath)
+		if kConfig.FF.RunMountBindResolveSymlink {
+			resolvedPath, resolveErr := filepath.EvalSymlinks(fullPath)
+			if resolveErr != nil {
+				return nil, fmt.Errorf("resolving bind source symlink %s: %w", fullPath, resolveErr)
+			}
+			files = append(files, resolvedPath)
+		} else {
+			files = append(files, fullPath)
+		}
 	}
 
 	logrus.Debugf("Using files from context: %v", files)
