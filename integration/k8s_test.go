@@ -35,6 +35,7 @@ type K8sEnv struct {
 
 type K8sConfig struct {
 	KanikoImage string
+	ImageRepo   string
 	Context     string
 	Name        string
 	CoverageDir string
@@ -95,7 +96,7 @@ func TestK8s(t *testing.T) {
 					env = append(env, K8sEnv{Name: key, Value: value})
 				}
 			}
-			job := K8sConfig{KanikoImage: kanikoImage, Context: testDir, Name: name, CoverageDir: coverageDir, Env: env}
+			job := K8sConfig{KanikoImage: kanikoImage, ImageRepo: config.imageRepo, Context: testDir, Name: name, CoverageDir: coverageDir, Env: env}
 			if err := tmpl.Execute(tmpfile, job); err != nil {
 				t.Fatal(err)
 			}

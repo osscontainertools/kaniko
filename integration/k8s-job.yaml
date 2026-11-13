@@ -11,6 +11,7 @@ spec:
         image: localhost:5000/executor:latest
         workingDir: /workspace
         args: [ "--context=dir:///workspace",
+                "--build-arg=IMAGE_REPO={{.ImageRepo}}",
                 "--destination={{.KanikoImage}}"]
         env:
         {{- if .CoverageDir}}
