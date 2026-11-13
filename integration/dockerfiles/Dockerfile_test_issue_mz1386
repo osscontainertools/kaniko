@@ -1,9 +1,9 @@
 # mz1386: USER splits on ':' before expanding variables, so a default value
-# like ${G:-1234} is cut apart and fails to resolve.
-# Breaks on v1.29.1: the group half "${G" reaches the shell lexer and errors
+# like ${U:-1234} is cut apart and fails to resolve.
+# Breaks on v1.29.1: the user half "${U" reaches the shell lexer and errors
 # with "unsupported modifier". USER supports environment replacement,
 # including ${variable:-word}, on the whole value.
 FROM alpine:3.21
-ENV G=
-USER 1234:${G:-1234}
+ENV U= G=
+USER ${U:-1234}:${G:-1234}
 RUN test "$(id -u)" = 1234 && test "$(id -g)" = 1234
