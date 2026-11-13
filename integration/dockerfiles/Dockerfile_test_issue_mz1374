@@ -1,0 +1,7 @@
+# mz1374: a bind source that resolves into an ignored path must fail.
+# Only reachable with FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK.
+# Docker fails as well because the target is not in the sent context.
+# testdata/link.tar links to /kaniko/archive.tar, which SecureJoin keeps inside the context.
+# Dockerfile_test_issue_mz1374.dockerignore excludes kaniko.
+FROM busybox
+RUN --mount=type=bind,source=testdata/link.tar,target=/mnt/archive.tar true

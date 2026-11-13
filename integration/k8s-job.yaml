@@ -11,11 +11,16 @@ spec:
         image: localhost:5000/executor:latest
         workingDir: /workspace
         args: [ "--context=dir:///workspace",
+                "--build-arg=IMAGE_REPO={{.ImageRepo}}",
                 "--destination={{.KanikoImage}}"]
-        {{- if .CoverageDir}}
         env:
+        {{- if .CoverageDir}}
         - name: GOCOVERDIR
           value: /covdata
+        {{- end}}
+        {{- range .Env}}
+        - name: {{.Name}}
+          value: {{printf "%q" .Value}}
         {{- end}}
         volumeMounts:
         - name: context

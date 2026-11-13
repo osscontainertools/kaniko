@@ -22,15 +22,24 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 	"text/template"
 )
 
+type K8sEnv struct {
+	Name  string
+	Value string
+}
+
 type K8sConfig struct {
 	KanikoImage string
+	ImageRepo   string
 	Context     string
 	Name        string
 	CoverageDir string
+	Env         []K8sEnv
 }
 
 func TestK8s(t *testing.T) {
@@ -79,7 +88,15 @@ func TestK8s(t *testing.T) {
 			}
 			defer os.Remove(tmpfile.Name()) // clean up
 			tmpl := template.Must(template.ParseFiles("k8s-job.yaml"))
-			job := K8sConfig{KanikoImage: kanikoImage, Context: testDir, Name: name, CoverageDir: coverageDir}
+			var env []K8sEnv
+			for _, e := range slices.Concat(KanikoEnv, envsMap[name]) {
+				// bare names pass the runner's environment through docker run, the job has none of it
+				key, value, ok := strings.Cut(e, "=")
+				if ok {
+					env = append(env, K8sEnv{Name: key, Value: value})
+				}
+			}
+			job := K8sConfig{KanikoImage: kanikoImage, ImageRepo: config.imageRepo, Context: testDir, Name: name, CoverageDir: coverageDir, Env: env}
 			if err := tmpl.Execute(tmpfile, job); err != nil {
 				t.Fatal(err)
 			}

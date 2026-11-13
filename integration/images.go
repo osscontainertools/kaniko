@@ -241,6 +241,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_RUN_HEREDOC_SCRIPT=1",
 	"FF_KANIKO_RUN_HONOR_GROUP=1",
 	"FF_KANIKO_RUN_MOUNT_BIND_RELATIVE=1",
+	"FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK=1",
 	"FF_KANIKO_RUN_MOUNT_TMPFS=1",
 	"FF_KANIKO_SCOPED_DOCKERIGNORE=1",
 	"FF_KANIKO_SHARED_BASE_CACHE=1",
@@ -398,6 +399,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1375_arg_fail":       {"--require-add-checksum"},
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": {"--require-add-checksum"},
 	"Dockerfile_test_issue_mz1375_stage_fail":     {"--require-add-checksum"},
+	"issue-mz1374": {"-c", "/workspace/../workspace"},
 }
 
 var expectErr = map[string]int{
@@ -424,6 +426,7 @@ var expectErr = map[string]int{
 	"Dockerfile_test_issue_mz1375_arg_fail":       1,
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": 1,
 	"Dockerfile_test_issue_mz1375_stage_fail":     1,
+	"Dockerfile_test_issue_mz1374":                1,
 }
 
 var expectErrOutput = map[string]string{
@@ -449,6 +452,7 @@ var expectErrOutput = map[string]string{
 	"Dockerfile_test_issue_mz1375_arg_fail":       "--require-add-checksum: ADD https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz has no --checksum",
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": "invalid checksum digest format",
 	"Dockerfile_test_issue_mz1375_stage_fail":     "--require-add-checksum: ADD https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz has no --checksum",
+	"Dockerfile_test_issue_mz1374":                "resolves to excluded path",
 }
 
 var crossCompileArch = func() string {
@@ -829,7 +833,9 @@ func FindDockerFiles(dir, dockerfilesPattern string) ([]string, error) {
 	for _, dockerfile := range allDockerfiles {
 		// Remove the leading directory from the path
 		dockerfile = dockerfile[len("dockerfiles/"):]
-		dockerfiles = append(dockerfiles, dockerfile)
+		if !strings.HasSuffix(dockerfile, ".dockerignore") {
+			dockerfiles = append(dockerfiles, dockerfile)
+		}
 	}
 	return dockerfiles, err
 }
@@ -1005,8 +1011,7 @@ func (d *DockerFileBuilder) BuildKanikoImage(t *testing.T, config *integrationTe
 	}
 	buildArgs = append(buildArgs, "--build-arg", "IMAGE_REPO="+config.imageRepo)
 
-	additionalKanikoFlags := additionalKanikoFlagsMap[dockerfile]
-	additionalKanikoFlags = append(additionalKanikoFlags, "-c", buildContextPath)
+	additionalKanikoFlags := append([]string{"-c", buildContextPath}, additionalKanikoFlagsMap[dockerfile]...)
 
 	kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 	return buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
@@ -1034,8 +1039,7 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 		return err
 	}
 
-	additionalKanikoFlags := additionalKanikoFlagsMap[dockerfile]
-	additionalKanikoFlags = append(additionalKanikoFlags, "-c", buildContextPath)
+	additionalKanikoFlags := append([]string{"-c", buildContextPath}, additionalKanikoFlagsMap[dockerfile]...)
 	if _, ok := d.TestReproducibleDockerfiles[dockerfile]; ok {
 		additionalKanikoFlags = append(additionalKanikoFlags, "--reproducible")
 	}

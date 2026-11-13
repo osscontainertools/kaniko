@@ -184,6 +184,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_RUN_HEREDOC_SCRIPT`](#flag-ff_kaniko_run_heredoc_script)
       - [Flag `FF_KANIKO_RUN_HONOR_GROUP`](#flag-ff_kaniko_run_honor_group)
       - [Flag `FF_KANIKO_RUN_MOUNT_BIND_RELATIVE`](#flag-ff_kaniko_run_mount_bind_relative)
+      - [Flag `FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK`](#flag-ff_kaniko_run_mount_bind_resolve_symlink)
       - [Flag `FF_KANIKO_RUN_MOUNT_TMPFS`](#flag-ff_kaniko_run_mount_tmpfs)
       - [Flag `FF_KANIKO_RUN_VIA_TINI`](#flag-ff_kaniko_run_via_tini)
       - [Flag `FF_KANIKO_SCOPED_DOCKERIGNORE`](#flag-ff_kaniko_scoped_dockerignore)
@@ -1289,6 +1290,7 @@ FF_KANIKO_PARALLEL_HASH=true
 FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=true
 FF_KANIKO_RUN_HEREDOC_SCRIPT=true
 FF_KANIKO_RUN_MOUNT_BIND_RELATIVE=true
+FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK=true
 FF_KANIKO_RUN_MOUNT_TMPFS=true
 FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS=true
 FF_KANIKO_WARMER_BUILD_ARGS=true
@@ -1665,6 +1667,12 @@ Will be deprecated in `v1.30.0`.
 
 A relative `RUN --mount=type=bind` target resolves against `/`, whatever the `WORKDIR` is.
 Set this flag to `true` to resolve it against `WORKDIR`. Defaults to `false`.
+Becomes default in `v1.30.0`.
+
+#### Flag `FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK`
+
+A `RUN --mount=type=bind` source that is a symlink is mounted as the link itself.
+Set this flag to `true` to mount the file it points to. Defaults to `false`.
 Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_RUN_MOUNT_TMPFS`
