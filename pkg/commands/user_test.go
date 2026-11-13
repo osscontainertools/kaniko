@@ -92,6 +92,22 @@ var userTests = []struct {
 		user:        "some",
 		expectedUID: "some",
 	},
+	{
+		user:        "root:${envgroup}",
+		expectedUID: "root:grp",
+	},
+	{
+		user:        "${envuser}:${envgroup}",
+		expectedUID: "root:grp",
+	},
+	{
+		user:        "root:${missing:-0}",
+		expectedUID: "root:0",
+	},
+	{
+		user:        "${missingUser:-root}:${missingGroup:-0}",
+		expectedUID: "root:0",
+	},
 }
 
 func TestUpdateUser(t *testing.T) {
