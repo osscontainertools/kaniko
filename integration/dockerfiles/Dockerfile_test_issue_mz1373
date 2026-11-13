@@ -1,0 +1,9 @@
+FROM alpine:latest AS build
+RUN mkdir '/[dir]' && echo "hello directory" > '/[dir]/value'
+RUN echo "hello file" > '/[data]'
+
+FROM alpine:latest
+COPY --from=build '/[[]data]' /data
+COPY --from=build '/[[]dir]' /dir
+RUN test "$(cat /data)" = "hello file"
+RUN test "$(cat /dir/value)" = "hello directory"
