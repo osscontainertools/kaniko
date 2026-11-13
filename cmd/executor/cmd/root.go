@@ -255,6 +255,9 @@ func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
 	if target.Dockerfile != "" {
 		opts.DockerfilePath = target.Dockerfile
 	}
+	if len(target.BuildArg) > 0 {
+		opts.BuildArgs = target.BuildArgs()
+	}
 	opts.CacheFrom = target.CacheFrom
 	opts.CacheTo = target.CacheTo
 	if opts.NoPushCache {
@@ -431,6 +434,7 @@ func resolveContext(opts *config.KanikoOptions) error {
 func AddKanikoOptionsFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	AddSharedBuildFlags(cmd, opts)
 	cmd.Flags().VarP(&opts.Destinations, "destination", "d", "Registry the final image should be pushed to. Set it repeatedly for multiple destinations.")
+	cmd.Flags().VarP(&opts.BuildArgs, "build-arg", "", "This flag allows you to pass in ARG values at build time. Set it repeatedly for multiple values.")
 	cmd.Flags().StringSliceVarP(&opts.Target, "target", "", []string{}, "Set the target stages to build, the first in the list denotes the stage to be pushed")
 	cmd.Flags().StringArrayVar(&opts.CacheFrom, "cache-from", nil, "Read the layer cache from this repository, or from an OCI layout when prefixed with 'oci:'. Set it repeatedly to read from several caches in order.")
 	cmd.Flags().StringArrayVar(&opts.CacheTo, "cache-to", nil, "Write the layer cache to this repository, or to an OCI layout when prefixed with 'oci:'. Set it repeatedly to write to several caches.")
@@ -444,7 +448,6 @@ func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().StringVarP(&opts.SnapshotMode, "snapshot-mode", "", "full", "Change the file attributes inspected during snapshotting")
 	cmd.Flags().IntVar(&opts.SnapshotHashWorkers, "snapshot-hash-workers", min(runtime.GOMAXPROCS(0), 8), "Number of goroutines hashing files during a snapshot. Defaults to GOMAXPROCS, at most 8.")
 	cmd.Flags().StringVarP(&opts.CustomPlatform, "custom-platform", "", "", "Specify the build platform if different from the current host")
-	cmd.Flags().VarP(&opts.BuildArgs, "build-arg", "", "This flag allows you to pass in ARG values at build time. Set it repeatedly for multiple values.")
 	cmd.Flags().IntVar(&opts.ImageFSExtractRetry, "image-fs-extract-retry", 0, "Number of retries for image FS extraction")
 	cmd.Flags().StringVarP(&opts.KanikoDir, "kaniko-dir", "", "", "Path to the kaniko directory, this takes precedence over the KANIKO_DIR environment variable.")
 	cmd.Flags().StringVarP(&opts.TarPath, "tar-path", "", "", "Path to save the image in as a tarball instead of pushing")
