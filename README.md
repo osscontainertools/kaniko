@@ -1868,6 +1868,7 @@ $ cosign verify \
 
 The `slim-fips` image is the `slim` executor built with the Go Cryptographic Module v1.0.0.
 FIPS 140-3 mode is on by default (`GODEBUG=fips140=on`).
+The module's validation ([CMVP #5247](https://csrc.nist.gov/projects/cryptographic-module-validation-program/certificate/5247)) does not cover `linux/riscv64`, so the `riscv64` image runs in FIPS mode but is not certified.
 Like `slim`, it has no gcr, ecr or acr credential helpers and no git, S3, GCS or Azure build contexts.
 
 kaniko still uses non-approved hashes internally for file change detection and layer cache keys:
