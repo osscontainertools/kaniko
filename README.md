@@ -69,6 +69,8 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--cache`](#flag---cache)
       - [Flag `--cache-dir`](#flag---cache-dir)
       - [Flag `--cache-repo`](#flag---cache-repo)
+      - [Flag `--cache-from`](#flag---cache-from)
+      - [Flag `--cache-to`](#flag---cache-to)
       - [Flag `--cache-copy-layers`](#flag---cache-copy-layers)
       - [Flag `--cache-run-layers`](#flag---cache-run-layers)
       - [Flag `--cache-ttl`](#flag---cache-ttl)
@@ -107,6 +109,8 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--registry-client-cert`](#flag---registry-client-cert)
       - [Flag `--registry-map`](#flag---registry-map)
       - [Flag `--registry-mirror`](#flag---registry-mirror)
+      - [Flag `--require-add-checksum`](#flag---require-add-checksum)
+      - [Flag `--require-digest`](#flag---require-digest)
       - [Flag `--skip-default-registry-fallback`](#flag---skip-default-registry-fallback)
       - [Flag `--reproducible`](#flag---reproducible)
       - [Flag `--secret`](#flag---secret)
@@ -115,6 +119,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `--skip-tls-verify`](#flag---skip-tls-verify)
       - [Flag `--skip-tls-verify-pull`](#flag---skip-tls-verify-pull)
       - [Flag `--skip-tls-verify-registry`](#flag---skip-tls-verify-registry)
+      - [Flag `--snapshot-hash-workers`](#flag---snapshot-hash-workers)
       - [Flag `--snapshot-mode`](#flag---snapshot-mode)
       - [Flag `--tar-path`](#flag---tar-path)
       - [Flag `--target`](#flag---target)
@@ -130,13 +135,17 @@ expect - see [Known Issues](#known-issues).
     - [Feature Flags](#feature-flags)
       - [Profiles](#profiles)
       - [Flag `FF_KANIKO_ADD_CHECKSUM`](#flag-ff_kaniko_add_checksum)
+      - [Flag `FF_KANIKO_ADD_CHOWN_TAR`](#flag-ff_kaniko_add_chown_tar)
+      - [Flag `FF_KANIKO_ADD_FOLLOW_SYMLINK`](#flag-ff_kaniko_add_follow_symlink)
       - [Flag `FF_KANIKO_ADD_UNPACK`](#flag-ff_kaniko_add_unpack)
+      - [Flag `FF_KANIKO_CACHE_COPY_FROM`](#flag-ff_kaniko_cache_copy_from)
       - [Flag `FF_KANIKO_CACHE_HASH_BLAKE3`](#flag-ff_kaniko_cache_hash_blake3)
       - [Flag `FF_KANIKO_CACHE_IMAGE_INDEX`](#flag-ff_kaniko_cache_image_index)
       - [Flag `FF_KANIKO_CACHE_LOOKAHEAD`](#flag-ff_kaniko_cache_lookahead)
       - [Flag `FF_KANIKO_CACHE_PROBE_AFTER_MISS`](#flag-ff_kaniko_cache_probe_after_miss)
       - [Flag `FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS`](#flag-ff_kaniko_chown_on_implicit_dirs)
       - [Flag `FF_KANIKO_CONFINE_COPY_SOURCE`](#flag-ff_kaniko_confine_copy_source)
+      - [Flag `FF_KANIKO_CONFINE_HARDLINK_TARGET`](#flag-ff_kaniko_confine_hardlink_target)
       - [Flag `FF_KANIKO_COPY_AS_ROOT`](#flag-ff_kaniko_copy_as_root)
       - [Flag `FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS`](#flag-ff_kaniko_copy_chmod_on_implicit_dirs)
       - [Flag `FF_KANIKO_COPY_KEEP_DEST_OWNER`](#flag-ff_kaniko_copy_keep_dest_owner)
@@ -149,14 +158,18 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_DISABLE_HTTP2`](#flag-ff_kaniko_disable_http2)
       - [Flag `FF_KANIKO_EXPAND_HEREDOC`](#flag-ff_kaniko_expand_heredoc)
       - [Flag `FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY`](#flag-ff_kaniko_format_independent_cache_key)
+      - [Flag `FF_KANIKO_FROM_PREDEFINED_ARGS`](#flag-ff_kaniko_from_predefined_args)
       - [Flag `FF_KANIKO_HASH_DIR_FRAMING`](#flag-ff_kaniko_hash_dir_framing)
       - [Flag `FF_KANIKO_IMAGE_STAGES`](#flag-ff_kaniko_image_stages)
       - [Flag `FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY`](#flag-ff_kaniko_infer_cross_stage_cache_key)
       - [Flag `FF_KANIKO_ISOLATE_CACHE_PUSH`](#flag-ff_kaniko_isolate_cache_push)
       - [Flag `FF_KANIKO_LAYER_HINTS`](#flag-ff_kaniko_layer_hints)
+      - [Flag `FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR`](#flag-ff_kaniko_local_unpack_requires_tar)
       - [Flag `FF_KANIKO_NATIVE_COPY`](#flag-ff_kaniko_native_copy)
       - [Flag `FF_KANIKO_NATIVE_INIT`](#flag-ff_kaniko_native_init)
       - [Flag `FF_KANIKO_OCI_SCRATCH_BASE`](#flag-ff_kaniko_oci_scratch_base)
+      - [Flag `FF_KANIKO_PARALLEL_GUNZIP`](#flag-ff_kaniko_parallel_gunzip)
+      - [Flag `FF_KANIKO_PARALLEL_HASH`](#flag-ff_kaniko_parallel_hash)
       - [Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`](#flag-ff_kaniko_path_scoped_registry_auth)
       - [Flag `FF_KANIKO_PEEK_ARCHIVE_HEADER`](#flag-ff_kaniko_peek_archive_header)
       - [Flag `FF_KANIKO_PLATFORM_CACHE_KEY`](#flag-ff_kaniko_platform_cache_key)
@@ -167,8 +180,11 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT`](#flag-ff_kaniko_reproducible_preserve_format)
       - [Flag `FF_KANIKO_RESOLVE_CACHE_KEY`](#flag-ff_kaniko_resolve_cache_key)
       - [Flag `FF_KANIKO_ROLLING_CACHE_KEY`](#flag-ff_kaniko_rolling_cache_key)
+      - [Flag `FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT`](#flag-ff_kaniko_run_cross_stage_bind_mount)
       - [Flag `FF_KANIKO_RUN_HEREDOC_SCRIPT`](#flag-ff_kaniko_run_heredoc_script)
       - [Flag `FF_KANIKO_RUN_HONOR_GROUP`](#flag-ff_kaniko_run_honor_group)
+      - [Flag `FF_KANIKO_RUN_MOUNT_BIND_RELATIVE`](#flag-ff_kaniko_run_mount_bind_relative)
+      - [Flag `FF_KANIKO_RUN_MOUNT_TMPFS`](#flag-ff_kaniko_run_mount_tmpfs)
       - [Flag `FF_KANIKO_RUN_VIA_TINI`](#flag-ff_kaniko_run_via_tini)
       - [Flag `FF_KANIKO_SCOPED_DOCKERIGNORE`](#flag-ff_kaniko_scoped_dockerignore)
       - [Flag `FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES`](#flag-ff_kaniko_scoped_registry_certificates)
@@ -176,6 +192,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_SKIP_CACHED_STAGES`](#flag-ff_kaniko_skip_cached_stages)
       - [Flag `FF_KANIKO_SKIP_RELABEL_RECOMPRESS`](#flag-ff_kaniko_skip_relabel_recompress)
       - [Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`](#flag-ff_kaniko_skip_write_whiteouts)
+      - [Flag `FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS`](#flag-ff_kaniko_snapshot_track_cached_layers)
       - [Flag `FF_KANIKO_UNPACK_XZ`](#flag-ff_kaniko_unpack_xz)
       - [Flag `FF_KANIKO_UNPACK_ZSTD`](#flag-ff_kaniko_unpack_zstd)
       - [Flag `FF_KANIKO_UNTAR_SKIP_ROOT`](#flag-ff_kaniko_untar_skip_root)
@@ -669,6 +686,8 @@ for how to use with kubernetes clusters and persistent cache volumes.
 
 `--dryrun` prints which images are already cached and which would be fetched, without writing to the cache. `KANIKO_PRINT_PLAN=1` prints the same plan before warming.
 
+`warmer bake <bakefile> [target]` warms the base images of bakefile targets, see [docs/bakefile.md](docs/bakefile.md#warmer).
+
 ### Pushing to Different Registries
 
 For registry-specific setup instructions (Docker Hub, GCR, ECR, ACR, JFrog,
@@ -696,7 +715,7 @@ The artifact must contain exactly one image. Multi-image tarballs and indexes ar
 
 #### Subcommand `bake`
 
-`executor bake <bakefile> [target]` builds several images from one multi-stage Dockerfile in a single invocation. A small HCL bakefile says which stage each image is built from and where it is pushed, while the context, dockerfile, build args, cache and registry settings stay on the usual flags and are shared by every target.
+`executor bake <bakefile> [target]` builds several images from one multi-stage Dockerfile in a single invocation. A small HCL bakefile says which stage each image is built from, where it is pushed and which layer caches it uses, while the context, dockerfile, build args and registry settings stay on the usual flags and are shared by every target.
 
 ```hcl
 target "app" {
@@ -747,7 +766,32 @@ If this flag is not provided, a cache repo will be inferred from the
 `--destination` flag. If `--destination=gcr.io/kaniko-project/test`, then cached
 layers will be stored in `gcr.io/kaniko-project/test/cache`.
 
+Cannot be combined with `--cache-from` or `--cache-to`.
+
 _This flag must be used in conjunction with the `--cache=true` flag._
+
+#### Flag `--cache-from`
+
+`--cache-from=<repo>` reads cached layers from `<repo>`. Prefix a path with `oci:` to read from an OCI layout on disk instead.
+Set it repeatedly to read from several caches. The first cache that holds a layer is used.
+
+Enables caching. Without `--cache-to` no cached layers are pushed.
+Cannot be combined with `--cache-repo`.
+
+#### Flag `--cache-to`
+
+`--cache-to=<repo>` pushes cached layers to `<repo>`. Prefix a path with `oci:` to write an OCI layout on disk instead.
+Set it repeatedly to push to several caches.
+
+Enables caching. Cannot be combined with `--cache-repo` or `--no-push-cache`.
+
+For example, a feature branch reads its own cache and falls back to the one of `main`, but only writes its own:
+
+```bash
+--cache-from=registry.example.com/app/cache/feature \
+--cache-from=registry.example.com/app/cache/main \
+--cache-to=registry.example.com/app/cache/feature
+```
 
 #### Flag `--cache-copy-layers`
 
@@ -930,6 +974,8 @@ NOTE: this will still push cache layers to the repo, to disable pushing cache la
 Set this flag if you do not want to push cache layers to a
 registry.  Can be used in addition to `--no-push` to push no layers to a registry.
 
+Cannot be combined with `--cache-to`.
+
 #### Flag `--oci-layout-path`
 
 Set this flag to specify a directory in the container where the OCI image layout
@@ -1035,6 +1081,14 @@ are:
 - `mycompany-docker-virtual.jfrog.io`
 - `harbor.private.io/theproject`
 
+#### Flag `--require-add-checksum`
+
+Fail if an `ADD` instruction pulls a remote URL (HTTP/HTTPS) without a `--checksum` digest. Executor only.
+
+#### Flag `--require-digest`
+
+Fail if a base image is not pinned by digest, e.g. `debian:13.7@sha256:...`. Build args are resolved first. Also available on the warmer.
+
 #### Flag `--skip-default-registry-fallback`
 
 Set this flag if you want the build process to fail if none of the mirrors
@@ -1085,6 +1139,10 @@ You can set `--skip-tls-verify-registry <registry-name>` to skip TLS certificate
 validation when accessing the specified registry. It is supposed to be used for
 testing purposes only and should not be used in production! You can set it
 multiple times for multiple registries.
+
+#### Flag `--snapshot-hash-workers`
+
+Set `--snapshot-hash-workers=<n>` to hash the files of a snapshot on `n` goroutines. Defaults to `GOMAXPROCS`, at most 8.
 
 #### Flag `--snapshot-mode`
 
@@ -1214,15 +1272,25 @@ jq -r '.manifests[] | select(.annotations["vnd.docker.reference.type"] != "attes
 Opting into the Preview profile gives you early access to upcoming performance improvements, bugfixes and features. While these flags are tested and ready to use, implementation details may still change.
 
 ```sh
+FF_KANIKO_ADD_CHOWN_TAR=true
+FF_KANIKO_ADD_FOLLOW_SYMLINK=true
+FF_KANIKO_CACHE_COPY_FROM=true
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_KEEP_DEST_OWNER=true
 FF_KANIKO_COPY_LINK=true
 FF_KANIKO_COPY_SUBDIR_MODE=true
 FF_KANIKO_DEFER_CACHE_PUSH=true
 FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY=true
+FF_KANIKO_FROM_PREDEFINED_ARGS=true
 FF_KANIKO_ISOLATE_CACHE_PUSH=true
+FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR=true
 FF_KANIKO_NATIVE_INIT=true
+FF_KANIKO_PARALLEL_HASH=true
+FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=true
 FF_KANIKO_RUN_HEREDOC_SCRIPT=true
+FF_KANIKO_RUN_MOUNT_BIND_RELATIVE=true
+FF_KANIKO_RUN_MOUNT_TMPFS=true
+FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS=true
 FF_KANIKO_WARMER_BUILD_ARGS=true
 FF_KANIKO_WARMER_PREDEFINED_ARGS=true
 ```
@@ -1246,12 +1314,32 @@ Set this flag to `true` to verify the download and fail the build on a mismatch.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
 
+#### Flag `FF_KANIKO_ADD_CHOWN_TAR`
+
+`ADD --chown` is not applied to an extracted archive, the files keep the owners recorded in the tar.
+Set this flag to `true` to apply `--chown` to the extracted files.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
+
+#### Flag `FF_KANIKO_ADD_FOLLOW_SYMLINK`
+
+`ADD <url> /dir/` fails with `destination cannot be a symlink` when `/dir` is a symlink to a directory.
+Set this flag to `true` to write the download through the symlink. Defaults to `false`.
+Becomes default in `v1.30.0`.
+
 #### Flag `FF_KANIKO_ADD_UNPACK`
 
 `ADD --unpack=<bool>` overrides whether a tar archive is extracted. A local archive is extracted and a URL download is not, so `--unpack=false` adds a local archive as a file and `--unpack=true` extracts a download. A source that turns out not to be an archive is added as a file either way. With this flag off kaniko parses the modifier and ignores it, so both sources keep their default treatment.
 Set this flag to `true` to honor `--unpack`.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_CACHE_COPY_FROM`
+
+`COPY --from=<image>` always pulls the image from the registry, even when it is in `--cache-dir`.
+Set this flag to `true` on the warmer and the executor to cache it like a `FROM` base image.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_CACHE_HASH_BLAKE3`
 
@@ -1295,6 +1383,13 @@ A `COPY` or `ADD` source that points into the kaniko directory, for example `COP
 Set this flag to `true` to fail the build instead.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_CONFINE_HARDLINK_TARGET`
+
+A hardlink in a base image layer or an `ADD`ed tar whose target passes through a symlink into the kaniko directory, for example `escape -> /kaniko` followed by a hardlink to `escape/executor`, links kaniko's own files into the image.
+Set this flag to `true` to skip such a hardlink with a warning instead.
+Defaults to `true`.
+Will be deprecated in `v1.31.0`.
 
 #### Flag `FF_KANIKO_COPY_AS_ROOT`
 
@@ -1377,6 +1472,13 @@ Set this flag to `true` to compute cache keys independently of the manifest form
 Defaults to `false`.
 Becomes default in `v1.30.0`.
 
+#### Flag `FF_KANIKO_FROM_PREDEFINED_ARGS`
+
+The predefined platform args such as `TARGETARCH` resolve to empty in `FROM` and in global `ARG` defaults.
+Set this flag to `true` to resolve them from `--customPlatform` and the host.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
+
 #### Flag `FF_KANIKO_HASH_DIR_FRAMING`
 
 Directory cache keys concatenate each relative path and file hash without recording their boundaries. A filename can therefore absorb an adjacent hash and make distinct directory trees produce the same cache key, silently reusing the wrong cached layer.
@@ -1411,6 +1513,13 @@ Set this flag to `true` to log [layer hints](#layer-hints).
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
 
+#### Flag `FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR`
+
+`ADD` takes any local compressed file for a tar archive, so a gzip file whose content is not a tar fails with `unpacking local tar: unexpected EOF`.
+Set this flag to `true` to add such a file as it is.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
+
 #### Flag `FF_KANIKO_NATIVE_COPY`
 
 Three copy paths use the `github.com/otiai10/copy` library instead of kaniko's own copy: persisting a stage's files so `COPY --from=<stage>` can read them, the cross-device fallback when a bind mount target is moved aside, and the `RUN --mount=type=bind` source copy. The library copies every file on its own and knows nothing about hardlinks or file capabilities, so all three expand hardlinks into independent copies. Capabilities fare a little better: the cross-stage save reapplies them, but only to the path named in the `COPY`, so a file carrying capabilities inside a copied directory still loses them, and the two mount paths do not reapply them at all. For the cross-stage save all of this happens before the dependent stage ever sees the files, which is why hardlink-preserving extraction alone cannot keep the hardlinks.
@@ -1429,6 +1538,20 @@ Becomes default in `v1.30.0`.
 When a Dockerfile uses `FROM scratch`, kaniko uses an empty Docker-format image as the build base, which means the output image is produced in Docker manifest schema v2 format.
 Set this flag to `true` to use an empty OCI-format image instead, causing `FROM scratch` builds to produce output in OCI manifest schema v1 format. Defaults to `false`.
 Currently no plans to activate.
+
+#### Flag `FF_KANIKO_PARALLEL_GUNZIP`
+
+kaniko decompresses gzip base layers on the same thread that writes their files to disk.
+Set this flag to `true` to decompress them ahead of extraction on a separate thread.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
+
+#### Flag `FF_KANIKO_PARALLEL_HASH`
+
+After each `RUN`, kaniko hashes the files of the whole filesystem one at a time, which is slow for large images.
+Set this flag to `true` to hash them in parallel. [`--snapshot-hash-workers`](#flag---snapshot-hash-workers) sets how many at once.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH`
 
@@ -1511,6 +1634,13 @@ Set this flag to `true` to enable the rolling cache key.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
 
+#### Flag `FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT`
+
+Kaniko skips `RUN --mount=type=bind` flags with `from=<stage>` or `from=<image>`.
+Set this flag to `true` to mount files from another stage or image. Writes to the mount are discarded.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
+
 #### Flag `FF_KANIKO_RUN_HEREDOC_SCRIPT`
 
 ```dockerfile
@@ -1530,6 +1660,19 @@ When a stage sets `USER user:group`, `RUN` applies only the user and the gid fal
 Set this flag to `true` to pass the full `user:group` to the command so `RUN` runs with the requested group, matching docker.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+#### Flag `FF_KANIKO_RUN_MOUNT_BIND_RELATIVE`
+
+A relative `RUN --mount=type=bind` target resolves against `/`, whatever the `WORKDIR` is.
+Set this flag to `true` to resolve it against `WORKDIR`. Defaults to `false`.
+Becomes default in `v1.30.0`.
+
+#### Flag `FF_KANIKO_RUN_MOUNT_TMPFS`
+
+Supports `--mount=type=tmpfs` flags in `RUN` instructions. The target is an empty directory for the duration of the command, and its contents are discarded afterwards.
+Set this flag to `true` to enable tmpfs mounts in `RUN` statements.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_RUN_VIA_TINI`
 
@@ -1581,6 +1724,12 @@ When kaniko extracts a cached layer it applies the layer's whiteouts by deleting
 Set this flag to `true` to skip writing the marker files, the deletion alone already applies the whiteout. Defaults to `true`.
 Will be deprecated in `v1.30.0`.
 
+#### Flag `FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS`
+
+With `--cache`, a `COPY` served from the cache after an uncached `RUN` has its files stored a second time in the next `RUN` layer.
+Set this flag to `true` to store them once. Defaults to `false`.
+Becomes default in `v1.30.0`.
+
 #### Flag `FF_KANIKO_UNPACK_XZ`
 
 `ADD` extracts a local tar archive, and docker recognises xz among the compression formats it accepts. kaniko detects xz but does not decompress it, so `ADD archive.tar.xz` fails with `unsupported compression algorithm`.
@@ -1611,7 +1760,7 @@ Becomes default in `v1.30.0`.
 
 #### Flag `FF_KANIKO_WARMER_PREDEFINED_ARGS`
 
-In warmer the predefined platform args such as `TARGETARCH` resolve to empty in `FROM`.
+In warmer the predefined platform args such as `TARGETARCH` resolve to empty in `FROM` and in global `ARG` defaults.
 Set this flag to `true` to resolve them from `--customPlatform` and the host.
 Defaults to `false`.
 Becomes default in `v1.30.0`.

@@ -31,6 +31,7 @@ import (
 )
 
 var acrRE = regexp.MustCompile(`^.*\.azurecr\.io$|^.*\.azurecr\.cn$|^.*\.azurecr\.de$|^.*\.azurecr\.us$`)
+var strictHostCheck = config.EnvBool("FF_DOCKER_ACR_STRICT_HOST_CHECK", true)
 
 const (
 	mcrHostname    = "mcr.microsoft.com"
@@ -53,43 +54,47 @@ func (a ACRCredHelper) Delete(_ string) error {
 	return errors.New("list is unimplemented")
 }
 
-func isACRRegistry(input string) bool {
+func parseACRRegistry(input string, strict bool) (string, bool) {
 	serverURL, err := url.Parse("https://" + input)
 	if err != nil {
-		return false
+		return "", false
+	}
+	if strict && serverURL.Host != input {
+		return "", false
 	}
 	if serverURL.Hostname() == mcrHostname {
-		return true
+		return serverURL.Host, true
 	}
 	matches := acrRE.FindStringSubmatch(serverURL.Hostname())
-	return len(matches) != 0
+	return serverURL.Host, len(matches) != 0
 }
 
 func (a ACRCredHelper) Get(serverURL string) (string, string, error) {
-	if !isACRRegistry(serverURL) {
+	host, ok := parseACRRegistry(serverURL, strictHostCheck)
+	if !ok {
 		return "", "", errors.New("serverURL does not refer to Azure Container Registry")
 	}
 
 	if config.EnvBool("FF_DOCKER_ACR_AZIDENTITY", true) {
-		return getViaAzidentity(serverURL)
+		return getViaAzidentity(host)
 	} else {
-		return getViaServicePrincipal(serverURL)
+		return getViaServicePrincipal(host)
 	}
 }
 
-func getViaServicePrincipal(serverURL string) (string, string, error) {
+func getViaServicePrincipal(host string) (string, string, error) {
 	spToken, settings, err := token.GetServicePrincipalTokenFromEnvironment()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to acquire sp token %w", err)
 	}
-	refreshToken, err := registry.GetRegistryRefreshTokenFromAADExchange(serverURL, spToken, settings.Values[auth.TenantID])
+	refreshToken, err := registry.GetRegistryRefreshTokenFromAADExchange(host, spToken, settings.Values[auth.TenantID])
 	if err != nil {
 		return "", "", fmt.Errorf("failed to acquire refresh token %w", err)
 	}
 	return tokenUsername, refreshToken, nil
 }
 
-func getViaAzidentity(serverURL string) (string, string, error) {
+func getViaAzidentity(host string) (string, string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeOut)
 	defer cancel()
 
@@ -97,7 +102,7 @@ func getViaAzidentity(serverURL string) (string, string, error) {
 	if err != nil {
 		return "", "", fmt.Errorf("failed to acquire sp token %w", err)
 	}
-	refreshToken, err := registry.GetRefreshToken(ctx, serverURL, tenantID, accessToken)
+	refreshToken, err := registry.GetRefreshToken(ctx, host, tenantID, accessToken)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to acquire refresh token %w", err)
 	}

@@ -21,17 +21,18 @@ package tracing
 import (
 	"context"
 	"os"
-	"time"
 
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/sirupsen/logrus"
 )
 
-func Init(context.Context, *config.KanikoOptions, time.Time) {
+func Init(context.Context, *config.KanikoOptions) {
 	if os.Getenv(EndpointEnv) != "" {
 		logrus.Warn(config.NotCompiled("telemetry export"))
 	}
 }
+
+func Export(context.Context) {}
 
 func SetPlan(string) {}
 

@@ -25,13 +25,15 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 
-	"github.com/containerd/platforms"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
+	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
@@ -53,6 +55,15 @@ func WarmCache(opts *config.WarmerOptions) error {
 	var dockerfileImages []string
 	cacheDir := opts.CacheDir
 	images := opts.Images
+
+	if opts.RequireDigest {
+		for _, image := range images {
+			_, err := name.NewDigest(image)
+			if err != nil {
+				return fmt.Errorf("--require-digest: %w", err)
+			}
+		}
+	}
 
 	// if opts.image is empty,we need to parse dockerfilepath to get images list
 	if opts.DockerfilePath != "" {
@@ -319,7 +330,15 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 		return nil, fmt.Errorf("parsing dockerfile: %w", err)
 	}
 
-	var prevArgs []string
+	var predefinedArgs []string
+	if config.FF.WarmerPredefinedArgs {
+		predefinedArgs, err = dockerfile.PredefinedArgs(opts.CustomPlatform)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	prevArgs := slices.Clone(predefinedArgs)
 	for i, marg := range metaArgs {
 		for j, arg := range marg.Args {
 			if arg.Value != nil {
@@ -339,23 +358,7 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 		args = nil
 	}
 	if config.FF.WarmerPredefinedArgs {
-		build := platforms.Normalize(platforms.DefaultSpec())
-		target, err := platforms.Parse(opts.CustomPlatform)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse target platform %q: %w", opts.CustomPlatform, err)
-		}
-		args = append([]string{
-			"BUILDPLATFORM=" + platforms.Format(build),
-			"BUILDOS=" + build.OS,
-			"BUILDOSVERSION=" + build.OSVersion,
-			"BUILDARCH=" + build.Architecture,
-			"BUILDVARIANT=" + build.Variant,
-			"TARGETPLATFORM=" + opts.CustomPlatform,
-			"TARGETOS=" + target.OS,
-			"TARGETOSVERSION=" + target.OSVersion,
-			"TARGETARCH=" + target.Architecture,
-			"TARGETVARIANT=" + target.Variant,
-		}, args...)
+		args = append(predefinedArgs, args...)
 	}
 	for _, marg := range metaArgs {
 		for _, arg := range marg.Args {
@@ -383,6 +386,12 @@ outer:
 				continue outer
 			}
 		}
+		if opts.RequireDigest {
+			_, err = name.NewDigest(resolvedBaseName)
+			if err != nil {
+				return nil, fmt.Errorf("--require-digest: %w", err)
+			}
+		}
 		// deduplicate
 		for _, x := range baseNames {
 			if x == resolvedBaseName {
@@ -391,5 +400,36 @@ outer:
 		}
 		baseNames = append(baseNames, resolvedBaseName)
 	}
+
+	if config.FF.CacheCopyFrom {
+		stageByName := make(map[string]int)
+		for idx, s := range stages {
+			if s.Name != "" {
+				stageByName[s.Name] = idx
+			}
+		}
+		for _, s := range stages {
+			for _, cmd := range s.Commands {
+				c, ok := cmd.(*instructions.CopyCommand)
+				if !ok || c.From == "" {
+					continue
+				}
+				// skip stage references ie.
+				// COPY --from=base and COPY --from=0
+				if _, ok := stageByName[strings.ToLower(c.From)]; ok {
+					continue
+				}
+				if _, err := strconv.Atoi(c.From); err == nil {
+					continue
+				}
+				// deduplicate
+				if slices.Contains(baseNames, c.From) {
+					continue
+				}
+				baseNames = append(baseNames, c.From)
+			}
+		}
+	}
+
 	return baseNames, nil
 }

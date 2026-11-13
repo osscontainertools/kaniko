@@ -75,3 +75,12 @@ RUN --mount=type=cache,target=/tmp/cache_dir \
 RUN test -f /tmp/cache_dir/cache_file \
     && test -f /tmp/bind_dir/bind_file \
     && test ! -f /tmp/bind_dir/foo
+
+# A relative target resolves against WORKDIR
+WORKDIR /tmp/rel
+RUN --mount=type=bind,source=context/foo,target=foo \
+    test -f /tmp/rel/foo \
+    && test ! -e /foo
+
+# and gets unmounted from there
+RUN test ! -e /tmp/rel/foo

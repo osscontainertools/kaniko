@@ -81,6 +81,7 @@ type snapShotter interface {
 	Init() error
 	TakeSnapshotFS() (string, []string, []string, error)
 	TakeSnapshot([]string, bool) (string, []string, []string, error)
+	Reset()
 }
 
 // stageBuilder contains all fields necessary to build one stage of a Dockerfile
@@ -172,7 +173,7 @@ func makeSnapshotter(opts *config.KanikoOptions) (*snapshot.Snapshotter, error) 
 		return nil, err
 	}
 	l := snapshot.NewLayeredMap(hasher)
-	return snapshot.NewSnapshotter(l, config.RootDir), nil
+	return snapshot.NewSnapshotter(l, config.RootDir, opts.SnapshotHashWorkers), nil
 }
 
 // newStageBuilder returns a new type stageBuilder which contains all the information required to build the stage
@@ -283,14 +284,15 @@ func initConfig(img partial.WithConfigFile, opts *config.KanikoOptions) (*v1.Con
 }
 
 func newLayerCacheImpl(opts *config.KanikoOptions) cache.LayerCache {
-	if isOCILayout(opts.CacheRepo) {
-		return &cache.LayoutCache{
-			Opts: opts,
+	sources := make(cache.Sources, 0, len(opts.CacheFrom))
+	for _, repo := range opts.CacheFrom {
+		if isOCILayout(repo) {
+			sources = append(sources, &cache.LayoutCache{Opts: opts, Repo: repo})
+		} else {
+			sources = append(sources, &cache.RegistryCache{Opts: opts, Repo: repo})
 		}
 	}
-	return &cache.RegistryCache{
-		Opts: opts,
-	}
+	return sources
 }
 
 func isOCILayout(path string) bool {
@@ -309,6 +311,22 @@ func crossStageCacheKey(command commands.DockerCommand, stageFinalCacheKeys map[
 	}
 	cacheKey, ok := stageFinalCacheKeys[fromIdx]
 	return cacheKey, ok
+}
+
+func mountCacheKeys(command commands.DockerCommand, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string) ([]string, bool) {
+	var keys []string
+	for _, from := range commands.MountSources(command) {
+		key, ok := externalImageDigests[from]
+		fromIdx, err := strconv.Atoi(from)
+		if err == nil {
+			key, ok = stageFinalCacheKeys[fromIdx]
+		}
+		if !ok {
+			return nil, false
+		}
+		keys = append(keys, key)
+	}
+	return keys, true
 }
 
 func populateCompositeKey(command commands.DockerCommand, files []string, compositeKey CompositeCache, args *dockerfile.BuildArgs, env []string, fileContext util.FileContext, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string) (CompositeCache, error) {
@@ -466,6 +484,15 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 				// WorkingDir and User pick the destination and the ownership
 				seed = *NewCompositeCache(cfg.WorkingDir, cfg.User)
 			}
+			mountKeys, ok := mountCacheKeys(command, stageFinalCacheKeys, externalImageDigests)
+			if !ok {
+				// the source stage stopped caching in the precompute pass
+				stopCache = true
+				keyValid = false
+				finalCacheKey = ""
+				continue // RUN is never MetadataOnly, safe to skip
+			}
+			seed.AddKey(mountKeys...)
 			if crossStageCopy && config.FF.InferCrossStageCacheKey && opts.CacheCopyLayers && opts.CacheRunLayers {
 				inferredKey, err := populateCompositeKey(command, nil, seed.Clone(), args, cfg.Env, fileContext, stageFinalCacheKeys, externalImageDigests)
 				if err == nil {
@@ -599,7 +626,7 @@ func (s *stageBuilder) optimize(compositeKeyPtr *CompositeCache, cfg v1.Config, 
 	return finalCacheKey, ci, cfg, nil
 }
 
-func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string, layerCache cache.LayerCache, ci *stageCacheInfo) (bool, error) {
+func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOptions, fileContext util.FileContext, snapshotter snapShotter, crossStageDeps bool, copySources map[*instructions.CopyCommand][]string, stageFinalCacheKeys map[int]string, externalImageDigests map[string]string, layerCache cache.LayerCache, ci *stageCacheInfo) (bool, error) {
 	assert.Assert("executor.stagebuilder.config-nonnull", s.cf != nil, "stageBuilder (index %d) has nil config file", s.index)
 	// Unpack file system to root if we need to.
 	shouldUnpack := false
@@ -677,6 +704,16 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			continue
 		}
 
+		copyCmd, isCopy := commands.CastAbstractCopyCommand(command)
+		if isCopy && copyCmd.From() != "" {
+			resolved, err := util.ResolveEnvironmentReplacementList(copyCmd.Instruction().SourcePaths, s.args.ReplacementEnvs(s.cf.Config.Env), true)
+			if err != nil {
+				return false, err
+			}
+			planned := copySources[copyCmd.Instruction()]
+			assert.Assert("executor.dependencies.pass-match", slices.Equal(planned, resolved), "dependency prepass sources %v do not match build %v for command %q", planned, resolved, command.String())
+		}
+
 		isCacheCommand := func() bool {
 			switch command.(type) {
 			case commands.Cached:
@@ -686,7 +723,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 			}
 		}()
 
-		if !initSnapshotTaken && !isCacheCommand && !command.ProvidesFilesToSnapshot() {
+		if !initSnapshotTaken && !isCacheCommand && (!command.ProvidesFilesToSnapshot() || command.ShouldDetectDeletedFiles()) {
 			// Take initial snapshot if command does not expect to return
 			// a list of files.
 			t := timing.Start("Initial FS snapshot")
@@ -743,6 +780,11 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				return false, fmt.Errorf("failed to get files used from context: %w", err)
 			}
 			if opts.Cache {
+				mountKeys, ok := mountCacheKeys(command, stageFinalCacheKeys, externalImageDigests)
+				if !ok {
+					return false, fmt.Errorf("no cache key for the mount sources of %s", command.String())
+				}
+				seed.AddKey(mountKeys...)
 				layerKey, err = populateCompositeKey(command, files, seed, s.args, s.cf.Config.Env, fileContext, nil, nil)
 				if err != nil {
 					return false, err
@@ -814,6 +856,10 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				if err != nil {
 					return false, fmt.Errorf("extracting fs from image: %w", err)
 				}
+				if config.FF.SnapshotTrackCachedLayers && !opts.SingleSnapshot {
+					snapshotter.Reset()
+					initSnapshotTaken = false
+				}
 			}
 		}
 		files = command.FilesToSnapshot()
@@ -873,7 +919,7 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 				logrus.Debugf("Build: cache key for command %v %v", command.String(), ck)
 
 				// Push layer to cache (in parallel) now along with new config file
-				if command.ShouldCacheOutput() && !opts.NoPushCache {
+				if command.ShouldCacheOutput() && len(opts.CacheTo) > 0 {
 					cacheGroup.Go(func() error {
 						return pushCache(opts, ck, tarPath, command.String(), s.span)
 					})
@@ -1235,11 +1281,21 @@ func saveLayerToImage(image v1.Image, layer v1.Layer, createdBy string, opts *co
 	return image, layer, err
 }
 
-func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptions) (map[int][]string, error) {
+func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext) (map[int][]string, map[*instructions.CopyCommand][]string, error) {
 	images := make(map[int]v1.Image)
+	stageArgs := make(map[int]*dockerfile.BuildArgs)
 	depGraph := map[int][]string{}
+	copySources := map[*instructions.CopyCommand][]string{}
+	baseArgs := dockerfile.NewBuildArgs(opts.BuildArgs)
+	err := baseArgs.InitPredefinedArgs(opts.CustomPlatform, stages[len(stages)-1].Name)
+	if err != nil {
+		return nil, nil, err
+	}
 	for _, s := range stages {
-		ba := dockerfile.NewBuildArgs(opts.BuildArgs)
+		ba := baseArgs.Clone()
+		if s.BaseImageStoredLocally {
+			ba = stageArgs[s.BaseImageIndex].Clone()
+		}
 		ba.AddMetaArgs(s.MetaArgs)
 		var image v1.Image
 		var err error
@@ -1251,55 +1307,84 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 		} else {
 			image, err = image_util.RetrieveSourceImage(s, opts)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 		cfg, err := initializeConfig(image, opts)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		cmds := s.Commands
 
 		for _, c := range cmds {
 			switch cmd := c.(type) {
+			case *instructions.AddCommand:
+				if opts.RequireAddChecksum {
+					err := commands.RequireAddChecksum(cmd, fileContext, ba.ReplacementEnvs(cfg.Config.Env))
+					if err != nil {
+						return nil, nil, err
+					}
+				}
 			case *instructions.CopyCommand:
 				if cmd.From != "" {
+					resolved, err := util.ResolveEnvironmentReplacementList(cmd.SourcePaths, ba.ReplacementEnvs(cfg.Config.Env), true)
+					if err != nil {
+						return nil, nil, err
+					}
+					copySources[cmd] = resolved
 					i, err := strconv.Atoi(cmd.From)
 					if err != nil {
 						continue
 					}
-					resolved, err := util.ResolveEnvironmentReplacementList(cmd.SourcePaths, ba.ReplacementEnvs(cfg.Config.Env), true)
-					if err != nil {
-						return nil, err
-					}
 					depGraph[i] = append(depGraph[i], resolved...)
+				}
+			case *instructions.RunCommand:
+				if config.FF.RunCrossStageBindMount {
+					replacementEnvs := ba.ReplacementEnvs(cfg.Config.Env)
+					err := commands.ExpandRunCommand(cmd, func(word string) (string, error) {
+						return util.ResolveEnvironmentReplacement(word, replacementEnvs, false)
+					})
+					if err != nil {
+						return nil, nil, err
+					}
+					for _, m := range dockerfile.CrossStageMounts(cmd) {
+						i, err := strconv.Atoi(m.From)
+						if err == nil {
+							depGraph[i] = append(depGraph[i], m.Source)
+						}
+					}
 				}
 			case *instructions.EnvCommand:
 				if err := util.UpdateConfigEnv(cmd.Env, &cfg.Config, ba.ReplacementEnvs(cfg.Config.Env)); err != nil {
-					return nil, err
+					return nil, nil, err
+				}
+				// Match EnvCommand: later ENV values override arguments of the same name.
+				for _, keyVal := range cmd.Env {
+					ba.RemoveArg(keyVal.Key)
 				}
 				image, err = mutate.Config(image, cfg.Config)
 				if err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 			case *instructions.ArgCommand:
 				for _, arg := range cmd.Args {
 					k, v, err := commands.ParseArg(arg.Key, arg.Value, cfg.Config.Env, ba)
 					if err != nil {
-						return nil, err
+						return nil, nil, err
 					}
 					ba.AddArg(k, v)
 				}
 			}
 		}
 		images[s.Index] = image
+		stageArgs[s.Index] = ba
 	}
 	for i := range depGraph {
 		slices.Sort(depGraph[i])
 		depGraph[i] = slices.Compact(depGraph[i])
 	}
-	return depGraph, nil
+	return depGraph, copySources, nil
 }
 
 // for testing
@@ -1416,10 +1501,6 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 			if opts.Cache && config.FF.CacheLookahead {
 				ci := cacheInfo[s.Index]
 				if ck := ci.cacheKeys[jdx]; ck != "" {
-					cacheRef, err := cache.Destination(opts, ck)
-					if err != nil {
-						cacheRef = ""
-					}
 					if ci.cacheHits[jdx] {
 						printf("  CACHE HIT: %s\n", ck)
 						cached, err := layerCache.RetrieveLayer(ck)
@@ -1434,14 +1515,19 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 						}
 					} else {
 						printf("  CACHE MISS: %s\n", ck)
-						if snapshots && !opts.NoPushCache && command.ShouldCacheOutput() && cacheRef != "" {
-							printf("  UPLOAD %s\n", cacheRef)
+						if snapshots && command.ShouldCacheOutput() && len(opts.CacheTo) > 0 {
 							key = mounts.PlannedDigest(ck)
-							tag, err := name.NewTag(cacheRef, name.WeakValidation)
-							if err != nil {
-								return err
+							var repos []name.Repository
+							for _, repo := range opts.CacheTo {
+								cacheRef := cache.Ref(repo, ck)
+								printf("  UPLOAD %s\n", cacheRef)
+								tag, err := name.NewTag(cacheRef, name.WeakValidation)
+								if err != nil {
+									return err
+								}
+								repos = append(repos, tag.Context())
 							}
-							sources[key] = []name.Repository{tag.Context()}
+							sources[key] = repos
 						}
 					}
 				}
@@ -1533,7 +1619,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		return nil, err
 	}
 
-	crossStageDependencies, err := CalculateDependencies(kanikoStages, opts)
+	crossStageDependencies, copySources, err := CalculateDependencies(kanikoStages, opts, fileContext)
 	if err != nil {
 		return nil, err
 	}
@@ -1665,6 +1751,13 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 					if copyFromIndex, err := strconv.Atoi(cmd.From()); err == nil {
 						copyDependencies[copyFromIndex]++
 					}
+				case *commands.RunCommand, *commands.RunMarkerCommand:
+					for _, from := range commands.MountSources(cmd) {
+						fromIndex, err := strconv.Atoi(from)
+						if err == nil {
+							copyDependencies[fromIndex]++
+						}
+					}
 				}
 			}
 		}
@@ -1755,6 +1848,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		if err = util.DeleteFilesystem(); err != nil {
 			return nil, err
 		}
+		snapshotter.Reset()
 	}
 
 	// Deferred before the cleanup below so LIFO order closes the final stage
@@ -1772,7 +1866,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 					return errors.New("context snapshot is missing")
 				}
 				t := timing.Start("Restoring context")
-				_, err := util.UnpackLocalTarArchive(tarball, config.RootDir)
+				_, err := util.UnpackLocalTarArchive(tarball, config.RootDir, nil)
 				t.End()
 				if err != nil {
 					return fmt.Errorf("failed to unpack context snapshot: %w", err)
@@ -1788,6 +1882,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	var pushIndex v1.ImageIndex
 	// the stage whose remote base sits at the bottom of each stage's chain of local bases
 	remoteBase := make([]config.KanikoStage, lastStage.Index+1)
+	remoteBaseImage := make([]v1.Image, lastStage.Index+1)
 	for _, stage := range kanikoStages {
 		remoteBase[stage.Index] = stage
 		if stage.BaseImageStoredLocally {
@@ -1806,9 +1901,11 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 			return nil, fmt.Errorf("failed to get baseImage: %w", err)
 		}
 		baseImage = image_util.WithoutAnnotations(baseImage)
+		remoteBaseImage[stage.Index] = baseImage
 
 		args := baseArgs
 		if stage.BaseImageStoredLocally {
+			remoteBaseImage[stage.Index] = remoteBaseImage[stage.BaseImageIndex]
 			args = stageArgs[stage.BaseImageIndex]
 		}
 		assert.Assert("executor.build.stage-order", args != nil, "stages must be processed in order: base stage %d not yet in stageArgs", stage.BaseImageIndex)
@@ -1863,7 +1960,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 
 		stageArgs[stage.Index] = sb.args
 		crossStageDeps := len(crossStageDependencies[stage.Index]) > 0
-		needsRootFS, err := sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps, stageFinalCacheKeys, externalImageDigests, layerCache, buildCi)
+		needsRootFS, err := sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps, copySources, stageFinalCacheKeys, externalImageDigests, layerCache, buildCi)
 		if err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
 		}
@@ -1924,7 +2021,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 					return nil, err
 				}
 				if config.FF.ReproduciblePreserveBaseLayers {
-					sourceImage, err = image_util.ReplaceBase(sourceImage, baseImage, outMediaType)
+					sourceImage, err = image_util.ReplaceBase(sourceImage, remoteBaseImage[stage.Index], outMediaType)
 					if err != nil {
 						reproducibleTimer.End()
 						return nil, err
@@ -2029,6 +2126,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 			if err := util.DeleteFilesystem(); err != nil {
 				return nil, fmt.Errorf("deleting file system after stage %d: %w", stage.Index, err)
 			}
+			snapshotter.Reset()
 		}
 	}
 
@@ -2124,38 +2222,55 @@ func resolveExtraStageDigests(stages []config.KanikoStage, opts *config.KanikoOp
 	images := make(map[string]v1.Image)
 	for _, s := range stages {
 		for _, cmd := range s.Commands {
-			c, ok := cmd.(*instructions.CopyCommand)
-			if !ok || c.From == "" {
-				continue
-			}
-
-			// FROMs at this point are guaranteed to be either an integer referring to a previous stage,
-			// or a name of a remote image.
-
-			if fromIndex, err := strconv.Atoi(c.From); err == nil {
-				// If it is an integer stage index, validate that it is actually a previous index
-				if s.Index <= fromIndex || fromIndex < 0 {
-					return nil, nil, fmt.Errorf("%s refers to invalid stage: %d", c.String(), fromIndex)
+			var froms []string
+			switch c := cmd.(type) {
+			case *instructions.CopyCommand:
+				if c.From != "" {
+					froms = append(froms, c.From)
 				}
-				continue
+			case *instructions.RunCommand:
+				if config.FF.RunCrossStageBindMount {
+					for _, m := range dockerfile.CrossStageMounts(c) {
+						froms = append(froms, m.From)
+					}
+				}
 			}
 
-			if _, ok := images[c.From]; ok {
-				continue
-			}
+			for _, from := range froms {
+				// FROMs at this point are guaranteed to be either an integer referring to a previous stage,
+				// or a name of a remote image.
 
-			// This must be an image name, fetch its manifest.
-			logrus.Debugf("Found extra base image stage %s", c.From)
-			sourceImage, err := remote.RetrieveRemoteImage(c.From, opts.RegistryOptions, opts.CustomPlatform)
-			if err != nil {
-				return nil, nil, err
+				if fromIndex, err := strconv.Atoi(from); err == nil {
+					// If it is an integer stage index, validate that it is actually a previous index
+					if s.Index <= fromIndex || fromIndex < 0 {
+						return nil, nil, fmt.Errorf("%s refers to invalid stage: %d", cmd, fromIndex)
+					}
+					continue
+				}
+
+				if _, ok := images[from]; ok {
+					continue
+				}
+
+				// This must be an image name, fetch its manifest.
+				logrus.Debugf("Found extra base image stage %s", from)
+				var sourceImage v1.Image
+				var err error
+				if config.FF.CacheCopyFrom {
+					sourceImage, err = image_util.RetrieveSourceImageInternal(from, false, 0, nil, opts)
+				} else {
+					sourceImage, err = remote.RetrieveRemoteImage(from, opts.RegistryOptions, opts.CustomPlatform)
+				}
+				if err != nil {
+					return nil, nil, err
+				}
+				digest, err := sourceImage.Digest()
+				if err != nil {
+					return nil, nil, err
+				}
+				externalImageDigests[from] = digest.String()
+				images[from] = sourceImage
 			}
-			digest, err := sourceImage.Digest()
-			if err != nil {
-				return nil, nil, err
-			}
-			externalImageDigests[c.From] = digest.String()
-			images[c.From] = sourceImage
 		}
 	}
 	return externalImageDigests, images, nil

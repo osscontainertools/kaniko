@@ -79,6 +79,10 @@ func (r *RunMarkerCommand) CacheKey(replacementEnvs []string) (string, error) {
 	return runCacheKey(r.cmd), nil
 }
 
+func (r *RunMarkerCommand) instruction() *instructions.RunCommand {
+	return r.cmd
+}
+
 // CacheCommand returns true since this command should be cached
 func (r *RunMarkerCommand) CacheCommand(img v1.Image) DockerCommand {
 	return &CachingRunCommand{

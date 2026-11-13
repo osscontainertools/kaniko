@@ -118,7 +118,10 @@ func (t *Tar) AddFileToTar(p string) error {
 		return err
 	}
 	defer r.Close()
-	if _, err := io.Copy(t.w, r); err != nil {
+	buf := copyBufPool.Get().(*[]byte)
+	defer copyBufPool.Put(buf)
+	// hide r's WriterTo, otherwise CopyBuffer ignores buf
+	if _, err := io.CopyBuffer(t.w, struct{ io.Reader }{r}, *buf); err != nil {
 		return err
 	}
 	return nil
@@ -203,7 +206,7 @@ func getSyscallStatT(i os.FileInfo) *syscall.Stat_t {
 
 // UnpackLocalTarArchive unpacks the tar archive at path to the directory dest
 // Returns the files extracted from the tar archive
-func UnpackLocalTarArchive(path, dest string) ([]string, error) {
+func UnpackLocalTarArchive(path, dest string, chownOwner *Owner) ([]string, error) {
 	// First, we need to check if the path is a local tar archive
 	if compressed, compressionLevel := fileIsCompressedTar(path); compressed {
 		file, err := FSys.Open(path)
@@ -218,10 +221,10 @@ func UnpackLocalTarArchive(path, dest string) ([]string, error) {
 				return nil, err
 			}
 			defer gzr.Close()
-			return UnTar(gzr, dest)
+			return UnTar(gzr, dest, chownOwner)
 		case compression.Bzip2:
 			bzr := bzip2.NewReader(file)
-			return UnTar(bzr, dest)
+			return UnTar(bzr, dest, chownOwner)
 		case compression.Xz:
 			if !config.FF.UnpackXz {
 				return nil, fmt.Errorf("unsupported compression algorithm: %d", compressionLevel)
@@ -230,7 +233,7 @@ func UnpackLocalTarArchive(path, dest string) ([]string, error) {
 			if err != nil {
 				return nil, err
 			}
-			return UnTar(xzr, dest)
+			return UnTar(xzr, dest, chownOwner)
 		case compression.Zstd:
 			if !config.FF.UnpackZstd {
 				return nil, fmt.Errorf("unsupported compression algorithm: %d", compressionLevel)
@@ -240,7 +243,7 @@ func UnpackLocalTarArchive(path, dest string) ([]string, error) {
 				return nil, err
 			}
 			defer zstdr.Close()
-			return UnTar(zstdr, dest)
+			return UnTar(zstdr, dest, chownOwner)
 		default:
 			return nil, fmt.Errorf("unsupported compression algorithm: %d", compressionLevel)
 		}
@@ -251,13 +254,16 @@ func UnpackLocalTarArchive(path, dest string) ([]string, error) {
 			return nil, err
 		}
 		defer file.Close()
-		return UnTar(file, dest)
+		return UnTar(file, dest, chownOwner)
 	}
 	return nil, errors.New("path does not lead to local tar archive")
 }
 
 // IsFileLocalTarArchive returns true if the file is a local tar archive
 func IsFileLocalTarArchive(src string) bool {
+	if config.FF.LocalUnpackRequiresTar {
+		return IsFileTarArchive(src)
+	}
 	compressed, _ := fileIsCompressedTar(src)
 	uncompressed := fileIsUncompressedTar(src)
 	return compressed || uncompressed
@@ -360,6 +366,6 @@ func UnpackCompressedTar(path, dir string) error {
 		return err
 	}
 	defer gzr.Close()
-	_, err = UnTar(gzr, dir)
+	_, err = UnTar(gzr, dir, nil)
 	return err
 }

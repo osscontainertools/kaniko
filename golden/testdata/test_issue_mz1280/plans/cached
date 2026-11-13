@@ -1,0 +1,13 @@
+FROM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d AS build
+  FETCH busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+  UNPACK busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+RUN echo hello > /value
+  CACHE HIT: 87d3878d835c8a83b18463b619bfedafab58ccbaa7e40fd9dfeeb70181601a22
+SAVE FILES [/value] /kaniko/deps/0
+CLEAN
+
+FROM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d AS final
+  FETCH busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+  UNPACK busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+RUN --mount=type=bind,from=build,source=/value,target=/mnt/value cat /mnt/value
+  CACHE MISS: e6b1fddcc648a51262620e8200bcf64bae9c1e870d32fcf8ddc2a7d0d7c57f18

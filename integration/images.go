@@ -52,9 +52,10 @@ const (
 	cacheDir         = "/workspace/cache"
 	baseImageToCache = "debian:13.7@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308"
 
-	ExecutorImageMoved   = "executor-image-moved"
-	ExecutorImageTainted = "executor-image-tainted"
-	AlpineImage          = "alpine-image"
+	ExecutorImageMoved       = "executor-image-moved"
+	ExecutorImageTainted     = "executor-image-tainted"
+	ExecutorImageBakeContext = "executor-image-bake-context"
+	AlpineImage              = "alpine-image"
 )
 
 var coverageDir string
@@ -156,13 +157,21 @@ var argsMap = map[string][]string{
 		"file=context/foo",
 		"file3=context/b*",
 	},
-	"Dockerfile_test_multistage":  {"file=/foo2"},
-	"Dockerfile_test_issue_mz655": {"BASE_TAG=1.38.0"},
-	"Dockerfile_test_issue_3373":  {"DIGEST=sha256:a680e90a30faae7b193edf63b088a11edf856f731d93c25f1fd7c1a21cf82d06"},
+	"Dockerfile_test_multistage":   {"file=/foo2"},
+	"Dockerfile_test_issue_mz655":  {"BASE_TAG=1.38.0"},
+	"Dockerfile_test_issue_3373":   {"DIGEST=sha256:a680e90a30faae7b193edf63b088a11edf856f731d93c25f1fd7c1a21cf82d06"},
+	"Dockerfile_test_issue_mz1378": {"TAG=13.7"},
+	"Dockerfile_test_issue_mz1375": {
+		"URL=https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz",
+		"SHA=sha256:a680e90a30faae7b193edf63b088a11edf856f731d93c25f1fd7c1a21cf82d06",
+	},
+	"Dockerfile_test_issue_mz1375_arg_fail":       {"URL=https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz"},
+	"Dockerfile_test_issue_mz1375_empty_arg_fail": {"SHA="},
 }
 
 var argsMapVersion1 = map[string][]string{
-	"Dockerfile_test_issue_mz655": {"BASE_TAG=1.37.0"},
+	"Dockerfile_test_issue_mz655":      {"BASE_TAG=1.37.0"},
+	"Dockerfile_test_issue_mz876_link": {"V=1"},
 }
 
 // Environment to build Dockerfiles with, used for both docker and kaniko builds
@@ -170,6 +179,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_arg_secret":   {"SSH_PRIVATE_KEY=ThEPriv4t3Key"},
 	"Dockerfile_test_issue_519":    {"DOCKER_BUILDKIT=0"},
 	"Dockerfile_test_issue_cg188":  {"SECRET=blubb"},
+	"Dockerfile_test_issue_mz1336": {"SECRET=blubb"},
 	"Dockerfile_test_issue_mz334":  {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
 	"Dockerfile_test_issue_mz960":  {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
 	"Dockerfile_test_issue_mz473":  {"KANIKO_DIR=/kaniko2"},
@@ -186,7 +196,10 @@ var envsMap = map[string][]string{
 
 var KanikoEnv = []string{
 	"FF_KANIKO_ADD_CHECKSUM=1",
+	"FF_KANIKO_ADD_CHOWN_TAR=1",
+	"FF_KANIKO_ADD_FOLLOW_SYMLINK=1",
 	"FF_KANIKO_ADD_UNPACK=1",
+	"FF_KANIKO_CACHE_COPY_FROM=1",
 	"FF_KANIKO_CACHE_HASH_BLAKE3=1",
 	"FF_KANIKO_CACHE_IMAGE_INDEX=1",
 	"FF_KANIKO_CACHE_LOOKAHEAD=1",
@@ -202,14 +215,18 @@ var KanikoEnv = []string{
 	"FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES=1",
 	"FF_KANIKO_EXPAND_HEREDOC=1",
 	"FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY=1",
+	"FF_KANIKO_FROM_PREDEFINED_ARGS=1",
 	"FF_KANIKO_HASH_DIR_FRAMING=1",
 	"FF_KANIKO_IMAGE_STAGES=1",
 	"FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY=1",
 	"FF_KANIKO_ISOLATE_CACHE_PUSH=1",
 	"FF_KANIKO_LAYER_HINTS=1",
+	"FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR=1",
 	"FF_KANIKO_NATIVE_COPY=1",
 	"FF_KANIKO_NATIVE_INIT=1",
 	"FF_KANIKO_OCI_SCRATCH_BASE=1",
+	"FF_KANIKO_PARALLEL_GUNZIP=1",
+	"FF_KANIKO_PARALLEL_HASH=1",
 	"FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=1",
 	"FF_KANIKO_PEEK_ARCHIVE_HEADER=1",
 	"FF_KANIKO_PLATFORM_CACHE_KEY=1",
@@ -220,18 +237,23 @@ var KanikoEnv = []string{
 	"FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT=1",
 	"FF_KANIKO_RESOLVE_CACHE_KEY=1",
 	"FF_KANIKO_ROLLING_CACHE_KEY=1",
+	"FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=1",
 	"FF_KANIKO_RUN_HEREDOC_SCRIPT=1",
 	"FF_KANIKO_RUN_HONOR_GROUP=1",
+	"FF_KANIKO_RUN_MOUNT_BIND_RELATIVE=1",
+	"FF_KANIKO_RUN_MOUNT_TMPFS=1",
 	"FF_KANIKO_SCOPED_DOCKERIGNORE=1",
 	"FF_KANIKO_SHARED_BASE_CACHE=1",
 	"FF_KANIKO_SKIP_RELABEL_RECOMPRESS=1",
 	"FF_KANIKO_SKIP_WRITE_WHITEOUTS=1",
+	"FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS=1",
 	"FF_KANIKO_UNPACK_XZ=1",
 	"FF_KANIKO_UNPACK_ZSTD=1",
 	"FF_KANIKO_UNTAR_SKIP_ROOT=1",
 	"FF_KANIKO_WARMER_BUILD_ARGS=1",
 	"FF_KANIKO_WARMER_PREDEFINED_ARGS=1",
 	"KANIKO_PRINT_PLAN=1",
+	"GORACE=halt_on_error=1",
 	"KANIKO_TELEMETRY_ENDPOINT",
 	"KANIKO_TELEMETRY_TOKEN_EXCHANGE_ENDPOINT",
 	"KANIKO_TELEMETRY_ID_TOKEN",
@@ -249,6 +271,7 @@ var KanikoEnv = []string{
 }
 
 var WarmerEnv = []string{
+	"FF_KANIKO_CACHE_COPY_FROM=1",
 	"FF_KANIKO_CACHE_IMAGE_INDEX=1",
 }
 
@@ -261,6 +284,7 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_target":               {"--target=second"},
 	"Dockerfile_test_issue_cg188":          {"--secret=id=netrc,env=SECRET"},
 	"Dockerfile_test_issue_mz511":          {"--secret=id=netrc,src=context/foo"},
+	"Dockerfile_test_issue_mz1336":         {"--secret=id=foo,env=SECRET"},
 	"Dockerfile_test_cross_compile":        {"--platform=linux/" + crossCompileArch},
 	"Dockerfile_test_issue_mz849":          dockerV2Flags,
 	"Dockerfile_test_issue_mz849_dockerv2": dockerV2Flags,
@@ -316,6 +340,9 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_snapshotter_ignorelist":     {"--use-new-run=true", "-v=trace"},
 	"Dockerfile_test_issue_mz334":                {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz960":                {"--cache-copy-layers=true"},
+	"Dockerfile_test_issue_mz876":                {"--use-new-run"},
+	"Dockerfile_test_issue_mz876_add":            {"--cache-copy-layers=true", "--cache-run-layers=false", "--reproducible"},
+	"Dockerfile_test_issue_mz876_link":           {"--cache-copy-layers=true", "--reproducible"},
 	"Dockerfile_test_issue_mz879":                {"--cache-copy-layers=true", "--use-new-run"},
 	"Dockerfile_test_issue_mz896":                {"--cache-copy-layers=true", "--cache-run-layers=false"},
 	"Dockerfile_test_issue_mz787":                {"--cache=true"},
@@ -342,27 +369,35 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz529":   {"--cleanup", "--target=final,nosquash"},
 	"Dockerfile_test_issue_mz595":   {"--cleanup"},
 	"Dockerfile_test_issue_mz661":   {"--secret=id=kaniko,src=/kaniko/executor"},
+	"Dockerfile_test_issue_mz1336":  {"--secret=id=foo,env=SECRET"},
 	"Dockerfile_test_issue_mz992":   {"--dryrun", "--tar-path=/kaniko/dryrun.tar", "--oci-layout-path=/kaniko/dryrun-layout"},
 	"Dockerfile_test_issue_mz881": {
 		"--registry-certificate=localhost:5000=/mz881/registry-ca.crt",
 		"--registry-certificate=127.0.0.2:5001=/kaniko/ssl/certs/ca-certificates.crt",
 		"--destination=127.0.0.2:5001/kaniko/mz881:latest",
 	},
-	"Dockerfile_test_issue_mz1227":               {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1227_ci":            {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1227_mismatch":      {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1227_reproducible":  {"--predefined-annotations", "--reproducible"},
-	"Dockerfile_test_issue_mz1227_annotation":    {"--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
-	"Dockerfile_test_issue_mz1227_detached":      {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1227_merged_result": {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1227_squash":        {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1230":               {"--provenance", "--predefined-annotations", "--index-file=/index/index.json"},
-	"Dockerfile_test_issue_mz1230_no_index":      {"--index-file=/tmp/index.json"},
-	"Dockerfile_test_issue_mz1230_no_push_tar":   {"--provenance", "--no-push", "--tar-path=/tmp/image.tar", "--index-file=/tmp/index.json"},
-	"Dockerfile_test_issue_mz1230_tar_no_index":  {"--provenance", "--tar-path=/tmp/image.tar"},
-	"Dockerfile_test_issue_mz1230_tar":           {"--provenance", "--tar-path=/index/image.tar", "--index-file=/index/index.json"},
-	"Dockerfile_test_issue_mz1230_reproducible":  {"--provenance", "--predefined-annotations", "--reproducible"},
-	"Dockerfile_test_issue_mz1230_oci":           {"--provenance", "--image-format=oci", "--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
+	"Dockerfile_test_issue_mz1227":                {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1227_ci":             {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1227_mismatch":       {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1227_reproducible":   {"--predefined-annotations", "--reproducible"},
+	"Dockerfile_test_issue_mz1227_annotation":     {"--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
+	"Dockerfile_test_issue_mz1227_detached":       {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1227_merged_result":  {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1227_squash":         {"--predefined-annotations"},
+	"Dockerfile_test_issue_mz1230":                {"--provenance", "--predefined-annotations", "--index-file=/index/index.json"},
+	"Dockerfile_test_issue_mz1230_no_index":       {"--index-file=/tmp/index.json"},
+	"Dockerfile_test_issue_mz1230_no_push_tar":    {"--provenance", "--no-push", "--tar-path=/tmp/image.tar", "--index-file=/tmp/index.json"},
+	"Dockerfile_test_issue_mz1230_tar_no_index":   {"--provenance", "--tar-path=/tmp/image.tar"},
+	"Dockerfile_test_issue_mz1230_tar":            {"--provenance", "--tar-path=/index/image.tar", "--index-file=/index/index.json"},
+	"Dockerfile_test_issue_mz1230_reproducible":   {"--provenance", "--predefined-annotations", "--reproducible"},
+	"Dockerfile_test_issue_mz1230_oci":            {"--provenance", "--image-format=oci", "--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
+	"Dockerfile_test_require_digest":              {"--require-digest"},
+	"Dockerfile_test_require_digest_fail":         {"--require-digest"},
+	"Dockerfile_test_issue_mz1375":                {"--require-add-checksum"},
+	"Dockerfile_test_issue_mz1375_fail":           {"--require-add-checksum"},
+	"Dockerfile_test_issue_mz1375_arg_fail":       {"--require-add-checksum"},
+	"Dockerfile_test_issue_mz1375_empty_arg_fail": {"--require-add-checksum"},
+	"Dockerfile_test_issue_mz1375_stage_fail":     {"--require-add-checksum"},
 }
 
 var expectErr = map[string]int{
@@ -380,9 +415,40 @@ var expectErr = map[string]int{
 	"Dockerfile_test_issue_mz881":    1,
 	"Dockerfile_test_issue_mz1133_2": 1,
 
-	"Dockerfile_test_issue_mz1230_no_index":     1,
-	"Dockerfile_test_issue_mz1230_no_push_tar":  1,
-	"Dockerfile_test_issue_mz1230_tar_no_index": 1,
+	"Dockerfile_test_issue_mz1230_no_index":       1,
+	"Dockerfile_test_issue_mz1230_no_push_tar":    1,
+	"Dockerfile_test_issue_mz1230_tar_no_index":   1,
+	"Dockerfile_test_require_digest_fail":         1,
+	"Dockerfile_test_issue_mz1378":                1,
+	"Dockerfile_test_issue_mz1375_fail":           1,
+	"Dockerfile_test_issue_mz1375_arg_fail":       1,
+	"Dockerfile_test_issue_mz1375_empty_arg_fail": 1,
+	"Dockerfile_test_issue_mz1375_stage_fail":     1,
+}
+
+var expectErrOutput = map[string]string{
+	"Dockerfile_test_issue_cg326_1":               "is not allowed: references parent directory",
+	"Dockerfile_test_issue_mz1140":                "must fit a 32 bit id",
+	"Dockerfile_test_add_404":                     "invalid response status 404",
+	"Dockerfile_test_issue_3373_1":                "digest mismatch",
+	"Dockerfile_test_issue_3373_2":                "checksum requires HTTP(S) sources",
+	"Dockerfile_test_issue_3373_3":                "digest mismatch",
+	"Dockerfile_test_issue_3373_4":                "checksum can't be specified for multiple sources",
+	"Dockerfile_test_issue_mz1160_1":              "in the kaniko directory",
+	"Dockerfile_test_issue_mz1160_2":              "in the kaniko directory",
+	"Dockerfile_test_issue_mz1160_3":              "in the kaniko directory",
+	"Dockerfile_test_issue_mz1160_4":              "in the kaniko directory",
+	"Dockerfile_test_issue_mz881":                 "x509: certificate signed by unknown authority",
+	"Dockerfile_test_issue_mz1133_2":              "COPY --link needs a numeric USER or --chown",
+	"Dockerfile_test_issue_mz1230_no_index":       "--index-file requires --provenance",
+	"Dockerfile_test_issue_mz1230_no_push_tar":    "--provenance with --no-push stores the attestation only in --oci-layout-path",
+	"Dockerfile_test_issue_mz1230_tar_no_index":   "--tar-path with --provenance requires --index-file",
+	"Dockerfile_test_require_digest_fail":         "--require-digest:",
+	"Dockerfile_test_issue_mz1378":                "variables are not supported in --from",
+	"Dockerfile_test_issue_mz1375_fail":           "--require-add-checksum: ADD https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz has no --checksum",
+	"Dockerfile_test_issue_mz1375_arg_fail":       "--require-add-checksum: ADD https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz has no --checksum",
+	"Dockerfile_test_issue_mz1375_empty_arg_fail": "invalid checksum digest format",
+	"Dockerfile_test_issue_mz1375_stage_fail":     "--require-add-checksum: ADD https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz has no --checksum",
 }
 
 var crossCompileArch = func() string {
@@ -421,6 +487,9 @@ var diffArgsMap = map[string][]string{
 	// mz922: buildkit gives the implicitly created destination directory the mode that was
 	// requested, we subtract the umask from it, so /dir777 ends up 0755 instead of 0777.
 	"TestRun/test_Dockerfile_test_copyadd_chmod": {"--extra-ignore-files=dir777/"},
+	// `COPY --from` touches the atime of copied files, so two builds differ in it.
+	// diffoci only honors --ignore-file-atime together with --ignore-file-ctime.
+	"TestWarmer/test_warmer_Dockerfile_test_issue_mz1212": {"--ignore-file-atime", "--ignore-file-ctime"},
 	// #mz155: `COPY --from` does not copy the timestamps from the source but touches new files with new timestamps.
 	// To test this we have to deactivate `--ignore-file-timestamps`. This is achieved here by deactivating `--semantic` comparison,
 	// which we pass by default, and then activating all the necessary ignores except file-timestamps.
@@ -436,31 +505,42 @@ var diffArgsMap = map[string][]string{
 	// 1599: docker copies the fifo into /kaniko, we refuse to write there at all,
 	// so the docker image keeps a /kaniko/tini our image never has.
 	"TestRun/test_Dockerfile_test_issue_1599_2": {"--extra-ignore-files=kaniko/", "--extra-ignore-layer-length-mismatch"},
-	// Layer-length divergences from buildkit, enforced per-test instead of globally
-	"TestRun/test_Dockerfile_test_add":                       {"--extra-ignore-layer-length-mismatch"},
+	// We never snapshot the live container mounts (/proc, /sys, /dev, /etc/hosts, /etc/hostname,
+	// /etc/mtab, /var/run). Buildkit records them, as mountpoints of a RUN or as content of ADD/COPY.
+	"TestRun/test_Dockerfile_test_add":             {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_1007":      {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz247":     {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz332":     {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz1152":    {"--extra-ignore-layer-length-mismatch"},
+	"TestWithContext/test_with_context_issue-57":   {"--extra-ignore-layer-length-mismatch"},
+	"TestWithContext/test_with_context_issue-1568": {"--extra-ignore-layer-length-mismatch"},
+	"TestK8s/test_k8s_with_context_issue-57":       {"--extra-ignore-layer-length-mismatch"},
+	"TestK8s/test_k8s_with_context_issue-1568":     {"--extra-ignore-layer-length-mismatch"},
+	// We record a directory whose only change is its mtime, e.g. /tmp after a RUN created and
+	// removed a file in it. Buildkit leaves it out of the layer.
+	"TestRun/test_Dockerfile_test_cache_install_oci": {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_meta_arg":          {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_969":         {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_1568":        {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_1837":        {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_2066":        {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_3393":        {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_cg73":        {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_cg188":       {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_run_tmpfs_mnt":     {"--extra-ignore-layer-length-mismatch"},
+	// We record a file that COPY or RUN rewrote with identical content and metadata.
+	// Buildkit leaves the layer empty.
 	"TestRun/test_Dockerfile_test_arg_blank_with_quotes":     {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_arg_multi":                 {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_arg_multi_with_quotes":     {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_cache_install_oci":         {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_copy_same_file_many_times": {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_meta_arg":                  {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_scratch":                   {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_969":                 {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_1007":                {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_1568":                {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_1837":                {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_2066":                {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_3393":                {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_cg73":                {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_cg188":               {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_mz247":               {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_mz332":               {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_mz725":               {"--extra-ignore-layer-length-mismatch"},
-	"TestWithContext/test_with_context_issue-57":             {"--extra-ignore-layer-length-mismatch"},
-	"TestWithContext/test_with_context_issue-1568":           {"--extra-ignore-layer-length-mismatch"},
-	"TestK8s/test_k8s_with_context_issue-57":                 {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_user_run":                  {"--extra-ignore-layer-length-mismatch"},
 	"TestK8s/test_k8s_with_context_issue-1020":               {"--extra-ignore-layer-length-mismatch"},
-	"TestK8s/test_k8s_with_context_issue-1568":               {"--extra-ignore-layer-length-mismatch"},
+	// We expand variables in an ARG name, buildkit does not. `ARG ${src}=...` declares file3 for us
+	// only, so buildkit copies the whole context into /baz.
+	"TestRun/test_Dockerfile_test_scratch": {"--extra-ignore-layer-length-mismatch"},
+	// The base image's WorkingDir is relative. We resolve WORKDIR sub to /relwd/sub, buildkit to /sub.
+	"TestRun/test_Dockerfile_test_issue_mz725": {"--extra-ignore-layer-length-mismatch"},
 }
 
 // output check to do when building with kaniko
@@ -653,20 +733,6 @@ var expectedAttestations = map[string]attestation{
 // Digest for debian:13.7 (see baseImageToCache)
 const debian137Digest = "15a71cc87173e191d5046f9c4288db4e8954b67f92e48d9587087826b0afe562"
 
-var warmerOutputChecks = map[string]func(string, []byte) error{
-	"Dockerfile_test_issue_mz320": func(_ string, out []byte) error {
-		s := fmt.Sprintf("Found sha256:%s in local cache", debian137Digest)
-		if !strings.Contains(string(out), s) {
-			return fmt.Errorf("output must contain %s", s)
-		}
-		s = "Retrieving image debian:13.7@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308 from registry"
-		if strings.Contains(string(out), s) {
-			return fmt.Errorf("output must not contain %s", s)
-		}
-		return nil
-	},
-}
-
 // expectedWarnings maps a Dockerfile name to a warning substring that must appear in its output.
 // Dockerfiles listed here are required to emit that warning; all others must emit no warnings.
 var expectedWarnings = map[string]string{
@@ -682,6 +748,7 @@ var expectedWarnings = map[string]string{
 	"Dockerfile_test_issue_mz991": "is deprecated",
 	// 1599: a fifo COPY into /kaniko must warn and be skipped like any other file.
 	"Dockerfile_test_issue_1599_2": "Skipping copy targeting kaniko directory",
+	"Dockerfile_test_issue_cg533":  "Skipping hardlink probe",
 }
 
 func checkNoWarnings(dockerfile string, out []byte) error {
@@ -792,16 +859,7 @@ type DockerFileBuilder struct {
 // it will assume are all as yet unbuilt.
 func NewDockerFileBuilder() *DockerFileBuilder {
 	d := DockerFileBuilder{}
-	d.DockerfilesToIgnore = map[string]struct{}{
-		// TODO: remove test_user_run from this when https://github.com/GoogleContainerTools/container-diff/issues/237 is fixed
-		"Dockerfile_test_user_run": {},
-		// TODO: All the below tests are fialing with errro
-		// You don't have the needed permissions to perform this operation, and you may have invalid credentials.
-		// To authenticate your request, follow the steps in: https://cloud.google.com/container-registry/docs/advanced-authentication
-		"Dockerfile_test_onbuild":    {},
-		"Dockerfile_test_extraction": {},
-		"Dockerfile_test_hardlink":   {},
-	}
+	d.DockerfilesToIgnore = map[string]struct{}{}
 	d.TestCacheDockerfiles = map[string]struct{}{
 		"Dockerfile_test_cache":              {},
 		"Dockerfile_test_cache_install":      {},
@@ -818,6 +876,8 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz775":        {},
 		"Dockerfile_test_issue_mz782":        {},
 		"Dockerfile_test_issue_mz873":        {},
+		"Dockerfile_test_issue_mz876_add":    {},
+		"Dockerfile_test_issue_mz876_link":   {},
 		"Dockerfile_test_issue_mz879":        {},
 		"Dockerfile_test_issue_mz896":        {},
 		"Dockerfile_test_issue_mz960":        {},
@@ -831,7 +891,8 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_cache_copy_oci":    {},
 	}
 	d.TestWarmerDockerfiles = map[string]struct{}{
-		"Dockerfile_test_issue_mz320": {},
+		"Dockerfile_test_issue_mz320":  {},
+		"Dockerfile_test_issue_mz1212": {},
 	}
 	d.TestMountDockerfiles = map[string]struct{}{
 		"Dockerfile_test_issue_mz1007": {},
@@ -840,11 +901,13 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_copy_reproducible": {},
 		"Dockerfile_test_issue_mz731":       {},
 		"Dockerfile_test_issue_mz851":       {},
+		"Dockerfile_test_issue_mz1365":      {},
 	}
 	d.TestKanikoOnlyDockerfiles = map[string]struct{}{
 		"Dockerfile_test_issue_2567":     {},
 		"Dockerfile_test_issue_cg326_2":  {},
 		"Dockerfile_test_issue_cg326_3":  {},
+		"Dockerfile_test_issue_cg533":    {},
 		"Dockerfile_test_issue_mz444":    {},
 		"Dockerfile_test_issue_mz455":    {},
 		"Dockerfile_test_issue_mz473":    {},
@@ -933,7 +996,7 @@ func (d *DockerFileBuilder) BuildImage(t *testing.T, config *integrationTestConf
 }
 
 // BuildKanikoImage builds dockerfile using only kaniko (no docker build).
-func (d *DockerFileBuilder) BuildKanikoImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile string) error {
+func (d *DockerFileBuilder) BuildKanikoImage(t *testing.T, config *integrationTestConfig, dockerfilesPath, dockerfile string) ([]byte, error) {
 	cwd := config.dir
 
 	var buildArgs []string
@@ -978,7 +1041,7 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 	}
 
 	kanikoImage := GetKanikoImage(imageRepo, dockerfile)
-	if err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
+	if _, err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
 		contextDir, "", ""); err != nil {
 		return err
 	}
@@ -987,6 +1050,7 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 }
 
 // buildCachedImage builds the image for testing caching via kaniko where version is the nth time this image has been built
+// An empty cacheRepo leaves the cache configuration to args.
 func (d *DockerFileBuilder) buildCachedImage(t *testing.T, config *integrationTestConfig, cacheRepo, dockerfilesPath, dockerfile string, version int, args []string) error {
 	imageRepo := config.imageRepo
 	cwd := config.dir
@@ -1024,9 +1088,10 @@ func (d *DockerFileBuilder) buildCachedImage(t *testing.T, config *integrationTe
 		"-f", path.Join(buildContextPath, dockerfilesPath, dockerfile),
 		"-d", kanikoImage,
 		"-c", buildContextPath,
-		cacheFlag,
-		"--cache-repo", cacheRepo,
 		"--cache-dir", cacheDir)
+	if cacheRepo != "" {
+		dockerRunFlags = append(dockerRunFlags, cacheFlag, "--cache-repo", cacheRepo)
+	}
 	dockerRunFlags = append(dockerRunFlags, args...)
 	dockerRunFlags = append(dockerRunFlags, buildArgs...)
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
@@ -1047,11 +1112,6 @@ func (d *DockerFileBuilder) buildCachedImage(t *testing.T, config *integrationTe
 			if err := outputCheck(dockerfile, out); err != nil {
 				return fmt.Errorf("cache hit check failed for image %s: %w", kanikoImage, err)
 			}
-		}
-	}
-	if outputCheck := warmerOutputChecks[dockerfile]; outputCheck != nil {
-		if err := outputCheck(dockerfile, out); err != nil {
-			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
 	if err := checkNoWarnings(dockerfile, out); err != nil {
@@ -1121,6 +1181,13 @@ func (d *DockerFileBuilder) buildWarmerImage(t *testing.T, config *integrationTe
 		"run", "--net=host",
 		"-v", cwd + ":/workspace:ro",
 	}
+	if cache {
+		dockerRunFlags = append(dockerRunFlags,
+			"--add-host", "index.docker.io:0.0.0.0",
+			"--add-host", "registry-1.docker.io:0.0.0.0",
+			"--add-host", "auth.docker.io:0.0.0.0",
+		)
+	}
 	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	executorImage := ExecutorImage
 	if exec, ok := executorImages[dockerfile]; ok {
@@ -1149,13 +1216,6 @@ func (d *DockerFileBuilder) buildWarmerImage(t *testing.T, config *integrationTe
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
 		if err := outputCheck(dockerfile, out); err != nil {
 			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
-		}
-	}
-	if cache {
-		if outputCheck := warmerOutputChecks[dockerfile]; outputCheck != nil {
-			if err := outputCheck(dockerfile, out); err != nil {
-				return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
-			}
 		}
 	}
 	if err := checkNoWarnings(dockerfile, out); err != nil {
@@ -1234,6 +1294,9 @@ var extraDockerRunFlags = map[string]func(contextDir string) []string{
 			flags = append(flags, "-v", lib+":"+dir+"/nvidia/lib.so:ro")
 		}
 		return flags
+	},
+	"Dockerfile_test_mounted_symlink_kaniko": func(ctx string) []string {
+		return []string{"-v", filepath.Join(ctx, "testdata/Dockerfile.trivial") + ":/data/lib.so:ro"}
 	},
 	// both names of one pair are pinned, so the mount moves rather than the link
 	"Dockerfile_test_issue_mz1113": func(ctx string) []string {
@@ -1359,7 +1422,7 @@ func buildKanikoImage(
 	contextDir string,
 	tlsCACert string,
 	dockerConfig string,
-) error {
+) ([]byte, error) {
 	// build kaniko image
 	additionalFlags := append(buildArgs, kanikoArgs...)
 	additionalFlags = append(additionalFlags,
@@ -1419,15 +1482,15 @@ func buildKanikoImage(
 	t.Logf("%s", out)
 
 	if err != nil {
-		return fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
+		return out, fmt.Errorf("failed to build image %s with kaniko command \"%s\": %w", kanikoImage, kanikoCmd.Args, err)
 	}
 	if outputCheck := outputChecks[dockerfile]; outputCheck != nil {
 		if err := outputCheck(dockerfile, out); err != nil {
-			return fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
+			return out, fmt.Errorf("output check failed for image %s with kaniko command : %w", kanikoImage, err)
 		}
 	}
 	if err := checkNoWarnings(dockerfile, out); err != nil {
-		return err
+		return out, err
 	}
-	return nil
+	return out, nil
 }

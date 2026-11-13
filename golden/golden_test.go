@@ -38,9 +38,16 @@ import (
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
 	warmercmd "github.com/osscontainertools/kaniko/cmd/warmer/cmd"
 	testbake "github.com/osscontainertools/kaniko/golden/testdata/test_bake"
+	testbakecontextdockerfile "github.com/osscontainertools/kaniko/golden/testdata/test_bake_context_dockerfile"
 	testissuemz1126 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1126"
 	testissuemz1128 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1128"
 	testissuemz1133 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1133"
+	testissuemz1212 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1212"
+	testissuemz1233 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1233"
+	testissuemz1280 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1280"
+	testissuemz1346 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1346"
+	testissuemz1349 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1349"
+	testissuemz1372 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1372"
 	testissuemz195 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz195"
 	testissuemz333 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz333"
 	testissuemz334 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz334"
@@ -55,7 +62,9 @@ import (
 	testissuemz989 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz989"
 	testunittests "github.com/osscontainertools/kaniko/golden/testdata/test_unittests"
 	testwarmer "github.com/osscontainertools/kaniko/golden/testdata/test_warmer"
+	testwarmerbake "github.com/osscontainertools/kaniko/golden/testdata/test_warmer_bake"
 	"github.com/osscontainertools/kaniko/golden/types"
+	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/executor"
@@ -70,7 +79,7 @@ import (
 const cachePointerLabel = "kaniko.cache.pointer-target"
 
 type fakeLayerCache struct {
-	opts       *config.KanikoOptions
+	repo       string
 	cachedKeys []string
 	mediaType  ggcrtypes.MediaType
 }
@@ -111,10 +120,9 @@ func (f *fakeLayerCache) RetrieveLayer(key string) (v1.Image, error) {
 	}
 	var layer v1.Layer = &fakeLayer{key: key, mediaType: f.mediaType}
 	var tag name.Tag
-	dest, err := cache.Destination(f.opts, key)
-	remoteCache := err == nil && !strings.HasPrefix(dest, "oci:")
+	remoteCache := f.repo != "" && !strings.HasPrefix(f.repo, "oci:")
 	if remoteCache {
-		tag, err = name.NewTag(dest, name.WeakValidation)
+		tag, err = name.NewTag(cache.Ref(f.repo, key), name.WeakValidation)
 		remoteCache = err == nil
 	}
 	// Layers read through remote.Image are mountable, layers read from a layout are not.
@@ -167,21 +175,28 @@ var allTests = map[string][]types.GoldenTests{
 	"test_issue_mz989":  {testissuemz989.Tests},
 	"test_issue_mz1128": {testissuemz1128.Tests},
 	"test_issue_mz1133": {testissuemz1133.Tests},
+	"test_issue_mz1233": testissuemz1233.Tests,
+	"test_issue_mz1280": {testissuemz1280.Tests},
+	"test_issue_mz1346": {testissuemz1346.Tests},
+	"test_issue_mz1372": testissuemz1372.Tests,
 	"test_unittests":    testunittests.Tests,
 }
 var update bool
 
 // sync with the Preview profile in README.md
 var previewEnv = map[string]string{
+	"FF_KANIKO_CACHE_COPY_FROM":              "1",
 	"FF_KANIKO_CACHE_IMAGE_INDEX":            "1",
 	"FF_KANIKO_COPY_KEEP_DEST_OWNER":         "1",
 	"FF_KANIKO_COPY_LINK":                    "1",
 	"FF_KANIKO_COPY_SUBDIR_MODE":             "1",
 	"FF_KANIKO_DEFER_CACHE_PUSH":             "1",
 	"FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY": "1",
+	"FF_KANIKO_FROM_PREDEFINED_ARGS":         "1",
 	"FF_KANIKO_ISOLATE_CACHE_PUSH":           "1",
 	"FF_KANIKO_NATIVE_INIT":                  "1",
 	"FF_KANIKO_RUN_HEREDOC_SCRIPT":           "1",
+	"FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS": "1",
 	"FF_KANIKO_WARMER_BUILD_ARGS":            "1",
 	"FF_KANIKO_WARMER_PREDEFINED_ARGS":       "1",
 }
@@ -201,7 +216,19 @@ func renderPlan(t *testing.T, opts *config.KanikoOptions, test types.GoldenTest)
 	}
 	origNewLayerCache := executor.NewLayerCache
 	executor.NewLayerCache = func(opts *config.KanikoOptions) cache.LayerCache {
-		return &fakeLayerCache{opts: opts, cachedKeys: test.CachedKeys, mediaType: cacheMediaType}
+		if test.CachedKeysByRepo != nil {
+			sources := make(cache.Sources, 0, len(opts.CacheFrom))
+			for _, repo := range opts.CacheFrom {
+				sources = append(sources, &fakeLayerCache{repo: repo, cachedKeys: test.CachedKeysByRepo[repo], mediaType: cacheMediaType})
+			}
+			return sources
+		} else {
+			var repo string
+			if len(opts.CacheFrom) > 0 {
+				repo = opts.CacheFrom[0]
+			}
+			return &fakeLayerCache{repo: repo, cachedKeys: test.CachedKeys, mediaType: cacheMediaType}
+		}
 	}
 	t.Cleanup(func() { executor.NewLayerCache = origNewLayerCache })
 
@@ -272,6 +299,9 @@ func TestRun(t *testing.T) {
 								t.Fatal(err)
 							}
 							cmd.ValidateFlags(&opts)
+							if err := cmd.ApplyTarget(&opts, bake.ResolvedTarget{Destination: opts.Destinations, CacheFrom: opts.CacheFrom, CacheTo: opts.CacheTo}); err != nil {
+								t.Fatal(err)
+							}
 
 							output := renderPlan(t, &opts, test)
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), output)
@@ -284,7 +314,9 @@ func TestRun(t *testing.T) {
 }
 
 var bakeTests = map[string][]types.GoldenTests{
-	"test_bake": {testbake.Tests},
+	"test_bake":                    {testbake.Tests},
+	"test_bake_context_dockerfile": {testbakecontextdockerfile.Tests},
+	"test_issue_mz1349":            {testissuemz1349.Tests},
 }
 
 func TestBake(t *testing.T) {
@@ -330,13 +362,59 @@ func TestBake(t *testing.T) {
 							if err != nil {
 								t.Fatal(err)
 							}
+							if err := cmd.ValidateBakeBuild(&opts, targets); err != nil {
+								t.Fatal(err)
+							}
 
 							var output string
 							for _, target := range targets {
-								cmd.ApplyTarget(&opts, target)
-								output += renderPlan(t, &opts, test)
+								topts := opts
+								if err := cmd.ApplyTarget(&topts, target); err != nil {
+									t.Fatal(err)
+								}
+								output += renderPlan(t, &topts, test)
 							}
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), output)
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestBakePrint(t *testing.T) {
+	for testName, testSuites := range bakeTests {
+		t.Run(testName, func(t *testing.T) {
+			testDir := filepath.Join("testdata", testName)
+			for _, testSuite := range testSuites {
+				t.Run(testSuite.Name, func(t *testing.T) {
+					for _, test := range testSuite.Tests {
+						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
+							opts := config.KanikoOptions{}
+							var set []string
+							exec := &cobra.Command{Use: "bake"}
+							cmd.AddBakeFlags(exec, &opts, &set)
+							args := []string{
+								filepath.Join(testDir, "kaniko-bake.hcl"),
+								"--dockerfile=" + filepath.Join(testDir, testSuite.Dockerfile),
+							}
+							args = append(args, test.Args...)
+							if err := exec.ParseFlags(args); err != nil {
+								t.Fatal(err)
+							}
+							cmd.ValidateFlags(&opts)
+
+							rest := exec.Flags().Args()
+							targets, err := cmd.ConfigureFromBakefile(&opts, rest[0], rest[1:], set)
+							if err != nil {
+								t.Fatal(err)
+							}
+							printed, err := bake.Print(targets)
+							if err != nil {
+								t.Fatal(err)
+							}
+							comparePlan(t, filepath.Join(testDir, "prints", test.Plan+".json"), string(printed)+"\n")
 						})
 					}
 				})
@@ -348,6 +426,7 @@ func TestBake(t *testing.T) {
 var warmerTests = map[string][]types.GoldenTests{
 	"test_warmer":       {testwarmer.Tests},
 	"test_issue_mz1126": {testissuemz1126.Tests},
+	"test_issue_mz1212": {testissuemz1212.Tests},
 }
 
 // fakeRemoteImage derives the image and its index from its reference, so their digests are stable across runs.
@@ -362,6 +441,29 @@ func fakeRemoteImage(image string, _ config.RegistryOptions, _ string) (v1.Image
 	return img, index, err
 }
 
+func fakeWarmerSources(t *testing.T, test types.GoldenTest) {
+	t.Cleanup(config.InitFeatureFlags)
+	for k, v := range previewEnv {
+		t.Setenv(k, v)
+	}
+	for k, v := range test.Env {
+		t.Setenv(k, v)
+	}
+	// Feature flags resolve once at startup; re-resolve so
+	// this subtest's env takes effect, and restore afterwards.
+	config.InitFeatureFlags()
+
+	origRemote, origLocal := warmer.RemoteSource, warmer.LocalSource
+	warmer.RemoteSource = fakeRemoteImage
+	warmer.LocalSource = func(_ *config.CacheOptions, key, _ string) (v1.Image, error) {
+		if !slices.Contains(test.CachedKeys, key) {
+			return nil, cache.NotFoundErr{}
+		}
+		return empty.Image, nil
+	}
+	t.Cleanup(func() { warmer.RemoteSource, warmer.LocalSource = origRemote, origLocal })
+}
+
 func TestWarmer(t *testing.T) {
 	logrus.SetLevel(logrus.ErrorLevel)
 
@@ -372,26 +474,7 @@ func TestWarmer(t *testing.T) {
 				t.Run(testSuite.Name, func(t *testing.T) {
 					for _, test := range testSuite.Tests {
 						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
-							t.Cleanup(config.InitFeatureFlags)
-							for k, v := range previewEnv {
-								t.Setenv(k, v)
-							}
-							for k, v := range test.Env {
-								t.Setenv(k, v)
-							}
-							// Feature flags resolve once at startup; re-resolve so
-							// this subtest's env takes effect, and restore afterwards.
-							config.InitFeatureFlags()
-
-							origRemote, origLocal := warmer.RemoteSource, warmer.LocalSource
-							warmer.RemoteSource = fakeRemoteImage
-							warmer.LocalSource = func(_ *config.CacheOptions, key, _ string) (v1.Image, error) {
-								if !slices.Contains(test.CachedKeys, key) {
-									return nil, cache.NotFoundErr{}
-								}
-								return empty.Image, nil
-							}
-							t.Cleanup(func() { warmer.RemoteSource, warmer.LocalSource = origRemote, origLocal })
+							fakeWarmerSources(t, test)
 
 							opts := config.WarmerOptions{}
 							exec := &cobra.Command{Use: "warmer"}
@@ -408,6 +491,52 @@ func TestWarmer(t *testing.T) {
 							var buf bytes.Buffer
 							warmer.Out = &buf
 							if err := warmer.WarmCache(&opts); err != nil {
+								t.Error(err)
+							}
+							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), buf.String())
+						})
+					}
+				})
+			}
+		})
+	}
+}
+
+var warmerBakeTests = map[string][]types.GoldenTests{
+	"test_warmer_bake": {testwarmerbake.Tests},
+}
+
+func TestWarmerBake(t *testing.T) {
+	logrus.SetLevel(logrus.ErrorLevel)
+
+	for testName, testSuites := range warmerBakeTests {
+		t.Run(testName, func(t *testing.T) {
+			testDir := filepath.Join("testdata", testName)
+			for _, testSuite := range testSuites {
+				t.Run(testSuite.Name, func(t *testing.T) {
+					for _, test := range testSuite.Tests {
+						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
+							fakeWarmerSources(t, test)
+
+							opts := config.WarmerOptions{}
+							var set []string
+							exec := &cobra.Command{Use: "bake"}
+							warmercmd.AddWarmerBakeFlags(exec, &opts, &set)
+							args := []string{"--dryrun", filepath.Join(testDir, "kaniko-bake.hcl")}
+							err := exec.ParseFlags(append(args, test.Args...))
+							if err != nil {
+								t.Fatal(err)
+							}
+
+							rest := exec.Flags().Args()
+							targets, err := bake.Load(rest[0], rest[1:], set)
+							if err != nil {
+								t.Fatal(err)
+							}
+							var buf bytes.Buffer
+							warmer.Out = &buf
+							err = warmercmd.WarmTargets(&opts, rest[0], targets)
+							if err != nil {
 								t.Error(err)
 							}
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), buf.String())

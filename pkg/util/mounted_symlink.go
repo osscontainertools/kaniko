@@ -44,7 +44,7 @@ func relocateMountedPaths(dest, path, linkname string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("cannot restore symlink %s -> %s: %w", path, linkname, err)
 	}
-	if target == path {
+	if target == path || CheckCleanedPathAgainstIgnoreList(target) {
 		return false, nil
 	}
 	logrus.Debugf("Moving the mounts under %s to %s, %s is the name the base image ships as a symlink", path, target, path)

@@ -1,0 +1,14 @@
+# ARG/ENV precedence must agree between dependency planning and execution.
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS src
+RUN mkdir -p /env /arg/other/env && echo first > /env/f && echo second > /arg/other/env/f
+
+FROM ${IMAGE_REPO}busybox
+ARG FOO=arg
+ENV FOO=env
+COPY --from=src /$FOO/f /first
+ARG BAZ=arg
+ARG BAR=other
+ENV BAZ=$BAZ/$BAR BAR=env
+COPY --from=src /$BAZ/$BAR/f /second
+RUN test "$(cat /first)" = first && test "$(cat /second)" = second

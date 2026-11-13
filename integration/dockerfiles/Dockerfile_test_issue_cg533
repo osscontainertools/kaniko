@@ -1,0 +1,7 @@
+ARG IMAGE_REPO
+
+# cg533: through v1.29.0 a base layer can hardlink a file from /kaniko into the image.
+# The base layer symlinks "escape" to /kaniko, then hardlinks "probe" to "escape/executor".
+# The ignore list only saw the target as written, and SecureJoin followed the symlink.
+FROM ${IMAGE_REPO}hardlink-escape:latest
+RUN test ! -e /probe

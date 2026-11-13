@@ -28,6 +28,7 @@ import (
 	"github.com/containerd/platforms"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/logging"
 	"github.com/osscontainertools/kaniko/pkg/util"
@@ -41,15 +42,21 @@ var (
 	logLevel     string
 	logFormat    string
 	logTimestamp bool
+	bakeSet      []string
+	bakePrint    bool
 )
 
 func init() {
-	RootCmd.Flags().StringVarP(&logLevel, "verbosity", "v", logging.DefaultLevel, "Log level (trace, debug, info, warn, error, fatal, panic)")
-	RootCmd.Flags().StringVar(&logFormat, "log-format", logging.FormatColor, "Log format (text, color, json)")
-	RootCmd.Flags().BoolVar(&logTimestamp, "log-timestamp", logging.DefaultLogTimestamp, "Timestamp in log output")
+	RootCmd.PersistentFlags().StringVarP(&logLevel, "verbosity", "v", logging.DefaultLevel, "Log level (trace, debug, info, warn, error, fatal, panic)")
+	RootCmd.PersistentFlags().StringVar(&logFormat, "log-format", logging.FormatColor, "Log format (text, color, json)")
+	RootCmd.PersistentFlags().BoolVar(&logTimestamp, "log-timestamp", logging.DefaultLogTimestamp, "Timestamp in log output")
 
 	AddWarmerFlags(RootCmd, opts)
 	addHiddenFlags()
+
+	AddWarmerBakeFlags(bakeCmd, opts, &bakeSet)
+	bakeCmd.Flags().BoolVar(&bakePrint, "print", false, "Print the resolved targets as JSON and exit without warming")
+	RootCmd.AddCommand(bakeCmd)
 }
 
 var RootCmd = &cobra.Command{
@@ -92,6 +99,9 @@ var RootCmd = &cobra.Command{
 			}
 		}
 
+		return nil
+	},
+	PreRunE: func(_ *cobra.Command, _ []string) error {
 		if len(opts.Images) == 0 && opts.DockerfilePath == "" {
 			return errors.New("you must select at least one image to cache or a dockerfilepath to parse")
 		}
@@ -118,6 +128,71 @@ var RootCmd = &cobra.Command{
 	},
 }
 
+var bakeCmd = &cobra.Command{
+	Use:   "bake <bakefile> [target...]",
+	Short: "Warm the base images of targets defined in a bakefile",
+	Long: `Warm the base images of targets defined in a bakefile into --cache-dir. Name
+the targets to warm, or omit them to warm all. Each target's dockerfile is parsed
+as a whole, its stage is ignored, and so are destination, cache_from and cache_to.`,
+	Args: cobra.MinimumNArgs(1),
+	RunE: func(_ *cobra.Command, args []string) error {
+		if len(opts.Images) > 0 {
+			return errors.New("--image cannot be used with bake, base images come from the targets' dockerfiles")
+		}
+		targets, err := bake.Load(args[0], args[1:], bakeSet)
+		if err != nil {
+			return err
+		}
+		if bakePrint {
+			out, err := bake.Print(targets)
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Println(string(out))
+			return err
+		}
+		if !opts.Dryrun {
+			err := os.MkdirAll(opts.CacheDir, 0o755)
+			if err != nil {
+				return fmt.Errorf("failed to create cache directory: %w", err)
+			}
+		}
+		err = WarmTargets(opts, args[0], targets)
+		if err != nil {
+			return err
+		}
+		util.LogRegistryConnections()
+		return nil
+	},
+}
+
+func AddWarmerBakeFlags(cmd *cobra.Command, opts *config.WarmerOptions, set *[]string) {
+	AddWarmerFlags(cmd, opts)
+	cmd.Flags().StringArrayVar(set, "set", nil, "Override a bakefile target field: <target>.<field>=<value>. Set it repeatedly for multiple overrides.")
+}
+
+func WarmTargets(opts *config.WarmerOptions, bakefile string, targets []bake.ResolvedTarget) error {
+	for _, t := range targets {
+		topts := *opts
+		remote := strings.Contains(t.Context, "://")
+		switch {
+		case isURL(t.Dockerfile) || (t.Dockerfile != "" && !remote):
+			topts.DockerfilePath = t.Dockerfile
+		case remote:
+			return fmt.Errorf("target %q: the warmer does not unpack remote context %s, set dockerfile to a local path or URL", t.ID, t.Context)
+		case t.Context != "":
+			topts.DockerfilePath = filepath.Join(t.Context, "Dockerfile")
+		default:
+			topts.DockerfilePath = filepath.Join(filepath.Dir(bakefile), "Dockerfile")
+		}
+		err := warmer.WarmCache(&topts)
+		if err != nil {
+			return fmt.Errorf("target %q: failed warming cache: %w", t.ID, err)
+		}
+	}
+	return nil
+}
+
 // AddWarmerFlags configures opts
 func AddWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
 	cmd.Flags().VarP(&opts.Images, "image", "i", "Image to cache. Set it repeatedly for multiple images.")
@@ -140,6 +215,7 @@ func AddWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
 	cmd.Flags().StringVarP(&opts.DockerfilePath, "dockerfile", "d", "", "Path to the dockerfile to be cached. The kaniko warmer will parse and write out each stage's base image layers to the cache-dir. Using the same dockerfile path as what you plan to build in the kaniko executor is the expected usage.")
 	cmd.Flags().VarP(&opts.BuildArgs, "build-arg", "", "This flag should be used in conjunction with the dockerfile flag for scenarios where dynamic replacement of the base image is required.")
 	cmd.Flags().BoolVarP(&opts.Dryrun, "dryrun", "", false, "Whether to only print the images that would be cached")
+	cmd.Flags().BoolVarP(&opts.RequireDigest, "require-digest", "", false, "Fail if a base image is not pinned by digest")
 
 	// Default the custom platform flag to our current platform, and validate it.
 	if opts.CustomPlatform == "" {

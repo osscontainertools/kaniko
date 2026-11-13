@@ -24,12 +24,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/containerd/platforms"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/buildcontext"
 	"github.com/osscontainertools/kaniko/pkg/buildenv"
@@ -48,7 +50,6 @@ import (
 
 var (
 	opts         = &config.KanikoOptions{}
-	ctxSubPath   string
 	force        bool
 	logLevel     string
 	logFormat    string
@@ -131,26 +132,6 @@ func setupBuild() error {
 	}
 
 	resolveEnvironmentBuildArgs(opts.BuildArgs, os.Getenv)
-
-	if err := cacheFlagsValid(); err != nil {
-		return fmt.Errorf("cache flags invalid: %w", err)
-	}
-	srcContext := opts.SrcContext
-	if err := resolveSourceContext(); err != nil {
-		return fmt.Errorf("error resolving source context: %w", err)
-	}
-	if opts.PredefinedAnnotations || opts.Provenance {
-		dir, cloneURL := opts.SrcContext, ""
-		gitContext, isGit := strings.CutPrefix(srcContext, constants.GitBuildContextPrefix)
-		if isGit {
-			dir, cloneURL = config.BuildContextDir, buildcontext.GitURL(gitContext)
-		}
-		opts.CI = buildenv.DetectCI()
-		opts.ContextSource = buildenv.ResolveSource(opts.CI, buildenv.GitSource(dir, cloneURL))
-	}
-	if err := resolveDockerfilePath(); err != nil {
-		return fmt.Errorf("error resolving dockerfile path: %w", err)
-	}
 	// Update ignored paths
 	if opts.IgnoreVarRun {
 		// /var/run is a special case. It's common to mount in /var/run/docker.sock
@@ -219,6 +200,12 @@ var RootCmd = &cobra.Command{
 					return err
 				}
 			}
+			if opts.SnapshotHashWorkers < 1 {
+				return fmt.Errorf("--snapshot-hash-workers=%d must be at least 1", opts.SnapshotHashWorkers)
+			}
+			if cmd.Flags().Changed("snapshot-hash-workers") && !config.FF.ParallelHash {
+				logrus.Warn("--snapshot-hash-workers has no effect without FF_KANIKO_PARALLEL_HASH")
+			}
 			if len(opts.Destinations) == 0 && opts.ImageNameDigestFile != "" {
 				return errors.New("you must provide --destination if setting ImageNameDigestFile")
 			}
@@ -236,31 +223,101 @@ var RootCmd = &cobra.Command{
 }
 
 func runBuild(opts *config.KanikoOptions) error {
-	return runBuildTargets(opts, []bake.ResolvedTarget{{Destination: opts.Destinations}})
-}
-
-func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) error {
-	setupStart := time.Now()
-	if err := setupBuild(); err != nil {
+	targets := []bake.ResolvedTarget{{Destination: opts.Destinations, CacheFrom: opts.CacheFrom, CacheTo: opts.CacheTo}}
+	if err := prepareBuild(opts, targets); err != nil {
 		return err
 	}
-	setupEnd := time.Now()
+	if err := resolveContext(opts); err != nil {
+		return err
+	}
+	if err := resolveDockerfilePath(opts); err != nil {
+		return fmt.Errorf("error resolving dockerfile path: %w", err)
+	}
+	return runBuildTargets(opts, targets, nil)
+}
+
+// ApplyTarget points opts at a single target. A target with no stage keeps whatever
+// --target was given.
+func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
+	if target.Stage != "" {
+		opts.Target = []string{target.Stage}
+	}
+	opts.Destinations = target.Destination
+	if target.Context != "" {
+		opts.SrcContext = target.Context
+		opts.Bucket = ""
+	}
+	if target.ContextSubPath != "" {
+		opts.ContextSubPath = target.ContextSubPath
+	}
+	if target.Dockerfile != "" {
+		opts.DockerfilePath = target.Dockerfile
+	}
+	opts.CacheFrom = target.CacheFrom
+	opts.CacheTo = target.CacheTo
+	if opts.NoPushCache {
+		assert.Assert("cmd.applytarget.no-push-cache-alone", len(opts.CacheTo) == 0, "ApplyTarget: --no-push-cache with --cache-to")
+	}
+	if opts.CacheRepo != "" {
+		assert.Assert("cmd.applytarget.cache-repo-alone", len(opts.CacheFrom) == 0 && len(opts.CacheTo) == 0, "ApplyTarget: --cache-repo with --cache-from or --cache-to")
+	}
+	switch {
+	case len(opts.CacheFrom) > 0 || len(opts.CacheTo) > 0:
+		opts.Cache = true
+	case opts.Cache || opts.CacheRepo != "":
+		repo := opts.CacheRepo
+		if repo == "" && len(opts.Destinations) > 0 {
+			destRef, err := name.NewTag(opts.Destinations[0], name.WeakValidation)
+			if err != nil {
+				return fmt.Errorf("getting tag for destination: %w", err)
+			}
+			repo = fmt.Sprintf("%s/cache", destRef.Context())
+		}
+		if repo != "" {
+			opts.CacheFrom = []string{repo}
+			if !opts.NoPushCache {
+				opts.CacheTo = []string{repo}
+			}
+		}
+	}
+	if opts.Cache && len(opts.CacheTo) == 0 {
+		logrus.Info("Skipping push to cache, no cache to push to")
+	}
+	return nil
+}
+
+func prepareBuild(opts *config.KanikoOptions, targets []bake.ResolvedTarget) error {
+	for _, target := range targets {
+		err := cacheFlagsValid(opts, target)
+		if err != nil {
+			return fmt.Errorf("cache flags invalid: %w", err)
+		}
+	}
+	tracing.Init(context.Background(), opts)
+	_, endSetup := timing.Scope("Setting up build")
+	err := setupBuild()
+	endSetup()
+	return err
+}
+
+func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget, inputs []targetInputs) error {
 	if !checkContained() {
 		if !force {
 			return errors.New("kaniko should only be run inside of a container, run with the --force flag if you are sure you want to continue")
 		}
 		logrus.Warn("Kaniko is being run outside of a container. This can have dangerous effects on your system")
 	}
-	var checks [][2]time.Time
 	// mz992: a dryrun only renders the plan, it never pushes a layer or a cache entry.
 	if !opts.Dryrun {
 		for _, target := range targets {
 			topts := *opts
-			ApplyTarget(&topts, target)
-			if !topts.NoPush || topts.CacheRepo != "" {
-				checkStart := time.Now()
+			if err := ApplyTarget(&topts, target); err != nil {
+				return err
+			}
+			if !topts.NoPush || len(topts.CacheTo) > 0 {
+				check := timing.Start("Checking push permissions")
 				err := executor.CheckPushPermissions(&topts)
-				checks = append(checks, [2]time.Time{checkStart, time.Now()})
+				check.End()
 				if err != nil {
 					logrus.Warnf("make sure you entered the correct tag name, that you are authenticated correctly, and try again.")
 					// mz280: remind users that DOCKER_AUTH_CONFIG gets prioritized by docker-cli
@@ -289,17 +346,15 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 		}()
 	}
 	defer executor.WaitCachePushes()
-	tracing.Init(context.Background(), opts, setupStart)
-	timing.Record("Setting up build", setupStart, setupEnd)
-	for _, c := range checks {
-		timing.Record("Checking push permissions", c[0], c[1])
-	}
+	tracing.Export(context.Background())
 	for i, target := range targets {
 		if i > 0 {
 			// Saved stages are keyed by stage index, so without this the next target
 			// can read the previous target's stage instead of building its own.
-			if err := util.DeleteFilesystem(); err != nil {
-				return fmt.Errorf("deleting filesystem before target %q: %w", target.ID, err)
+			if !opts.Dryrun {
+				if err := util.DeleteFilesystem(); err != nil {
+					return fmt.Errorf("deleting filesystem before target %q: %w", target.ID, err)
+				}
 			}
 			if err := config.CleanupBuild(); err != nil {
 				return fmt.Errorf("cleaning kaniko dir before target %q: %w", target.ID, err)
@@ -307,7 +362,21 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 		}
 		// Copy, so nothing a build writes back into its options reaches the next target.
 		topts := *opts
-		ApplyTarget(&topts, target)
+		if err := ApplyTarget(&topts, target); err != nil {
+			return err
+		}
+		if inputs != nil {
+			in := inputs[i]
+			if in.stored != "" {
+				if err := config.CleanupBuildContext(); err != nil {
+					return fmt.Errorf("cleaning build context before target %q: %w", target.ID, err)
+				}
+				if err := util.CopyTree(in.stored, config.BuildContextDir, util.FileContext{AllowedPath: config.KanikoDir}, true); err != nil {
+					return fmt.Errorf("copying build context for target %q: %w", target.ID, err)
+				}
+			}
+			topts.SrcContext, topts.DockerfilePath, topts.ContextSource, topts.CI = in.srcContext, in.dockerfile, in.source, in.ci
+		}
 		if target.ID != "" {
 			logrus.Infof("Building target %q [stage: %q]", target.ID, target.Stage)
 		}
@@ -339,19 +408,39 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget) 
 	return nil
 }
 
+func resolveContext(opts *config.KanikoOptions) error {
+	srcContext := opts.SrcContext
+	if err := resolveSourceContext(opts); err != nil {
+		return fmt.Errorf("error resolving source context: %w", err)
+	}
+	if opts.PredefinedAnnotations || opts.Provenance {
+		dir, cloneURL := opts.SrcContext, ""
+		gitContext, isGit := strings.CutPrefix(srcContext, constants.GitBuildContextPrefix)
+		if isGit {
+			dir, cloneURL = config.BuildContextDir, buildcontext.GitURL(gitContext)
+		}
+		opts.CI = buildenv.DetectCI()
+		opts.ContextSource = buildenv.ResolveSource(opts.CI, buildenv.GitSource(dir, cloneURL))
+	}
+	return nil
+}
+
 // addKanikoOptionsFlags configures opts
 func AddKanikoOptionsFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	AddSharedBuildFlags(cmd, opts)
 	cmd.Flags().VarP(&opts.Destinations, "destination", "d", "Registry the final image should be pushed to. Set it repeatedly for multiple destinations.")
 	cmd.Flags().StringSliceVarP(&opts.Target, "target", "", []string{}, "Set the target stages to build, the first in the list denotes the stage to be pushed")
+	cmd.Flags().StringArrayVar(&opts.CacheFrom, "cache-from", nil, "Read the layer cache from this repository, or from an OCI layout when prefixed with 'oci:'. Set it repeatedly to read from several caches in order.")
+	cmd.Flags().StringArrayVar(&opts.CacheTo, "cache-to", nil, "Write the layer cache to this repository, or to an OCI layout when prefixed with 'oci:'. Set it repeatedly to write to several caches.")
 }
 
 func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().StringVarP(&opts.DockerfilePath, "dockerfile", "f", "Dockerfile", "Path to the dockerfile to be built.")
 	cmd.Flags().StringVarP(&opts.SrcContext, "context", "c", "/workspace/", "Path to the dockerfile build context.")
-	cmd.Flags().StringVarP(&ctxSubPath, "context-sub-path", "", "", "Sub path within the given context.")
+	cmd.Flags().StringVarP(&opts.ContextSubPath, "context-sub-path", "", "", "Sub path within the given context.")
 	cmd.Flags().StringVarP(&opts.Bucket, "bucket", "b", "", "Name of the GCS bucket from which to access build context as tarball.")
 	cmd.Flags().StringVarP(&opts.SnapshotMode, "snapshot-mode", "", "full", "Change the file attributes inspected during snapshotting")
+	cmd.Flags().IntVar(&opts.SnapshotHashWorkers, "snapshot-hash-workers", min(runtime.GOMAXPROCS(0), 8), "Number of goroutines hashing files during a snapshot. Defaults to GOMAXPROCS, at most 8.")
 	cmd.Flags().StringVarP(&opts.CustomPlatform, "custom-platform", "", "", "Specify the build platform if different from the current host")
 	cmd.Flags().VarP(&opts.BuildArgs, "build-arg", "", "This flag allows you to pass in ARG values at build time. Set it repeatedly for multiple values.")
 	cmd.Flags().IntVar(&opts.ImageFSExtractRetry, "image-fs-extract-retry", 0, "Number of retries for image FS extraction")
@@ -393,6 +482,8 @@ func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	opts.Secrets = make(config.SecretOptions)
 	cmd.Flags().VarP(&opts.Secrets, "secret", "", "Set build secrets in key=value format. Set it repeatedly for multiple secrets.")
 	cmd.Flags().BoolVarP(&opts.Dryrun, "dryrun", "", false, "Whether to only run a plan")
+	cmd.Flags().BoolVarP(&opts.RequireAddChecksum, "require-add-checksum", "", false, "Fail if a remote ADD source does not specify a checksum")
+	cmd.Flags().BoolVarP(&opts.RequireDigest, "require-digest", "", false, "Fail if a base image is not pinned by digest")
 
 	AddRegistryOptionsFlags(cmd, &opts.RegistryOptions)
 
@@ -493,13 +584,19 @@ func checkNoDeprecatedFlags() {
 }
 
 // cacheFlagsValid makes sure the flags passed in related to caching are valid
-func cacheFlagsValid() error {
+func cacheFlagsValid(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
+	if len(target.CacheTo) > 0 && opts.NoPushCache {
+		return errors.New("--no-push-cache cannot be combined with --cache-to")
+	}
+	if opts.CacheRepo != "" && (len(target.CacheFrom) > 0 || len(target.CacheTo) > 0) {
+		return errors.New("--cache-repo cannot be combined with --cache-from or --cache-to")
+	}
 	if !opts.Cache {
 		return nil
 	}
 	// If --cache=true and --no-push=true, then cache repo must be provided
 	// since cache can't be inferred from destination
-	if !opts.NoPushCache && opts.CacheRepo == "" && opts.NoPush {
+	if !opts.NoPushCache && opts.CacheRepo == "" && len(target.CacheFrom) == 0 && len(target.CacheTo) == 0 && opts.NoPush {
 		return errors.New("if using cache with --no-push, specify cache repo with --cache-repo")
 	}
 	return nil
@@ -518,7 +615,7 @@ func validateCompressionLevel(compression config.Compression, level int) error {
 }
 
 // resolveDockerfilePath resolves the Dockerfile path to an absolute path
-func resolveDockerfilePath() error {
+func resolveDockerfilePath(opts *config.KanikoOptions) error {
 	if isURL(opts.DockerfilePath) {
 		return nil
 	}
@@ -528,7 +625,7 @@ func resolveDockerfilePath() error {
 			return fmt.Errorf("getting absolute path for dockerfile: %w", err)
 		}
 		opts.DockerfilePath = abs
-		return copyDockerfile()
+		return copyDockerfile(opts)
 	}
 	// Otherwise, check if the path relative to the build context exists
 	if util.FilepathExists(filepath.Join(opts.SrcContext, opts.DockerfilePath)) {
@@ -537,7 +634,7 @@ func resolveDockerfilePath() error {
 			return fmt.Errorf("getting absolute path for src context/dockerfile path: %w", err)
 		}
 		opts.DockerfilePath = abs
-		return copyDockerfile()
+		return copyDockerfile(opts)
 	}
 	return errors.New("please provide a valid path to a Dockerfile within the build context with --dockerfile")
 }
@@ -586,7 +683,7 @@ func resolveEnvironmentBuildArgs(arguments []string, resolver func(string) strin
 
 // copy Dockerfile to /kaniko/Dockerfile so that if it's specified in the .dockerignore
 // it won't be copied into the image
-func copyDockerfile() error {
+func copyDockerfile(opts *config.KanikoOptions) error {
 	if err := util.CopyFileInternal(opts.DockerfilePath, config.DockerfilePath, util.FileContext{}); err != nil {
 		return fmt.Errorf("copying dockerfile: %w", err)
 	}
@@ -602,7 +699,7 @@ func copyDockerfile() error {
 
 // resolveSourceContext unpacks the source context if it is a tar in a bucket or in kaniko container
 // it resets srcContext to be the path to the unpacked build context within the image
-func resolveSourceContext() error {
+func resolveSourceContext(opts *config.KanikoOptions) error {
 	if opts.SrcContext == "" && opts.Bucket == "" {
 		return errors.New("please specify a path to the build context with the --context flag or a bucket with the --bucket flag")
 	}
@@ -628,12 +725,19 @@ func resolveSourceContext() error {
 		return err
 	}
 	logrus.Debugf("Getting source context from %s", opts.SrcContext)
-	opts.SrcContext, err = contextExecutor.UnpackTarFromBuildContext()
+	switch contextExecutor.(type) {
+	case *buildcontext.Dir, *buildcontext.Tar:
+		opts.SrcContext, err = contextExecutor.UnpackTarFromBuildContext()
+	default:
+		fetch := timing.Start("Fetching build context")
+		opts.SrcContext, err = contextExecutor.UnpackTarFromBuildContext()
+		fetch.End()
+	}
 	if err != nil {
 		return err
 	}
-	if ctxSubPath != "" {
-		opts.SrcContext = filepath.Join(opts.SrcContext, ctxSubPath)
+	if opts.ContextSubPath != "" {
+		opts.SrcContext = filepath.Join(opts.SrcContext, opts.ContextSubPath)
 		if _, err := os.Stat(opts.SrcContext); os.IsNotExist(err) {
 			return err
 		}

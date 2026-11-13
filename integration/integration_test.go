@@ -138,10 +138,10 @@ func buildRequiredImages() error {
 		command []string
 	}{{
 		name:    "Building kaniko image",
-		command: []string{"docker", "build", coverArg, "-t", ExecutorImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-executor", ".."},
+		command: []string{"docker", "build", coverArg, "--build-arg=RACE=1", "-t", ExecutorImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-executor", ".."},
 	}, {
 		name:    "Building cache warmer image",
-		command: []string{"docker", "build", coverArg, "-t", WarmerImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-warmer", ".."},
+		command: []string{"docker", "build", coverArg, "--build-arg=RACE=1", "-t", WarmerImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-warmer", ".."},
 	}, {
 		name:    "Building busybox base image",
 		command: []string{"docker", "build", "--push", "-t", config.busyboxBaseImage, "-f", dockerfilesPath + "/Dockerfile_busybox_base", "."},
@@ -164,6 +164,9 @@ func buildRequiredImages() error {
 		name:    "Building kaniko image with leftover stuff in the filesystem",
 		command: []string{"docker", "build", coverArg, "-t", ExecutorImageTainted, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz455", "--target", "kaniko", "."},
 	}, {
+		name:    "Building kaniko image with a bake context in the filesystem",
+		command: []string{"docker", "build", "-t", ExecutorImageBakeContext, "-f", "bakefiles/test_bake_unmounted_context/Dockerfile.executor", "bakefiles/test_bake_unmounted_context"},
+	}, {
 		name:    "Building hijack base image",
 		command: []string{"docker", "build", "--push", "-t", config.hijackBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz560", "--target", "base", "."},
 	}, {
@@ -175,6 +178,9 @@ func buildRequiredImages() error {
 	}, {
 		name:    "Building mz1073 base image",
 		command: []string{"docker", "build", "--push", "-t", config.mz1073BaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz1073", "--target", "base", "."},
+	}, {
+		name:    "Building mounted symlink base image",
+		command: []string{"docker", "build", "--push", "-t", config.mountedSymlinkBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_mounted_symlink_kaniko", "--target", "base", "."},
 	}, {
 		name:    "Building mz1113 base image",
 		command: []string{"docker", "build", "--push", "-t", config.mz1113BaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz1113", "--target", "base", "."},
@@ -188,7 +194,7 @@ func buildRequiredImages() error {
 			"--target", "base", "--build-arg", "IMAGE_REPO="+config.imageRepo, "."),
 	}, {
 		name:    "Building kaniko image based on alpine",
-		command: []string{"docker", "build", coverArg, "-t", AlpineImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-alpine", ".."},
+		command: []string{"docker", "build", coverArg, "--build-arg=RACE=1", "-t", AlpineImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-alpine", ".."},
 	}}
 
 	for _, setupCmd := range setupCommands {
@@ -233,6 +239,141 @@ func buildRequiredImages() error {
 		return err
 	}
 
+	err = pushExtractionBaseImage(config.busyboxBaseImage, config.extractionBaseImage)
+	if err != nil {
+		return err
+	}
+
+	hardlinkEscapeRef := strings.ToLower(config.imageRepo + "hardlink-escape:latest")
+	err = pushHardlinkEscapeImage(config.busyboxBaseImage, hardlinkEscapeRef)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func pushHardlinkEscapeImage(baseRef, imageRef string) error {
+	src, err := name.ParseReference(baseRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing base ref %s: %v", baseRef, err)
+	}
+	base, err := remote.Image(src, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		return fmt.Errorf("pulling hardlink-escape base image: %v", err)
+	}
+	man, err := base.Manifest()
+	if err != nil {
+		return fmt.Errorf("reading hardlink-escape base manifest: %v", err)
+	}
+	mediaType := ggcrtypes.DockerLayer
+	if strings.Contains(string(man.MediaType), ggcrtypes.OCIVendorPrefix) {
+		mediaType = ggcrtypes.OCILayer
+	}
+
+	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+		var buf bytes.Buffer
+		tw := tar.NewWriter(&buf)
+		for _, hdr := range []tar.Header{
+			{Name: "escape", Typeflag: tar.TypeSymlink, Linkname: "/kaniko", Mode: 0o777},
+			{Name: "probe", Typeflag: tar.TypeLink, Linkname: "escape/executor", Mode: 0o755},
+		} {
+			if err := tw.WriteHeader(&hdr); err != nil {
+				return nil, err
+			}
+		}
+		tw.Close()
+		return io.NopCloser(bytes.NewReader(buf.Bytes())), nil
+	}, tarball.WithMediaType(mediaType))
+	if err != nil {
+		return fmt.Errorf("creating hardlink-escape layer: %v", err)
+	}
+	img, err := mutate.AppendLayers(base, layer)
+	if err != nil {
+		return fmt.Errorf("appending hardlink-escape layer: %v", err)
+	}
+
+	dst, err := name.ParseReference(imageRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing image ref %s: %v", imageRef, err)
+	}
+	if err := remote.Write(dst, img, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
+		return fmt.Errorf("pushing hardlink-escape image to %s: %v", imageRef, err)
+	}
+	return nil
+}
+
+// pushExtractionBaseImage appends two layers to the busybox base. The first ships
+// non-empty directories, the second replaces each of them with a regular file, a
+// symlink and a hardlink, without whiteouts.
+func pushExtractionBaseImage(baseRef, imageRef string) error {
+	src, err := name.ParseReference(baseRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing base ref %s: %v", baseRef, err)
+	}
+	base, err := remote.Image(src, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		return fmt.Errorf("pulling extraction base image: %v", err)
+	}
+	man, err := base.Manifest()
+	if err != nil {
+		return fmt.Errorf("reading extraction base manifest: %v", err)
+	}
+	mediaType := ggcrtypes.DockerLayer
+	if strings.Contains(string(man.MediaType), ggcrtypes.OCIVendorPrefix) {
+		mediaType = ggcrtypes.OCILayer
+	}
+
+	layerOf := func(headers []tar.Header) (v1.Layer, error) {
+		return tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+			var buf bytes.Buffer
+			tw := tar.NewWriter(&buf)
+			for _, hdr := range headers {
+				if err := tw.WriteHeader(&hdr); err != nil {
+					return nil, err
+				}
+				if hdr.Size > 0 {
+					if _, err := tw.Write([]byte("extraction\n")); err != nil {
+						return nil, err
+					}
+				}
+			}
+			tw.Close()
+			return io.NopCloser(bytes.NewReader(buf.Bytes())), nil
+		}, tarball.WithMediaType(mediaType))
+	}
+	dirs, err := layerOf([]tar.Header{
+		{Name: "reg/", Typeflag: tar.TypeDir, Mode: 0o755},
+		{Name: "reg/file", Typeflag: tar.TypeReg, Mode: 0o644, Size: 11},
+		{Name: "sym/", Typeflag: tar.TypeDir, Mode: 0o755},
+		{Name: "sym/file", Typeflag: tar.TypeReg, Mode: 0o644, Size: 11},
+		{Name: "hard/", Typeflag: tar.TypeDir, Mode: 0o755},
+		{Name: "hard/file", Typeflag: tar.TypeReg, Mode: 0o644, Size: 11},
+	})
+	if err != nil {
+		return fmt.Errorf("creating directory layer: %v", err)
+	}
+	replacements, err := layerOf([]tar.Header{
+		{Name: "target", Typeflag: tar.TypeReg, Mode: 0o644, Size: 11},
+		{Name: "reg", Typeflag: tar.TypeReg, Mode: 0o644, Size: 11},
+		{Name: "sym", Typeflag: tar.TypeSymlink, Linkname: "target", Mode: 0o777},
+		{Name: "hard", Typeflag: tar.TypeLink, Linkname: "target", Mode: 0o644},
+	})
+	if err != nil {
+		return fmt.Errorf("creating replacement layer: %v", err)
+	}
+	img, err := mutate.AppendLayers(base, dirs, replacements)
+	if err != nil {
+		return fmt.Errorf("appending extraction layers: %v", err)
+	}
+
+	dst, err := name.ParseReference(imageRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing image ref %s: %v", imageRef, err)
+	}
+	if err := remote.Write(dst, img, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
+		return fmt.Errorf("pushing extraction base image to %s: %v", imageRef, err)
+	}
 	return nil
 }
 
@@ -330,6 +471,55 @@ func TestRun(t *testing.T) {
 	}
 }
 
+func TestCacheFromTo(t *testing.T) {
+	t.Parallel()
+	const dockerfile = "Dockerfile_test_cache_from_to"
+	if match, _ := filepath.Match(config.dockerfilesPattern, dockerfile); !match {
+		t.Skip()
+	}
+	run := strconv.FormatInt(time.Now().UnixNano(), 10)
+	build := func(t *testing.T, version int, args ...string) string {
+		t.Helper()
+		err := imageBuilder.buildCachedImage(t, config, "", dockerfilesPath, dockerfile, version, args)
+		if err != nil {
+			t.Fatalf("error building version %d: %v", version, err)
+		}
+		return GetVersionedKanikoImage(config.imageRepo, dockerfile, version)
+	}
+
+	// buildCachedImage names its images after the dockerfile and the version, so each subtest takes its own versions.
+	t.Run("branch", func(t *testing.T) {
+		t.Parallel()
+		mainCache := filepath.Join(config.imageRepo, "cache-from-to", run, "main")
+		featureCache := filepath.Join(config.imageRepo, "cache-from-to", run, "feature")
+		build(t, 0, "--build-arg=V=main", "--cache-to="+mainCache)
+		feature := build(t, 1, "--build-arg=V=feature", "--cache-from="+mainCache, "--cache-to="+featureCache)
+		both := build(t, 2, "--build-arg=V=feature", "--cache-from="+featureCache, "--cache-from="+mainCache)
+		diffoci(t, feature, both)
+		mainOnly := build(t, 3, "--build-arg=V=feature", "--cache-from="+mainCache)
+		out, err := RunCommandWithoutTest(diffociCmd(feature, mainOnly, "", "--ignore-image-name", "--ignore-image-timestamps"))
+		if err == nil {
+			t.Errorf("--cache-to pushed to a --cache-from source:\n%s", out)
+		}
+	})
+
+	t.Run("read_only", func(t *testing.T) {
+		t.Parallel()
+		cache := filepath.Join(config.imageRepo, "cache-from-to", run, "read-only")
+		first := build(t, 4, "--build-arg=V=main", "--cache-to="+cache)
+		second := build(t, 5, "--build-arg=V=main", "--cache-from="+cache)
+		diffoci(t, first, second)
+	})
+
+	t.Run("oci_layout", func(t *testing.T) {
+		t.Parallel()
+		cache := "oci:" + filepath.Join(cacheDir, "cache-from-to", run)
+		first := build(t, 6, "--build-arg=V=main", "--cache-to="+cache)
+		second := build(t, 7, "--build-arg=V=main", "--cache-from="+cache)
+		diffoci(t, first, second)
+	})
+}
+
 // TestKanikoOnly asserts kaniko survives the build.
 func TestKanikoOnly(t *testing.T) {
 	t.Parallel()
@@ -344,7 +534,7 @@ func TestKanikoOnly(t *testing.T) {
 			dockerfile := dockerfile
 			t.Parallel()
 
-			err := imageBuilder.BuildKanikoImage(t, config, dockerfilesPath, dockerfile)
+			_, err := imageBuilder.BuildKanikoImage(t, config, dockerfilesPath, dockerfile)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -368,10 +558,18 @@ func TestExpectError(t *testing.T) {
 			expectedExitCode := expectedExitCode
 			t.Parallel()
 
-			err := imageBuilder.BuildKanikoImage(t, config, dockerfilesPath, dockerfile)
+			expectedOutput, ok := expectErrOutput[dockerfile]
+			if !ok {
+				t.Fatalf("%s has no entry in expectErrOutput", dockerfile)
+			}
+
+			out, err := imageBuilder.BuildKanikoImage(t, config, dockerfilesPath, dockerfile)
 
 			var exitErr *exec.ExitError
 			if errors.As(err, &exitErr) && exitErr.ExitCode() == expectedExitCode {
+				if !strings.Contains(string(out), expectedOutput) {
+					t.Errorf("expected output %q not found in failing build output:\n%s", expectedOutput, string(out))
+				}
 				return
 			}
 			if err == nil {
@@ -543,8 +741,10 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 
 func TestBuildViaRegistryMirrors(t *testing.T) {
 	t.Parallel()
-	branch, _, url := getBranchCommitAndURL()
-	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
+	contextDir, err := filepath.Abs(dockerfilesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Build with docker
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_registry_mirror")
@@ -553,8 +753,8 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 			"build",
 			"--push",
 			"-t", dockerImage,
-			"-f", dockerfile,
-			DockerGitRepo(url, "", branch),
+			"-f", filepath.Join(contextDir, "Dockerfile_registry_mirror"),
+			contextDir,
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -563,16 +763,16 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_mirror")
-	dockerRunFlags := []string{"run", "--net=host"}
+	dockerRunFlags := []string{"run", "--net=host", "-v", contextDir + ":/workspace:ro"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
-		"-f", dockerfile,
+		"-f", "/workspace/Dockerfile_registry_mirror",
 		"-d", kanikoImage,
 		"--registry-mirror", "doesnotexist.example.com",
 		"--registry-mirror", "us-mirror.gcr.io",
-		"-c", KanikoGitRepo(url, "", branch))
+		"-c", "/workspace")
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -586,8 +786,10 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 
 func TestBuildViaRegistryMap(t *testing.T) {
 	t.Parallel()
-	branch, _, url := getBranchCommitAndURL()
-	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
+	contextDir, err := filepath.Abs(dockerfilesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Build with docker
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_registry_map")
@@ -595,9 +797,9 @@ func TestBuildViaRegistryMap(t *testing.T) {
 		[]string{
 			"build",
 			"-t", dockerImage,
-			"-f", dockerfile,
+			"-f", filepath.Join(contextDir, "Dockerfile_registry_mirror"),
 			"--push",
-			DockerGitRepo(url, "", branch),
+			contextDir,
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -606,16 +808,16 @@ func TestBuildViaRegistryMap(t *testing.T) {
 
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_map")
-	dockerRunFlags := []string{"run", "--net=host"}
+	dockerRunFlags := []string{"run", "--net=host", "-v", contextDir + ":/workspace:ro"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
-		"-f", dockerfile,
+		"-f", "/workspace/Dockerfile_registry_mirror",
 		"-d", kanikoImage,
 		"--registry-map", "index.docker.io=doesnotexist.example.com",
 		"--registry-map", "index.docker.io=us-mirror.gcr.io",
-		"-c", KanikoGitRepo(url, "", branch))
+		"-c", "/workspace")
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -629,25 +831,27 @@ func TestBuildViaRegistryMap(t *testing.T) {
 
 func TestBuildSkipFallback(t *testing.T) {
 	t.Parallel()
-	branch, _, url := getBranchCommitAndURL()
-	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
+	contextDir, err := filepath.Abs(dockerfilesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_registry_skip_fallback")
-	dockerRunFlags := []string{"run", "--net=host"}
+	dockerRunFlags := []string{"run", "--net=host", "-v", contextDir + ":/workspace:ro"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
-		"-f", dockerfile,
+		"-f", "/workspace/Dockerfile_registry_mirror",
 		"-d", kanikoImage,
 		"--registry-mirror", "doesnotexist.example.com",
 		"--skip-default-registry-fallback",
-		"-c", KanikoGitRepo(url, "", branch))
+		"-c", "/workspace")
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
-	_, err := RunCommandWithoutTest(kanikoCmd)
+	_, err = RunCommandWithoutTest(kanikoCmd)
 	if err == nil {
 		t.Errorf("Build should fail after using skip-default-registry-fallback and registry-mirror fail to pull")
 	}
@@ -656,8 +860,10 @@ func TestBuildSkipFallback(t *testing.T) {
 // TestKanikoDir tests that a build that sets --kaniko-dir produces the same output as the equivalent docker build.
 func TestKanikoDir(t *testing.T) {
 	t.Parallel()
-	branch, _, url := getBranchCommitAndURL()
-	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_registry_mirror", integrationPath, dockerfilesPath)
+	contextDir, err := filepath.Abs(dockerfilesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Build with docker
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_kaniko_dir")
@@ -665,9 +871,9 @@ func TestKanikoDir(t *testing.T) {
 		[]string{
 			"build",
 			"-t", dockerImage,
-			"-f", dockerfile,
+			"-f", filepath.Join(contextDir, "Dockerfile_registry_mirror"),
 			"--push",
-			DockerGitRepo(url, "", branch),
+			contextDir,
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -676,14 +882,14 @@ func TestKanikoDir(t *testing.T) {
 
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_kaniko_dir")
-	dockerRunFlags := []string{"run", "--net=host"}
+	dockerRunFlags := []string{"run", "--net=host", "-v", contextDir + ":/workspace:ro"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
-		"-f", dockerfile,
+		"-f", "/workspace/Dockerfile_registry_mirror",
 		"-d", kanikoImage,
-		"-c", KanikoGitRepo(url, "", branch))
+		"-c", "/workspace")
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 	kanikoCmd.Env = append(kanikoCmd.Env, "KANIKO_DIR=/not-kaniko")
@@ -698,8 +904,10 @@ func TestKanikoDir(t *testing.T) {
 
 func TestBuildWithLabels(t *testing.T) {
 	t.Parallel()
-	branch, _, url := getBranchCommitAndURL()
-	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_test_label", integrationPath, dockerfilesPath)
+	contextDir, err := filepath.Abs(dockerfilesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	testLabel := "mylabel=myvalue"
 
@@ -710,9 +918,9 @@ func TestBuildWithLabels(t *testing.T) {
 			"build",
 			"--push",
 			"-t", dockerImage,
-			"-f", dockerfile,
+			"-f", filepath.Join(contextDir, "Dockerfile_test_label"),
 			"--label", testLabel,
-			DockerGitRepo(url, "", branch),
+			contextDir,
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -721,15 +929,15 @@ func TestBuildWithLabels(t *testing.T) {
 
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_label")
-	dockerRunFlags := []string{"run", "--net=host"}
+	dockerRunFlags := []string{"run", "--net=host", "-v", contextDir + ":/workspace:ro"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
-		"-f", dockerfile,
+		"-f", "/workspace/Dockerfile_test_label",
 		"-d", kanikoImage,
 		"--label", testLabel,
-		"-c", KanikoGitRepo(url, "", branch),
+		"-c", "/workspace",
 	)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
@@ -744,8 +952,10 @@ func TestBuildWithLabels(t *testing.T) {
 
 func TestBuildWithHTTPError(t *testing.T) {
 	t.Parallel()
-	branch, _, url := getBranchCommitAndURL()
-	dockerfile := fmt.Sprintf("%s/%s/Dockerfile_test_add_404", integrationPath, dockerfilesPath)
+	contextDir, err := filepath.Abs(dockerfilesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Build with docker
 	dockerImage := GetDockerImage(config.imageRepo, "Dockerfile_test_add_404")
@@ -753,8 +963,8 @@ func TestBuildWithHTTPError(t *testing.T) {
 		[]string{
 			"build",
 			"-t", dockerImage,
-			"-f", dockerfile,
-			DockerGitRepo(url, "", branch),
+			"-f", filepath.Join(contextDir, "Dockerfile_test_add_404"),
+			contextDir,
 		}...)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err == nil {
@@ -763,14 +973,14 @@ func TestBuildWithHTTPError(t *testing.T) {
 
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_add_404")
-	dockerRunFlags := []string{"run", "--net=host"}
+	dockerRunFlags := []string{"run", "--net=host", "-v", contextDir + ":/workspace:ro"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
-		"-f", dockerfile,
+		"-f", "/workspace/Dockerfile_test_add_404",
 		"-d", kanikoImage,
-		"-c", KanikoGitRepo(url, "", branch),
+		"-c", "/workspace",
 	)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
@@ -1084,7 +1294,7 @@ func TestSnapshotModes(t *testing.T) {
 		t.Helper()
 		tag := GetKanikoImage(config.imageRepo, dockerfile+"-snapshot-"+mode)
 		kanikoArgs := []string{"-c", buildContextPath, "--snapshot-mode=" + mode}
-		if err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, kanikoArgs, tag, cwd, "", ""); err != nil {
+		if _, err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, kanikoArgs, tag, cwd, "", ""); err != nil {
 			t.Fatalf("kaniko build with --snapshot-mode=%s: %v", mode, err)
 		}
 		return tag
@@ -1124,7 +1334,7 @@ func TestReproducible(t *testing.T) {
 		buildArgs = append(buildArgs, "--build-arg", "IMAGE_REPO="+config.imageRepo)
 		flags := []string{"-c", buildContextPath, "--reproducible"}
 		flags = append(flags, additionalKanikoFlagsMap[dockerfile]...)
-		err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, flags, ref,
+		_, err := buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, flags, ref,
 			cwd, "", "")
 		if err != nil {
 			t.Fatalf("build %s -> %s: %v", dockerfile, ref, err)
@@ -1134,11 +1344,13 @@ func TestReproducible(t *testing.T) {
 		"Dockerfile_test_copy_reproducible": "alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
 		"Dockerfile_test_issue_mz731":       "alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
 		"Dockerfile_test_issue_mz851":       "debian@sha256:15a71cc87173e191d5046f9c4288db4e8954b67f92e48d9587087826b0afe562",
+		"Dockerfile_test_issue_mz1365":      "alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
 	}
 	layerMediaTypes := map[string][]ggcrtypes.MediaType{
 		"Dockerfile_test_copy_reproducible": append([]ggcrtypes.MediaType{ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerConfigJSON}, slices.Repeat([]ggcrtypes.MediaType{ggcrtypes.DockerLayer}, 18)...),
 		"Dockerfile_test_issue_mz731":       {ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerConfigJSON, ggcrtypes.DockerLayer, ggcrtypes.DockerLayer},
 		"Dockerfile_test_issue_mz851":       {ggcrtypes.OCIManifestSchema1, ggcrtypes.OCIConfigJSON, ggcrtypes.OCILayer, ggcrtypes.OCILayerZStd},
+		"Dockerfile_test_issue_mz1365":      {ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerConfigJSON, ggcrtypes.DockerLayer, ggcrtypes.DockerLayer, ggcrtypes.DockerLayer},
 	}
 	for dockerfile := range imageBuilder.TestReproducibleDockerfiles {
 		if match, _ := filepath.Match(config.dockerfilesPattern, dockerfile); !match {
@@ -1522,9 +1734,11 @@ func TestExitCodePropagation(t *testing.T) {
 
 func TestBuildWithAnnotations(t *testing.T) {
 	t.Parallel()
-	branch, _, url := getBranchCommitAndURL()
+	contextDir, err := filepath.Abs("testdata")
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	dockerfile := integrationPath + "/testdata/Dockerfile.trivial"
 	annotationKey := "myannotation"
 	annotationValue := "myvalue"
 
@@ -1534,9 +1748,9 @@ func TestBuildWithAnnotations(t *testing.T) {
 		"build",
 		"--push",
 		"-t", dockerImage,
-		"-f", dockerfile,
+		"-f", filepath.Join(contextDir, "Dockerfile.trivial"),
 		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
-		DockerGitRepo(url, "", branch),
+		contextDir,
 	)
 	out, err := RunCommandWithoutTest(dockerCmd)
 	if err != nil {
@@ -1545,15 +1759,15 @@ func TestBuildWithAnnotations(t *testing.T) {
 
 	// Build with kaniko
 	kanikoImage := GetKanikoImage(config.imageRepo, "Dockerfile_test_annotation")
-	dockerRunFlags := []string{"run", "--net=host"}
+	dockerRunFlags := []string{"run", "--net=host", "-v", contextDir + ":/workspace:ro"}
 	dockerRunFlags = addAuthFlags(dockerRunFlags)
 	dockerRunFlags = addCoverageFlags(dockerRunFlags)
 	dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
-		"-f", dockerfile,
+		"-f", "/workspace/Dockerfile.trivial",
 		"-d", kanikoImage,
 		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
-		"-c", KanikoGitRepo(url, "", branch),
+		"-c", "/workspace",
 	)
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 	out, err = RunCommandWithoutTest(kanikoCmd)
@@ -1573,7 +1787,7 @@ func TestCompressionLevel(t *testing.T) {
 	sizes := map[string]int64{}
 	for _, level := range []string{"-1", "0", "1"} {
 		image := GetKanikoImage(config.imageRepo, "compression-gzip"+level)
-		err := buildKanikoImage(t, "testdata", "Dockerfile_test_issue_mz1061", nil,
+		_, err := buildKanikoImage(t, "testdata", "Dockerfile_test_issue_mz1061", nil,
 			[]string{"--compression=gzip", "--compression-level=" + level}, image, cwd, "", "")
 		if err != nil {
 			t.Fatalf("building at --compression-level=%s: %v", level, err)
@@ -1638,8 +1852,10 @@ func TestProvenanceMatchesBuildKit(t *testing.T) {
 
 func TestPushFromArtifact(t *testing.T) {
 	t.Parallel()
-	branch, _, url := getBranchCommitAndURL()
-	dockerfile := integrationPath + "/testdata/Dockerfile.trivial"
+	contextDir, err := filepath.Abs("testdata")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, artifactFlags := range [][]string{{"--tar-path"}, {"--oci-layout-path"}, {"--oci-layout-path", "--provenance"}} {
 		outFlag := strings.ReplaceAll(strings.Join(artifactFlags, ""), "--", "_")[1:]
@@ -1659,7 +1875,7 @@ func TestPushFromArtifact(t *testing.T) {
 
 			runExecutor := func(executorArgs ...string) {
 				t.Helper()
-				flags := []string{"run", "--rm", "--net=host", "-v", outFlag + ":/out"}
+				flags := []string{"run", "--rm", "--net=host", "-v", outFlag + ":/out", "-v", contextDir + ":/workspace:ro"}
 				flags = addKanikoEnvFlags(flags, t.Name())
 				// mz731 keeps OCI base layers verbatim on the direct push, but the
 				// docker-archive --tar-path writer rewrites them to docker mediatypes, so
@@ -1681,16 +1897,16 @@ func TestPushFromArtifact(t *testing.T) {
 
 			// Reference: direct kaniko build & push, reproducible.
 			runExecutor(
-				"-f", dockerfile,
-				"-c", KanikoGitRepo(url, "", branch),
+				"-f", "/workspace/Dockerfile.trivial",
+				"-c", "/workspace",
 				"-d", directImage,
 				"--reproducible",
 			)
 
 			// Two-step: build to an artifact (no push), then push from it.
 			runExecutor(append([]string{
-				"-f", dockerfile,
-				"-c", KanikoGitRepo(url, "", branch),
+				"-f", "/workspace/Dockerfile.trivial",
+				"-c", "/workspace",
 				"--no-push",
 				artifactFlags[0], "/out/image",
 				"--reproducible",
@@ -2158,6 +2374,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 	c.onbuildBaseImage = c.imageRepo + "onbuild-base:latest"
 	c.onbuildCopyImage = c.imageRepo + "onbuild-copy:latest"
 	c.hardlinkBaseImage = c.imageRepo + "hardlink-base:latest"
+	c.extractionBaseImage = c.imageRepo + "extraction-base-image:latest"
 	c.hijackBaseImage = c.imageRepo + "hijack:latest"
 	c.malformedOCIImage = c.imageRepo + "malformed-oci:latest"
 	c.mixedMediaTypeImage = c.imageRepo + "mixed-media-type:latest"
@@ -2165,6 +2382,7 @@ func initIntegrationTestConfig() *integrationTestConfig {
 	c.mz1073BaseImage = c.imageRepo + "test-issue-mz1073-base:latest"
 	c.mz1113BaseImage = c.imageRepo + "test-issue-mz1113-base:latest"
 	c.mz1172BaseImage = c.imageRepo + "test-issue-mz1172-base:latest"
+	c.mountedSymlinkBaseImage = c.imageRepo + "mounted-symlink-kaniko-base:latest"
 	c.singleManifestBaseImage = c.imageRepo + "single-manifest-base:latest"
 	return &c
 }
@@ -2210,7 +2428,7 @@ func TestAlpineTLS(t *testing.T) {
 
 	cwd := config.dir
 	dest := "127.0.0.2:5001/kaniko/mz595-tls:latest"
-	err = buildKanikoImage(
+	_, err = buildKanikoImage(
 		t,
 		dockerfilesPath,
 		"Dockerfile_test_issue_mz595",
@@ -2269,7 +2487,7 @@ func TestPushRepositoryScopedAuth(t *testing.T) {
 	cwd := config.dir
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := buildKanikoImage(
+			_, err := buildKanikoImage(
 				t,
 				dockerfilesPath,
 				"Dockerfile_test_label",
@@ -2314,7 +2532,7 @@ func TestCrossRepoMountFallback(t *testing.T) {
 	seed := writeDockerConfig(t, map[string]types.AuthConfig{
 		"127.0.0.2:5001/userb/test_issue_mz1007": {Username: "userb", Password: "userb"},
 	})
-	err := buildKanikoImage(
+	_, err := buildKanikoImage(
 		t,
 		dockerfilesPath,
 		"Dockerfile_test_label",
@@ -2353,7 +2571,7 @@ func TestCrossRepoMountFallback(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			destination := fmt.Sprintf("127.0.0.2:5001/usera/test_issue_mz1007-%s-%d", tc.repo, time.Now().UnixNano())
-			err = buildKanikoImage(
+			_, err = buildKanikoImage(
 				t,
 				dockerfilesPath,
 				"Dockerfile_test_issue_mz1007",
@@ -2525,7 +2743,7 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 func TestCustomPlatformVariant(t *testing.T) {
 	cwd := config.dir
 	kanikoImage := GetKanikoImage(config.imageRepo, "issue_mz745")
-	err := buildKanikoImage(
+	_, err := buildKanikoImage(
 		t,
 		dockerfilesPath,
 		"Dockerfile_test_cross_compile",
@@ -2557,6 +2775,42 @@ func diffociCmd(image1, image2, platform string, flags ...string) *exec.Cmd {
 	flags = append(flags, image1, image2)
 
 	return exec.Command("diffoci", flags...)
+}
+
+func TestWarmerBake(t *testing.T) {
+	t.Parallel()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctxDir := filepath.Join(cwd, "testdata", "test_warmer_bake")
+	cacheDir := t.TempDir()
+
+	warmFlags := []string{"run", "--rm", "--net=host", "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())}
+	warmFlags = addAuthFlags(warmFlags)
+	warmFlags = addCoverageFlags(warmFlags)
+	for _, envVariable := range WarmerEnv {
+		warmFlags = append(warmFlags, "-e", envVariable)
+	}
+	warmFlags = append(warmFlags, "-v", ctxDir+":/workspace", "-v", cacheDir+":/cache", WarmerImage,
+		"bake", "/workspace/kaniko-bake.hcl", "--cache-dir=/cache")
+	out, err := RunCommandWithoutTest(exec.Command("docker", warmFlags...))
+	t.Logf("warmer bake output:\n%s", out)
+	if err != nil {
+		t.Fatalf("warmer bake failed: %v", err)
+	}
+
+	// Without a network, the base images can only come from the warmed cache.
+	buildFlags := []string{"run", "--rm", "--network=none", "-v", ctxDir + ":/workspace", "-v", cacheDir + ":/cache"}
+	buildFlags = addCoverageFlags(buildFlags)
+	buildFlags = addKanikoEnvFlags(buildFlags, t.Name())
+	buildFlags = append(buildFlags, ExecutorImage,
+		"bake", "/workspace/kaniko-bake.hcl", "--no-push", "--cache=true", "--no-push-cache", "--cache-dir=/cache")
+	out, err = RunCommandWithoutTest(exec.Command("docker", buildFlags...))
+	t.Logf("executor bake output:\n%s", out)
+	if err != nil {
+		t.Fatalf("executor bake failed: %v", err)
+	}
 }
 
 // diffoci compares the container images image1 and image2 and fails if they differ.

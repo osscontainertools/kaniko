@@ -1,0 +1,18 @@
+FROM scratch AS build
+ARG TARGETARCH
+ARG VARIANT=foo
+RUN echo hello > /out-$TARGETARCH && echo hello > /out-$VARIANT
+SAVE STAGE /kaniko/stages/0
+SAVE FILES [/out-amd64 /out-foo] /kaniko/deps/0
+CLEAN
+
+FROM build AS variant
+  UNPACK /kaniko/stages/0
+COPY --from=build /out-${VARIANT} /value
+SAVE FILES [/value] /kaniko/deps/1
+CLEAN
+
+FROM scratch
+ARG TARGETARCH
+COPY --from=build /out-${TARGETARCH} /arch
+COPY --from=variant /value /variant

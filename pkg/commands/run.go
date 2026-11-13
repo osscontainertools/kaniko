@@ -72,7 +72,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 		expand := func(word string) (string, error) {
 			return util.ResolveEnvironmentReplacement(word, replacementEnvs, false)
 		}
-		err := cmdRun.Expand(expand)
+		err := ExpandRunCommand(cmdRun, expand)
 		if err != nil {
 			return err
 		}
@@ -97,7 +97,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				}
 				if created != "" {
 					defer assignIfNil(&reterr, func() error {
-						return os.RemoveAll(created)
+						return removeEmptyDirs(m.Target, created)
 					})
 				}
 				err = swapDir(cacheDir, m.Target)
@@ -186,7 +186,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					}
 					if created != "" {
 						defer assignIfNil(&reterr, func() error {
-							return os.RemoveAll(created)
+							return removeEmptyDirs(parent, created)
 						})
 					}
 					mode := os.FileMode(0o400)
@@ -215,14 +215,71 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 						}
 					}
 				}
+			// https://docs.docker.com/reference/dockerfile/#run---mounttypetmpfs
+			case m.Type == instructions.MountTypeTmpfs && kConfig.FF.RunMountTmpfs:
+				target := m.Target
+				if target == "" {
+					return errors.New("tmpfs mount target must be specified")
+				}
+
+				_, err := os.Lstat(target)
+				if err != nil && !os.IsNotExist(err) {
+					return fmt.Errorf("stat tmpfs target %s: %w", target, err)
+				}
+				targetExisted := err == nil
+
+				if targetExisted {
+					h := sha256.Sum256([]byte(target))
+					tmpfsDir := filepath.Join(kConfig.KanikoSwapDir, "tmpfs-"+hex.EncodeToString(h[:]))
+					err = os.MkdirAll(kConfig.KanikoSwapDir, 0o755)
+					if err != nil {
+						return fmt.Errorf("creating swap dir for tmpfs: %w", err)
+					}
+					err = os.MkdirAll(tmpfsDir, 0o755)
+					if err != nil {
+						return fmt.Errorf("creating tmpfs dir: %w", err)
+					}
+					defer func() {
+						os.RemoveAll(tmpfsDir)
+					}()
+					err = swapDir(tmpfsDir, target)
+					if err != nil {
+						return fmt.Errorf("swapping tmpfs target %s: %w", target, err)
+					}
+					defer assignIfNil(&reterr, func() error {
+						return swapDir(target, tmpfsDir)
+					})
+				} else {
+					created, err := ensureDir(target)
+					if err != nil {
+						return fmt.Errorf("ensuring tmpfs target %s: %w", target, err)
+					}
+					// Lstat reported target missing, so ensureDir creates at least target itself.
+					assert.Assert("run.tmpfs-created", created != "", "ensureDir created nothing for missing tmpfs target %s", target)
+					defer assignIfNil(&reterr, func() error {
+						err := os.RemoveAll(target)
+						if err != nil {
+							return err
+						}
+						return removeEmptyDirs(filepath.Dir(target), created)
+					})
+				}
+
 			// https://docs.docker.com/reference/dockerfile/#run---mounttypebind
 			case m.Type == instructions.MountTypeBind:
+				mountFileContext := fileContext
 				if m.From != "" && m.From != "context" {
-					logrus.Warnf("Kaniko does not support cross-stage bind mounts (from=%s) - skipping", m.From)
-					continue
+					if !kConfig.FF.RunCrossStageBindMount {
+						logrus.Warnf("Kaniko does not support cross-stage bind mounts (from=%s) - skipping", m.From)
+						continue
+					}
+					mountFileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoInterStageDepsDir, m.From)}
 				}
-				src := filepath.Join(fileContext.Root, m.Source)
+				src := filepath.Join(mountFileContext.Root, m.Source)
 				target := m.Target
+				if kConfig.FF.RunMountBindRelative {
+					target = ToAbsPath(target, config.WorkingDir)
+				}
 
 				_, err := os.Lstat(target)
 				if err != nil && !os.IsNotExist(err) {
@@ -253,12 +310,12 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 				}
 				if created != "" {
 					defer assignIfNil(&reterr, func() error {
-						return os.RemoveAll(created)
+						return removeEmptyDirs(parent, created)
 					})
 				}
 
 				if kConfig.FF.NativeCopy {
-					err = util.CopyTree(src, target, fileContext, false)
+					err = util.CopyTree(src, target, mountFileContext, false)
 				} else {
 					err = otiai10Cpy.Copy(src, target, otiai10Cpy.Options{
 						PreserveTimes:     true,
@@ -266,7 +323,7 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 						PermissionControl: otiai10Cpy.PerservePermission,
 						FS:                util.FSys,
 						Skip: func(_ os.FileInfo, srcPath, _ string) (bool, error) {
-							return fileContext.ExcludesFile(srcPath), nil
+							return mountFileContext.ExcludesFile(srcPath), nil
 						},
 					})
 				}
@@ -468,6 +525,10 @@ func (r *RunCommand) CacheKey(replacementEnvs []string) (string, error) {
 	return runCacheKey(r.cmd), nil
 }
 
+func (r *RunCommand) instruction() *instructions.RunCommand {
+	return r.cmd
+}
+
 // runCacheKey appends the raw heredoc bodies to the instruction text
 func runCacheKey(cmd *instructions.RunCommand) string {
 	var key strings.Builder
@@ -527,6 +588,10 @@ func (cr *CachingRunCommand) CacheKey(replacementEnvs []string) (string, error) 
 	return runCacheKey(cr.cmd), nil
 }
 
+func (cr *CachingRunCommand) instruction() *instructions.RunCommand {
+	return cr.cmd
+}
+
 func (cr *CachingRunCommand) FilesUsedFromContext(config *v1.Config, buildArgs *dockerfile.BuildArgs) ([]string, error) {
 	return runCmdFilesUsedFromContext(config, buildArgs, cr.cmd, cr.fileContext)
 }
@@ -554,7 +619,7 @@ func runCmdFilesUsedFromContext(
 	expand := func(word string) (string, error) {
 		return util.ResolveEnvironmentReplacement(word, replacementEnvs, false)
 	}
-	if err := cmd.Expand(expand); err != nil {
+	if err := ExpandRunCommand(cmd, expand); err != nil {
 		return nil, err
 	}
 
@@ -564,7 +629,9 @@ func runCmdFilesUsedFromContext(
 			continue
 		}
 		if m.From != "" && m.From != "context" {
-			logrus.Warnf("Kaniko does not support cross-stage bind mounts (from=%s) - skipping", m.From)
+			if !kConfig.FF.RunCrossStageBindMount {
+				logrus.Warnf("Kaniko does not support cross-stage bind mounts (from=%s) - skipping", m.From)
+			}
 			continue
 		}
 		fullPath := filepath.Join(fileContext.Root, m.Source)
@@ -574,6 +641,34 @@ func runCmdFilesUsedFromContext(
 	logrus.Debugf("Using files from context: %v", files)
 
 	return files, nil
+}
+
+func MountSources(command DockerCommand) []string {
+	var sources []string
+	run, ok := command.(runInstruction)
+	if ok && kConfig.FF.RunCrossStageBindMount {
+		for _, m := range dockerfile.CrossStageMounts(run.instruction()) {
+			sources = append(sources, m.From)
+		}
+	}
+	return sources
+}
+
+type runInstruction interface {
+	instruction() *instructions.RunCommand
+}
+
+// buildkit reparses the mounts from the raw flag, so the stage index
+// resolved into from= is put back.
+func ExpandRunCommand(cmd *instructions.RunCommand, expand instructions.SingleWordExpander) error {
+	mounts := instructions.GetMounts(cmd)
+	if err := cmd.Expand(expand); err != nil {
+		return err
+	}
+	for i, m := range instructions.GetMounts(cmd) {
+		m.From = mounts[i].From
+	}
+	return nil
 }
 
 // todo: this should create the workdir if it doesn't exist, atleast this is what docker does
@@ -642,6 +737,20 @@ func ensureDir(target string) (string, error) {
 	}
 
 	return firstCreated, nil
+}
+
+func removeEmptyDirs(dir, created string) error {
+	for ; dir != filepath.Dir(created); dir = filepath.Dir(dir) {
+		err := os.Remove(dir)
+		switch {
+		case err == nil, os.IsNotExist(err):
+		case errors.Is(err, syscall.ENOTEMPTY), errors.Is(err, syscall.EEXIST):
+			return nil
+		default:
+			return err
+		}
+	}
+	return nil
 }
 
 func assignIfNil(dst *error, fn func() error) {

@@ -16,12 +16,12 @@ ARG BUILDPLATFORM
 
 # Use the statically compiled BusyBox xz applet to unpack the UPX archive.
 # Keep in sync with deploy/sources/busybox.spdx.json.
-FROM busybox:musl@sha256:ea2b9914a16a4ac1981994af97b318f7c7d4db76b580c56177f08bf76f4a0be8 AS busybox
+FROM busybox:musl@sha256:80e38f9a1b39188b8bdb28879178edb322a4402b081a9aedda1924609decd6f6 AS busybox
 RUN mkdir -m 777 -p /kaniko
 
-FROM --platform=$BUILDPLATFORM busybox:musl@sha256:ea2b9914a16a4ac1981994af97b318f7c7d4db76b580c56177f08bf76f4a0be8 AS busybox-build
+FROM --platform=$BUILDPLATFORM busybox:musl@sha256:80e38f9a1b39188b8bdb28879178edb322a4402b081a9aedda1924609decd6f6 AS busybox-build
 
-FROM --platform=$BUILDPLATFORM golang:1.27.3@sha256:9048d5e7751706200eb1719c7dae0436950d362f29a1da91fa05e5c63867c60f AS builder-base
+FROM --platform=$BUILDPLATFORM golang:1.27.4@sha256:5e8afd493a7124a8586e134d9b532731161d4b9becf9dee5a5956b107426f93d AS builder-base
 WORKDIR /src
 
 # This arg is passed by docker buildx & contains the target CPU architecture (e.g., amd64, arm64, etc.)
@@ -88,8 +88,9 @@ RUN mkdir -p /licenses/go \
 
 FROM builder-base AS builder
 ARG COVER=""
+ARG RACE=""
 ARG UPX_COMPRESS=""
-RUN make COVER="$COVER" UPX_COMPRESS="$UPX_COMPRESS" out/executor out/warmer \
+RUN make COVER="$COVER" RACE="$RACE" UPX_COMPRESS="$UPX_COMPRESS" out/executor out/warmer \
     && rm -rf /root/.cache
 
 # The helper names must match the argv[0] dispatch in pkg/creds.
@@ -104,8 +105,9 @@ RUN mkdir -p /dist/executor /dist/warmer \
 
 FROM builder-base AS builder-slim
 ARG COVER=""
+ARG RACE=""
 ARG UPX_COMPRESS=""
-RUN make COVER="$COVER" UPX_COMPRESS="$UPX_COMPRESS" out/executor-slim \
+RUN make COVER="$COVER" RACE="$RACE" UPX_COMPRESS="$UPX_COMPRESS" out/executor-slim \
     && rm -rf /root/.cache
 
 FROM scratch AS busybox-licenses
@@ -198,7 +200,7 @@ COPY --from=builder /dist/executor/ /kaniko/
 
 ENTRYPOINT ["/kaniko/executor"]
 
-FROM alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS kaniko-alpine
+FROM alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS kaniko-alpine
 
 RUN apk add --no-cache ca-certificates git
 

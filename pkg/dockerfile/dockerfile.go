@@ -28,6 +28,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/containerd/platforms"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/moby/buildkit/frontend/dockerfile/linter"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
@@ -67,7 +69,14 @@ func ParseStages(opts *config.KanikoOptions) ([]instructions.Stage, []instructio
 		return nil, nil, fmt.Errorf("parsing dockerfile: %w", err)
 	}
 
-	metaArgs, err = expandNestedArgs(metaArgs, opts.BuildArgs)
+	var predefinedArgs []string
+	if config.FF.FromPredefinedArgs {
+		predefinedArgs, err = PredefinedArgs(opts.CustomPlatform)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	metaArgs, err = expandNestedArgs(metaArgs, predefinedArgs, opts.BuildArgs)
 	if err != nil {
 		return nil, nil, fmt.Errorf("expanding meta ARGs: %w", err)
 	}
@@ -127,8 +136,8 @@ func Parse(b []byte) ([]instructions.Stage, []instructions.ArgCommand, error) {
 }
 
 // expandNestedArgs tries to resolve nested ARG value against the previously defined ARGs
-func expandNestedArgs(metaArgs []instructions.ArgCommand, buildArgs []string) ([]instructions.ArgCommand, error) {
-	var prevArgs []string
+func expandNestedArgs(metaArgs []instructions.ArgCommand, predefinedArgs, buildArgs []string) ([]instructions.ArgCommand, error) {
+	prevArgs := predefinedArgs
 	for i, marg := range metaArgs {
 		for j, arg := range marg.Args {
 			v := arg.Value
@@ -266,6 +275,13 @@ func resolveCrossStageCommands(cmds []instructions.Command, stageNameToIdx map[s
 		switch c := cmd.(type) {
 		case *instructions.CopyCommand:
 			if c.From != "" {
+				expanded, err := util.ResolveEnvironmentReplacement(c.From, nil, false)
+				if err != nil {
+					return err
+				}
+				if expanded != c.From {
+					return fmt.Errorf("COPY --from=%s: variables are not supported in --from, use them in a FROM stage instead", c.From)
+				}
 				if val, ok := stageNameToIdx[strings.ToLower(c.From)]; ok {
 					c.From = strconv.Itoa(val)
 				}
@@ -275,9 +291,32 @@ func resolveCrossStageCommands(cmds []instructions.Command, stageNameToIdx map[s
 					}
 				}
 			}
+		case *instructions.RunCommand:
+			if config.FF.RunCrossStageBindMount {
+				for _, m := range CrossStageMounts(c) {
+					if val, ok := stageNameToIdx[strings.ToLower(m.From)]; ok {
+						m.From = strconv.Itoa(val)
+					}
+					if idx, err := strconv.Atoi(m.From); err == nil {
+						if idx < 0 || idx >= nStages {
+							return fmt.Errorf("RUN --mount=from=%d refers to a stage that does not exist", idx)
+						}
+					}
+				}
+			}
 		}
 	}
 	return nil
+}
+
+func CrossStageMounts(cmd *instructions.RunCommand) []*instructions.Mount {
+	var mounts []*instructions.Mount
+	for _, m := range instructions.GetMounts(cmd) {
+		if m.Type == instructions.MountTypeBind && m.From != "" && m.From != "context" {
+			mounts = append(mounts, m)
+		}
+	}
+	return mounts
 }
 
 // resolveStagesArgs resolves all the args from list of stages
@@ -298,6 +337,9 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	if len(stages) == 0 {
 		return nil, errors.New("dockerfile must contain at least one FROM instruction")
 	}
+	if !config.FF.AddChecksum && opts.RequireAddChecksum {
+		return nil, errors.New("--require-add-checksum cannot be used with FF_KANIKO_ADD_CHECKSUM=false, checksums would not be verified")
+	}
 	targetStages, err := targetStages(stages, opts.Target)
 	if err != nil {
 		return nil, fmt.Errorf("error finding target stage: %w", err)
@@ -308,6 +350,13 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	finalStage := targetStages[len(targetStages)-1]
 
 	args := unifyArgs(metaArgs, opts.BuildArgs)
+	if config.FF.FromPredefinedArgs {
+		predefinedArgs, err := PredefinedArgs(opts.CustomPlatform)
+		if err != nil {
+			return nil, err
+		}
+		args = append(predefinedArgs, args...)
+	}
 	if err := resolveStagesArgs(stages, args); err != nil {
 		return nil, fmt.Errorf("resolving args: %w", err)
 	}
@@ -351,6 +400,12 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		} else if baseImageStoredLocally {
 			onBuild = getOnBuild(stages[baseImageIndex].Commands)
 		} else {
+			if opts.RequireDigest {
+				_, err = name.NewDigest(stage.BaseName)
+				if err != nil {
+					return nil, fmt.Errorf("stage %d: --require-digest: %w", i, err)
+				}
+			}
 			onBuild, baseImageDigest, err = GetRemoteOnBuild(stage.BaseName, metaArgs, opts)
 			if err != nil {
 				return nil, err
@@ -373,6 +428,14 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			case *instructions.CopyCommand:
 				if copyFromIndex, err := strconv.Atoi(cmd.From); err == nil {
 					copyDependencies[copyFromIndex]++
+				}
+			case *instructions.RunCommand:
+				if config.FF.RunCrossStageBindMount {
+					for _, m := range CrossStageMounts(cmd) {
+						if fromIndex, err := strconv.Atoi(m.From); err == nil {
+							copyDependencies[fromIndex]++
+						}
+					}
 				}
 			}
 		}
@@ -412,6 +475,27 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		}
 	}
 	return onlyUsedStages, nil
+}
+
+// PredefinedArgs returns the platform args that FROM and global ARG defaults resolve without a declaration.
+func PredefinedArgs(customPlatform string) ([]string, error) {
+	build := platforms.Normalize(platforms.DefaultSpec())
+	target, err := platforms.Parse(customPlatform)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse target platform %q: %w", customPlatform, err)
+	}
+	return []string{
+		"BUILDPLATFORM=" + platforms.Format(build),
+		"BUILDOS=" + build.OS,
+		"BUILDOSVERSION=" + build.OSVersion,
+		"BUILDARCH=" + build.Architecture,
+		"BUILDVARIANT=" + build.Variant,
+		"TARGETPLATFORM=" + customPlatform,
+		"TARGETOS=" + target.OS,
+		"TARGETOSVERSION=" + target.OSVersion,
+		"TARGETARCH=" + target.Architecture,
+		"TARGETVARIANT=" + target.Variant,
+	}, nil
 }
 
 // unifyArgs returns the unified args between metaArgs and --build-arg

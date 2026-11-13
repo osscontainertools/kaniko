@@ -99,6 +99,7 @@ var networkCategories = map[string]bool{
 	"Total Push Time":            true,
 	"Checking push permissions":  true,
 	"Exchanging telemetry token": true,
+	"Fetching build context":     true,
 }
 
 var containerCategories = map[string]bool{
@@ -108,6 +109,7 @@ var containerCategories = map[string]bool{
 	"Planning":                      true,
 	"Resolving Extra Stage Digests": true,
 	"Fetching Extra Stages":         true,
+	"Setting up build":              true,
 }
 
 func phaseFor(category string) string {
@@ -132,6 +134,11 @@ func StartChild(parent trace.Span, category string) trace.Span {
 
 func Record(category string, begin, end time.Time) {
 	span := start(nil, category, trace.WithTimestamp(begin))
+	span.End(trace.WithTimestamp(end))
+}
+
+func RecordChild(parent trace.Span, category string, begin, end time.Time) {
+	span := start(parent, category, trace.WithTimestamp(begin))
 	span.End(trace.WithTimestamp(end))
 }
 

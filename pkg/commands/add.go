@@ -89,28 +89,21 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		}
 	}
 
+	var chownOwner *util.Owner
+	if kConfig.FF.AddChownTar && a.cmd.Chown != "" {
+		chownOwner = owner
+	}
+
 	srcs, dest, err := util.ResolveEnvAndWildcards(a.cmd.SourcesAndDest, a.fileContext, replacementEnvs)
 	if err != nil {
 		return err
 	}
 
 	var checksum digest.Digest
-	if a.cmd.Checksum != "" && kConfig.FF.AddChecksum {
-		if len(srcs) > 1 {
-			return errors.New("checksum can't be specified for multiple sources")
-		}
-		resolved, err := util.ResolveEnvironmentReplacement(a.cmd.Checksum, replacementEnvs, false)
+	if kConfig.FF.AddChecksum && a.cmd.Checksum != "" {
+		checksum, err = resolveChecksum(a.cmd.Checksum, srcs, replacementEnvs)
 		if err != nil {
-			return fmt.Errorf("resolving checksum: %w", err)
-		}
-		checksum, err = digest.Parse(resolved)
-		if err != nil {
-			return fmt.Errorf("invalid checksum digest format: %w", err)
-		}
-		for _, src := range srcs {
-			if !util.IsSrcRemoteFileURL(src) {
-				return fmt.Errorf("checksum requires HTTP(S) sources, got %s", src)
-			}
+			return err
 		}
 	}
 
@@ -131,6 +124,11 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		defer os.RemoveAll(staging)
 	}
 
+	cwd := config.WorkingDir
+	if !filepath.IsAbs(cwd) {
+		cwd = filepath.Join(kConfig.RootDir, cwd)
+	}
+
 	var unresolvedSrcs []string
 	// If any of the sources are local tar archives:
 	// 	1. Unpack them to the specified destination
@@ -139,8 +137,11 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 	// Else, add to the list of unresolved sources
 	for _, src := range srcs {
 		fullPath := filepath.Join(a.fileContext.Root, src)
+		if checksum != "" && !util.IsSrcRemoteFileURL(src) {
+			return fmt.Errorf("checksum requires HTTP(S) sources, got %s", src)
+		}
 		if util.IsSrcRemoteFileURL(src) {
-			urlDest, err := util.URLDestinationFilepath(src, dest, config.WorkingDir, replacementEnvs)
+			urlDest, err := util.URLDestinationFilepath(src, dest, cwd, replacementEnvs)
 			if err != nil {
 				return err
 			}
@@ -152,6 +153,12 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				if err != nil {
 					return fmt.Errorf("materializing link destination: %w", err)
 				}
+			} else if kConfig.FF.AddFollowSymlink {
+				urlDest, err = resolveIfSymlink(urlDest)
+				if err != nil {
+					return fmt.Errorf("resolving dest symlink: %w", err)
+				}
+				download = urlDest
 			}
 			logrus.Infof("Adding remote URL %s to %s", src, urlDest)
 			if err := util.DownloadFileToDest(src, download, owner, chmod.Apply(0o600), checksum); err != nil {
@@ -162,7 +169,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 			case !unpackRemote:
 				a.snapshotFiles = append(a.snapshotFiles, urlDest)
 			case util.IsFileTarArchive(download):
-				tarDest, err := util.DestinationFilepath("", dest, config.WorkingDir)
+				tarDest, err := util.DestinationFilepath("", dest, cwd)
 				if err != nil {
 					return fmt.Errorf("determining dest for tar: %w", err)
 				}
@@ -172,8 +179,19 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 						return fmt.Errorf("materializing link destination: %w", err)
 					}
 				}
+				if chownOwner != nil {
+					_, err := os.Stat(tarDest)
+					if os.IsNotExist(err) {
+						if err := util.MkdirAllWithPermissions(tarDest, 0o755, *chownOwner, true); err != nil {
+							return fmt.Errorf("creating tar destination directory: %w", err)
+						}
+						a.snapshotFiles = append(a.snapshotFiles, tarDest)
+					} else if err != nil {
+						return fmt.Errorf("checking tar destination: %w", err)
+					}
+				}
 				logrus.Infof("Unpacking remote archive %s to %s", src, tarDest)
-				extractedFiles, err := util.UnpackLocalTarArchive(download, tarDest)
+				extractedFiles, err := util.UnpackLocalTarArchive(download, tarDest, chownOwner)
 				if err != nil {
 					return fmt.Errorf("unpacking remote archive: %w", err)
 				}
@@ -217,7 +235,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 					return err
 				}
 			}
-			tarDest, err := util.DestinationFilepath("", dest, config.WorkingDir)
+			tarDest, err := util.DestinationFilepath("", dest, cwd)
 			if err != nil {
 				return fmt.Errorf("determining dest for tar: %w", err)
 			}
@@ -227,8 +245,19 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 					return fmt.Errorf("materializing link destination: %w", err)
 				}
 			}
+			if chownOwner != nil {
+				_, err := os.Stat(tarDest)
+				if os.IsNotExist(err) {
+					if err := util.MkdirAllWithPermissions(tarDest, 0o755, *chownOwner, true); err != nil {
+						return fmt.Errorf("creating tar destination directory: %w", err)
+					}
+					a.snapshotFiles = append(a.snapshotFiles, tarDest)
+				} else if err != nil {
+					return fmt.Errorf("checking tar destination: %w", err)
+				}
+			}
 			logrus.Infof("Unpacking local tar archive %s to %s", src, tarDest)
-			extractedFiles, err := util.UnpackLocalTarArchive(fullPath, tarDest)
+			extractedFiles, err := util.UnpackLocalTarArchive(fullPath, tarDest, chownOwner)
 			if err != nil {
 				return fmt.Errorf("unpacking local tar: %w", err)
 			}
@@ -259,6 +288,38 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 	}
 	a.snapshotFiles = append(a.snapshotFiles, copyCmd.snapshotFiles...)
 	return nil
+}
+
+func RequireAddChecksum(cmd *instructions.AddCommand, fileContext util.FileContext, replacementEnvs []string) error {
+	srcs, _, err := util.ResolveEnvAndWildcards(cmd.SourcesAndDest, fileContext, replacementEnvs)
+	if err != nil {
+		return err
+	}
+	if cmd.Checksum != "" {
+		_, err := resolveChecksum(cmd.Checksum, srcs, replacementEnvs)
+		return err
+	}
+	for _, src := range srcs {
+		if util.IsSrcRemoteFileURL(src) {
+			return fmt.Errorf("--require-add-checksum: ADD %s has no --checksum", src)
+		}
+	}
+	return nil
+}
+
+func resolveChecksum(raw string, srcs []string, replacementEnvs []string) (digest.Digest, error) {
+	if len(srcs) > 1 {
+		return "", errors.New("checksum can't be specified for multiple sources")
+	}
+	resolved, err := util.ResolveEnvironmentReplacement(raw, replacementEnvs, false)
+	if err != nil {
+		return "", fmt.Errorf("resolving checksum: %w", err)
+	}
+	checksum, err := digest.Parse(resolved)
+	if err != nil {
+		return "", fmt.Errorf("invalid checksum digest format: %w", err)
+	}
+	return checksum, nil
 }
 
 // FilesToSnapshot should return an empty array if still nil; no files were changed
