@@ -17,4 +17,5 @@ set -e
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # kaniko's go.mod vendors, so the tool lives in its own module to keep its dependencies out of vendor/.
-"$(go -C "${DIR}/../tools" tool -n golangci-lint)" run
+GOLANGCI_LINT="$(go -C "${DIR}/../tools" tool -n golangci-lint)"
+"${GOLANGCI_LINT}" run
