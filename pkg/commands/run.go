@@ -282,9 +282,8 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					if resolveErr != nil {
 						return fmt.Errorf("resolving bind source symlink %s: %w", src, resolveErr)
 					}
-					if mountFileContext.ExcludesFile(resolvedSrc) {
-						return fmt.Errorf("bind source %s resolves to excluded path %s", m.Source, resolvedSrc)
-					}
+					// runCmdFilesUsedFromContext rejects excluded sources before any RUN executes
+					assert.Assert("run.bind-source-not-excluded", !mountFileContext.ExcludesFile(resolvedSrc), "bind source %s resolves to excluded path %s", m.Source, resolvedSrc)
 					src = resolvedSrc
 				}
 				target := m.Target
