@@ -192,7 +192,6 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1133_1": {"FF_KANIKO_COPY_AS_ROOT=0"},
 	"Dockerfile_test_issue_mz1133_2": {"FF_KANIKO_COPY_AS_ROOT=0"},
 	"Dockerfile_test_issue_mz881":    {"KANIKO_127_0_0_2:5001_USER=kanikotest", "KANIKO_127_0_0_2:5001_PASSWORD=kanikotest"},
-	"issue-mz1374":                   {"FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK=1"},
 }
 
 var KanikoEnv = []string{
@@ -242,6 +241,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_RUN_HEREDOC_SCRIPT=1",
 	"FF_KANIKO_RUN_HONOR_GROUP=1",
 	"FF_KANIKO_RUN_MOUNT_BIND_RELATIVE=1",
+	"FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK=1",
 	"FF_KANIKO_RUN_MOUNT_TMPFS=1",
 	"FF_KANIKO_SCOPED_DOCKERIGNORE=1",
 	"FF_KANIKO_SHARED_BASE_CACHE=1",
