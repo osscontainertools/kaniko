@@ -58,7 +58,7 @@ jobs:
         with:
           version: 29.9.3
 
-      - run: make install-diffoci k3s-setup
+      - run: make k3s-setup
       - run: make ${{ matrix.make-target }}
 
       - name: Convert and upload coverage

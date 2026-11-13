@@ -68,15 +68,6 @@ out/executor-slim: $(GO_FILES)
 out/warmer: $(GO_FILES)
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build -tags $(GO_TAGS)$(if $(RACE),$(RACE_TAGS)) $(if $(COVER),-cover) $(if $(RACE),-race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(WARMER_PACKAGE)
 
-.PHONY: install-diffoci
-install-diffoci:
-	@ git clone https://github.com/mzihlmann/diffoci.git && \
-		cd diffoci/cmd/diffoci && \
-		git checkout d2b263e5a899c7c68055e4dd9863c1dbe0c884e9 && \
-		go mod vendor && \
-		go install
-
-
 .PHONY: k3s-setup
 k3s-setup:
 	@ ./scripts/k3s-setup.sh

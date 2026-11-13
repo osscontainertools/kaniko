@@ -172,7 +172,7 @@ These tests will be kicked off by [reviewers](#reviews) for submitted PRs using 
 
 In either case, you will need the following tools:
 
-* [`diffoci`](https://github.com/mzihlmann/diffoci#installation)
+* [`diffoci`](https://github.com/mzihlmann/diffoci), which `scripts/integration-test.sh` builds from `tools/go.mod`
 
 #### Registry
 
