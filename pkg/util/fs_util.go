@@ -31,7 +31,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -220,7 +219,7 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 	defer r.Close()
 
 	var rootDir *os.File
-	if hasOpenat2() {
+	if useOpenat2 {
 		rootDir, err = openExtractRoot(root)
 		if err != nil {
 			return nil, err
@@ -375,7 +374,7 @@ func removeAllSkipIgnored(path string) (skip bool, err error) {
 
 func UnTar(r io.Reader, dest string, chownOwner *Owner) ([]string, error) {
 	var root *os.File
-	if hasOpenat2() {
+	if useOpenat2 {
 		var err error
 		root, err = openExtractRoot(dest)
 		if err != nil {
@@ -407,23 +406,26 @@ func UnTar(r io.Reader, dest string, chownOwner *Owner) ([]string, error) {
 	return extractedFiles, nil
 }
 
-var hasOpenat2 = sync.OnceValue(func() bool {
+var useOpenat2 bool
+
+// ProbeOpenat2 enables openat2 path resolution during extraction when the kernel and /proc support it.
+func ProbeOpenat2() {
 	fd, err := unix.Openat2(unix.AT_FDCWD, "/", &unix.OpenHow{
 		Flags:   unix.O_PATH | unix.O_CLOEXEC,
 		Resolve: unix.RESOLVE_IN_ROOT,
 	})
 	if err != nil {
 		logrus.Debugf("openat2 unavailable, resolving extraction paths with securejoin: %v", err)
-		return false
+		return
 	}
 	defer unix.Close(fd)
 	_, err = os.Readlink("/proc/self/fd/" + strconv.Itoa(fd))
 	if err != nil {
 		logrus.Debugf("/proc/self/fd unreadable, resolving extraction paths with securejoin: %v", err)
-		return false
+		return
 	}
-	return true
-})
+	useOpenat2 = true
+}
 
 // openExtractRoot returns nil when dest does not exist yet, its entries then resolve with SecureJoin.
 func openExtractRoot(dest string) (*os.File, error) {
