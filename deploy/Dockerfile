@@ -57,6 +57,13 @@ ARG RACE=""
 RUN make COVER="$COVER" RACE="$RACE" out/executor-slim \
     && rm -rf /root/.cache
 
+FROM builder-base AS builder-slim-fips
+ARG COVER=""
+ARG RACE=""
+ENV GOFIPS140=v1.0.0
+RUN make COVER="$COVER" RACE="$RACE" out/executor-slim \
+    && rm -rf /root/.cache
+
 # use musl busybox since it's staticly compiled on all platforms
 # Keep in sync with deploy/sources/busybox.spdx.json.
 FROM busybox:musl@sha256:80e38f9a1b39188b8bdb28879178edb322a4402b081a9aedda1924609decd6f6 AS busybox
@@ -209,5 +216,11 @@ RUN ["/busybox2/ln", "-s", "/busybox2/sh", "/bin/sh"]
 FROM kaniko-base-slim AS kaniko-slim
 
 COPY --from=builder-slim /src/out/executor-slim /kaniko/executor
+
+ENTRYPOINT ["/kaniko/executor"]
+
+FROM kaniko-base-slim AS kaniko-slim-fips
+
+COPY --from=builder-slim-fips /src/out/executor-slim /kaniko/executor
 
 ENTRYPOINT ["/kaniko/executor"]

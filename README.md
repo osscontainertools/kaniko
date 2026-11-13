@@ -205,6 +205,7 @@ expect - see [Known Issues](#known-issues).
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
+    - [FIPS 140-3 Image](#fips-140-3-image)
   - [Creating Multi-arch Container Manifests Using Kaniko and Manifest-tool](#creating-multi-arch-container-manifests-using-kaniko-and-manifest-tool)
     - [General Workflow](#general-workflow)
     - [Limitations and Pitfalls](#limitations-and-pitfalls)
@@ -1889,6 +1890,22 @@ $ cosign verify \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
   ghcr.io/osscontainertools/kaniko:latest
 ```
+
+### FIPS 140-3 Image
+
+The `slim-fips` image is the `slim` executor built with the Go Cryptographic Module v1.0.0.
+FIPS 140-3 mode is on by default (`GODEBUG=fips140=on`).
+The module's validation ([CMVP #5247](https://csrc.nist.gov/projects/cryptographic-module-validation-program/certificate/5247)) does not cover `linux/riscv64`, so the `riscv64` image runs in FIPS mode but is not certified.
+Like `slim`, it has no gcr, ecr or acr credential helpers and no git, S3, GCS or Azure build contexts.
+
+kaniko still uses non-approved hashes internally for file change detection and layer cache keys:
+
+- highwayhash for snapshots in the default `--snapshot-mode=full`
+- md5 for snapshots in `--snapshot-mode=redo` and `--snapshot-mode=time`
+- blake3 for layer cache keys, or md5 with `FF_KANIKO_CACHE_HASH_BLAKE3=false`
+
+We are working on removing the remaining non-approved hashes.
+Until then `GODEBUG=fips140=only` panics in `redo` and `time` snapshot modes, and with `FF_KANIKO_CACHE_HASH_BLAKE3=false`.
 
 ## Creating Multi-arch Container Manifests Using Kaniko and Manifest-tool
 
