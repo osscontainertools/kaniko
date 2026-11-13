@@ -362,7 +362,7 @@ def verify_one(prov_path: str, manifest: Dict[str, Any]) -> bool:
             exp_sha = manifest_by_url.get(url)
             if exp_sha is None:
                 errors.append(f"unmanifested HTTP dependency in provenance: {url} digests={sorted('sha256:'+g for g in got)}")
-            elif exp_sha not in got:
+            elif got != {exp_sha}:
                 errors.append(f"digest MISMATCH for {url}: expected sha256:{exp_sha}, provenance has {sorted('sha256:'+g for g in got)}")
             else:
                 print(f"OK: {url} -> sha256:{exp_sha}")
