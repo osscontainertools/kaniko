@@ -1877,7 +1877,7 @@ kaniko still uses non-approved hashes internally for file change detection and l
 - blake3 for layer cache keys, or md5 with `FF_KANIKO_CACHE_HASH_BLAKE3=false`
 
 We are working on removing the remaining non-approved hashes.
-Until then `GODEBUG=fips140=only` panics in `redo` and `time` snapshot modes.
+Until then `GODEBUG=fips140=only` panics in `redo` and `time` snapshot modes, and with `FF_KANIKO_CACHE_HASH_BLAKE3=false`.
 
 ## Creating Multi-arch Container Manifests Using Kaniko and Manifest-tool
 
