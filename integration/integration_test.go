@@ -2777,6 +2777,42 @@ func diffociCmd(image1, image2, platform string, flags ...string) *exec.Cmd {
 	return exec.Command("diffoci", flags...)
 }
 
+func TestWarmerBake(t *testing.T) {
+	t.Parallel()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctxDir := filepath.Join(cwd, "testdata", "test_warmer_bake")
+	cacheDir := t.TempDir()
+
+	warmFlags := []string{"run", "--rm", "--net=host", "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())}
+	warmFlags = addAuthFlags(warmFlags)
+	warmFlags = addCoverageFlags(warmFlags)
+	for _, envVariable := range WarmerEnv {
+		warmFlags = append(warmFlags, "-e", envVariable)
+	}
+	warmFlags = append(warmFlags, "-v", ctxDir+":/workspace", "-v", cacheDir+":/cache", WarmerImage,
+		"bake", "/workspace/kaniko-bake.hcl", "--cache-dir=/cache")
+	out, err := RunCommandWithoutTest(exec.Command("docker", warmFlags...))
+	t.Logf("warmer bake output:\n%s", out)
+	if err != nil {
+		t.Fatalf("warmer bake failed: %v", err)
+	}
+
+	// Without a network, the base images can only come from the warmed cache.
+	buildFlags := []string{"run", "--rm", "--network=none", "-v", ctxDir + ":/workspace", "-v", cacheDir + ":/cache"}
+	buildFlags = addCoverageFlags(buildFlags)
+	buildFlags = addKanikoEnvFlags(buildFlags, t.Name())
+	buildFlags = append(buildFlags, ExecutorImage,
+		"bake", "/workspace/kaniko-bake.hcl", "--no-push", "--cache=true", "--no-push-cache", "--cache-dir=/cache")
+	out, err = RunCommandWithoutTest(exec.Command("docker", buildFlags...))
+	t.Logf("executor bake output:\n%s", out)
+	if err != nil {
+		t.Fatalf("executor bake failed: %v", err)
+	}
+}
+
 // diffoci compares the container images image1 and image2 and fails if they differ.
 func diffoci(t *testing.T, image1, image2 string, flags ...string) {
 	var platform string

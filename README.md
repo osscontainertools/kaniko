@@ -685,6 +685,8 @@ for how to use with kubernetes clusters and persistent cache volumes.
 
 `--dryrun` prints which images are already cached and which would be fetched, without writing to the cache. `KANIKO_PRINT_PLAN=1` prints the same plan before warming.
 
+`warmer bake <bakefile> [target]` warms the base images of bakefile targets, see [docs/bakefile.md](docs/bakefile.md#warmer).
+
 ### Pushing to Different Registries
 
 For registry-specific setup instructions (Docker Hub, GCR, ECR, ACR, JFrog,

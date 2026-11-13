@@ -48,41 +48,7 @@ func AddBakeFlags(cmd *cobra.Command, opts *config.KanikoOptions, set *[]string)
 }
 
 func ConfigureFromBakefile(opts *config.KanikoOptions, path string, selection, set []string) ([]bake.ResolvedTarget, error) {
-	bakefile, err := bake.Parse(path)
-	if err != nil {
-		return nil, err
-	}
-	targets, err := bakefile.Resolve(selection)
-	if err != nil {
-		return nil, err
-	}
-	overrides := make([]bake.Override, 0, len(set))
-	for _, s := range set {
-		o, err := bake.ParseOverride(s)
-		if err != nil {
-			return nil, err
-		}
-		overrides = append(overrides, o)
-	}
-	if err := bake.ApplyOverrides(targets, overrides); err != nil {
-		return nil, err
-	}
-	for i := range targets {
-		t := &targets[i]
-		remote := strings.Contains(t.Context, "://")
-		if t.Context != "" && !filepath.IsAbs(t.Context) && !remote {
-			t.Context = filepath.Join(bakefile.Dir, t.Context)
-		}
-		// A relative dockerfile in a remote context is joined once the context is unpacked.
-		if t.Dockerfile != "" && !filepath.IsAbs(t.Dockerfile) && !strings.Contains(t.Dockerfile, "://") && !remote {
-			if t.Context != "" {
-				t.Dockerfile = filepath.Join(t.Context, t.Dockerfile)
-			} else {
-				t.Dockerfile = filepath.Join(bakefile.Dir, t.Dockerfile)
-			}
-		}
-	}
-	return targets, nil
+	return bake.Load(path, selection, set)
 }
 
 func ValidateBakeBuild(opts *config.KanikoOptions, targets []bake.ResolvedTarget) error {

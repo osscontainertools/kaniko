@@ -138,3 +138,12 @@ A buildx bakefile fails with the construct it does not understand named:
 ```text
 4:3: "tags" in target "app" is a docker-bake.hcl key, use destination
 ```
+
+## Warmer
+
+```shell
+warmer bake /workspace/kaniko-bake.hcl app --cache-dir=/cache
+executor bake /workspace/kaniko-bake.hcl app --cache-dir=/cache
+```
+
+`warmer bake` warms the base images of every stage in each target's dockerfile into `--cache-dir`. It reads `context` and `dockerfile`, and ignores `target`, `destination`, `cache_from` and `cache_to`. A target with a remote `context` needs a `dockerfile` that is a local path or URL. `--set` and `--print` work as in `executor bake`.
