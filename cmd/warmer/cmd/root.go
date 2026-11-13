@@ -156,7 +156,7 @@ as a whole, its stage is ignored, and so are destination, cache_from and cache_t
 				return fmt.Errorf("failed to create cache directory: %w", err)
 			}
 		}
-		err = WarmTargets(opts, args[0], targets)
+		err = WarmTargets(opts, targets)
 		if err != nil {
 			return err
 		}
@@ -170,7 +170,7 @@ func AddWarmerBakeFlags(cmd *cobra.Command, opts *config.WarmerOptions, set *[]s
 	cmd.Flags().StringArrayVar(set, "set", nil, "Override a bakefile target field: <target>.<field>=<value>. Set it repeatedly for multiple overrides.")
 }
 
-func WarmTargets(opts *config.WarmerOptions, bakefile string, targets []bake.ResolvedTarget) error {
+func WarmTargets(opts *config.WarmerOptions, targets []bake.ResolvedTarget) error {
 	for _, t := range targets {
 		topts := *opts
 		remote := strings.Contains(t.Context, "://")
@@ -182,7 +182,7 @@ func WarmTargets(opts *config.WarmerOptions, bakefile string, targets []bake.Res
 		case t.Context != "":
 			topts.DockerfilePath = filepath.Join(t.Context, "Dockerfile")
 		default:
-			topts.DockerfilePath = filepath.Join(filepath.Dir(bakefile), "Dockerfile")
+			topts.DockerfilePath = "Dockerfile"
 		}
 		err := warmer.WarmCache(&topts)
 		if err != nil {
