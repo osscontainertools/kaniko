@@ -98,6 +98,10 @@ lint:
 fmt:
 	@tool="$$(go -C tools tool -n golangci-lint)" && "$$tool" fmt
 
+.PHONY: boilerplate
+boilerplate:
+	@ ./hack/boilerplate.sh
+
 .PHONY: integration-test
 integration-test:
 	@ ./scripts/integration-test.sh

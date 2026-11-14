@@ -30,27 +30,16 @@ if [[ ${GO_TEST_EXIT_CODE} -ne 0 ]]; then
     exit "${GO_TEST_EXIT_CODE}"
 fi
 
-echo "Running validation scripts..."
-scripts=(
-    "${DIR}/../hack/boilerplate.sh"
-    "${DIR}/../hack/gofmt.sh"
-)
+echo "Running validation checks..."
 fail=0
-for s in "${scripts[@]}"
+for target in boilerplate lint
 do
-    echo "RUN ${s}"
-    if "${s}"; then
-        echo -e "${GREEN}PASSED${RESET} ${s}"
+    echo "RUN make ${target}"
+    if make -C "${DIR}/.." "${target}"; then
+        echo -e "${GREEN}PASSED${RESET} make ${target}"
     else
-        echo -e "${RED}FAILED${RESET} ${s}"
+        echo -e "${RED}FAILED${RESET} make ${target}"
         fail=1
     fi
 done
-echo "RUN make lint"
-if make -C "${DIR}/.." lint; then
-    echo -e "${GREEN}PASSED${RESET} make lint"
-else
-    echo -e "${RED}FAILED${RESET} make lint"
-    fail=1
-fi
 exit "${fail}"

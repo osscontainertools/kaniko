@@ -168,6 +168,12 @@ To fix formatting issues:
 make fmt
 ```
 
+To check the license headers:
+
+```shell
+make boilerplate
+```
+
 ### Integration tests
 
 Currently the integration tests that live in [`integration`](./integration) can be run against a real registry or a local registry.
