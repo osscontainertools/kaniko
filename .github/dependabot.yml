@@ -23,6 +23,8 @@ updates:
     allow:
       - dependency-name: github.com/golangci/golangci-lint/v2
         dependency-type: all
+      - dependency-name: github.com/go-delve/delve
+        dependency-type: all
 
   - package-ecosystem: github-actions
     directory: /
