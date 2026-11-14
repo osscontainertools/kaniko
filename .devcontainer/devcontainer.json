@@ -8,5 +8,9 @@
     "ghcr.io/devcontainers/features/docker-in-docker:4.1.3": {
       "moby": false
     }
-  }
+  },
+  "containerEnv": {
+    "TLS_REGISTRY_CERT": "/tmp/kaniko-tls-registry/tls.crt"
+  },
+  "postCreateCommand": "go -C tools install github.com/reproducible-containers/diffoci/cmd/diffoci"
 }
