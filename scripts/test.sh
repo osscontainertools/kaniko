@@ -34,7 +34,6 @@ echo "Running validation scripts..."
 scripts=(
     "${DIR}/../hack/boilerplate.sh"
     "${DIR}/../hack/gofmt.sh"
-    "${DIR}/../hack/golangci-lint.sh"
 )
 fail=0
 for s in "${scripts[@]}"
@@ -47,4 +46,11 @@ do
         fail=1
     fi
 done
+echo "RUN make lint"
+if make -C "${DIR}/.." lint; then
+    echo -e "${GREEN}PASSED${RESET} make lint"
+else
+    echo -e "${RED}FAILED${RESET} make lint"
+    fail=1
+fi
 exit "${fail}"
