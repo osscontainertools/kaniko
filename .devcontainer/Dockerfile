@@ -17,3 +17,13 @@ FROM golang:1.27.4@sha256:5e8afd493a7124a8586e134d9b532731161d4b9becf9dee5a5956b
 RUN apt-get update \
     && apt-get install -y --no-install-recommends bzip2 openssl xz-utils zstd \
     && rm -rf /var/lib/apt/lists/*
+
+# gopls builds only against its own golang.org/x/tools, which golangci-lint in the tools module overrides.
+RUN go install golang.org/x/tools/gopls@v0.24.0 \
+    && rm -rf /root/.cache/go-build
+
+COPY go.mod go.sum /tools/
+RUN go -C /tools install \
+        github.com/reproducible-containers/diffoci/cmd/diffoci \
+        github.com/go-delve/delve/cmd/dlv \
+    && rm -rf /root/.cache/go-build
