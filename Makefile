@@ -90,6 +90,14 @@ test-with-coverage: test
 golden: out/executor
 	@ ./scripts/golden.sh
 
+.PHONY: lint
+lint:
+	@tool="$$(go -C tools tool -n golangci-lint)" && "$$tool" run
+
+.PHONY: fmt
+fmt:
+	@tool="$$(go -C tools tool -n golangci-lint)" && "$$tool" fmt
+
 .PHONY: integration-test
 integration-test:
 	@ ./scripts/integration-test.sh

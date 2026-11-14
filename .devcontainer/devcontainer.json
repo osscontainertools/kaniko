@@ -11,7 +11,7 @@
   "mounts": [
     "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
     "source=/tmp/kaniko-tls-registry,target=/tmp/kaniko-tls-registry,type=bind",
-    "source=${localEnv:HOME}/.docker,target=/root/.docker,type=bind,readonly"
+    "source=${localEnv:HOME}/.docker,target=/root/.docker,type=bind"
   ],
   "containerEnv": {
     "DOCKER_CONFIG": "/root/.docker"
