@@ -12,5 +12,10 @@
   "containerEnv": {
     "TLS_REGISTRY_CERT": "/tmp/kaniko-tls-registry/tls.crt"
   },
-  "postCreateCommand": "go -C tools install github.com/reproducible-containers/diffoci/cmd/diffoci github.com/go-delve/delve/cmd/dlv"
+  "postCreateCommand": "go -C tools install github.com/reproducible-containers/diffoci/cmd/diffoci github.com/go-delve/delve/cmd/dlv",
+  "customizations": {
+    "vscode": {
+      "extensions": ["golang.go"]
+    }
+  }
 }
