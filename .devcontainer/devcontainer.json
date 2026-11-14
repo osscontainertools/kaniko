@@ -1,0 +1,17 @@
+{
+  "name": "kaniko-dev",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "runArgs": [
+    "--network=host"
+  ],
+  "mounts": [
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
+    "source=${localEnv:HOME}/.docker,target=/root/.docker,type=bind,readonly"
+  ],
+  "containerEnv": {
+    "DOCKER_CONFIG": "/root/.docker"
+  }
+}
