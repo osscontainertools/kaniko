@@ -9,13 +9,14 @@ Every CI check runs locally with the same command. A workflow only calls a make 
 
 ## Getting started
 
-You will need [Go 1.26+](https://go.dev/dl/) and [Docker](https://docs.docker.com/install/) installed.
+You will need [Docker](https://docs.docker.com/install/) installed. You will need a golang development environment, either from using the provided [devcontainer](.devcontainer/Dockerfile) or install [Go 1.27+](https://go.dev/dl/). 
 
 First you will need to setup your GitHub account and create a fork:
 
 1. Create [a GitHub account](https://github.com/join)
-1. Setup [GitHub access via
-   SSH](https://help.github.com/articles/connecting-to-github-with-ssh/)
+1. Setup GitHub access either:
+    - [via HTTPS OAuth](https://github.com/settings/tokens) and [cache credentials](https://docs.github.com/en/get-started/git-basics/why-is-git-always-asking-for-my-credentials) (recommended)
+    - [via SSH](https://help.github.com/articles/connecting-to-github-with-ssh/)
 1. [Create and checkout a repo fork](#checkout-your-fork)
 
 Once you have those, you can iterate on kaniko:
@@ -61,6 +62,13 @@ To check out this repository:
 2. Clone it to your machine:
 
   ```shell
+  # HTTPS method
+  git clone https://github.com/${YOUR_GITHUB_USERNAME}/kaniko.git
+  cd kaniko
+  git remote add upstream https://github.com/osscontainertools/kaniko.git
+  git remote set-url --push upstream no_push
+
+  # SSH method
   git clone git@github.com:${YOUR_GITHUB_USERNAME}/kaniko.git
   cd kaniko
   git remote add upstream git@github.com:osscontainertools/kaniko.git
@@ -213,6 +221,8 @@ To run integration tests locally against a local registry, set the LOCAL environ
 ```shell
 LOCAL=1 make integration-test
 ```
+
+The devcontainer uses the host Docker socket and host networking so its tests can reach the local registries started by Docker. This setup requires a Linux host with Docker available at `/var/run/docker.sock`.
 
 #### Running integration tests for a specific dockerfile
 
