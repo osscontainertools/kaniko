@@ -14,9 +14,8 @@ You will need [Docker](https://docs.docker.com/install/) installed. You will nee
 First you will need to setup your GitHub account and create a fork:
 
 1. Create [a GitHub account](https://github.com/join)
-1. Setup GitHub access either:
-    - [via HTTPS OAuth](https://github.com/settings/tokens) and [cache credentials](https://docs.github.com/en/get-started/git-basics/why-is-git-always-asking-for-my-credentials) (recommended)
-    - [via SSH](https://help.github.com/articles/connecting-to-github-with-ssh/)
+1. Setup [GitHub access via
+   SSH](https://help.github.com/articles/connecting-to-github-with-ssh/)
 1. [Create and checkout a repo fork](#checkout-your-fork)
 
 Once you have those, you can iterate on kaniko:
@@ -62,13 +61,6 @@ To check out this repository:
 2. Clone it to your machine:
 
   ```shell
-  # HTTPS method
-  git clone https://github.com/${YOUR_GITHUB_USERNAME}/kaniko.git
-  cd kaniko
-  git remote add upstream https://github.com/osscontainertools/kaniko.git
-  git remote set-url --push upstream no_push
-
-  # SSH method
   git clone git@github.com:${YOUR_GITHUB_USERNAME}/kaniko.git
   cd kaniko
   git remote add upstream git@github.com:osscontainertools/kaniko.git
@@ -229,6 +221,8 @@ make k3s-setup
 ```
 
 The devcontainer runs its own Docker daemon, so it starts as a privileged container.
+
+VS Code forwards your SSH agent into the devcontainer, so load your key with `ssh-add` before pushing from inside it.
 
 #### Running integration tests for a specific dockerfile
 
