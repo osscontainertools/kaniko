@@ -228,7 +228,7 @@ make integration-test
 make k3s-setup
 ```
 
-The devcontainer uses the host Docker socket and host networking so its tests can reach the local registries started by Docker. This setup requires a Linux host with Docker available at `/var/run/docker.sock`.
+The devcontainer runs its own Docker daemon, so it starts as a privileged container.
 
 #### Running integration tests for a specific dockerfile
 

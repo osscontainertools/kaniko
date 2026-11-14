@@ -18,13 +18,6 @@ set -euo pipefail
 TLS_REG_DIR="/tmp/kaniko-tls-registry"
 mkdir -p "${TLS_REG_DIR}"
 
-for credential in tls.crt tls.key auth_config.yml; do
-  credential_path="${TLS_REG_DIR}/${credential}"
-  if [[ -d "${credential_path}" ]]; then
-    rm -rf -- "${credential_path}"
-  fi
-done
-
 # ggcr refuses a token realm on a loopback IP literal, so the auth server is reached
 # under the name localhost and the cert has to cover it.
 if [[ ! -f "${TLS_REG_DIR}/tls.crt" ]] || ! openssl x509 -in "${TLS_REG_DIR}/tls.crt" -noout -text | grep -q "DNS:localhost"; then
