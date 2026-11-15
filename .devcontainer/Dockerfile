@@ -27,3 +27,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     go -C /tools install \
         github.com/reproducible-containers/diffoci/cmd/diffoci \
         github.com/go-delve/delve/cmd/dlv
+
+RUN export GOFLAGS="-mod=vendor -buildvcs=false -trimpath" \
+    && go -C /tools tool -n golangci-lint \
+    && go -C /tools tool -n diffoci
