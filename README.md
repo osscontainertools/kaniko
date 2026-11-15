@@ -501,6 +501,8 @@ See the [components' README](https://gitlab.com/osscontainertools/components/kan
 The [kaniko action](https://github.com/marketplace/actions/kaniko-oss-container-tools) builds `Dockerfile` in the workspace and pushes it to `ghcr.io/<owner>/<repo>`. Later steps receive the image pinned by digest as the `image` output.
 
 ```yaml
+on: push
+
 permissions:
   contents: read
   packages: write
@@ -510,7 +512,9 @@ jobs:
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: osscontainertools/kaniko-action@8989cb3064846a06268985dea52f17ff4cd49b57 # v1.0.2
+      - id: build
+        uses: osscontainertools/kaniko-action@8989cb3064846a06268985dea52f17ff4cd49b57 # v1.0.2
+      - run: echo "pushed ${{ steps.build.outputs.image }}"
 ```
 
 See the [action's README](https://github.com/osscontainertools/kaniko-action) for multi-arch images, Kubernetes runners and the other inputs.
@@ -1924,7 +1928,7 @@ Until then `GODEBUG=fips140=only` panics in `redo` and `time` snapshot modes, an
 
 ## Building Multi-arch Images
 
-kaniko builds one image per run. The [GitLab components](#running-kaniko-in-gitlab-ci) and the [GitHub action](#running-kaniko-in-github-actions) build one image per architecture, each on a native runner, and merge them into one multi-arch image:
+kaniko builds one image per run. The [GitLab components](#running-kaniko-in-gitlab-ci) and the [GitHub action's](#running-kaniko-in-github-actions) reusable workflow `multiarch.yml` build one image per architecture, each on a native runner, and merge them into one multi-arch image. The action alone builds all architectures in one job with its `platforms` input, emulating all but the runner's own with QEMU.
 
 ```yaml
 include:
