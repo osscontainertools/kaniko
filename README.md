@@ -208,9 +208,7 @@ expect - see [Known Issues](#known-issues).
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
     - [FIPS 140-3 Image](#fips-140-3-image)
-  - [Creating Multi-arch Container Manifests Using Kaniko and Manifest-tool](#creating-multi-arch-container-manifests-using-kaniko-and-manifest-tool)
-    - [General Workflow](#general-workflow)
-    - [Limitations and Pitfalls](#limitations-and-pitfalls)
+  - [Building Multi-arch Images](#building-multi-arch-images)
   - [Comparison with Other Tools](#comparison-with-other-tools)
   - [Limitations](#limitations)
     - [mtime and snapshotting](#mtime-and-snapshotting)
@@ -639,15 +637,8 @@ docker run \
 ```
 
 ### Bootstrapping Kaniko
-Kaniko's approach to buliding docker images is unique. It doesn't build up and snapshot an image in a separate container, instead it will build up and snapshot the image in the container where kaniko is installed. The benefit is that kaniko can run without any privileges, because it's not actually using any containerization technologies, the downside is that sometimes builds can yield surprising results - bootstrapping kaniko image with kaniko builder is one such case. 
 
-The good news is, it's all technically possible, but it's a bit more involved than building other images.
-
-The first problem we face is that the kaniko binaries are installed in `/kaniko` directory. Which means that this directory must also be ignored during snapshots, lest we would leak our build tool into any image we produce. But this also means that kaniko by default can't build a kaniko image with the binaries installed in `/kaniko` directory. Luckily there is an override for that, that allows us to move all the binaries to a different location before the build ie. `KANIKO_DIR=/kaniko2`.
-
-The second problem only affects build using the `debug` image, ie. gitlab-runner. The shell that is spawned in the debug image is in `/busybox`, similarly we can't snapshot files in that directory. Unfortunately there is no override to move those binaries. But with a bit creativity we can create a bootstrap image that has the shell installed into a different location ie. `/busybox2` and then use that bootstrap image to build the actual new debug image.
-
-That bootstrap image is published as `ghcr.io/osscontainertools/kaniko:bootstrap`, built from the `kaniko-debug-2` target. Run the build in it with `KANIKO_DIR=/kaniko2`. The [GitLab components](#running-kaniko-in-gitlab-ci) and the [GitHub action](#running-kaniko-in-github-actions) do both with `bootstrap: true`:
+Images with files in `/kaniko` or `/busybox`, such as kaniko itself, need kaniko's bootstrap mode. The [GitLab components](#running-kaniko-in-gitlab-ci) and the [GitHub action](#running-kaniko-in-github-actions) switch it on with `bootstrap: true`:
 
 ```yaml
 include:
@@ -665,6 +656,8 @@ include:
           target: kaniko-debug
           bootstrap: true
 ```
+
+See [Bootstrapping kaniko](docs/bootstrapping.md) for how it works, and for running it without them.
 
 ### Caching
 
@@ -1832,7 +1825,9 @@ Multiple names can be passed as a comma-separated list.
 
 ### Telemetry
 
-Kaniko can export an OpenTelemetry trace of each build so you can track build times, cache hits and misses, and which Dockerfile instructions keep busting the cache. It is off by default and a no-op unless you point it at a collector:
+Kaniko can export an OpenTelemetry trace of each build so you can track build times, cache hits and misses, and which Dockerfile instructions keep busting the cache. With the [GitLab components](#running-kaniko-in-gitlab-ci) and the [GitHub action](#running-kaniko-in-github-actions), set `telemetry: firn` or `telemetry: custom` with the endpoint, and they request the job's ID token themselves.
+
+Without them, telemetry is off by default and a no-op unless you point it at a collector:
 
 ```sh
 KANIKO_TELEMETRY_ENDPOINT=http://otel-collector:4318
@@ -1927,45 +1922,22 @@ kaniko still uses non-approved hashes internally for file change detection and l
 We are working on removing the remaining non-approved hashes.
 Until then `GODEBUG=fips140=only` panics in `redo` and `time` snapshot modes, and with `FF_KANIKO_CACHE_HASH_BLAKE3=false`.
 
-## Creating Multi-arch Container Manifests Using Kaniko and Manifest-tool
+## Building Multi-arch Images
 
-While Kaniko itself currently does not support creating multi-arch manifests
-(contributions welcome), one can use tools such as
-[manifest-tool](https://github.com/estesp/manifest-tool) to stitch multiple
-separate builds together into a single container manifest.
+kaniko builds one image per run. The [GitLab components](#running-kaniko-in-gitlab-ci) and the [GitHub action](#running-kaniko-in-github-actions) build one image per architecture, each on a native runner, and merge them into one multi-arch image:
 
-### General Workflow
+```yaml
+include:
+  - component: gitlab.com/osscontainertools/components/kaniko/build-multiarch@1.0.0
+```
 
-The general workflow for creating multi-arch manifests is as follows:
+```yaml
+jobs:
+  image:
+    uses: osscontainertools/kaniko-action/.github/workflows/multiarch.yml@8989cb3064846a06268985dea52f17ff4cd49b57 # v1.0.2
+```
 
-1. Build separate container images using Kaniko on build hosts matching your
-   target architecture and tag them with the appropriate ARCH tag.
-2. Push the separate images to your container registry.
-3. Manifest-tool identifies the separate manifests in your container registry,
-   according to a given template.
-4. Manifest-tool pushes a combined manifest referencing the separate manifests.
-
-![Workflow Multi-arch](docs/images/multi-arch.drawio.svg)
-
-### Limitations and Pitfalls
-
-The following conditions must be met:
-
-1. You need access to build-machines running the desired architectures (running
-   Kaniko in an emulator, e.g. QEMU should also be possible but goes beyond the
-   scope of this documentation). This is something to keep in mind when using
-   SaaS build tools such as github.com or gitlab.com, of which at the time of
-   writing neither supports any non-x86_64 SaaS runners
-   ([GitHub](https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources),[GitLab](https://docs.gitlab.com/ee/ci/runners/saas/linux_saas_runner.html#machine-types-available-for-private-projects-x86-64)),
-   so be prepared to bring your own machines
-   ([GitHub](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/about-self-hosted-runners),[GitLab](https://docs.gitlab.com/runner/register/).
-2. Kaniko needs to be able to run on the desired architectures. At the time of
-   writing, the official Kaniko container supports
-   [linux/amd64, linux/arm64, linux/s390x and linux/ppc64le (not on \*-debug images)](https://github.com/osscontainertools/kaniko/blob/main/.github/workflows/images.yaml).
-3. The container registry of your choice must be OCIv1 or Docker v2.2
-   compatible.
-
-In CI, the [GitLab components](#running-kaniko-in-gitlab-ci) and the [GitHub action](#running-kaniko-in-github-actions) run this workflow, one native runner per architecture plus the merge.
+See [Multi-arch images](docs/multiarch.md) for how it works, and for running it without them.
 
 ## Comparison with Other Tools
 
