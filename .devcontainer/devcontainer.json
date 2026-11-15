@@ -15,6 +15,7 @@
     "source=kaniko-cache-${devcontainerId},target=/root/.cache,type=volume"
   ],
   "containerEnv": {
+    "LANG": "C.UTF-8",
     "TLS_REGISTRY_CERT": "/tmp/kaniko-tls-registry/tls.crt"
   },
   "postStartCommand": "timeout 60 sh -c 'until docker info >/dev/null 2>&1; do sleep 1; done' && scripts/local-registries.sh",
