@@ -15,8 +15,9 @@
 FROM golang:1.27.4@sha256:5e8afd493a7124a8586e134d9b532731161d4b9becf9dee5a5956b107426f93d
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends bzip2 openssl xz-utils zstd \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get install -y --no-install-recommends bash-completion bzip2 openssl xz-utils zstd \
+    && rm -rf /var/lib/apt/lists/* \
+    && echo '. /usr/share/bash-completion/bash_completion' >> /etc/bash.bashrc
 
 # gopls builds only against its own golang.org/x/tools, which golangci-lint in the tools module overrides.
 RUN --mount=type=cache,target=/root/.cache/go-build \
