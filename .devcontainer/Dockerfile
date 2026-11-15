@@ -19,11 +19,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # gopls builds only against its own golang.org/x/tools, which golangci-lint in the tools module overrides.
-RUN go install golang.org/x/tools/gopls@v0.24.0 \
-    && rm -rf /root/.cache/go-build
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    go install golang.org/x/tools/gopls@v0.24.0
 
 COPY go.mod go.sum /tools/
-RUN go -C /tools install \
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    go -C /tools install \
         github.com/reproducible-containers/diffoci/cmd/diffoci \
-        github.com/go-delve/delve/cmd/dlv \
-    && rm -rf /root/.cache/go-build
+        github.com/go-delve/delve/cmd/dlv
