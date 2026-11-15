@@ -22,6 +22,7 @@ build-kaniko:
       --context "$CI_PROJECT_DIR"
       --dockerfile deploy/Dockerfile
       --target kaniko-debug
+      --build-arg TARGETARCH=amd64
       --destination "$CI_REGISTRY_IMAGE/kaniko:$CI_COMMIT_SHORT_SHA"
 ```
 
@@ -37,6 +38,7 @@ docker run \
     --context dir:///workspace/ \
     --dockerfile /workspace/deploy/Dockerfile \
     --target kaniko-debug \
+    --build-arg TARGETARCH=amd64 \
     --destination "registry.example.com/kaniko:$TAG"
 ```
 

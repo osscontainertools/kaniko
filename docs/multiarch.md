@@ -16,6 +16,8 @@ kaniko builds one image per run. A multi-arch image is several builds, one per a
 In GitLab CI, with a runner tagged per architecture:
 
 ```yaml
+stages: [build, merge]
+
 build:
   stage: build
   parallel:
@@ -50,5 +52,5 @@ manifest-tool replaces `ARCH` in the template with each platform's architecture.
 ## Limitations and Pitfalls
 
 1. You need build machines running the desired architectures. gitlab.com and github.com both offer hosted arm64 runners besides x86_64. Running kaniko under an emulator such as QEMU also works, but `RUN` steps get much slower.
-2. kaniko needs to be able to run on the desired architectures. At the time of writing, the official kaniko container supports [linux/amd64, linux/arm64, linux/s390x and linux/ppc64le (not on \*-debug images)](https://github.com/osscontainertools/kaniko/blob/main/.github/workflows/images.yaml).
+2. kaniko needs to be able to run on the desired architectures. At the time of writing, the official kaniko images support [linux/amd64, linux/arm64, linux/arm/v7, linux/s390x, linux/riscv64 and linux/ppc64le](https://github.com/osscontainertools/kaniko/blob/main/.github/workflows/images.yaml).
 3. The container registry of your choice must be OCIv1 or Docker v2.2 compatible.

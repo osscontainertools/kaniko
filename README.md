@@ -650,6 +650,7 @@ include:
     inputs:
       dockerfile: deploy/Dockerfile
       target: kaniko-debug
+      build_args: TARGETARCH=amd64
       bootstrap: true
 ```
 
@@ -658,6 +659,7 @@ include:
         with:
           dockerfile: deploy/Dockerfile
           target: kaniko-debug
+          build-args: TARGETARCH=amd64
           bootstrap: true
 ```
 
@@ -1829,7 +1831,7 @@ Multiple names can be passed as a comma-separated list.
 
 ### Telemetry
 
-Kaniko can export an OpenTelemetry trace of each build so you can track build times, cache hits and misses, and which Dockerfile instructions keep busting the cache. With the [GitLab components](#running-kaniko-in-gitlab-ci) and the [GitHub action](#running-kaniko-in-github-actions), set `telemetry: firn` or `telemetry: custom` with the endpoint, and they request the job's ID token themselves.
+Kaniko can export an OpenTelemetry trace of each build so you can track build times, cache hits and misses, and which Dockerfile instructions keep busting the cache. With the [GitLab components](#running-kaniko-in-gitlab-ci) and the [GitHub action](#running-kaniko-in-github-actions), set `telemetry: firn` or `telemetry: custom` with the endpoint, and they request the job's ID token themselves. On GitHub, the job needs the permission `id-token: write`.
 
 Without them, telemetry is off by default and a no-op unless you point it at a collector:
 
@@ -1938,6 +1940,9 @@ include:
 ```yaml
 jobs:
   image:
+    permissions:
+      contents: read
+      packages: write
     uses: osscontainertools/kaniko-action/.github/workflows/multiarch.yml@62bd46e3c9e39a6625220e87090a7af9cc431218 # v1.0.3
 ```
 
