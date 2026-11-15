@@ -647,41 +647,24 @@ The first problem we face is that the kaniko binaries are installed in `/kaniko`
 
 The second problem only affects build using the `debug` image, ie. gitlab-runner. The shell that is spawned in the debug image is in `/busybox`, similarly we can't snapshot files in that directory. Unfortunately there is no override to move those binaries. But with a bit creativity we can create a bootstrap image that has the shell installed into a different location ie. `/busybox2` and then use that bootstrap image to build the actual new debug image.
 
+That bootstrap image is published as `ghcr.io/osscontainertools/kaniko:bootstrap`, built from the `kaniko-debug-2` target. Run the build in it with `KANIKO_DIR=/kaniko2`. The [GitLab components](#running-kaniko-in-gitlab-ci) and the [GitHub action](#running-kaniko-in-github-actions) do both with `bootstrap: true`:
+
 ```yaml
-bootstrap:
-  extends:
-    - .build
-  image:
-    name: gcr.io/kaniko-project/executor:v1.24.0-debug
-    entrypoint: [""]
-  needs: []
-  variables:
-    IMAGE: ${CI_REGISTRY_IMAGE}/bootstrap:latest
-    EXTRA_ARGS: >-
-      --build-arg=TARGETARCH=amd64
-      --build-arg=TARGETOS=linux
-      --target=kaniko-debug-2
-    KANIKO_DIR: /kaniko2
-
-build:
-  extends:
-    - .build
-  image:
-    name: ${CI_REGISTRY_IMAGE}/bootstrap:latest
-    entrypoint: [""]
-  needs: [bootstrap]
-  variables:
-    IMAGE: ${CI_REGISTRY_IMAGE}/kaniko:latest
-    EXTRA_ARGS: >-
-      --build-arg=TARGETARCH=amd64
-      --build-arg=TARGETOS=linux
-      --target=kaniko-debug
-    KANIKO_DIR: /kaniko2
+include:
+  - component: gitlab.com/osscontainertools/components/kaniko/build@1.0.0
+    inputs:
+      dockerfile: deploy/Dockerfile
+      target: kaniko-debug
+      bootstrap: true
 ```
-This is just an illustrative extract, please find the full [.gitlab-ci.yml](./docs/bootstrap.gitlab-ci.yml) here.
 
-With this two step approach we can now indeed bootstrap kaniko in kaniko. However, it is not really necessary to rebuild that intermediate bootstrap image every time, we can reuse it from a different build. Hence I provide a dedicated image `ghcr.io/osscontainertools/kaniko:bootstrap` that can be used for that purpose.
-
+```yaml
+      - uses: osscontainertools/kaniko-action@8989cb3064846a06268985dea52f17ff4cd49b57 # v1.0.2
+        with:
+          dockerfile: deploy/Dockerfile
+          target: kaniko-debug
+          bootstrap: true
+```
 
 ### Caching
 
