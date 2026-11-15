@@ -36,7 +36,7 @@ jobs:
 
     steps:
       - name: Maximize build space
-        uses: AdityaGarg8/remove-unwanted-software@36765610732de8ee2e81a5c6c231506e2b5cabcf # v5.1
+        uses: AdityaGarg8/remove-unwanted-software@v5.1
         with:
           remove-android: 'true'
           remove-dotnet: 'true'
@@ -46,15 +46,15 @@ jobs:
           remove-large-packages: 'true'
           remove-cached-tools: 'true'
 
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@v7.0.0
         with:
           go-version: '1.27.3'
 
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
-      - uses: docker/setup-docker-action@3f1ab1ab0e29231562e4db4ca600c1a49653bac6 # v5.7.0
+      - uses: docker/setup-docker-action@v5.7.0
         with:
           version: 29.9.3
 
@@ -65,7 +65,7 @@ jobs:
         run: |
           go tool covdata textfmt -i out/covdata -o coverage.txt
 
-      - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+      - uses: codecov/codecov-action@v7.1.1
         with:
           files: coverage.txt
           fail_ci_if_error: false
