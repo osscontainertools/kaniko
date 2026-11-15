@@ -50,13 +50,13 @@ expect - see [Known Issues](#known-issues).
     - [Using Private Git Repository](#using-private-git-repository)
     - [Using Standard Input](#using-standard-input)
     - [Running kaniko](#running-kaniko)
+      - [Running kaniko in GitLab CI](#running-kaniko-in-gitlab-ci)
+      - [Running kaniko in GitHub Actions](#running-kaniko-in-github-actions)
       - [Running kaniko in a Kubernetes cluster](#running-kaniko-in-a-kubernetes-cluster)
         - [Kubernetes secret](#kubernetes-secret)
       - [Running kaniko in gVisor](#running-kaniko-in-gvisor)
       - [Running kaniko in Google Cloud Build](#running-kaniko-in-google-cloud-build)
       - [Running kaniko in Docker](#running-kaniko-in-docker)
-      - [Running kaniko in GitLab CI](#running-kaniko-in-gitlab-ci)
-      - [Running kaniko in GitHub Actions](#running-kaniko-in-github-actions)
     - [Bootstrapping Kaniko](#bootstrapping-kaniko)
     - [Caching](#caching)
       - [Caching Layers](#caching-layers)
@@ -473,12 +473,49 @@ echo -e 'FROM alpine \nRUN echo "created from standard input"' > Dockerfile | ta
 
 There are several different ways to deploy and run kaniko:
 
+- [In GitLab CI](#running-kaniko-in-gitlab-ci)
+- [In GitHub Actions](#running-kaniko-in-github-actions)
 - [In a Kubernetes cluster](#running-kaniko-in-a-kubernetes-cluster)
 - [In gVisor](#running-kaniko-in-gvisor)
 - [In Google Cloud Build](#running-kaniko-in-google-cloud-build)
 - [In Docker](#running-kaniko-in-docker)
-- [In GitLab CI](#running-kaniko-in-gitlab-ci)
-- [In GitHub Actions](#running-kaniko-in-github-actions)
+
+#### Running kaniko in GitLab CI
+
+The [kaniko components](https://gitlab.com/explore/catalog/osscontainertools/components/kaniko) build `Dockerfile` in the project directory and push it to the project's container registry. Later jobs receive the image pinned by digest as `KANIKO_IMAGE`.
+
+```yaml
+include:
+  - component: gitlab.com/osscontainertools/components/kaniko/build@1.0.0
+```
+
+For a multi-arch image, one native runner per architecture:
+
+```yaml
+include:
+  - component: gitlab.com/osscontainertools/components/kaniko/build-multiarch@1.0.0
+```
+
+See the [components' README](https://gitlab.com/osscontainertools/components/kaniko) for caching, provenance, bootstrapping and the other inputs.
+
+#### Running kaniko in GitHub Actions
+
+The [kaniko action](https://github.com/marketplace/actions/kaniko-oss-container-tools) builds `Dockerfile` in the workspace and pushes it to `ghcr.io/<owner>/<repo>`. Later steps receive the image pinned by digest as the `image` output.
+
+```yaml
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: osscontainertools/kaniko-action@8989cb3064846a06268985dea52f17ff4cd49b57 # v1.0.2
+```
+
+See the [action's README](https://github.com/osscontainertools/kaniko-action) for multi-arch images, Kubernetes runners and the other inputs.
 
 #### Running kaniko in a Kubernetes cluster
 
@@ -600,43 +637,6 @@ docker run \
     --destination "registry.example.com/$IMAGE_NAME:$TAG" \
     --context dir:///workspace/
 ```
-
-#### Running kaniko in GitLab CI
-
-The [kaniko components](https://gitlab.com/explore/catalog/osscontainertools/components/kaniko) build `Dockerfile` in the project directory and push it to the project's container registry. Later jobs receive the image pinned by digest as `KANIKO_IMAGE`.
-
-```yaml
-include:
-  - component: gitlab.com/osscontainertools/components/kaniko/build@1.0.0
-```
-
-For a multi-arch image, one native runner per architecture:
-
-```yaml
-include:
-  - component: gitlab.com/osscontainertools/components/kaniko/build-multiarch@1.0.0
-```
-
-See the [components' README](https://gitlab.com/osscontainertools/components/kaniko) for caching, provenance, bootstrapping and the other inputs.
-
-#### Running kaniko in GitHub Actions
-
-The [kaniko action](https://github.com/marketplace/actions/kaniko-oss-container-tools) builds `Dockerfile` in the workspace and pushes it to `ghcr.io/<owner>/<repo>`. Later steps receive the image pinned by digest as the `image` output.
-
-```yaml
-permissions:
-  contents: read
-  packages: write
-
-jobs:
-  image:
-    runs-on: ubuntu-26.04
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: osscontainertools/kaniko-action@8989cb3064846a06268985dea52f17ff4cd49b57 # v1.0.2
-```
-
-See the [action's README](https://github.com/osscontainertools/kaniko-action) for multi-arch images, Kubernetes runners and the other inputs.
 
 ### Bootstrapping Kaniko
 Kaniko's approach to buliding docker images is unique. It doesn't build up and snapshot an image in a separate container, instead it will build up and snapshot the image in the container where kaniko is installed. The benefit is that kaniko can run without any privileges, because it's not actually using any containerization technologies, the downside is that sometimes builds can yield surprising results - bootstrapping kaniko image with kaniko builder is one such case. 
