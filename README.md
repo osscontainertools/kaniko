@@ -513,7 +513,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: build
-        uses: osscontainertools/kaniko-action@8989cb3064846a06268985dea52f17ff4cd49b57 # v1.0.2
+        uses: osscontainertools/kaniko-action@62bd46e3c9e39a6625220e87090a7af9cc431218 # v1.0.3
       - run: echo "pushed ${{ steps.build.outputs.image }}"
 ```
 
@@ -654,7 +654,7 @@ include:
 ```
 
 ```yaml
-      - uses: osscontainertools/kaniko-action@8989cb3064846a06268985dea52f17ff4cd49b57 # v1.0.2
+      - uses: osscontainertools/kaniko-action@62bd46e3c9e39a6625220e87090a7af9cc431218 # v1.0.3
         with:
           dockerfile: deploy/Dockerfile
           target: kaniko-debug
@@ -1938,7 +1938,7 @@ include:
 ```yaml
 jobs:
   image:
-    uses: osscontainertools/kaniko-action/.github/workflows/multiarch.yml@8989cb3064846a06268985dea52f17ff4cd49b57 # v1.0.2
+    uses: osscontainertools/kaniko-action/.github/workflows/multiarch.yml@62bd46e3c9e39a6625220e87090a7af9cc431218 # v1.0.3
 ```
 
 See [Multi-arch images](docs/multiarch.md) for how it works, and for running it without them.
