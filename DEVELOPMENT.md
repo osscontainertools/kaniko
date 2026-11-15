@@ -226,7 +226,7 @@ make integration-test
 make k3s-setup
 ```
 
-The devcontainer runs its own Docker daemon, so it starts as a privileged container.
+The devcontainer runs its own Docker daemon, so it starts as a privileged container. It starts the local registries every time it starts.
 
 VS Code forwards your SSH agent into the devcontainer, so load your key with `ssh-add` before pushing from inside it.
 

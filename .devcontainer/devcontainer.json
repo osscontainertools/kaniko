@@ -12,6 +12,7 @@
   "containerEnv": {
     "TLS_REGISTRY_CERT": "/tmp/kaniko-tls-registry/tls.crt"
   },
+  "postStartCommand": "timeout 60 sh -c 'until docker info >/dev/null 2>&1; do sleep 1; done' && scripts/local-registries.sh",
   "customizations": {
     "vscode": {
       "extensions": ["golang.go"]
