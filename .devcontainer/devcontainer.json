@@ -11,6 +11,9 @@
       "moby": false
     }
   },
+  "mounts": [
+    "source=kaniko-cache-${devcontainerId},target=/root/.cache,type=volume"
+  ],
   "containerEnv": {
     "TLS_REGISTRY_CERT": "/tmp/kaniko-tls-registry/tls.crt"
   },
