@@ -128,85 +128,21 @@ func buildRequiredImages() error {
 		}
 	}
 
-	coverArg := "--build-arg=COVER="
+	cover := ""
 	if coverageDir != "" {
-		coverArg = "--build-arg=COVER=1"
+		cover = "1"
 	}
 
-	setupCommands := []struct {
-		name    string
-		command []string
-	}{{
-		name:    "Building kaniko image",
-		command: []string{"docker", "build", coverArg, "--build-arg=RACE=1", "-t", ExecutorImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-executor", ".."},
-	}, {
-		name:    "Building cache warmer image",
-		command: []string{"docker", "build", coverArg, "--build-arg=RACE=1", "-t", WarmerImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-warmer", ".."},
-	}, {
-		name:    "Building busybox base image",
-		command: []string{"docker", "build", "--push", "-t", config.busyboxBaseImage, "-f", dockerfilesPath + "/Dockerfile_busybox_base", "."},
-	}, {
-		name:    "Building alpine base image",
-		command: []string{"docker", "build", "--push", "-t", config.alpineBaseImage, "-f", dockerfilesPath + "/Dockerfile_alpine_base", "."},
-	}, {
-		name:    "Building onbuild base image",
-		command: []string{"docker", "build", "--push", "-t", config.onbuildBaseImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_base", "."},
-	}, {
-		name:    "Building onbuild copy image",
-		command: []string{"docker", "build", "--push", "-t", config.onbuildCopyImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz332", "--target", "onbuild", "."},
-	}, {
-		name:    "Building hardlink base image",
-		command: []string{"docker", "build", "--push", "-t", config.hardlinkBaseImage, "-f", dockerfilesPath + "/Dockerfile_hardlink_base", "."},
-	}, {
-		name:    "Building kaniko image with moved kaniko dir",
-		command: []string{"docker", "build", coverArg, "-t", ExecutorImageMoved, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz444", "--target", "kaniko", "."},
-	}, {
-		name:    "Building kaniko image with leftover stuff in the filesystem",
-		command: []string{"docker", "build", coverArg, "-t", ExecutorImageTainted, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz455", "--target", "kaniko", "."},
-	}, {
-		name:    "Building kaniko image with a bake context in the filesystem",
-		command: []string{"docker", "build", "-t", ExecutorImageBakeContext, "-f", "bakefiles/test_bake_unmounted_context/Dockerfile.executor", "bakefiles/test_bake_unmounted_context"},
-	}, {
-		name:    "Building hijack base image",
-		command: []string{"docker", "build", "--push", "-t", config.hijackBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz560", "--target", "base", "."},
-	}, {
-		name:    "Building malformed-oci base image",
-		command: []string{"docker", "build", "--push", "-t", config.malformedOCIImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz725", "--target", "base", "."},
-	}, {
-		name:    "Building mz753 base image",
-		command: []string{"docker", "build", "--push", "-t", config.nvidiaOperatorBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz753", "--target", "base", "."},
-	}, {
-		name:    "Building mz1073 base image",
-		command: []string{"docker", "build", "--push", "-t", config.mz1073BaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz1073", "--target", "base", "."},
-	}, {
-		name:    "Building mounted symlink base image",
-		command: []string{"docker", "build", "--push", "-t", config.mountedSymlinkBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_mounted_symlink_kaniko", "--target", "base", "."},
-	}, {
-		name:    "Building mz1113 base image",
-		command: []string{"docker", "build", "--push", "-t", config.mz1113BaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz1113", "--target", "base", "."},
-	}, {
-		name:    "Building mz1172 base image",
-		command: []string{"docker", "build", "--push", "-t", config.mz1172BaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz1172", "--target", "base", "."},
-	}, {
-		name: "Building single manifest base image",
-		command: append(append([]string{"docker", "build", "--push"}, dockerV2Flags...),
-			"-t", config.singleManifestBaseImage, "-f", dockerfilesPath+"/Dockerfile_test_issue_2567",
-			"--target", "base", "--build-arg", "IMAGE_REPO="+config.imageRepo, "."),
-	}, {
-		name:    "Building kaniko image based on alpine",
-		command: []string{"docker", "build", coverArg, "--build-arg=RACE=1", "-t", AlpineImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-alpine", ".."},
-	}}
-
-	for _, setupCmd := range setupCommands {
-		fmt.Println(setupCmd.name)
-		cmd := exec.Command(setupCmd.command[0], setupCmd.command[1:]...)
-		if out, err := RunCommandWithoutTest(cmd); err != nil {
-			return fmt.Errorf("%s failed: %s: %w", setupCmd.name, string(out), err)
-		}
+	fmt.Println("Building images")
+	cmd := exec.Command("docker", "buildx", "bake", "--allow=fs.read=..", "-f", "docker-bake.hcl")
+	cmd.Env = append(os.Environ(), "IMAGE_REPO="+config.imageRepo, "COVER="+cover)
+	out, err := RunCommandWithoutTest(cmd)
+	if err != nil {
+		return fmt.Errorf("building images failed: %s: %w", string(out), err)
 	}
 
 	maliciousRef := strings.ToLower(config.imageRepo + "path-traversal-malicious:latest")
-	err := pushMaliciousPathTraversalImage(maliciousRef)
+	err = pushMaliciousPathTraversalImage(maliciousRef)
 	if err != nil {
 		return err
 	}
