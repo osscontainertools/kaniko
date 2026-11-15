@@ -24,178 +24,83 @@ variable "COVER" {
 }
 
 group "default" {
-  targets = [
-    "executor",
-    "warmer",
-    "alpine-executor",
-    "executor-moved",
-    "executor-tainted",
-    "executor-bake-context",
-    "busybox-base",
-    "alpine-base",
-    "onbuild-base",
-    "onbuild-copy",
-    "hardlink-base",
-    "hijack-base",
-    "malformed-oci-base",
-    "nvidia-operator-base",
-    "mz1073-base",
-    "mounted-symlink-base",
-    "mz1113-base",
-    "mz1172-base",
-    "single-manifest-base",
-  ]
+  targets = ["kaniko", "kaniko-variant", "executor-image-bake-context", "base", "single-manifest-base"]
 }
 
-target "_deploy" {
+target "kaniko" {
+  name = item.tag
+  matrix = {
+    item = [
+      { tag = "executor-image", target = "kaniko-executor" },
+      { tag = "warmer-image", target = "kaniko-warmer" },
+      { tag = "alpine-image", target = "kaniko-alpine" },
+    ]
+  }
   context    = ".."
   dockerfile = "deploy/Dockerfile"
-  args = {
-    COVER = COVER
-    RACE  = "1"
+  target     = item.target
+  args       = { COVER = COVER, RACE = "1" }
+  tags       = [item.tag]
+  output     = ["type=docker"]
+}
+
+target "kaniko-variant" {
+  name = item.tag
+  matrix = {
+    item = [
+      { tag = "executor-image-moved", file = "Dockerfile_test_issue_mz444" },
+      { tag = "executor-image-tainted", file = "Dockerfile_test_issue_mz455" },
+    ]
   }
-  output = ["type=docker"]
-}
-
-target "executor" {
-  inherits = ["_deploy"]
-  target   = "kaniko-executor"
-  tags     = ["executor-image"]
-}
-
-target "warmer" {
-  inherits = ["_deploy"]
-  target   = "kaniko-warmer"
-  tags     = ["warmer-image"]
-}
-
-target "alpine-executor" {
-  inherits = ["_deploy"]
-  target   = "kaniko-alpine"
-  tags     = ["alpine-image"]
-}
-
-target "_from_executor" {
-  context  = "."
-  contexts = { executor-image = "target:executor" }
-  output   = ["type=docker"]
-}
-
-target "executor-moved" {
-  inherits   = ["_from_executor"]
-  dockerfile = "dockerfiles/Dockerfile_test_issue_mz444"
+  context    = "."
+  contexts   = { executor-image = "target:executor-image" }
+  dockerfile = "dockerfiles/${item.file}"
   target     = "kaniko"
   args       = { COVER = COVER }
-  tags       = ["executor-image-moved"]
+  tags       = [item.tag]
+  output     = ["type=docker"]
 }
 
-target "executor-tainted" {
-  inherits   = ["_from_executor"]
-  dockerfile = "dockerfiles/Dockerfile_test_issue_mz455"
-  target     = "kaniko"
-  args       = { COVER = COVER }
-  tags       = ["executor-image-tainted"]
-}
-
-target "executor-bake-context" {
-  inherits   = ["_from_executor"]
+target "executor-image-bake-context" {
   context    = "bakefiles/test_bake_unmounted_context"
+  contexts   = { executor-image = "target:executor-image" }
   dockerfile = "Dockerfile.executor"
   tags       = ["executor-image-bake-context"]
+  output     = ["type=docker"]
 }
 
-target "_base" {
-  context = "."
-  output  = ["type=registry"]
-}
-
-target "busybox-base" {
-  inherits   = ["_base"]
-  dockerfile = "dockerfiles/Dockerfile_busybox_base"
-  tags       = ["${IMAGE_REPO}busybox:latest"]
-}
-
-target "alpine-base" {
-  inherits   = ["_base"]
-  dockerfile = "dockerfiles/Dockerfile_alpine_base"
-  tags       = ["${IMAGE_REPO}alpine:latest"]
-}
-
-target "onbuild-base" {
-  inherits   = ["_base"]
-  dockerfile = "dockerfiles/Dockerfile_onbuild_base"
-  tags       = ["${IMAGE_REPO}onbuild-base:latest"]
-}
-
-target "onbuild-copy" {
-  inherits   = ["_base"]
-  dockerfile = "dockerfiles/Dockerfile_test_issue_mz332"
-  target     = "onbuild"
-  tags       = ["${IMAGE_REPO}onbuild-copy:latest"]
-}
-
-target "hardlink-base" {
-  inherits   = ["_base"]
-  dockerfile = "dockerfiles/Dockerfile_hardlink_base"
-  tags       = ["${IMAGE_REPO}hardlink-base:latest"]
-}
-
-target "hijack-base" {
-  inherits   = ["_base"]
-  dockerfile = "dockerfiles/Dockerfile_test_issue_mz560"
-  target     = "base"
-  tags       = ["${IMAGE_REPO}hijack:latest"]
-}
-
-target "malformed-oci-base" {
-  inherits   = ["_base"]
-  dockerfile = "dockerfiles/Dockerfile_test_issue_mz725"
-  target     = "base"
-  tags       = ["${IMAGE_REPO}malformed-oci:latest"]
-}
-
-target "nvidia-operator-base" {
-  inherits   = ["_base"]
-  dockerfile = "dockerfiles/Dockerfile_test_issue_mz753"
-  target     = "base"
-  tags       = ["${IMAGE_REPO}nvidia-operator-base:latest"]
-}
-
-target "mz1073-base" {
-  inherits   = ["_base"]
-  dockerfile = "dockerfiles/Dockerfile_test_issue_mz1073"
-  target     = "base"
-  tags       = ["${IMAGE_REPO}test-issue-mz1073-base:latest"]
-}
-
-target "mounted-symlink-base" {
-  inherits   = ["_base"]
-  dockerfile = "dockerfiles/Dockerfile_test_mounted_symlink_kaniko"
-  target     = "base"
-  tags       = ["${IMAGE_REPO}mounted-symlink-kaniko-base:latest"]
-}
-
-target "mz1113-base" {
-  inherits   = ["_base"]
-  dockerfile = "dockerfiles/Dockerfile_test_issue_mz1113"
-  target     = "base"
-  tags       = ["${IMAGE_REPO}test-issue-mz1113-base:latest"]
-}
-
-target "mz1172-base" {
-  inherits   = ["_base"]
-  dockerfile = "dockerfiles/Dockerfile_test_issue_mz1172"
-  target     = "base"
-  tags       = ["${IMAGE_REPO}test-issue-mz1172-base:latest"]
+target "base" {
+  name = item.name
+  matrix = {
+    item = [
+      { name = "busybox", file = "Dockerfile_busybox_base", target = "" },
+      { name = "alpine", file = "Dockerfile_alpine_base", target = "" },
+      { name = "onbuild-base", file = "Dockerfile_onbuild_base", target = "" },
+      { name = "onbuild-copy", file = "Dockerfile_test_issue_mz332", target = "onbuild" },
+      { name = "hardlink-base", file = "Dockerfile_hardlink_base", target = "" },
+      { name = "hijack", file = "Dockerfile_test_issue_mz560", target = "base" },
+      { name = "malformed-oci", file = "Dockerfile_test_issue_mz725", target = "base" },
+      { name = "nvidia-operator-base", file = "Dockerfile_test_issue_mz753", target = "base" },
+      { name = "test-issue-mz1073-base", file = "Dockerfile_test_issue_mz1073", target = "base" },
+      { name = "mounted-symlink-kaniko-base", file = "Dockerfile_test_mounted_symlink_kaniko", target = "base" },
+      { name = "test-issue-mz1113-base", file = "Dockerfile_test_issue_mz1113", target = "base" },
+      { name = "test-issue-mz1172-base", file = "Dockerfile_test_issue_mz1172", target = "base" },
+    ]
+  }
+  context    = "."
+  dockerfile = "dockerfiles/${item.file}"
+  target     = item.target
+  tags       = ["${IMAGE_REPO}${item.name}:latest"]
+  output     = ["type=registry"]
 }
 
 target "single-manifest-base" {
-  inherits   = ["_base"]
+  context    = "."
+  contexts   = { "${IMAGE_REPO}busybox" = "target:busybox" }
   dockerfile = "dockerfiles/Dockerfile_test_issue_2567"
   target     = "base"
   args       = { IMAGE_REPO = IMAGE_REPO }
-  contexts   = { "${IMAGE_REPO}busybox" = "target:busybox-base" }
   attest     = ["type=provenance,disabled=true"]
-  output     = ["type=registry,oci-mediatypes=false"]
   tags       = ["${IMAGE_REPO}single-manifest-base:latest"]
+  output     = ["type=registry,oci-mediatypes=false"]
 }
