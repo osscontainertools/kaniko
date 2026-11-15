@@ -55,6 +55,8 @@ expect - see [Known Issues](#known-issues).
       - [Running kaniko in gVisor](#running-kaniko-in-gvisor)
       - [Running kaniko in Google Cloud Build](#running-kaniko-in-google-cloud-build)
       - [Running kaniko in Docker](#running-kaniko-in-docker)
+      - [Running kaniko in GitLab CI](#running-kaniko-in-gitlab-ci)
+      - [Running kaniko in GitHub Actions](#running-kaniko-in-github-actions)
     - [Bootstrapping Kaniko](#bootstrapping-kaniko)
     - [Caching](#caching)
       - [Caching Layers](#caching-layers)
@@ -209,10 +211,6 @@ expect - see [Known Issues](#known-issues).
   - [Creating Multi-arch Container Manifests Using Kaniko and Manifest-tool](#creating-multi-arch-container-manifests-using-kaniko-and-manifest-tool)
     - [General Workflow](#general-workflow)
     - [Limitations and Pitfalls](#limitations-and-pitfalls)
-    - [Example CI Pipeline (GitLab)](#example-ci-pipeline-gitlab)
-      - [Building the Separate Container Images](#building-the-separate-container-images)
-      - [Merging the Container Manifests](#merging-the-container-manifests)
-      - [On the Note of Adding Versioned Tags](#on-the-note-of-adding-versioned-tags)
   - [Comparison with Other Tools](#comparison-with-other-tools)
   - [Limitations](#limitations)
     - [mtime and snapshotting](#mtime-and-snapshotting)
@@ -479,6 +477,8 @@ There are several different ways to deploy and run kaniko:
 - [In gVisor](#running-kaniko-in-gvisor)
 - [In Google Cloud Build](#running-kaniko-in-google-cloud-build)
 - [In Docker](#running-kaniko-in-docker)
+- [In GitLab CI](#running-kaniko-in-gitlab-ci)
+- [In GitHub Actions](#running-kaniko-in-github-actions)
 
 #### Running kaniko in a Kubernetes cluster
 
@@ -600,6 +600,43 @@ docker run \
     --destination "registry.example.com/$IMAGE_NAME:$TAG" \
     --context dir:///workspace/
 ```
+
+#### Running kaniko in GitLab CI
+
+The [kaniko components](https://gitlab.com/explore/catalog/osscontainertools/components/kaniko) build `Dockerfile` in the project directory and push it to the project's container registry. Later jobs receive the image pinned by digest as `KANIKO_IMAGE`.
+
+```yaml
+include:
+  - component: gitlab.com/osscontainertools/components/kaniko/build@1.0.0
+```
+
+For a multi-arch image, one native runner per architecture:
+
+```yaml
+include:
+  - component: gitlab.com/osscontainertools/components/kaniko/build-multiarch@1.0.0
+```
+
+See the [components' README](https://gitlab.com/osscontainertools/components/kaniko) for caching, provenance, bootstrapping and the other inputs.
+
+#### Running kaniko in GitHub Actions
+
+The [kaniko action](https://github.com/marketplace/actions/kaniko-oss-container-tools) builds `Dockerfile` in the workspace and pushes it to `ghcr.io/<owner>/<repo>`. Later steps receive the image pinned by digest as the `image` output.
+
+```yaml
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: osscontainertools/kaniko-action@8989cb3064846a06268985dea52f17ff4cd49b57 # v1.0.2
+```
+
+See the [action's README](https://github.com/osscontainertools/kaniko-action) for multi-arch images, Kubernetes runners and the other inputs.
 
 ### Bootstrapping Kaniko
 Kaniko's approach to buliding docker images is unique. It doesn't build up and snapshot an image in a separate container, instead it will build up and snapshot the image in the container where kaniko is installed. The benefit is that kaniko can run without any privileges, because it's not actually using any containerization technologies, the downside is that sometimes builds can yield surprising results - bootstrapping kaniko image with kaniko builder is one such case. 
@@ -1945,123 +1982,7 @@ The following conditions must be met:
 3. The container registry of your choice must be OCIv1 or Docker v2.2
    compatible.
 
-### Example CI Pipeline (GitLab)
-
-It is up to you to find an automation tool that suits your needs best. We
-recommend using a modern CI/CD system such as GitHub workflows or GitLab CI. As
-we (the authors) happen to use GitLab CI, the following examples are tailored to
-this specific platform but the underlying principles should apply anywhere else
-and the examples are kept simple enough, so that you should be able to follow
-along, even without any previous experiences with this specific platform. When
-in doubt, visit the
-[gitlab-ci.yml reference page](https://docs.gitlab.com/ee/ci/yaml/index.html)
-for a comprehensive overview of the GitLab CI keywords.
-
-#### Building the Separate Container Images
-
-gitlab-ci.yml:
-
-```yaml
-# define a job for building the containers
-build-container:
-  stage: container-build
-  # run parallel builds for the desired architectures
-  parallel:
-    matrix:
-      - ARCH: amd64
-      - ARCH: arm64
-  tags:
-    # run each build on a suitable, preconfigured runner (must match the target architecture)
-    - runner-${ARCH}
-  image:
-    name: ghcr.io/osscontainertools/kaniko:debug
-    entrypoint: [""]
-  script:
-    # build the container image for the current arch using kaniko
-    - >-
-      /kaniko/executor --context "${CI_PROJECT_DIR}" --dockerfile
-      "${CI_PROJECT_DIR}/Dockerfile" # push the image to the GitLab container
-      registry, add the current arch as tag. --destination
-      "${CI_REGISTRY_IMAGE}:${ARCH}"
-```
-
-#### Merging the Container Manifests
-
-gitlab-ci.yml:
-
-```yaml
-# define a job for creating and pushing a merged manifest
-merge-manifests:
-  stage: container-build
-  # all containers must be build before merging them
-  # alternatively the job may be configured to run in a later stage
-  needs:
-    - job: container-build
-      artifacts: false
-  tags:
-    # may run on any architecture supported by manifest-tool image
-    - runner-xyz
-  image:
-    name: mplatform/manifest-tool:alpine
-    entrypoint: [""]
-  script:
-    - >-
-      manifest-tool # authorize against your container registry
-      --username=${CI_REGISTRY_USER} --password=${CI_REGISTRY_PASSWORD} push
-      from-args # define the architectures you want to merge --platforms
-      linux/amd64,linux/arm64 # "ARCH" will be automatically replaced by
-      manifest-tool # with the appropriate arch from the platform definitions
-      --template ${CI_REGISTRY_IMAGE}:ARCH # The name of the final, combined
-      image which will be pushed to your registry --target ${CI_REGISTRY_IMAGE}
-```
-
-#### On the Note of Adding Versioned Tags
-
-For simplicity's sake we deliberately refrained from using versioned tagged
-images (all builds will be tagged as "latest") in the previous examples, as we
-feel like this adds to much platform and workflow specific code.
-
-Nevertheless, for anyone interested in how we handle (dynamic) versioning in
-GitLab, here is a short rundown:
-
-- If you are only interested in building tagged releases, you can simply use the
-  [GitLab predefined](https://docs.gitlab.com/ee/ci/variables/predefined_variables.html)
-  `CI_COMMIT_TAG` variable when running a tag pipeline.
-- When you (like us) want to additionally build container images outside of
-  releases, things get a bit messier. In our case, we added a additional job
-  which runs before the build and merge jobs (don't forget to extend the `needs`
-  section of the build and merge jobs accordingly), which will set the tag to
-  `latest` when running on the default branch, to the commit hash when run on
-  other branches and to the release tag when run on a tag pipeline.
-
-gitlab-ci.yml:
-
-```yaml
-container-get-tag:
-  stage: pre-container-build-stage
-  tags:
-    - runner-xyz
-  image: busybox
-  script:
-    # All other branches are tagged with the currently built commit SHA hash
-    - |
-      # If pipeline runs on the default branch: Set tag to "latest"
-      if test "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH"; then
-        tag="latest"
-      # If pipeline is a tag pipeline, set tag to the git commit tag
-      elif test -n "$CI_COMMIT_TAG"; then
-        tag="$CI_COMMIT_TAG"
-      # Else set the tag to the git commit sha
-      else
-        tag="$CI_COMMIT_SHA"
-      fi
-    - echo "tag=$tag" > build.env
-  # parse tag to the build and merge jobs.
-  # See: https://docs.gitlab.com/ee/ci/variables/#pass-an-environment-variable-to-another-job
-  artifacts:
-    reports:
-      dotenv: build.env
-```
+In CI, the [GitLab components](#running-kaniko-in-gitlab-ci) and the [GitHub action](#running-kaniko-in-github-actions) run this workflow, one native runner per architecture plus the merge.
 
 ## Comparison with Other Tools
 
