@@ -90,12 +90,12 @@ jobs:
 
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        uses: step-security/harden-runner@v2.22.4
         with:
           egress-policy: audit
 
       - name: Maximize build space
-        uses: AdityaGarg8/remove-unwanted-software@36765610732de8ee2e81a5c6c231506e2b5cabcf # v5.1
+        uses: AdityaGarg8/remove-unwanted-software@v5.1
         with:
           remove-android: 'true'
           remove-dotnet: 'true'
@@ -105,7 +105,7 @@ jobs:
           remove-large-packages: 'true'
           remove-cached-tools: 'true'
 
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 
@@ -136,11 +136,11 @@ jobs:
           fi
 
       - if: steps.context.outputs.should_push == 'true'
-        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        uses: docker/setup-qemu-action@v4.4.0
         with:
           platforms: ${{ matrix.platforms }}
 
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/setup-buildx-action@v4.4.1
 
       - name: Set build timestamp
         id: build-time
@@ -150,13 +150,13 @@ jobs:
           echo "created=$(date -u -d @$epoch +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
 
       - if: steps.context.outputs.should_push == 'true'
-        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
+        uses: docker/login-action@v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+      - uses: docker/build-push-action@v7.4.0
         id: build-and-push
         env:
           SOURCE_DATE_EPOCH: ${{ steps.build-time.outputs.epoch }}
@@ -200,7 +200,7 @@ jobs:
 
       # Sign images if not a PR.
       - if: steps.context.outputs.should_push == 'true'
-        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+        uses: sigstore/cosign-installer@v4.1.3
 
       - if: steps.context.outputs.should_push == 'true'
         run: |
@@ -209,7 +209,7 @@ jobs:
 
       # If a tag push, use crane to add more tags.
       - if: steps.context.outputs.is_release == 'true'
-        uses: imjasonh/setup-crane@feee3b6bb0d4c68370f256a4502498c9227e5c6b # v0.7
+        uses: imjasonh/setup-crane@v0.7
 
       - if: steps.context.outputs.is_release == 'true'
         name: Apply release tags
@@ -232,7 +232,7 @@ jobs:
 
       # If a tag push, distribute to other registries too
       - if: steps.context.outputs.is_release == 'true'
-        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
+        uses: docker/login-action@v4.8.0
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
