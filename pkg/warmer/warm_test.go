@@ -155,3 +155,87 @@ func TestParseDockerfile_InvalidsDockerfile(t *testing.T) {
 		t.Fatalf("expected no base names, got %d", len(baseNames))
 	}
 }
+
+func TestDeduplicateImages_CliAndDockerfile(t *testing.T) {
+	cliImages := []string{"alpine:latest"}
+	dockerfileImages := []string{"alpine:latest", "debian:bookworm"}
+
+	result := deduplicateImages(cliImages, dockerfileImages)
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 images, got %d: %v", len(result), result)
+	}
+	if result[0] != "alpine:latest" {
+		t.Errorf("expected first image to be alpine:latest (CLI), got %s", result[0])
+	}
+	if result[1] != "debian:bookworm" {
+		t.Errorf("expected second image to be debian:bookworm, got %s", result[1])
+	}
+}
+
+func TestDeduplicateImages_DuplicateCliImages(t *testing.T) {
+	cliImages := []string{"alpine:latest", "alpine:latest", "nginx:latest"}
+	dockerfileImages := []string{"debian:bookworm", "alpine:latest"}
+
+	result := deduplicateImages(cliImages, dockerfileImages)
+
+	expected := []string{"alpine:latest", "nginx:latest", "debian:bookworm"}
+	if len(result) != len(expected) {
+		t.Fatalf("expected %d images, got %d: %v", len(expected), len(result), result)
+	}
+	for i, exp := range expected {
+		if result[i] != exp {
+			t.Errorf("index %d: expected %s, got %s", i, exp, result[i])
+		}
+	}
+}
+
+func TestDeduplicateImages_EmptyInputs(t *testing.T) {
+	// Both empty
+	result := deduplicateImages([]string{}, []string{})
+	if len(result) != 0 {
+		t.Errorf("expected empty result, got %v", result)
+	}
+
+	// Only CLI images
+	result = deduplicateImages([]string{"alpine:latest"}, []string{})
+	if len(result) != 1 || result[0] != "alpine:latest" {
+		t.Errorf("expected [alpine:latest], got %v", result)
+	}
+
+	// Only Dockerfile images
+	result = deduplicateImages([]string{}, []string{"debian:bookworm"})
+	if len(result) != 1 || result[0] != "debian:bookworm" {
+		t.Errorf("expected [debian:bookworm], got %v", result)
+	}
+}
+
+func TestDeduplicateImages_PreservesOrder(t *testing.T) {
+	// CLI images order should be preserved
+	cliImages := []string{"img1", "img2", "img3"}
+	dockerfileImages := []string{"img4", "img5"}
+	result := deduplicateImages(cliImages, dockerfileImages)
+	expected := []string{"img1", "img2", "img3", "img4", "img5"}
+	if len(result) != len(expected) {
+		t.Fatalf("expected %d images, got %d", len(expected), len(result))
+	}
+	for i := range expected {
+		if result[i] != expected[i] {
+			t.Errorf("index %d: expected %s, got %s", i, expected[i], result[i])
+		}
+	}
+
+	// Dockerfile images order should be preserved (after CLI)
+	cliImages = []string{"img1"}
+	dockerfileImages = []string{"img2", "img3", "img2"} // duplicate in dockerfile
+	result = deduplicateImages(cliImages, dockerfileImages)
+	expected = []string{"img1", "img2", "img3"}
+	if len(result) != len(expected) {
+		t.Fatalf("expected %d images, got %d", len(expected), len(result))
+	}
+	for i := range expected {
+		if result[i] != expected[i] {
+			t.Errorf("index %d: expected %s, got %s", i, expected[i], result[i])
+		}
+	}
+}
