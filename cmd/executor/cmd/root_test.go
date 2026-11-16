@@ -19,6 +19,7 @@ package cmd
 import (
 	"testing"
 
+	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/testutil"
 )
 
@@ -61,7 +62,7 @@ func TestSkipPath(t *testing.T) {
 	}
 }
 
-func TestIsUrl(t *testing.T) {
+func TestIsURL(t *testing.T) {
 	tests := []struct {
 		description string
 		path        string
@@ -93,7 +94,7 @@ func TestIsUrl(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
-			testutil.CheckDeepEqual(t, tt.expected, isURL(tt.path))
+			testutil.CheckDeepEqual(t, tt.expected, util.IsURL(tt.path))
 		})
 	}
 }

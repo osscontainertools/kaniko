@@ -187,7 +187,7 @@ and inherits are not supported.`,
 			}
 			in := c.inputs
 			in.dockerfile = topts.DockerfilePath
-			if store && !isURL(in.dockerfile) {
+			if store && !util.IsURL(in.dockerfile) {
 				in.dockerfile = filepath.Join(config.KanikoBuildContextsDir, fmt.Sprintf("Dockerfile-%d", i))
 				if err := os.Rename(config.DockerfilePath, in.dockerfile); err != nil {
 					return fmt.Errorf("storing dockerfile of target %q: %w", target.ID, err)
