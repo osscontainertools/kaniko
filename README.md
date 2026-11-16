@@ -688,7 +688,9 @@ for how to use with kubernetes clusters and persistent cache volumes.
 
 `--dryrun` prints which images are already cached and which would be fetched, without writing to the cache. `KANIKO_PRINT_PLAN=1` prints the same plan before warming.
 
-`warmer bake <bakefile> [target]` warms the base images of bakefile targets, see [docs/bakefile.md](docs/bakefile.md#warmer).
+`--fail-on-partial` fails if any of the requested images fail to warm. By default, warming only fails when every image fails, while partial failures are reported as warnings.
+
+`warmer bake <bakefile> [target]` warms the base images of bakefile targets, see [docs/bakefile.md](docs/bakefile.md#warmer). `--fail-on-partial` also applies to `warmer bake`.
 
 ### Pushing to Different Registries
 

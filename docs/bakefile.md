@@ -146,4 +146,4 @@ warmer bake /workspace/kaniko-bake.hcl app --cache-dir=/cache
 executor bake /workspace/kaniko-bake.hcl app --cache-dir=/cache
 ```
 
-`warmer bake` warms the base images of every stage in each target's dockerfile into `--cache-dir`. It reads `context` and `dockerfile`, and ignores `target`, `destination`, `cache_from` and `cache_to`. A target with a remote `context` needs a `dockerfile` that is a local path or URL. `--set` and `--print` work as in `executor bake`.
+`warmer bake` warms the base images of every stage in each target's dockerfile into `--cache-dir`. It reads `context` and `dockerfile`, and ignores `target`, `destination`, `cache_from` and `cache_to`. A target with a remote `context` needs a `dockerfile` that is a local path or URL. `--set`, `--print` and `--fail-on-partial` work as in `executor bake` / the warmer.

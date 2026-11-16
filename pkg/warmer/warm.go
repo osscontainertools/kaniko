@@ -18,7 +18,6 @@ package warmer
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -89,17 +88,19 @@ func WarmCache(opts *config.WarmerOptions) error {
 		}
 	}
 
-	errs := 0
+	var failed []string
 	for _, img := range images {
-		err := ociWarmToFile(cacheDir, img, opts)
-		if err != nil {
+		if err := ociWarmToFile(cacheDir, img, opts); err != nil {
 			logrus.Warnf("Error while trying to warm image: %v %v", img, err)
-			errs++
+			failed = append(failed, img)
 		}
 	}
 
-	if len(images) > 0 && len(images) == errs {
-		return errors.New("failed to warm any of the given images")
+	if len(failed) > 0 {
+		if len(failed) == len(images) || opts.FailOnPartial {
+			return fmt.Errorf("failed to warm %d/%d image(s): %s", len(failed), len(images), strings.Join(failed, ", "))
+		}
+		logrus.Warnf("Failed to warm %d/%d image(s): %s", len(failed), len(images), strings.Join(failed, ", "))
 	}
 
 	return nil
@@ -116,7 +117,7 @@ func RenderPlan(w io.Writer, images []string, opts *config.WarmerOptions) (retEr
 		Remote: RemoteSource,
 		Local:  LocalSource,
 	}
-	errs := 0
+	var failed []string
 	for _, img := range images {
 		printf("FROM %s\n", img)
 		_, _, index, digest, err := cw.Resolve(img, opts)
@@ -133,7 +134,7 @@ func RenderPlan(w io.Writer, images []string, opts *config.WarmerOptions) (retEr
 			}
 		case err != nil:
 			logrus.Warnf("Error while trying to warm image: %v %v", img, err)
-			errs++
+			failed = append(failed, img)
 		default:
 			if !opts.Force {
 				printf("  CACHE MISS: %s\n", digest)
@@ -145,8 +146,11 @@ func RenderPlan(w io.Writer, images []string, opts *config.WarmerOptions) (retEr
 			printf("  SAVE %s\n", path.Join(opts.CacheDir, digest.String()))
 		}
 	}
-	if retErr == nil && len(images) > 0 && len(images) == errs {
-		return errors.New("failed to warm any of the given images")
+	if len(failed) > 0 {
+		logrus.Warnf("Failed to warm %d/%d image(s): %s", len(failed), len(images), strings.Join(failed, ", "))
+		if retErr == nil && (len(failed) == len(images) || opts.FailOnPartial) {
+			return fmt.Errorf("failed to warm %d/%d image(s): %s", len(failed), len(images), strings.Join(failed, ", "))
+		}
 	}
 	return retErr
 }
@@ -177,7 +181,6 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 			logrus.Infof("Image already in cache: %v", img)
 			return nil
 		}
-		logrus.Warnf("Error while trying to warm image: %v %v", img, err)
 		return err
 	}
 
@@ -197,7 +200,6 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	_ = os.RemoveAll(finalCachePath)
 
 	if err := cw.Write(cacheRef, image); err != nil {
-		logrus.Warnf("Error while trying to warm image: %v %v", img, err)
 		return err
 	}
 
