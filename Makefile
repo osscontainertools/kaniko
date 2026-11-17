@@ -72,6 +72,11 @@ out/warmer: $(GO_FILES)
 k3s-setup:
 	@ ./scripts/k3s-setup.sh
 
+.PHONY: local-registries
+local-registries:
+	@ ./scripts/setup-tls-registry-creds.sh
+	@ docker compose -f scripts/local-registries.compose.yaml up -d --wait
+
 .PHONY: test
 test: out/executor
 	@ ./scripts/test.sh
@@ -105,8 +110,7 @@ integration-test-misc:
 	@ ./scripts/integration-test.sh -run "$(RUN_ARG)"
 
 .PHONY: k8s-executor-build-push
-k8s-executor-build-push:
-	./scripts/local-registries.sh
+k8s-executor-build-push: local-registries
 	docker build ${BUILD_ARG} --build-arg=GOARCH=$(GOARCH) --build-arg=TARGETOS=linux -t $(REGISTRY)/executor:latest -f deploy/Dockerfile --target kaniko-executor .
 	docker push $(REGISTRY)/executor:latest
 

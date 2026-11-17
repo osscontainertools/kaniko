@@ -34,7 +34,7 @@ if [[ -n ${DOCKERFILE_PATTERN} ]]; then
   FLAGS+=("--dockerfiles-pattern=${DOCKERFILE_PATTERN}")
 fi
 
-"$(dirname "$0")/local-registries.sh"
+make local-registries
 
 FLAGS+=(
   "--repo=${IMAGE_REPO}"
