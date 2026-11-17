@@ -62,7 +62,7 @@ ARG COVER=""
 ARG RACE=""
 ENV GOFIPS140=v1.0.0
 RUN --mount=type=cache,target=/root/.cache/go-build \
-    make COVER="$COVER" RACE="$RACE" out/executor-slim
+    make COVER="$COVER" RACE="$RACE" out/kaniko-slim
 
 # use musl busybox since it's staticly compiled on all platforms
 # Keep in sync with deploy/sources/busybox.spdx.json.
@@ -221,6 +221,6 @@ ENTRYPOINT ["/kaniko/executor"]
 
 FROM kaniko-base-slim AS kaniko-slim-fips
 
-COPY --from=builder-slim-fips /src/out/executor-slim /kaniko/executor
+COPY --from=builder-slim-fips /src/out/kaniko-slim /kaniko/executor
 
 ENTRYPOINT ["/kaniko/executor"]
