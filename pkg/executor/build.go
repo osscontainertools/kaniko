@@ -1281,15 +1281,18 @@ func saveLayerToImage(image v1.Image, layer v1.Layer, createdBy string, opts *co
 	return image, layer, err
 }
 
-func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext) (map[int][]string, map[*instructions.CopyCommand][]string, error) {
+// CalculateDependencies returns per stage the COPY --from source patterns and the bind
+// mount source paths that later stages read from it.
+func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext) (map[int][]string, map[int][]string, map[*instructions.CopyCommand][]string, error) {
 	images := make(map[int]v1.Image)
 	stageArgs := make(map[int]*dockerfile.BuildArgs)
 	depGraph := map[int][]string{}
+	mountDeps := map[int][]string{}
 	copySources := map[*instructions.CopyCommand][]string{}
 	baseArgs := dockerfile.NewBuildArgs(opts.BuildArgs)
 	err := baseArgs.InitPredefinedArgs(opts.CustomPlatform, stages[len(stages)-1].Name)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	for _, s := range stages {
 		ba := baseArgs.Clone()
@@ -1307,12 +1310,12 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 		} else {
 			image, err = image_util.RetrieveSourceImage(s, opts)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 		}
 		cfg, err := initializeConfig(image, opts)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 
 		cmds := s.Commands
@@ -1323,14 +1326,14 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 				if opts.RequireAddChecksum {
 					err := commands.RequireAddChecksum(cmd, fileContext, ba.ReplacementEnvs(cfg.Config.Env))
 					if err != nil {
-						return nil, nil, err
+						return nil, nil, nil, err
 					}
 				}
 			case *instructions.CopyCommand:
 				if cmd.From != "" {
 					resolved, err := util.ResolveEnvironmentReplacementList(cmd.SourcePaths, ba.ReplacementEnvs(cfg.Config.Env), true)
 					if err != nil {
-						return nil, nil, err
+						return nil, nil, nil, err
 					}
 					copySources[cmd] = resolved
 					i, err := strconv.Atoi(cmd.From)
@@ -1346,23 +1349,22 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 						return util.ResolveEnvironmentReplacement(word, replacementEnvs, false)
 					})
 					if err != nil {
-						return nil, nil, err
+						return nil, nil, nil, err
 					}
 					for _, m := range dockerfile.CrossStageMounts(cmd) {
 						i, err := strconv.Atoi(m.From)
 						if err == nil {
-							source := m.Source
 							if config.FF.GlobCharPaths {
-								// filesToSave globs every dependency, a mount source is a literal path
-								source = strings.NewReplacer(`\`, `\\`, `*`, `\*`, `?`, `\?`, `[`, `\[`).Replace(source)
+								mountDeps[i] = append(mountDeps[i], m.Source)
+							} else {
+								depGraph[i] = append(depGraph[i], m.Source)
 							}
-							depGraph[i] = append(depGraph[i], source)
 						}
 					}
 				}
 			case *instructions.EnvCommand:
 				if err := util.UpdateConfigEnv(cmd.Env, &cfg.Config, ba.ReplacementEnvs(cfg.Config.Env)); err != nil {
-					return nil, nil, err
+					return nil, nil, nil, err
 				}
 				// Match EnvCommand: later ENV values override arguments of the same name.
 				for _, keyVal := range cmd.Env {
@@ -1370,13 +1372,13 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 				}
 				image, err = mutate.Config(image, cfg.Config)
 				if err != nil {
-					return nil, nil, err
+					return nil, nil, nil, err
 				}
 			case *instructions.ArgCommand:
 				for _, arg := range cmd.Args {
 					k, v, err := commands.ParseArg(arg.Key, arg.Value, cfg.Config.Env, ba)
 					if err != nil {
-						return nil, nil, err
+						return nil, nil, nil, err
 					}
 					ba.AddArg(k, v)
 				}
@@ -1389,7 +1391,11 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 		slices.Sort(depGraph[i])
 		depGraph[i] = slices.Compact(depGraph[i])
 	}
-	return depGraph, copySources, nil
+	for i := range mountDeps {
+		slices.Sort(mountDeps[i])
+		mountDeps[i] = slices.Compact(mountDeps[i])
+	}
+	return depGraph, mountDeps, copySources, nil
 }
 
 // for testing
@@ -1403,7 +1409,7 @@ type pushedLayer struct {
 	origin *name.Repository
 }
 
-func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string, layerCache *memoizedLayerCache, externalImageDigests map[string]string, sharedRemote map[string]bool) (retErr error) {
+func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCacheInfo, opts *config.KanikoOptions, fileContext util.FileContext, crossStageDependencies map[int][]string, mountDependencies map[int][]string, layerCache *memoizedLayerCache, externalImageDigests map[string]string, sharedRemote map[string]bool) (retErr error) {
 	printf := func(format string, args ...any) {
 		if retErr == nil {
 			_, retErr = fmt.Fprintf(w, format, args...)
@@ -1428,7 +1434,7 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 		}
 	}
 	for _, s := range stages {
-		needsRootFS := len(crossStageDependencies[s.Index]) > 0 || (s.Index == 0 && opts.InitialFSUnpacked)
+		needsRootFS := len(crossStageDependencies[s.Index]) > 0 || len(mountDependencies[s.Index]) > 0 || (s.Index == 0 && opts.InitialFSUnpacked)
 		if s.Name != "" {
 			printf("FROM %s AS %s\n", s.BaseName, s.Name)
 		} else {
@@ -1593,7 +1599,7 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 		if s.SaveStage {
 			printf("SAVE STAGE %s%d\n", config.KanikoIntermediateStagesDir, s.Index)
 		}
-		filesToSave := crossStageDependencies[s.Index]
+		filesToSave := slices.Concat(crossStageDependencies[s.Index], mountDependencies[s.Index])
 		if len(filesToSave) > 0 {
 			printf("SAVE FILES %v %s%d\n", filesToSave, config.KanikoInterStageDepsDir, s.Index)
 		}
@@ -1643,7 +1649,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		return nil, err
 	}
 
-	crossStageDependencies, copySources, err := CalculateDependencies(kanikoStages, opts, fileContext)
+	crossStageDependencies, mountDependencies, copySources, err := CalculateDependencies(kanikoStages, opts, fileContext)
 	if err != nil {
 		return nil, err
 	}
@@ -1832,7 +1838,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		sinks = append(sinks, &plan)
 	}
 	if len(sinks) > 0 {
-		err := RenderStages(io.MultiWriter(sinks...), kanikoStages, cacheInfo, opts, fileContext, crossStageDependencies, layerCache, externalImageDigests, sharedRemote)
+		err := RenderStages(io.MultiWriter(sinks...), kanikoStages, cacheInfo, opts, fileContext, crossStageDependencies, mountDependencies, layerCache, externalImageDigests, sharedRemote)
 		if err != nil {
 			return nil, err
 		}
@@ -1985,7 +1991,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		}
 
 		stageArgs[stage.Index] = sb.args
-		crossStageDeps := len(crossStageDependencies[stage.Index]) > 0
+		crossStageDeps := len(crossStageDependencies[stage.Index]) > 0 || len(mountDependencies[stage.Index]) > 0
 		needsRootFS, err := sb.build(*compositeKey, opts, fileContext, snapshotter, crossStageDeps, copySources, stageFinalCacheKeys, externalImageDigests, layerCache, buildCi)
 		if err != nil {
 			return nil, fmt.Errorf("error building stage: %w", err)
@@ -2118,7 +2124,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 			}
 		}
 
-		files, err := filesToSave(crossStageDependencies[stage.Index])
+		files, err := filesToSave(crossStageDependencies[stage.Index], mountDependencies[stage.Index])
 		if err != nil {
 			return nil, err
 		}
@@ -2166,29 +2172,44 @@ func assignIfNil(dst *error, fn func() error) {
 	}
 }
 
-// filesToSave returns all the files matching the given pattern in deps.
+// filesToSave returns all the files matching the given pattern in deps and the paths
+// in mountDeps that exist.
 // If a file is a symlink, it also returns the target file.
-func filesToSave(deps []string) ([]string, error) {
-	srcFiles := []string{}
+func filesToSave(deps []string, mountDeps []string) ([]string, error) {
+	var matches []string
 	for _, src := range deps {
 		srcs, err := filepath.Glob(filepath.Join(config.RootDir, src))
 		if err != nil {
 			return nil, err
 		}
-		for _, f := range srcs {
-			if link, err := util.EvalSymLink(f); err == nil {
-				link, err = filepath.Rel(config.RootDir, link)
-				if err != nil {
-					return nil, fmt.Errorf("could not find relative path to %s: %w", config.RootDir, err)
-				}
-				srcFiles = append(srcFiles, link)
-			}
-			f, err = filepath.Rel(config.RootDir, f)
+		matches = append(matches, srcs...)
+	}
+	for _, src := range mountDeps {
+		path := filepath.Join(config.RootDir, src)
+		_, err := os.Lstat(path)
+		switch {
+		case err == nil:
+			matches = append(matches, path)
+		case os.IsNotExist(err):
+			// the RUN that mounts it reports the missing source
+		default:
+			return nil, fmt.Errorf("checking bind mount source %s: %w", src, err)
+		}
+	}
+	srcFiles := []string{}
+	for _, f := range matches {
+		if link, err := util.EvalSymLink(f); err == nil {
+			link, err = filepath.Rel(config.RootDir, link)
 			if err != nil {
 				return nil, fmt.Errorf("could not find relative path to %s: %w", config.RootDir, err)
 			}
-			srcFiles = append(srcFiles, f)
+			srcFiles = append(srcFiles, link)
 		}
+		f, err := filepath.Rel(config.RootDir, f)
+		if err != nil {
+			return nil, fmt.Errorf("could not find relative path to %s: %w", config.RootDir, err)
+		}
+		srcFiles = append(srcFiles, f)
 	}
 	// remove duplicates
 	deduped := deduplicatePaths(srcFiles)
