@@ -47,26 +47,6 @@ var (
 	LocalSource  FetchLocalSource = cache.LocalSource
 )
 
-// deduplicateImages removes duplicates while preserving order.
-// CLI images take precedence over Dockerfile images.
-func deduplicateImages(cliImages, dockerfileImages []string) []string {
-	seen := make(map[string]bool)
-	deduped := make([]string, 0, len(cliImages)+len(dockerfileImages))
-	for _, img := range cliImages {
-		if !seen[img] {
-			seen[img] = true
-			deduped = append(deduped, img)
-		}
-	}
-	for _, img := range dockerfileImages {
-		if !seen[img] {
-			seen[img] = true
-			deduped = append(deduped, img)
-		}
-	}
-	return deduped
-}
-
 // WarmCache populates the cache
 func WarmCache(opts *config.WarmerOptions) error {
 	var dockerfileImages []string
@@ -90,8 +70,13 @@ func WarmCache(opts *config.WarmerOptions) error {
 		}
 	}
 
-	// Deduplicate while preserving order: CLI images first, then Dockerfile images.
-	images = deduplicateImages(images, dockerfileImages)
+	var deduped []string
+	for _, img := range slices.Concat(images, dockerfileImages) {
+		if !slices.Contains(deduped, img) {
+			deduped = append(deduped, img)
+		}
+	}
+	images = deduped
 
 	logrus.Debugf("%s\n", cacheDir)
 	logrus.Debugf("%s\n", images)
