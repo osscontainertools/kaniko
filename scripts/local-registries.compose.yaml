@@ -4,7 +4,7 @@ services:
   registry:
     image: registry:3
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     healthcheck:
       test: ["CMD", "nc", "-z", "127.0.0.1", "5000"]
       interval: 1s
@@ -14,7 +14,7 @@ services:
     image: cesanta/docker_auth:1.14.0
     command: ["/config/auth_config.yml"]
     ports:
-      - "5002:5002"
+      - "127.0.0.1:5002:5002"
     volumes:
       - /tmp/kaniko-tls-registry/tls.crt:/certs/tls.crt:ro
       - /tmp/kaniko-tls-registry/tls.key:/certs/tls.key:ro
