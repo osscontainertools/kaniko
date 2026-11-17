@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.33.18
 	github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager v0.5.7
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.10
-	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.12.0
+	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.13.0
 	github.com/containerd/platforms v1.0.0-rc.5
 	github.com/cyphar/filepath-securejoin v0.7.0
 	github.com/docker/cli v29.9.3+incompatible
