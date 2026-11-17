@@ -5,7 +5,6 @@ version: 'v0.0.3'
 workflows:
     '.github/workflows/images.yaml':
         - 'actions/checkout@v7.0.1'
-        - 'adityagarg8/remove-unwanted-software@v5.1'
         - 'docker/build-push-action@v7.4.0'
         - 'docker/login-action@v4.8.0'
         - 'docker/setup-buildx-action@v4.4.1'
@@ -16,7 +15,6 @@ workflows:
     '.github/workflows/integration-tests.yaml':
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-go@v7.1.0'
-        - 'adityagarg8/remove-unwanted-software@v5.1'
         - 'codecov/codecov-action@v7.1.1'
         - 'docker/setup-docker-action@v5.7.0'
     '.github/workflows/lint.yaml':
@@ -25,12 +23,10 @@ workflows:
         - 'step-security/harden-runner@v2.22.4'
     '.github/workflows/nightly-vulnerability-scan.yml':
         - 'actions/checkout@v7.0.1'
-        - 'adityagarg8/remove-unwanted-software@v5.1'
         - 'step-security/harden-runner@v2.22.4'
     '.github/workflows/unit-tests.yaml':
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-go@v7.1.0'
-        - 'adityagarg8/remove-unwanted-software@v5.1'
         - 'step-security/harden-runner@v2.22.4'
 dependencies:
     'actions/checkout@v7.0.1':
@@ -48,11 +44,6 @@ dependencies:
         commit: 'sha1-d8cbb8045d7f43706b9177cceb36c1f91a6644d5'
         owner_id: 44036562
         repo_id: 192624594
-    'adityagarg8/remove-unwanted-software@v5.1':
-        ref: 'v5.1'
-        commit: 'sha1-36765610732de8ee2e81a5c6c231506e2b5cabcf'
-        owner_id: 85610623
-        repo_id: 450729769
     'codecov/codecov-action@v7.1.1':
         ref: 'v7.1.1'
         commit: 'sha1-303a32d7a59b442fa8d48b6a1cc6825c09c847a5'
