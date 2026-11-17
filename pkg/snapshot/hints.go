@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	units "github.com/docker/go-units"
-	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/hint"
 )
 
@@ -96,9 +95,6 @@ type dirUsage struct {
 }
 
 func ReportHints(files []string, source HintSource, from string) {
-	if !config.FF.LayerHints {
-		return
-	}
 	origin := ""
 	switch source {
 	case SourceStage:

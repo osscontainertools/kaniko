@@ -326,10 +326,6 @@ func pushToRegistries(image v1.Image, index v1.ImageIndex, destRefs []name.Tag, 
 				return nil, fmt.Errorf("resolving pushAuth: %w", err)
 			}
 			out := []remote.Option{remote.WithAuth(pushAuth), remote.WithTransport(rt)}
-			if !config.FF.PoolRegistryConnections {
-				return out, nil
-			}
-
 			// the pooled pusher takes the keychain, not pushAuth: remote.Push writes
 			// every repository with the options the pusher was built from
 			reuse, err := util.ReusePusher(localRt, remote.WithAuthFromKeychain(keychain), remote.WithTransport(rt))
@@ -349,11 +345,10 @@ func pushToRegistries(image v1.Image, index v1.ImageIndex, destRefs []name.Tag, 
 		if index != nil {
 			target = index
 		}
-		pushTarget := target
-		switch {
-		case config.FF.CrossRepoMount && index != nil:
+		var pushTarget remote.Taggable
+		if index != nil {
 			pushTarget = mounts.MountableIndex(index, destRef.RegistryStr())
-		case config.FF.CrossRepoMount:
+		} else {
 			pushTarget = mounts.MountableImage(image, destRef.RegistryStr())
 		}
 
@@ -364,11 +359,11 @@ func pushToRegistries(image v1.Image, index v1.ImageIndex, destRefs []name.Tag, 
 			}
 			digest := destRef.Context().Digest(dig.String())
 			err = remote.Push(destRef, pushTarget, writeOpts...)
-			if err != nil && config.FF.CrossRepoMount {
+			if err != nil {
 				logrus.Debugf("Cross-repository mount failed; retrying plain blob upload: %v", err)
 				err = remote.Push(destRef, target, writeOpts...)
 			}
-			if err != nil && (!config.FF.PoolRegistryConnections || util.DropPooledOnAuth(localRt, err)) {
+			if err != nil && util.DropPooledOnAuth(localRt, err) {
 				rebuilt, rerr := writeOptions()
 				if rerr == nil {
 					writeOpts = rebuilt
@@ -391,9 +386,7 @@ func pushToRegistries(image v1.Image, index v1.ImageIndex, destRefs []name.Tag, 
 			}
 			logrus.Infof("Pushed %s", digest)
 			// pushLayerToCache funnels through here, so cache entries land here too.
-			if config.FF.CrossRepoMount {
-				mounts.RecordImage(image, destRef.Context())
-			}
+			mounts.RecordImage(image, destRef.Context())
 			return nil
 		}
 

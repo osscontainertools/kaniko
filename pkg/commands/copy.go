@@ -167,7 +167,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 				continue
 			}
 			c.snapshotFiles = append(c.snapshotFiles, destPath)
-		} else if !fi.Mode().IsRegular() && kConfig.FF.CopySkipSpecialFiles {
+		} else if !fi.Mode().IsRegular() {
 			logrus.Warnf("Ignoring special file %s, not copying to %s", fullPath, destPath)
 			continue
 		} else {
@@ -202,7 +202,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		}
 
 		data := src.Data
-		if src.Expand && kConfig.FF.ExpandHeredoc {
+		if src.Expand {
 			expanded, err := util.ResolveEnvironmentReplacementRaw(src.Data, replacementEnvs)
 			if err != nil {
 				return fmt.Errorf("expanding heredoc content: %w", err)
@@ -248,7 +248,7 @@ func resolvedCacheKey(instruction string, contents []instructions.SourceContent,
 	fmt.Fprintf(&key, "%d:%s", len(resolved), resolved)
 	for _, src := range contents {
 		content := src.Data
-		if src.Expand && kConfig.FF.ExpandHeredoc {
+		if src.Expand {
 			content, err = util.ResolveEnvironmentReplacementRaw(src.Data, replacementEnvs)
 			if err != nil {
 				return "", err
@@ -280,19 +280,7 @@ func (c *CopyCommand) Instruction() *instructions.CopyCommand {
 }
 
 func (c *CopyCommand) HasIndependentCacheKey() bool {
-	if !kConfig.FF.CopyLink || !c.cmd.Link {
-		return false
-	}
-	if !kConfig.FF.ResolveCacheKey {
-		return !namesVariables(c.cmd.String(), c.cmd.SourceContents)
-	}
-	return true
-}
-
-func namesVariables(instruction string, contents []instructions.SourceContent) bool {
-	return strings.Contains(instruction, "$") || slices.ContainsFunc(contents, func(src instructions.SourceContent) bool {
-		return src.Expand && strings.Contains(src.Data, "$")
-	})
+	return kConfig.FF.CopyLink && c.cmd.Link
 }
 
 func (c *CopyCommand) ShouldCacheOutput() bool {
@@ -343,13 +331,7 @@ func (cr *CachingCopyCommand) Instruction() *instructions.CopyCommand {
 }
 
 func (cr *CachingCopyCommand) HasIndependentCacheKey() bool {
-	if !kConfig.FF.CopyLink || !cr.cmd.Link {
-		return false
-	}
-	if !kConfig.FF.ResolveCacheKey {
-		return !namesVariables(cr.cmd.String(), cr.cmd.SourceContents)
-	}
-	return true
+	return kConfig.FF.CopyLink && cr.cmd.Link
 }
 
 // materializeLinkDest drops the symlinks along destPath. A --link copy writes
