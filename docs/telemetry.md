@@ -1,5 +1,7 @@
 # Telemetry attributes
 
+With the [GitLab components](../README.md#running-kaniko-in-gitlab-ci) or the [GitHub action](../README.md#running-kaniko-in-github-actions), set `telemetry: firn`, or `telemetry: custom` with the endpoint. They request the job's ID token and set the variables below. On GitHub, the job needs the permission `id-token: write`. The rest of this page is for running kaniko without them, and lists what a trace contains.
+
 kaniko can export an OpenTelemetry trace of each build. It is off by default and enabled by pointing it at an OTLP collector:
 
 ```sh
