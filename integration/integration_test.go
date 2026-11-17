@@ -1861,14 +1861,6 @@ func TestPushFromArtifact(t *testing.T) {
 				t.Helper()
 				flags := []string{"run", "--rm", "--net=host", "-v", outFlag + ":/out", "-v", contextDir + ":/workspace:ro"}
 				flags = addKanikoEnvFlags(flags, t.Name())
-				// mz731 keeps OCI base layers verbatim on the direct push, but the
-				// docker-archive --tar-path writer rewrites them to docker mediatypes, so
-				// the push-from-artifact image would not match. Disable it (after the
-				// KanikoEnv default) so both paths re-tar the base identically.
-				flags = append(flags, "-e", "FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=0")
-				if outFlag == "tar-path" {
-					flags = append(flags, "-e", "FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT=0")
-				}
 				flags = addAuthFlags(flags)
 				flags = addCoverageFlags(flags)
 				flags = append(flags, ExecutorImage)
@@ -2638,7 +2630,6 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 			"run", "--rm", "--net=host",
 			"-v", cwd + ":/workspace:ro",
 			"-v", caCert + ":/kaniko/ssl/certs/test-registry-ca.crt:ro",
-			"-e", "FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=1",
 		}
 		dockerRunFlags = append(dockerRunFlags, credFlags...)
 		dockerRunFlags = addCoverageFlags(dockerRunFlags)
