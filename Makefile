@@ -110,7 +110,7 @@ integration-test-misc:
 	@ ./scripts/integration-test.sh -run "$(RUN_ARG)"
 
 .PHONY: k8s-executor-build-push
-k8s-executor-build-push: local-registries
+k8s-executor-build-push:
 	docker build ${BUILD_ARG} --build-arg=GOARCH=$(GOARCH) --build-arg=TARGETOS=linux -t $(REGISTRY)/executor:latest -f deploy/Dockerfile --target kaniko-executor .
 	docker push $(REGISTRY)/executor:latest
 

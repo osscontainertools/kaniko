@@ -59,7 +59,7 @@ jobs:
           version: 29.9.3
 
       - if: matrix.make-target == 'k8s-executor-build-push integration-test-k8s'
-        run: make k3s-setup
+        run: make k3s-setup local-registries
       - run: make ${{ matrix.make-target }}
 
       - name: Convert and upload coverage
