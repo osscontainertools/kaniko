@@ -1,6 +1,12 @@
+# mz1373: a directory whose name has glob characters copies empty. Fails on
+# v1.29.1, the walk of the source reads the `[dir]` root as a character class.
+# A bind mount source is also globbed when the stage files are saved, so the
+# mount-only sources check that it is saved literally.
 FROM alpine:latest AS build
 RUN mkdir '/[dir]' && echo "hello directory" > '/[dir]/value'
 RUN echo "hello file" > '/[data]'
+RUN mkdir '/[mount]' && echo "hello mount" > '/[mount]/value'
+RUN echo "hello mount file" > '/[mount-file]'
 
 FROM alpine:latest
 COPY --from=build '/[[]data]' /data
@@ -9,9 +15,9 @@ COPY 'context/mz1373/[[]dir]' /context
 RUN test "$(cat /data)" = "hello file"
 RUN test "$(cat /dir/value)" = "hello directory"
 RUN test "$(cat /context/value)" = "hello context"
-RUN --mount=type=bind,from=build,source=/[dir],target=/mnt/dir \
-    test "$(cat /mnt/dir/value)" = "hello directory"
-RUN --mount=type=bind,from=build,source=/[data],target=/mnt/data \
-    test "$(cat /mnt/data)" = "hello file"
+RUN --mount=type=bind,from=build,source=/[mount],target=/mnt/dir \
+    test "$(cat /mnt/dir/value)" = "hello mount"
+RUN --mount=type=bind,from=build,source=/[mount-file],target=/mnt/file \
+    test "$(cat /mnt/file)" = "hello mount file"
 RUN --mount=type=bind,source=context/mz1373/[dir],target=/mnt/context \
     test "$(cat /mnt/context/value)" = "hello context"
