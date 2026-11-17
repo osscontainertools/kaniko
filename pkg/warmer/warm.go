@@ -97,7 +97,7 @@ func WarmCache(opts *config.WarmerOptions) error {
 	}
 
 	if len(failed) > 0 {
-		if len(failed) == len(images) || opts.FailOnPartial {
+		if len(failed) == len(images) || config.FF.WarmerFailOnError {
 			return fmt.Errorf("failed to warm %d/%d image(s): %s", len(failed), len(images), strings.Join(failed, ", "))
 		}
 		logrus.Warnf("Failed to warm %d/%d image(s): %s", len(failed), len(images), strings.Join(failed, ", "))
@@ -147,10 +147,11 @@ func RenderPlan(w io.Writer, images []string, opts *config.WarmerOptions) (retEr
 		}
 	}
 	if len(failed) > 0 {
-		logrus.Warnf("Failed to warm %d/%d image(s): %s", len(failed), len(images), strings.Join(failed, ", "))
-		if retErr == nil && (len(failed) == len(images) || opts.FailOnPartial) {
+		// Without --dryrun the warm that follows reports the failures, after it warmed every image that resolves.
+		if retErr == nil && (len(failed) == len(images) || (config.FF.WarmerFailOnError && opts.Dryrun)) {
 			return fmt.Errorf("failed to warm %d/%d image(s): %s", len(failed), len(images), strings.Join(failed, ", "))
 		}
+		logrus.Warnf("Failed to warm %d/%d image(s): %s", len(failed), len(images), strings.Join(failed, ", "))
 	}
 	return retErr
 }

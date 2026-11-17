@@ -252,6 +252,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_UNPACK_ZSTD=1",
 	"FF_KANIKO_UNTAR_SKIP_ROOT=1",
 	"FF_KANIKO_WARMER_BUILD_ARGS=1",
+	"FF_KANIKO_WARMER_FAIL_ON_ERROR=1",
 	"FF_KANIKO_WARMER_PREDEFINED_ARGS=1",
 	"KANIKO_PRINT_PLAN=1",
 	"GORACE=halt_on_error=1",
@@ -274,6 +275,7 @@ var KanikoEnv = []string{
 var WarmerEnv = []string{
 	"FF_KANIKO_CACHE_COPY_FROM=1",
 	"FF_KANIKO_CACHE_IMAGE_INDEX=1",
+	"FF_KANIKO_WARMER_FAIL_ON_ERROR=1",
 }
 
 // For these images kaniko emits dockerv2, so the oracle has to emit dockerv2 too.

@@ -236,7 +236,6 @@ type WarmerOptions struct {
 	BuildArgs      multiArg
 	Dryrun         bool
 	RequireDigest  bool
-	FailOnPartial  bool
 }
 
 func EnvBool(key string) bool {

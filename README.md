@@ -198,6 +198,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_UNPACK_ZSTD`](#flag-ff_kaniko_unpack_zstd)
       - [Flag `FF_KANIKO_UNTAR_SKIP_ROOT`](#flag-ff_kaniko_untar_skip_root)
       - [Flag `FF_KANIKO_WARMER_BUILD_ARGS`](#flag-ff_kaniko_warmer_build_args)
+      - [Flag `FF_KANIKO_WARMER_FAIL_ON_ERROR`](#flag-ff_kaniko_warmer_fail_on_error)
       - [Flag `FF_KANIKO_WARMER_PREDEFINED_ARGS`](#flag-ff_kaniko_warmer_predefined_args)
     - [Assertion Overrides](#assertion-overrides)
     - [Layer Hints](#layer-hints)
@@ -688,9 +689,7 @@ for how to use with kubernetes clusters and persistent cache volumes.
 
 `--dryrun` prints which images are already cached and which would be fetched, without writing to the cache. `KANIKO_PRINT_PLAN=1` prints the same plan before warming.
 
-`--fail-on-partial` fails if any of the requested images fail to warm. By default, warming only fails when every image fails, while partial failures are reported as warnings.
-
-`warmer bake <bakefile> [target]` warms the base images of bakefile targets, see [docs/bakefile.md](docs/bakefile.md#warmer). `--fail-on-partial` also applies to `warmer bake`.
+`warmer bake <bakefile> [target]` warms the base images of bakefile targets, see [docs/bakefile.md](docs/bakefile.md#warmer).
 
 ### Pushing to Different Registries
 
@@ -1297,6 +1296,7 @@ FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK=true
 FF_KANIKO_RUN_MOUNT_TMPFS=true
 FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS=true
 FF_KANIKO_WARMER_BUILD_ARGS=true
+FF_KANIKO_WARMER_FAIL_ON_ERROR=true
 FF_KANIKO_WARMER_PREDEFINED_ARGS=true
 ```
 
@@ -1766,6 +1766,13 @@ Will be deprecated in `v1.30.0`.
 
 In warmer an `ARG` default wins over an explicit `--build-arg`, and `--build-arg BASE` without a value is not read from the environment.
 Set this flag to `true` to resolve `--build-arg` like the executor does.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
+
+#### Flag `FF_KANIKO_WARMER_FAIL_ON_ERROR`
+
+The warmer only fails when every image fails to warm. A partial failure is logged as a warning, so the build that relies on the cache fails later, ie. in an air-gapped environment.
+Set this flag to `true` to fail the warmer when any image fails to warm.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
 

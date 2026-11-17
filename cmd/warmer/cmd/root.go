@@ -215,7 +215,6 @@ func AddWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
 	cmd.Flags().VarP(&opts.BuildArgs, "build-arg", "", "This flag should be used in conjunction with the dockerfile flag for scenarios where dynamic replacement of the base image is required.")
 	cmd.Flags().BoolVarP(&opts.Dryrun, "dryrun", "", false, "Whether to only print the images that would be cached")
 	cmd.Flags().BoolVarP(&opts.RequireDigest, "require-digest", "", false, "Fail if a base image is not pinned by digest")
-	cmd.Flags().BoolVar(&opts.FailOnPartial, "fail-on-partial", false, "Fail if any of the requested images fail to warm (default: fail only when all fail)")
 
 	// Default the custom platform flag to our current platform, and validate it.
 	if opts.CustomPlatform == "" {
