@@ -52,6 +52,7 @@ type FeatureFlags struct {
 	ExpandHeredoc                  bool
 	FormatIndependentCacheKey      bool
 	FromPredefinedArgs             bool
+	GlobCharPaths                  bool
 	HashDirFraming                 bool
 	ImageStages                    bool
 	InferCrossStageCacheKey        bool
@@ -154,6 +155,7 @@ func InitFeatureFlags() {
 		ExpandHeredoc:                  featureFlag("FF_KANIKO_EXPAND_HEREDOC", true),
 		FormatIndependentCacheKey:      featureFlag("FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY", false),
 		FromPredefinedArgs:             featureFlag("FF_KANIKO_FROM_PREDEFINED_ARGS", false),
+		GlobCharPaths:                  featureFlag("FF_KANIKO_GLOB_CHAR_PATHS", false),
 		HashDirFraming:                 featureFlag("FF_KANIKO_HASH_DIR_FRAMING", true),
 		ImageStages:                    featureFlag("FF_KANIKO_IMAGE_STAGES", true),
 		InferCrossStageCacheKey:        featureFlag("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", true),

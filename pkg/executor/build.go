@@ -1351,7 +1351,12 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 					for _, m := range dockerfile.CrossStageMounts(cmd) {
 						i, err := strconv.Atoi(m.From)
 						if err == nil {
-							depGraph[i] = append(depGraph[i], m.Source)
+							source := m.Source
+							if config.FF.GlobCharPaths {
+								// filesToSave globs every dependency, a mount source is a literal path
+								source = strings.NewReplacer(`\`, `\\`, `*`, `\*`, `?`, `\?`, `[`, `\[`).Replace(source)
+							}
+							depGraph[i] = append(depGraph[i], source)
 						}
 					}
 				}

@@ -699,7 +699,9 @@ func RelativeFiles(fp string, root string) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if CheckCleanedPathAgainstIgnoreList(path) && !hasCleanedFilepathPrefix(filepath.Clean(path), cleanedRoot, false) {
+		if CheckCleanedPathAgainstIgnoreList(path) && !hasCleanedFilepathPrefix(filepath.Clean(path), cleanedRoot, false) &&
+			// the root is a literal path, its glob characters match only themselves
+			!(config.FF.GlobCharPaths && strings.HasPrefix(filepath.Clean(path)+"/", cleanedRoot+"/")) {
 			return nil
 		}
 		relPath, err := filepath.Rel(root, path)
