@@ -79,7 +79,7 @@ k3s-setup: ## Start a k3s cluster for the k8s integration tests
 	@ ./scripts/k3s-setup.sh
 
 .PHONY: local-registries
-local-registries:
+local-registries: ## Start the local registries for the integration tests
 	@ ./scripts/setup-tls-registry-creds.sh
 	@ docker compose -f scripts/local-registries.compose.yaml up -d --wait
 
