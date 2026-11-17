@@ -286,13 +286,6 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					assert.Assert("run.bind-source-not-excluded", !mountFileContext.ExcludesFile(resolvedSrc), "bind source %s resolves to excluded path %s", m.Source, resolvedSrc)
 					src = resolvedSrc
 				}
-				_, err = os.Lstat(src)
-				if err != nil && os.IsNotExist(err) && util.ContainsWildcards([]string{m.Source}) {
-					resolved, rerr := util.ResolveSources([]string{m.Source}, mountFileContext.Root)
-					if rerr == nil && len(resolved) == 1 {
-						src = filepath.Join(mountFileContext.Root, resolved[0])
-					}
-				}
 				target := m.Target
 				if kConfig.FF.RunMountBindRelative {
 					target = ToAbsPath(target, config.WorkingDir)
