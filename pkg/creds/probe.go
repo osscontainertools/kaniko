@@ -129,6 +129,12 @@ func PinPush(opts *config.RegistryOptions, repo name.Repository) bool {
 			logrus.Debugf("credential cannot push to %s: %v", repo, err)
 		}
 	}
+	err := canPush(opts, repo, authn.NewMultiKeychain())
+	if err == nil {
+		pins.Store(repo.String(), authn.NewMultiKeychain())
+		return true
+	}
+	logrus.Debugf("anonymous cannot push to %s: %v", repo, err)
 	return false
 }
 
