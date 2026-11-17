@@ -2798,6 +2798,45 @@ func TestWarmerBake(t *testing.T) {
 	}
 }
 
+func TestWarmerBakeFailLate(t *testing.T) {
+	t.Parallel()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctxDir := filepath.Join(cwd, "testdata", "test_warmer_bake")
+	cacheDir := t.TempDir()
+	warm := func(args ...string) (string, error) {
+		warmFlags := []string{"run", "--rm", "--net=host", "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())}
+		warmFlags = addAuthFlags(warmFlags)
+		warmFlags = addCoverageFlags(warmFlags)
+		warmFlags = append(warmFlags, "-v", ctxDir+":/workspace", "-v", cacheDir+":/cache", WarmerImage, "--cache-dir=/cache")
+		out, err := RunCommandWithoutTest(exec.Command("docker", append(warmFlags, args...)...))
+		t.Logf("warmer output:\n%s", out)
+		return string(out), err
+	}
+
+	out, err := warm("bake", "/workspace/kaniko-bake-mz1433.hcl")
+	if err == nil {
+		t.Fatal("warmer bake must fail when a target fails to warm")
+	}
+	s := `target "missing"`
+	if !strings.Contains(out, s) {
+		t.Fatalf("output must contain %s", s)
+	}
+
+	// The failing run above warmed the target that comes after the failing one.
+	image := "alpine:3.12@sha256:cb64bbe7fa613666c234e1090e91427314ee18ec6420e9426cf4e7f314056813"
+	out, err = warm("-i", image)
+	if err != nil {
+		t.Fatalf("Unable to warm %s: %s", image, err)
+	}
+	s = "Image already in cache: " + image
+	if !strings.Contains(out, s) {
+		t.Fatalf("output must contain %s", s)
+	}
+}
+
 // diffoci compares the container images image1 and image2 and fails if they differ.
 func diffoci(t *testing.T, image1, image2 string, flags ...string) {
 	var platform string
