@@ -1475,6 +1475,48 @@ func TestWarmerIndexAcrossPlatforms(t *testing.T) {
 	}
 }
 
+func TestWarmerFailOnError(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	good := config.busyboxBaseImage
+	bad := config.imageRepo + "test_issue_mz1433:missing"
+	warm := func(failOnError string) (string, error) {
+		dockerRunFlags := []string{"run", "--rm", "--net=host", "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())}
+		dockerRunFlags = addAuthFlags(dockerRunFlags)
+		dockerRunFlags = addCoverageFlags(dockerRunFlags)
+		dockerRunFlags = append(dockerRunFlags,
+			"-e", "FF_KANIKO_WARMER_FAIL_ON_ERROR="+failOnError,
+			"-v", tmpDir+":/cache",
+			WarmerImage,
+			"--cache-dir=/cache",
+			"-i", bad,
+			"-i", good)
+		out, err := RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
+		t.Logf("Warm with FF_KANIKO_WARMER_FAIL_ON_ERROR=%s output:\n%s", failOnError, out)
+		return string(out), err
+	}
+
+	out, err := warm("1")
+	if err == nil {
+		t.Fatal("warmer must fail when an image fails to warm")
+	}
+	s := "failed to warm 1/2 image(s): " + bad
+	if !strings.Contains(out, s) {
+		t.Fatalf("output must contain %s", s)
+	}
+
+	// The failing run above warmed the image that comes after the failure.
+	out, err = warm("0")
+	if err != nil {
+		t.Fatalf("warmer must only warn when some images warm: %s", err)
+	}
+	for _, s := range []string{"Image already in cache: " + good, "Failed to warm 1/2 image(s): " + bad} {
+		if !strings.Contains(out, s) {
+			t.Fatalf("output must contain %s", s)
+		}
+	}
+}
+
 func verifyBuildWith(t *testing.T, cache, dockerfile string) {
 	args, ok := additionalKanikoFlagsMap[dockerfile]
 	if !ok {
