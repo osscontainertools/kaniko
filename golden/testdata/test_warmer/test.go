@@ -20,6 +20,14 @@ var Tests = types.GoldenTests{
 			Plan: "image",
 		},
 		{
+			Args: []string{"--image=busybox:1.36", "--image=busybox:1.36"},
+			Plan: "image_twice",
+		},
+		{
+			Args: []string{"--image=debian:bookworm"},
+			Plan: "image_in_dockerfile",
+		},
+		{
 			Args:       []string{},
 			CachedKeys: []string{"sha256:bb29a696e6cf59b7403f78467ee6afea1fb6d8011e683ab55bcd4a1301186f63"},
 			Plan:       "cached",
