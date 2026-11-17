@@ -360,7 +360,7 @@ COPY --from=second /bar /bat
 				DockerfilePath: f.Name(),
 				CustomPlatform: platforms.Format(platforms.Normalize(platforms.DefaultSpec())),
 			}
-			testStages, metaArgs, err := dockerfile.ParseStages(opts)
+			testStages, metaArgs, err := dockerfile.ParseStages(opts.DockerfilePath, nil, opts.BuildArgs)
 			if err != nil {
 				t.Errorf("Failed to parse test dockerfile to stages: %s", err)
 			}
@@ -1064,7 +1064,7 @@ func Test_stageBuilder_build(t *testing.T) {
 				CacheCopyLayers: true,
 				CacheTo:         []string{"some-cache-repo"},
 			}
-			testStages, metaArgs, err := dockerfile.ParseStages(opts)
+			testStages, metaArgs, err := dockerfile.ParseStages(opts.DockerfilePath, nil, opts.BuildArgs)
 			if err != nil {
 				t.Errorf("Failed to parse test dockerfile to stages: %s", err)
 			}
@@ -1137,7 +1137,7 @@ COPY %s foo.txt
 				CacheTo:         []string{"some-cache-repo"},
 			}
 
-			testStages, metaArgs, err := dockerfile.ParseStages(opts)
+			testStages, metaArgs, err := dockerfile.ParseStages(opts.DockerfilePath, nil, opts.BuildArgs)
 			if err != nil {
 				t.Errorf("Failed to parse test dockerfile to stages: %s", err)
 			}
@@ -1222,7 +1222,7 @@ COPY %s bar.txt
 				DockerfilePath: f.Name(),
 			}
 
-			testStages, metaArgs, err := dockerfile.ParseStages(opts)
+			testStages, metaArgs, err := dockerfile.ParseStages(opts.DockerfilePath, nil, opts.BuildArgs)
 			if err != nil {
 				t.Errorf("Failed to parse test dockerfile to stages: %s", err)
 			}
@@ -1301,7 +1301,7 @@ RUN foobar
 				DockerfilePath: f.Name(),
 			}
 
-			testStages, metaArgs, err := dockerfile.ParseStages(opts)
+			testStages, metaArgs, err := dockerfile.ParseStages(opts.DockerfilePath, nil, opts.BuildArgs)
 			if err != nil {
 				t.Errorf("Failed to parse test dockerfile to stages: %s", err)
 			}

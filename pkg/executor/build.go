@@ -1598,8 +1598,16 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	_, endPlanning := timing.Scope("Planning")
 	defer endPlanning()
 
+	var predefinedArgs []string
+	var err error
+	if config.FF.FromPredefinedArgs {
+		predefinedArgs, err = dockerfile.PredefinedArgs(opts.CustomPlatform)
+		if err != nil {
+			return nil, err
+		}
+	}
 	t := timing.Start("Parsing Dockerfile")
-	stages, metaArgs, err := dockerfile.ParseStages(opts)
+	stages, metaArgs, err := dockerfile.ParseStages(opts.DockerfilePath, predefinedArgs, opts.BuildArgs)
 	t.End()
 	if err != nil {
 		return nil, err
