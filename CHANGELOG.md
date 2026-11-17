@@ -114,36 +114,36 @@ A special shoutout to @gary-wall, who landed 13 changes this release. Most notab
 > ⚠️ The `slim` image no longer authenticates to GCR/GAR, ECR and ACR, and drops the `gs://`, `s3://` and azure build contexts, git build contexts and OpenTelemetry export. If you use any of them, switch to `latest`, which is now about the same size as `slim` used to be.
 
 In this Release we activated these feature-flags:
-* [FF_KANIKO_ADD_CHECKSUM](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_add_checksum)
-* [FF_KANIKO_ADD_UNPACK](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_add_unpack)
-* [FF_KANIKO_CACHE_HASH_BLAKE3](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_cache_hash_blake3)
-* [FF_KANIKO_CACHE_LOOKAHEAD](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_cache_lookahead)
-* [FF_KANIKO_COPY_SKIP_SPECIAL_FILES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_copy_skip_special_files)
-* [FF_KANIKO_CROSS_REPO_MOUNT](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_cross_repo_mount)
-* [FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_deprecate_layerless_cache_entries)
-* [FF_KANIKO_EXPAND_HEREDOC](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_expand_heredoc)
-* [FF_KANIKO_HASH_DIR_FRAMING](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_hash_dir_framing)
-* [FF_KANIKO_IMAGE_STAGES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_image_stages)
-* [FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_infer_cross_stage_cache_key)
-* [FF_KANIKO_LAYER_HINTS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_layer_hints)
-* [FF_KANIKO_NATIVE_COPY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_native_copy)
-* [FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_path_scoped_registry_auth)
-* [FF_KANIKO_PEEK_ARCHIVE_HEADER](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_peek_archive_header)
-* [FF_KANIKO_PLATFORM_CACHE_KEY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_platform_cache_key)
-* [FF_KANIKO_POOL_REGISTRY_CONNECTIONS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_pool_registry_connections)
-* [FF_KANIKO_PRECOMPILE_DOCKERIGNORE](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_precompile_dockerignore)
-* [FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_preserve_mounted_symlinks)
-* [FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_reproducible_preserve_base_layers)
-* [FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_reproducible_preserve_format)
-* [FF_KANIKO_RESOLVE_CACHE_KEY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_resolve_cache_key)
-* [FF_KANIKO_ROLLING_CACHE_KEY](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_rolling_cache_key)
-* [FF_KANIKO_RUN_HONOR_GROUP](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_run_honor_group)
-* [FF_KANIKO_SHARED_BASE_CACHE](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_shared_base_cache)
-* [FF_KANIKO_SKIP_CACHED_STAGES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_skip_cached_stages)
-* [FF_KANIKO_SKIP_RELABEL_RECOMPRESS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_skip_relabel_recompress)
-* [FF_KANIKO_SKIP_WRITE_WHITEOUTS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_skip_write_whiteouts)
-* [FF_KANIKO_UNPACK_ZSTD](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_unpack_zstd)
-* [FF_KANIKO_UNTAR_SKIP_ROOT](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_untar_skip_root)
+* [FF_KANIKO_ADD_CHECKSUM](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_add_checksum)
+* [FF_KANIKO_ADD_UNPACK](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_add_unpack)
+* [FF_KANIKO_CACHE_HASH_BLAKE3](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_cache_hash_blake3)
+* [FF_KANIKO_CACHE_LOOKAHEAD](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_cache_lookahead)
+* [FF_KANIKO_COPY_SKIP_SPECIAL_FILES](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_copy_skip_special_files)
+* [FF_KANIKO_CROSS_REPO_MOUNT](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_cross_repo_mount)
+* [FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_deprecate_layerless_cache_entries)
+* [FF_KANIKO_EXPAND_HEREDOC](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_expand_heredoc)
+* [FF_KANIKO_HASH_DIR_FRAMING](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_hash_dir_framing)
+* [FF_KANIKO_IMAGE_STAGES](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_image_stages)
+* [FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_infer_cross_stage_cache_key)
+* [FF_KANIKO_LAYER_HINTS](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_layer_hints)
+* [FF_KANIKO_NATIVE_COPY](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_native_copy)
+* [FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_path_scoped_registry_auth)
+* [FF_KANIKO_PEEK_ARCHIVE_HEADER](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_peek_archive_header)
+* [FF_KANIKO_PLATFORM_CACHE_KEY](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_platform_cache_key)
+* [FF_KANIKO_POOL_REGISTRY_CONNECTIONS](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_pool_registry_connections)
+* [FF_KANIKO_PRECOMPILE_DOCKERIGNORE](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_precompile_dockerignore)
+* [FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_preserve_mounted_symlinks)
+* [FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_reproducible_preserve_base_layers)
+* [FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_reproducible_preserve_format)
+* [FF_KANIKO_RESOLVE_CACHE_KEY](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_resolve_cache_key)
+* [FF_KANIKO_ROLLING_CACHE_KEY](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_rolling_cache_key)
+* [FF_KANIKO_RUN_HONOR_GROUP](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_run_honor_group)
+* [FF_KANIKO_SHARED_BASE_CACHE](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_shared_base_cache)
+* [FF_KANIKO_SKIP_CACHED_STAGES](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_skip_cached_stages)
+* [FF_KANIKO_SKIP_RELABEL_RECOMPRESS](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_skip_relabel_recompress)
+* [FF_KANIKO_SKIP_WRITE_WHITEOUTS](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_skip_write_whiteouts)
+* [FF_KANIKO_UNPACK_ZSTD](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_unpack_zstd)
+* [FF_KANIKO_UNTAR_SKIP_ROOT](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_untar_skip_root)
 
 > ⚠️ Several of these flags change how cache keys are computed. Existing cache entries are invalidated, so the first build after upgrading is a full rebuild that repopulates the cache.
 
@@ -715,15 +715,15 @@ We are also grateful to **[@bootc](https://github.com/bootc)** for joining as an
 # v1.28.0 Release 2026-06-28
 ## Update Notice
 In this Release we activated these feature-flags:
-* [FF_KANIKO_RUN_MOUNT_BIND](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_run_mount_bind)
-* [FF_KANIKO_VOLUME_SKIP_MKDIR](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_volume_skip_mkdir)
-* [FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_buildkit_arg_env_precedence)
-* [FF_KANIKO_PRESERVE_HARDLINKS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_preserve_hardlinks)
-* [FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_deprecate_inter_stage_restore)
-* [FF_KANIKO_NO_PROPAGATE_ANNOTATIONS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_no_propagate_annotations)
-* [FF_KANIKO_PRESERVE_MOUNTED_PATHS](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_preserve_mounted_paths)
-* [FF_KANIKO_OCI_WARMER](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_oci_warmer)
-* [FF_KANIKO_WARMER_CACHE_LOCK](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_warmer_cache_lock)
+* [FF_KANIKO_RUN_MOUNT_BIND](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_run_mount_bind)
+* [FF_KANIKO_VOLUME_SKIP_MKDIR](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_volume_skip_mkdir)
+* [FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_buildkit_arg_env_precedence)
+* [FF_KANIKO_PRESERVE_HARDLINKS](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_preserve_hardlinks)
+* [FF_KANIKO_DEPRECATE_INTER_STAGE_RESTORE](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_deprecate_inter_stage_restore)
+* [FF_KANIKO_NO_PROPAGATE_ANNOTATIONS](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_no_propagate_annotations)
+* [FF_KANIKO_PRESERVE_MOUNTED_PATHS](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_preserve_mounted_paths)
+* [FF_KANIKO_OCI_WARMER](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_oci_warmer)
+* [FF_KANIKO_WARMER_CACHE_LOCK](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_warmer_cache_lock)
 
 > ⚠️ Some of these flags change how cache keys are computed. In particular `FF_KANIKO_NO_PROPAGATE_ANNOTATIONS` shifts every base-image-derived key, and `FF_KANIKO_BUILDKIT_ARG_ENV_PRECEDENCE` changes keys for builds with `ARG`/`ENV`. Existing cache entries are invalidated, so the first build after upgrading is a full rebuild that repopulates the cache.
 
@@ -1116,8 +1116,8 @@ Many thanks to @ehfd for reporting an issue fixed in this release.
 # v1.27.0 Release 2026-03-05
 ## Update Notice
 In this Release we activated two feature-flags:
-* [FF_KANIKO_RUN_MOUNT_SECRET](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_run_mount_secret)
-* [FF_KANIKO_OCI_STAGES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_oci_stages)
+* [FF_KANIKO_RUN_MOUNT_SECRET](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_run_mount_secret)
+* [FF_KANIKO_OCI_STAGES](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_oci_stages)
 
 This will allow you to use the `type=secret` mount option in your dockerfile `RUN` steps.
 ```dockerfile
@@ -1451,9 +1451,9 @@ Also many thanks to @Ashex @ehfd and @YevheniiSemendiak for reporting the issues
 # v1.26.0 Release 2025-10-16
 ## Update Notice
 In this Release we activated three feature-flags:
-* [FF_KANIKO_SQUASH_STAGES](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_squash_stages)
-* [FF_KANIKO_RUN_MOUNT_CACHE](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_run_mount_cache)
-* [FF_KANIKO_NEW_CACHE_LAYOUT](https://github.com/osscontainertools/kaniko#flag-ff_kaniko_new_cache_layout)
+* [FF_KANIKO_SQUASH_STAGES](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_squash_stages)
+* [FF_KANIKO_RUN_MOUNT_CACHE](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_run_mount_cache)
+* [FF_KANIKO_NEW_CACHE_LAYOUT](https://github.com/osscontainertools/kaniko/blob/main/docs/feature-flags.md#flag-ff_kaniko_new_cache_layout)
 
 You can roll-back those changes by overriding them in the environment ie.
 ```yaml
