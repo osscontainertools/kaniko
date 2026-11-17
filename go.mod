@@ -14,7 +14,7 @@ require (
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.13.0
 	github.com/containerd/platforms v1.0.0-rc.5
 	github.com/cyphar/filepath-securejoin v0.7.0
-	github.com/docker/cli v29.9.3+incompatible
+	github.com/docker/cli v29.10.0+incompatible
 	github.com/docker/docker-credential-helpers v0.9.13
 	github.com/docker/go-units v0.5.0
 	github.com/ePirat/docker-credential-gitlabci v1.0.0

@@ -137,8 +137,8 @@ github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8Yc
 github.com/dimchansky/utfbom v1.1.1/go.mod h1:SxdoEBH5qIqFocHMyGOXVAybYJdr71b1Q/j0mACtrfE=
 github.com/dimchansky/utfbom v1.2.0 h1:ikiGYT9Wa8zleQ0xrlAWC9Ar9LNInSWRodJ5MkHB3d4=
 github.com/dimchansky/utfbom v1.2.0/go.mod h1:kJPs9PFVyF/LnFVVGz+XXvouv0KxympBxr0pSwv0KQU=
-github.com/docker/cli v29.9.3+incompatible h1:SBaMp7ecohadEHMDrUJg22t9I3awqsAVhnJ7GOcWpfE=
-github.com/docker/cli v29.9.3+incompatible/go.mod h1:JLrzqnKDaYBop7H2jaqPtU4hHvMKP+vjCwu2uszcLI8=
+github.com/docker/cli v29.10.0+incompatible h1:lCL+clBUJnHsmjBCr6TwvfQFkmBidPxi5SkuXCoYxc0=
+github.com/docker/cli v29.10.0+incompatible/go.mod h1:JLrzqnKDaYBop7H2jaqPtU4hHvMKP+vjCwu2uszcLI8=
 github.com/docker/docker-credential-helpers v0.9.13 h1:yLE5jCyKJraJaBACIGqgpLX0UheWfZUwBkIeCu6WPFU=
 github.com/docker/docker-credential-helpers v0.9.13/go.mod h1:v1S+hepowrQXITkEfw6o4+BMbGot02wiKpzWhGUZK6c=
 github.com/docker/go-units v0.5.0 h1:69rxXcBk27SvSaaxTtLh/8llcHD8vYHT7WSdRZ/jvr4=
