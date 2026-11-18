@@ -69,8 +69,13 @@ func WarmCache(opts *config.WarmerOptions) error {
 		}
 	}
 
-	// TODO: Implement deduplication logic later.
-	images = append(images, dockerfileImages...)
+	var deduped []string
+	for _, img := range slices.Concat(images, dockerfileImages) {
+		if !slices.Contains(deduped, img) {
+			deduped = append(deduped, img)
+		}
+	}
+	images = deduped
 
 	logrus.Debugf("%s\n", cacheDir)
 	logrus.Debugf("%s\n", images)
