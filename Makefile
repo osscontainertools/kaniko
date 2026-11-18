@@ -74,6 +74,11 @@ out/warmer: FORCE
 k3s-setup:
 	@ ./scripts/k3s-setup.sh
 
+.PHONY: local-registries
+local-registries:
+	@ ./scripts/setup-tls-registry-creds.sh
+	@ docker compose -f scripts/local-registries.compose.yaml up -d --wait
+
 .PHONY: test
 test: out/executor
 	@ ./scripts/test.sh
