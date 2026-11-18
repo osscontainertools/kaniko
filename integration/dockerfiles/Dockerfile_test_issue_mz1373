@@ -15,9 +15,9 @@ COPY 'context/mz1373/[[]dir]' /context
 RUN test "$(cat /data)" = "hello file"
 RUN test "$(cat /dir/value)" = "hello directory"
 RUN test "$(cat /context/value)" = "hello context"
-RUN --mount=type=bind,from=build,source=/[mount],target=/mnt/dir \
-    test "$(cat /mnt/dir/value)" = "hello mount"
-RUN --mount=type=bind,from=build,source=/[mount-file],target=/mnt/file \
-    test "$(cat /mnt/file)" = "hello mount file"
-RUN --mount=type=bind,source=context/mz1373/[dir],target=/mnt/context \
-    test "$(cat /mnt/context/value)" = "hello context"
+RUN --mount=type=bind,from=build,source=/[mount],target=/mount-dir \
+    test "$(cat /mount-dir/value)" = "hello mount"
+RUN --mount=type=bind,from=build,source=/[mount-file],target=/mount-file \
+    test "$(cat /mount-file)" = "hello mount file"
+RUN --mount=type=bind,source=context/mz1373/[dir],target=/mount-context \
+    test "$(cat /mount-context/value)" = "hello context"
