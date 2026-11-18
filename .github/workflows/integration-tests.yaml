@@ -35,17 +35,6 @@ jobs:
           - k8s-executor-build-push integration-test-k8s
 
     steps:
-      - name: Maximize build space
-        uses: AdityaGarg8/remove-unwanted-software@v5.1
-        with:
-          remove-android: 'true'
-          remove-dotnet: 'true'
-          remove-haskell: 'true'
-          remove-codeql: 'true'
-          remove-docker-images: 'true'
-          remove-large-packages: 'true'
-          remove-cached-tools: 'true'
-
       - uses: actions/setup-go@v7.1.0
         with:
           go-version: '1.27.3'
