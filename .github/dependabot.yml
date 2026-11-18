@@ -21,8 +21,7 @@ updates:
     cooldown:
       default-days: 0
     allow:
-      - dependency-name: github.com/golangci/golangci-lint/v2
-        dependency-type: all
+      - dependency-type: all
 
   - package-ecosystem: github-actions
     directory: /
@@ -37,7 +36,20 @@ updates:
           - "patch"
 
   - package-ecosystem: docker
-    directory: /deploy
+    directories:
+      - /deploy
+      - /.devcontainer
+    schedule:
+      interval: daily
+    cooldown:
+      default-days: 0
+    groups:
+      docker:
+        patterns:
+          - "*"
+
+  - package-ecosystem: devcontainers
+    directory: /
     schedule:
       interval: daily
     cooldown:

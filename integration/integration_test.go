@@ -19,6 +19,7 @@ package integration
 import (
 	"archive/tar"
 	"bytes"
+	"cmp"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -2333,7 +2334,7 @@ func (i imageDetails) String() string {
 func initIntegrationTestConfig() *integrationTestConfig {
 	var c integrationTestConfig
 
-	flag.StringVar(&c.imageRepo, "repo", "gcr.io/kaniko-test", "The (docker) image repo to build and push images to during the test.")
+	flag.StringVar(&c.imageRepo, "repo", cmp.Or(os.Getenv("IMAGE_REPO"), "localhost:5000"), "The (docker) image repo to build and push images to during the test.")
 	// adds the possibility to run a single dockerfile. This is useful since running all images can exhaust the dockerhub pull limit
 	flag.StringVar(&c.dockerfilesPattern, "dockerfiles-pattern", "Dockerfile_test*", "The pattern to match dockerfiles with")
 	flag.StringVar(&coverageDir, "coverage-dir", "", "Collect executor coverage data into this directory.")

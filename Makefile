@@ -61,53 +61,69 @@ export GO_TAGS = otel,git,google,aws,azure
 .PHONY: FORCE
 FORCE:
 
-out/executor: FORCE
+out/executor: FORCE ## Build the executor binary (default)
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build -tags $(GO_TAGS)$(if $(RACE),$(RACE_TAGS)) $(if $(COVER),-cover) $(if $(RACE),-race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
 
 out/executor-slim: FORCE
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build $(if $(COVER),-cover) $(if $(RACE),-tags $(RACE_TAGS) -race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
 
-out/warmer: FORCE
+out/warmer: FORCE ## Build the warmer binary
 	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build -tags $(GO_TAGS)$(if $(RACE),$(RACE_TAGS)) $(if $(COVER),-cover) $(if $(RACE),-race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(WARMER_PACKAGE)
 
+.PHONY: help
+help: ## Show this help
+	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_\/-]+:.*## / {printf "  \033[36m%-26s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
 .PHONY: k3s-setup
-k3s-setup:
+k3s-setup: ## Start a k3s cluster for the k8s integration tests
 	@ ./scripts/k3s-setup.sh
 
 .PHONY: local-registries
-local-registries:
+local-registries: ## Start the local registries for the integration tests
 	@ ./scripts/setup-tls-registry-creds.sh
 	@ docker compose -f scripts/local-registries.compose.yaml up -d --wait
 
 .PHONY: test
-test: out/executor
+test: out/executor ## Run unit tests, license header check and lint
 	@ ./scripts/test.sh
 
-test-with-coverage: test
+test-with-coverage: test ## Run unit tests and open the coverage report
 	go tool cover -html=out/coverage.out
 
 .PHONY: golden
-golden: out/executor
+golden: out/executor ## Run golden tests (UPDATE=1 to rewrite, TESTS=<pattern> to filter)
 	@ ./scripts/golden.sh
 
+.PHONY: lint
+lint: ## Run golangci-lint
+	@tool="$$(go -C tools tool -n golangci-lint)" && "$$tool" run
+
+.PHONY: fmt
+fmt: ## Fix formatting with golangci-lint
+	@tool="$$(go -C tools tool -n golangci-lint)" && "$$tool" fmt
+
+.PHONY: boilerplate
+boilerplate: ## Check license headers
+	@ ./hack/boilerplate.sh
+
 .PHONY: integration-test
-integration-test:
+integration-test: ## Run all integration tests
 	@ ./scripts/integration-test.sh
 
 .PHONY: integration-test-run
-integration-test-run:
+integration-test-run: ## Run TestRun integration tests (DOCKERFILE_PATTERN to filter)
 	@ ./scripts/integration-test.sh -run "TestRun"
 
 .PHONY: integration-test-layers
-integration-test-layers:
+integration-test-layers: ## Run TestLayers integration tests
 	@ ./scripts/integration-test.sh -run "TestLayers"
 
 .PHONY: integration-test-k8s
-integration-test-k8s:
+integration-test-k8s: ## Run TestK8s integration tests
 	@ ./scripts/integration-test.sh -run "TestK8s"
 
 .PHONY: integration-test-misc
-integration-test-misc:
+integration-test-misc: ## Run the remaining integration tests
 	$(eval RUN_ARG=$(shell ./scripts/misc-integration-test.sh))
 	@ ./scripts/integration-test.sh -run "$(RUN_ARG)"
 

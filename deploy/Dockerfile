@@ -38,8 +38,8 @@ RUN mkdir -p /licenses/go \
 FROM builder-base AS builder
 ARG COVER=""
 ARG RACE=""
-RUN make COVER="$COVER" RACE="$RACE" out/executor out/warmer \
-    && rm -rf /root/.cache
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    make COVER="$COVER" RACE="$RACE" out/executor out/warmer
 
 # The helper names must match the argv[0] dispatch in pkg/creds.
 # A hardlink only shares the file when it is copied in the same layer as the binary.
@@ -54,15 +54,15 @@ RUN mkdir -p /dist/executor /dist/warmer \
 FROM builder-base AS builder-slim
 ARG COVER=""
 ARG RACE=""
-RUN make COVER="$COVER" RACE="$RACE" out/executor-slim \
-    && rm -rf /root/.cache
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    make COVER="$COVER" RACE="$RACE" out/executor-slim
 
 FROM builder-base AS builder-slim-fips
 ARG COVER=""
 ARG RACE=""
 ENV GOFIPS140=v1.0.0
-RUN make COVER="$COVER" RACE="$RACE" out/executor-slim \
-    && rm -rf /root/.cache
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    make COVER="$COVER" RACE="$RACE" out/executor-slim
 
 # use musl busybox since it's staticly compiled on all platforms
 # Keep in sync with deploy/sources/busybox.spdx.json.

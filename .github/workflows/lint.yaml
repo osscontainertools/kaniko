@@ -78,4 +78,4 @@ jobs:
           go-version: '1.27.3'
 
       - name: Run golangci-lint
-        run: hack/golangci-lint.sh
+        run: make lint

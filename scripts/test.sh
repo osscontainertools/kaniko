@@ -30,20 +30,15 @@ if [[ ${GO_TEST_EXIT_CODE} -ne 0 ]]; then
     exit "${GO_TEST_EXIT_CODE}"
 fi
 
-echo "Running validation scripts..."
-scripts=(
-    "${DIR}/../hack/boilerplate.sh"
-    "${DIR}/../hack/gofmt.sh"
-    "${DIR}/../hack/golangci-lint.sh"
-)
+echo "Running validation checks..."
 fail=0
-for s in "${scripts[@]}"
+for target in boilerplate lint
 do
-    echo "RUN ${s}"
-    if "${s}"; then
-        echo -e "${GREEN}PASSED${RESET} ${s}"
+    echo "RUN make ${target}"
+    if make -C "${DIR}/.." "${target}"; then
+        echo -e "${GREEN}PASSED${RESET} make ${target}"
     else
-        echo -e "${RED}FAILED${RESET} ${s}"
+        echo -e "${RED}FAILED${RESET} make ${target}"
         fail=1
     fi
 done
