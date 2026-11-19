@@ -320,6 +320,7 @@ var executorImages = map[string]string{
 // Arguments to build Dockerfiles with when building with kaniko
 var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz822":                {"--cache=true", "--cache-copy-layers=true"},
+	"Dockerfile_test_digest_retry":               {"--image-fs-extract-retry=2"},
 	"Dockerfile_test_issue_mz1133_cache":         {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz1201":               {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz824":                {"--cache=true"},
@@ -781,6 +782,7 @@ var expectedWarnings = map[string]string{
 	// 1599: a fifo COPY into /kaniko must warn and be skipped like any other file.
 	"Dockerfile_test_issue_1599_2": "Skipping copy targeting kaniko directory",
 	"Dockerfile_test_issue_cg533":  "Skipping hardlink probe",
+	"Dockerfile_test_digest_retry": "Retrying operation",
 }
 
 func checkNoWarnings(dockerfile string, out []byte) error {
@@ -971,6 +973,8 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz1230_reproducible":  {},
 		"Dockerfile_test_issue_mz1230_oci":           {},
 		"Dockerfile_test_issue_mz1230_tar":           {},
+		// docker would take the tampered fetches
+		"Dockerfile_test_digest_retry": {},
 	}
 	return &d
 }

@@ -2377,7 +2377,12 @@ func downloadExtraStages(images map[string]v1.Image, externalImageDigests map[st
 				logrus.Infof("shared-base: loading %s from local store", digest)
 				sourceImage = stored
 			} else {
-				sourceImage = storeImage(digest, sourceImage)
+				stored, err = storeImage(digest, sourceImage)
+				if err != nil {
+					logrus.Warnf("shared-base: failed to store %s, using registry image: %v", digest, err)
+				} else {
+					sourceImage = stored
+				}
 			}
 		}
 		if err := extractImageToDependencyDir(name, sourceImage); err != nil {
@@ -2446,12 +2451,18 @@ func loadSharedBase(digest string) (v1.Image, error) {
 func sharedRemoteImages(stages []config.KanikoStage, plannedUnpack map[int]bool, externalImageDigests map[string]string, opts *config.KanikoOptions) (map[string]bool, error) {
 	shared := map[string]bool{}
 	reads := map[string]int{}
+	retried := config.FF.VerifyLayerDigest && opts.ImageFSExtractRetry > 0
 	for _, s := range stages {
 		if s.BaseImageDigest == "" {
 			continue
 		}
 		if plannedUnpack[s.Index] {
 			reads[s.BaseImageDigest]++
+			// a streamed layer is verified only after its files are written, so a retried extraction
+			// must read the base from the store, where layers are verified before they are kept
+			if retried {
+				shared[s.BaseImageDigest] = true
+			}
 		}
 		pushRereads := false
 		if s.Push {
@@ -2564,6 +2575,10 @@ func pushStageRereadsBase(stage config.KanikoStage, opts *config.KanikoOptions) 
 }
 
 func retrieveBaseImage(stage config.KanikoStage, opts *config.KanikoOptions, shared bool) (v1.Image, error) {
+	retries := 0
+	if config.FF.VerifyLayerDigest {
+		retries = opts.ImageFSExtractRetry
+	}
 	if shared {
 		stored, err := loadSharedBase(stage.BaseImageDigest)
 		if err == nil {
@@ -2578,27 +2593,34 @@ func retrieveBaseImage(stage config.KanikoStage, opts *config.KanikoOptions, sha
 	if !shared {
 		return img, nil
 	}
-	return storeImage(stage.BaseImageDigest, img), nil
+	stored, err := util.RetryWithResult(func() (v1.Image, error) {
+		return storeImage(stage.BaseImageDigest, img)
+	}, retries, 1000)
+	if err != nil {
+		if retries == 0 {
+			logrus.Warnf("shared-base: failed to store %s, using registry image: %v", stage.BaseImageDigest, err)
+			return img, nil
+		}
+		return nil, err
+	}
+	return stored, nil
 }
 
-// storeImage adds an image to the shared store and returns the stored copy. A store that
-// cannot be written or read back is not fatal, the caller keeps the registry image.
-func storeImage(digest string, img v1.Image) v1.Image {
+// storeImage adds an image to the shared store and returns the stored copy.
+func storeImage(digest string, img v1.Image) (v1.Image, error) {
 	path := filepath.Join(config.KanikoBaseStagesDir, digest)
 	t := timing.Start("Downloading base image")
 	err := writeImageLayout(path, img, digest)
 	t.End()
 	if err != nil {
-		logrus.Warnf("shared-base: failed to store %s, using registry image: %v", digest, err)
-		return img
+		return nil, fmt.Errorf("writing: %w", err)
 	}
 	stored, err := loadSharedBase(digest)
 	if err != nil {
-		logrus.Warnf("shared-base: failed to reload stored %s, using registry image: %v", digest, err)
-		return img
+		return nil, fmt.Errorf("reloading: %w", err)
 	}
 	logrus.Infof("shared-base: stored %s", digest)
-	return stored
+	return stored, nil
 }
 
 func getHasher(snapshotMode string) (func(string) (string, error), error) {

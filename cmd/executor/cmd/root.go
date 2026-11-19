@@ -293,6 +293,11 @@ func ApplyTarget(opts *config.KanikoOptions, target bake.ResolvedTarget) error {
 }
 
 func prepareBuild(opts *config.KanikoOptions, targets []bake.ResolvedTarget) error {
+	// a retried extraction reads its base from the shared-base store, without it the retry would extract over unverified files
+	if opts.ImageFSExtractRetry > 0 && config.FF.VerifyLayerDigest && !config.FF.SharedBaseCache {
+		logrus.Warn("--image-fs-extract-retry has no effect without FF_KANIKO_SHARED_BASE_CACHE")
+		opts.ImageFSExtractRetry = 0
+	}
 	for _, target := range targets {
 		err := cacheFlagsValid(opts, target)
 		if err != nil {
