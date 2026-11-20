@@ -2368,14 +2368,13 @@ func loadSharedBase(digest string) (v1.Image, error) {
 // by several stages, by a COPY --from, or by a re-read on push or save.
 func sharedRemoteImages(stages []config.KanikoStage, externalImageDigests map[string]string, opts *config.KanikoOptions) map[string]bool {
 	shared := map[string]bool{}
-	writesOutput := (!opts.NoPush && len(opts.Destinations) > 0) || opts.TarPath != "" || opts.OCILayoutPath != ""
 	reads := map[string]int{}
 	for _, s := range stages {
 		if s.BaseImageDigest == "" {
 			continue
 		}
 		reads[s.BaseImageDigest]++
-		if (s.SaveStage && !s.Final) || (s.Push && writesOutput) {
+		if (s.SaveStage && !s.Final) || (s.Push && pushStageRereadsBase(s.BaseName, opts)) {
 			reads[s.BaseImageDigest]++
 		}
 	}
@@ -2388,6 +2387,38 @@ func sharedRemoteImages(stages []config.KanikoStage, externalImageDigests map[st
 		}
 	}
 	return shared
+}
+
+// pushStageRereadsBase reports whether producing the pushed stage's image reads the layers of
+// its base baseName again. --reproducible rewrites the timestamps of every layer, and computing
+// the rewritten layers reads them, base layers included, even when they are preserved afterwards.
+// A tarball or an OCI layout copies them. A push mounts them instead when every destination is on
+// the registry the base was pulled from: the remote layers carry their source and remote.Write
+// mounts them unaided. mz1427: counting such a push as a read stored the base of every
+// single-stage build pushed to the base's own registry.
+func pushStageRereadsBase(baseName string, opts *config.KanikoOptions) bool {
+	if opts.Reproducible || opts.TarPath != "" || opts.OCILayoutPath != "" {
+		return true
+	}
+	if opts.NoPush || len(opts.Destinations) == 0 {
+		return false
+	}
+	base, err := name.ParseReference(baseName, name.WeakValidation)
+	if err != nil {
+		return true
+	}
+	registry := base.Context().RegistryStr()
+	// a mapped base may be served by a mirror, whose layers carry the mirror as their source
+	if _, mapped := opts.RegistryMaps[registry]; mapped {
+		return true
+	}
+	for _, d := range opts.Destinations {
+		dest, err := name.ParseReference(d, name.WeakValidation)
+		if err != nil || dest.Context().RegistryStr() != registry {
+			return true
+		}
+	}
+	return false
 }
 
 func retrieveBaseImage(stage config.KanikoStage, opts *config.KanikoOptions, shared bool) (v1.Image, error) {
