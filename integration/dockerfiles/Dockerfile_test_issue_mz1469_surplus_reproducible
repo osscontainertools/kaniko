@@ -1,0 +1,7 @@
+ARG IMAGE_REPO
+
+# mz1469: the surplus base built with --reproducible. Preserving the base layers
+# requires the built history to agree with the base history, so the base has to
+# be aligned the same way as the build. The RUN entry describes no layer, on main@67ee008fa.
+FROM ${IMAGE_REPO}test-issue-mz1469-surplus-base:latest
+RUN echo aligned > /aligned

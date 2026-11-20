@@ -404,6 +404,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": {"--require-add-checksum"},
 	"Dockerfile_test_issue_mz1375_stage_fail":     {"--require-add-checksum"},
 	"issue-mz1374": {"-c", "/workspace/../workspace"},
+	"Dockerfile_test_issue_mz1469_surplus_reproducible": {"--reproducible"},
 }
 
 var expectErr = map[string]int{
@@ -928,8 +929,9 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz1066":   {},
 		"Dockerfile_test_issue_mz1133_1": {},
 		// diffoci --semantic ignores history
-		"Dockerfile_test_issue_mz1469":         {},
-		"Dockerfile_test_issue_mz1469_surplus": {},
+		"Dockerfile_test_issue_mz1469":                      {},
+		"Dockerfile_test_issue_mz1469_surplus":              {},
+		"Dockerfile_test_issue_mz1469_surplus_reproducible": {},
 		// docker sets none of these annotations
 		"Dockerfile_test_issue_mz1227":               {},
 		"Dockerfile_test_issue_mz1227_ci":            {},
@@ -1363,8 +1365,9 @@ var extraDockerRunFlags = map[string]func(contextDir string) []string{
 }
 
 var historyDockerfiles = map[string]string{
-	"Dockerfile_test_issue_mz1469":         "RUN echo aligned > /aligned",
-	"Dockerfile_test_issue_mz1469_surplus": "RUN echo aligned > /aligned",
+	"Dockerfile_test_issue_mz1469":                      "RUN echo aligned > /aligned",
+	"Dockerfile_test_issue_mz1469_surplus":              "RUN echo aligned > /aligned",
+	"Dockerfile_test_issue_mz1469_surplus_reproducible": "RUN echo aligned > /aligned",
 }
 
 var indexFileDockerfiles = map[string]struct{}{
