@@ -1473,6 +1473,9 @@ func TestAddCache(t *testing.T) {
 
 		contextDir := t.TempDir()
 		cacheDir := t.TempDir()
+		if err := os.Mkdir(filepath.Join(cacheDir, "add-cache"), 0o755); err != nil {
+			t.Fatal(err)
+		}
 		dockerfile := fmt.Sprintf("FROM scratch\nADD %s/payload.txt /payload.txt\n", server.URL)
 		if err := os.WriteFile(filepath.Join(contextDir, "Dockerfile"), []byte(dockerfile), 0o600); err != nil {
 			t.Fatal(err)
