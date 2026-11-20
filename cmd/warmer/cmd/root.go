@@ -57,6 +57,13 @@ func init() {
 	RootCmd.AddCommand(bakeCmd)
 }
 
+func validateAddCacheOptions(opts *config.WarmerOptions) error {
+	if opts.RequireAddChecksum && !opts.AddCache {
+		return errors.New("--require-add-checksum requires --add-cache")
+	}
+	return nil
+}
+
 var RootCmd = &cobra.Command{
 	Use: "cache warmer",
 	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
@@ -93,8 +100,8 @@ var RootCmd = &cobra.Command{
 			}
 		}
 
-		if opts.RequireAddChecksum && !opts.AddCache {
-			return errors.New("--require-add-checksum requires --add-cache")
+		if err := validateAddCacheOptions(opts); err != nil {
+			return err
 		}
 
 		return nil
@@ -124,6 +131,9 @@ and so are destination, cache_from and cache_to.`,
 	RunE: func(_ *cobra.Command, args []string) error {
 		if len(opts.Images) > 0 {
 			return errors.New("--image cannot be used with bake, base images come from the targets' dockerfiles")
+		}
+		if err := validateAddCacheOptions(opts); err != nil {
+			return err
 		}
 		targets, err := bake.Load(args[0], args[1:], bakeSet)
 		if err != nil {
