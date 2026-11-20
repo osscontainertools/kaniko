@@ -1467,7 +1467,7 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 					return err
 				}
 				layer := pushedLayer{name: digest.String(), key: digest}
-				// A stored base is read back from its layout, which does not know where a layer came from.
+				// a stored base comes back from its layout without a source
 				ml, ok := l.(*ggcrremote.MountableLayer)
 				if ok && !sharedRemote[s.BaseImageDigest] {
 					repo := ml.Reference.Context()
@@ -2411,13 +2411,8 @@ func sharedRemoteImages(stages []config.KanikoStage, externalImageDigests map[st
 	return shared, nil
 }
 
-// pushStageRereadsBase reports whether producing the pushed stage's image reads the layers of
-// its base baseName again. --reproducible rewrites the timestamps of every layer, and computing
-// the rewritten layers reads them, base layers included, even when they are preserved afterwards.
-// A tarball or an OCI layout copies them. A push mounts them instead when every destination is on
-// the registry the base was pulled from: the remote layers carry their source and remote.Write
-// mounts them unaided. mz1427: counting such a push as a read stored the base of every
-// single-stage build pushed to the base's own registry.
+// --reproducible reads the base layers even when it preserves them, and a push to the base's
+// registry mounts them.
 func pushStageRereadsBase(baseName string, opts *config.KanikoOptions) (bool, error) {
 	if opts.Reproducible || opts.TarPath != "" || opts.OCILayoutPath != "" {
 		return true, nil
