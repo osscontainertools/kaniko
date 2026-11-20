@@ -1,7 +1,0 @@
-FROM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
-  FETCH busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
-  UNPACK busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
-RUN true
-PUSH [docker.io/someone/app:1]
-  MOUNT sha256:b05093807bb0294152bb9cf86d64da722732dddaf7f8882fa1f120477dbc4db3 FROM index.docker.io/library/busybox
-  UPLOAD RUN true
