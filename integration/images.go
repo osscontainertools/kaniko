@@ -199,6 +199,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_ADD_CHOWN_TAR=1",
 	"FF_KANIKO_ADD_FOLLOW_SYMLINK=1",
 	"FF_KANIKO_ADD_UNPACK=1",
+	"FF_KANIKO_ALIGN_HISTORY=1",
 	"FF_KANIKO_CACHE_COPY_FROM=1",
 	"FF_KANIKO_CACHE_HASH_BLAKE3=1",
 	"FF_KANIKO_CACHE_IMAGE_INDEX=1",
@@ -926,6 +927,9 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz992":    {},
 		"Dockerfile_test_issue_mz1066":   {},
 		"Dockerfile_test_issue_mz1133_1": {},
+		// diffoci --semantic ignores history
+		"Dockerfile_test_issue_mz1469":         {},
+		"Dockerfile_test_issue_mz1469_surplus": {},
 		// docker sets none of these annotations
 		"Dockerfile_test_issue_mz1227":               {},
 		"Dockerfile_test_issue_mz1227_ci":            {},
@@ -1356,6 +1360,11 @@ var extraDockerRunFlags = map[string]func(contextDir string) []string{
 	"Dockerfile_test_issue_mz1230_tar": func(_ string) []string {
 		return indexFileMount("Dockerfile_test_issue_mz1230_tar")
 	},
+}
+
+var historyDockerfiles = map[string]string{
+	"Dockerfile_test_issue_mz1469":         "RUN echo aligned > /aligned",
+	"Dockerfile_test_issue_mz1469_surplus": "RUN echo aligned > /aligned",
 }
 
 var indexFileDockerfiles = map[string]struct{}{

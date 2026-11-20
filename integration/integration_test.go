@@ -176,6 +176,20 @@ func buildRequiredImages() error {
 		return err
 	}
 
+	err = pushRehistoriedImage(config.busyboxBaseImage, config.mz1469BaseImage, func([]v1.History) []v1.History {
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	err = pushRehistoriedImage(config.busyboxBaseImage, config.mz1469SurplusBaseImage, func(history []v1.History) []v1.History {
+		return append(history, v1.History{CreatedBy: "surplus"})
+	})
+	if err != nil {
+		return err
+	}
+
 	err = pushExtractionBaseImage(config.busyboxBaseImage, config.extractionBaseImage)
 	if err != nil {
 		return err
@@ -483,6 +497,7 @@ func TestKanikoOnly(t *testing.T) {
 			checkAnnotations(t, dockerfile, GetKanikoImage(config.imageRepo, dockerfile))
 			checkProvenance(t, dockerfile, GetKanikoImage(config.imageRepo, dockerfile))
 			checkIndexFile(t, dockerfile, GetKanikoImage(config.imageRepo, dockerfile))
+			checkHistory(t, dockerfile, GetKanikoImage(config.imageRepo, dockerfile))
 		})
 	}
 }
@@ -1156,6 +1171,36 @@ func pushExcessDotdotSymlinkImage(imageRef string) error {
 	}
 	if err := remote.Write(ref, img, remote.WithAuthFromKeychain(authn.DefaultKeychain)); err != nil {
 		return fmt.Errorf("pushing excess-dotdot-symlink image to %s: %v", imageRef, err)
+	}
+	return nil
+}
+
+func pushRehistoriedImage(baseRef, imageRef string, rewrite func([]v1.History) []v1.History) error {
+	src, err := name.ParseReference(baseRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing base ref %s: %v", baseRef, err)
+	}
+	base, err := remote.Image(src, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		return fmt.Errorf("pulling base image %s: %v", baseRef, err)
+	}
+	cf, err := base.ConfigFile()
+	if err != nil {
+		return fmt.Errorf("reading base image config %s: %v", baseRef, err)
+	}
+	cf = cf.DeepCopy()
+	cf.History = rewrite(cf.History)
+	img, err := mutate.ConfigFile(base, cf)
+	if err != nil {
+		return fmt.Errorf("rewriting history: %v", err)
+	}
+	ref, err := name.ParseReference(imageRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing image ref %s: %v", imageRef, err)
+	}
+	err = remote.Write(ref, img, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		return fmt.Errorf("pushing %s: %v", imageRef, err)
 	}
 	return nil
 }
@@ -2082,6 +2127,28 @@ func checkAnnotations(t *testing.T, dockerfile, image string) {
 	}
 }
 
+func checkHistory(t *testing.T, dockerfile, image string) {
+	t.Helper()
+	createdBy, ok := historyDockerfiles[dockerfile]
+	if !ok {
+		return
+	}
+	cfg, err := getImageConfig(image)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var described []v1.History
+	for _, h := range cfg.History {
+		if !h.EmptyLayer {
+			described = append(described, h)
+		}
+	}
+	testutil.CheckDeepEqual(t, len(cfg.RootFS.DiffIDs), len(described))
+	if len(described) > 0 {
+		testutil.CheckDeepEqual(t, createdBy, described[len(described)-1].CreatedBy)
+	}
+}
+
 func checkIndexFile(t *testing.T, dockerfile, image string) {
 	t.Helper()
 	_, ok := indexFileDockerfiles[dockerfile]
@@ -2367,6 +2434,8 @@ func initIntegrationTestConfig() *integrationTestConfig {
 	c.mz1073BaseImage = c.imageRepo + "test-issue-mz1073-base:latest"
 	c.mz1113BaseImage = c.imageRepo + "test-issue-mz1113-base:latest"
 	c.mz1172BaseImage = c.imageRepo + "test-issue-mz1172-base:latest"
+	c.mz1469BaseImage = c.imageRepo + "test-issue-mz1469-base:latest"
+	c.mz1469SurplusBaseImage = c.imageRepo + "test-issue-mz1469-surplus-base:latest"
 	c.mountedSymlinkBaseImage = c.imageRepo + "mounted-symlink-kaniko-base:latest"
 	c.singleManifestBaseImage = c.imageRepo + "single-manifest-base:latest"
 	return &c

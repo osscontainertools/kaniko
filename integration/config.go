@@ -32,6 +32,8 @@ type integrationTestConfig struct {
 	mz1073BaseImage         string
 	mz1113BaseImage         string
 	mz1172BaseImage         string
+	mz1469BaseImage         string
+	mz1469SurplusBaseImage  string
 	mountedSymlinkBaseImage string
 	singleManifestBaseImage string
 	dockerMajorVersion      int

@@ -1269,6 +1269,12 @@ func saveLayerToImage(image v1.Image, layer v1.Layer, createdBy string, opts *co
 		layer = el
 	}
 
+	if config.FF.AlignHistory {
+		image, err = image_util.AlignHistory(image)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
 	image, err = mutate.Append(image,
 		mutate.Addendum{
 			Layer: layer,

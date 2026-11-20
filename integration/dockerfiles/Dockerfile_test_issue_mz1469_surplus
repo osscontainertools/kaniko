@@ -1,0 +1,7 @@
+ARG IMAGE_REPO
+
+# mz1469: the base has one more non-empty history entry than layers. History entries
+# describe the layers in order, so the surplus entry describes the RUN layer
+# and the entry kaniko appends describes no layer, on main@67ee008fa.
+FROM ${IMAGE_REPO}test-issue-mz1469-surplus-base:latest
+RUN echo aligned > /aligned
