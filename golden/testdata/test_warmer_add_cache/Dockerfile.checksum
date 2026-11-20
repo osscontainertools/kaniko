@@ -1,0 +1,4 @@
+FROM debian:bookworm
+ARG SHA=sha256:2222222222222222222222222222222222222222222222222222222222222222
+ARG URL=https://example.com/archive.tar.gz
+ADD --checksum=$SHA $URL /tmp/

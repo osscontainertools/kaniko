@@ -31,11 +31,13 @@ dockerfile with both docker and kaniko, then compares the results using
 including all metadata like timestamps and image names. To pass a test the images must be identical, we added ignores for
 fields where identical contents cannot be produced, ie. timestamps and logfiles.
 
-The test matrix covers three comparisons:
+The test matrix covers five comparisons:
 
 - kaniko vs docker: the baseline, kaniko must produce the same filesystem as a standard docker build
 - kaniko vs cached kaniko: a fully cached build must produce the same image as a cold build
 - kaniko vs warmer-primed kaniko: pre-warming the base image cache must not change the output
+- warmer-primed remote `ADD` cache vs executor fallback: cached sources work without network access, while cache misses download and populate the shared cache
+- remote `ADD` checksum and fetch failures: missing checksums, mismatched digests, and warmer fetch failures are rejected
 
 Every bug fix must be accompanied by a new integration test Dockerfile that
 reproduces the regression. This is the only way to prove the fix is correct and
