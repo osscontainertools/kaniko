@@ -18,6 +18,7 @@ package warmer
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -31,24 +32,29 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/opencontainers/go-digest"
+	"github.com/osscontainertools/kaniko/pkg/addcache"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/image/remote"
+	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
 
 // for testing
 var (
-	Out          io.Writer        = os.Stdout
-	RemoteSource FetchRemoteImage = remote.RetrieveRemoteImageAndIndex
-	LocalSource  FetchLocalSource = cache.LocalSource
+	Out             io.Writer        = os.Stdout
+	RemoteSource    FetchRemoteImage = remote.RetrieveRemoteImageAndIndex
+	LocalSource     FetchLocalSource = cache.LocalSource
+	AddSourceLookup                  = addcache.Lookup
 )
 
 // WarmCache populates the cache
 func WarmCache(opts *config.WarmerOptions) error {
 	var dockerfileImages []string
+	var addSources []AddSource
 	cacheDir := opts.CacheDir
 	images := opts.Images
 
@@ -67,6 +73,11 @@ func WarmCache(opts *config.WarmerOptions) error {
 		if dockerfileImages, err = ParseDockerfile(opts); err != nil {
 			return fmt.Errorf("failed to parse Dockerfile: %w", err)
 		}
+		if opts.AddCache {
+			if addSources, err = ParseAddSources(opts); err != nil {
+				return fmt.Errorf("failed to parse Dockerfile ADD sources: %w", err)
+			}
+		}
 	}
 
 	var deduped []string
@@ -81,7 +92,7 @@ func WarmCache(opts *config.WarmerOptions) error {
 	logrus.Debugf("%s\n", images)
 
 	if opts.Dryrun || config.EnvBool("KANIKO_PRINT_PLAN") {
-		err := RenderPlan(Out, images, opts)
+		err := RenderPlan(Out, images, addSources, opts)
 		if err != nil {
 			return err
 		}
@@ -98,17 +109,32 @@ func WarmCache(opts *config.WarmerOptions) error {
 		}
 	}
 
-	if len(failed) > 0 {
-		if len(failed) == len(images) || config.FF.WarmerFailOnError {
-			return fmt.Errorf("failed to warm %d/%d image(s): %s", len(failed), len(images), strings.Join(failed, ", "))
+	var addFailed []string
+	for _, source := range addSources {
+		if _, err := addcache.Store(cacheDir, source.Source, source.Checksum); err != nil {
+			logrus.Warnf("Error while trying to cache ADD source: %v %v", source.Source, err)
+			addFailed = append(addFailed, source.Source)
+		} else {
+			logrus.Infof("Cached ADD source: %v", source.Source)
 		}
-		logrus.Warnf("Failed to warm %d/%d image(s): %s", len(failed), len(images), strings.Join(failed, ", "))
 	}
 
-	return nil
+	var errs []error
+	if len(addFailed) > 0 {
+		errs = append(errs, fmt.Errorf("failed to cache %d/%d ADD source(s): %s", len(addFailed), len(addSources), strings.Join(addFailed, ", ")))
+	}
+	if len(failed) > 0 {
+		if len(failed) == len(images) || config.FF.WarmerFailOnError {
+			errs = append(errs, fmt.Errorf("failed to warm %d/%d image(s): %s", len(failed), len(images), strings.Join(failed, ", ")))
+		} else {
+			logrus.Warnf("Failed to warm %d/%d image(s): %s", len(failed), len(images), strings.Join(failed, ", "))
+		}
+	}
+
+	return errors.Join(errs...)
 }
 
-func RenderPlan(w io.Writer, images []string, opts *config.WarmerOptions) (retErr error) {
+func RenderPlan(w io.Writer, images []string, addSources []AddSource, opts *config.WarmerOptions) (retErr error) {
 	printf := func(format string, args ...any) {
 		if retErr == nil {
 			_, retErr = fmt.Fprintf(w, format, args...)
@@ -147,6 +173,17 @@ func RenderPlan(w io.Writer, images []string, opts *config.WarmerOptions) (retEr
 			printf("  FETCH %s\n", img)
 			printf("  SAVE %s\n", path.Join(opts.CacheDir, digest.String()))
 		}
+	}
+	for _, source := range addSources {
+		cachePath := addcache.Path(opts.CacheDir, source.Source, source.Checksum)
+		printf("ADD %s\n", source.Source)
+		if _, ok, err := AddSourceLookup(opts.CacheDir, source.Source, source.Checksum); err == nil && ok {
+			printf("  CACHE HIT: %s\n", cachePath)
+			continue
+		}
+		printf("  CACHE MISS: %s\n", cachePath)
+		printf("  FETCH %s\n", source.Source)
+		printf("  SAVE %s\n", cachePath)
 	}
 	if len(failed) > 0 {
 		// Without --dryrun the warm that follows reports the failures, after it warmed every image that resolves.
@@ -307,19 +344,24 @@ func (w *OciWarmer) Write(cacheRef name.Reference, img v1.Image) error {
 	return nil
 }
 
-func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
-	var baseNames []string
+// AddSource is a remote ADD source that can be cached before a build.
+type AddSource struct {
+	Source   string
+	Checksum digest.Digest
+}
+
+func parseStages(opts *config.WarmerOptions) ([]instructions.Stage, []string, error) {
 	var predefinedArgs []string
 	var err error
 	if config.FF.WarmerPredefinedArgs {
 		predefinedArgs, err = dockerfile.PredefinedArgs(opts.CustomPlatform)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	stages, metaArgs, err := dockerfile.ParseStages(opts.DockerfilePath, predefinedArgs, opts.BuildArgs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	args := slices.Clone(predefinedArgs)
@@ -336,6 +378,110 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 		}
 	}
 	err = dockerfile.ResolveStagesArgs(stages, args)
+	if err != nil {
+		return nil, nil, err
+	}
+	return stages, args, nil
+}
+
+// ParseAddSources returns the remote ADD sources of a Dockerfile so the warmer
+// can populate the ADD cache. Build args and stage ENV values are resolved.
+func ParseAddSources(opts *config.WarmerOptions) ([]AddSource, error) {
+	stages, args, err := parseStages(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	var sources []AddSource
+	seen := make(map[string]struct{})
+	for _, s := range stages {
+		envs := slices.Clone(args)
+		for _, cmd := range s.Commands {
+			switch c := cmd.(type) {
+			case *instructions.EnvCommand:
+				for _, kv := range c.Env {
+					key, err := util.ResolveEnvironmentReplacement(kv.Key, envs, false)
+					if err != nil {
+						return nil, err
+					}
+					value, err := util.ResolveEnvironmentReplacement(kv.Value, envs, false)
+					if err != nil {
+						return nil, err
+					}
+					envs = setEnv(envs, key, value)
+				}
+			case *instructions.ArgCommand:
+				for _, arg := range c.Args {
+					if arg.Value == nil || hasEnv(envs, arg.Key) {
+						continue
+					}
+					value, err := util.ResolveEnvironmentReplacement(arg.ValueString(), envs, false)
+					if err != nil {
+						return nil, err
+					}
+					envs = setEnv(envs, arg.Key, value)
+				}
+			case *instructions.AddCommand:
+				srcs, err := util.ResolveEnvironmentReplacementList(c.SourcePaths, envs, true)
+				if err != nil {
+					return nil, err
+				}
+				var checksum digest.Digest
+				if c.Checksum != "" {
+					raw, err := util.ResolveEnvironmentReplacement(c.Checksum, envs, false)
+					if err != nil {
+						return nil, fmt.Errorf("resolving checksum: %w", err)
+					}
+					checksum, err = digest.Parse(raw)
+					if err != nil {
+						return nil, fmt.Errorf("invalid checksum digest format: %w", err)
+					}
+					if len(srcs) > 1 {
+						return nil, errors.New("checksum can't be specified for multiple sources")
+					}
+				}
+				for _, src := range srcs {
+					if !util.IsSrcRemoteFileURL(src) {
+						continue
+					}
+					if checksum == "" && opts.RequireAddChecksum {
+						return nil, fmt.Errorf("--require-add-checksum: ADD %s has no --checksum", src)
+					}
+					key := src + "\x00" + checksum.String()
+					if _, ok := seen[key]; ok {
+						continue
+					}
+					seen[key] = struct{}{}
+					sources = append(sources, AddSource{Source: src, Checksum: checksum})
+				}
+			}
+		}
+	}
+	return sources, nil
+}
+
+func setEnv(envs []string, key, value string) []string {
+	for i, env := range envs {
+		if k, _, ok := strings.Cut(env, "="); ok && k == key {
+			envs[i] = key + "=" + value
+			return envs
+		}
+	}
+	return append(envs, key+"="+value)
+}
+
+func hasEnv(envs []string, key string) bool {
+	for _, env := range envs {
+		if k, _, ok := strings.Cut(env, "="); ok && k == key {
+			return true
+		}
+	}
+	return false
+}
+
+func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
+	var baseNames []string
+	stages, _, err := parseStages(opts)
 	if err != nil {
 		return nil, err
 	}

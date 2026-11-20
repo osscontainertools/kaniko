@@ -238,7 +238,7 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 	}
 
 	for _, cmd := range stage.Commands {
-		command, err := commands.GetCommand(cmd, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
+		command, err := commands.GetCommand(cmd, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers, commands.AddSourceCache{Enabled: opts.Cache && opts.CacheDir != "" && opts.AddCache, Dir: opts.CacheDir})
 		if err != nil {
 			return nil, err
 		}
@@ -1482,7 +1482,7 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 		}
 		stageMediaTypes[s.Index] = mediaType
 		for jdx, c := range s.Commands {
-			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
+			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers, commands.AddSourceCache{Enabled: opts.Cache && opts.CacheDir != "" && opts.AddCache, Dir: opts.CacheDir})
 			if err != nil {
 				return err
 			}

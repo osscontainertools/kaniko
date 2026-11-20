@@ -108,6 +108,10 @@ var RootCmd = &cobra.Command{
 			}
 		}
 
+		if opts.RequireAddChecksum && !opts.AddCache {
+			return errors.New("--require-add-checksum requires --add-cache")
+		}
+
 		return nil
 	},
 	Run: func(_ *cobra.Command, _ []string) {
@@ -213,6 +217,8 @@ func AddWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
 	cmd.Flags().VarP(&opts.BuildArgs, "build-arg", "", "This flag should be used in conjunction with the dockerfile flag for scenarios where dynamic replacement of the base image is required.")
 	cmd.Flags().BoolVarP(&opts.Dryrun, "dryrun", "", false, "Whether to only print the images that would be cached")
 	cmd.Flags().BoolVarP(&opts.RequireDigest, "require-digest", "", false, "Fail if a base image is not pinned by digest")
+	cmd.Flags().BoolVarP(&opts.AddCache, "add-cache", "", false, "Cache remote ADD references to a cache-dir subfolder.")
+	cmd.Flags().BoolVarP(&opts.RequireAddChecksum, "require-add-checksum", "", false, "Fail if a remote ADD source does not specify a checksum")
 
 	// Default the custom platform flag to our current platform, and validate it.
 	if opts.CustomPlatform == "" {

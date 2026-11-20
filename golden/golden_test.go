@@ -37,8 +37,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	ggcrtypes "github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/opencontainers/go-digest"
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
 	warmercmd "github.com/osscontainertools/kaniko/cmd/warmer/cmd"
+	testaddcache "github.com/osscontainertools/kaniko/golden/testdata/test_add_cache"
 	testbake "github.com/osscontainertools/kaniko/golden/testdata/test_bake"
 	testbakecontextdockerfile "github.com/osscontainertools/kaniko/golden/testdata/test_bake_context_dockerfile"
 	testissuemz1126 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1126"
@@ -65,8 +67,10 @@ import (
 	testissuemz989 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz989"
 	testunittests "github.com/osscontainertools/kaniko/golden/testdata/test_unittests"
 	testwarmer "github.com/osscontainertools/kaniko/golden/testdata/test_warmer"
+	testwarmeraddcache "github.com/osscontainertools/kaniko/golden/testdata/test_warmer_add_cache"
 	testwarmerbake "github.com/osscontainertools/kaniko/golden/testdata/test_warmer_bake"
 	"github.com/osscontainertools/kaniko/golden/types"
+	"github.com/osscontainertools/kaniko/pkg/addcache"
 	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
@@ -164,6 +168,7 @@ func renderCommand(env map[string]string, args []string) string {
 }
 
 var allTests = map[string][]types.GoldenTests{
+	"test_add_cache":    testaddcache.Tests,
 	"test_issue_mz195":  {testissuemz195.Tests},
 	"test_issue_mz333":  {testissuemz333.Tests},
 	"test_issue_mz334":  {testissuemz334.Tests},
@@ -213,7 +218,7 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
-func renderPlan(t *testing.T, opts *config.KanikoOptions, test types.GoldenTest) string {
+func renderPlan(t *testing.T, opts *config.KanikoOptions, test types.GoldenTest) (string, error) {
 	t.Helper()
 	cacheMediaType := ggcrtypes.MediaType(test.CacheMediaType)
 	if cacheMediaType == "" {
@@ -239,10 +244,25 @@ func renderPlan(t *testing.T, opts *config.KanikoOptions, test types.GoldenTest)
 
 	var buf bytes.Buffer
 	executor.Out = &buf
-	if _, err := executor.DoBuild(opts); err != nil {
-		t.Error(err)
+	_, err := executor.DoBuild(opts)
+	return buf.String(), err
+}
+
+// checkError fails the test unless err matches test.WantError. It reports
+// whether the plan should be compared, which is only the case for a test that
+// expects no error.
+func checkError(t *testing.T, test types.GoldenTest, err error) bool {
+	t.Helper()
+	if test.WantError == "" {
+		if err != nil {
+			t.Fatal(err)
+		}
+		return true
 	}
-	return buf.String()
+	if err == nil || !strings.Contains(err.Error(), test.WantError) {
+		t.Fatalf("error = %v, want it to contain %q", err, test.WantError)
+	}
+	return false
 }
 
 // comparePlan diffs output against the golden plan at planPath, or rewrites it
@@ -308,7 +328,10 @@ func TestRun(t *testing.T) {
 								t.Fatal(err)
 							}
 
-							output := renderPlan(t, &opts, test)
+							output, err := renderPlan(t, &opts, test)
+							if !checkError(t, test, err) {
+								return
+							}
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), output)
 						})
 					}
@@ -377,7 +400,11 @@ func TestBake(t *testing.T) {
 								if err := cmd.ApplyTarget(&topts, target); err != nil {
 									t.Fatal(err)
 								}
-								output += renderPlan(t, &topts, test)
+								rendered, err := renderPlan(t, &topts, test)
+								if !checkError(t, test, err) {
+									return
+								}
+								output += rendered
 							}
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), output)
 						})
@@ -429,9 +456,10 @@ func TestBakePrint(t *testing.T) {
 }
 
 var warmerTests = map[string][]types.GoldenTests{
-	"test_warmer":       {testwarmer.Tests},
-	"test_issue_mz1126": {testissuemz1126.Tests},
-	"test_issue_mz1212": {testissuemz1212.Tests},
+	"test_warmer":           {testwarmer.Tests},
+	"test_warmer_add_cache": testwarmeraddcache.Tests,
+	"test_issue_mz1126":     {testissuemz1126.Tests},
+	"test_issue_mz1212":     {testissuemz1212.Tests},
 }
 
 // fakeRemoteImage derives the image and its index from its reference, so their digests are stable across runs.
@@ -484,6 +512,7 @@ func fakeWarmerSources(t *testing.T, test types.GoldenTest) {
 	config.InitFeatureFlags()
 
 	origRemote, origLocal := warmer.RemoteSource, warmer.LocalSource
+	origLookup := warmer.AddSourceLookup
 	warmer.RemoteSource = fakeRemoteImage
 	warmer.LocalSource = func(_ *config.CacheOptions, key, _ string) (v1.Image, error) {
 		if !slices.Contains(test.CachedKeys, key) {
@@ -491,7 +520,12 @@ func fakeWarmerSources(t *testing.T, test types.GoldenTest) {
 		}
 		return empty.Image, nil
 	}
-	t.Cleanup(func() { warmer.RemoteSource, warmer.LocalSource = origRemote, origLocal })
+	warmer.AddSourceLookup = func(cacheDir, src string, checksum digest.Digest) (string, bool, error) {
+		return addcache.Path(cacheDir, src, checksum), slices.Contains(test.CachedAddKeys, addcache.Key(src, checksum)), nil
+	}
+	t.Cleanup(func() {
+		warmer.RemoteSource, warmer.LocalSource, warmer.AddSourceLookup = origRemote, origLocal, origLookup
+	})
 }
 
 func TestWarmer(t *testing.T) {
@@ -520,8 +554,9 @@ func TestWarmer(t *testing.T) {
 
 							var buf bytes.Buffer
 							warmer.Out = &buf
-							if err := warmer.WarmCache(&opts); err != nil {
-								t.Error(err)
+							err = warmer.WarmCache(&opts)
+							if !checkError(t, test, err) {
+								return
 							}
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), buf.String())
 						})
@@ -566,8 +601,8 @@ func TestWarmerBake(t *testing.T) {
 							var buf bytes.Buffer
 							warmer.Out = &buf
 							err = warmercmd.WarmTargets(&opts, rest[0], targets)
-							if err != nil {
-								t.Error(err)
+							if !checkError(t, test, err) {
+								return
 							}
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), buf.String())
 						})
