@@ -2388,13 +2388,13 @@ func sharedRemoteImages(stages []config.KanikoStage, externalImageDigests map[st
 			continue
 		}
 		reads[s.BaseImageDigest]++
-		var pushRereads bool
+		pushRereads := false
 		if s.Push {
-			var err error
-			pushRereads, err = pushStageRereadsBase(s.BaseName, opts)
+			rereads, err := pushStageRereadsBase(s.BaseName, opts)
 			if err != nil {
 				return nil, err
 			}
+			pushRereads = rereads
 		}
 		if (s.SaveStage && !s.Final) || pushRereads {
 			reads[s.BaseImageDigest]++
