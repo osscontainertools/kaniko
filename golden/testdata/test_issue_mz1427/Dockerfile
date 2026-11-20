@@ -1,4 +1,5 @@
 # mz1427: a single stage pushed to the registry its base came from mounts the
 # base layers, so the push does not read the base again and the base streams.
-FROM busybox@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
+ARG BASE=registry.example.com/team/base:1
+FROM ${BASE}
 RUN true

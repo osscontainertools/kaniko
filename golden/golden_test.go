@@ -18,6 +18,8 @@ package golden
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"flag"
 	"io"
@@ -206,6 +208,7 @@ var previewEnv = map[string]string{
 func TestMain(m *testing.M) {
 	flag.BoolVar(&update, "update", false, "Whether to update expected output instead of testing it")
 	flag.Parse()
+	kremote.GetImage = fakeRegistry(kremote.GetImage)
 	exitCode := m.Run()
 	os.Exit(exitCode)
 }
@@ -441,6 +444,31 @@ func fakeRemoteImage(image string, _ config.RegistryOptions, _ string) (v1.Image
 	}
 	index, err := mutate.Annotations(empty.Index, map[string]string{"ref": image}).(v1.ImageIndex).RawManifest()
 	return img, index, err
+}
+
+// The content ignores the registry so a mirror serves the same image, and like go-containerregistry
+// the layer keeps the reference it was pulled with.
+func fakeRegistry(getImage func(name.Reference, ...remote.Option) (v1.Image, []byte, error)) func(name.Reference, ...remote.Option) (v1.Image, []byte, error) {
+	return func(ref name.Reference, options ...remote.Option) (v1.Image, []byte, error) {
+		host, _, _ := strings.Cut(ref.Context().RegistryStr(), ":")
+		if !strings.HasSuffix(host, ".example.com") {
+			return getImage(ref, options...)
+		}
+		content := ref.Context().RepositoryStr() + ":" + ref.Identifier()
+		sum := sha256.Sum256([]byte(content))
+		layer := &remote.MountableLayer{
+			Layer:     &fakeLayer{key: hex.EncodeToString(sum[:]), mediaType: ggcrtypes.DockerLayer},
+			Reference: ref,
+		}
+		cf := &v1.ConfigFile{}
+		cf.Config.Labels = map[string]string{"ref": content}
+		img, err := mutate.ConfigFile(empty.Image, cf)
+		if err != nil {
+			return nil, nil, err
+		}
+		img, err = mutate.AppendLayers(img, layer)
+		return img, nil, err
+	}
 }
 
 func fakeWarmerSources(t *testing.T, test types.GoldenTest) {

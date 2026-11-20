@@ -1,0 +1,7 @@
+FROM busybox:1
+  FETCH busybox:1
+  UNPACK busybox:1
+RUN true
+PUSH [docker.io/someone/app:1]
+  MOUNT sha256:7cd57703d6d1f8770061f55761e8408405e86c60259318a8f4841d933b04fb99 FROM index.docker.io/library/busybox
+  UPLOAD RUN true

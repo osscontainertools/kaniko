@@ -38,8 +38,8 @@ type resolvedImage struct {
 }
 
 var (
-	manifestCache   = make(map[string]resolvedImage)
-	remoteImageFunc = getImage
+	manifestCache = make(map[string]resolvedImage)
+	GetImage      = getImage
 )
 
 // ResetManifestCache forgets every resolved image, so the next lookup records
@@ -48,22 +48,22 @@ func ResetManifestCache() {
 	manifestCache = make(map[string]resolvedImage)
 }
 
-func getImage(ref name.Reference, options ...remote.Option) (resolvedImage, error) {
+func getImage(ref name.Reference, options ...remote.Option) (v1.Image, []byte, error) {
 	desc, err := remote.Get(ref, options...)
 	if err != nil {
-		return resolvedImage{}, err
+		return nil, nil, err
 	}
 	img, err := desc.Image()
 	if err != nil {
-		return resolvedImage{}, err
+		return nil, nil, err
 	}
 	if config.FF.ParallelGunzip {
 		img = util.WithGzipReader(img, util.NewParallelGzipReader)
 	}
 	if desc.MediaType.IsIndex() {
-		return resolvedImage{image: img, index: desc.Manifest}, nil
+		return img, desc.Manifest, nil
 	}
-	return resolvedImage{image: img}, nil
+	return img, nil, nil
 }
 
 // RetrieveRemoteImage retrieves the manifest for the specified image from the specified registry
@@ -105,11 +105,11 @@ func RetrieveRemoteImageAndIndex(image string, opts config.RegistryOptions, cust
 			// outside retryFunc, otherwise every retry starts from an empty connection pool
 			tr, remoteOpts := remoteOptions(regToMapTo, opts, customPlatform)
 			retryFunc := func() (resolvedImage, error) {
-				image, err := remoteImageFunc(remappedRef, remoteOpts...)
+				image, index, err := GetImage(remappedRef, remoteOpts...)
 				if err != nil && (!config.FF.PoolRegistryConnections || util.DropPooledOnAuth(tr, err)) {
 					tr, remoteOpts = remoteOptions(regToMapTo, opts, customPlatform)
 				}
-				return image, err
+				return resolvedImage{image: image, index: index}, err
 			}
 
 			var remoteImage resolvedImage
@@ -147,11 +147,11 @@ func RetrieveRemoteImageAndIndex(image string, opts config.RegistryOptions, cust
 
 	tr, remoteOpts := remoteOptions(registryName, opts, customPlatform)
 	retryFunc := func() (resolvedImage, error) {
-		image, err := remoteImageFunc(ref, remoteOpts...)
+		image, index, err := GetImage(ref, remoteOpts...)
 		if err != nil && (!config.FF.PoolRegistryConnections || util.DropPooledOnAuth(tr, err)) {
 			tr, remoteOpts = remoteOptions(registryName, opts, customPlatform)
 		}
-		return image, err
+		return resolvedImage{image: image, index: index}, err
 	}
 
 	var remoteImage resolvedImage

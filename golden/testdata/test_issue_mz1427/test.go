@@ -7,11 +7,11 @@ var Tests = types.GoldenTests{
 	Dockerfile: "Dockerfile",
 	Tests: []types.GoldenTest{
 		{
-			Args: []string{"--destination=docker.io/someone/app:1"},
+			Args: []string{"--destination=registry.example.com/team/app:1"},
 			Plan: "stream",
 		},
 		{
-			Args: []string{"--destination=busybox:2"},
+			Args: []string{"--destination=registry.example.com/team/base:2"},
 			Plan: "stream_same_repo",
 		},
 		{
@@ -19,15 +19,23 @@ var Tests = types.GoldenTests{
 			Plan: "stream_no_push",
 		},
 		{
+			Args: []string{"--build-arg=BASE=busybox:1", "--destination=docker.io/someone/app:1", "--registry-mirror=mirror.example.com"},
+			Plan: "fetch_mirror",
+		},
+		{
 			Args: []string{"--destination=other.example.com/team/app:1"},
 			Plan: "fetch_other_registry",
 		},
 		{
-			Args: []string{"--destination=docker.io/someone/app:1", "--destination=other.example.com/team/app:1"},
+			Args: []string{"--destination=registry.example.com/team/app:1", "--destination=other.example.com/team/app:1"},
 			Plan: "fetch_mixed",
 		},
 		{
-			Args: []string{"--destination=docker.io/someone/app:1", "--tar-path=/workspace/image.tar"},
+			Args: []string{"--build-arg=BASE=registry.example.com:5000/team/base:1", "--destination=registry.example.com/team/app:1"},
+			Plan: "fetch_port",
+		},
+		{
+			Args: []string{"--destination=registry.example.com/team/app:1", "--tar-path=/workspace/image.tar"},
 			Plan: "fetch_tar",
 		},
 		{
@@ -35,11 +43,11 @@ var Tests = types.GoldenTests{
 			Plan: "fetch_oci_layout",
 		},
 		{
-			Args: []string{"--destination=docker.io/someone/app:1", "--reproducible"},
+			Args: []string{"--destination=registry.example.com/team/app:1", "--reproducible"},
 			Plan: "fetch_reproducible",
 		},
 		{
-			Args: []string{"--destination=docker.io/someone/app:1", "--reproducible"},
+			Args: []string{"--destination=registry.example.com/team/app:1", "--reproducible"},
 			Env:  map[string]string{"FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS": "0"},
 			Plan: "fetch_reproducible",
 		},
@@ -48,14 +56,13 @@ var Tests = types.GoldenTests{
 			Plan: "fetch_reproducible_no_push",
 		},
 		{
-			Args: []string{"--destination=docker.io/someone/app:1", "--registry-mirror=mirror.gcr.io"},
-			Plan: "fetch_mirror",
+			Args: []string{"--destination=registry.example.com/team/app:1", "--registry-map=registry.example.com=mirror.example.com"},
+			Plan: "fetch_registry_map",
 		},
-		// Without the mount index only go-containerregistry mounts, from the reference the layer was pulled with.
 		{
-			Args: []string{"--destination=docker.io/someone/app:1"},
+			Args: []string{"--destination=registry.example.com/team/app:1"},
 			Env:  map[string]string{"FF_KANIKO_CROSS_REPO_MOUNT": "0"},
-			Plan: "stream_ggcr_mount",
+			Plan: "stream",
 		},
 		{
 			Args: []string{"--destination=other.example.com/team/app:1"},
@@ -63,7 +70,7 @@ var Tests = types.GoldenTests{
 			Plan: "fetch_other_registry",
 		},
 		{
-			Args: []string{"--destination=docker.io/someone/app:1", "--image-format=oci"},
+			Args: []string{"--destination=registry.example.com/team/app:1", "--image-format=oci"},
 			Env:  map[string]string{"FF_KANIKO_CROSS_REPO_MOUNT": "0"},
 			Plan: "stream_image_format",
 		},
