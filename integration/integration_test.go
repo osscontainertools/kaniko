@@ -1410,7 +1410,6 @@ func TestAddCache(t *testing.T) {
 		t.Helper()
 		cmdArgs := []string{
 			"run", "--rm",
-			"-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()),
 		}
 		if networkNone {
 			cmdArgs = append(cmdArgs, "--network=none")
