@@ -2411,9 +2411,8 @@ func sharedRemoteImages(stages []config.KanikoStage, externalImageDigests map[st
 	return shared, nil
 }
 
-// --reproducible reads the base layers even when it preserves them, and a push to the base's
-// registry mounts them.
 func pushStageRereadsBase(baseName string, opts *config.KanikoOptions) (bool, error) {
+	// --reproducible reads the base layers even when it preserves them
 	if opts.Reproducible || opts.TarPath != "" || opts.OCILayoutPath != "" {
 		return true, nil
 	}
@@ -2429,6 +2428,7 @@ func pushStageRereadsBase(baseName string, opts *config.KanikoOptions) (bool, er
 	if _, mapped := opts.RegistryMaps[registry]; mapped {
 		return true, nil
 	}
+	// a push to the base's registry mounts the base layers
 	for _, d := range opts.Destinations {
 		dest, err := name.NewTag(d, name.WeakValidation)
 		if err != nil {
