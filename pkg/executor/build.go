@@ -1452,17 +1452,28 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 				if err != nil {
 					return err
 				}
-				manifest, err := base.Manifest()
-				if err != nil {
-					return err
-				}
-				for _, l := range manifest.Layers {
-					layers = append(layers, pushedLayer{name: l.Digest.String(), key: l.Digest})
-				}
 			}
 			base, err := applyImageFormat(base, opts.ImageFormat)
 			if err != nil {
 				return err
+			}
+			baseLayers, err := base.Layers()
+			if err != nil {
+				return err
+			}
+			for _, l := range baseLayers {
+				digest, err := l.Digest()
+				if err != nil {
+					return err
+				}
+				layer := pushedLayer{name: digest.String(), key: digest}
+				// A stored base is read back from its layout, which does not know where a layer came from.
+				ml, ok := l.(*ggcrremote.MountableLayer)
+				if ok && !sharedRemote[s.BaseImageDigest] {
+					repo := ml.Reference.Context()
+					layer.origin = &repo
+				}
+				layers = append(layers, layer)
 			}
 			mediaType, err = base.MediaType()
 			if err != nil {
