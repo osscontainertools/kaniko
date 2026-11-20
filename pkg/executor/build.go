@@ -1452,17 +1452,28 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 				if err != nil {
 					return err
 				}
-				manifest, err := base.Manifest()
-				if err != nil {
-					return err
-				}
-				for _, l := range manifest.Layers {
-					layers = append(layers, pushedLayer{name: l.Digest.String(), key: l.Digest})
-				}
 			}
 			base, err := applyImageFormat(base, opts.ImageFormat)
 			if err != nil {
 				return err
+			}
+			baseLayers, err := base.Layers()
+			if err != nil {
+				return err
+			}
+			for _, l := range baseLayers {
+				digest, err := l.Digest()
+				if err != nil {
+					return err
+				}
+				layer := pushedLayer{name: digest.String(), key: digest}
+				// a stored base comes back from its layout without a source
+				ml, ok := l.(*ggcrremote.MountableLayer)
+				if ok && !sharedRemote[s.BaseImageDigest] {
+					repo := ml.Reference.Context()
+					layer.origin = &repo
+				}
+				layers = append(layers, layer)
 			}
 			mediaType, err = base.MediaType()
 			if err != nil {
@@ -1654,7 +1665,10 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	}
 	var sharedRemote map[string]bool
 	if config.FF.SharedBaseCache {
-		sharedRemote = sharedRemoteImages(kanikoStages, externalImageDigests, opts)
+		sharedRemote, err = sharedRemoteImages(kanikoStages, externalImageDigests, opts)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	lastStage := kanikoStages[len(kanikoStages)-1]
@@ -2366,16 +2380,23 @@ func loadSharedBase(digest string) (v1.Image, error) {
 
 // sharedRemoteImages returns the digests of remote images that are read more than once,
 // by several stages, by a COPY --from, or by a re-read on push or save.
-func sharedRemoteImages(stages []config.KanikoStage, externalImageDigests map[string]string, opts *config.KanikoOptions) map[string]bool {
+func sharedRemoteImages(stages []config.KanikoStage, externalImageDigests map[string]string, opts *config.KanikoOptions) (map[string]bool, error) {
 	shared := map[string]bool{}
-	writesOutput := (!opts.NoPush && len(opts.Destinations) > 0) || opts.TarPath != "" || opts.OCILayoutPath != ""
 	reads := map[string]int{}
 	for _, s := range stages {
 		if s.BaseImageDigest == "" {
 			continue
 		}
 		reads[s.BaseImageDigest]++
-		if (s.SaveStage && !s.Final) || (s.Push && writesOutput) {
+		pushRereads := false
+		if s.Push {
+			rereads, err := pushStageRereadsBase(s.BaseName, opts)
+			if err != nil {
+				return nil, err
+			}
+			pushRereads = rereads
+		}
+		if (s.SaveStage && !s.Final) || pushRereads {
 			reads[s.BaseImageDigest]++
 		}
 	}
@@ -2387,7 +2408,37 @@ func sharedRemoteImages(stages []config.KanikoStage, externalImageDigests map[st
 			shared[digest] = true
 		}
 	}
-	return shared
+	return shared, nil
+}
+
+func pushStageRereadsBase(baseName string, opts *config.KanikoOptions) (bool, error) {
+	// --reproducible reads the base layers even when it preserves them
+	if opts.Reproducible || opts.TarPath != "" || opts.OCILayoutPath != "" {
+		return true, nil
+	}
+	if opts.NoPush || len(opts.Destinations) == 0 {
+		return false, nil
+	}
+	base, err := name.ParseReference(baseName, name.WeakValidation)
+	if err != nil {
+		return false, fmt.Errorf("parsing base %q: %w", baseName, err)
+	}
+	registry := base.Context().RegistryStr()
+	// a mapped base may be served by a mirror, whose layers carry the mirror as their source
+	if _, mapped := opts.RegistryMaps[registry]; mapped {
+		return true, nil
+	}
+	// a push to the base's registry mounts the base layers
+	for _, d := range opts.Destinations {
+		dest, err := name.NewTag(d, name.WeakValidation)
+		if err != nil {
+			return false, fmt.Errorf("parsing destination %q: %w", d, err)
+		}
+		if dest.Context().RegistryStr() != registry {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func retrieveBaseImage(stage config.KanikoStage, opts *config.KanikoOptions, shared bool) (v1.Image, error) {

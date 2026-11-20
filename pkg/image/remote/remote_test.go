@@ -194,12 +194,12 @@ func Test_RetrieveRemoteImage_skipFallback(t *testing.T) {
 		SkipDefaultRegistryFallback: false,
 	}
 
-	remoteImageFunc = func(ref name.Reference, _ ...remote.Option) (resolvedImage, error) {
+	GetImage = func(ref name.Reference, _ ...remote.Option) (v1.Image, []byte, error) {
 		if ref.Context().Registry.Name() == registryMirror {
-			return resolvedImage{}, errors.New("no image found")
+			return nil, nil, errors.New("no image found")
 		}
 
-		return resolvedImage{image: &mockImage{}}, nil
+		return &mockImage{}, nil, nil
 	}
 
 	if _, err := RetrieveRemoteImage(image, opts, ""); err != nil {
@@ -220,12 +220,12 @@ func Test_RetryRetrieveRemoteImageSucceeds(t *testing.T) {
 		ImageDownloadRetry: 2,
 	}
 	attempts := 0
-	remoteImageFunc = func(_ name.Reference, _ ...remote.Option) (resolvedImage, error) {
+	GetImage = func(_ name.Reference, _ ...remote.Option) (v1.Image, []byte, error) {
 		if attempts < 2 {
 			attempts++
-			return resolvedImage{}, errors.New("no image found")
+			return nil, nil, errors.New("no image found")
 		}
-		return resolvedImage{image: &mockImage{}}, nil
+		return &mockImage{}, nil, nil
 	}
 
 	// Clean cached image
@@ -241,12 +241,12 @@ func Test_NoRetryRetrieveRemoteImageFails(t *testing.T) {
 		ImageDownloadRetry: 0,
 	}
 	attempts := 0
-	remoteImageFunc = func(_ name.Reference, _ ...remote.Option) (resolvedImage, error) {
+	GetImage = func(_ name.Reference, _ ...remote.Option) (v1.Image, []byte, error) {
 		if attempts < 1 {
 			attempts++
-			return resolvedImage{}, errors.New("no image found")
+			return nil, nil, errors.New("no image found")
 		}
-		return resolvedImage{image: &mockImage{}}, nil
+		return &mockImage{}, nil, nil
 	}
 
 	// Clean cached image
