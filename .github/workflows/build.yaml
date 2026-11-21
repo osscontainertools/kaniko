@@ -9,9 +9,6 @@ on:
       platforms:
         required: true
         type: string
-      tag:
-        required: true
-        type: string
       release-tag:
         required: true
         type: string
@@ -86,7 +83,7 @@ jobs:
           file: ./deploy/Dockerfile
           platforms: ${{ steps.platforms.outputs.platforms }}
           outputs: type=image,push=${{ steps.context.outputs.should_push == 'true' }},rewrite-timestamp=true
-          tags: ${{ steps.context.outputs.image_name }}:${{ inputs.tag }}
+          tags: ${{ steps.context.outputs.image_name }}:${{ github.sha }}${{ inputs.release-tag != 'latest' && format('-{0}', inputs.release-tag) || '' }}
           # https://github.com/docker/build-push-action/blob/master/docs/advanced/cache.md#github-cache
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -134,26 +131,3 @@ jobs:
           subject-name: ${{ steps.context.outputs.image_name }}
           subject-digest: ${{ steps.build-and-push.outputs.digest }}
           push-to-registry: true
-
-      # If a tag push, use crane to add more tags.
-      - if: steps.context.outputs.is_release == 'true'
-        uses: imjasonh/setup-crane@v0.7
-
-      - if: steps.context.outputs.is_release == 'true'
-        name: Apply release tags
-        run: |
-          tag=${GITHUB_REF/refs\/tags\//}
-
-          # Tag :latest, :debug, :slim
-          crane cp ${{ steps.context.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }} \
-              ${{ steps.context.outputs.image_name }}:${{ inputs.release-tag }}
-
-          if [[ "${{ inputs.release-tag }}" == "latest" ]]; then
-            # Tag :latest images as :v1.X.Y
-            crane cp ${{ steps.context.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }} \
-                ${{ steps.context.outputs.image_name }}:${tag}
-          else
-            # Or tag :v1.X.Y-debug and :v1.X.Y-slim
-            crane cp ${{ steps.context.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }} \
-                ${{ steps.context.outputs.image_name }}:${tag}-${{ inputs.release-tag }}
-          fi

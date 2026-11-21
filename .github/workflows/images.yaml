@@ -47,58 +47,49 @@ jobs:
           - image: executor
             target: kaniko-executor
             platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/s390x,linux/riscv64,linux/ppc64le
-            tag: ${{ github.sha }}
             release-tag: latest
 
           - image: executor-debug
             target: kaniko-debug
             platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/s390x,linux/riscv64,linux/ppc64le
-            tag: ${{ github.sha }}-debug
             release-tag: debug
 
           - image: executor-slim
             target: kaniko-slim
             platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/s390x,linux/riscv64,linux/ppc64le
-            tag: ${{ github.sha }}-slim
             release-tag: slim
 
           - image: executor-slim-fips
             target: kaniko-slim-fips
             platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/s390x,linux/riscv64,linux/ppc64le
-            tag: ${{ github.sha }}-slim-fips
             release-tag: slim-fips
 
           - image: warmer
             target: kaniko-warmer
             platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/s390x,linux/riscv64,linux/ppc64le
-            tag: ${{ github.sha }}-warmer
             release-tag: warmer
 
           - image: bootstrap
             target: kaniko-debug-2
             platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/s390x,linux/riscv64,linux/ppc64le
-            tag: ${{ github.sha }}-bootstrap
             release-tag: bootstrap
 
           - image: alpine
             target: kaniko-alpine
             platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/s390x,linux/riscv64,linux/ppc64le
-            tag: ${{ github.sha }}-alpine
             release-tag: alpine
 
     uses: ./.github/workflows/build.yaml
     with:
       target: ${{ matrix.target }}
       platforms: ${{ matrix.platforms }}
-      tag: ${{ matrix.tag }}
       release-tag: ${{ matrix.release-tag }}
 
-  # If a tag push, distribute to other registries too
-  dockerhub:
+  release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build-images
     permissions:
-      packages: read
+      packages: write
     runs-on: ubuntu-24.04
     env:
       IMAGE: ghcr.io/${{ github.repository }}
@@ -122,19 +113,21 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Distribute to Docker hub
+      - name: Apply release tags
         run: |
           version=${GITHUB_REF/refs\/tags\//}
 
           # Must list every release-tag of the build-images matrix.
           for release_tag in latest debug slim slim-fips warmer bootstrap alpine; do
             if [[ "$release_tag" == "latest" ]]; then
-              tag=$version
+              suffix=""
             else
-              tag=$version-$release_tag
+              suffix="-$release_tag"
             fi
-            digest=$(crane digest "$IMAGE:$tag")
-            crane cp "$IMAGE@$digest" "$DOCKER_REPO:$tag"
-            crane cp "$IMAGE@$digest" "$DOCKER_REPO:$release_tag"
+            digest=$(crane digest "$IMAGE:$GITHUB_SHA$suffix")
+            for repo in "$IMAGE" "$DOCKER_REPO"; do
+              crane cp "$IMAGE@$digest" "$repo:$version$suffix"
+              crane cp "$IMAGE@$digest" "$repo:$release_tag"
+            done
             crane cp "$IMAGE:sha256-${digest#sha256:}" "$DOCKER_REPO:sha256-${digest#sha256:}"
           done
