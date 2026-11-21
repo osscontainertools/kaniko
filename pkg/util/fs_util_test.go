@@ -1550,7 +1550,7 @@ func Test_GetFSFromLayers_with_whiteouts_include_whiteout_disabled(t *testing.T)
 		mockLayer2,
 	}
 
-	actualFiles, err := GetFSFromLayers(root, layers, opts...)
+	actualFiles, _, err := GetFSFromLayers(root, layers, opts...)
 
 	assertGetFSFromLayers(
 		t,
@@ -1617,7 +1617,7 @@ func Test_GetFSFromLayers(t *testing.T) {
 		mockLayer,
 	}
 
-	actualFiles, err := GetFSFromLayers(root, layers, opts...)
+	actualFiles, _, err := GetFSFromLayers(root, layers, opts...)
 
 	assertGetFSFromLayers(
 		t,
