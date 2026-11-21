@@ -177,6 +177,7 @@ var argsMapVersion1 = map[string][]string{
 // Environment to build Dockerfiles with, used for both docker and kaniko builds
 var envsMap = map[string][]string{
 	"Dockerfile_test_arg_secret":   {"SSH_PRIVATE_KEY=ThEPriv4t3Key"},
+	"Dockerfile_test_run_seccomp":  {"FF_KANIKO_RUN_SECCOMP=1"},
 	"Dockerfile_test_issue_519":    {"DOCKER_BUILDKIT=0"},
 	"Dockerfile_test_issue_cg188":  {"SECRET=blubb"},
 	"Dockerfile_test_issue_mz1336": {"SECRET=blubb"},
@@ -917,6 +918,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_cg326_2":  {},
 		"Dockerfile_test_issue_cg326_3":  {},
 		"Dockerfile_test_issue_cg533":    {},
+		"Dockerfile_test_run_seccomp":    {},
 		"Dockerfile_test_issue_mz444":    {},
 		"Dockerfile_test_issue_mz455":    {},
 		"Dockerfile_test_issue_mz473":    {},
