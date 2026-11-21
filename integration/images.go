@@ -238,6 +238,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_PROBE_CREDENTIALS=1",
 	"FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=1",
 	"FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT=1",
+	"FF_KANIKO_REPRODUCIBLE_SKIP_BASE_REWRITE=1",
 	"FF_KANIKO_RESOLVE_CACHE_KEY=1",
 	"FF_KANIKO_RESUME_BLOB_DOWNLOADS=1",
 	"FF_KANIKO_ROLLING_CACHE_KEY=1",
@@ -558,6 +559,12 @@ var diffArgsMap = map[string][]string{
 // output check to do when building with kaniko
 var outputChecks = map[string]func(string, []byte) error{
 	"Dockerfile_test_arg_secret": checkArgsNotPrinted,
+	"Dockerfile_test_reproducible_mounted_base": func(_ string, out []byte) error {
+		if strings.Contains(string(out), "shared-base: stored") {
+			return fmt.Errorf("output must not contain shared-base: stored")
+		}
+		return nil
+	},
 	"Dockerfile_test_issue_mz1121": func(_ string, out []byte) error {
 		for _, s := range []string{
 			"HINT SnapshotCacheDir: 9B in 1 files under /var/lib/apt/lists",
@@ -923,10 +930,11 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz1007": {},
 	}
 	d.TestReproducibleDockerfiles = map[string]struct{}{
-		"Dockerfile_test_copy_reproducible": {},
-		"Dockerfile_test_issue_mz731":       {},
-		"Dockerfile_test_issue_mz851":       {},
-		"Dockerfile_test_issue_mz1365":      {},
+		"Dockerfile_test_copy_reproducible":         {},
+		"Dockerfile_test_issue_mz731":               {},
+		"Dockerfile_test_issue_mz851":               {},
+		"Dockerfile_test_issue_mz1365":              {},
+		"Dockerfile_test_reproducible_mounted_base": {},
 	}
 	d.TestKanikoOnlyDockerfiles = map[string]struct{}{
 		"Dockerfile_test_issue_2567":     {},

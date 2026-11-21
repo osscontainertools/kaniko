@@ -74,6 +74,7 @@ type FeatureFlags struct {
 	ProbeCredentials               bool
 	ReproduciblePreserveBaseLayers bool
 	ReproduciblePreserveFormat     bool
+	ReproducibleSkipBaseRewrite    bool
 	ResolveCacheKey                bool
 	ResumeBlobDownloads            bool
 	RollingCacheKey                bool
@@ -179,6 +180,7 @@ func InitFeatureFlags() {
 		ProbeCredentials:               featureFlag("FF_KANIKO_PROBE_CREDENTIALS", false),
 		ReproduciblePreserveBaseLayers: featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS", true),
 		ReproduciblePreserveFormat:     featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT", true),
+		ReproducibleSkipBaseRewrite:    featureFlag("FF_KANIKO_REPRODUCIBLE_SKIP_BASE_REWRITE", false),
 		ResolveCacheKey:                featureFlag("FF_KANIKO_RESOLVE_CACHE_KEY", true),
 		ResumeBlobDownloads:            featureFlag("FF_KANIKO_RESUME_BLOB_DOWNLOADS", false),
 		RollingCacheKey:                featureFlag("FF_KANIKO_ROLLING_CACHE_KEY", true),

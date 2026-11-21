@@ -24,6 +24,7 @@ FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR=true
 FF_KANIKO_NATIVE_INIT=true
 FF_KANIKO_PARALLEL_HASH=true
 FF_KANIKO_PROBE_CREDENTIALS=true
+FF_KANIKO_REPRODUCIBLE_SKIP_BASE_REWRITE=true
 FF_KANIKO_RESUME_BLOB_DOWNLOADS=true
 FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=true
 FF_KANIKO_RUN_HEREDOC_SCRIPT=true
@@ -380,6 +381,13 @@ Will be deprecated in `v1.30.0`.
 Set this flag to `true` to keep the compression and the image format the build was asked for.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+## Flag `FF_KANIKO_REPRODUCIBLE_SKIP_BASE_REWRITE`
+
+`--reproducible` reads the whole base image a second time and holds each base layer in memory, which is slow and can run out of memory on large bases.
+Set this flag to `true` to only process the layers kaniko added. The built image is the same.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 ## Flag `FF_KANIKO_RESOLVE_CACHE_KEY`
 

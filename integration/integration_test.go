@@ -1328,16 +1328,18 @@ func TestReproducible(t *testing.T) {
 		}
 	}
 	baseRefs := map[string]string{
-		"Dockerfile_test_copy_reproducible": "alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
-		"Dockerfile_test_issue_mz731":       "alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
-		"Dockerfile_test_issue_mz851":       "debian@sha256:15a71cc87173e191d5046f9c4288db4e8954b67f92e48d9587087826b0afe562",
-		"Dockerfile_test_issue_mz1365":      "alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
+		"Dockerfile_test_copy_reproducible":         "alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
+		"Dockerfile_test_issue_mz731":               "alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
+		"Dockerfile_test_issue_mz851":               "debian@sha256:15a71cc87173e191d5046f9c4288db4e8954b67f92e48d9587087826b0afe562",
+		"Dockerfile_test_issue_mz1365":              "alpine@sha256:5ce5f501c457015c4b91f91a15ac69157d9b06f1a75cf9107bf2b62e0843983a",
+		"Dockerfile_test_reproducible_mounted_base": config.busyboxBaseImage,
 	}
 	layerMediaTypes := map[string][]ggcrtypes.MediaType{
-		"Dockerfile_test_copy_reproducible": append([]ggcrtypes.MediaType{ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerConfigJSON}, slices.Repeat([]ggcrtypes.MediaType{ggcrtypes.DockerLayer}, 18)...),
-		"Dockerfile_test_issue_mz731":       {ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerConfigJSON, ggcrtypes.DockerLayer, ggcrtypes.DockerLayer},
-		"Dockerfile_test_issue_mz851":       {ggcrtypes.OCIManifestSchema1, ggcrtypes.OCIConfigJSON, ggcrtypes.OCILayer, ggcrtypes.OCILayerZStd},
-		"Dockerfile_test_issue_mz1365":      {ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerConfigJSON, ggcrtypes.DockerLayer, ggcrtypes.DockerLayer, ggcrtypes.DockerLayer},
+		"Dockerfile_test_copy_reproducible":         append([]ggcrtypes.MediaType{ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerConfigJSON}, slices.Repeat([]ggcrtypes.MediaType{ggcrtypes.DockerLayer}, 18)...),
+		"Dockerfile_test_issue_mz731":               {ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerConfigJSON, ggcrtypes.DockerLayer, ggcrtypes.DockerLayer},
+		"Dockerfile_test_issue_mz851":               {ggcrtypes.OCIManifestSchema1, ggcrtypes.OCIConfigJSON, ggcrtypes.OCILayer, ggcrtypes.OCILayerZStd},
+		"Dockerfile_test_issue_mz1365":              {ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerConfigJSON, ggcrtypes.DockerLayer, ggcrtypes.DockerLayer, ggcrtypes.DockerLayer},
+		"Dockerfile_test_reproducible_mounted_base": {ggcrtypes.OCIManifestSchema1, ggcrtypes.OCIConfigJSON, ggcrtypes.OCILayer, ggcrtypes.OCILayer, ggcrtypes.OCILayer},
 	}
 	for dockerfile := range imageBuilder.TestReproducibleDockerfiles {
 		if match, _ := filepath.Match(config.dockerfilesPattern, dockerfile); !match {
@@ -1351,6 +1353,15 @@ func TestReproducible(t *testing.T) {
 			build(t, dockerfile, ref0)
 			build(t, dockerfile, ref1)
 			diffoci(t, ref0, ref1)
+			img0, err := getImageDetails(ref0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			img1, err := getImageDetails(ref1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			testutil.CheckDeepEqual(t, img0.digest, img1.digest)
 
 			// mz731: make sure the inherited base layers were not mutated.
 			base := layerDigests(t, baseRefs[dockerfile])
