@@ -27,10 +27,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// maxStalledResumes bounds the resumes in a row that deliver no bytes.
 const maxStalledResumes = 5
 
-// resumeTransport hands out blob bodies that pick up a cut download with a Range request.
 type resumeTransport struct {
 	inner http.RoundTripper
 }
@@ -52,8 +50,7 @@ func (t resumeTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return resp, nil
 }
 
-// blobPath returns the registry blob path req fetches, following the redirects that
-// led to it, since registries hand blob downloads to storage under another URL.
+// registries redirect blob downloads to storage under another URL
 func blobPath(req *http.Request) string {
 	for r := req; r != nil; {
 		if strings.Contains(r.URL.Path, "/blobs/") {
@@ -83,10 +80,9 @@ func (b *resumingBody) Read(p []byte) (int, error) {
 		if n > 0 {
 			b.stalled = 0
 		}
-		switch {
-		case err == nil, errors.Is(err, io.EOF):
+		if err == nil || errors.Is(err, io.EOF) {
 			return n, err
-		case b.req.Context().Err() != nil, b.stalled >= maxStalledResumes:
+		} else if b.req.Context().Err() != nil || b.stalled >= maxStalledResumes {
 			return n, fmt.Errorf("blob %s cut after %d bytes: %w", b.blob, b.offset, err)
 		}
 		logrus.Warnf("resuming blob %s at byte %d: %v", b.blob, b.offset, err)

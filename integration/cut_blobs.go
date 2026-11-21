@@ -31,9 +31,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
-// serveCutBlobImage pushes test_issue_mz1427:latest to the root of the imageRepo registry and
-// serves that registry on localhost:5004, where every blob GET without a Range header breaks
-// off halfway through its body.
 func serveCutBlobImage(baseRef, imageRepo string) error {
 	src, err := name.ParseReference(baseRef, name.WeakValidation)
 	if err != nil {
@@ -70,7 +67,6 @@ func serveCutBlobImage(baseRef, imageRepo string) error {
 	return nil
 }
 
-// cutWriter drops the connection once half of the announced Content-Length is written.
 type cutWriter struct {
 	http.ResponseWriter
 	left int
