@@ -1,0 +1,10 @@
+FROM busybox:1.36
+  CACHE MISS: sha256:d2a7a1e8396c47809bb50d9be67e236db6409de98536b0b0be6dca9c3d388d19
+  SAVE /cache/sha256:67ad0a174d7de7f87842395efcd4970fbfe9141a05a44eb033ce4dfcb52494da.index
+  FETCH busybox:1.36
+  SAVE /cache/sha256:d2a7a1e8396c47809bb50d9be67e236db6409de98536b0b0be6dca9c3d388d19
+FROM golang:1.25
+  CACHE MISS: sha256:e89345e5ded9947b9b0f8e32a65dae8fe4e6d2f9fa581412b67c85cf7517adb0
+  SAVE /cache/sha256:7a3135d9b70376bbdb5d724864a17169fa6bdad2a50d579ba0de450eec6b0abd.index
+  FETCH golang:1.25
+  SAVE /cache/sha256:e89345e5ded9947b9b0f8e32a65dae8fe4e6d2f9fa581412b67c85cf7517adb0

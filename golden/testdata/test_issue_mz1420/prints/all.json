@@ -1,0 +1,23 @@
+{
+  "target": {
+    "busybox": {
+      "target": "app",
+      "destination": [
+        "registry.example.com/busybox:latest"
+      ],
+      "build_arg": {
+        "VERSION": "1.2"
+      }
+    },
+    "golang": {
+      "target": "app",
+      "destination": [
+        "registry.example.com/golang:latest"
+      ],
+      "build_arg": {
+        "BASE": "golang:1.25",
+        "VERSION": "1.3"
+      }
+    }
+  }
+}

@@ -1,0 +1,4 @@
+ARG BASE=busybox:1.36
+FROM ${BASE} AS app
+ARG VERSION
+RUN echo $VERSION
