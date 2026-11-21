@@ -1328,6 +1328,7 @@ func generate(s *source, bases []string) genResult {
 		"FF_KANIKO_PROBE_CREDENTIALS",                 // use the first credential source the registry accepts
 		"FF_KANIKO_RESUME_BLOB_DOWNLOADS",             // continue a dropped layer download with a Range request
 		"FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES",      // trust each --registry-certificate only for its registry
+		"FF_KANIKO_REPRODUCIBLE_SKIP_BASE_REWRITE",    // --reproducible rewrites only the layers kaniko added
 	} {
 		switch s.intn(4) {
 		case 0:
