@@ -171,14 +171,6 @@ var knownBuildFailures = []knownDivergence{
 		},
 	},
 	{
-		name: "targetarch-empty-in-from",
-		why:  "mz1126: the executor resolves $TARGETARCH in FROM to empty, so the base reference ends in a bare colon. The warmer half (#1210) is only reachable once this is fixed",
-		flag: "",
-		match: func(out string) bool {
-			return strings.Contains(out, "could not parse reference: ") && strings.Contains(out, archBaseTag+"\n")
-		},
-	},
-	{
 		name: "rm-symlink-behind-symlink-busy",
 		why:  "mz1369: removing a base image symlink that a runtime mount reaches through a second symlink hits the busy mount",
 		flag: "FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS",
@@ -228,65 +220,12 @@ func knownCrashName(crash string) string {
 	return ""
 }
 
-// mz876CachedLayer names the cached-layer half of mz876: a layer served from the cache is
-// extracted onto the filesystem without entering the layered map, so a command snapshotted
-// after it in the same build attributes those files to the wrong layer. It needs a build that
-// mixes cache hits with re-snapshotted commands.
-const mz876CachedLayer = "mz876-cached-layer-map"
-
-// mz1365ReproducibleStage names a --reproducible diff of only file timestamps on a case
-// where a stage is both a FROM base and a COPY --from source. That stage's layers are
-// preserved like base image layers and keep their build-time mtimes.
-const mz1365ReproducibleStage = "mz1365-reproducible-stage-mtimes"
-
-var fromStage = regexp.MustCompile(`(?m)^FROM (stage[0-9]+)\b`)
-
-// reproducibleStageMtimes reports whether a diff between two --reproducible builds is the
-// mz1365 class.
-func reproducibleStageMtimes(dockerfile, diff string) bool {
-	shape := false
-	for _, m := range fromStage.FindAllStringSubmatch(dockerfile, -1) {
-		if strings.Contains(dockerfile, "--from="+m[1]+" ") || strings.Contains(dockerfile, "--from="+strings.TrimPrefix(m[1], "stage")+" ") {
-			shape = true
-		}
-	}
-	rows := diffRows(diff)
-	if !shape || len(rows) == 0 {
-		return false
-	}
-	for _, row := range rows {
-		if !strings.HasPrefix(row, "File") || strings.Count(row, " GMT") != 2 {
-			return false
-		}
-	}
-	return true
-}
-
-// layerAttributionOnly reports whether a kaniko-vs-kaniko diff only moves entries between
-// layers, which is all mz876 does. A row about content, mode, ownership or config is
-// something else.
-func layerAttributionOnly(diff string) bool {
-	rows := diffRows(diff)
-	if len(rows) == 0 {
-		return false
-	}
-	for _, row := range rows {
-		if !strings.HasPrefix(row, "Layer") || !(strings.Contains(row, "only appears in") || strings.Contains(row, "length mismatch")) {
-			return false
-		}
-	}
-	return true
-}
-
 // allKnownClasses is every known class, for reporting the campaign baseline.
 func allKnownClasses() []knownDivergence {
 	classes := append([]knownDivergence{}, dockerKnownDivergences...)
 	classes = append(classes, knownBuildFailures...)
 	classes = append(classes, knownCrashes...)
-	classes = append(classes, knownWarmerGaps...)
-	// Structural classes, counted by the oracle rather than matched on diff text.
-	classes = append(classes, knownDivergence{name: mz1365ReproducibleStage, why: "--reproducible keeps build-time mtimes of a stage that is both a FROM base and a COPY --from source (mz1365)", flag: "FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS"})
-	return append(classes, knownDivergence{name: mz876CachedLayer, why: "a cached layer never enters the layered map, so a later snapshot misattributes its files (mz876)", flag: ""})
+	return append(classes, knownWarmerGaps...)
 }
 
 // diffTypes are the leading tokens diffoci uses for a diff row. A line starting

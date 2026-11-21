@@ -702,13 +702,6 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		if !cacheSame {
 			real, evidence := diagnoseCacheDiff(v0, v1, cacheIgnores, cacheDiff)
 			if real {
-				// --cache-run-layers=false makes the consume RUN re-snapshot after a cached
-				// COPY whose files never entered the layered map (mz876).
-				if hasFlag(gen.kanikoFlags, "--cache-run-layers=false") && layerAttributionOnly(cacheDiff) {
-					f := &finding{seed: seed, sev: sevClean, known: map[string]int{mz876CachedLayer: 1}}
-					mergeKnown(f, dockerCls.known)
-					return f
-				}
 				f := fail(sevCacheDiff, "cache populate and consume differ", cacheDiff+"\n\n[diagnosis]\n"+evidence)
 				f.known = dockerCls.known
 				return f
@@ -795,9 +788,6 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	// different classes, so a divergence is a nondeterminism bug either way.
 	if on("FUZZ_DETERMINISM") {
 		if f := determinismOracle(label, dir, kanikoImage, gen.kanikoFlags, gen.envFlags, fail, crashOr, gen.mounts...); f != nil {
-			if f.sev == sevDeterminismDiff && reproducibleStageMtimes(gen.dockerfile, f.detail) {
-				f = &finding{seed: seed, sev: sevClean, known: map[string]int{mz1365ReproducibleStage: 1}}
-			}
 			mergeKnown(f, dockerCls.known)
 			return f
 		}
@@ -819,9 +809,6 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 		}
 		wf := warmerOracle(label, dir, gen.dockerfile, gen.buildArgs, gen.kanikoFlags, gen.envFlags, covDir, fail, crashOr)
 		if wf != nil {
-			if wf.sev == sevWarmerDiff && reproducibleStageMtimes(gen.dockerfile, wf.detail) {
-				wf = &finding{seed: seed, sev: sevClean, known: map[string]int{mz1365ReproducibleStage: 1}}
-			}
 			mergeKnown(wf, dockerCls.known)
 			return wf
 		}
@@ -2606,12 +2593,6 @@ func sharedCacheOracle(seed int64, label, dir, dockerfile string, argNames, flag
 	ignores := []string{"--ignore-image-name", "--ignore-image-timestamps", "--ignore-file-timestamps"}
 	diff, same, _ := runFuzzDiffoci(imgBClean, imgBShared, ignores)
 	if !same {
-		// Set B hits A's layers for every command before the first arg reference and
-		// re-snapshots the rest, the mix mz876 needs. A served colliding layer (mz873) changes
-		// file content, which mz876 never does.
-		if layerAttributionOnly(diff) {
-			return &finding{seed: seed, sev: sevClean, known: map[string]int{mz876CachedLayer: 1}}
-		}
 		return fail(sevCacheDiff, "shared-cache: set B output depends on colliding set A (mz873 regression)", diff)
 	}
 	return nil
