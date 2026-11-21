@@ -139,6 +139,7 @@ and inherits are not supported.`,
 		}
 		contexts := map[string]resolvedContext{}
 		inputs := make([]targetInputs, len(targets))
+		dockerfileSet := cmd.Flags().Changed("dockerfile")
 		for i, target := range targets {
 			topts := *opts
 			if err := ApplyTarget(&topts, target); err != nil {
@@ -181,6 +182,14 @@ and inherits are not supported.`,
 				contexts[key] = c
 			}
 			topts.SrcContext = c.dockerfileBase
+			remote := strings.Contains(target.Context, "://")
+			fromBakefile := (target.Dockerfile != "" || (target.Context != "" && !dockerfileSet)) && !filepath.IsAbs(topts.DockerfilePath) && !isURL(topts.DockerfilePath)
+			if fromBakefile && target.Context != "" && (target.Dockerfile == "" || remote) {
+				topts.DockerfilePath = filepath.Join(c.dockerfileBase, topts.DockerfilePath)
+			}
+			if fromBakefile && !util.FilepathExists(topts.DockerfilePath) {
+				return fmt.Errorf("dockerfile of target %q not found: %s", target.ID, topts.DockerfilePath)
+			}
 			if err := resolveDockerfilePath(&topts); err != nil {
 				return fmt.Errorf("error resolving dockerfile path: %w", err)
 			}
