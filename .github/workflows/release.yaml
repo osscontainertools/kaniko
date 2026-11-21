@@ -15,7 +15,7 @@ jobs:
       packages: write
       attestations: write
       artifact-metadata: write
-    uses: ./.github/workflows/images.yaml
+    uses: ./.github/workflows/build.yaml
 
   release:
     needs: build-images
@@ -48,7 +48,7 @@ jobs:
         run: |
           version=${GITHUB_REF/refs\/tags\//}
 
-          # Must list every release-tag of the build-images matrix in images.yaml.
+          # Must list every release-tag of the build-images matrix in build.yaml.
           for release_tag in latest debug slim slim-fips warmer bootstrap alpine; do
             if [[ "$release_tag" == "latest" ]]; then
               suffix=""
