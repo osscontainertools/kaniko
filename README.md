@@ -754,7 +754,7 @@ To verify the provenance, install the [GitHub CLI](https://cli.github.com/) and 
 ```
 $ gh attestation verify oci://ghcr.io/osscontainertools/kaniko:latest \
   --repo osscontainertools/kaniko \
-  --signer-workflow osscontainertools/kaniko/.github/workflows/provenance.yaml
+  --signer-workflow osscontainertools/kaniko/.github/workflows/build.yaml
 ```
 
 ### FIPS 140-3 Image
