@@ -1,0 +1,3 @@
+FROM registry.example.com/team/base:1
+  STREAM registry.example.com/team/base:1
+RUN true

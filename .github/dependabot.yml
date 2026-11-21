@@ -14,6 +14,15 @@ updates:
         update-types:
           - "patch"
 
+  - package-ecosystem: gomod
+    directory: /tools
+    schedule:
+      interval: daily
+    cooldown:
+      default-days: 0
+    allow:
+      - dependency-type: all
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -27,7 +36,20 @@ updates:
           - "patch"
 
   - package-ecosystem: docker
-    directory: /deploy
+    directories:
+      - /deploy
+      - /.devcontainer
+    schedule:
+      interval: daily
+    cooldown:
+      default-days: 0
+    groups:
+      docker:
+        patterns:
+          - "*"
+
+  - package-ecosystem: devcontainers
+    directory: /
     schedule:
       interval: daily
     cooldown:

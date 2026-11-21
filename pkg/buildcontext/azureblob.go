@@ -58,7 +58,7 @@ func (b *AzureBlob) UnpackTarFromBuildContext() (string, error) {
 	}
 
 	blobUrl := fmt.Sprintf("%s://%s/%s/%s", parts.Scheme, parts.Host, parts.ContainerName, url.PathEscape(parts.BlobName))
-	accountName := strings.Split(parts.Host, ".")[0]
+	accountName, _, _ := strings.Cut(parts.Host, ".")
 
 	// Generate credential with accountName and accountKey
 	credential, err := blob.NewSharedKeyCredential(accountName, accountKey)

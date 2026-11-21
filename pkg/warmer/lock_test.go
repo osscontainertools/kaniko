@@ -60,8 +60,8 @@ func TestAcquireCacheLock_MutualExclusionSameKey(t *testing.T) {
 
 	// inCritical tracks the number of goroutines currently holding the lock.
 	// If acquireCacheLock is correct, this value never exceeds 1.
-	var inCritical int32
-	var maxObserved int32
+	var inCritical atomic.Int32
+	var maxObserved atomic.Int32
 
 	const n = 8
 	var wg sync.WaitGroup
@@ -76,22 +76,22 @@ func TestAcquireCacheLock_MutualExclusionSameKey(t *testing.T) {
 			}
 			defer lock.Release()
 
-			cur := atomic.AddInt32(&inCritical, 1)
+			cur := inCritical.Add(1)
 			for {
-				prev := atomic.LoadInt32(&maxObserved)
-				if cur <= prev || atomic.CompareAndSwapInt32(&maxObserved, prev, cur) {
+				prev := maxObserved.Load()
+				if cur <= prev || maxObserved.CompareAndSwap(prev, cur) {
 					break
 				}
 			}
 			// Hold the critical section briefly so any racers have a
 			// chance to be seen if mutual exclusion is broken.
 			time.Sleep(10 * time.Millisecond)
-			atomic.AddInt32(&inCritical, -1)
+			inCritical.Add(-1)
 		}()
 	}
 	wg.Wait()
 
-	if got := atomic.LoadInt32(&maxObserved); got != 1 {
+	if got := maxObserved.Load(); got != 1 {
 		t.Errorf("max goroutines observed holding the lock concurrently: got %d, want 1", got)
 	}
 }

@@ -27,6 +27,7 @@ import (
 	"strings"
 	"syscall"
 
+	securejoin "github.com/cyphar/filepath-securejoin"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/moby/buildkit/frontend/dockerfile/parser"
@@ -276,6 +277,15 @@ func runCommandWithFlags(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmd
 					mountFileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoInterStageDepsDir, m.From)}
 				}
 				src := filepath.Join(mountFileContext.Root, m.Source)
+				if kConfig.FF.RunMountBindResolveSymlink {
+					resolvedSrc, resolveErr := securejoin.SecureJoin(filepath.Clean(mountFileContext.Root), m.Source)
+					if resolveErr != nil {
+						return fmt.Errorf("resolving bind source symlink %s: %w", m.Source, resolveErr)
+					}
+					// runCmdFilesUsedFromContext rejects excluded sources before any RUN executes
+					assert.Assert("run.bind-source-not-excluded", !mountFileContext.ExcludesFile(resolvedSrc), "bind source %s resolves to excluded path %s", m.Source, resolvedSrc)
+					src = resolvedSrc
+				}
 				target := m.Target
 				if kConfig.FF.RunMountBindRelative {
 					target = ToAbsPath(target, config.WorkingDir)
@@ -635,6 +645,16 @@ func runCmdFilesUsedFromContext(
 			continue
 		}
 		fullPath := filepath.Join(fileContext.Root, m.Source)
+		if kConfig.FF.RunMountBindResolveSymlink {
+			resolvedPath, resolveErr := securejoin.SecureJoin(filepath.Clean(fileContext.Root), m.Source)
+			if resolveErr != nil {
+				return nil, fmt.Errorf("resolving bind source symlink %s: %w", m.Source, resolveErr)
+			}
+			if fileContext.ExcludesFile(resolvedPath) {
+				return nil, fmt.Errorf("bind source %s resolves to excluded path %s", m.Source, resolvedPath)
+			}
+			fullPath = resolvedPath
+		}
 		files = append(files, fullPath)
 	}
 

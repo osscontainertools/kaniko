@@ -1,0 +1,4 @@
+FROM registry.example.com/team/base:1
+  FETCH registry.example.com/team/base:1
+  UNPACK registry.example.com/team/base:1
+RUN true

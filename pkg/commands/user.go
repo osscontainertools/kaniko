@@ -18,7 +18,6 @@ package commands
 
 import (
 	"fmt"
-	"strings"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
@@ -35,19 +34,10 @@ type UserCommand struct {
 func (r *UserCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
 	logrus.Info("Cmd: USER")
 	u := r.cmd.User
-	userAndGroup := strings.Split(u, ":")
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
-	userStr, err := util.ResolveEnvironmentReplacement(userAndGroup[0], replacementEnvs, false)
+	userStr, err := util.ResolveEnvironmentReplacement(u, replacementEnvs, false)
 	if err != nil {
-		return fmt.Errorf("resolving user %s: %w", userAndGroup[0], err)
-	}
-
-	if len(userAndGroup) > 1 {
-		groupStr, err := util.ResolveEnvironmentReplacement(userAndGroup[1], replacementEnvs, false)
-		if err != nil {
-			return fmt.Errorf("resolving group %s: %w", userAndGroup[1], err)
-		}
-		userStr = userStr + ":" + groupStr
+		return fmt.Errorf("resolving user %s: %w", u, err)
 	}
 
 	config.User = userStr

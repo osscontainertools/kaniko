@@ -1,0 +1,2 @@
+# mz1374: excludes kaniko/archive.tar, the target testdata/link.tar resolves to
+kaniko

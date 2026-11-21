@@ -30,6 +30,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/logging"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/pkg/warmer"
@@ -52,7 +53,6 @@ func init() {
 	RootCmd.PersistentFlags().BoolVar(&logTimestamp, "log-timestamp", logging.DefaultLogTimestamp, "Timestamp in log output")
 
 	AddWarmerFlags(RootCmd, opts)
-	addHiddenFlags()
 
 	AddWarmerBakeFlags(bakeCmd, opts, &bakeSet)
 	bakeCmd.Flags().BoolVar(&bakePrint, "print", false, "Print the resolved targets as JSON and exit without warming")
@@ -92,11 +92,7 @@ var RootCmd = &cobra.Command{
 		}
 
 		if config.FF.WarmerBuildArgs {
-			for i, arg := range opts.BuildArgs {
-				if !strings.Contains(arg, "=") {
-					opts.BuildArgs[i] = fmt.Sprintf("%s=%s", arg, os.Getenv(arg))
-				}
-			}
+			dockerfile.ResolveEnvironmentBuildArgs(opts.BuildArgs, os.Getenv)
 		}
 
 		return nil
@@ -172,6 +168,7 @@ func AddWarmerBakeFlags(cmd *cobra.Command, opts *config.WarmerOptions, set *[]s
 }
 
 func WarmTargets(opts *config.WarmerOptions, bakefile string, targets []bake.ResolvedTarget) error {
+	var errs []error
 	for _, t := range targets {
 		topts := *opts
 		remote := strings.Contains(t.Context, "://")
@@ -187,10 +184,10 @@ func WarmTargets(opts *config.WarmerOptions, bakefile string, targets []bake.Res
 		}
 		err := warmer.WarmCache(&topts)
 		if err != nil {
-			return fmt.Errorf("target %q: failed warming cache: %w", t.ID, err)
+			errs = append(errs, fmt.Errorf("target %q: failed warming cache: %w", t.ID, err))
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 // AddWarmerFlags configures opts
@@ -224,11 +221,6 @@ func AddWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
 	if _, err := v1.ParsePlatform(opts.CustomPlatform); err != nil {
 		logrus.Fatalf("Invalid platform %q: %v", opts.CustomPlatform, err)
 	}
-}
-
-// addHiddenFlags marks certain flags as hidden from the executor help text
-func addHiddenFlags() {
-	RootCmd.Flags().MarkHidden("azure-container-registry-config")
 }
 
 func validateDockerfilePath() error {

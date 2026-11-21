@@ -21,7 +21,7 @@ RUN mkdir -m 777 -p /kaniko
 
 FROM --platform=$BUILDPLATFORM busybox:musl@sha256:80e38f9a1b39188b8bdb28879178edb322a4402b081a9aedda1924609decd6f6 AS busybox-build
 
-FROM --platform=$BUILDPLATFORM golang:1.27.4@sha256:5e8afd493a7124a8586e134d9b532731161d4b9becf9dee5a5956b107426f93d AS builder-base
+FROM --platform=$BUILDPLATFORM golang:1.27.4@sha256:205c7636d74e0ffbe3d007162df7d74f859f5a8c8322dfb9f907977686c126cf AS builder-base
 WORKDIR /src
 
 # This arg is passed by docker buildx & contains the target CPU architecture (e.g., amd64, arm64, etc.)
@@ -90,8 +90,8 @@ FROM builder-base AS builder
 ARG COVER=""
 ARG RACE=""
 ARG UPX_COMPRESS=""
-RUN make COVER="$COVER" RACE="$RACE" UPX_COMPRESS="$UPX_COMPRESS" out/executor out/warmer \
-    && rm -rf /root/.cache
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    make COVER="$COVER" RACE="$RACE" UPX_COMPRESS="$UPX_COMPRESS" out/executor out/warmer
 
 # The helper names must match the argv[0] dispatch in pkg/creds.
 # A hardlink only shares the file when it is copied in the same layer as the binary.
@@ -107,8 +107,15 @@ FROM builder-base AS builder-slim
 ARG COVER=""
 ARG RACE=""
 ARG UPX_COMPRESS=""
-RUN make COVER="$COVER" RACE="$RACE" UPX_COMPRESS="$UPX_COMPRESS" out/executor-slim \
-    && rm -rf /root/.cache
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    make COVER="$COVER" RACE="$RACE" UPX_COMPRESS="$UPX_COMPRESS" out/executor-slim
+
+FROM builder-base AS builder-slim-fips
+ARG COVER=""
+ARG RACE=""
+ENV GOFIPS140=v1.0.0
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    make COVER="$COVER" RACE="$RACE" out/executor-slim
 
 FROM scratch AS busybox-licenses
 ADD --checksum=sha256:bbfc9843646d483c334664f651c208b9839626891d8f17604db2146962f43548 \
@@ -259,5 +266,11 @@ RUN ["/busybox2/ln", "-s", "/busybox2/sh", "/bin/sh"]
 FROM kaniko-base-slim AS kaniko-slim
 
 COPY --from=builder-slim /src/out/executor-slim /kaniko/executor
+
+ENTRYPOINT ["/kaniko/executor"]
+
+FROM kaniko-base-slim AS kaniko-slim-fips
+
+COPY --from=builder-slim-fips /src/out/executor-slim /kaniko/executor
 
 ENTRYPOINT ["/kaniko/executor"]

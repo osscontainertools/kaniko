@@ -385,7 +385,10 @@ func TestCheckPushPermissions(t *testing.T) {
 				Destinations: test.destinations,
 				NoPush:       test.noPush,
 			}
-			CheckPushPermissions(&opts)
+			err := CheckPushPermissions(&opts)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if checkPushPermsCallCount != test.checkPushPermsExpectedCallCount {
 				t.Errorf("expected check push permissions call count to be %d but it was %d", test.checkPushPermsExpectedCallCount, checkPushPermsCallCount)
 			}
@@ -418,7 +421,10 @@ func TestSkipPushPermission(t *testing.T) {
 				NoPushCache:             test.noPushCache,
 				SkipPushPermissionCheck: test.skipPushPermission,
 			}
-			CheckPushPermissions(&opts)
+			err := CheckPushPermissions(&opts)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if checkPushPermsCallCount != test.checkPushPermsExpectedCallCount {
 				t.Errorf("expected check push permissions call count to be %d but it was %d", test.checkPushPermsExpectedCallCount, checkPushPermsCallCount)
 			}

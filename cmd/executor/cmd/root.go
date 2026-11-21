@@ -37,6 +37,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/buildenv"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
+	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/executor"
 	"github.com/osscontainertools/kaniko/pkg/logging"
 	"github.com/osscontainertools/kaniko/pkg/timing"
@@ -45,7 +46,6 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/util/proc"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 var (
@@ -65,7 +65,10 @@ func init() {
 	AddKanikoOptionsFlags(RootCmd, opts)
 	addHiddenFlags(RootCmd)
 	RootCmd.Flags().BoolVarP(&opts.IgnoreVarRun, "whitelist-var-run", "", true, "Ignore /var/run directory when taking image snapshot. Set it to false to preserve /var/run/ in destination image.")
-	RootCmd.Flags().MarkDeprecated("whitelist-var-run", "Please use ignore-var-run instead.")
+	err := RootCmd.Flags().MarkDeprecated("whitelist-var-run", "Please use ignore-var-run instead.")
+	if err != nil {
+		panic(err)
+	}
 }
 
 func ValidateFlags(opts *config.KanikoOptions) {
@@ -131,7 +134,7 @@ func setupBuild() error {
 		}
 	}
 
-	resolveEnvironmentBuildArgs(opts.BuildArgs, os.Getenv)
+	dockerfile.ResolveEnvironmentBuildArgs(opts.BuildArgs, os.Getenv)
 	// Update ignored paths
 	if opts.IgnoreVarRun {
 		// /var/run is a special case. It's common to mount in /var/run/docker.sock
@@ -518,10 +521,11 @@ func AddRegistryOptionsFlags(cmd *cobra.Command, opts *config.RegistryOptions) {
 
 // addHiddenFlags marks certain flags as hidden from the executor help text
 func addHiddenFlags(cmd *cobra.Command) {
-	// This flag is added in a vendored directory, hide so that it doesn't come up via --help
-	pflag.CommandLine.MarkHidden("azure-container-registry-config")
 	// Hide this flag as we want to encourage people to use the --context flag instead
-	cmd.Flags().MarkHidden("bucket")
+	err := cmd.Flags().MarkHidden("bucket")
+	if err != nil {
+		panic(err)
+	}
 }
 
 // moveKanikoDir will move the entire kanikoDir and to a new location
@@ -670,17 +674,6 @@ func resolveSecrets() error {
 	return nil
 }
 
-// resolveEnvironmentBuildArgs replace build args without value by the same named environment variable
-func resolveEnvironmentBuildArgs(arguments []string, resolver func(string) string) {
-	for index, argument := range arguments {
-		found := strings.Contains(argument, "=")
-		if !found {
-			value := resolver(argument)
-			arguments[index] = fmt.Sprintf("%s=%s", argument, value)
-		}
-	}
-}
-
 // copy Dockerfile to /kaniko/Dockerfile so that if it's specified in the .dockerignore
 // it won't be copied into the image
 func copyDockerfile(opts *config.KanikoOptions) error {
@@ -776,8 +769,8 @@ func resolveRelativePaths() error {
 }
 
 func exit(err error) {
-	var execErr *exec.ExitError
-	if errors.As(err, &execErr) {
+	execErr, ok := errors.AsType[*exec.ExitError](err)
+	if ok {
 		// if there is an exit code propagate it
 		exitWithCode(err, execErr.ExitCode())
 	}

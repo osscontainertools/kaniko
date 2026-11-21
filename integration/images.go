@@ -233,6 +233,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_POOL_REGISTRY_CONNECTIONS=1",
 	"FF_KANIKO_PRECOMPILE_DOCKERIGNORE=1",
 	"FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS=1",
+	"FF_KANIKO_PROBE_CREDENTIALS=1",
 	"FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=1",
 	"FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT=1",
 	"FF_KANIKO_RESOLVE_CACHE_KEY=1",
@@ -241,6 +242,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_RUN_HEREDOC_SCRIPT=1",
 	"FF_KANIKO_RUN_HONOR_GROUP=1",
 	"FF_KANIKO_RUN_MOUNT_BIND_RELATIVE=1",
+	"FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK=1",
 	"FF_KANIKO_RUN_MOUNT_TMPFS=1",
 	"FF_KANIKO_SCOPED_DOCKERIGNORE=1",
 	"FF_KANIKO_SHARED_BASE_CACHE=1",
@@ -251,6 +253,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_UNPACK_ZSTD=1",
 	"FF_KANIKO_UNTAR_SKIP_ROOT=1",
 	"FF_KANIKO_WARMER_BUILD_ARGS=1",
+	"FF_KANIKO_WARMER_FAIL_ON_ERROR=1",
 	"FF_KANIKO_WARMER_PREDEFINED_ARGS=1",
 	"KANIKO_PRINT_PLAN=1",
 	"GORACE=halt_on_error=1",
@@ -273,6 +276,7 @@ var KanikoEnv = []string{
 var WarmerEnv = []string{
 	"FF_KANIKO_CACHE_COPY_FROM=1",
 	"FF_KANIKO_CACHE_IMAGE_INDEX=1",
+	"FF_KANIKO_WARMER_FAIL_ON_ERROR=1",
 }
 
 // For these images kaniko emits dockerv2, so the oracle has to emit dockerv2 too.
@@ -398,6 +402,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1375_arg_fail":       {"--require-add-checksum"},
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": {"--require-add-checksum"},
 	"Dockerfile_test_issue_mz1375_stage_fail":     {"--require-add-checksum"},
+	"issue-mz1374": {"-c", "/workspace/../workspace"},
 }
 
 var expectErr = map[string]int{
@@ -424,6 +429,7 @@ var expectErr = map[string]int{
 	"Dockerfile_test_issue_mz1375_arg_fail":       1,
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": 1,
 	"Dockerfile_test_issue_mz1375_stage_fail":     1,
+	"Dockerfile_test_issue_mz1374":                1,
 }
 
 var expectErrOutput = map[string]string{
@@ -449,6 +455,7 @@ var expectErrOutput = map[string]string{
 	"Dockerfile_test_issue_mz1375_arg_fail":       "--require-add-checksum: ADD https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz has no --checksum",
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": "invalid checksum digest format",
 	"Dockerfile_test_issue_mz1375_stage_fail":     "--require-add-checksum: ADD https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz has no --checksum",
+	"Dockerfile_test_issue_mz1374":                "resolves to excluded path",
 }
 
 var crossCompileArch = func() string {
@@ -471,9 +478,9 @@ var diffArgsMap = map[string][]string{
 	// it's where we store the docker credentials.
 	"TestWithContext/test_with_context_issue-1020": {"--extra-ignore-files=root/.config/", "--extra-ignore-layer-length-mismatch"},
 	// docker is wrong. we do copy the symlink correctly.
-	"TestRun/test_Dockerfile_test_copy_symlink": {"--extra-ignore-files=workdirAnother/relative_link"},
+	"TestRun/test_Dockerfile_test_copy_symlink": {"--ignore-path=workdirAnother/relative_link"},
 	// docker dereferences the symlink source, we preserve it, so dest/linkS diverges.
-	"TestRun/test_Dockerfile_test_issue_mz921":   {"--extra-ignore-files=dest/linkS", "--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz921":   {"--ignore-path=dest/linkS", "--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_multistage":    {"--extra-ignore-files=new", "--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_cross_compile": {"--platform=linux/" + crossCompileArch},
 	// kaniko adds parent directories of changed paths to the full-filesystem snapshot
@@ -501,7 +508,7 @@ var diffArgsMap = map[string][]string{
 	// mz511: We delete the builtin file /etc/nsswitch.conf to verify that secrets are persisted
 	// But we discovered a new issue with this. For builtins, buildkit will emit "whiteout" files,
 	// to remember that it was removed, we don't. So we end up with a diff in the resulting image.
-	"TestRun/test_Dockerfile_test_issue_mz511": {"--extra-ignore-files=etc/.wh.nsswitch.conf", "--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz511": {"--ignore-path=etc/.wh.nsswitch.conf", "--extra-ignore-layer-length-mismatch"},
 	// 1599: docker copies the fifo into /kaniko, we refuse to write there at all,
 	// so the docker image keeps a /kaniko/tini our image never has.
 	"TestRun/test_Dockerfile_test_issue_1599_2": {"--extra-ignore-files=kaniko/", "--extra-ignore-layer-length-mismatch"},
@@ -829,7 +836,9 @@ func FindDockerFiles(dir, dockerfilesPattern string) ([]string, error) {
 	for _, dockerfile := range allDockerfiles {
 		// Remove the leading directory from the path
 		dockerfile = dockerfile[len("dockerfiles/"):]
-		dockerfiles = append(dockerfiles, dockerfile)
+		if !strings.HasSuffix(dockerfile, ".dockerignore") {
+			dockerfiles = append(dockerfiles, dockerfile)
+		}
 	}
 	return dockerfiles, err
 }
@@ -1005,8 +1014,7 @@ func (d *DockerFileBuilder) BuildKanikoImage(t *testing.T, config *integrationTe
 	}
 	buildArgs = append(buildArgs, "--build-arg", "IMAGE_REPO="+config.imageRepo)
 
-	additionalKanikoFlags := additionalKanikoFlagsMap[dockerfile]
-	additionalKanikoFlags = append(additionalKanikoFlags, "-c", buildContextPath)
+	additionalKanikoFlags := append([]string{"-c", buildContextPath}, additionalKanikoFlagsMap[dockerfile]...)
 
 	kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 	return buildKanikoImage(t, dockerfilesPath, dockerfile, buildArgs, additionalKanikoFlags, kanikoImage,
@@ -1034,8 +1042,7 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 		return err
 	}
 
-	additionalKanikoFlags := additionalKanikoFlagsMap[dockerfile]
-	additionalKanikoFlags = append(additionalKanikoFlags, "-c", buildContextPath)
+	additionalKanikoFlags := append([]string{"-c", buildContextPath}, additionalKanikoFlagsMap[dockerfile]...)
 	if _, ok := d.TestReproducibleDockerfiles[dockerfile]; ok {
 		additionalKanikoFlags = append(additionalKanikoFlags, "--reproducible")
 	}

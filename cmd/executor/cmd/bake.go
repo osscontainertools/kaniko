@@ -78,11 +78,10 @@ func ValidateBakeBuild(opts *config.KanikoOptions, targets []bake.ResolvedTarget
 }
 
 var bakeCmd = &cobra.Command{
-	Use:   "bake <bakefile> [target]",
-	Short: "Build a target defined in a bakefile",
-	Long: `Build a target defined in a bakefile. The bakefile may define several
-targets, name the one to build (it may be omitted when there is only one). The
-target's stage and push destination come from the bakefile. Context and
+	Use:   "bake <bakefile> [target...]",
+	Short: "Build targets defined in a bakefile",
+	Long: `Build targets defined in a bakefile. Name the targets to build, or omit
+them to build all. Each target's stage and push destination come from the bakefile. Context and
 dockerfile come from the usual flags unless the target sets its own. Build args
 and other settings come from the usual flags.
 
@@ -96,7 +95,7 @@ The bakefile is HCL and looks like this:
 It is the analogue of a docker-bake.hcl, expressed in kaniko's commands rather
 than buildx's. A docker-bake.hcl will not parse. Variables, functions, groups
 and inherits are not supported.`,
-	Args: cobra.RangeArgs(1, 2),
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := logging.Configure(logLevel, logFormat, logTimestamp); err != nil {
 			return err

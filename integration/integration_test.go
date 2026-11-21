@@ -19,6 +19,7 @@ package integration
 import (
 	"archive/tar"
 	"bytes"
+	"cmp"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -128,85 +129,21 @@ func buildRequiredImages() error {
 		}
 	}
 
-	coverArg := "--build-arg=COVER="
+	cover := ""
 	if coverageDir != "" {
-		coverArg = "--build-arg=COVER=1"
+		cover = "1"
 	}
 
-	setupCommands := []struct {
-		name    string
-		command []string
-	}{{
-		name:    "Building kaniko image",
-		command: []string{"docker", "build", coverArg, "--build-arg=RACE=1", "-t", ExecutorImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-executor", ".."},
-	}, {
-		name:    "Building cache warmer image",
-		command: []string{"docker", "build", coverArg, "--build-arg=RACE=1", "-t", WarmerImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-warmer", ".."},
-	}, {
-		name:    "Building busybox base image",
-		command: []string{"docker", "build", "--push", "-t", config.busyboxBaseImage, "-f", dockerfilesPath + "/Dockerfile_busybox_base", "."},
-	}, {
-		name:    "Building alpine base image",
-		command: []string{"docker", "build", "--push", "-t", config.alpineBaseImage, "-f", dockerfilesPath + "/Dockerfile_alpine_base", "."},
-	}, {
-		name:    "Building onbuild base image",
-		command: []string{"docker", "build", "--push", "-t", config.onbuildBaseImage, "-f", dockerfilesPath + "/Dockerfile_onbuild_base", "."},
-	}, {
-		name:    "Building onbuild copy image",
-		command: []string{"docker", "build", "--push", "-t", config.onbuildCopyImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz332", "--target", "onbuild", "."},
-	}, {
-		name:    "Building hardlink base image",
-		command: []string{"docker", "build", "--push", "-t", config.hardlinkBaseImage, "-f", dockerfilesPath + "/Dockerfile_hardlink_base", "."},
-	}, {
-		name:    "Building kaniko image with moved kaniko dir",
-		command: []string{"docker", "build", coverArg, "-t", ExecutorImageMoved, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz444", "--target", "kaniko", "."},
-	}, {
-		name:    "Building kaniko image with leftover stuff in the filesystem",
-		command: []string{"docker", "build", coverArg, "-t", ExecutorImageTainted, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz455", "--target", "kaniko", "."},
-	}, {
-		name:    "Building kaniko image with a bake context in the filesystem",
-		command: []string{"docker", "build", "-t", ExecutorImageBakeContext, "-f", "bakefiles/test_bake_unmounted_context/Dockerfile.executor", "bakefiles/test_bake_unmounted_context"},
-	}, {
-		name:    "Building hijack base image",
-		command: []string{"docker", "build", "--push", "-t", config.hijackBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz560", "--target", "base", "."},
-	}, {
-		name:    "Building malformed-oci base image",
-		command: []string{"docker", "build", "--push", "-t", config.malformedOCIImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz725", "--target", "base", "."},
-	}, {
-		name:    "Building mz753 base image",
-		command: []string{"docker", "build", "--push", "-t", config.nvidiaOperatorBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz753", "--target", "base", "."},
-	}, {
-		name:    "Building mz1073 base image",
-		command: []string{"docker", "build", "--push", "-t", config.mz1073BaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz1073", "--target", "base", "."},
-	}, {
-		name:    "Building mounted symlink base image",
-		command: []string{"docker", "build", "--push", "-t", config.mountedSymlinkBaseImage, "-f", dockerfilesPath + "/Dockerfile_test_mounted_symlink_kaniko", "--target", "base", "."},
-	}, {
-		name:    "Building mz1113 base image",
-		command: []string{"docker", "build", "--push", "-t", config.mz1113BaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz1113", "--target", "base", "."},
-	}, {
-		name:    "Building mz1172 base image",
-		command: []string{"docker", "build", "--push", "-t", config.mz1172BaseImage, "-f", dockerfilesPath + "/Dockerfile_test_issue_mz1172", "--target", "base", "."},
-	}, {
-		name: "Building single manifest base image",
-		command: append(append([]string{"docker", "build", "--push"}, dockerV2Flags...),
-			"-t", config.singleManifestBaseImage, "-f", dockerfilesPath+"/Dockerfile_test_issue_2567",
-			"--target", "base", "--build-arg", "IMAGE_REPO="+config.imageRepo, "."),
-	}, {
-		name:    "Building kaniko image based on alpine",
-		command: []string{"docker", "build", coverArg, "--build-arg=RACE=1", "-t", AlpineImage, "-f", "../deploy/Dockerfile", "--target", "kaniko-alpine", ".."},
-	}}
-
-	for _, setupCmd := range setupCommands {
-		fmt.Println(setupCmd.name)
-		cmd := exec.Command(setupCmd.command[0], setupCmd.command[1:]...)
-		if out, err := RunCommandWithoutTest(cmd); err != nil {
-			return fmt.Errorf("%s failed: %s: %w", setupCmd.name, string(out), err)
-		}
+	fmt.Println("Building images")
+	cmd := exec.Command("docker", "buildx", "bake", "--allow=fs.read=..", "-f", "docker-bake.hcl")
+	cmd.Env = append(os.Environ(), "IMAGE_REPO="+config.imageRepo, "COVER="+cover)
+	out, err := RunCommandWithoutTest(cmd)
+	if err != nil {
+		return fmt.Errorf("building images failed: %s: %w", string(out), err)
 	}
 
 	maliciousRef := strings.ToLower(config.imageRepo + "path-traversal-malicious:latest")
-	err := pushMaliciousPathTraversalImage(maliciousRef)
+	err = pushMaliciousPathTraversalImage(maliciousRef)
 	if err != nil {
 		return err
 	}
@@ -584,7 +521,7 @@ func TestExpectError(t *testing.T) {
 func getBranchCommitAndURL() (string, string, string) {
 	repo := os.Getenv("GITHUB_REPOSITORY")
 	commit := os.Getenv("GITHUB_SHA")
-	branch := ""
+	var branch string
 	if _, isPR := os.LookupEnv("GITHUB_HEAD_REF"); isPR {
 		branch = "main"
 	} else {
@@ -1409,7 +1346,10 @@ func TestCache(t *testing.T) {
 
 func TestWarmer(t *testing.T) {
 	t.Parallel()
-	populateVolumeCache(t, config)
+	err := populateVolumeCache(t, config)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for dockerfile := range imageBuilder.TestWarmerDockerfiles {
 		t.Run("test_warmer_"+dockerfile, func(t *testing.T) {
@@ -1536,6 +1476,48 @@ func TestWarmerIndexAcrossPlatforms(t *testing.T) {
 	}
 }
 
+func TestWarmerFailOnError(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	good := config.busyboxBaseImage
+	bad := config.imageRepo + "test_issue_mz1433:missing"
+	warm := func(failOnError string) (string, error) {
+		dockerRunFlags := []string{"run", "--rm", "--net=host", "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())}
+		dockerRunFlags = addAuthFlags(dockerRunFlags)
+		dockerRunFlags = addCoverageFlags(dockerRunFlags)
+		dockerRunFlags = append(dockerRunFlags,
+			"-e", "FF_KANIKO_WARMER_FAIL_ON_ERROR="+failOnError,
+			"-v", tmpDir+":/cache",
+			WarmerImage,
+			"--cache-dir=/cache",
+			"-i", bad,
+			"-i", good)
+		out, err := RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
+		t.Logf("Warm with FF_KANIKO_WARMER_FAIL_ON_ERROR=%s output:\n%s", failOnError, out)
+		return string(out), err
+	}
+
+	out, err := warm("1")
+	if err == nil {
+		t.Fatal("warmer must fail when an image fails to warm")
+	}
+	s := "failed to warm 1/2 image(s): " + bad
+	if !strings.Contains(out, s) {
+		t.Fatalf("output must contain %s", s)
+	}
+
+	// The failing run above warmed the image that comes after the failure.
+	out, err = warm("0")
+	if err != nil {
+		t.Fatalf("warmer must only warn when some images warm: %s", err)
+	}
+	for _, s := range []string{"Image already in cache: " + good, "Failed to warm 1/2 image(s): " + bad} {
+		if !strings.Contains(out, s) {
+			t.Fatalf("output must contain %s", s)
+		}
+	}
+}
+
 func verifyBuildWith(t *testing.T, cache, dockerfile string) {
 	args, ok := additionalKanikoFlagsMap[dockerfile]
 	if !ok {
@@ -1587,7 +1569,7 @@ func TestCacheInvalidatesOnAllowlistedFileChange(t *testing.T) {
 		t.Errorf("mz762: images identical after changing the allowlisted COPY --from source — stale cached layer served:\n%s", out)
 	}
 
-	diffoci(t, original, changed, "--semantic", "--extra-ignore-files=app/test.txt")
+	diffoci(t, original, changed, "--semantic", "--ignore-path=app/test.txt")
 }
 
 // https://github.com/GoogleContainerTools/kaniko/issues/2567
@@ -1684,10 +1666,10 @@ func TestExitCodePropagation(t *testing.T) {
 		if kanikoErr == nil {
 			t.Fatalf("docker build did not produce an error:\n%s", out)
 		}
-		var dockerCmdExitErr *exec.ExitError
 		var dockerExitCode int
 
-		if errors.As(kanikoErr, &dockerCmdExitErr) {
+		dockerCmdExitErr, ok := errors.AsType[*exec.ExitError](kanikoErr)
+		if ok {
 			dockerExitCode = dockerCmdExitErr.ExitCode()
 			testutil.CheckDeepEqual(t, 42, dockerExitCode)
 			if t.Failed() {
@@ -1720,8 +1702,8 @@ func TestExitCodePropagation(t *testing.T) {
 			t.Fatalf("the kaniko build did not produce the expected error:\n%s", out)
 		}
 
-		var kanikoExitErr *exec.ExitError
-		if errors.As(kanikoErr, &kanikoExitErr) {
+		kanikoExitErr, ok := errors.AsType[*exec.ExitError](kanikoErr)
+		if ok {
 			testutil.CheckDeepEqual(t, dockerExitCode, kanikoExitErr.ExitCode())
 			if t.Failed() {
 				t.Fatalf("Output was:\n%s", out)
@@ -1870,7 +1852,10 @@ func TestPushFromArtifact(t *testing.T) {
 				t.Fatalf("docker volume create %s: %v\n%s", outFlag, err, out)
 			}
 			t.Cleanup(func() {
-				exec.Command("docker", "volume", "rm", outFlag).Run()
+				out, err := exec.Command("docker", "volume", "rm", outFlag).CombinedOutput()
+				if err != nil {
+					t.Errorf("docker volume rm %s: %v\n%s", outFlag, err, out)
+				}
 			})
 
 			runExecutor := func(executorArgs ...string) {
@@ -2349,7 +2334,7 @@ func (i imageDetails) String() string {
 func initIntegrationTestConfig() *integrationTestConfig {
 	var c integrationTestConfig
 
-	flag.StringVar(&c.imageRepo, "repo", "gcr.io/kaniko-test", "The (docker) image repo to build and push images to during the test.")
+	flag.StringVar(&c.imageRepo, "repo", cmp.Or(os.Getenv("IMAGE_REPO"), "localhost:5000"), "The (docker) image repo to build and push images to during the test.")
 	// adds the possibility to run a single dockerfile. This is useful since running all images can exhaust the dockerhub pull limit
 	flag.StringVar(&c.dockerfilesPattern, "dockerfiles-pattern", "Dockerfile_test*", "The pattern to match dockerfiles with")
 	flag.StringVar(&coverageDir, "coverage-dir", "", "Collect executor coverage data into this directory.")
@@ -2507,11 +2492,6 @@ func TestPushRepositoryScopedAuth(t *testing.T) {
 func registryLog(t *testing.T) string {
 	t.Helper()
 	out, err := exec.Command("docker", "logs", "kaniko-tls-registry").CombinedOutput()
-	if err == nil {
-		return string(out)
-	}
-	out, err = exec.Command("kubectl", "logs", "-n", "kube-system",
-		"-l", "app=docker-registry,release=local-tls-registry", "--tail=-1").CombinedOutput()
 	if err != nil {
 		t.Fatalf("reading registry log: %v\n%s", err, out)
 	}
@@ -2650,7 +2630,8 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 	}
 
 	run := func(credFlags []string, dockerfile string, args ...string) ([]byte, error) {
-		dockerRunFlags := []string{"run", "--rm", "--net=host",
+		dockerRunFlags := []string{
+			"run", "--rm", "--net=host",
 			"-v", cwd + ":/workspace:ro",
 			"-v", caCert + ":/kaniko/ssl/certs/test-registry-ca.crt:ro",
 			"-e", "FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=1",
@@ -2720,6 +2701,27 @@ func TestPathScopedRegistryAuth(t *testing.T) {
 		out, err := run(configEnv(namespaceAuth), pushDockerfile, "--destination", registry+"/usera/mz1002-env:latest", "--no-push-cache")
 		if err != nil {
 			t.Fatalf("push with DOCKER_AUTH_CONFIG failed: %v\n%s", err, out)
+		}
+	})
+
+	// DOCKER_AUTH_CONFIG answers first with userb, only the env helper's usera may access usera/
+	probeFlags := append(configEnv(map[string]string{registry: stranger}),
+		"-e", "FF_KANIKO_PROBE_CREDENTIALS=1",
+		"-e", "KANIKO_127_0_0_2:5001_USER=usera",
+		"-e", "KANIKO_127_0_0_2:5001_PASSWORD=usera",
+	)
+
+	t.Run("probe skips a credential that cannot push", func(t *testing.T) {
+		out, err := run(probeFlags, pushDockerfile, "--destination", registry+"/usera/mz1396:latest", "--cache=true", "--cache-repo", registry+"/usera/mz1396-cache")
+		if err != nil {
+			t.Fatalf("push with the probed credential failed: %v\n%s", err, out)
+		}
+	})
+
+	t.Run("probe skips a credential that cannot pull", func(t *testing.T) {
+		out, err := run(probeFlags, pullDockerfile, "--build-arg", "IMAGE_NAME="+dest, "--no-push", "--no-push-cache")
+		if err != nil {
+			t.Fatalf("pull with the probed credential failed: %v\n%s", err, out)
 		}
 	})
 
@@ -2810,6 +2812,45 @@ func TestWarmerBake(t *testing.T) {
 	t.Logf("executor bake output:\n%s", out)
 	if err != nil {
 		t.Fatalf("executor bake failed: %v", err)
+	}
+}
+
+func TestWarmerBakeFailLate(t *testing.T) {
+	t.Parallel()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctxDir := filepath.Join(cwd, "testdata", "test_warmer_bake")
+	cacheDir := t.TempDir()
+	warm := func(args ...string) (string, error) {
+		warmFlags := []string{"run", "--rm", "--net=host", "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())}
+		warmFlags = addAuthFlags(warmFlags)
+		warmFlags = addCoverageFlags(warmFlags)
+		warmFlags = append(warmFlags, "-v", ctxDir+":/workspace", "-v", cacheDir+":/cache", WarmerImage, "--cache-dir=/cache")
+		out, err := RunCommandWithoutTest(exec.Command("docker", append(warmFlags, args...)...))
+		t.Logf("warmer output:\n%s", out)
+		return string(out), err
+	}
+
+	out, err := warm("bake", "/workspace/kaniko-bake-mz1433.hcl")
+	if err == nil {
+		t.Fatal("warmer bake must fail when a target fails to warm")
+	}
+	s := `target "missing"`
+	if !strings.Contains(out, s) {
+		t.Fatalf("output must contain %s", s)
+	}
+
+	// The failing run above warmed the target that comes after the failing one.
+	image := "alpine:3.12@sha256:cb64bbe7fa613666c234e1090e91427314ee18ec6420e9426cf4e7f314056813"
+	out, err = warm("-i", image)
+	if err != nil {
+		t.Fatalf("Unable to warm %s: %s", image, err)
+	}
+	s = "Image already in cache: " + image
+	if !strings.Contains(out, s) {
+		t.Fatalf("output must contain %s", s)
 	}
 }
 

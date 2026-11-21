@@ -352,12 +352,15 @@ COPY --from=second /bar /bat
 			}
 
 			f, _ := os.CreateTemp("", "")
-			os.WriteFile(f.Name(), []byte(tt.dockerfile), 0o755)
+			err := os.WriteFile(f.Name(), []byte(tt.dockerfile), 0o755)
+			if err != nil {
+				t.Fatal(err)
+			}
 			opts := &config.KanikoOptions{
 				DockerfilePath: f.Name(),
 				CustomPlatform: platforms.Format(platforms.Normalize(platforms.DefaultSpec())),
 			}
-			testStages, metaArgs, err := dockerfile.ParseStages(opts)
+			testStages, metaArgs, err := dockerfile.ParseStages(opts.DockerfilePath, nil, opts.BuildArgs)
 			if err != nil {
 				t.Errorf("Failed to parse test dockerfile to stages: %s", err)
 			}
@@ -909,7 +912,10 @@ func Test_stageBuilder_build(t *testing.T) {
 			filePath := filepath.Join(dir, file)
 			ch := NewCompositeCache("", "meow")
 
-			ch.AddPath(filePath, util.FileContext{})
+			err := ch.AddPath(filePath, util.FileContext{})
+			if err != nil {
+				t.Fatal(err)
+			}
 			hash, err := ch.Hash()
 			if err != nil {
 				t.Errorf("couldn't create hash %v", err)
@@ -939,7 +945,10 @@ func Test_stageBuilder_build(t *testing.T) {
 			filePath := filepath.Join(dir, file)
 			ch := NewCompositeCache("", "meow")
 
-			ch.AddPath(filePath, util.FileContext{})
+			err := ch.AddPath(filePath, util.FileContext{})
+			if err != nil {
+				t.Fatal(err)
+			}
 			hash, err := ch.Hash()
 			if err != nil {
 				t.Errorf("couldn't create hash %v", err)
@@ -972,7 +981,10 @@ func Test_stageBuilder_build(t *testing.T) {
 			filePath := filepath.Join(dir, file)
 			ch := NewCompositeCache("", "meow")
 
-			ch.AddPath(filePath, util.FileContext{})
+			err := ch.AddPath(filePath, util.FileContext{})
+			if err != nil {
+				t.Fatal(err)
+			}
 			hash, err := ch.Hash()
 			if err != nil {
 				t.Errorf("couldn't create hash %v", err)
@@ -1027,7 +1039,10 @@ func Test_stageBuilder_build(t *testing.T) {
 			tarContent := generateTar(t, dir, filename)
 
 			ch := NewCompositeCache("", resolvedKey(fmt.Sprintf("COPY %s foo.txt", filename)))
-			ch.AddPath(filepath, util.FileContext{})
+			err := ch.AddPath(filepath, util.FileContext{})
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			hash, err := ch.Hash()
 			if err != nil {
@@ -1039,14 +1054,17 @@ func Test_stageBuilder_build(t *testing.T) {
 		COPY %s foo.txt
 		`, filename)
 			f, _ := os.CreateTemp("", "")
-			os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
+			err = os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
+			if err != nil {
+				t.Fatal(err)
+			}
 			opts := &config.KanikoOptions{
 				DockerfilePath:  f.Name(),
 				Cache:           true,
 				CacheCopyLayers: true,
 				CacheTo:         []string{"some-cache-repo"},
 			}
-			testStages, metaArgs, err := dockerfile.ParseStages(opts)
+			testStages, metaArgs, err := dockerfile.ParseStages(opts.DockerfilePath, nil, opts.BuildArgs)
 			if err != nil {
 				t.Errorf("Failed to parse test dockerfile to stages: %s", err)
 			}
@@ -1094,7 +1112,10 @@ func Test_stageBuilder_build(t *testing.T) {
 			destDir := t.TempDir()
 			filePath := filepath.Join(dir, filename)
 			ch := NewCompositeCache("", resolvedKey(fmt.Sprintf("COPY %s foo.txt", filename)))
-			ch.AddPath(filePath, util.FileContext{})
+			err := ch.AddPath(filePath, util.FileContext{})
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			hash, err := ch.Hash()
 			if err != nil {
@@ -1105,7 +1126,10 @@ FROM scratch
 COPY %s foo.txt
 `, filename)
 			f, _ := os.CreateTemp("", "")
-			os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
+			err = os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
+			if err != nil {
+				t.Fatal(err)
+			}
 			opts := &config.KanikoOptions{
 				DockerfilePath:  f.Name(),
 				Cache:           true,
@@ -1113,7 +1137,7 @@ COPY %s foo.txt
 				CacheTo:         []string{"some-cache-repo"},
 			}
 
-			testStages, metaArgs, err := dockerfile.ParseStages(opts)
+			testStages, metaArgs, err := dockerfile.ParseStages(opts.DockerfilePath, nil, opts.BuildArgs)
 			if err != nil {
 				t.Errorf("Failed to parse test dockerfile to stages: %s", err)
 			}
@@ -1160,7 +1184,10 @@ COPY %s foo.txt
 			}
 
 			ch.AddKey(resolvedKey(fmt.Sprintf("COPY %s bar.txt", filename)))
-			ch.AddPath(filePath, util.FileContext{})
+			err = ch.AddPath(filePath, util.FileContext{})
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			hash2, err := ch.Hash()
 			if err != nil {
@@ -1168,7 +1195,10 @@ COPY %s foo.txt
 			}
 			ch = NewCompositeCache("", resolvedKey(fmt.Sprintf("COPY %s foo.txt", filename)))
 			ch.AddKey(resolvedKey(fmt.Sprintf("COPY %s bar.txt", filename)))
-			ch.AddPath(filePath, util.FileContext{})
+			err = ch.AddPath(filePath, util.FileContext{})
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			image := fakeImage{
 				ImageLayers: []v1.Layer{
@@ -1184,12 +1214,15 @@ RUN foobar
 COPY %s bar.txt
 `, filename)
 			f, _ := os.CreateTemp("", "")
-			os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
+			err = os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
+			if err != nil {
+				t.Fatal(err)
+			}
 			opts := &config.KanikoOptions{
 				DockerfilePath: f.Name(),
 			}
 
-			testStages, metaArgs, err := dockerfile.ParseStages(opts)
+			testStages, metaArgs, err := dockerfile.ParseStages(opts.DockerfilePath, nil, opts.BuildArgs)
 			if err != nil {
 				t.Errorf("Failed to parse test dockerfile to stages: %s", err)
 			}
@@ -1227,10 +1260,13 @@ COPY %s bar.txt
 			filePath := filepath.Join(dir, filename)
 
 			ch := NewCompositeCache("", resolvedKey(fmt.Sprintf("COPY %s bar.txt", filename)))
-			ch.AddPath(filePath, util.FileContext{})
+			err := ch.AddPath(filePath, util.FileContext{})
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			// copy hash
-			_, err := ch.Hash()
+			_, err = ch.Hash()
 			if err != nil {
 				t.Errorf("couldn't create hash %v", err)
 			}
@@ -1257,12 +1293,15 @@ COPY %s bar.txt
 RUN foobar
 `, filename)
 			f, _ := os.CreateTemp("", "")
-			os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
+			err = os.WriteFile(f.Name(), []byte(dockerFile), 0o755)
+			if err != nil {
+				t.Fatal(err)
+			}
 			opts := &config.KanikoOptions{
 				DockerfilePath: f.Name(),
 			}
 
-			testStages, metaArgs, err := dockerfile.ParseStages(opts)
+			testStages, metaArgs, err := dockerfile.ParseStages(opts.DockerfilePath, nil, opts.BuildArgs)
 			if err != nil {
 				t.Errorf("Failed to parse test dockerfile to stages: %s", err)
 			}

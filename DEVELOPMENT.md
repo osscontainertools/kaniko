@@ -3,15 +3,20 @@
 This doc explains the development workflow so you can get started
 [contributing](CONTRIBUTING.md) to Kaniko!
 
+## Local first
+
+Every CI check runs locally with the same command. A workflow only calls a make target or a script from this repository, and each tool it needs is pinned in the repository, so a failing check reproduces with that one command. Release steps that push images are the exception.
+
 ## Getting started
 
-You will need [Go 1.26+](https://go.dev/dl/) and [Docker](https://docs.docker.com/install/) installed.
+You will need [Docker](https://docs.docker.com/install/) installed. You will need a golang development environment, either from using the provided [devcontainer](.devcontainer/Dockerfile) or install [Go 1.27+](https://go.dev/dl/). 
 
 First you will need to setup your GitHub account and create a fork:
 
 1. Create [a GitHub account](https://github.com/join)
-1. Setup [GitHub access via
-   SSH](https://help.github.com/articles/connecting-to-github-with-ssh/)
+1. Setup GitHub access either:
+    - [via HTTPS OAuth](https://github.com/settings/tokens) and [cache credentials](https://docs.github.com/en/get-started/git-basics/why-is-git-always-asking-for-my-credentials)
+    - [via SSH](https://help.github.com/articles/connecting-to-github-with-ssh/)
 1. [Create and checkout a repo fork](#checkout-your-fork)
 
 Once you have those, you can iterate on kaniko:
@@ -57,6 +62,13 @@ To check out this repository:
 2. Clone it to your machine:
 
   ```shell
+  # HTTPS method
+  git clone https://github.com/${YOUR_GITHUB_USERNAME}/kaniko.git
+  cd kaniko
+  git remote add upstream https://github.com/osscontainertools/kaniko.git
+  git remote set-url --push upstream no_push
+
+  # SSH method
   git clone git@github.com:${YOUR_GITHUB_USERNAME}/kaniko.git
   cd kaniko
   git remote add upstream git@github.com:osscontainertools/kaniko.git
@@ -152,16 +164,22 @@ TESTS=<pattern> make golden
 
 ### Lint Checks
 
-CI runs staticcheck. To run the same version locally:
+CI runs golangci-lint with [`.golangci.yaml`](./.golangci.yaml). To run the same version locally:
 
 ```shell
-go run honnef.co/go/tools/cmd/staticcheck@2026.2.2 ./...
+make lint
 ```
 
-To fix any `gofmt` issues, you can simply run `gofmt` with `-w` flag like this
+To fix formatting issues:
 
 ```shell
-find . -name "*.go" | grep -v vendor/ | xargs gofmt -l -s -w
+make fmt
+```
+
+To check the license headers:
+
+```shell
+make boilerplate
 ```
 
 ### Integration tests
@@ -172,7 +190,7 @@ These tests will be kicked off by [reviewers](#reviews) for submitted PRs using 
 
 In either case, you will need the following tools:
 
-* [`diffoci`](https://github.com/mzihlmann/diffoci#installation)
+* [`diffoci`](https://github.com/mzihlmann/diffoci), which `scripts/integration-test.sh` builds from `tools/go.mod`
 
 #### Registry
 
@@ -204,11 +222,21 @@ make integration-test-misc
 
 #### Local integration tests
 
-To run integration tests locally against a local registry, set the LOCAL environment variable
+`make integration-test` starts local registries on `localhost:5000` and `127.0.0.2:5001` and pushes to `localhost:5000` unless `IMAGE_REPO` is set.
 
 ```shell
-LOCAL=1 make integration-test
+make integration-test
 ```
+
+`make integration-test-k8s` additionally needs a cluster:
+
+```shell
+make k3s-setup
+```
+
+The devcontainer runs its own Docker daemon, so it starts as a privileged container. It starts the local registries every time it starts.
+
+VS Code forwards your git credentials into the devcontainer. With SSH, load your key with `ssh-add` before pushing from inside it.
 
 #### Running integration tests for a specific dockerfile
 

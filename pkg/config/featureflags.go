@@ -69,6 +69,7 @@ type FeatureFlags struct {
 	PoolRegistryConnections        bool
 	PrecompileDockerignore         bool
 	PreserveMountedSymlinks        bool
+	ProbeCredentials               bool
 	ReproduciblePreserveBaseLayers bool
 	ReproduciblePreserveFormat     bool
 	ResolveCacheKey                bool
@@ -77,6 +78,7 @@ type FeatureFlags struct {
 	RunHeredocScript               bool
 	RunHonorGroup                  bool
 	RunMountBindRelative           bool
+	RunMountBindResolveSymlink     bool
 	RunMountTmpfs                  bool
 	RunViaTini                     bool
 	ScopedDockerignore             bool
@@ -90,6 +92,7 @@ type FeatureFlags struct {
 	UnpackZstd                     bool
 	UntarSkipRoot                  bool
 	WarmerBuildArgs                bool
+	WarmerFailOnError              bool
 	WarmerPredefinedArgs           bool
 }
 
@@ -168,6 +171,7 @@ func InitFeatureFlags() {
 		PoolRegistryConnections:        featureFlag("FF_KANIKO_POOL_REGISTRY_CONNECTIONS", true),
 		PrecompileDockerignore:         featureFlag("FF_KANIKO_PRECOMPILE_DOCKERIGNORE", true),
 		PreserveMountedSymlinks:        featureFlag("FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS", true),
+		ProbeCredentials:               featureFlag("FF_KANIKO_PROBE_CREDENTIALS", false),
 		ReproduciblePreserveBaseLayers: featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS", true),
 		ReproduciblePreserveFormat:     featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT", true),
 		ResolveCacheKey:                featureFlag("FF_KANIKO_RESOLVE_CACHE_KEY", true),
@@ -176,6 +180,7 @@ func InitFeatureFlags() {
 		RunHeredocScript:               featureFlag("FF_KANIKO_RUN_HEREDOC_SCRIPT", false),
 		RunHonorGroup:                  featureFlag("FF_KANIKO_RUN_HONOR_GROUP", true),
 		RunMountBindRelative:           featureFlag("FF_KANIKO_RUN_MOUNT_BIND_RELATIVE", false),
+		RunMountBindResolveSymlink:     featureFlag("FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK", false),
 		RunMountTmpfs:                  featureFlag("FF_KANIKO_RUN_MOUNT_TMPFS", false),
 		RunViaTini:                     featureFlag("FF_KANIKO_RUN_VIA_TINI", false),
 		ScopedDockerignore:             featureFlag("FF_KANIKO_SCOPED_DOCKERIGNORE", false),
@@ -189,6 +194,7 @@ func InitFeatureFlags() {
 		UnpackZstd:                     featureFlag("FF_KANIKO_UNPACK_ZSTD", true),
 		UntarSkipRoot:                  featureFlag("FF_KANIKO_UNTAR_SKIP_ROOT", true),
 		WarmerBuildArgs:                featureFlag("FF_KANIKO_WARMER_BUILD_ARGS", false),
+		WarmerFailOnError:              featureFlag("FF_KANIKO_WARMER_FAIL_ON_ERROR", false),
 		WarmerPredefinedArgs:           featureFlag("FF_KANIKO_WARMER_PREDEFINED_ARGS", false),
 	}
 

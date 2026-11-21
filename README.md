@@ -50,6 +50,8 @@ expect - see [Known Issues](#known-issues).
     - [Using Private Git Repository](#using-private-git-repository)
     - [Using Standard Input](#using-standard-input)
     - [Running kaniko](#running-kaniko)
+      - [Running kaniko in GitLab CI](#running-kaniko-in-gitlab-ci)
+      - [Running kaniko in GitHub Actions](#running-kaniko-in-github-actions)
       - [Running kaniko in a Kubernetes cluster](#running-kaniko-in-a-kubernetes-cluster)
         - [Kubernetes secret](#kubernetes-secret)
       - [Running kaniko in gVisor](#running-kaniko-in-gvisor)
@@ -176,6 +178,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_POOL_REGISTRY_CONNECTIONS`](#flag-ff_kaniko_pool_registry_connections)
       - [Flag `FF_KANIKO_PRECOMPILE_DOCKERIGNORE`](#flag-ff_kaniko_precompile_dockerignore)
       - [Flag `FF_KANIKO_PRESERVE_MOUNTED_SYMLINKS`](#flag-ff_kaniko_preserve_mounted_symlinks)
+      - [Flag `FF_KANIKO_PROBE_CREDENTIALS`](#flag-ff_kaniko_probe_credentials)
       - [Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`](#flag-ff_kaniko_reproducible_preserve_base_layers)
       - [Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT`](#flag-ff_kaniko_reproducible_preserve_format)
       - [Flag `FF_KANIKO_RESOLVE_CACHE_KEY`](#flag-ff_kaniko_resolve_cache_key)
@@ -184,6 +187,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_RUN_HEREDOC_SCRIPT`](#flag-ff_kaniko_run_heredoc_script)
       - [Flag `FF_KANIKO_RUN_HONOR_GROUP`](#flag-ff_kaniko_run_honor_group)
       - [Flag `FF_KANIKO_RUN_MOUNT_BIND_RELATIVE`](#flag-ff_kaniko_run_mount_bind_relative)
+      - [Flag `FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK`](#flag-ff_kaniko_run_mount_bind_resolve_symlink)
       - [Flag `FF_KANIKO_RUN_MOUNT_TMPFS`](#flag-ff_kaniko_run_mount_tmpfs)
       - [Flag `FF_KANIKO_RUN_VIA_TINI`](#flag-ff_kaniko_run_via_tini)
       - [Flag `FF_KANIKO_SCOPED_DOCKERIGNORE`](#flag-ff_kaniko_scoped_dockerignore)
@@ -197,6 +201,7 @@ expect - see [Known Issues](#known-issues).
       - [Flag `FF_KANIKO_UNPACK_ZSTD`](#flag-ff_kaniko_unpack_zstd)
       - [Flag `FF_KANIKO_UNTAR_SKIP_ROOT`](#flag-ff_kaniko_untar_skip_root)
       - [Flag `FF_KANIKO_WARMER_BUILD_ARGS`](#flag-ff_kaniko_warmer_build_args)
+      - [Flag `FF_KANIKO_WARMER_FAIL_ON_ERROR`](#flag-ff_kaniko_warmer_fail_on_error)
       - [Flag `FF_KANIKO_WARMER_PREDEFINED_ARGS`](#flag-ff_kaniko_warmer_predefined_args)
     - [Assertion Overrides](#assertion-overrides)
     - [Layer Hints](#layer-hints)
@@ -204,13 +209,8 @@ expect - see [Known Issues](#known-issues).
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
-  - [Creating Multi-arch Container Manifests Using Kaniko and Manifest-tool](#creating-multi-arch-container-manifests-using-kaniko-and-manifest-tool)
-    - [General Workflow](#general-workflow)
-    - [Limitations and Pitfalls](#limitations-and-pitfalls)
-    - [Example CI Pipeline (GitLab)](#example-ci-pipeline-gitlab)
-      - [Building the Separate Container Images](#building-the-separate-container-images)
-      - [Merging the Container Manifests](#merging-the-container-manifests)
-      - [On the Note of Adding Versioned Tags](#on-the-note-of-adding-versioned-tags)
+    - [FIPS 140-3 Image](#fips-140-3-image)
+  - [Building Multi-arch Images](#building-multi-arch-images)
   - [Comparison with Other Tools](#comparison-with-other-tools)
   - [Limitations](#limitations)
     - [mtime and snapshotting](#mtime-and-snapshotting)
@@ -473,10 +473,53 @@ echo -e 'FROM alpine \nRUN echo "created from standard input"' > Dockerfile | ta
 
 There are several different ways to deploy and run kaniko:
 
+- [In GitLab CI](#running-kaniko-in-gitlab-ci)
+- [In GitHub Actions](#running-kaniko-in-github-actions)
 - [In a Kubernetes cluster](#running-kaniko-in-a-kubernetes-cluster)
 - [In gVisor](#running-kaniko-in-gvisor)
 - [In Google Cloud Build](#running-kaniko-in-google-cloud-build)
 - [In Docker](#running-kaniko-in-docker)
+
+#### Running kaniko in GitLab CI
+
+The [kaniko components](https://gitlab.com/explore/catalog/osscontainertools/components/kaniko) build `Dockerfile` in the project directory and push it to the project's container registry. Later jobs receive the image pinned by digest as `KANIKO_IMAGE`.
+
+```yaml
+include:
+  - component: gitlab.com/osscontainertools/components/kaniko/build@1.0.0
+```
+
+For a multi-arch image, one native runner per architecture:
+
+```yaml
+include:
+  - component: gitlab.com/osscontainertools/components/kaniko/build-multiarch@1.0.0
+```
+
+See the [components' README](https://gitlab.com/osscontainertools/components/kaniko) for caching, provenance, bootstrapping and the other inputs.
+
+#### Running kaniko in GitHub Actions
+
+The [kaniko action](https://github.com/marketplace/actions/kaniko-oss-container-tools) builds `Dockerfile` in the workspace and pushes it to `ghcr.io/<owner>/<repo>`. Later steps receive the image pinned by digest as the `image` output.
+
+```yaml
+on: push
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: build
+        uses: osscontainertools/kaniko-action@62bd46e3c9e39a6625220e87090a7af9cc431218 # v1.0.3
+      - run: echo "pushed ${{ steps.build.outputs.image }}"
+```
+
+See the [action's README](https://github.com/osscontainertools/kaniko-action) for multi-arch images, Kubernetes runners and the other inputs.
 
 #### Running kaniko in a Kubernetes cluster
 
@@ -600,49 +643,29 @@ docker run \
 ```
 
 ### Bootstrapping Kaniko
-Kaniko's approach to buliding docker images is unique. It doesn't build up and snapshot an image in a separate container, instead it will build up and snapshot the image in the container where kaniko is installed. The benefit is that kaniko can run without any privileges, because it's not actually using any containerization technologies, the downside is that sometimes builds can yield surprising results - bootstrapping kaniko image with kaniko builder is one such case. 
 
-The good news is, it's all technically possible, but it's a bit more involved than building other images.
-
-The first problem we face is that the kaniko binaries are installed in `/kaniko` directory. Which means that this directory must also be ignored during snapshots, lest we would leak our build tool into any image we produce. But this also means that kaniko by default can't build a kaniko image with the binaries installed in `/kaniko` directory. Luckily there is an override for that, that allows us to move all the binaries to a different location before the build ie. `KANIKO_DIR=/kaniko2`.
-
-The second problem only affects build using the `debug` image, ie. gitlab-runner. The shell that is spawned in the debug image is in `/busybox`, similarly we can't snapshot files in that directory. Unfortunately there is no override to move those binaries. But with a bit creativity we can create a bootstrap image that has the shell installed into a different location ie. `/busybox2` and then use that bootstrap image to build the actual new debug image.
+Images with files in `/kaniko` or `/busybox`, such as kaniko itself, need kaniko's bootstrap mode. The [GitLab components](#running-kaniko-in-gitlab-ci) and the [GitHub action](#running-kaniko-in-github-actions) switch it on with `bootstrap: true`:
 
 ```yaml
-bootstrap:
-  extends:
-    - .build
-  image:
-    name: gcr.io/kaniko-project/executor:v1.24.0-debug
-    entrypoint: [""]
-  needs: []
-  variables:
-    IMAGE: ${CI_REGISTRY_IMAGE}/bootstrap:latest
-    EXTRA_ARGS: >-
-      --build-arg=TARGETARCH=amd64
-      --build-arg=TARGETOS=linux
-      --target=kaniko-debug-2
-    KANIKO_DIR: /kaniko2
-
-build:
-  extends:
-    - .build
-  image:
-    name: ${CI_REGISTRY_IMAGE}/bootstrap:latest
-    entrypoint: [""]
-  needs: [bootstrap]
-  variables:
-    IMAGE: ${CI_REGISTRY_IMAGE}/kaniko:latest
-    EXTRA_ARGS: >-
-      --build-arg=TARGETARCH=amd64
-      --build-arg=TARGETOS=linux
-      --target=kaniko-debug
-    KANIKO_DIR: /kaniko2
+include:
+  - component: gitlab.com/osscontainertools/components/kaniko/build@1.0.0
+    inputs:
+      dockerfile: deploy/Dockerfile
+      target: kaniko-debug
+      build_args: TARGETARCH=amd64
+      bootstrap: true
 ```
-This is just an illustrative extract, please find the full [.gitlab-ci.yml](./docs/bootstrap.gitlab-ci.yml) here.
 
-With this two step approach we can now indeed bootstrap kaniko in kaniko. However, it is not really necessary to rebuild that intermediate bootstrap image every time, we can reuse it from a different build. Hence I provide a dedicated image `ghcr.io/osscontainertools/kaniko:bootstrap` that can be used for that purpose.
+```yaml
+      - uses: osscontainertools/kaniko-action@62bd46e3c9e39a6625220e87090a7af9cc431218 # v1.0.3
+        with:
+          dockerfile: deploy/Dockerfile
+          target: kaniko-debug
+          build-args: TARGETARCH=amd64
+          bootstrap: true
+```
 
+See [Bootstrapping kaniko](docs/bootstrapping.md) for how it works, and for running it without them.
 
 ### Caching
 
@@ -686,7 +709,7 @@ for how to use with kubernetes clusters and persistent cache volumes.
 
 `--dryrun` prints which images are already cached and which would be fetched, without writing to the cache. `KANIKO_PRINT_PLAN=1` prints the same plan before warming.
 
-`warmer bake <bakefile> [target]` warms the base images of bakefile targets, see [docs/bakefile.md](docs/bakefile.md#warmer).
+`warmer bake <bakefile> [target...]` warms the base images of bakefile targets, see [docs/bakefile.md](docs/bakefile.md#warmer).
 
 ### Pushing to Different Registries
 
@@ -715,7 +738,7 @@ The artifact must contain exactly one image. Multi-image tarballs and indexes ar
 
 #### Subcommand `bake`
 
-`executor bake <bakefile> [target]` builds several images from one multi-stage Dockerfile in a single invocation. A small HCL bakefile says which stage each image is built from, where it is pushed and which layer caches it uses, while the context, dockerfile, build args and registry settings stay on the usual flags and are shared by every target.
+`executor bake <bakefile> [target...]` builds several images from one multi-stage Dockerfile in a single invocation. A small HCL bakefile says which stage each image is built from, where it is pushed and which layer caches it uses, while the context, dockerfile, build args and registry settings stay on the usual flags and are shared by every target.
 
 ```hcl
 target "app" {
@@ -1286,12 +1309,15 @@ FF_KANIKO_ISOLATE_CACHE_PUSH=true
 FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR=true
 FF_KANIKO_NATIVE_INIT=true
 FF_KANIKO_PARALLEL_HASH=true
+FF_KANIKO_PROBE_CREDENTIALS=true
 FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=true
 FF_KANIKO_RUN_HEREDOC_SCRIPT=true
 FF_KANIKO_RUN_MOUNT_BIND_RELATIVE=true
+FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK=true
 FF_KANIKO_RUN_MOUNT_TMPFS=true
 FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS=true
 FF_KANIKO_WARMER_BUILD_ARGS=true
+FF_KANIKO_WARMER_FAIL_ON_ERROR=true
 FF_KANIKO_WARMER_PREDEFINED_ARGS=true
 ```
 
@@ -1605,6 +1631,13 @@ Ubuntu ships `/lib` as a symlink to `/usr/lib`. A bind-mount into `/lib`, as the
 Set this flag to `true` to keep both paths resolving to the same files. Defaults to `true`.
 Will be deprecated in `v1.30.0`.
 
+#### Flag `FF_KANIKO_PROBE_CREDENTIALS`
+
+kaniko uses the first credential source that has an entry for a repository, even when the registry rejects it. A `DOCKER_AUTH_CONFIG` that can only pull then fails the push, and a Google metadata-server token without registry access fails the pull of a public `gcr.io` image.
+Set this flag to `true` to use the first credential source the registry accepts for each repository, or no credential for a pull.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
+
 #### Flag `FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS`
 
 `--reproducible` re-tars every layer to zero its timestamps, including layers inherited from the `FROM` image. Base-layer blobs get fresh digests on every build and stop matching the upstream registry, defeating layer reuse even though kaniko changed nothing in them.
@@ -1667,6 +1700,12 @@ A relative `RUN --mount=type=bind` target resolves against `/`, whatever the `WO
 Set this flag to `true` to resolve it against `WORKDIR`. Defaults to `false`.
 Becomes default in `v1.30.0`.
 
+#### Flag `FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK`
+
+A `RUN --mount=type=bind` source that is a symlink is mounted as the link itself.
+Set this flag to `true` to mount the file it points to. Defaults to `false`.
+Becomes default in `v1.30.0`.
+
 #### Flag `FF_KANIKO_RUN_MOUNT_TMPFS`
 
 Supports `--mount=type=tmpfs` flags in `RUN` instructions. The target is an empty directory for the duration of the command, and its contents are discarded afterwards.
@@ -1699,7 +1738,7 @@ Will be deprecated in `v1.30.0`.
 
 #### Flag `FF_KANIKO_SHARED_BASE_CACHE`
 
-When several stages build on the same remote base image, kaniko downloads that base once per stage. Set this flag to `true` to download a shared base once, store it under `/kaniko/bases`, and have the other stages read it from there instead of downloading it again. A base is also stored when a stage is kept for a later stage to build on, or when the built image is pushed, because both re-read the base layers. A base used by a single stage that is not pushed still streams, so nothing is stored that would not be read again.
+When several stages build on the same remote base image, kaniko downloads that base once per stage. Set this flag to `true` to download a shared base once, store it under `/kaniko/bases`, and have the other stages read it from there instead of downloading it again. A base read by a single stage is only stored when kaniko reads it again, ie. for `--reproducible`, `--tar-path`, `--oci-layout-path` or a push to a different registry.
 Stored bases stay in `/kaniko/bases` after the build, `--cleanup` does not remove them. A long-lived executor that runs many builds therefore accumulates every base it ever downloaded.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
@@ -1758,6 +1797,13 @@ Set this flag to `true` to resolve `--build-arg` like the executor does.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
 
+#### Flag `FF_KANIKO_WARMER_FAIL_ON_ERROR`
+
+The warmer only fails when every image fails to warm. A partial failure is logged as a warning, so the build that relies on the cache fails later, ie. in an air-gapped environment.
+Set this flag to `true` to fail the warmer when any image fails to warm.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
+
 #### Flag `FF_KANIKO_WARMER_PREDEFINED_ARGS`
 
 In warmer the predefined platform args such as `TARGETARCH` resolve to empty in `FROM` and in global `ARG` defaults.
@@ -1803,7 +1849,9 @@ Multiple names can be passed as a comma-separated list.
 
 ### Telemetry
 
-Kaniko can export an OpenTelemetry trace of each build so you can track build times, cache hits and misses, and which Dockerfile instructions keep busting the cache. It is off by default and a no-op unless you point it at a collector:
+Kaniko can export an OpenTelemetry trace of each build so you can track build times, cache hits and misses, and which Dockerfile instructions keep busting the cache. With the [GitLab components](#running-kaniko-in-gitlab-ci) and the [GitHub action](#running-kaniko-in-github-actions), set `telemetry: firn` or `telemetry: custom` with the endpoint, and they request the job's ID token themselves. On GitHub, the job needs the permission `id-token: write`.
+
+Without them, telemetry is off by default and a no-op unless you point it at a collector:
 
 ```sh
 KANIKO_TELEMETRY_ENDPOINT=http://otel-collector:4318
@@ -1882,161 +1930,41 @@ $ cosign verify \
   ghcr.io/osscontainertools/kaniko:latest
 ```
 
-## Creating Multi-arch Container Manifests Using Kaniko and Manifest-tool
+### FIPS 140-3 Image
 
-While Kaniko itself currently does not support creating multi-arch manifests
-(contributions welcome), one can use tools such as
-[manifest-tool](https://github.com/estesp/manifest-tool) to stitch multiple
-separate builds together into a single container manifest.
+The `slim-fips` image is the `slim` executor built with the Go Cryptographic Module v1.0.0.
+FIPS 140-3 mode is on by default (`GODEBUG=fips140=on`).
+The module's validation ([CMVP #5247](https://csrc.nist.gov/projects/cryptographic-module-validation-program/certificate/5247)) does not cover `linux/riscv64`, so the `riscv64` image runs in FIPS mode but is not certified.
+Like `slim`, it has no gcr, ecr or acr credential helpers and no git, S3, GCS or Azure build contexts.
 
-### General Workflow
+kaniko still uses non-approved hashes internally for file change detection and layer cache keys:
 
-The general workflow for creating multi-arch manifests is as follows:
+- highwayhash for snapshots in the default `--snapshot-mode=full`
+- md5 for snapshots in `--snapshot-mode=redo` and `--snapshot-mode=time`
+- blake3 for layer cache keys, or md5 with `FF_KANIKO_CACHE_HASH_BLAKE3=false`
 
-1. Build separate container images using Kaniko on build hosts matching your
-   target architecture and tag them with the appropriate ARCH tag.
-2. Push the separate images to your container registry.
-3. Manifest-tool identifies the separate manifests in your container registry,
-   according to a given template.
-4. Manifest-tool pushes a combined manifest referencing the separate manifests.
+We are working on removing the remaining non-approved hashes.
+Until then `GODEBUG=fips140=only` panics in `redo` and `time` snapshot modes, and with `FF_KANIKO_CACHE_HASH_BLAKE3=false`.
 
-![Workflow Multi-arch](docs/images/multi-arch.drawio.svg)
+## Building Multi-arch Images
 
-### Limitations and Pitfalls
-
-The following conditions must be met:
-
-1. You need access to build-machines running the desired architectures (running
-   Kaniko in an emulator, e.g. QEMU should also be possible but goes beyond the
-   scope of this documentation). This is something to keep in mind when using
-   SaaS build tools such as github.com or gitlab.com, of which at the time of
-   writing neither supports any non-x86_64 SaaS runners
-   ([GitHub](https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources),[GitLab](https://docs.gitlab.com/ee/ci/runners/saas/linux_saas_runner.html#machine-types-available-for-private-projects-x86-64)),
-   so be prepared to bring your own machines
-   ([GitHub](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/about-self-hosted-runners),[GitLab](https://docs.gitlab.com/runner/register/).
-2. Kaniko needs to be able to run on the desired architectures. At the time of
-   writing, the official Kaniko container supports
-   [linux/amd64, linux/arm64, linux/s390x and linux/ppc64le (not on \*-debug images)](https://github.com/osscontainertools/kaniko/blob/main/.github/workflows/images.yaml).
-3. The container registry of your choice must be OCIv1 or Docker v2.2
-   compatible.
-
-### Example CI Pipeline (GitLab)
-
-It is up to you to find an automation tool that suits your needs best. We
-recommend using a modern CI/CD system such as GitHub workflows or GitLab CI. As
-we (the authors) happen to use GitLab CI, the following examples are tailored to
-this specific platform but the underlying principles should apply anywhere else
-and the examples are kept simple enough, so that you should be able to follow
-along, even without any previous experiences with this specific platform. When
-in doubt, visit the
-[gitlab-ci.yml reference page](https://docs.gitlab.com/ee/ci/yaml/index.html)
-for a comprehensive overview of the GitLab CI keywords.
-
-#### Building the Separate Container Images
-
-gitlab-ci.yml:
+kaniko builds one image per run. The [GitLab components](#running-kaniko-in-gitlab-ci) and the [GitHub action's](#running-kaniko-in-github-actions) reusable workflow `multiarch.yml` build one image per architecture, each on a native runner, and merge them into one multi-arch image. The action alone builds all architectures in one job with its `platforms` input, emulating all but the runner's own with QEMU.
 
 ```yaml
-# define a job for building the containers
-build-container:
-  stage: container-build
-  # run parallel builds for the desired architectures
-  parallel:
-    matrix:
-      - ARCH: amd64
-      - ARCH: arm64
-  tags:
-    # run each build on a suitable, preconfigured runner (must match the target architecture)
-    - runner-${ARCH}
+include:
+  - component: gitlab.com/osscontainertools/components/kaniko/build-multiarch@1.0.0
+```
+
+```yaml
+jobs:
   image:
-    name: ghcr.io/osscontainertools/kaniko:debug
-    entrypoint: [""]
-  script:
-    # build the container image for the current arch using kaniko
-    - >-
-      /kaniko/executor --context "${CI_PROJECT_DIR}" --dockerfile
-      "${CI_PROJECT_DIR}/Dockerfile" # push the image to the GitLab container
-      registry, add the current arch as tag. --destination
-      "${CI_REGISTRY_IMAGE}:${ARCH}"
+    permissions:
+      contents: read
+      packages: write
+    uses: osscontainertools/kaniko-action/.github/workflows/multiarch.yml@62bd46e3c9e39a6625220e87090a7af9cc431218 # v1.0.3
 ```
 
-#### Merging the Container Manifests
-
-gitlab-ci.yml:
-
-```yaml
-# define a job for creating and pushing a merged manifest
-merge-manifests:
-  stage: container-build
-  # all containers must be build before merging them
-  # alternatively the job may be configured to run in a later stage
-  needs:
-    - job: container-build
-      artifacts: false
-  tags:
-    # may run on any architecture supported by manifest-tool image
-    - runner-xyz
-  image:
-    name: mplatform/manifest-tool:alpine
-    entrypoint: [""]
-  script:
-    - >-
-      manifest-tool # authorize against your container registry
-      --username=${CI_REGISTRY_USER} --password=${CI_REGISTRY_PASSWORD} push
-      from-args # define the architectures you want to merge --platforms
-      linux/amd64,linux/arm64 # "ARCH" will be automatically replaced by
-      manifest-tool # with the appropriate arch from the platform definitions
-      --template ${CI_REGISTRY_IMAGE}:ARCH # The name of the final, combined
-      image which will be pushed to your registry --target ${CI_REGISTRY_IMAGE}
-```
-
-#### On the Note of Adding Versioned Tags
-
-For simplicity's sake we deliberately refrained from using versioned tagged
-images (all builds will be tagged as "latest") in the previous examples, as we
-feel like this adds to much platform and workflow specific code.
-
-Nevertheless, for anyone interested in how we handle (dynamic) versioning in
-GitLab, here is a short rundown:
-
-- If you are only interested in building tagged releases, you can simply use the
-  [GitLab predefined](https://docs.gitlab.com/ee/ci/variables/predefined_variables.html)
-  `CI_COMMIT_TAG` variable when running a tag pipeline.
-- When you (like us) want to additionally build container images outside of
-  releases, things get a bit messier. In our case, we added a additional job
-  which runs before the build and merge jobs (don't forget to extend the `needs`
-  section of the build and merge jobs accordingly), which will set the tag to
-  `latest` when running on the default branch, to the commit hash when run on
-  other branches and to the release tag when run on a tag pipeline.
-
-gitlab-ci.yml:
-
-```yaml
-container-get-tag:
-  stage: pre-container-build-stage
-  tags:
-    - runner-xyz
-  image: busybox
-  script:
-    # All other branches are tagged with the currently built commit SHA hash
-    - |
-      # If pipeline runs on the default branch: Set tag to "latest"
-      if test "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH"; then
-        tag="latest"
-      # If pipeline is a tag pipeline, set tag to the git commit tag
-      elif test -n "$CI_COMMIT_TAG"; then
-        tag="$CI_COMMIT_TAG"
-      # Else set the tag to the git commit sha
-      else
-        tag="$CI_COMMIT_SHA"
-      fi
-    - echo "tag=$tag" > build.env
-  # parse tag to the build and merge jobs.
-  # See: https://docs.gitlab.com/ee/ci/variables/#pass-an-environment-variable-to-another-job
-  artifacts:
-    reports:
-      dotenv: build.env
-```
+See [Multi-arch images](docs/multiarch.md) for how it works, and for running it without them.
 
 ## Comparison with Other Tools
 

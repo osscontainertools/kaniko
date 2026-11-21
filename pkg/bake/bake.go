@@ -237,13 +237,20 @@ func Load(path string, selection, set []string) ([]ResolvedTarget, error) {
 }
 
 func (b *Bakefile) Resolve(selected []string) ([]ResolvedTarget, error) {
-	ids := selected
-	if len(ids) == 0 {
+	var ids []string
+	if len(selected) == 0 {
 		ids = make([]string, 0, len(b.Targets))
 		for id := range b.Targets {
 			ids = append(ids, id)
 		}
 		sort.Strings(ids)
+	} else {
+		ids = make([]string, 0, len(selected))
+		for _, id := range selected {
+			if !slices.Contains(ids, id) {
+				ids = append(ids, id)
+			}
+		}
 	}
 
 	resolved := make([]ResolvedTarget, 0, len(ids))

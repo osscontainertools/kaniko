@@ -60,6 +60,7 @@ type MockDockerCommand struct {
 }
 
 func (m MockDockerCommand) ExecuteCommand(_ *v1.Config, _ *dockerfile.BuildArgs) error { return nil }
+
 func (m MockDockerCommand) String() string {
 	return m.command
 }
@@ -216,8 +217,14 @@ func (f fakeLayer) DiffID() (v1.Hash, error) {
 func (f fakeLayer) Compressed() (io.ReadCloser, error) {
 	var buf bytes.Buffer
 	zw, _ := gzip.NewWriterLevel(&buf, gzip.BestSpeed)
-	zw.Write(f.TarContent)
-	zw.Close()
+	_, err := zw.Write(f.TarContent)
+	if err != nil {
+		return nil, err
+	}
+	err = zw.Close()
+	if err != nil {
+		return nil, err
+	}
 	return io.NopCloser(&buf), nil
 }
 

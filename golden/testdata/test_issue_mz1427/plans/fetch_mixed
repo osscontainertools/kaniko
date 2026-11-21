@@ -1,0 +1,7 @@
+FROM registry.example.com/team/base:1
+  FETCH registry.example.com/team/base:1
+  UNPACK registry.example.com/team/base:1
+RUN true
+PUSH [registry.example.com/team/app:1 other.example.com/team/app:1]
+  UPLOAD sha256:d3191c3ae6ae6fd262f98d9d3783c28539ad0c8391e1f2fc32f78d3a5f9d4dd8
+  UPLOAD RUN true

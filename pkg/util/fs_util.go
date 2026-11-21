@@ -29,6 +29,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -1260,8 +1261,8 @@ func (c FileContext) ExcludesFile(path string) bool {
 		if path == "." {
 			return false
 		}
-		//lint:ignore SA1019 deprecated Matches kept intentionally to preserve current matching behaviour
-		match, err := c.matcher.Matches(path)
+		// deprecated Matches kept intentionally to preserve current matching behaviour
+		match, err := c.matcher.Matches(path) //nolint:staticcheck
 		if err != nil {
 			logrus.Errorf("Error matching, including %s in build: %v", path, err)
 			return false
@@ -1601,9 +1602,7 @@ func createParentDirectory(path string, owner *Owner, dirPerm ...os.FileMode) er
 			dirs = append(dirs, dir)
 		}
 
-		for i := len(dirs) - 1; i >= 0; i-- {
-			dir := dirs[i]
-
+		for _, dir := range slices.Backward(dirs) {
 			if _, err := os.Lstat(dir); os.IsNotExist(err) {
 				err = os.Mkdir(dir, perm)
 				if err != nil {
