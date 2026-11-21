@@ -1826,15 +1826,11 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	}
 
 	var sharedRemote map[string]bool
-	plannedUnpack := map[int]bool{}
+	var plannedUnpack map[int]bool
 	if config.FF.SharedBaseCache {
-		for _, s := range kanikoStages {
-			crossStageDeps := len(crossStageDependencies[s.Index]) > 0 || len(mountDependencies[s.Index]) > 0
-			unpacks, err := planUnpack(s, cacheInfo[s.Index], crossStageDeps, opts, fileContext)
-			if err != nil {
-				return nil, err
-			}
-			plannedUnpack[s.Index] = unpacks
+		plannedUnpack, err = needsUnpack(kanikoStages, cacheInfo, crossStageDependencies, mountDependencies, opts, fileContext)
+		if err != nil {
+			return nil, err
 		}
 		sharedRemote, err = sharedRemoteImages(kanikoStages, plannedUnpack, externalImageDigests, opts)
 		if err != nil {
@@ -2462,24 +2458,30 @@ func sharedRemoteImages(stages []config.KanikoStage, plannedUnpack map[int]bool,
 	return shared, nil
 }
 
-func planUnpack(s config.KanikoStage, ci *stageCacheInfo, crossStageDeps bool, opts *config.KanikoOptions, fileContext util.FileContext) (bool, error) {
-	if s.Index == 0 && opts.InitialFSUnpacked {
-		return false, nil
-	}
-	if crossStageDeps || (s.Final && opts.Materialize) {
-		return true, nil
-	}
-	for jdx, c := range s.Commands {
-		command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
-		if err != nil {
-			return false, err
+func needsUnpack(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, crossStageDependencies map[int][]string, mountDependencies map[int][]string, opts *config.KanikoOptions, fileContext util.FileContext) (map[int]bool, error) {
+	unpacks := map[int]bool{}
+	for _, s := range stages {
+		switch {
+		case s.Index == 0 && opts.InitialFSUnpacked:
+			unpacks[s.Index] = false
+		case len(crossStageDependencies[s.Index]) > 0 || len(mountDependencies[s.Index]) > 0 || (s.Final && opts.Materialize):
+			unpacks[s.Index] = true
+		default:
+			unpack := false
+			for jdx, c := range s.Commands {
+				command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
+				if err != nil {
+					return nil, err
+				}
+				cached := opts.Cache && config.FF.CacheLookahead && cacheInfo[s.Index].cacheHits[jdx]
+				if command != nil && !cached && command.RequiresUnpackedFS() {
+					unpack = true
+				}
+			}
+			unpacks[s.Index] = unpack
 		}
-		cached := opts.Cache && config.FF.CacheLookahead && ci.cacheHits[jdx]
-		if command != nil && !cached && command.RequiresUnpackedFS() {
-			return true, nil
-		}
 	}
-	return false, nil
+	return unpacks, nil
 }
 
 func pushStageRereadsBase(baseName string, opts *config.KanikoOptions) (bool, error) {
