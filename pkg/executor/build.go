@@ -97,6 +97,7 @@ type stageBuilder struct {
 	args            *dockerfile.BuildArgs
 	span            trace.Span
 	stageNames      map[int]string
+	plannedUnpack   *bool
 }
 
 type stageCacheInfo struct {
@@ -648,6 +649,11 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	}
 	if s.index == 0 && opts.InitialFSUnpacked {
 		shouldUnpack = false
+	}
+	if s.plannedUnpack != nil && !*s.plannedUnpack {
+		// the shared-base store counts a stage's base read from the planned decision.
+		// A planned miss can still hit at build time, a planned hit is pinned and cannot miss.
+		assert.Assert("executor.build.planned-unpack", !shouldUnpack, "stage %d unpacks but was planned not to", s.index)
 	}
 	unpacked := shouldUnpack || (s.index == 0 && opts.InitialFSUnpacked)
 	needsRootFS := unpacked
@@ -1674,14 +1680,6 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	if err != nil {
 		return nil, err
 	}
-	var sharedRemote map[string]bool
-	if config.FF.SharedBaseCache {
-		sharedRemote, err = sharedRemoteImages(kanikoStages, externalImageDigests, opts)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	lastStage := kanikoStages[len(kanikoStages)-1]
 	assert.Assert("executor.build.last-stage-final", lastStage.Final, "last stage (index %d, name %q) must be the final stage", lastStage.Index, lastStage.Name)
 	baseArgs := dockerfile.NewBuildArgs(opts.BuildArgs)
@@ -1828,6 +1826,19 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		kanikoStages = onlyUsedStages
 	}
 
+	var sharedRemote map[string]bool
+	var plannedUnpack map[int]bool
+	if config.FF.SharedBaseCache {
+		plannedUnpack, err = needsUnpack(kanikoStages, cacheInfo, crossStageDependencies, mountDependencies, opts, fileContext)
+		if err != nil {
+			return nil, err
+		}
+		sharedRemote, err = sharedRemoteImages(kanikoStages, plannedUnpack, externalImageDigests, opts)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	tracePlan := os.Getenv(tracing.EndpointEnv) != "" && !config.EnvBool(tracing.OmitDockerfileEnv)
 	var plan bytes.Buffer
 	var sinks []io.Writer
@@ -1956,6 +1967,10 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		}
 		sb.span = stageSpan
 		sb.stageNames = stageNames
+		planned, ok := plannedUnpack[stage.Index]
+		if ok {
+			sb.plannedUnpack = &planned
+		}
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
 			stage.BaseName, stage.Index, stage.BaseImageIndex)
 
@@ -2410,15 +2425,17 @@ func loadSharedBase(digest string) (v1.Image, error) {
 }
 
 // sharedRemoteImages returns the digests of remote images that are read more than once,
-// by several stages, by a COPY --from, or by a re-read on push or save.
-func sharedRemoteImages(stages []config.KanikoStage, externalImageDigests map[string]string, opts *config.KanikoOptions) (map[string]bool, error) {
+// by several unpacking stages, by a COPY --from, or by a re-read on push or save.
+func sharedRemoteImages(stages []config.KanikoStage, plannedUnpack map[int]bool, externalImageDigests map[string]string, opts *config.KanikoOptions) (map[string]bool, error) {
 	shared := map[string]bool{}
 	reads := map[string]int{}
 	for _, s := range stages {
 		if s.BaseImageDigest == "" {
 			continue
 		}
-		reads[s.BaseImageDigest]++
+		if plannedUnpack[s.Index] {
+			reads[s.BaseImageDigest]++
+		}
 		pushRereads := false
 		if s.Push {
 			rereads, err := pushStageRereadsBase(s.BaseName, opts)
@@ -2440,6 +2457,32 @@ func sharedRemoteImages(stages []config.KanikoStage, externalImageDigests map[st
 		}
 	}
 	return shared, nil
+}
+
+func needsUnpack(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, crossStageDependencies map[int][]string, mountDependencies map[int][]string, opts *config.KanikoOptions, fileContext util.FileContext) (map[int]bool, error) {
+	unpacks := map[int]bool{}
+	for _, s := range stages {
+		switch {
+		case s.Index == 0 && opts.InitialFSUnpacked:
+			unpacks[s.Index] = false
+		case len(crossStageDependencies[s.Index]) > 0 || len(mountDependencies[s.Index]) > 0 || (s.Final && opts.Materialize):
+			unpacks[s.Index] = true
+		default:
+			unpack := false
+			for jdx, c := range s.Commands {
+				command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
+				if err != nil {
+					return nil, err
+				}
+				cached := opts.Cache && config.FF.CacheLookahead && cacheInfo[s.Index].cacheHits[jdx]
+				if command != nil && !cached && command.RequiresUnpackedFS() {
+					unpack = true
+				}
+			}
+			unpacks[s.Index] = unpack
+		}
+	}
+	return unpacks, nil
 }
 
 func pushStageRereadsBase(baseName string, opts *config.KanikoOptions) (bool, error) {

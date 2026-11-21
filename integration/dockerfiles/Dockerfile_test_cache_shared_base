@@ -1,0 +1,11 @@
+# A full cache hit must not download a base that two stages share.
+# Stores the whole base on the cached build on main@ccc5aa1f3.
+# Both stages read the base, so it goes through the shared-base store. On the
+# cached build builder is eliminated and final only appends its cached layer,
+# so nothing reads the base layers and the push mounts them.
+ARG IMAGE_REPO
+FROM ${IMAGE_REPO}busybox AS builder
+RUN echo built > /built.txt
+
+FROM ${IMAGE_REPO}busybox
+COPY --from=builder /built.txt /built.txt
