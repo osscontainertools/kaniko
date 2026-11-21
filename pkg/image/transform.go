@@ -106,18 +106,7 @@ func ReplaceBase(img, base v1.Image, outMediaType types.MediaType) (v1.Image, er
 		addendums = append(addendums, a)
 	}
 
-	stacked, err := mutate.Append(empty.Image, addendums...)
-	if err != nil {
-		return nil, err
-	}
-	stackedCfg, err := stacked.ConfigFile()
-	if err != nil {
-		return nil, err
-	}
-	finalCfg := imgCfg.DeepCopy()
-	finalCfg.RootFS = stackedCfg.RootFS
-	finalCfg.History = stackedCfg.History
-	return mutate.ConfigFile(stacked, finalCfg)
+	return stackOn(empty.Image, imgCfg, addendums)
 }
 
 // AlignHistory pads missing history entries with empty ones and marks surplus entries as
