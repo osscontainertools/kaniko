@@ -34,6 +34,14 @@ var googleKeychain, ecrKeychain, acrKeychain func() authn.Keychain
 
 // GetKeychain returns a keychain for accessing container registries.
 func GetKeychain(opts *config.RegistryOptions) authn.Keychain {
+	keychains := sourceKeychains(opts)
+	if config.FF.ProbeCredentials {
+		return pinnedKeychain{opts: opts, keychains: keychains}
+	}
+	return authn.NewMultiKeychain(keychains...)
+}
+
+func sourceKeychains(opts *config.RegistryOptions) []authn.Keychain {
 	var helpers []string
 	var prios []string
 
@@ -92,5 +100,5 @@ func GetKeychain(opts *config.RegistryOptions) authn.Keychain {
 	}
 
 	logrus.Infof("credential providers by priority: [%s]", strings.Join(prios, ", "))
-	return authn.NewMultiKeychain(keychains...)
+	return keychains
 }
