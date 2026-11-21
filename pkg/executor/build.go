@@ -97,6 +97,7 @@ type stageBuilder struct {
 	args            *dockerfile.BuildArgs
 	span            trace.Span
 	stageNames      map[int]string
+	plannedUnpack   *bool
 }
 
 type stageCacheInfo struct {
@@ -648,6 +649,10 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	}
 	if s.index == 0 && opts.InitialFSUnpacked {
 		shouldUnpack = false
+	}
+	if s.plannedUnpack != nil {
+		// the shared-base store counts a stage's base read from the planned decision
+		assert.Assert("executor.build.planned-unpack", *s.plannedUnpack == shouldUnpack, "stage %d: planned unpack %v != build unpack %v", s.index, *s.plannedUnpack, shouldUnpack)
 	}
 	unpacked := shouldUnpack || (s.index == 0 && opts.InitialFSUnpacked)
 	needsRootFS := unpacked
@@ -1821,8 +1826,17 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	}
 
 	var sharedRemote map[string]bool
+	plannedUnpack := map[int]bool{}
 	if config.FF.SharedBaseCache {
-		sharedRemote, err = sharedRemoteImages(kanikoStages, cacheInfo, crossStageDependencies, mountDependencies, externalImageDigests, opts, fileContext)
+		for _, s := range kanikoStages {
+			crossStageDeps := len(crossStageDependencies[s.Index]) > 0 || len(mountDependencies[s.Index]) > 0
+			unpacks, err := planUnpack(s, cacheInfo[s.Index], crossStageDeps, opts, fileContext)
+			if err != nil {
+				return nil, err
+			}
+			plannedUnpack[s.Index] = unpacks
+		}
+		sharedRemote, err = sharedRemoteImages(kanikoStages, plannedUnpack, externalImageDigests, opts)
 		if err != nil {
 			return nil, err
 		}
@@ -1956,6 +1970,10 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		}
 		sb.span = stageSpan
 		sb.stageNames = stageNames
+		planned, ok := plannedUnpack[stage.Index]
+		if ok && opts.Cache && config.FF.CacheLookahead {
+			sb.plannedUnpack = &planned
+		}
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
 			stage.BaseName, stage.Index, stage.BaseImageIndex)
 
@@ -2411,19 +2429,14 @@ func loadSharedBase(digest string) (v1.Image, error) {
 
 // sharedRemoteImages returns the digests of remote images that are read more than once,
 // by several unpacking stages, by a COPY --from, or by a re-read on push or save.
-func sharedRemoteImages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, crossStageDependencies map[int][]string, mountDependencies map[int][]string, externalImageDigests map[string]string, opts *config.KanikoOptions, fileContext util.FileContext) (map[string]bool, error) {
+func sharedRemoteImages(stages []config.KanikoStage, plannedUnpack map[int]bool, externalImageDigests map[string]string, opts *config.KanikoOptions) (map[string]bool, error) {
 	shared := map[string]bool{}
 	reads := map[string]int{}
 	for _, s := range stages {
 		if s.BaseImageDigest == "" {
 			continue
 		}
-		crossStageDeps := len(crossStageDependencies[s.Index]) > 0 || len(mountDependencies[s.Index]) > 0
-		unpacks, err := stageUnpacksBase(s, cacheInfo[s.Index], crossStageDeps, opts, fileContext)
-		if err != nil {
-			return nil, err
-		}
-		if unpacks {
+		if plannedUnpack[s.Index] {
 			reads[s.BaseImageDigest]++
 		}
 		pushRereads := false
@@ -2449,8 +2462,7 @@ func sharedRemoteImages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo
 	return shared, nil
 }
 
-// stageUnpacksBase must stay in sync with the unpack decision in stageBuilder.build.
-func stageUnpacksBase(s config.KanikoStage, ci *stageCacheInfo, crossStageDeps bool, opts *config.KanikoOptions, fileContext util.FileContext) (bool, error) {
+func planUnpack(s config.KanikoStage, ci *stageCacheInfo, crossStageDeps bool, opts *config.KanikoOptions, fileContext util.FileContext) (bool, error) {
 	if s.Index == 0 && opts.InitialFSUnpacked {
 		return false, nil
 	}
