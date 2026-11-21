@@ -347,6 +347,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_snapshotter_ignorelist":     {"--use-new-run=true", "-v=trace"},
 	"Dockerfile_test_issue_mz334":                {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz960":                {"--cache-copy-layers=true"},
+	"Dockerfile_test_cache_shared_base":          {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz876":                {"--use-new-run"},
 	"Dockerfile_test_issue_mz876_add":            {"--cache-copy-layers=true", "--cache-run-layers=false", "--reproducible"},
 	"Dockerfile_test_issue_mz876_link":           {"--cache-copy-layers=true", "--reproducible"},
@@ -594,6 +595,15 @@ var outputChecks = map[string]func(string, []byte) error{
 }
 
 var cacheHitOutputChecks = map[string]func(string, []byte) error{
+	"Dockerfile_test_cache_shared_base": func(_ string, out []byte) error {
+		if !strings.Contains(string(out), "Eliminating stage") {
+			return fmt.Errorf("output must contain Eliminating stage")
+		}
+		if strings.Contains(string(out), "shared-base: stored") {
+			return fmt.Errorf("output must not contain shared-base: stored")
+		}
+		return nil
+	},
 	"Dockerfile_test_issue_mz334": func(_ string, out []byte) error {
 		for _, cmd := range []string{
 			"COPY --from=first /blubb /blubb",
@@ -879,6 +889,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_cache_install":      {},
 		"Dockerfile_test_cache_perm":         {},
 		"Dockerfile_test_cache_copy":         {},
+		"Dockerfile_test_cache_shared_base":  {},
 		"Dockerfile_test_issue_3429":         {},
 		"Dockerfile_test_issue_workdir":      {},
 		"Dockerfile_test_issue_add":          {},
