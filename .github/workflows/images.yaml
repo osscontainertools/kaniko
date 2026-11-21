@@ -11,9 +11,6 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+*"
   workflow_dispatch:
 
-env:
-  DOCKER_REPO: ${{ vars.DOCKERHUB_ORG }}/${{ vars.REPOSITORY_NAME || 'kaniko' }}
-
 permissions: {}
 
 jobs:
@@ -31,8 +28,9 @@ jobs:
       contents: read  # Read the repo contents.
       id-token: write # Produce identity token for keyless signing.
       packages: write # push to ghcr registry
+      attestations: write
+      artifact-metadata: write
 
-    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -49,203 +47,87 @@ jobs:
           - image: executor
             target: kaniko-executor
             platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/s390x,linux/riscv64,linux/ppc64le
-            tag: ${{ github.sha }}
             release-tag: latest
 
           - image: executor-debug
             target: kaniko-debug
             platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/s390x,linux/riscv64,linux/ppc64le
-            tag: ${{ github.sha }}-debug
             release-tag: debug
 
           - image: executor-slim
             target: kaniko-slim
             platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/s390x,linux/riscv64,linux/ppc64le
-            tag: ${{ github.sha }}-slim
             release-tag: slim
 
           - image: executor-slim-fips
             target: kaniko-slim-fips
             platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/s390x,linux/riscv64,linux/ppc64le
-            tag: ${{ github.sha }}-slim-fips
             release-tag: slim-fips
 
           - image: warmer
             target: kaniko-warmer
             platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/s390x,linux/riscv64,linux/ppc64le
-            tag: ${{ github.sha }}-warmer
             release-tag: warmer
 
           - image: bootstrap
             target: kaniko-debug-2
             platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/s390x,linux/riscv64,linux/ppc64le
-            tag: ${{ github.sha }}-bootstrap
             release-tag: bootstrap
 
           - image: alpine
             target: kaniko-alpine
             platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/s390x,linux/riscv64,linux/ppc64le
-            tag: ${{ github.sha }}-alpine
             release-tag: alpine
 
+    uses: ./.github/workflows/build.yaml
+    with:
+      target: ${{ matrix.target }}
+      platforms: ${{ matrix.platforms }}
+      release-tag: ${{ matrix.release-tag }}
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-images
+    permissions:
+      packages: write
+    runs-on: ubuntu-24.04
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}
+      DOCKER_REPO: ${{ vars.DOCKERHUB_ORG }}/${{ vars.REPOSITORY_NAME || 'kaniko' }}
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@v2.23.0
         with:
           egress-policy: audit
 
-      - uses: actions/checkout@v7.0.1
-        with:
-          persist-credentials: false
+      - uses: imjasonh/setup-crane@v0.7
 
-      - name: Define build context
-        id: context
-        run: |
-          SHOULD_PUSH=${{ github.event_name != 'pull_request' }}
-          case "${{ github.ref }}" in
-            refs/tags/v*)
-              IMAGE_NAME=ghcr.io/${{ github.repository }}
-              IS_RELEASE=true
-              ;;
-            *)
-              IMAGE_NAME=ghcr.io/${{ github.repository }}-dev
-              IS_RELEASE=false
-            ;;
-          esac
-          echo "image_name=$IMAGE_NAME" >> $GITHUB_OUTPUT
-          echo "is_release=$IS_RELEASE" >> $GITHUB_OUTPUT
-          echo "should_push=$SHOULD_PUSH" >> $GITHUB_OUTPUT
-
-      - id: platforms
-        run: |
-          if [[ "${{ steps.context.outputs.should_push }}" != "true" ]]; then
-            echo "platforms=linux/amd64" >> $GITHUB_OUTPUT
-          else
-            echo "platforms=${{ matrix.platforms }}" >> $GITHUB_OUTPUT
-          fi
-
-      - if: steps.context.outputs.should_push == 'true'
-        uses: docker/setup-qemu-action@v4.4.0
-        with:
-          platforms: ${{ matrix.platforms }}
-
-      - uses: docker/setup-buildx-action@v4.4.1
-
-      - name: Set build timestamp
-        id: build-time
-        run: |
-          epoch=$(git log -1 --format=%ct)
-          echo "epoch=$epoch" >> $GITHUB_OUTPUT
-          echo "created=$(date -u -d @$epoch +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
-
-      - if: steps.context.outputs.should_push == 'true'
-        uses: docker/login-action@v4.8.0
+      - uses: docker/login-action@v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v7.4.0
-        id: build-and-push
-        env:
-          SOURCE_DATE_EPOCH: ${{ steps.build-time.outputs.epoch }}
-        with:
-          context: .
-          file: ./deploy/Dockerfile
-          platforms: ${{ steps.platforms.outputs.platforms }}
-          outputs: type=image,push=${{ steps.context.outputs.should_push == 'true' }},rewrite-timestamp=true
-          tags: ${{ steps.context.outputs.image_name }}:${{ matrix.tag }}
-          # https://github.com/docker/build-push-action/blob/master/docs/advanced/cache.md#github-cache
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          target: ${{ matrix.target }}
-          attests: |
-            "type=sbom,""SELECT_CATALOGERS=image,file,+sbom-cataloger,-binary-classifier-cataloger"""
-          provenance: mode=max
-          labels: |
-            org.opencontainers.image.created=${{ steps.build-time.outputs.created }}
-            org.opencontainers.image.authors=${{ github.repository_owner }}
-            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}/#readme
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.vendor=${{ github.repository_owner }}
-            org.opencontainers.image.licenses=Apache-2.0
-            org.opencontainers.image.title=${{ steps.context.outputs.image_name }}:${{ matrix.release-tag }}
-            org.opencontainers.image.description=Build container images in Kubernetes
-            org.opencontainers.image.version=${{ steps.context.outputs.is_release == 'true' && github.ref_name || github.sha }}
-          annotations: |
-            index,manifest:org.opencontainers.image.created=${{ steps.build-time.outputs.created }}
-            index,manifest:org.opencontainers.image.authors=${{ github.repository_owner }}
-            index,manifest:org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
-            index,manifest:org.opencontainers.image.documentation=${{ github.server_url }}/${{ github.repository }}/#readme
-            index,manifest:org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            index,manifest:org.opencontainers.image.revision=${{ github.sha }}
-            index,manifest:org.opencontainers.image.vendor=${{ github.repository_owner }}
-            index,manifest:org.opencontainers.image.licenses=Apache-2.0
-            index,manifest:org.opencontainers.image.title=${{ steps.context.outputs.image_name }}:${{ matrix.release-tag }}
-            index,manifest:org.opencontainers.image.description=Build container images in Kubernetes
-            index,manifest:org.opencontainers.image.version=${{ steps.context.outputs.is_release == 'true' && github.ref_name || github.sha }}
-
-      # Sign images if not a PR.
-      - if: steps.context.outputs.should_push == 'true'
-        uses: sigstore/cosign-installer@v4.1.3
-
-      - if: steps.context.outputs.should_push == 'true'
-        run: |
-          cosign sign --yes \
-              ${{ steps.context.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }}
-
-      # If a tag push, use crane to add more tags.
-      - if: steps.context.outputs.is_release == 'true'
-        uses: imjasonh/setup-crane@v0.7
-
-      - if: steps.context.outputs.is_release == 'true'
-        name: Apply release tags
-        run: |
-          tag=${GITHUB_REF/refs\/tags\//}
-
-          # Tag :latest, :debug, :slim
-          crane cp ${{ steps.context.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }} \
-              ${{ steps.context.outputs.image_name }}:${{ matrix.release-tag }}
-
-          if [[ "${{ matrix.release-tag }}" == "latest" ]]; then
-            # Tag :latest images as :v1.X.Y
-            crane cp ${{ steps.context.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }} \
-                ${{ steps.context.outputs.image_name }}:${tag}
-          else
-            # Or tag :v1.X.Y-debug and :v1.X.Y-slim
-            crane cp ${{ steps.context.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }} \
-                ${{ steps.context.outputs.image_name }}:${tag}-${{ matrix.release-tag }}
-          fi
-
-      # If a tag push, distribute to other registries too
-      - if: steps.context.outputs.is_release == 'true'
-        uses: docker/login-action@v4.8.0
+      - uses: docker/login-action@v4.8.0
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - if: steps.context.outputs.is_release == 'true'
-        name: Distribute to Docker hub
+      - name: Apply release tags
         run: |
-          tag=${GITHUB_REF/refs\/tags\//}
+          version=${GITHUB_REF/refs\/tags\//}
 
-          # Tag :latest, :debug, :slim
-          crane cp ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
-              ${{ env.DOCKER_REPO }}:${{ matrix.release-tag }}
-
-          if [[ "${{ matrix.release-tag }}" == "latest" ]]; then
-            crane cp ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
-                ${{ env.DOCKER_REPO }}:${tag}
-          else
-            crane cp ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
-                ${{ env.DOCKER_REPO }}:${tag}-${{ matrix.release-tag }}
-          fi
-
-      - if: steps.context.outputs.is_release == 'true'
-        name: Sign Docker Hub images
-        run: |
-          cosign sign --yes \
-              --sign-container-identity ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
-              ${{ env.DOCKER_REPO }}@${{ steps.build-and-push.outputs.digest }}
+          # Must list every release-tag of the build-images matrix.
+          for release_tag in latest debug slim slim-fips warmer bootstrap alpine; do
+            if [[ "$release_tag" == "latest" ]]; then
+              suffix=""
+            else
+              suffix="-$release_tag"
+            fi
+            digest=$(crane digest "$IMAGE:$GITHUB_SHA$suffix")
+            for repo in "$IMAGE" "$DOCKER_REPO"; do
+              crane cp "$IMAGE@$digest" "$repo:$version$suffix"
+              crane cp "$IMAGE@$digest" "$repo:$release_tag"
+            done
+            crane cp "$IMAGE:sha256-${digest#sha256:}" "$DOCKER_REPO:sha256-${digest#sha256:}"
+          done
