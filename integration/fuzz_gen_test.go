@@ -317,6 +317,7 @@ func generate(s *source, bases []string) genResult {
 	var buildArgs []string
 	var argNames []string
 	var namedStages []int // earlier non-final stages, candidates for FROM inheritance
+	globStages := map[int]bool{}
 	// Optionally declare a global base ARG so a stage can use a build-arg base
 	// (FROM $SBASE). It must precede the first FROM; docker only allows pre-FROM ARGs in
 	// FROM. Its default is a real base so finalBaseRef can resolve the media type.
@@ -423,6 +424,10 @@ func generate(s *source, bases []string) genResult {
 			// and timestamp handling rather than just copying a base-image file.
 			fmt.Fprintf(&b, "FROM %s AS stage%d\n", base, stage)
 			fmt.Fprintf(&b, "RUN mkdir -p /stage/sub && chmod 0751 /stage/sub && echo stage%d > /stage/artifact\n", stage)
+			if s.chance(4) {
+				fmt.Fprintf(&b, "RUN mkdir '/stage/[g]' && echo glob%d > '/stage/[g]/value'\n", stage)
+				globStages[stage] = true
+			}
 			// Register an ONBUILD trigger that fires when a later stage does FROM this one
 			// (pkg/commands/onbuild.go). Cover exec triggers (RUN/COPY) and metadata
 			// triggers (LABEL/ENV), which take different handling paths.
@@ -469,6 +474,10 @@ func generate(s *source, bases []string) genResult {
 				opt = fmt.Sprintf(" --chown=%s:%s", srcPick(s, ug), srcPick(s, ug))
 			}
 			fmt.Fprintf(&b, "COPY --from=%s%s /stage/artifact /dest/from-%d\n", ref, opt, j)
+			// the escaped pattern matches the directory literally named [g] (mz1373)
+			if globStages[j] && s.chance(2) {
+				fmt.Fprintf(&b, "COPY --from=%s%s /stage/[[]g] /dest/glob-%d\n", ref, opt, j)
+			}
 		}
 
 		ninstr := 2 + s.intn(6)
@@ -658,6 +667,10 @@ func generate(s *source, bases []string) genResult {
 				// With rw the RUN may write into the mount, and the write must stay out of the
 				// layer and out of the context.
 				f := srcPick(s, regulars)
+				// a symlink source mounts the file it points to (mz1374)
+				if symName != "" && s.chance(3) {
+					f = symName
+				}
 				if s.chance(2) {
 					fmt.Fprintf(&b, "RUN --mount=type=bind,source=%s,target=/mnt/%s,rw echo w%d >> /mnt/%s && cat /mnt/%s > /mnt-out%d\n", f, f, i, f, f, i)
 				} else {
@@ -1151,7 +1164,10 @@ func generate(s *source, bases []string) genResult {
 			case 53:
 				// HEALTHCHECK options, EXPOSE ranges and protocols, and STOPSIGNAL, USER and
 				// EXPOSE through args.
-				switch s.intn(7) {
+				switch s.intn(8) {
+				case 6:
+					// a modifier in the group is expanded before the split on ':' (mz1386)
+					fmt.Fprintf(&b, "USER root:${G%d:-0}\n", i)
 				case 0:
 					fmt.Fprintf(&b, "HEALTHCHECK --interval=30s --timeout=5s --start-period=1s --start-interval=2s --retries=3 CMD /bin/true\n")
 				case 1:
