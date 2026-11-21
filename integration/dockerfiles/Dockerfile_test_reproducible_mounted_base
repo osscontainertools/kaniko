@@ -1,0 +1,7 @@
+ARG IMAGE_REPO
+
+# --reproducible on a base in the destination registry. The push mounts the base
+# layers and the base rewrite is skipped, so nothing reads the base a second time
+# and the shared base store stays unused. Stores the base on main@ccc5aa1f3.
+FROM ${IMAGE_REPO}busybox:latest
+RUN echo mounted > /mounted
