@@ -75,7 +75,17 @@ type CacheKeyResolver interface {
 	CacheKey(replacementEnvs []string) (string, error)
 }
 
-func GetCommand(cmd instructions.Command, fileContext util.FileContext, secrets config.SecretOptions, useNewRun bool, cacheCopy bool, cacheRun bool) (DockerCommand, error) {
+// AddSourceCache configures resolving remote ADD sources from a local cache.
+type AddSourceCache struct {
+	Enabled bool
+	Dir     string
+}
+
+func GetCommand(cmd instructions.Command, fileContext util.FileContext, secrets config.SecretOptions, useNewRun bool, cacheCopy bool, cacheRun bool, addCache ...AddSourceCache) (DockerCommand, error) {
+	var sourceCache AddSourceCache
+	if len(addCache) > 0 {
+		sourceCache = addCache[0]
+	}
 	switch c := cmd.(type) {
 	case *instructions.RunCommand:
 		if useNewRun {
@@ -91,7 +101,7 @@ func GetCommand(cmd instructions.Command, fileContext util.FileContext, secrets 
 	case *instructions.WorkdirCommand:
 		return &WorkdirCommand{cmd: c, shdCache: cacheRun}, nil
 	case *instructions.AddCommand:
-		return &AddCommand{cmd: c, fileContext: fileContext, shdCache: cacheCopy}, nil
+		return &AddCommand{cmd: c, fileContext: fileContext, shdCache: cacheCopy, addCache: sourceCache}, nil
 	case *instructions.CmdCommand:
 		return &CmdCommand{cmd: c}, nil
 	case *instructions.EntrypointCommand:

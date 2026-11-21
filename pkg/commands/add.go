@@ -25,6 +25,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/opencontainers/go-digest"
+	"github.com/osscontainertools/kaniko/pkg/addcache"
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
@@ -38,6 +39,7 @@ type AddCommand struct {
 	fileContext   util.FileContext
 	snapshotFiles []string
 	shdCache      bool
+	addCache      AddSourceCache
 }
 
 // ExecuteCommand executes the ADD command
@@ -161,7 +163,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				download = urlDest
 			}
 			logrus.Infof("Adding remote URL %s to %s", src, urlDest)
-			if err := util.DownloadFileToDest(src, download, owner, chmod.Apply(0o600), checksum); err != nil {
+			if err := a.downloadRemoteSource(src, download, owner, chmod.Apply(0o600), checksum); err != nil {
 				return fmt.Errorf("downloading remote source file: %w", err)
 			}
 
@@ -288,6 +290,42 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 	}
 	a.snapshotFiles = append(a.snapshotFiles, copyCmd.snapshotFiles...)
 	return nil
+}
+
+func (a *AddCommand) downloadRemoteSource(src, dest string, owner *util.Owner, perm os.FileMode, checksum digest.Digest) error {
+	if a.addCache.Enabled && a.addCache.Dir != "" {
+		cachePath, ok, err := addcache.Lookup(a.addCache.Dir, src, checksum)
+		if err != nil {
+			logrus.Warnf("Ignoring cached ADD source %s: %v", src, err)
+		}
+		if ok {
+			logrus.Infof("Using cached ADD source %s", src)
+			return copyCachedSource(cachePath, dest, owner, perm)
+		}
+		cachePath, err = addcache.Store(a.addCache.Dir, src, checksum)
+		if err != nil {
+			logrus.Warnf("Failed to cache ADD source %s, downloading directly: %v", src, err)
+		} else {
+			return copyCachedSource(cachePath, dest, owner, perm)
+		}
+	}
+	return util.DownloadFileToDest(src, dest, owner, perm, checksum)
+}
+
+func copyCachedSource(src, dest string, owner *util.Owner, perm os.FileMode) error {
+	f, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if err := util.CreateFile(dest, f, perm, 0o755, owner); err != nil {
+		return err
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	return os.Chtimes(dest, fi.ModTime(), fi.ModTime())
 }
 
 func RequireAddChecksum(cmd *instructions.AddCommand, fileContext util.FileContext, replacementEnvs []string) error {

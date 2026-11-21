@@ -20,6 +20,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"cmp"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -28,6 +29,8 @@ import (
 	"io"
 	"log"
 	"math"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -1377,6 +1380,227 @@ func TestWarmer(t *testing.T) {
 			diffoci(t, kanikoVersion0, kanikoVersion1)
 		})
 	}
+}
+
+func TestAddCache(t *testing.T) {
+	t.Parallel()
+
+	runWarmer := func(t *testing.T, cacheDir, contextDir string, args ...string) ([]byte, error) {
+		t.Helper()
+		cmdArgs := []string{
+			"run", "--rm", "--net=host",
+			"-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()),
+			"-v", contextDir + ":/workspace:ro",
+			"-v", cacheDir + ":/cache",
+		}
+		cmdArgs = addAuthFlags(cmdArgs)
+		cmdArgs = addCoverageFlags(cmdArgs)
+		cmdArgs = append(cmdArgs, WarmerImage,
+			"--cache-dir=/cache",
+			"--dockerfile=/workspace/Dockerfile",
+		)
+		cmdArgs = append(cmdArgs, args...)
+		cmd := exec.Command("docker", cmdArgs...)
+		out, err := RunCommandWithoutTest(cmd)
+		t.Logf("warmer output:\n%s", out)
+		return out, err
+	}
+
+	runExecutor := func(t *testing.T, cacheDir, contextDir string, networkNone bool, args ...string) ([]byte, error) {
+		t.Helper()
+		cmdArgs := []string{
+			"run", "--rm",
+		}
+		if networkNone {
+			cmdArgs = append(cmdArgs, "--network=none")
+		} else {
+			cmdArgs = append(cmdArgs, "--net=host")
+		}
+		cmdArgs = append(cmdArgs,
+			"-v", contextDir+":/workspace:ro",
+			"-v", cacheDir+":/cache",
+		)
+		cmdArgs = addAuthFlags(cmdArgs)
+		cmdArgs = addCoverageFlags(cmdArgs)
+		cmdArgs = append(cmdArgs,
+			ExecutorImage,
+			"--dockerfile=/workspace/Dockerfile",
+			"--context=/workspace",
+			"--destination="+GetKanikoImage(config.imageRepo, "test_add_cache"),
+			"--no-push",
+			"--cache=true",
+			"--cache-dir=/cache",
+			"--cache-run-layers=false",
+			"--no-push-cache",
+		)
+		cmdArgs = append(cmdArgs, args...)
+		cmd := exec.Command("docker", cmdArgs...)
+		out, err := RunCommandWithoutTest(cmd)
+		t.Logf("executor output:\n%s", out)
+		return out, err
+	}
+
+	t.Run("warmer cache hit", func(t *testing.T) {
+		body := []byte("remote add cache payload")
+		sum := sha256.Sum256(body)
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write(body)
+		}))
+
+		contextDir := t.TempDir()
+		cacheDir := t.TempDir()
+		dockerfile := fmt.Sprintf("FROM scratch\nADD --checksum=sha256:%x %s/payload.txt /payload.txt\n", sum, server.URL)
+		if err := os.WriteFile(filepath.Join(contextDir, "Dockerfile"), []byte(dockerfile), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		if out, err := runWarmer(t, cacheDir, contextDir, "--add-cache"); err != nil {
+			t.Fatalf("warmer failed: %v\n%s", err, out)
+		}
+		server.Close()
+
+		out, err := runExecutor(t, cacheDir, contextDir, true, "--add-cache")
+		if err != nil {
+			t.Fatalf("executor cache hit failed: %v\n%s", err, out)
+		}
+	})
+
+	t.Run("executor cache miss and fallback", func(t *testing.T) {
+		body := []byte("executor cache miss fallback")
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write(body)
+		}))
+
+		contextDir := t.TempDir()
+		cacheDir := t.TempDir()
+		if err := os.Mkdir(filepath.Join(cacheDir, "add-cache"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		dockerfile := fmt.Sprintf("FROM scratch\nADD %s/payload.txt /payload.txt\n", server.URL)
+		if err := os.WriteFile(filepath.Join(contextDir, "Dockerfile"), []byte(dockerfile), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		if out, err := runExecutor(t, cacheDir, contextDir, false, "--add-cache"); err != nil {
+			t.Fatalf("executor cache-miss fallback failed: %v\n%s", err, out)
+		}
+		server.Close()
+
+		out, err := runExecutor(t, cacheDir, contextDir, true, "--add-cache")
+		if err != nil {
+			t.Fatalf("executor populated-cache hit failed: %v\n%s", err, out)
+		}
+		if !strings.Contains(string(out), "Using cached ADD source") {
+			t.Fatalf("expected executor cache hit log, got:\n%s", out)
+		}
+	})
+
+	t.Run("warmer missing checksum", func(t *testing.T) {
+		contextDir := t.TempDir()
+		cacheDir := t.TempDir()
+		dockerfile := "FROM scratch\nADD https://example.com/file.txt /file.txt\n"
+		if err := os.WriteFile(filepath.Join(contextDir, "Dockerfile"), []byte(dockerfile), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		out, err := runWarmer(t, cacheDir, contextDir, "--add-cache", "--require-add-checksum")
+		if err == nil {
+			t.Fatalf("warmer must reject a remote ADD without --checksum:\n%s", out)
+		}
+		if !strings.Contains(string(out), "--require-add-checksum") {
+			t.Fatalf("expected require-checksum error, got:\n%s", out)
+		}
+
+		out, err = runWarmer(t, cacheDir, contextDir, "--require-add-checksum")
+		if err == nil {
+			t.Fatalf("warmer must reject --require-add-checksum without --add-cache:\n%s", out)
+		}
+		if !strings.Contains(string(out), "--require-add-checksum requires --add-cache") {
+			t.Fatalf("expected flag validation error, got:\n%s", out)
+		}
+	})
+
+	t.Run("warmer fetch and checksum failures", func(t *testing.T) {
+		t.Run("404", func(t *testing.T) {
+			server := httptest.NewServer(http.NotFoundHandler())
+			defer server.Close()
+			contextDir := t.TempDir()
+			cacheDir := t.TempDir()
+			dockerfile := fmt.Sprintf("FROM scratch\nADD %s/missing.txt /missing.txt\n", server.URL)
+			if err := os.WriteFile(filepath.Join(contextDir, "Dockerfile"), []byte(dockerfile), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			out, err := runWarmer(t, cacheDir, contextDir, "--add-cache")
+			if err == nil {
+				t.Fatalf("warmer must fail for a 404 ADD source:\n%s", out)
+			}
+			if !strings.Contains(string(out), "failed to cache 1/1") || !strings.Contains(string(out), "invalid response status 404") {
+				t.Fatalf("expected aggregated 404 failure, got:\n%s", out)
+			}
+		})
+
+		t.Run("checksum mismatch", func(t *testing.T) {
+			body := []byte("actual payload")
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write(body)
+			}))
+			defer server.Close()
+			contextDir := t.TempDir()
+			cacheDir := t.TempDir()
+			wrong := sha256.Sum256([]byte("wrong payload"))
+			dockerfile := fmt.Sprintf("FROM scratch\nADD --checksum=sha256:%x %s/payload.txt /payload.txt\n", wrong, server.URL)
+			if err := os.WriteFile(filepath.Join(contextDir, "Dockerfile"), []byte(dockerfile), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			out, err := runWarmer(t, cacheDir, contextDir, "--add-cache")
+			if err == nil {
+				t.Fatalf("warmer must reject a checksum mismatch:\n%s", out)
+			}
+			if !strings.Contains(string(out), "digest mismatch") {
+				t.Fatalf("expected digest mismatch, got:\n%s", out)
+			}
+		})
+	})
+
+	t.Run("executor negative cases", func(t *testing.T) {
+		t.Run("missing checksum", func(t *testing.T) {
+			contextDir := t.TempDir()
+			cacheDir := t.TempDir()
+			dockerfile := "FROM scratch\nADD https://example.com/file.txt /file.txt\n"
+			if err := os.WriteFile(filepath.Join(contextDir, "Dockerfile"), []byte(dockerfile), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			out, err := runExecutor(t, cacheDir, contextDir, false, "--add-cache", "--require-add-checksum")
+			if err == nil {
+				t.Fatalf("executor must reject a remote ADD without --checksum:\n%s", out)
+			}
+			if !strings.Contains(string(out), "--require-add-checksum") {
+				t.Fatalf("expected require-checksum error, got:\n%s", out)
+			}
+		})
+
+		t.Run("checksum mismatch", func(t *testing.T) {
+			body := []byte("actual payload")
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write(body)
+			}))
+			defer server.Close()
+			contextDir := t.TempDir()
+			cacheDir := t.TempDir()
+			wrong := sha256.Sum256([]byte("wrong payload"))
+			dockerfile := fmt.Sprintf("FROM scratch\nADD --checksum=sha256:%x %s/payload.txt /payload.txt\n", wrong, server.URL)
+			if err := os.WriteFile(filepath.Join(contextDir, "Dockerfile"), []byte(dockerfile), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			out, err := runExecutor(t, cacheDir, contextDir, false, "--add-cache")
+			if err == nil {
+				t.Fatalf("executor must reject a checksum mismatch:\n%s", out)
+			}
+			if !strings.Contains(string(out), "digest mismatch") {
+				t.Fatalf("expected digest mismatch, got:\n%s", out)
+			}
+		})
+	})
 }
 
 // Attempt to warm an image two times : first time should populate the cache, second time should find the image in the cache.

@@ -1,0 +1,8 @@
+FROM scratch
+ADD https://example.com/a.txt /a.txt
+  CACHE MISS: ac8bb3ae384dacf17e5e28a5f30473d032c3e360ec2c6b4cf52fcdda208acbad
+ADD --checksum=sha256:3333333333333333333333333333333333333333333333333333333333333333 https://example.com/b.txt /b.txt
+  CACHE MISS: ad387a524f7e5b78f5426d6c455d60c797aa3bdea7bf933352490d7ab391c19e
+PUSH []
+  UPLOAD ADD https://example.com/a.txt /a.txt
+  UPLOAD ADD --checksum=sha256:3333333333333333333333333333333333333333333333333333333333333333 https://example.com/b.txt /b.txt

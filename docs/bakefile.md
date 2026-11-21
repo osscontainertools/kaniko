@@ -147,3 +147,8 @@ executor bake /workspace/kaniko-bake.hcl app --cache-dir=/cache
 ```
 
 `warmer bake` warms the base images of every stage in each target's dockerfile into `--cache-dir`. It reads `context` and `dockerfile`, and ignores `target`, `destination`, `cache_from` and `cache_to`. A target with a remote `context` needs a `dockerfile` that is a local path or URL. `--set` and `--print` work as in `executor bake`.
+
+To warm remote `ADD` sources as well, pass `--add-cache` to `warmer bake` and
+`--cache=true --add-cache` to `executor bake`, with the same `--cache-dir`.
+`--require-add-checksum` can be used with each command to reject remote `ADD`
+instructions that omit `--checksum`.

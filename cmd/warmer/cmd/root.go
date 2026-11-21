@@ -59,6 +59,13 @@ func init() {
 	RootCmd.AddCommand(bakeCmd)
 }
 
+func validateAddCacheOptions(opts *config.WarmerOptions) error {
+	if opts.RequireAddChecksum && !opts.AddCache {
+		return errors.New("--require-add-checksum requires --add-cache")
+	}
+	return nil
+}
+
 var RootCmd = &cobra.Command{
 	Use: "cache warmer",
 	PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
@@ -108,6 +115,10 @@ var RootCmd = &cobra.Command{
 			}
 		}
 
+		if err := validateAddCacheOptions(opts); err != nil {
+			return err
+		}
+
 		return nil
 	},
 	Run: func(_ *cobra.Command, _ []string) {
@@ -134,6 +145,9 @@ as a whole, its stage is ignored, and so are destination, cache_from and cache_t
 	RunE: func(_ *cobra.Command, args []string) error {
 		if len(opts.Images) > 0 {
 			return errors.New("--image cannot be used with bake, base images come from the targets' dockerfiles")
+		}
+		if err := validateAddCacheOptions(opts); err != nil {
+			return err
 		}
 		targets, err := bake.Load(args[0], args[1:], bakeSet)
 		if err != nil {
@@ -213,6 +227,8 @@ func AddWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
 	cmd.Flags().VarP(&opts.BuildArgs, "build-arg", "", "This flag should be used in conjunction with the dockerfile flag for scenarios where dynamic replacement of the base image is required.")
 	cmd.Flags().BoolVarP(&opts.Dryrun, "dryrun", "", false, "Whether to only print the images that would be cached")
 	cmd.Flags().BoolVarP(&opts.RequireDigest, "require-digest", "", false, "Fail if a base image is not pinned by digest")
+	cmd.Flags().BoolVarP(&opts.AddCache, "add-cache", "", false, "Cache remote ADD references to a cache-dir subfolder.")
+	cmd.Flags().BoolVarP(&opts.RequireAddChecksum, "require-add-checksum", "", false, "Fail if a remote ADD source does not specify a checksum")
 
 	// Default the custom platform flag to our current platform, and validate it.
 	if opts.CustomPlatform == "" {
