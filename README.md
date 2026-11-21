@@ -2,7 +2,7 @@
 
 [![Unit tests](https://github.com/osscontainertools/kaniko/actions/workflows/unit-tests.yaml/badge.svg)](https://github.com/osscontainertools/kaniko/actions/workflows/unit-tests.yaml)
 [![Integration tests](https://github.com/osscontainertools/kaniko/actions/workflows/integration-tests.yaml/badge.svg)](https://github.com/osscontainertools/kaniko/actions/workflows/integration-tests.yaml)
-[![Build images](https://github.com/osscontainertools/kaniko/actions/workflows/images.yaml/badge.svg)](https://github.com/osscontainertools/kaniko/actions/workflows/images.yaml)
+[![Build images](https://github.com/osscontainertools/kaniko/actions/workflows/build.yaml/badge.svg)](https://github.com/osscontainertools/kaniko/actions/workflows/build.yaml)
 [![codecov](https://codecov.io/gh/osscontainertools/kaniko/graph/badge.svg)](https://codecov.io/gh/osscontainertools/kaniko)
 
 ![kaniko logo](logo/Kaniko-Logo.png)
@@ -755,7 +755,7 @@ To verify the provenance, install the [GitHub CLI](https://cli.github.com/) v2.1
 $ gh auth login
 $ gh attestation verify oci://ghcr.io/osscontainertools/kaniko:v1.29.2 \
   --repo osscontainertools/kaniko \
-  --signer-workflow osscontainertools/kaniko/.github/workflows/build.yaml \
+  --signer-workflow osscontainertools/kaniko/.github/workflows/images.yaml \
   --source-ref refs/tags/v1.29.2 \
   --deny-self-hosted-runners
 ```
