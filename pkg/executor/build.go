@@ -31,6 +31,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -2487,7 +2488,92 @@ func retrieveBaseImage(stage config.KanikoStage, opts *config.KanikoOptions, sha
 	if !shared {
 		return img, nil
 	}
-	return storeImage(stage.BaseImageDigest, img), nil
+	return storeOnRead(stage.BaseImageDigest, img), nil
+}
+
+// storeOnRead defers storeImage to the first read of a layer's content, so a base that
+// is never unpacked and whose layers are mounted on push is not downloaded.
+func storeOnRead(digest string, img v1.Image) v1.Image {
+	return &storeOnReadImage{
+		Image: img,
+		store: sync.OnceValue(func() v1.Image { return storeImage(digest, img) }),
+	}
+}
+
+type storeOnReadImage struct {
+	v1.Image
+	store func() v1.Image
+}
+
+// Descriptor keeps the platform and annotations of the registry descriptor, which
+// embedding alone would hide from ggcr.
+func (i *storeOnReadImage) Descriptor() (*v1.Descriptor, error) {
+	return partial.Descriptor(i.Image)
+}
+
+func (i *storeOnReadImage) Layers() ([]v1.Layer, error) {
+	layers, err := i.Image.Layers()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]v1.Layer, len(layers))
+	for j, l := range layers {
+		out[j] = &storeOnReadLayer{Layer: l, store: i.store}
+	}
+	return out, nil
+}
+
+func (i *storeOnReadImage) LayerByDigest(h v1.Hash) (v1.Layer, error) {
+	l, err := i.Image.LayerByDigest(h)
+	if err != nil {
+		return nil, err
+	}
+	return &storeOnReadLayer{Layer: l, store: i.store}, nil
+}
+
+func (i *storeOnReadImage) LayerByDiffID(h v1.Hash) (v1.Layer, error) {
+	l, err := i.Image.LayerByDiffID(h)
+	if err != nil {
+		return nil, err
+	}
+	return &storeOnReadLayer{Layer: l, store: i.store}, nil
+}
+
+// storeOnReadLayer embeds the registry layer but is not a *remote.MountableLayer, so like
+// a stored layer it is only mounted on push through the mounts package.
+type storeOnReadLayer struct {
+	v1.Layer
+	store func() v1.Image
+}
+
+// Descriptor keeps the URLs and annotations of the registry descriptor, which embedding
+// alone would hide from ggcr.
+func (l *storeOnReadLayer) Descriptor() (*v1.Descriptor, error) {
+	return partial.Descriptor(l.Layer)
+}
+
+func (l *storeOnReadLayer) stored() (v1.Layer, error) {
+	digest, err := l.Digest()
+	if err != nil {
+		return nil, err
+	}
+	return l.store().LayerByDigest(digest)
+}
+
+func (l *storeOnReadLayer) Compressed() (io.ReadCloser, error) {
+	stored, err := l.stored()
+	if err != nil {
+		return nil, err
+	}
+	return stored.Compressed()
+}
+
+func (l *storeOnReadLayer) Uncompressed() (io.ReadCloser, error) {
+	stored, err := l.stored()
+	if err != nil {
+		return nil, err
+	}
+	return stored.Uncompressed()
 }
 
 // storeImage adds an image to the shared store and returns the stored copy. A store that
