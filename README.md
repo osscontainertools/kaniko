@@ -749,9 +749,10 @@ $ cosign verify \
 
 kaniko images are built to [SLSA Build Level 3](https://slsa.dev/spec/v1.0/levels#build-l3) for versions >= 1.29.2.
 
-To verify the provenance, install the [GitHub CLI](https://cli.github.com/) and pin the workflow that signed it and the release tag it was built from.
+To verify the provenance, install the [GitHub CLI](https://cli.github.com/) v2.102.0 or later and pin the workflow that signed it and the release tag it was built from. Older versions accept any workflow whose path starts with the pinned one.
 
 ```
+$ gh auth login
 $ gh attestation verify oci://ghcr.io/osscontainertools/kaniko:v1.29.2 \
   --repo osscontainertools/kaniko \
   --signer-workflow osscontainertools/kaniko/.github/workflows/build.yaml \
