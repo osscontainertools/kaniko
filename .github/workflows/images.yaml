@@ -204,10 +204,12 @@ jobs:
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
           IS_RELEASE: ${{ steps.context.outputs.is_release }}
         run: |
-          jq -n --arg image "$IMAGE" --arg dockerhub "docker.io/$DOCKER_REPO" --arg digest "$DIGEST" --argjson release "$IS_RELEASE" \
-              '[{registry: "ghcr.io", image: $image, digest: $digest}]
-               + if $release then [{registry: "docker.io", image: $dockerhub, digest: $digest}] else [] end' \
-              > "${{ runner.temp }}/digest.json"
+          jq -nc --arg image "$IMAGE" --arg digest "$DIGEST" '{registry: "ghcr.io", $image, $digest}' \
+              >> "${{ runner.temp }}/digest.json"
+          if [[ "$IS_RELEASE" == "true" ]]; then
+            jq -nc --arg image "docker.io/$DOCKER_REPO" --arg digest "$DIGEST" '{registry: "docker.io", $image, $digest}' \
+                >> "${{ runner.temp }}/digest.json"
+          fi
 
       - if: steps.context.outputs.should_push == 'true'
         uses: actions/upload-artifact@v7.0.2
@@ -289,7 +291,7 @@ jobs:
           path: digests
 
       - id: collect
-        run: echo "images=$(jq -cn '[inputs[]]' digests/*/digest.json)" >> "$GITHUB_OUTPUT"
+        run: echo "images=$(jq -cs . digests/*/digest.json)" >> "$GITHUB_OUTPUT"
 
   provenance:
     needs: digests
