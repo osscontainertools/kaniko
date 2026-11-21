@@ -2067,7 +2067,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 					}
 				}
 				skipBaseRewrite := false
-				if config.FF.ReproduciblePreserveBaseLayers && config.FF.ReproducibleSkipBaseRewrite {
+				if config.FF.AlignHistory && config.FF.ReproduciblePreserveBaseLayers && config.FF.ReproducibleSkipBaseRewrite {
 					skippable, err := image_util.BaseRewriteSkippable(remoteBaseImage[stage.Index], outMediaType)
 					if err != nil {
 						reproducibleTimer.End()

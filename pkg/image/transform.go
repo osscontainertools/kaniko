@@ -155,22 +155,9 @@ func AlignHistory(img v1.Image) (v1.Image, error) {
 // BaseRewriteSkippable reports whether ReplaceBase keeps every base layer as is, so the base
 // layers never need to be canonicalized.
 func BaseRewriteSkippable(base v1.Image, outMediaType types.MediaType) (bool, error) {
-	baseCfg, err := base.ConfigFile()
-	if err != nil {
-		return false, err
-	}
 	baseLayers, err := base.Layers()
 	if err != nil {
 		return false, err
-	}
-	described := 0
-	for _, h := range baseCfg.History {
-		if !h.EmptyLayer {
-			described++
-		}
-	}
-	if described != len(baseLayers) {
-		return false, nil
 	}
 	// sync with the compatibility check in ReplaceBase
 	outVendor := mediaTypeVendor(outMediaType)
@@ -188,7 +175,8 @@ func BaseRewriteSkippable(base v1.Image, outMediaType types.MediaType) (bool, er
 }
 
 // CanonicalAboveBase is mutate.Canonical applied only to the layers img adds to base. The
-// base layers are never read. Callers check BaseRewriteSkippable first.
+// base layers are never read. Callers align base with AlignHistory and check
+// BaseRewriteSkippable first.
 func CanonicalAboveBase(img, base v1.Image, opts ...tarball.LayerOption) (v1.Image, error) {
 	imgCfg, err := img.ConfigFile()
 	if err != nil {
@@ -211,6 +199,15 @@ func CanonicalAboveBase(img, base v1.Image, opts ...tarball.LayerOption) (v1.Ima
 		"base has %d layers, img has %d", len(baseLayers), len(imgLayers))
 	assert.Assert("image.canonicalabovebase.base-history-fit", len(baseCfg.History) <= len(imgCfg.History),
 		"base has %d history entries, img has %d", len(baseCfg.History), len(imgCfg.History))
+
+	described := 0
+	for _, h := range baseCfg.History {
+		if !h.EmptyLayer {
+			described++
+		}
+	}
+	assert.Assert("image.canonicalabovebase.base-history-aligned", described == len(baseLayers),
+		"base history describes %d of %d layers", described, len(baseLayers))
 
 	top, err := stackOn(empty.Image, imgCfg, historyAddendums(imgCfg.History[len(baseCfg.History):], imgLayers[len(baseLayers):]))
 	if err != nil {
