@@ -288,21 +288,18 @@ jobs:
       - id: collect
         run: echo "images=$(jq -cn '[inputs]' digests/*/digest.json)" >> "$GITHUB_OUTPUT"
 
-  # slsa-verifier only accepts the generator referenced by tag, not by SHA.
   provenance:
     needs: digests
     permissions:
-      actions: read   # Detect the GitHub Actions environment.
-      id-token: write # Produce identity token for keyless signing.
-      packages: write # Push the attestation to ghcr.
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+      packages: write
     strategy:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.digests.outputs.images) }}
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    uses: ./.github/workflows/provenance.yaml
     with:
       image: ${{ matrix.image }}
       digest: ${{ matrix.digest }}
-      registry-username: ${{ github.actor }}
-    secrets:
-      registry-password: ${{ secrets.GITHUB_TOKEN }}

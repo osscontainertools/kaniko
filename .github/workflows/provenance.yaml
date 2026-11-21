@@ -1,0 +1,41 @@
+name: Provenance
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        required: true
+        type: string
+      digest:
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  attest:
+    runs-on: ubuntu-24.04
+
+    permissions:
+      id-token: write          # Produce identity token for keyless signing.
+      attestations: write      # Store the attestation in the GitHub attestations API.
+      artifact-metadata: write # Create the artifact storage record.
+      packages: write          # Push the attestation to ghcr.
+
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2.23.0
+        with:
+          egress-policy: audit
+
+      - uses: docker/login-action@v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/attest@v4.2.2
+        with:
+          subject-name: ${{ inputs.image }}
+          subject-digest: ${{ inputs.digest }}
+          push-to-registry: true
