@@ -2172,8 +2172,7 @@ func assignIfNil(dst *error, fn func() error) {
 	}
 }
 
-// filesToSave returns all the files matching the given pattern in deps and the paths
-// in mountDeps that exist.
+// filesToSave returns the files matching the patterns in deps and the existing paths in mountDeps.
 // If a file is a symlink, it also returns the target file.
 func filesToSave(deps []string, mountDeps []string) ([]string, error) {
 	var matches []string
@@ -2187,12 +2186,10 @@ func filesToSave(deps []string, mountDeps []string) ([]string, error) {
 	for _, src := range mountDeps {
 		path := filepath.Join(config.RootDir, src)
 		_, err := os.Lstat(path)
-		switch {
-		case err == nil:
+		// a missing source is reported by the RUN that mounts it
+		if err == nil {
 			matches = append(matches, path)
-		case os.IsNotExist(err):
-			// the RUN that mounts it reports the missing source
-		default:
+		} else if !os.IsNotExist(err) {
 			return nil, fmt.Errorf("checking bind mount source %s: %w", src, err)
 		}
 	}
