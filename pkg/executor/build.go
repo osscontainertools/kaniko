@@ -31,7 +31,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -1675,14 +1674,6 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	if err != nil {
 		return nil, err
 	}
-	var sharedRemote map[string]bool
-	if config.FF.SharedBaseCache {
-		sharedRemote, err = sharedRemoteImages(kanikoStages, externalImageDigests, opts)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	lastStage := kanikoStages[len(kanikoStages)-1]
 	assert.Assert("executor.build.last-stage-final", lastStage.Final, "last stage (index %d, name %q) must be the final stage", lastStage.Index, lastStage.Name)
 	baseArgs := dockerfile.NewBuildArgs(opts.BuildArgs)
@@ -1827,6 +1818,14 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 			}
 		}
 		kanikoStages = onlyUsedStages
+	}
+
+	var sharedRemote map[string]bool
+	if config.FF.SharedBaseCache {
+		sharedRemote, err = sharedRemoteImages(kanikoStages, cacheInfo, crossStageDependencies, mountDependencies, externalImageDigests, opts, fileContext)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	tracePlan := os.Getenv(tracing.EndpointEnv) != "" && !config.EnvBool(tracing.OmitDockerfileEnv)
@@ -2411,15 +2410,22 @@ func loadSharedBase(digest string) (v1.Image, error) {
 }
 
 // sharedRemoteImages returns the digests of remote images that are read more than once,
-// by several stages, by a COPY --from, or by a re-read on push or save.
-func sharedRemoteImages(stages []config.KanikoStage, externalImageDigests map[string]string, opts *config.KanikoOptions) (map[string]bool, error) {
+// by several unpacking stages, by a COPY --from, or by a re-read on push or save.
+func sharedRemoteImages(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, crossStageDependencies map[int][]string, mountDependencies map[int][]string, externalImageDigests map[string]string, opts *config.KanikoOptions, fileContext util.FileContext) (map[string]bool, error) {
 	shared := map[string]bool{}
 	reads := map[string]int{}
 	for _, s := range stages {
 		if s.BaseImageDigest == "" {
 			continue
 		}
-		reads[s.BaseImageDigest]++
+		crossStageDeps := len(crossStageDependencies[s.Index]) > 0 || len(mountDependencies[s.Index]) > 0
+		unpacks, err := stageUnpacksBase(s, cacheInfo[s.Index], crossStageDeps, opts, fileContext)
+		if err != nil {
+			return nil, err
+		}
+		if unpacks {
+			reads[s.BaseImageDigest]++
+		}
 		pushRereads := false
 		if s.Push {
 			rereads, err := pushStageRereadsBase(s.BaseName, opts)
@@ -2441,6 +2447,27 @@ func sharedRemoteImages(stages []config.KanikoStage, externalImageDigests map[st
 		}
 	}
 	return shared, nil
+}
+
+// stageUnpacksBase must stay in sync with the unpack decision in stageBuilder.build.
+func stageUnpacksBase(s config.KanikoStage, ci *stageCacheInfo, crossStageDeps bool, opts *config.KanikoOptions, fileContext util.FileContext) (bool, error) {
+	if s.Index == 0 && opts.InitialFSUnpacked {
+		return false, nil
+	}
+	if crossStageDeps || (s.Final && opts.Materialize) {
+		return true, nil
+	}
+	for jdx, c := range s.Commands {
+		command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
+		if err != nil {
+			return false, err
+		}
+		cached := opts.Cache && config.FF.CacheLookahead && ci.cacheHits[jdx]
+		if command != nil && !cached && command.RequiresUnpackedFS() {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func pushStageRereadsBase(baseName string, opts *config.KanikoOptions) (bool, error) {
@@ -2488,92 +2515,7 @@ func retrieveBaseImage(stage config.KanikoStage, opts *config.KanikoOptions, sha
 	if !shared {
 		return img, nil
 	}
-	return storeOnRead(stage.BaseImageDigest, img), nil
-}
-
-// storeOnRead defers storeImage to the first read of a layer's content, so a base that
-// is never unpacked and whose layers are mounted on push is not downloaded.
-func storeOnRead(digest string, img v1.Image) v1.Image {
-	return &storeOnReadImage{
-		Image: img,
-		store: sync.OnceValue(func() v1.Image { return storeImage(digest, img) }),
-	}
-}
-
-type storeOnReadImage struct {
-	v1.Image
-	store func() v1.Image
-}
-
-// Descriptor keeps the platform and annotations of the registry descriptor, which
-// embedding alone would hide from ggcr.
-func (i *storeOnReadImage) Descriptor() (*v1.Descriptor, error) {
-	return partial.Descriptor(i.Image)
-}
-
-func (i *storeOnReadImage) Layers() ([]v1.Layer, error) {
-	layers, err := i.Image.Layers()
-	if err != nil {
-		return nil, err
-	}
-	out := make([]v1.Layer, len(layers))
-	for j, l := range layers {
-		out[j] = &storeOnReadLayer{Layer: l, store: i.store}
-	}
-	return out, nil
-}
-
-func (i *storeOnReadImage) LayerByDigest(h v1.Hash) (v1.Layer, error) {
-	l, err := i.Image.LayerByDigest(h)
-	if err != nil {
-		return nil, err
-	}
-	return &storeOnReadLayer{Layer: l, store: i.store}, nil
-}
-
-func (i *storeOnReadImage) LayerByDiffID(h v1.Hash) (v1.Layer, error) {
-	l, err := i.Image.LayerByDiffID(h)
-	if err != nil {
-		return nil, err
-	}
-	return &storeOnReadLayer{Layer: l, store: i.store}, nil
-}
-
-// storeOnReadLayer embeds the registry layer but is not a *remote.MountableLayer, so like
-// a stored layer it is only mounted on push through the mounts package.
-type storeOnReadLayer struct {
-	v1.Layer
-	store func() v1.Image
-}
-
-// Descriptor keeps the URLs and annotations of the registry descriptor, which embedding
-// alone would hide from ggcr.
-func (l *storeOnReadLayer) Descriptor() (*v1.Descriptor, error) {
-	return partial.Descriptor(l.Layer)
-}
-
-func (l *storeOnReadLayer) stored() (v1.Layer, error) {
-	digest, err := l.Digest()
-	if err != nil {
-		return nil, err
-	}
-	return l.store().LayerByDigest(digest)
-}
-
-func (l *storeOnReadLayer) Compressed() (io.ReadCloser, error) {
-	stored, err := l.stored()
-	if err != nil {
-		return nil, err
-	}
-	return stored.Compressed()
-}
-
-func (l *storeOnReadLayer) Uncompressed() (io.ReadCloser, error) {
-	stored, err := l.stored()
-	if err != nil {
-		return nil, err
-	}
-	return stored.Uncompressed()
+	return storeImage(stage.BaseImageDigest, img), nil
 }
 
 // storeImage adds an image to the shared store and returns the stored copy. A store that
