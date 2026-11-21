@@ -3,18 +3,12 @@ name: Provenance
 on:
   workflow_call:
     inputs:
-      registry:
-        required: true
-        type: string
       image:
         required: true
         type: string
       digest:
         required: true
         type: string
-    secrets:
-      dockerhub-token:
-        required: false
 
 permissions: {}
 
@@ -36,9 +30,9 @@ jobs:
 
       - uses: docker/login-action@v4.8.0
         with:
-          registry: ${{ inputs.registry }}
-          username: ${{ inputs.registry == 'docker.io' && vars.DOCKERHUB_USERNAME || github.actor }}
-          password: ${{ inputs.registry == 'docker.io' && secrets.dockerhub-token || secrets.GITHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/attest@v4.2.2
         with:

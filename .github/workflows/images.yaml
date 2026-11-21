@@ -202,14 +202,10 @@ jobs:
         env:
           IMAGE: ${{ steps.context.outputs.image_name }}
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
-          IS_RELEASE: ${{ steps.context.outputs.is_release }}
+          RELEASE_TAG: ${{ matrix.release-tag }}
         run: |
-          jq -nc --arg image "$IMAGE" --arg digest "$DIGEST" '{registry: "ghcr.io", $image, $digest}' \
-              >> "${{ runner.temp }}/digest.json"
-          if [[ "$IS_RELEASE" == "true" ]]; then
-            jq -nc --arg image "docker.io/$DOCKER_REPO" --arg digest "$DIGEST" '{registry: "docker.io", $image, $digest}' \
-                >> "${{ runner.temp }}/digest.json"
-          fi
+          jq -nc --arg image "$IMAGE" --arg digest "$DIGEST" --arg release_tag "$RELEASE_TAG" \
+              '{$image, $digest, "release-tag": $release_tag}' > "${{ runner.temp }}/digest.json"
 
       - if: steps.context.outputs.should_push == 'true'
         uses: actions/upload-artifact@v7.0.2
@@ -240,37 +236,6 @@ jobs:
             crane cp ${{ steps.context.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }} \
                 ${{ steps.context.outputs.image_name }}:${tag}-${{ matrix.release-tag }}
           fi
-
-      # If a tag push, distribute to other registries too
-      - if: steps.context.outputs.is_release == 'true'
-        uses: docker/login-action@v4.8.0
-        with:
-          username: ${{ vars.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - if: steps.context.outputs.is_release == 'true'
-        name: Distribute to Docker hub
-        run: |
-          tag=${GITHUB_REF/refs\/tags\//}
-
-          # Tag :latest, :debug, :slim
-          crane cp ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
-              ${{ env.DOCKER_REPO }}:${{ matrix.release-tag }}
-
-          if [[ "${{ matrix.release-tag }}" == "latest" ]]; then
-            crane cp ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
-                ${{ env.DOCKER_REPO }}:${tag}
-          else
-            crane cp ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
-                ${{ env.DOCKER_REPO }}:${tag}-${{ matrix.release-tag }}
-          fi
-
-      - if: steps.context.outputs.is_release == 'true'
-        name: Sign Docker Hub images
-        run: |
-          cosign sign --yes \
-              --sign-container-identity ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
-              ${{ env.DOCKER_REPO }}@${{ steps.build-and-push.outputs.digest }}
 
   digests:
     if: github.event_name != 'pull_request'
@@ -306,8 +271,58 @@ jobs:
         include: ${{ fromJSON(needs.digests.outputs.images) }}
     uses: ./.github/workflows/provenance.yaml
     with:
-      registry: ${{ matrix.registry }}
       image: ${{ matrix.image }}
       digest: ${{ matrix.digest }}
-    secrets:
-      dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  # If a tag push, distribute to other registries too
+  dockerhub:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [digests, provenance]
+    permissions:
+      packages: read
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.digests.outputs.images) }}
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2.23.0
+        with:
+          egress-policy: audit
+
+      - uses: imjasonh/setup-crane@v0.7
+
+      - uses: docker/login-action@v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/login-action@v4.8.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Distribute to Docker hub
+        run: |
+          tag=${GITHUB_REF/refs\/tags\//}
+
+          # Tag :latest, :debug, :slim
+          crane cp ${{ matrix.image }}@${{ matrix.digest }} \
+              ${{ env.DOCKER_REPO }}:${{ matrix.release-tag }}
+
+          if [[ "${{ matrix.release-tag }}" == "latest" ]]; then
+            crane cp ${{ matrix.image }}@${{ matrix.digest }} \
+                ${{ env.DOCKER_REPO }}:${tag}
+          else
+            crane cp ${{ matrix.image }}@${{ matrix.digest }} \
+                ${{ env.DOCKER_REPO }}:${tag}-${{ matrix.release-tag }}
+          fi
+
+      - name: Copy signatures and attestations
+        run: |
+          digest=${{ matrix.digest }}
+          tag="sha256-${digest#sha256:}"
+          crane cp ${{ matrix.image }}:${tag} \
+              ${{ env.DOCKER_REPO }}:${tag}
