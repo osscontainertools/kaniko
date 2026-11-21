@@ -50,6 +50,10 @@ var chaosFlags = []string{
 	"FF_KANIKO_COPY_SUBDIR_MODE", "FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR",
 	"FF_KANIKO_RUN_HEREDOC_SCRIPT", "FF_KANIKO_RUN_MOUNT_BIND_RELATIVE",
 	"FF_KANIKO_RUN_MOUNT_TMPFS",
+	"FF_KANIKO_ALIGN_HISTORY", "FF_KANIKO_CONFINE_HARDLINK_TARGET",
+	"FF_KANIKO_FROM_PREDEFINED_ARGS", "FF_KANIKO_GLOB_CHAR_PATHS",
+	"FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT", "FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK",
+	"FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS",
 	"FF_KANIKO_CACHE_LOOKAHEAD",
 	"FF_KANIKO_CACHE_PROBE_AFTER_MISS", "FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS",
 	"FF_KANIKO_CONFINE_COPY_SOURCE",
@@ -1304,6 +1308,10 @@ func generate(s *source, bases []string) genResult {
 		"FF_KANIKO_NATIVE_COPY",                       // kaniko's own copy for stage files and bind mounts
 		"FF_KANIKO_NATIVE_INIT",                       // kaniko reaps and forwards signals itself
 		"FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT",      // --reproducible keeps the format, both sides draw it alike
+		"FF_KANIKO_PARALLEL_GUNZIP",                   // decompress gzip base layers ahead of extraction
+		"FF_KANIKO_PROBE_CREDENTIALS",                 // use the first credential source the registry accepts
+		"FF_KANIKO_RESUME_BLOB_DOWNLOADS",             // continue a dropped layer download with a Range request
+		"FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES",      // trust each --registry-certificate only for its registry
 	} {
 		switch s.intn(4) {
 		case 0:
