@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 )
@@ -82,24 +83,44 @@ func (b *resumingBody) Read(p []byte) (int, error) {
 		}
 		if err == nil || errors.Is(err, io.EOF) {
 			return n, err
-		} else if b.req.Context().Err() != nil || b.stalled >= maxStalledResumes {
-			return n, fmt.Errorf("blob %s cut after %d bytes: %w", b.blob, b.offset, err)
 		}
-		logrus.Warnf("resuming blob %s at byte %d: %v", b.blob, b.offset, err)
-		b.stalled++
 		b.body.Close()
-		body, resumeErr := RetryWithResult(b.resume, maxStalledResumes-1, 1000)
-		if resumeErr != nil {
-			return n, fmt.Errorf("blob %s cut after %d bytes: %w, resuming: %w", b.blob, b.offset, err, resumeErr)
-		}
-		b.body = body
-		if n > 0 {
+		err = b.resume(err)
+		if err != nil {
+			return n, err
+		} else if n > 0 {
 			return n, nil
 		}
 	}
 }
 
-func (b *resumingBody) resume() (io.ReadCloser, error) {
+func (b *resumingBody) resume(cut error) error {
+	var openErr error
+	for {
+		b.stalled++
+		if b.stalled > maxStalledResumes && openErr != nil {
+			return fmt.Errorf("blob %s cut after %d bytes: %w, resuming: %w", b.blob, b.offset, cut, openErr)
+		} else if b.stalled > maxStalledResumes {
+			return fmt.Errorf("blob %s cut after %d bytes: %w", b.blob, b.offset, cut)
+		}
+		delay := time.Duration(1<<(b.stalled-1)) * time.Second
+		logrus.Warnf("resuming blob %s at byte %d in %s: %v", b.blob, b.offset, delay, cut)
+		select {
+		case <-b.req.Context().Done():
+			return fmt.Errorf("blob %s cut after %d bytes: %w", b.blob, b.offset, cut)
+		case <-time.After(delay):
+		}
+		body, err := b.open()
+		if err != nil {
+			openErr = err
+		} else {
+			b.body = body
+			return nil
+		}
+	}
+}
+
+func (b *resumingBody) open() (io.ReadCloser, error) {
 	req := b.req.Clone(b.req.Context())
 	req.Header.Set("Range", fmt.Sprintf("bytes=%d-", b.offset))
 	resp, err := b.inner.RoundTrip(req)
