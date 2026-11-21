@@ -30,6 +30,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -124,7 +125,7 @@ func CheckSource(src string, context FileContext) error {
 	return fmt.Errorf("source %s resolves to %s in the kaniko directory", src, resolved)
 }
 
-type ExtractFunction func(string, *tar.Header, string, io.Reader) error
+type ExtractFunction func(string, *os.File, *tar.Header, string, io.Reader) error
 
 type FSConfig struct {
 	includeWhiteout bool
@@ -218,6 +219,17 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 	}
 	defer r.Close()
 
+	var rootDir *os.File
+	if useOpenat2 {
+		rootDir, err = openExtractRoot(root)
+		if err != nil {
+			return nil, err
+		}
+		if rootDir != nil {
+			defer rootDir.Close()
+		}
+	}
+
 	extractedFiles := []string{}
 	tr := tar.NewReader(r)
 	for {
@@ -268,7 +280,7 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 			}
 		}
 
-		if err := cfg.extractFunc(root, hdr, cleanedName, tr); err != nil {
+		if err := cfg.extractFunc(root, rootDir, hdr, cleanedName, tr); err != nil {
 			return nil, err
 		}
 
@@ -362,6 +374,17 @@ func removeAllSkipIgnored(path string) (skip bool, err error) {
 }
 
 func UnTar(r io.Reader, dest string, chownOwner *Owner) ([]string, error) {
+	var root *os.File
+	if useOpenat2 {
+		var err error
+		root, err = openExtractRoot(dest)
+		if err != nil {
+			return nil, err
+		}
+		if root != nil {
+			defer root.Close()
+		}
+	}
 	var extractedFiles []string
 	tr := tar.NewReader(r)
 	for {
@@ -376,7 +399,7 @@ func UnTar(r io.Reader, dest string, chownOwner *Owner) ([]string, error) {
 		if cleanedName == "." && config.FF.UntarSkipRoot {
 			continue
 		}
-		if err := ExtractFileWithChown(dest, hdr, cleanedName, tr, chownOwner); err != nil {
+		if err := ExtractFileWithChown(dest, root, hdr, cleanedName, tr, chownOwner); err != nil {
 			return nil, err
 		}
 		extractedFiles = append(extractedFiles, filepath.Join(dest, cleanedName))
@@ -384,11 +407,72 @@ func UnTar(r io.Reader, dest string, chownOwner *Owner) ([]string, error) {
 	return extractedFiles, nil
 }
 
-func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader) error {
-	return ExtractFileWithChown(dest, hdr, cleanedName, tr, nil)
+var useOpenat2 bool
+
+// ProbeOpenat2 enables openat2 path resolution during extraction when the kernel and /proc support it.
+func ProbeOpenat2() {
+	fd, err := unix.Openat2(unix.AT_FDCWD, "/", &unix.OpenHow{
+		Flags:   unix.O_PATH | unix.O_CLOEXEC,
+		Resolve: unix.RESOLVE_IN_ROOT,
+	})
+	if err != nil {
+		logrus.Debugf("openat2 unavailable, resolving extraction paths with securejoin: %v", err)
+		return
+	}
+	defer unix.Close(fd)
+	_, err = os.Readlink("/proc/self/fd/" + strconv.Itoa(fd))
+	if err != nil {
+		logrus.Debugf("/proc/self/fd unreadable, resolving extraction paths with securejoin: %v", err)
+		return
+	}
+	useOpenat2 = true
 }
 
-func ExtractFileWithChown(dest string, hdr *tar.Header, cleanedName string, tr io.Reader, chownOwner *Owner) error {
+// openExtractRoot returns nil when dest does not exist yet, its entries then resolve with SecureJoin.
+func openExtractRoot(dest string) (*os.File, error) {
+	fd, err := unix.Open(dest, unix.O_PATH|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
+	if errors.Is(err, unix.ENOENT) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("opening extraction root %s: %w", dest, err)
+	}
+	return os.NewFile(uintptr(fd), dest), nil
+}
+
+// resolveInRoot resolves unsafePath like securejoin.SecureJoin, with openat2.
+// It reports false where openat2 fails, ie. on a missing component or a symlink loop.
+func resolveInRoot(root *os.File, dest, unsafePath string) (string, bool) {
+	// Without a symlink on the way the lexical join is the resolution, and no readlink is needed.
+	fd, err := unix.Openat2(int(root.Fd()), unsafePath, &unix.OpenHow{
+		Flags:   unix.O_PATH | unix.O_CLOEXEC,
+		Resolve: unix.RESOLVE_BENEATH | unix.RESOLVE_NO_SYMLINKS,
+	})
+	if err == nil {
+		unix.Close(fd)
+		return filepath.Join(dest, unsafePath), true
+	}
+	fd, err = unix.Openat2(int(root.Fd()), unsafePath, &unix.OpenHow{
+		Flags:   unix.O_PATH | unix.O_CLOEXEC,
+		Resolve: unix.RESOLVE_IN_ROOT | unix.RESOLVE_NO_MAGICLINKS,
+	})
+	if err != nil {
+		return "", false
+	}
+	defer unix.Close(fd)
+	resolved, err := os.Readlink("/proc/self/fd/" + strconv.Itoa(fd))
+	if err != nil {
+		return "", false
+	}
+	return resolved, true
+}
+
+func ExtractFile(dest string, root *os.File, hdr *tar.Header, cleanedName string, tr io.Reader) error {
+	return ExtractFileWithChown(dest, root, hdr, cleanedName, tr, nil)
+}
+
+// A nil root resolves every entry with SecureJoin.
+func ExtractFileWithChown(dest string, root *os.File, hdr *tar.Header, cleanedName string, tr io.Reader, chownOwner *Owner) error {
 	if cleanedName == ".." || strings.HasPrefix(cleanedName, "../") {
 		return fmt.Errorf("tar entry %q is not allowed: references parent directory", hdr.Name)
 	}
@@ -398,7 +482,15 @@ func ExtractFileWithChown(dest string, hdr *tar.Header, cleanedName string, tr i
 	// the full name would resolve the final component when it is a symlink we
 	// mean to overwrite, writing through it and creating loops like
 	// bin/sh -> dash -> dash.
-	secureDir, err := securejoin.SecureJoin(dest, filepath.Dir(cleanedName))
+	parent := filepath.Dir(cleanedName)
+	secureDir, resolved := "", false
+	if root != nil {
+		secureDir, resolved = resolveInRoot(root, dest, parent)
+	}
+	var err error
+	if !resolved {
+		secureDir, err = securejoin.SecureJoin(dest, parent)
+	}
 	if err != nil {
 		if !errors.Is(err, syscall.ELOOP) {
 			return fmt.Errorf("resolving path for %q: %w", hdr.Name, err)

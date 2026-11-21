@@ -189,6 +189,7 @@ var RootCmd = &cobra.Command{
 				return err
 			}
 			config.LogFeatureFlags()
+			util.ProbeOpenat2()
 
 			if !opts.NoPush && len(opts.Destinations) == 0 {
 				return errors.New("you must provide --destination, or use --no-push")

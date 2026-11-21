@@ -101,6 +101,7 @@ and inherits are not supported.`,
 			return err
 		}
 		config.LogFeatureFlags()
+		util.ProbeOpenat2()
 		opts.CompressionLevelSet = cmd.Flags().Changed("compression-level")
 		if opts.CompressionLevelSet {
 			err := validateCompressionLevel(opts.Compression, opts.CompressionLevel)
