@@ -74,6 +74,7 @@ expect - see [Known Issues](#known-issues).
     - [Debug Image](#debug-image)
   - [Security](#security)
     - [Verifying Signed Kaniko Images](#verifying-signed-kaniko-images)
+    - [Verifying Build Provenance](#verifying-build-provenance)
     - [FIPS 140-3 Image](#fips-140-3-image)
   - [Building Multi-arch Images](#building-multi-arch-images)
   - [Comparison with Other Tools](#comparison-with-other-tools)
@@ -742,6 +743,18 @@ $ cosign verify \
   --certificate-identity-regexp "https://github.com/mzihlmann/kaniko/.github/workflows/images.yaml@.*" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
   ghcr.io/osscontainertools/kaniko:latest
+```
+
+### Verifying Build Provenance
+
+kaniko images are built to [SLSA Build Level 3](https://slsa.dev/spec/v1.0/levels#build-l3) for versions >= 1.30.0.
+
+To verify the provenance, install the [GitHub CLI](https://cli.github.com/) and pin the workflow that signed it.
+
+```
+$ gh attestation verify oci://ghcr.io/osscontainertools/kaniko:latest \
+  --repo osscontainertools/kaniko \
+  --signer-workflow osscontainertools/kaniko/.github/workflows/provenance.yaml
 ```
 
 ### FIPS 140-3 Image
