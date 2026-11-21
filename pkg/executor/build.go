@@ -2186,11 +2186,13 @@ func filesToSave(deps []string, mountDeps []string) ([]string, error) {
 	for _, src := range mountDeps {
 		path := filepath.Join(config.RootDir, src)
 		_, err := os.Lstat(path)
-		// a missing source is reported by the RUN that mounts it
-		if err == nil {
+		if err != nil {
+			// a missing source is reported by the RUN that mounts it
+			if !os.IsNotExist(err) {
+				return nil, fmt.Errorf("checking bind mount source %s: %w", src, err)
+			}
+		} else {
 			matches = append(matches, path)
-		} else if !os.IsNotExist(err) {
-			return nil, fmt.Errorf("checking bind mount source %s: %w", src, err)
 		}
 	}
 	srcFiles := []string{}
