@@ -650,10 +650,10 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 	if s.index == 0 && opts.InitialFSUnpacked {
 		shouldUnpack = false
 	}
-	if s.plannedUnpack != nil {
+	if s.plannedUnpack != nil && !*s.plannedUnpack {
 		// the shared-base store counts a stage's base read from the planned decision.
 		// A planned miss can still hit at build time, a planned hit is pinned and cannot miss.
-		assert.Assert("executor.build.planned-unpack", !shouldUnpack || *s.plannedUnpack, "stage %d unpacks but was planned not to", s.index)
+		assert.Assert("executor.build.planned-unpack", !shouldUnpack, "stage %d unpacks but was planned not to", s.index)
 	}
 	unpacked := shouldUnpack || (s.index == 0 && opts.InitialFSUnpacked)
 	needsRootFS := unpacked
