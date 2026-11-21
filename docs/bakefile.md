@@ -28,9 +28,9 @@ target "tools" {
 
 `target` inside the block is the Dockerfile stage to build. It defaults to the target's own name, so both blocks above could omit it.
 
-`destination` is a list of references to push the image to. These are the same values [`--destination`](../README.md#flag---destination) takes.
+`destination` is a list of references to push the image to. These are the same values [`--destination`](cli.md#flag---destination) takes.
 
-`cache_from` and `cache_to` are lists of layer caches the target reads from and pushes to. They take the same values as [`--cache-from`](../README.md#flag---cache-from) and [`--cache-to`](../README.md#flag---cache-to), which `bake` does not accept as flags. A target without either uses `--cache-repo`, or `<destination>/cache` with `--cache`.
+`cache_from` and `cache_to` are lists of layer caches the target reads from and pushes to. They take the same values as [`--cache-from`](cli.md#flag---cache-from) and [`--cache-to`](cli.md#flag---cache-to), which `bake` does not accept as flags. A target without either uses `--cache-repo`, or `<destination>/cache` with `--cache`.
 
 ```hcl
 target "app" {
@@ -52,7 +52,7 @@ target "app" {
 ```
 
 - `context`: Path to the build context for this target. Relative paths are resolved relative to the bakefile.
-- `context_sub_path`: Sub path within the target's context, like [`--context-sub-path`](../README.md#flag---context-sub-path).
+- `context_sub_path`: Sub path within the target's context, like [`--context-sub-path`](cli.md#flag---context-sub-path).
 - `dockerfile`: Path to the Dockerfile for this target. Relative paths are resolved relative to the target's context (or bakefile).
 
 ## Choosing Targets

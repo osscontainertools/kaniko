@@ -187,7 +187,7 @@ var allTests = map[string][]types.GoldenTests{
 }
 var update bool
 
-// sync with the Preview profile in README.md
+// sync with the Preview profile in docs/feature-flags.md
 var previewEnv = map[string]string{
 	"FF_KANIKO_CACHE_COPY_FROM":              "1",
 	"FF_KANIKO_CACHE_IMAGE_INDEX":            "1",
