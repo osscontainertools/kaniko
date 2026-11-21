@@ -196,6 +196,23 @@ jobs:
           cosign sign --yes \
               ${{ steps.context.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }}
 
+      # A matrix job cannot output one value per entry, so each entry hands
+      # its digest to the provenance job through an artifact.
+      - if: steps.context.outputs.should_push == 'true'
+        env:
+          IMAGE: ${{ steps.context.outputs.image_name }}
+          DIGEST: ${{ steps.build-and-push.outputs.digest }}
+        run: |
+          jq -n --arg image "$IMAGE" --arg digest "$DIGEST" '{image: $image, digest: $digest}' \
+              > "${{ runner.temp }}/digest.json"
+
+      - if: steps.context.outputs.should_push == 'true'
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: digest-${{ matrix.image }}
+          path: ${{ runner.temp }}/digest.json
+          retention-days: 1
+
       # If a tag push, use crane to add more tags.
       - if: steps.context.outputs.is_release == 'true'
         uses: imjasonh/setup-crane@v0.7
@@ -249,3 +266,43 @@ jobs:
           cosign sign --yes \
               --sign-container-identity ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
               ${{ env.DOCKER_REPO }}@${{ steps.build-and-push.outputs.digest }}
+
+  digests:
+    if: github.event_name != 'pull_request'
+    needs: build-images
+    permissions: {}
+    runs-on: ubuntu-24.04
+    outputs:
+      images: ${{ steps.collect.outputs.images }}
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@v2.23.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: digest-*
+          path: digests
+
+      - id: collect
+        run: echo "images=$(jq -cn '[inputs]' digests/*/digest.json)" >> "$GITHUB_OUTPUT"
+
+  # slsa-verifier only accepts the generator referenced by tag, not by SHA.
+  provenance:
+    needs: digests
+    permissions:
+      actions: read   # Detect the GitHub Actions environment.
+      id-token: write # Produce identity token for keyless signing.
+      packages: write # Push the attestation to ghcr.
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.digests.outputs.images) }}
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    with:
+      image: ${{ matrix.image }}
+      digest: ${{ matrix.digest }}
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
