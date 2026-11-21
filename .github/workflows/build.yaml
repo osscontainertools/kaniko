@@ -85,8 +85,9 @@ jobs:
           outputs: type=image,push=${{ steps.context.outputs.should_push == 'true' }},rewrite-timestamp=true
           tags: ${{ steps.context.outputs.image_name }}:${{ github.sha }}${{ inputs.release-tag != 'latest' && format('-{0}', inputs.release-tag) || '' }}
           # https://github.com/docker/build-push-action/blob/master/docs/advanced/cache.md#github-cache
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Releases skip the cache, which any job on main can write to.
+          cache-from: ${{ steps.context.outputs.is_release != 'true' && 'type=gha' || '' }}
+          cache-to: ${{ steps.context.outputs.is_release != 'true' && 'type=gha,mode=max' || '' }}
           target: ${{ inputs.target }}
           attests: |
             "type=sbom,""SELECT_CATALOGERS=image,file,+sbom-cataloger,-binary-classifier-cataloger"""
