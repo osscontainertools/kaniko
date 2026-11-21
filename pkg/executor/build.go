@@ -651,8 +651,9 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		shouldUnpack = false
 	}
 	if s.plannedUnpack != nil {
-		// the shared-base store counts a stage's base read from the planned decision
-		assert.Assert("executor.build.planned-unpack", *s.plannedUnpack == shouldUnpack, "stage %d: planned unpack %v != build unpack %v", s.index, *s.plannedUnpack, shouldUnpack)
+		// the shared-base store counts a stage's base read from the planned decision.
+		// A planned miss can still hit at build time, a planned hit is pinned and cannot miss.
+		assert.Assert("executor.build.planned-unpack", !shouldUnpack || *s.plannedUnpack, "stage %d unpacks but was planned not to", s.index)
 	}
 	unpacked := shouldUnpack || (s.index == 0 && opts.InitialFSUnpacked)
 	needsRootFS := unpacked
@@ -1967,7 +1968,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		sb.span = stageSpan
 		sb.stageNames = stageNames
 		planned, ok := plannedUnpack[stage.Index]
-		if ok && opts.Cache && config.FF.CacheLookahead {
+		if ok {
 			sb.plannedUnpack = &planned
 		}
 		logrus.Infof("Building stage '%v' [idx: '%v', base-idx: '%v']",
