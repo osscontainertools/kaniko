@@ -202,8 +202,11 @@ jobs:
         env:
           IMAGE: ${{ steps.context.outputs.image_name }}
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
+          IS_RELEASE: ${{ steps.context.outputs.is_release }}
         run: |
-          jq -n --arg image "$IMAGE" --arg digest "$DIGEST" '{image: $image, digest: $digest}' \
+          jq -n --arg image "$IMAGE" --arg dockerhub "docker.io/$DOCKER_REPO" --arg digest "$DIGEST" --argjson release "$IS_RELEASE" \
+              '[{registry: "ghcr.io", image: $image, digest: $digest}]
+               + if $release then [{registry: "docker.io", image: $dockerhub, digest: $digest}] else [] end' \
               > "${{ runner.temp }}/digest.json"
 
       - if: steps.context.outputs.should_push == 'true'
@@ -286,7 +289,7 @@ jobs:
           path: digests
 
       - id: collect
-        run: echo "images=$(jq -cn '[inputs]' digests/*/digest.json)" >> "$GITHUB_OUTPUT"
+        run: echo "images=$(jq -cn '[inputs[]]' digests/*/digest.json)" >> "$GITHUB_OUTPUT"
 
   provenance:
     needs: digests
@@ -301,5 +304,8 @@ jobs:
         include: ${{ fromJSON(needs.digests.outputs.images) }}
     uses: ./.github/workflows/provenance.yaml
     with:
+      registry: ${{ matrix.registry }}
       image: ${{ matrix.image }}
       digest: ${{ matrix.digest }}
+    secrets:
+      dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
