@@ -2354,11 +2354,20 @@ func bakeOracle(seed int64, label, dir, freshImage string, gen genResult, covDir
 	if err := copyFuzzContext(dir, bakeCtx, dockerfile); err != nil {
 		return nil
 	}
-	var flags []string
+	// bake takes build args from the bakefile only
+	var standalone, flags []string
 	for _, f := range gen.kanikoFlags {
 		if !strings.HasPrefix(f, "--target=") {
-			flags = append(flags, f)
+			standalone = append(standalone, f)
+			if !strings.HasPrefix(f, "--build-arg=") {
+				flags = append(flags, f)
+			}
 		}
+	}
+	var buildArgs []string
+	for _, kv := range gen.buildArgs {
+		k, v, _ := strings.Cut(kv, "=")
+		buildArgs = append(buildArgs, fmt.Sprintf("%q = %q", k, v))
 	}
 
 	// Only stages a standalone build accepts are baked. A --target build never touches the
@@ -2377,7 +2386,7 @@ func bakeOracle(seed int64, label, dir, freshImage string, gen genResult, covDir
 		s := others[int(seed)%len(others)]
 		img := strings.ToLower(config.imageRepo + kanikoPrefix + label + "-alone-" + s)
 		defer runFuzzBounded(exec.Command("docker", "rmi", "-f", img))
-		aOut, aErr := runFuzzKanikoEnv(bakeCtx, img, append(append([]string{}, flags...), "--target="+s), covDir, gen.envFlags, gen.mounts...)
+		aOut, aErr := runFuzzKanikoEnv(bakeCtx, img, append(standalone, "--target="+s), covDir, gen.envFlags, gen.mounts...)
 		if f := crashOr(aOut); f != nil {
 			return f
 		}
@@ -2397,7 +2406,7 @@ func bakeOracle(seed int64, label, dir, freshImage string, gen genResult, covDir
 	for _, s := range stages {
 		if _, ok := compareTo[s]; ok {
 			images[s] = strings.ToLower(config.imageRepo + kanikoPrefix + label + "-bake-" + s)
-			fmt.Fprintf(&hcl, "target %q {\n  destination = [%q]\n}\n\n", s, images[s])
+			fmt.Fprintf(&hcl, "target %q {\n  build_arg   = { %s }\n  destination = [%q]\n}\n\n", s, strings.Join(buildArgs, ", "), images[s])
 		}
 	}
 	if err := os.WriteFile(filepath.Join(bakeDir, "kaniko-bake.hcl"), []byte(hcl.String()), 0o644); err != nil {
