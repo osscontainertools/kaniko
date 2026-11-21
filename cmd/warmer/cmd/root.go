@@ -21,12 +21,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/containerd/platforms"
-	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/config"
@@ -68,28 +66,15 @@ var RootCmd = &cobra.Command{
 		config.LogFeatureFlags()
 
 		// Allow setting --registry-maps using an environment variable.
-		// some users use warmer with --regisry-mirror before v1.21.0
-		// TODO may need all executors validation in here
-
-		if val, ok := os.LookupEnv("KANIKO_REGISTRY_MAP"); ok {
-			err := opts.RegistryMaps.Set(val)
-			if err != nil {
-				return err
-			}
+		err := config.ApplyRegistryMapEnv(&opts.RegistryOptions)
+		if err != nil {
+			return err
 		}
-
-		for _, target := range opts.RegistryMirrors {
-			err := opts.RegistryMaps.Set(fmt.Sprintf("%s=%s", name.DefaultRegistry, target))
-			if err != nil {
-				return err
-			}
+		err = config.ApplyRegistryMirrors(&opts.RegistryOptions)
+		if err != nil {
+			return err
 		}
-
-		if len(opts.RegistryMaps) > 0 {
-			for src, dsts := range opts.RegistryMaps {
-				logrus.Debugf("registry-map remaps %s to %s.", src, strings.Join(dsts, ", "))
-			}
-		}
+		config.LogRegistryMaps(&opts.RegistryOptions)
 
 		if config.FF.WarmerBuildArgs {
 			dockerfile.ResolveEnvironmentBuildArgs(opts.BuildArgs, os.Getenv)
@@ -173,7 +158,7 @@ func WarmTargets(opts *config.WarmerOptions, bakefile string, targets []bake.Res
 		topts := *opts
 		remote := strings.Contains(t.Context, "://")
 		switch {
-		case isURL(t.Dockerfile) || (t.Dockerfile != "" && !remote):
+		case util.IsURL(t.Dockerfile) || (t.Dockerfile != "" && !remote):
 			topts.DockerfilePath = t.Dockerfile
 		case remote:
 			return fmt.Errorf("target %q: the warmer does not unpack remote context %s, set dockerfile to a local path or URL", t.ID, t.Context)
@@ -224,7 +209,7 @@ func AddWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
 }
 
 func validateDockerfilePath() error {
-	if isURL(opts.DockerfilePath) {
+	if util.IsURL(opts.DockerfilePath) {
 		return nil
 	}
 	if util.FilepathExists(opts.DockerfilePath) {
@@ -237,13 +222,6 @@ func validateDockerfilePath() error {
 	}
 
 	return errors.New("please provide a valid path to a Dockerfile within the build context with --dockerfile")
-}
-
-func isURL(path string) bool {
-	if match, _ := regexp.MatchString("^https?://", path); match {
-		return true
-	}
-	return false
 }
 
 func exit(err error) {
