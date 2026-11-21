@@ -1933,6 +1933,12 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 			return nil, fmt.Errorf("failed to get baseImage: %w", err)
 		}
 		baseImage = image_util.WithoutAnnotations(baseImage)
+		if config.FF.AlignHistory {
+			baseImage, err = image_util.AlignHistory(baseImage)
+			if err != nil {
+				return nil, err
+			}
+		}
 		remoteBaseImage[stage.Index] = baseImage
 
 		args := baseArgs

@@ -9,6 +9,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 ```sh
 FF_KANIKO_ADD_CHOWN_TAR=true
 FF_KANIKO_ADD_FOLLOW_SYMLINK=true
+FF_KANIKO_ALIGN_HISTORY=true
 FF_KANIKO_CACHE_COPY_FROM=true
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_KEEP_DEST_OWNER=true
@@ -72,6 +73,13 @@ Becomes default in `v1.30.0`.
 Set this flag to `true` to honor `--unpack`.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+## Flag `FF_KANIKO_ALIGN_HISTORY`
+
+On a base image whose history does not match its layers, the image history shows kaniko's build steps against the wrong layers.
+Set this flag to `true` to show each build step against its own layer.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 ## Flag `FF_KANIKO_CACHE_COPY_FROM`
 

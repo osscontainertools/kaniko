@@ -1,0 +1,7 @@
+ARG IMAGE_REPO
+
+# mz1469: the base has layers but no history entries. History entries describe the
+# layers in order, so the entry kaniko appends for the RUN describes the first
+# base layer instead of the RUN layer, on main@67ee008fa.
+FROM ${IMAGE_REPO}test-issue-mz1469-base:latest
+RUN echo aligned > /aligned

@@ -119,6 +119,38 @@ func ReplaceBase(img, base v1.Image, outMediaType types.MediaType) (v1.Image, er
 	return mutate.ConfigFile(stacked, finalCfg)
 }
 
+// AlignHistory pads missing history entries with empty ones and marks surplus entries as
+// empty_layer, both at the end, so the entry appended next describes the layer appended next.
+func AlignHistory(img v1.Image) (v1.Image, error) {
+	cfg, err := img.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+	described := 0
+	for _, h := range cfg.History {
+		if !h.EmptyLayer {
+			described++
+		}
+	}
+	layers := len(cfg.RootFS.DiffIDs)
+	if described == layers {
+		return img, nil
+	}
+	cfg = cfg.DeepCopy()
+	if described < layers {
+		cfg.History = append(cfg.History, make([]v1.History, layers-described)...)
+	} else {
+		surplus := described - layers
+		for i := len(cfg.History) - 1; surplus > 0; i-- {
+			if !cfg.History[i].EmptyLayer {
+				cfg.History[i].EmptyLayer = true
+				surplus--
+			}
+		}
+	}
+	return mutate.ConfigFile(img, cfg)
+}
+
 type mediaTypeLayer struct {
 	v1.Layer
 	mediaType types.MediaType
