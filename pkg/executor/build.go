@@ -2067,6 +2067,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 					}
 				}
 				skipBaseRewrite := false
+				// sync with pushStageRereadsBase
 				if config.FF.AlignHistory && config.FF.ReproduciblePreserveBaseLayers && config.FF.ReproducibleSkipBaseRewrite {
 					skippable, err := image_util.BaseRewriteSkippable(remoteBaseImage[stage.Index], outMediaType)
 					if err != nil {
@@ -2454,7 +2455,7 @@ func sharedRemoteImages(stages []config.KanikoStage, plannedUnpack map[int]bool,
 		}
 		pushRereads := false
 		if s.Push {
-			rereads, err := pushStageRereadsBase(s.BaseName, opts)
+			rereads, err := pushStageRereadsBase(s, opts)
 			if err != nil {
 				return nil, err
 			}
@@ -2501,10 +2502,41 @@ func needsUnpack(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, cross
 	return unpacks, nil
 }
 
-func pushStageRereadsBase(baseName string, opts *config.KanikoOptions) (bool, error) {
-	// --reproducible reads the base layers even when it preserves them
-	if opts.Reproducible || opts.TarPath != "" || opts.OCILayoutPath != "" {
+func pushStageRereadsBase(stage config.KanikoStage, opts *config.KanikoOptions) (bool, error) {
+	baseName := stage.BaseName
+	if opts.TarPath != "" || opts.OCILayoutPath != "" {
 		return true, nil
+	}
+	// --reproducible reads the base layers even when it preserves them, unless the base rewrite is skipped
+	if opts.Reproducible {
+		skipBaseRewrite := false
+		// sync with the skipBaseRewrite decision in DoBuild
+		if config.FF.AlignHistory && config.FF.ReproduciblePreserveBaseLayers && config.FF.ReproducibleSkipBaseRewrite {
+			base, err := image_util.RetrieveSourceImage(stage, opts)
+			if err != nil {
+				return false, err
+			}
+			outMediaType := types.DockerManifestSchema2
+			if config.FF.ReproduciblePreserveFormat {
+				formatted, err := applyImageFormat(base, opts.ImageFormat)
+				if err != nil {
+					return false, err
+				}
+				mt, err := formatted.MediaType()
+				if err != nil {
+					return false, err
+				}
+				outMediaType = mt
+			}
+			skippable, err := image_util.BaseRewriteSkippable(base, outMediaType)
+			if err != nil {
+				return false, err
+			}
+			skipBaseRewrite = skippable
+		}
+		if !skipBaseRewrite {
+			return true, nil
+		}
 	}
 	if opts.NoPush || len(opts.Destinations) == 0 {
 		return false, nil
