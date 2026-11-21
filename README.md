@@ -732,20 +732,12 @@ Note that to verify images after v1.26.0 you require cosign v3.
 
 ```
 $ cosign verify \
-  --certificate-identity-regexp "https://github.com/osscontainertools/kaniko/.github/workflows/build.yaml@.*" \
-  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-  ghcr.io/osscontainertools/kaniko:latest
-```
-
-kaniko images for older versions [1.26.0 - 1.29.1] can be verified using
-```
-$ cosign verify \
   --certificate-identity-regexp "https://github.com/osscontainertools/kaniko/.github/workflows/images.yaml@.*" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
   ghcr.io/osscontainertools/kaniko:latest
 ```
 
-kaniko images for versions [1.24.1 - 1.25.5] can be verified using
+kaniko images for older versions [1.24.1 - 1.25.5] can be verified using
 ```
 $ cosign verify \
   --certificate-identity-regexp "https://github.com/mzihlmann/kaniko/.github/workflows/images.yaml@.*" \
