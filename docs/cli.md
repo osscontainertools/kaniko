@@ -531,4 +531,3 @@ Set `--index-file` to save the OCI index to a file. It requires `--provenance`.
 ```bash
 jq -r '.manifests[] | select(.annotations["vnd.docker.reference.type"] != "attestation-manifest") | .digest' index.json
 ```
-

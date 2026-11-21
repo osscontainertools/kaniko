@@ -9,7 +9,7 @@ registry.
 ## Credential Provider Priorities
 
 By default kaniko will configure all built-in credential providers for you. These are `[default, env, google, ecr, acr, gitlab]`.
-You can (de)-activate credential helpers via the [`--credential-helpers`](#flag---credential-helpers) flag. The `default` credential helper will always be active and itself handles two sources: `DOCKER_AUTH_CONFIG` environment variable and `/kaniko/.docker/config.json` file, where priority is always given to `DOCKER_AUTH_CONFIG` and therefore can shadow credentials configured in the config file. If you want to disable `DOCKER_AUTH_CONFIG` you have to unset the environment variable explicitly `unset DOCKER_AUTH_CONFIG` prior to calling kaniko.
+You can (de)-activate credential helpers via the [`--credential-helpers`](cli.md#flag---credential-helpers) flag. The `default` credential helper will always be active and itself handles two sources: `DOCKER_AUTH_CONFIG` environment variable and `/kaniko/.docker/config.json` file, where priority is always given to `DOCKER_AUTH_CONFIG` and therefore can shadow credentials configured in the config file. If you want to disable `DOCKER_AUTH_CONFIG` you have to unset the environment variable explicitly `unset DOCKER_AUTH_CONFIG` prior to calling kaniko.
 
 ### Path-scoped credentials
 

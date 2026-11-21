@@ -522,4 +522,3 @@ In warmer the predefined platform args such as `TARGETARCH` resolve to empty in 
 Set this flag to `true` to resolve them from `--customPlatform` and the host.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
-
