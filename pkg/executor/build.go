@@ -2065,8 +2065,24 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 						reproducibleTimer.End()
 						return nil, err
 					}
+				}
+				skipBaseRewrite := false
+				if config.FF.ReproduciblePreserveBaseLayers && config.FF.ReproducibleSkipBaseRewrite {
+					skippable, err := image_util.BaseRewriteSkippable(remoteBaseImage[stage.Index], outMediaType)
+					if err != nil {
+						reproducibleTimer.End()
+						return nil, err
+					}
+					skipBaseRewrite = skippable
+				}
+				switch {
+				case skipBaseRewrite && config.FF.ReproduciblePreserveFormat:
+					sourceImage, err = image_util.CanonicalAboveBase(sourceImage, remoteBaseImage[stage.Index], getLayerOptionsForImage(outMediaType, opts)...)
+				case skipBaseRewrite:
+					sourceImage, err = image_util.CanonicalAboveBase(sourceImage, remoteBaseImage[stage.Index])
+				case config.FF.ReproduciblePreserveFormat:
 					sourceImage, err = mutate.Canonical(sourceImage, getLayerOptionsForImage(outMediaType, opts)...)
-				} else {
+				default:
 					sourceImage, err = mutate.Canonical(sourceImage)
 				}
 				if err != nil {

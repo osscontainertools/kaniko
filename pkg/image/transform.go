@@ -25,6 +25,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/partial"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/sirupsen/logrus"
@@ -149,6 +150,118 @@ func AlignHistory(img v1.Image) (v1.Image, error) {
 		}
 	}
 	return mutate.ConfigFile(img, cfg)
+}
+
+// BaseRewriteSkippable reports whether ReplaceBase keeps every base layer as is, so the base
+// layers never need to be canonicalized.
+func BaseRewriteSkippable(base v1.Image, outMediaType types.MediaType) (bool, error) {
+	baseCfg, err := base.ConfigFile()
+	if err != nil {
+		return false, err
+	}
+	baseLayers, err := base.Layers()
+	if err != nil {
+		return false, err
+	}
+	described := 0
+	for _, h := range baseCfg.History {
+		if !h.EmptyLayer {
+			described++
+		}
+	}
+	if described != len(baseLayers) {
+		return false, nil
+	}
+	// sync with the compatibility check in ReplaceBase
+	outVendor := mediaTypeVendor(outMediaType)
+	for _, l := range baseLayers {
+		mt, err := l.MediaType()
+		if err != nil {
+			return false, err
+		}
+		_, err = relabelLayerMediaType(mt, outVendor)
+		if err != nil {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// CanonicalAboveBase is mutate.Canonical applied only to the layers img adds to base. The
+// base layers are never read. Callers check BaseRewriteSkippable first.
+func CanonicalAboveBase(img, base v1.Image, opts ...tarball.LayerOption) (v1.Image, error) {
+	imgCfg, err := img.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+	imgLayers, err := img.Layers()
+	if err != nil {
+		return nil, err
+	}
+	baseCfg, err := base.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+	baseLayers, err := base.Layers()
+	if err != nil {
+		return nil, err
+	}
+
+	assert.Assert("image.canonicalabovebase.base-layer-fit", len(baseLayers) <= len(imgLayers),
+		"base has %d layers, img has %d", len(baseLayers), len(imgLayers))
+	assert.Assert("image.canonicalabovebase.base-history-fit", len(baseCfg.History) <= len(imgCfg.History),
+		"base has %d history entries, img has %d", len(baseCfg.History), len(imgCfg.History))
+
+	top, err := stackOn(empty.Image, imgCfg, historyAddendums(imgCfg.History[len(baseCfg.History):], imgLayers[len(baseLayers):]))
+	if err != nil {
+		return nil, err
+	}
+	canonical, err := mutate.Canonical(top, opts...)
+	if err != nil {
+		return nil, err
+	}
+	canonicalCfg, err := canonical.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+	canonicalLayers, err := canonical.Layers()
+	if err != nil {
+		return nil, err
+	}
+	return stackOn(base, canonicalCfg, historyAddendums(canonicalCfg.History, canonicalLayers))
+}
+
+func stackOn(onto v1.Image, cfg *v1.ConfigFile, addendums []mutate.Addendum) (v1.Image, error) {
+	stacked, err := mutate.Append(onto, addendums...)
+	if err != nil {
+		return nil, err
+	}
+	stackedCfg, err := stacked.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+	finalCfg := cfg.DeepCopy()
+	finalCfg.RootFS = stackedCfg.RootFS
+	finalCfg.History = stackedCfg.History
+	return mutate.ConfigFile(stacked, finalCfg)
+}
+
+func historyAddendums(history []v1.History, layers []v1.Layer) []mutate.Addendum {
+	addendums := make([]mutate.Addendum, 0, len(history))
+	li := 0
+	for _, h := range history {
+		a := mutate.Addendum{History: h}
+		if !h.EmptyLayer {
+			assert.Assert("image.historyaddendums.layer-for-entry", li < len(layers),
+				"history has more non-empty entries than the %d layers", len(layers))
+			a.Layer = layers[li]
+			li++
+		}
+		addendums = append(addendums, a)
+	}
+	assert.Assert("image.historyaddendums.entry-for-layer", li == len(layers),
+		"history describes %d of %d layers", li, len(layers))
+	return addendums
 }
 
 type mediaTypeLayer struct {

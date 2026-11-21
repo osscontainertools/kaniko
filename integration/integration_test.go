@@ -1351,6 +1351,15 @@ func TestReproducible(t *testing.T) {
 			build(t, dockerfile, ref0)
 			build(t, dockerfile, ref1)
 			diffoci(t, ref0, ref1)
+			img0, err := getImageDetails(ref0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			img1, err := getImageDetails(ref1)
+			if err != nil {
+				t.Fatal(err)
+			}
+			testutil.CheckDeepEqual(t, img0.digest, img1.digest)
 
 			// mz731: make sure the inherited base layers were not mutated.
 			base := layerDigests(t, baseRefs[dockerfile])
