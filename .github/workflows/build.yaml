@@ -15,12 +15,6 @@ on:
       release-tag:
         required: true
         type: string
-    secrets:
-      dockerhub-token:
-        required: false
-
-env:
-  DOCKER_REPO: ${{ vars.DOCKERHUB_ORG }}/${{ vars.REPOSITORY_NAME || 'kaniko' }}
 
 jobs:
   build:
@@ -163,35 +157,3 @@ jobs:
             crane cp ${{ steps.context.outputs.image_name }}@${{ steps.build-and-push.outputs.digest }} \
                 ${{ steps.context.outputs.image_name }}:${tag}-${{ inputs.release-tag }}
           fi
-
-      # If a tag push, distribute to other registries too
-      - if: steps.context.outputs.is_release == 'true'
-        uses: docker/login-action@v4.8.0
-        with:
-          username: ${{ vars.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.dockerhub-token }}
-
-      - if: steps.context.outputs.is_release == 'true'
-        name: Distribute to Docker hub
-        run: |
-          tag=${GITHUB_REF/refs\/tags\//}
-
-          # Tag :latest, :debug, :slim
-          crane cp ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
-              ${{ env.DOCKER_REPO }}:${{ inputs.release-tag }}
-
-          if [[ "${{ inputs.release-tag }}" == "latest" ]]; then
-            crane cp ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
-                ${{ env.DOCKER_REPO }}:${tag}
-          else
-            crane cp ghcr.io/${{ github.repository }}@${{ steps.build-and-push.outputs.digest }} \
-                ${{ env.DOCKER_REPO }}:${tag}-${{ inputs.release-tag }}
-          fi
-
-      - if: steps.context.outputs.is_release == 'true'
-        name: Copy signatures and attestations
-        run: |
-          digest=${{ steps.build-and-push.outputs.digest }}
-          tag="sha256-${digest#sha256:}"
-          crane cp ghcr.io/${{ github.repository }}:${tag} \
-              ${{ env.DOCKER_REPO }}:${tag}
