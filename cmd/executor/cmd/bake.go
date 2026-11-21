@@ -183,11 +183,12 @@ and inherits are not supported.`,
 			}
 			topts.SrcContext = c.dockerfileBase
 			remote := strings.Contains(target.Context, "://")
-			if target.Context != "" && ((target.Dockerfile == "" && !dockerfileSet) || (target.Dockerfile != "" && remote)) && !filepath.IsAbs(topts.DockerfilePath) && !isURL(topts.DockerfilePath) {
+			inContext := target.Context != "" && (target.Dockerfile != "" || !dockerfileSet) && !filepath.IsAbs(topts.DockerfilePath) && !isURL(topts.DockerfilePath)
+			if inContext && (target.Dockerfile == "" || remote) {
 				topts.DockerfilePath = filepath.Join(c.dockerfileBase, topts.DockerfilePath)
-				if !util.FilepathExists(topts.DockerfilePath) {
-					return fmt.Errorf("dockerfile of target %q not found in its context: %s", target.ID, topts.DockerfilePath)
-				}
+			}
+			if inContext && !util.FilepathExists(topts.DockerfilePath) {
+				return fmt.Errorf("dockerfile of target %q not found in its context: %s", target.ID, topts.DockerfilePath)
 			}
 			if err := resolveDockerfilePath(&topts); err != nil {
 				return fmt.Errorf("error resolving dockerfile path: %w", err)
