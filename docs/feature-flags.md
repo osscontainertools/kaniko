@@ -17,6 +17,7 @@ FF_KANIKO_COPY_SUBDIR_MODE=true
 FF_KANIKO_DEFER_CACHE_PUSH=true
 FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY=true
 FF_KANIKO_FROM_PREDEFINED_ARGS=true
+FF_KANIKO_GLOB_CHAR_PATHS=true
 FF_KANIKO_ISOLATE_CACHE_PUSH=true
 FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR=true
 FF_KANIKO_NATIVE_INIT=true
@@ -214,6 +215,13 @@ Becomes default in `v1.30.0`.
 
 The predefined platform args such as `TARGETARCH` resolve to empty in `FROM` and in global `ARG` defaults.
 Set this flag to `true` to resolve them from `--customPlatform` and the host.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
+
+## Flag `FF_KANIKO_GLOB_CHAR_PATHS`
+
+A directory whose name contains glob characters such as `[dir]` copies empty when it is the source of `COPY`, or the source of a `RUN --mount=type=bind`.
+Set this flag to `true` to copy its contents.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
 

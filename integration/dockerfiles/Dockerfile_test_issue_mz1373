@@ -1,0 +1,23 @@
+# mz1373: a directory whose name has glob characters copies empty. Fails on
+# v1.29.1, the walk of the source reads the `[dir]` root as a character class.
+# A bind mount source is also globbed when the stage files are saved, so the
+# mount-only sources check that it is saved literally.
+FROM alpine:latest AS build
+RUN mkdir '/[dir]' && echo "hello directory" > '/[dir]/value'
+RUN echo "hello file" > '/[data]'
+RUN mkdir '/[mount]' && echo "hello mount" > '/[mount]/value'
+RUN echo "hello mount file" > '/[mount-file]'
+
+FROM alpine:latest
+COPY --from=build '/[[]data]' /data
+COPY --from=build '/[[]dir]' /dir
+COPY 'context/mz1373/[[]dir]' /context
+RUN test "$(cat /data)" = "hello file"
+RUN test "$(cat /dir/value)" = "hello directory"
+RUN test "$(cat /context/value)" = "hello context"
+RUN --mount=type=bind,from=build,source=/[mount],target=/mount-dir \
+    test "$(cat /mount-dir/value)" = "hello mount"
+RUN --mount=type=bind,from=build,source=/[mount-file],target=/mount-file \
+    test "$(cat /mount-file)" = "hello mount file"
+RUN --mount=type=bind,source=context/mz1373/[dir],target=/mount-context \
+    test "$(cat /mount-context/value)" = "hello context"
