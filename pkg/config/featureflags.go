@@ -74,6 +74,7 @@ type FeatureFlags struct {
 	ReproduciblePreserveBaseLayers bool
 	ReproduciblePreserveFormat     bool
 	ResolveCacheKey                bool
+	ResumeBlobDownloads            bool
 	RollingCacheKey                bool
 	RunCrossStageBindMount         bool
 	RunHeredocScript               bool
@@ -177,6 +178,7 @@ func InitFeatureFlags() {
 		ReproduciblePreserveBaseLayers: featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS", true),
 		ReproduciblePreserveFormat:     featureFlag("FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT", true),
 		ResolveCacheKey:                featureFlag("FF_KANIKO_RESOLVE_CACHE_KEY", true),
+		ResumeBlobDownloads:            featureFlag("FF_KANIKO_RESUME_BLOB_DOWNLOADS", false),
 		RollingCacheKey:                featureFlag("FF_KANIKO_ROLLING_CACHE_KEY", true),
 		RunCrossStageBindMount:         featureFlag("FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT", false),
 		RunHeredocScript:               featureFlag("FF_KANIKO_RUN_HEREDOC_SCRIPT", false),

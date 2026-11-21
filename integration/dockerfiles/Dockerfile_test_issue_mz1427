@@ -1,0 +1,3 @@
+# The proxy on localhost:5004 cuts every blob download halfway, so the base only arrives when kaniko resumes it.
+FROM localhost:5004/test_issue_mz1427:latest
+RUN test -x /bin/busybox

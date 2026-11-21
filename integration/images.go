@@ -238,6 +238,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_REPRODUCIBLE_PRESERVE_BASE_LAYERS=1",
 	"FF_KANIKO_REPRODUCIBLE_PRESERVE_FORMAT=1",
 	"FF_KANIKO_RESOLVE_CACHE_KEY=1",
+	"FF_KANIKO_RESUME_BLOB_DOWNLOADS=1",
 	"FF_KANIKO_ROLLING_CACHE_KEY=1",
 	"FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=1",
 	"FF_KANIKO_RUN_HEREDOC_SCRIPT=1",
@@ -749,6 +750,8 @@ var expectedWarnings = map[string]string{
 	"Dockerfile_test_issue_mz560": "Skipping copy targeting kaniko directory",
 	// mz936: the read-only store makes both stages degrade to a registry fetch, each warning.
 	"Dockerfile_test_issue_mz936": "shared-base:",
+	// mz1427: the proxy cuts every blob download, and each resume warns.
+	"Dockerfile_test_issue_mz1427": "resuming blob",
 	// mz1007: the test disables FF_KANIKO_SHARED_BASE_CACHE, which the flag registry warns about.
 	"Dockerfile_test_issue_mz1007": "feature flags explicitly disabled, please create an issue for your use-case: FF_KANIKO_SHARED_BASE_CACHE",
 	// mz991: the repro needs a MAINTAINER, which warns twice, once from the buildkit
@@ -923,6 +926,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz473":    {},
 		"Dockerfile_test_issue_mz560":    {},
 		"Dockerfile_test_issue_mz1065":   {},
+		"Dockerfile_test_issue_mz1427":   {},
 		"Dockerfile_test_issue_mz661":    {},
 		"Dockerfile_test_issue_mz992":    {},
 		"Dockerfile_test_issue_mz1066":   {},

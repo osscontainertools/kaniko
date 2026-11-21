@@ -126,6 +126,9 @@ func MakeTransport(opts config.RegistryOptions, registryName string) (http.Round
 		return nil, err
 	}
 	rt := instrument(tr)
+	if config.FF.ResumeBlobDownloads {
+		rt = resumeTransport{inner: rt}
+	}
 	if pooled {
 		// go-containerregistry picks 50 for this workload in its own DefaultTransport,
 		// a clone of http.DefaultTransport inherits Go's default of 2

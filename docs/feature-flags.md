@@ -23,6 +23,7 @@ FF_KANIKO_LOCAL_UNPACK_REQUIRES_TAR=true
 FF_KANIKO_NATIVE_INIT=true
 FF_KANIKO_PARALLEL_HASH=true
 FF_KANIKO_PROBE_CREDENTIALS=true
+FF_KANIKO_RESUME_BLOB_DOWNLOADS=true
 FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=true
 FF_KANIKO_RUN_HEREDOC_SCRIPT=true
 FF_KANIKO_RUN_MOUNT_BIND_RELATIVE=true
@@ -378,6 +379,13 @@ A `COPY`, `ADD` or `WORKDIR` layer cache key is built from the raw instruction t
 Set this flag to `true` to interpolate build args and env.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+## Flag `FF_KANIKO_RESUME_BLOB_DOWNLOADS`
+
+A connection that drops while a layer downloads fails the build with `unexpected EOF`, and `--image-fs-extract-retry` downloads every layer again from the first byte.
+Set this flag to `true` to request the rest of the blob with a `Range` header and continue where the download stopped.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 ## Flag `FF_KANIKO_ROLLING_CACHE_KEY`
 

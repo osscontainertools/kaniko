@@ -171,6 +171,11 @@ func buildRequiredImages() error {
 		return err
 	}
 
+	err = serveCutBlobImage(config.busyboxBaseImage, config.imageRepo)
+	if err != nil {
+		return err
+	}
+
 	err = pushMixedMediaTypeImage(config.busyboxBaseImage, config.mixedMediaTypeImage)
 	if err != nil {
 		return err
