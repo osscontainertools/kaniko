@@ -173,8 +173,8 @@ github.com/dlclark/regexp2/v2 v2.13.1 h1:fKrNTrQmgpsM3vLIJXzJn8iCIdwSelX+l2G1EPB
 github.com/dlclark/regexp2/v2 v2.13.1/go.mod h1:avUrQvPaLz2DrFNHJF0taWAFFX2C1GMSSoeiqFjcBmU=
 github.com/docker/cli v29.7.2+incompatible h1:dlkwallR8XqfeVnA2ELEhdwvb4lsSwuB4IgsG8Q9cLY=
 github.com/docker/cli v29.7.2+incompatible/go.mod h1:JLrzqnKDaYBop7H2jaqPtU4hHvMKP+vjCwu2uszcLI8=
-github.com/docker/docker-credential-helpers v0.9.3 h1:gAm/VtF9wgqJMoxzT3Gj5p4AqIjCBS4wrsOh9yRqcz8=
-github.com/docker/docker-credential-helpers v0.9.3/go.mod h1:x+4Gbw9aGmChi3qTLZj8Dfn0TD20M/fuWy0E5+WDeCo=
+github.com/docker/docker-credential-helpers v0.9.13 h1:yLE5jCyKJraJaBACIGqgpLX0UheWfZUwBkIeCu6WPFU=
+github.com/docker/docker-credential-helpers v0.9.13/go.mod h1:v1S+hepowrQXITkEfw6o4+BMbGot02wiKpzWhGUZK6c=
 github.com/docker/go-units v0.5.0 h1:69rxXcBk27SvSaaxTtLh/8llcHD8vYHT7WSdRZ/jvr4=
 github.com/docker/go-units v0.5.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=
 github.com/erofs/go-erofs v0.3.1 h1:Sux82Jq9yvyYhIoLgSHDp741p/+370HsOj9dAh1+VVs=
