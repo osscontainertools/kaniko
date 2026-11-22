@@ -331,6 +331,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1066_docker":        {"--image-format=docker", "--compression=gzip"},
 	"Dockerfile_test_issue_mz731":                {"--compression=gzip"},
 	"Dockerfile_test_issue_mz1365":               {"--compression=gzip"},
+	"Dockerfile_test_stopsignal":                 {"--compression=gzip"},
 	"Dockerfile_test_issue_mz851":                {"--image-format=oci", "--compression=zstd"},
 	"Dockerfile_test_multistage_args_issue_1911": {"--target=base-custom2,nosquash1,nosquash2,nosquash3"},
 	"Dockerfile_test_cmd":                        {"--target=final,nosquash"},

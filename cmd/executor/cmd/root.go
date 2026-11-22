@@ -159,7 +159,7 @@ func setupBuild() error {
 // validateOutputFlags rejects the flag combinations that describe an image kaniko
 // cannot write. Every command that builds has to run it.
 func validateOutputFlags(opts *config.KanikoOptions) error {
-	if opts.ImageFormat == config.ImageFormatDocker && opts.Compression == config.ZStd {
+	if opts.ImageFormat == config.ImageFormatDocker && opts.Compression == config.ZStd && !opts.Dryrun {
 		return errors.New("--compression=zstd cannot be used with --image-format=docker, the Docker schema2 format has no zstd layer media type, use --image-format=oci")
 	}
 	if opts.TarPath != "" && opts.ImageFormat == config.ImageFormatOCI {
