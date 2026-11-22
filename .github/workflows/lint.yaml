@@ -12,7 +12,7 @@ permissions: {}
 
 jobs:
   actions-lock:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     permissions:
       contents: read
@@ -35,7 +35,7 @@ jobs:
           gh actions-lock --no-fix
 
   vet:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     permissions:
       contents: read
@@ -58,7 +58,7 @@ jobs:
         run: go vet ./pkg/... ./cmd/...
 
   golangci-lint:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     permissions:
       contents: read
