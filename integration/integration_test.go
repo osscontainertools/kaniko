@@ -1861,30 +1861,27 @@ func TestZstdDefaultCompression(t *testing.T) {
 		{
 			name:      "enabled_defaults_to_zstd",
 			flags:     []string{"--image-format=oci"},
-			env:       []string{"FF_KANIKO_ZSTD_DEFAULT_COMPRESSION=1"},
 			wantLayer: ggcrtypes.OCILayerZStd,
 		},
 		{
 			name:      "disabled_defaults_to_gzip",
 			flags:     []string{"--image-format=oci"},
+			env:       []string{"FF_KANIKO_ZSTD_DEFAULT_COMPRESSION=0"},
 			wantLayer: ggcrtypes.OCILayer,
 		},
 		{
 			name:      "explicit_gzip_overrides_zstd",
 			flags:     []string{"--image-format=oci", "--compression=gzip"},
-			env:       []string{"FF_KANIKO_ZSTD_DEFAULT_COMPRESSION=1"},
 			wantLayer: ggcrtypes.OCILayer,
 		},
 		{
 			name:      "docker_output_rejected",
 			flags:     []string{"--image-format=docker"},
-			env:       []string{"FF_KANIKO_ZSTD_DEFAULT_COMPRESSION=1"},
 			wantError: "--compression=zstd cannot be used with --image-format=docker",
 		},
 		{
 			name:      "tar_output_rejected",
 			flags:     []string{"--tar-path=/tmp/zstd-default.tar"},
-			env:       []string{"FF_KANIKO_ZSTD_DEFAULT_COMPRESSION=1"},
 			wantError: "--compression=zstd cannot be used with --tar-path",
 		},
 	}
@@ -2024,13 +2021,17 @@ func TestPushFromArtifact(t *testing.T) {
 			)
 
 			// Two-step: build to an artifact (no push), then push from it.
-			runExecutor(append([]string{
+			artifactBuildArgs := []string{
 				"-f", "/workspace/Dockerfile.trivial",
 				"-c", "/workspace",
 				"--no-push",
 				artifactFlags[0], "/out/image",
 				"--reproducible",
-			}, artifactFlags[1:]...)...)
+			}
+			if outFlag == "tar-path" {
+				artifactBuildArgs = append(artifactBuildArgs, "--compression=gzip")
+			}
+			runExecutor(append(artifactBuildArgs, artifactFlags[1:]...)...)
 			runExecutor(
 				"push", "/out/image",
 				"-d", fromArtifactImage,
