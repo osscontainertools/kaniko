@@ -89,7 +89,8 @@ Defaults to `false`. Can also be set via the `KANIKO_CLEANUP` environment variab
 
 ## Flag `--compression`
 
-Use this flag to select the compression algorithm `[gzip, zstd]`. Defaults to `gzip`.
+Use this flag to select the compression algorithm `[gzip, zstd]`. Defaults to `gzip`, or to `zstd` when `FF_KANIKO_ZSTD_DEFAULT_COMPRESSION` is enabled. Set this flag explicitly to override that default.
+Zstd layers require OCI output; Docker schema2 output and `--tar-path` do not support zstd.
 
 ## Flag `--compression-level`
 

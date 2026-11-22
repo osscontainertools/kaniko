@@ -1464,6 +1464,7 @@ func buildKanikoImage(
 	contextDir string,
 	tlsCACert string,
 	dockerConfig string,
+	extraEnv ...string,
 ) ([]byte, error) {
 	// build kaniko image
 	additionalFlags := append(buildArgs, kanikoArgs...)
@@ -1484,6 +1485,9 @@ func buildKanikoImage(
 		for _, envVariable := range env {
 			dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 		}
+	}
+	for _, envVariable := range extraEnv {
+		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
 
 	if dockerConfig != "" {

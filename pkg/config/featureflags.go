@@ -98,6 +98,7 @@ type FeatureFlags struct {
 	WarmerBuildArgs                bool
 	WarmerFailOnError              bool
 	WarmerPredefinedArgs           bool
+	ZstdDefaultCompression         bool
 }
 
 var FF FeatureFlags
@@ -204,6 +205,7 @@ func InitFeatureFlags() {
 		WarmerBuildArgs:                featureFlag("FF_KANIKO_WARMER_BUILD_ARGS", false),
 		WarmerFailOnError:              featureFlag("FF_KANIKO_WARMER_FAIL_ON_ERROR", false),
 		WarmerPredefinedArgs:           featureFlag("FF_KANIKO_WARMER_PREDEFINED_ARGS", false),
+		ZstdDefaultCompression:         featureFlag("FF_KANIKO_ZSTD_DEFAULT_COMPRESSION", false),
 	}
 
 	fields := reflect.TypeFor[FeatureFlags]().NumField()

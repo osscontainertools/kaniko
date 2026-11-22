@@ -1844,6 +1844,81 @@ func TestCompressionLevel(t *testing.T) {
 	}
 }
 
+func TestZstdDefaultCompression(t *testing.T) {
+	t.Parallel()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name      string
+		flags     []string
+		env       []string
+		wantLayer ggcrtypes.MediaType
+		wantError string
+	}{
+		{
+			name:      "enabled_defaults_to_zstd",
+			flags:     []string{"--image-format=oci"},
+			env:       []string{"FF_KANIKO_ZSTD_DEFAULT_COMPRESSION=1"},
+			wantLayer: ggcrtypes.OCILayerZStd,
+		},
+		{
+			name:      "disabled_defaults_to_gzip",
+			flags:     []string{"--image-format=oci"},
+			wantLayer: ggcrtypes.OCILayer,
+		},
+		{
+			name:      "explicit_gzip_overrides_zstd",
+			flags:     []string{"--image-format=oci", "--compression=gzip"},
+			env:       []string{"FF_KANIKO_ZSTD_DEFAULT_COMPRESSION=1"},
+			wantLayer: ggcrtypes.OCILayer,
+		},
+		{
+			name:      "docker_output_rejected",
+			flags:     []string{"--image-format=docker"},
+			env:       []string{"FF_KANIKO_ZSTD_DEFAULT_COMPRESSION=1"},
+			wantError: "--compression=zstd cannot be used with --image-format=docker",
+		},
+		{
+			name:      "tar_output_rejected",
+			flags:     []string{"--tar-path=/tmp/zstd-default.tar"},
+			env:       []string{"FF_KANIKO_ZSTD_DEFAULT_COMPRESSION=1"},
+			wantError: "--compression=zstd cannot be used with --tar-path",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			image := GetKanikoImage(config.imageRepo, "zstd-default-"+tt.name)
+			out, err := buildKanikoImage(t, "testdata", "Dockerfile_test_issue_mz1061", nil,
+				tt.flags, image, cwd, "", "", tt.env...)
+
+			if tt.wantError != "" {
+				if err == nil {
+					t.Fatal("build succeeded, want it to fail")
+				}
+				if !strings.Contains(string(out), tt.wantError) {
+					t.Fatalf("build output %q does not contain expected error %q", out, tt.wantError)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("building image: %v\n%s", err, out)
+			}
+
+			mediaTypes := manifestMediaTypes(t, image)
+			got := mediaTypes[len(mediaTypes)-1]
+			if got != tt.wantLayer {
+				t.Errorf("last layer media type = %s, want %s", got, tt.wantLayer)
+			}
+		})
+	}
+}
+
 func lastLayerSize(t *testing.T, image string) int64 {
 	t.Helper()
 	img, err := getImage(image)

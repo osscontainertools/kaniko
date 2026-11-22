@@ -463,6 +463,9 @@ func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().StringVarP(&opts.ImageNameTagDigestFile, "image-name-tag-with-digest-file", "", "", "Specify a file to save the image name w/ image tag w/ digest of the built image to.")
 	cmd.Flags().StringVarP(&opts.IndexFile, "index-file", "", "", "Specify a file to save the OCI index of the built image to.")
 	cmd.Flags().StringVarP(&opts.OCILayoutPath, "oci-layout-path", "", "", "Path to save the OCI image layout of the built image.")
+	if opts.Compression == "" && config.FF.ZstdDefaultCompression {
+		opts.Compression = config.ZStd
+	}
 	cmd.Flags().VarP(&opts.Compression, "compression", "", "Compression algorithm (gzip, zstd)")
 	cmd.Flags().VarP(&opts.ImageFormat, "image-format", "", "Output image media type (docker, oci). Defaults to inheriting the format of the base image.")
 	cmd.Flags().IntVarP(&opts.CompressionLevel, "compression-level", "", 0, "Compression level, gzip -2 to 9, zstd 1 to 22. Defaults to the fastest level.")
