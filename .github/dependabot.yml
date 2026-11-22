@@ -24,6 +24,10 @@ updates:
       default-days: 0
     allow:
       - dependency-type: all
+    groups:
+      tools:
+        update-types:
+          - "patch"
 
   - package-ecosystem: github-actions
     directory: /
