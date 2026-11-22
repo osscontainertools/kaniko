@@ -531,18 +531,8 @@ var SignumFunc = function.New(&function.Spec{
 	Type:         function.StaticReturnType(cty.Number),
 	RefineResult: refineNonNull,
 	Impl: func(args []cty.Value, retType cty.Type) (ret cty.Value, err error) {
-		var num int
-		if err := gocty.FromCtyValue(args[0], &num); err != nil {
-			return cty.UnknownVal(cty.String), err
-		}
-		switch {
-		case num < 0:
-			return cty.NumberIntVal(-1), nil
-		case num > 0:
-			return cty.NumberIntVal(+1), nil
-		default:
-			return cty.NumberIntVal(0), nil
-		}
+		bf := args[0].AsBigFloat()
+		return cty.NumberIntVal(int64(bf.Sign())), nil
 	},
 })
 
