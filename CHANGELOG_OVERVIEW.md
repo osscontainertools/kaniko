@@ -1,11 +1,11 @@
 ## What's changed since Google's v1.24.0
 ### Security
-* go stdlib v1.24.3: CVE-2025-0913 CVE-2025-4673 CVE-2025-4674 CVE-2025-22874 CVE-2025-47906 CVE-2025-47907 CVE-2025-47912 CVE-2025-58183 CVE-2025-58185 CVE-2025-58186 CVE-2025-58187 CVE-2025-58188 CVE-2025-58189 CVE-2025-61723 CVE-2025-61724 CVE-2025-61725 CVE-2025-61729 CVE-2025-61727 CVE-2025-61726 CVE-2025-61728 CVE-2025-61730 CVE-2025-68121 CVE-2026-27137 CVE-2026-25679 CVE-2026-27142 CVE-2026-27138 CVE-2026-27139 CVE-2026-32280 CVE-2026-33810 CVE-2026-32281 CVE-2026-32283 CVE-2026-32282 CVE-2026-32289 CVE-2026-32288 CVE-2026-33811 CVE-2026-33814 CVE-2026-39820 CVE-2026-39836 CVE-2026-42499 CVE-2026-39823 CVE-2026-39825 CVE-2026-39826 CVE-2026-42504 CVE-2026-27145 CVE-2026-42507 CVE-2026-39822 CVE-2026-42505 CVE-2026-33818 CVE-2026-46600 CVE-2026-56853 CVE-2026-56858 CVE-2026-56859 CVE-2026-56860 CVE-2026-56862 CVE-2026-56857 CVE-2026-56866 CVE-2026-78659 CVE-2026-78660 CVE-2026-78663 CVE-2026-78667 CVE-2026-78669 CVE-2026-94439 CVE-2026-94440 CVE-2026-94448 CVE-2026-97030 CVE-2026-97031 CVE-2026-97032 CVE-2026-111943 (eMudhra)
+* go stdlib v1.24.3: CVE-2025-0913 CVE-2025-4673 CVE-2025-4674 CVE-2025-22874 CVE-2025-47906 CVE-2025-47907 CVE-2025-47912 CVE-2025-58183 CVE-2025-58185 CVE-2025-58186 CVE-2025-58187 CVE-2025-58188 CVE-2025-58189 CVE-2025-61723 CVE-2025-61724 CVE-2025-61725 CVE-2025-61729 CVE-2025-61727 CVE-2025-61726 CVE-2025-61728 CVE-2025-61730 CVE-2025-68121 CVE-2026-27137 CVE-2026-25679 CVE-2026-27142 CVE-2026-27138 CVE-2026-27139 CVE-2026-32280 CVE-2026-33810 CVE-2026-32281 CVE-2026-32283 CVE-2026-32282 CVE-2026-32289 CVE-2026-32288 CVE-2026-33811 CVE-2026-33814 CVE-2026-39820 CVE-2026-39836 CVE-2026-42499 CVE-2026-39823 CVE-2026-39825 CVE-2026-39826 CVE-2026-42504 CVE-2026-27145 CVE-2026-42507 CVE-2026-39822 CVE-2026-42505 CVE-2026-33818 CVE-2026-46600 CVE-2026-56853 CVE-2026-56858 CVE-2026-56859 CVE-2026-56860 CVE-2026-56862 CVE-2026-56857 CVE-2026-56866 CVE-2026-78659 CVE-2026-78660 CVE-2026-78663 CVE-2026-78667 CVE-2026-78669 CVE-2026-94439 CVE-2026-94440 CVE-2026-94448 CVE-2026-97030 CVE-2026-97031 CVE-2026-97032 CVE-2026-111943 (eMudhra) CVE-2026-97054
 * containerd v1.7.27: GHSA-m6hq-p25p-ffr2 GHSA-pwhc-rpq9-4c8w
 * containerd-v2 v2.1.1: GHSA-m6hq-p25p-ffr2 GHSA-pwhc-rpq9-4c8w
 * selinux v1.12.0: GHSA-cgrx-mc8f-2prm
 * remove binary artifacts: by @tlk in https://github.com/mzihlmann/kaniko/pull/54
-* golang.org/x/crypto 0.44.0: CVE-2025-47914 CVE-2025-58181 CVE-2026-39827 CVE-2026-39828 CVE-2026-39829 CVE-2026-39830 CVE-2026-39831 CVE-2026-39832 CVE-2026-39833 CVE-2026-39834 CVE-2026-39835 CVE-2026-42508 CVE-2026-46595 CVE-2026-46597 CVE-2026-46598 CVE-2026-56854 CVE-2026-56855 CVE-2026-78662
+* golang.org/x/crypto 0.44.0: CVE-2025-47914 CVE-2025-58181 CVE-2026-39827 CVE-2026-39828 CVE-2026-39829 CVE-2026-39830 CVE-2026-39831 CVE-2026-39832 CVE-2026-39833 CVE-2026-39834 CVE-2026-39835 CVE-2026-42508 CVE-2026-46595 CVE-2026-46597 CVE-2026-46598 CVE-2026-56854 CVE-2026-56855 CVE-2026-78662 GO-2026-5932
 * golang.org/x/net 0.40.0: CVE-2026-25680 CVE-2026-25681 CVE-2026-27136 CVE-2026-39821 CVE-2026-42502 CVE-2026-42506 CVE-2026-78659 CVE-2026-78660 CVE-2026-78661 CVE-2026-78663 CVE-2026-78669 CVE-2026-97032 CVE-2026-97045
 * golang.org/x/text 0.25.0: CVE-2026-56852
 * github.com/docker/cli v29.4.1: CVE-2025-15558
@@ -25,6 +25,7 @@
 * `FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES=true` scope `--registry-certificate` CAs to their registry: https://github.com/osscontainertools/kaniko/pull/1162
 * 🔗 `FF_KANIKO_CONFINE_HARDLINK_TARGET=true` block hardlinks into the kaniko directory: by @stevebeattie in https://github.com/osscontainertools/kaniko/pull/1367
 * skip mount relocation into ignored paths: https://github.com/osscontainertools/kaniko/pull/1370
+* `FF_KANIKO_VERIFY_LAYER_DIGEST=true` verify layer digests on extraction: https://github.com/osscontainertools/kaniko/pull/1495
 
 ### Bugfixes
 * cache extract fails on invalid symlinks: https://github.com/mzihlmann/kaniko/pull/3
@@ -54,6 +55,10 @@
 * `FF_KANIKO_WARMER_BUILD_ARGS=false` warmer lets an `ARG` default win over `--build-arg`: https://github.com/osscontainertools/kaniko/pull/1207
 * `ADD` to a relative destination without `WORKDIR` leaves the layer empty: https://github.com/osscontainertools/kaniko/pull/1339
 * `COPY --from` ignores predefined and inherited `ARG`s: https://github.com/osscontainertools/kaniko/pull/1376
+* `USER` fails on a variable modifier in the group: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1407
+* `FF_KANIKO_PROBE_CREDENTIALS=false` `DOCKER_AUTH_CONFIG` shadows the gitlab job token: https://github.com/osscontainertools/kaniko/pull/1396
+* `FF_KANIKO_GLOB_CHAR_PATHS=false` `COPY --from` of a directory with glob characters in its name copies nothing: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1425
+* `FF_KANIKO_RESUME_BLOB_DOWNLOADS=false` a dropped connection during a layer download fails the build: https://github.com/osscontainertools/kaniko/pull/1478
 
 ### Standardization
 * sticky bit gets lost on COPY: https://github.com/mzihlmann/kaniko/pull/45
@@ -104,6 +109,8 @@
 * `FF_KANIKO_RUN_MOUNT_BIND_RELATIVE=false` resolve relative bind mounts against `WORKDIR`: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1337
 * `FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=false` support `RUN --mount=type=bind,from`: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1280
 * reject variables in `COPY --from`: https://github.com/osscontainertools/kaniko/pull/1378
+* `FF_KANIKO_FROM_PREDEFINED_ARGS=false` resolve `TARGETARCH` in `FROM`: https://github.com/osscontainertools/kaniko/pull/1400
+* `FF_KANIKO_ALIGN_HISTORY=false` align image history with layers: https://github.com/osscontainertools/kaniko/pull/1469
 
 ### Caching
 * sourceImage's CreatedAt timestamp should not be included in cache key: https://github.com/mzihlmann/kaniko/pull/1
@@ -146,6 +153,9 @@
 * `FF_KANIKO_IMAGE_STAGES=true` skip unpacking the rootfs for fully cached stages: https://github.com/osscontainertools/kaniko/pull/1144
 * reuse pooled copy buffers: https://github.com/osscontainertools/kaniko/pull/1313 https://github.com/osscontainertools/kaniko/pull/1314
 * `FF_KANIKO_PARALLEL_HASH=false` hash snapshot files in parallel: by @tran4774 in https://github.com/osscontainertools/kaniko/pull/1251
+* `FF_KANIKO_PARALLEL_GUNZIP=false` decompress base layers ahead of extraction: https://github.com/osscontainertools/kaniko/pull/1377
+* warmer fetches each base once: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1432
+* `FF_KANIKO_REPRODUCIBLE_SKIP_BASE_REWRITE=false` `--reproducible` rewrites only the layers above the base: https://github.com/osscontainertools/kaniko/pull/1470
 
 ### Usability
 * if target stage is unspecified we now implicitly target the last stage: https://github.com/mzihlmann/kaniko/pull/27
@@ -173,17 +183,23 @@
 * `COPY` and `ADD` `--chmod` now accepts symbolic notation (e.g. `go=u`, `u=rwX,go=rX`) in addition to octal: https://github.com/osscontainertools/kaniko/pull/800
 * `--image-format=docker|oci` pins the output manifest media type instead of inheriting it from the base image: https://github.com/osscontainertools/kaniko/pull/850
 * `FF_KANIKO_PATH_SCOPED_REGISTRY_AUTH=true` match an `auths` entry by repository namespace: by @WoozyMasta in https://github.com/osscontainertools/kaniko/pull/1002
-* experimental support for bakefile via `kaniko bake`: https://github.com/osscontainertools/kaniko/pull/773
 * `FF_KANIKO_LAYER_HINTS=true` kaniko now hints at common mistakes: https://github.com/osscontainertools/kaniko/pull/1121
 * warmer `--dryrun` prints which bases it would fetch: https://github.com/osscontainertools/kaniko/pull/1206
 * `--predefined-annotations` sets the OCI source, revision, version and base image annotations: https://github.com/osscontainertools/kaniko/pull/1227
 * `--provenance` attaches a SLSA provenance attestation: https://github.com/osscontainertools/kaniko/pull/1230
 * `FF_KANIKO_NATIVE_INIT=false` kaniko acts as its own init process: https://github.com/osscontainertools/kaniko/pull/1222
 * `--cache-from` and `--cache-to`: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1346
-* bake per-target `cache_from` and `cache_to`: https://github.com/osscontainertools/kaniko/pull/1350
 * `--require-digest` rejects unpinned bases: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1362
-* bake per-target `context` and `dockerfile`: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1345
 * `--require-add-checksum` rejects remote `ADD` without `--checksum`: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1375
+* `FF_KANIKO_WARMER_FAIL_ON_ERROR=false` warmer fails when any base fails to warm: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1433
+
+### Bake
+* experimental support for bakefile via `kaniko bake`: https://github.com/osscontainertools/kaniko/pull/773
+* bake per-target `cache_from` and `cache_to`: https://github.com/osscontainertools/kaniko/pull/1350
+* bake per-target `context` and `dockerfile`: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1345
+* `bake --print` shows the resolved targets: https://github.com/osscontainertools/kaniko/pull/1392
+* `warmer bake` warms the bases of every target: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1399
+* bake per-target `build_arg`: https://github.com/osscontainertools/kaniko/pull/1420
 
 ### Telemetry
 * opt-in OpenTelemetry tracing via `KANIKO_TELEMETRY_ENDPOINT`, one trace per build: by @babs in https://github.com/osscontainertools/kaniko/pull/902 https://github.com/osscontainertools/kaniko/pull/951 https://github.com/osscontainertools/kaniko/pull/913 https://github.com/osscontainertools/kaniko/pull/931 https://github.com/osscontainertools/kaniko/pull/1019
@@ -213,6 +229,8 @@
 * ship licenses in the images: https://github.com/osscontainertools/kaniko/pull/1247
 * ship credential helpers as hardlinks to the executor: https://github.com/osscontainertools/kaniko/pull/1224
 * `slim` image drops the cloud SDKs, go-git and OpenTelemetry: https://github.com/osscontainertools/kaniko/pull/1279 https://github.com/osscontainertools/kaniko/pull/1265
+* `slim-fips` image: by @gary-wall in https://github.com/osscontainertools/kaniko/pull/1402
+* build the kaniko images with SLSA L3: https://github.com/osscontainertools/kaniko/pull/1431 https://github.com/osscontainertools/kaniko/pull/1477 https://github.com/osscontainertools/kaniko/pull/1481
 
 ### Shoutout & Thanks
 * 🔗 cleanup jobs: by @cpanato in https://github.com/mzihlmann/kaniko/pull/55
