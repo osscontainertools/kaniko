@@ -20,6 +20,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"cmp"
+	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -28,6 +29,10 @@ import (
 	"io"
 	"log"
 	"math"
+	"net"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,6 +40,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -206,6 +212,167 @@ func buildRequiredImages() error {
 		return err
 	}
 
+	err = serveCorruptedLayerImage(config.busyboxBaseImage, config.imageRepo)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// serveCorruptedLayerImage pushes verify-layer-digest:latest to the root of the imageRepo registry
+// and serves it on localhost:5003 with its top layer blob corrupted, the way a broken mirror would.
+// It also pushes digest-retry:latest, whose top layer the proxy replaces on the first two fetches
+// with a valid layer that holds an extra /tampered file.
+func serveCorruptedLayerImage(baseRef, imageRepo string) error {
+	src, err := name.ParseReference(baseRef, name.WeakValidation)
+	if err != nil {
+		return fmt.Errorf("parsing base ref %s: %v", baseRef, err)
+	}
+	base, err := remote.Image(src, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		return fmt.Errorf("pulling verify-layer-digest base image: %v", err)
+	}
+	man, err := base.Manifest()
+	if err != nil {
+		return fmt.Errorf("reading verify-layer-digest base manifest: %v", err)
+	}
+	mediaType := ggcrtypes.DockerLayer
+	if strings.Contains(string(man.MediaType), ggcrtypes.OCIVendorPrefix) {
+		mediaType = ggcrtypes.OCILayer
+	}
+
+	probe, err := buildTar([]tarEntry{{"probe", tar.TypeReg, 0o644, "genuine\n"}})
+	if err != nil {
+		return err
+	}
+	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(probe)), nil
+	}, tarball.WithMediaType(mediaType), tarball.WithCompressionLevel(gzip.NoCompression))
+	if err != nil {
+		return fmt.Errorf("creating verify-layer-digest layer: %v", err)
+	}
+	rc, err := layer.Compressed()
+	if err != nil {
+		return err
+	}
+	blob, err := io.ReadAll(rc)
+	rc.Close()
+	if err != nil {
+		return err
+	}
+	// stored deflate blocks carry the file bytes verbatim, so the same-size edit still inflates and only the gzip CRC and the digest disagree
+	corrupted := bytes.Replace(blob, []byte("genuine\n"), []byte("corrupt\n"), 1)
+	if bytes.Equal(corrupted, blob) {
+		return fmt.Errorf("the verify-layer-digest blob does not hold the file bytes verbatim")
+	}
+	digest, err := layer.Digest()
+	if err != nil {
+		return err
+	}
+
+	img, err := mutate.AppendLayers(base, layer)
+	if err != nil {
+		return err
+	}
+	registry, _, _ := strings.Cut(imageRepo, "/")
+	ref, err := name.ParseReference(registry+"/verify-layer-digest:latest", name.WeakValidation)
+	if err != nil {
+		return err
+	}
+	err = remote.Write(ref, img, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		return fmt.Errorf("pushing verify-layer-digest image: %v", err)
+	}
+
+	// both blobs are stored deflate of tars with equally long entries, so the tampered one has the genuine size
+	// and is read to its end, past /tampered, before its digest is checked
+	genuineTar, err := buildTar([]tarEntry{
+		{"probe", tar.TypeReg, 0o644, "retry\n"},
+		{"intact", tar.TypeReg, 0o644, "x\n"},
+	})
+	if err != nil {
+		return err
+	}
+	retryLayer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(genuineTar)), nil
+	}, tarball.WithMediaType(mediaType), tarball.WithCompressionLevel(gzip.NoCompression))
+	if err != nil {
+		return fmt.Errorf("creating digest-retry layer: %v", err)
+	}
+	retryDigest, err := retryLayer.Digest()
+	if err != nil {
+		return err
+	}
+	retrySize, err := retryLayer.Size()
+	if err != nil {
+		return err
+	}
+	tamperedTar, err := buildTar([]tarEntry{
+		{"probe", tar.TypeReg, 0o644, "retry\n"},
+		{"tampered", tar.TypeReg, 0o644, "x\n"},
+	})
+	if err != nil {
+		return err
+	}
+	tamperedLayer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(tamperedTar)), nil
+	}, tarball.WithMediaType(mediaType), tarball.WithCompressionLevel(gzip.NoCompression))
+	if err != nil {
+		return fmt.Errorf("creating digest-retry tampered layer: %v", err)
+	}
+	rc, err = tamperedLayer.Compressed()
+	if err != nil {
+		return err
+	}
+	tampered, err := io.ReadAll(rc)
+	rc.Close()
+	if err != nil {
+		return err
+	}
+	if int64(len(tampered)) != retrySize {
+		return fmt.Errorf("the tampered digest-retry blob is %d bytes, the genuine one %d", len(tampered), retrySize)
+	}
+	retryImg, err := mutate.AppendLayers(base, retryLayer)
+	if err != nil {
+		return err
+	}
+	retryRef, err := name.ParseReference(registry+"/digest-retry:latest", name.WeakValidation)
+	if err != nil {
+		return err
+	}
+	err = remote.Write(retryRef, retryImg, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	if err != nil {
+		return fmt.Errorf("pushing digest-retry image: %v", err)
+	}
+	var tamperedFetches atomic.Int32
+	tamperedFetches.Store(2)
+
+	proxy := httputil.NewSingleHostReverseProxy(&url.URL{Scheme: "http", Host: registry})
+	ln, err := net.Listen("tcp", "localhost:5003")
+	if err != nil {
+		return fmt.Errorf("listening for the verify-layer-digest proxy: %v", err)
+	}
+	go func() {
+		err := http.Serve(ln, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			isGet := r.Method == http.MethodGet
+			switch {
+			case isGet && strings.HasSuffix(r.URL.Path, "/blobs/"+digest.String()):
+				_, err := w.Write(corrupted)
+				if err != nil {
+					log.Printf("serving the corrupted verify-layer-digest blob: %v", err)
+				}
+			case isGet && strings.HasSuffix(r.URL.Path, "/blobs/"+retryDigest.String()) && tamperedFetches.Add(-1) >= 0:
+				_, err := w.Write(tampered)
+				if err != nil {
+					log.Printf("serving the tampered digest-retry blob: %v", err)
+				}
+			default:
+				proxy.ServeHTTP(w, r)
+			}
+		}))
+		log.Printf("verify-layer-digest proxy stopped: %v", err)
+	}()
 	return nil
 }
 

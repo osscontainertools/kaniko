@@ -256,6 +256,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_UNPACK_XZ=1",
 	"FF_KANIKO_UNPACK_ZSTD=1",
 	"FF_KANIKO_UNTAR_SKIP_ROOT=1",
+	"FF_KANIKO_VERIFY_LAYER_DIGEST=1",
 	"FF_KANIKO_WARMER_BUILD_ARGS=1",
 	"FF_KANIKO_WARMER_FAIL_ON_ERROR=1",
 	"FF_KANIKO_WARMER_PREDEFINED_ARGS=1",
@@ -319,6 +320,7 @@ var executorImages = map[string]string{
 // Arguments to build Dockerfiles with when building with kaniko
 var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz822":                {"--cache=true", "--cache-copy-layers=true"},
+	"Dockerfile_test_digest_retry":               {"--image-fs-extract-retry=2"},
 	"Dockerfile_test_issue_mz1133_cache":         {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz1201":               {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz824":                {"--cache=true"},
@@ -436,6 +438,7 @@ var expectErr = map[string]int{
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": 1,
 	"Dockerfile_test_issue_mz1375_stage_fail":     1,
 	"Dockerfile_test_issue_mz1374":                1,
+	"Dockerfile_test_verify_layer_digest":         1,
 }
 
 var expectErrOutput = map[string]string{
@@ -462,6 +465,7 @@ var expectErrOutput = map[string]string{
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": "invalid checksum digest format",
 	"Dockerfile_test_issue_mz1375_stage_fail":     "--require-add-checksum: ADD https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz has no --checksum",
 	"Dockerfile_test_issue_mz1374":                "resolves to excluded path",
+	"Dockerfile_test_verify_layer_digest":         "verifying layer",
 }
 
 var crossCompileArch = func() string {
@@ -778,6 +782,7 @@ var expectedWarnings = map[string]string{
 	// 1599: a fifo COPY into /kaniko must warn and be skipped like any other file.
 	"Dockerfile_test_issue_1599_2": "Skipping copy targeting kaniko directory",
 	"Dockerfile_test_issue_cg533":  "Skipping hardlink probe",
+	"Dockerfile_test_digest_retry": "Retrying operation",
 }
 
 func checkNoWarnings(dockerfile string, out []byte) error {
@@ -968,6 +973,8 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_mz1230_reproducible":  {},
 		"Dockerfile_test_issue_mz1230_oci":           {},
 		"Dockerfile_test_issue_mz1230_tar":           {},
+		// docker would take the tampered fetches
+		"Dockerfile_test_digest_retry": {},
 	}
 	return &d
 }

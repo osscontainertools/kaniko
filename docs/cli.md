@@ -486,6 +486,8 @@ snapshot. Set it multiple times for multiple ignore paths.
 
 Set this flag to the number of retries that should happen for the extracting an
 image filesystem. Defaults to `0`.
+When set, base images are downloaded and verified in the local store before they are extracted, and the download is what gets retried.
+Has no effect with `FF_KANIKO_SHARED_BASE_CACHE=false`.
 
 ## Flag `--image-download-retry`
 

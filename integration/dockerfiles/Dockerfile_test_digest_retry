@@ -1,0 +1,6 @@
+# The proxy on localhost:5003 serves the top layer of this base tampered on the first two fetches.
+# The tampered layer holds an extra /tampered file and fails its digest check.
+# With --image-fs-extract-retry the base is verified in the local store before it is extracted,
+# and the store is retried until it gets the genuine layer. /tampered must never reach the build.
+FROM localhost:5003/digest-retry:latest
+RUN test ! -e /tampered

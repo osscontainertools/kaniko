@@ -534,6 +534,13 @@ Set this flag to `true` to skip the root `.` entry when untarring.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
 
+## Flag `FF_KANIKO_VERIFY_LAYER_DIGEST`
+
+Layer extraction stops at the tar end-of-archive marker and never reads the blob to its end, so a registry or mirror serving different content under a layer digest goes unnoticed.
+Set this flag to `true` to read every layer to its end and fail the build on a digest mismatch.
+Defaults to `true`.
+Will be deprecated in `v1.30.0`.
+
 ## Flag `FF_KANIKO_WARMER_BUILD_ARGS`
 
 In warmer an `ARG` default wins over an explicit `--build-arg`, and `--build-arg BASE` without a value is not read from the environment.

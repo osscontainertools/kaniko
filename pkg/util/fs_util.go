@@ -274,6 +274,13 @@ func extractLayer(i int, l v1.Layer, root string, cfg *FSConfig) ([]string, erro
 
 		extractedFiles = append(extractedFiles, filepath.Join(root, cleanedName))
 	}
+	if config.FF.VerifyLayerDigest {
+		// the blob digest is only checked once the stream hits EOF, and tar stops at its end-of-archive marker
+		_, err = io.Copy(io.Discard, r)
+		if err != nil {
+			return nil, fmt.Errorf("verifying layer %d: %w", i, err)
+		}
+	}
 	return extractedFiles, nil
 }
 
