@@ -772,7 +772,7 @@ github.com/ulikunitz/xz/lzma
 # github.com/xanzy/ssh-agent v0.3.3
 ## explicit; go 1.16
 github.com/xanzy/ssh-agent
-# github.com/zclconf/go-cty v1.19.0
+# github.com/zclconf/go-cty v1.20.0
 ## explicit; go 1.25
 github.com/zclconf/go-cty/cty
 github.com/zclconf/go-cty/cty/convert
