@@ -32,6 +32,7 @@ import (
 
 var acrRE = regexp.MustCompile(`^.*\.azurecr\.io$|^.*\.azurecr\.cn$|^.*\.azurecr\.de$|^.*\.azurecr\.us$`)
 var strictHostCheck = config.EnvBool("FF_DOCKER_ACR_STRICT_HOST_CHECK", true)
+var skipMCR = config.EnvBool("FF_DOCKER_ACR_SKIP_MCR", false)
 
 const (
 	mcrHostname    = "mcr.microsoft.com"
@@ -62,7 +63,7 @@ func parseACRRegistry(input string, strict bool) (string, bool) {
 	if strict && serverURL.Host != input {
 		return "", false
 	}
-	if serverURL.Hostname() == mcrHostname {
+	if serverURL.Hostname() == mcrHostname && !skipMCR {
 		return serverURL.Host, true
 	}
 	matches := acrRE.FindStringSubmatch(serverURL.Hostname())
