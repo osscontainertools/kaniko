@@ -1339,7 +1339,7 @@ func TestReproducible(t *testing.T) {
 		"Dockerfile_test_issue_mz731":               {ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerConfigJSON, ggcrtypes.DockerLayer, ggcrtypes.DockerLayer},
 		"Dockerfile_test_issue_mz851":               {ggcrtypes.OCIManifestSchema1, ggcrtypes.OCIConfigJSON, ggcrtypes.OCILayer, ggcrtypes.OCILayerZStd},
 		"Dockerfile_test_issue_mz1365":              {ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerConfigJSON, ggcrtypes.DockerLayer, ggcrtypes.DockerLayer, ggcrtypes.DockerLayer},
-		"Dockerfile_test_reproducible_mounted_base": {ggcrtypes.OCIManifestSchema1, ggcrtypes.OCIConfigJSON, ggcrtypes.OCILayer, ggcrtypes.OCILayer, ggcrtypes.OCILayer},
+		"Dockerfile_test_reproducible_mounted_base": {ggcrtypes.OCIManifestSchema1, ggcrtypes.OCIConfigJSON, ggcrtypes.OCILayer, ggcrtypes.OCILayer, ggcrtypes.OCILayerZStd},
 	}
 	for dockerfile := range imageBuilder.TestReproducibleDockerfiles {
 		if match, _ := filepath.Match(config.dockerfilesPattern, dockerfile); !match {

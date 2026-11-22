@@ -165,7 +165,7 @@ func validateOutputFlags(opts *config.KanikoOptions) error {
 	if opts.TarPath != "" && opts.ImageFormat == config.ImageFormatOCI {
 		return errors.New("--tar-path writes a Docker schema2 tarball and cannot be used with --image-format=oci, use --oci-layout-path to write an OCI image")
 	}
-	if opts.TarPath != "" && opts.Compression == config.ZStd {
+	if opts.TarPath != "" && opts.Compression == config.ZStd && !opts.Dryrun {
 		return errors.New("--compression=zstd cannot be used with --tar-path, the Docker schema2 tarball has no zstd layer media type, use --oci-layout-path for zstd layers")
 	}
 	if opts.IndexFile != "" && !opts.Provenance {
