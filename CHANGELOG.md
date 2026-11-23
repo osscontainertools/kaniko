@@ -1,5 +1,8 @@
 # v1.29.2 Release 2026-11-22
 
+## Update Notice
+> ⚠️ With `--image-fs-extract-retry` set, kaniko downloads each base image completely into its local store before extracting it, instead of streaming its layers. Builds on large base images take longer and use more disk. To keep streaming, drop `--image-fs-extract-retry` and set `FF_KANIKO_RESUME_BLOB_DOWNLOADS=true`, which continues a dropped layer download. Without `FF_KANIKO_SHARED_BASE_CACHE`, kaniko ignores `--image-fs-extract-retry`.
+
 ## Community Update
 @ehfd made their first contribution in https://github.com/osscontainertools/kaniko/pull/1463. @ehfd builds on large images and suggested many optimizations around pulling base images or skipping the pull altogether.
 
