@@ -1310,7 +1310,8 @@ func (d *DockerFileBuilder) buildRelativePathsImage(t *testing.T, config *integr
 	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
-		"-c", buildContextPath)
+		"-c", buildContextPath,
+		"--compression=gzip")
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 

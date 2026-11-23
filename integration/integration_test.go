@@ -608,7 +608,8 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
-		"-c", KanikoGitRepo(url, commit, branch))
+		"-c", KanikoGitRepo(url, commit, branch),
+		"--compression=gzip")
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -684,6 +685,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 		"-d", kanikoImage,
 		"-c", KanikoGitRepo(url, "", branch),
 		"--context-sub-path", filepath.Join(integrationPath, dockerfilesPath),
+		"--compression=gzip",
 	)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
@@ -729,7 +731,8 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 		"-d", kanikoImage,
 		"--registry-mirror", "doesnotexist.example.com",
 		"--registry-mirror", "us-mirror.gcr.io",
-		"-c", "/workspace")
+		"-c", "/workspace",
+		"--compression=gzip")
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -774,7 +777,8 @@ func TestBuildViaRegistryMap(t *testing.T) {
 		"-d", kanikoImage,
 		"--registry-map", "index.docker.io=doesnotexist.example.com",
 		"--registry-map", "index.docker.io=us-mirror.gcr.io",
-		"-c", "/workspace")
+		"-c", "/workspace",
+		"--compression=gzip")
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -846,7 +850,8 @@ func TestKanikoDir(t *testing.T) {
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", "/workspace/Dockerfile_registry_mirror",
 		"-d", kanikoImage,
-		"-c", "/workspace")
+		"-c", "/workspace",
+		"--compression=gzip")
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 	kanikoCmd.Env = append(kanikoCmd.Env, "KANIKO_DIR=/not-kaniko")
@@ -1811,6 +1816,7 @@ func TestBuildWithAnnotations(t *testing.T) {
 		"-d", kanikoImage,
 		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
 		"-c", "/workspace",
+		"--compression=gzip",
 	)
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 	out, err = RunCommandWithoutTest(kanikoCmd)
