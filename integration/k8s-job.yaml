@@ -12,6 +12,7 @@ spec:
         workingDir: /workspace
         args: [ "--context=dir:///workspace",
                 "--build-arg=IMAGE_REPO={{.ImageRepo}}",
+                "--compression=gzip",
                 "--destination={{.KanikoImage}}"]
         env:
         {{- if .CoverageDir}}
