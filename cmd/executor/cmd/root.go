@@ -159,13 +159,13 @@ func setupBuild() error {
 // validateOutputFlags rejects the flag combinations that describe an image kaniko
 // cannot write. Every command that builds has to run it.
 func validateOutputFlags(opts *config.KanikoOptions) error {
-	if opts.ImageFormat == config.ImageFormatDocker && opts.Compression == config.ZStd {
+	if opts.ImageFormat == config.ImageFormatDocker && opts.Compression == config.ZStd && !opts.Dryrun {
 		return errors.New("--compression=zstd cannot be used with --image-format=docker, the Docker schema2 format has no zstd layer media type, use --image-format=oci")
 	}
 	if opts.TarPath != "" && opts.ImageFormat == config.ImageFormatOCI {
 		return errors.New("--tar-path writes a Docker schema2 tarball and cannot be used with --image-format=oci, use --oci-layout-path to write an OCI image")
 	}
-	if opts.TarPath != "" && opts.Compression == config.ZStd {
+	if opts.TarPath != "" && opts.Compression == config.ZStd && !opts.Dryrun {
 		return errors.New("--compression=zstd cannot be used with --tar-path, the Docker schema2 tarball has no zstd layer media type, use --oci-layout-path for zstd layers")
 	}
 	if opts.IndexFile != "" && !opts.Provenance {
@@ -468,6 +468,9 @@ func AddSharedBuildFlags(cmd *cobra.Command, opts *config.KanikoOptions) {
 	cmd.Flags().StringVarP(&opts.ImageNameTagDigestFile, "image-name-tag-with-digest-file", "", "", "Specify a file to save the image name w/ image tag w/ digest of the built image to.")
 	cmd.Flags().StringVarP(&opts.IndexFile, "index-file", "", "", "Specify a file to save the OCI index of the built image to.")
 	cmd.Flags().StringVarP(&opts.OCILayoutPath, "oci-layout-path", "", "", "Path to save the OCI image layout of the built image.")
+	if opts.Compression == "" && config.FF.ZstdDefaultCompression {
+		opts.Compression = config.ZStd
+	}
 	cmd.Flags().VarP(&opts.Compression, "compression", "", "Compression algorithm (gzip, zstd)")
 	cmd.Flags().VarP(&opts.ImageFormat, "image-format", "", "Output image media type (docker, oci). Defaults to inheriting the format of the base image.")
 	cmd.Flags().IntVarP(&opts.CompressionLevel, "compression-level", "", 0, "Compression level, gzip -2 to 9, zstd 1 to 22. Defaults to the fastest level.")

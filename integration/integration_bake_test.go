@@ -86,8 +86,8 @@ func TestBake(t *testing.T) {
 			kanikoFlags = addAuthFlags(kanikoFlags)
 			kanikoFlags = addCoverageFlags(kanikoFlags)
 			kanikoFlags = addKanikoEnvFlags(kanikoFlags, t.Name())
-			// Match buildx's OCI registry output; Kaniko otherwise inherits the base image format.
-			kanikoFlags = append(kanikoFlags, executorImage, "bake", path.Join("/ctx", bakefileDir, "kaniko-bake.hcl"), "-c", "/ctx", "--image-format=oci")
+			// Match buildx's OCI registry output and gzip layer compression.
+			kanikoFlags = append(kanikoFlags, executorImage, "bake", path.Join("/ctx", bakefileDir, "kaniko-bake.hcl"), "-c", "/ctx", "--image-format=oci", "--compression=gzip")
 			dockerFlags := []string{"buildx", "bake", "-f", filepath.Join(bakefileDir, "docker-bake.hcl")}
 			var dockerTargets []string
 			for _, target := range targets {

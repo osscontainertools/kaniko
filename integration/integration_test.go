@@ -775,7 +775,8 @@ func testGitBuildcontextHelper(t *testing.T, url string, commit string, branch s
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
-		"-c", KanikoGitRepo(url, commit, branch))
+		"-c", KanikoGitRepo(url, commit, branch),
+		"--compression=gzip")
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -851,6 +852,7 @@ func TestGitBuildcontextSubPath(t *testing.T) {
 		"-d", kanikoImage,
 		"-c", KanikoGitRepo(url, "", branch),
 		"--context-sub-path", filepath.Join(integrationPath, dockerfilesPath),
+		"--compression=gzip",
 	)
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
@@ -896,7 +898,8 @@ func TestBuildViaRegistryMirrors(t *testing.T) {
 		"-d", kanikoImage,
 		"--registry-mirror", "doesnotexist.example.com",
 		"--registry-mirror", "us-mirror.gcr.io",
-		"-c", "/workspace")
+		"-c", "/workspace",
+		"--compression=gzip")
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -941,7 +944,8 @@ func TestBuildViaRegistryMap(t *testing.T) {
 		"-d", kanikoImage,
 		"--registry-map", "index.docker.io=doesnotexist.example.com",
 		"--registry-map", "index.docker.io=us-mirror.gcr.io",
-		"-c", "/workspace")
+		"-c", "/workspace",
+		"--compression=gzip")
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -1013,7 +1017,8 @@ func TestKanikoDir(t *testing.T) {
 	dockerRunFlags = append(dockerRunFlags, ExecutorImage,
 		"-f", "/workspace/Dockerfile_registry_mirror",
 		"-d", kanikoImage,
-		"-c", "/workspace")
+		"-c", "/workspace",
+		"--compression=gzip")
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 	kanikoCmd.Env = append(kanikoCmd.Env, "KANIKO_DIR=/not-kaniko")
@@ -1506,7 +1511,7 @@ func TestReproducible(t *testing.T) {
 		"Dockerfile_test_issue_mz731":               {ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerConfigJSON, ggcrtypes.DockerLayer, ggcrtypes.DockerLayer},
 		"Dockerfile_test_issue_mz851":               {ggcrtypes.OCIManifestSchema1, ggcrtypes.OCIConfigJSON, ggcrtypes.OCILayer, ggcrtypes.OCILayerZStd},
 		"Dockerfile_test_issue_mz1365":              {ggcrtypes.DockerManifestSchema2, ggcrtypes.DockerConfigJSON, ggcrtypes.DockerLayer, ggcrtypes.DockerLayer, ggcrtypes.DockerLayer},
-		"Dockerfile_test_reproducible_mounted_base": {ggcrtypes.OCIManifestSchema1, ggcrtypes.OCIConfigJSON, ggcrtypes.OCILayer, ggcrtypes.OCILayer, ggcrtypes.OCILayer},
+		"Dockerfile_test_reproducible_mounted_base": {ggcrtypes.OCIManifestSchema1, ggcrtypes.OCIConfigJSON, ggcrtypes.OCILayer, ggcrtypes.OCILayer, ggcrtypes.OCILayerZStd},
 	}
 	for dockerfile := range imageBuilder.TestReproducibleDockerfiles {
 		if match, _ := filepath.Match(config.dockerfilesPattern, dockerfile); !match {
@@ -1978,6 +1983,7 @@ func TestBuildWithAnnotations(t *testing.T) {
 		"-d", kanikoImage,
 		"--annotation", fmt.Sprintf("%s=%s", annotationKey, annotationValue),
 		"-c", "/workspace",
+		"--compression=gzip",
 	)
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 	out, err = RunCommandWithoutTest(kanikoCmd)
@@ -2008,6 +2014,77 @@ func TestCompressionLevel(t *testing.T) {
 	// 0 stores the layer, 1 is the fastest deflate, -1 is the gzip default of 6
 	if sizes["0"] <= sizes["1"] || sizes["1"] <= sizes["-1"] {
 		t.Errorf("layer should shrink as the gzip level rises, got 0=%d 1=%d -1=%d", sizes["0"], sizes["1"], sizes["-1"])
+	}
+}
+
+func TestZstdDefaultCompression(t *testing.T) {
+	t.Parallel()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name      string
+		flags     []string
+		env       []string
+		wantLayer ggcrtypes.MediaType
+		wantError string
+	}{
+		{
+			name:      "enabled_defaults_to_zstd",
+			flags:     []string{"--image-format=oci"},
+			wantLayer: ggcrtypes.OCILayerZStd,
+		},
+		{
+			name:      "disabled_defaults_to_gzip",
+			flags:     []string{"--image-format=oci"},
+			env:       []string{"FF_KANIKO_ZSTD_DEFAULT_COMPRESSION=0"},
+			wantLayer: ggcrtypes.OCILayer,
+		},
+		{
+			name:      "explicit_gzip_overrides_zstd",
+			flags:     []string{"--image-format=oci", "--compression=gzip"},
+			wantLayer: ggcrtypes.OCILayer,
+		},
+		{
+			name:      "docker_output_rejected",
+			flags:     []string{"--image-format=docker"},
+			wantError: "--compression=zstd cannot be used with --image-format=docker",
+		},
+		{
+			name:      "tar_output_rejected",
+			flags:     []string{"--tar-path=/tmp/zstd-default.tar"},
+			wantError: "--compression=zstd cannot be used with --tar-path",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			image := GetKanikoImage(config.imageRepo, "zstd-default-"+tt.name)
+			out, err := buildKanikoImage(t, "testdata", "Dockerfile_test_issue_mz1061", nil,
+				tt.flags, image, cwd, "", "", tt.env...)
+
+			if tt.wantError != "" {
+				if err == nil {
+					t.Fatal("build succeeded, want it to fail")
+				}
+				if !strings.Contains(string(out), tt.wantError) {
+					t.Fatalf("build output %q does not contain expected error %q", out, tt.wantError)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("building image: %v\n%s", err, out)
+			}
+
+			mediaTypes := manifestMediaTypes(t, image)
+			got := mediaTypes[len(mediaTypes)-1]
+			if got != tt.wantLayer {
+				t.Errorf("last layer media type = %s, want %s", got, tt.wantLayer)
+			}
+		})
 	}
 }
 
@@ -2117,13 +2194,17 @@ func TestPushFromArtifact(t *testing.T) {
 			)
 
 			// Two-step: build to an artifact (no push), then push from it.
-			runExecutor(append([]string{
+			artifactBuildArgs := []string{
 				"-f", "/workspace/Dockerfile.trivial",
 				"-c", "/workspace",
 				"--no-push",
 				artifactFlags[0], "/out/image",
 				"--reproducible",
-			}, artifactFlags[1:]...)...)
+			}
+			if outFlag == "tar-path" {
+				artifactBuildArgs = append(artifactBuildArgs, "--compression=gzip")
+			}
+			runExecutor(append(artifactBuildArgs, artifactFlags[1:]...)...)
 			runExecutor(
 				"push", "/out/image",
 				"-d", fromArtifactImage,

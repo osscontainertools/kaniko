@@ -562,3 +562,10 @@ In warmer the predefined platform args such as `TARGETARCH` resolve to empty in 
 Set this flag to `true` to resolve them from `--customPlatform` and the host.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
+
+## Flag `FF_KANIKO_ZSTD_DEFAULT_COMPRESSION`
+
+By default, kaniko compresses new layers with gzip. Set this flag to `true` to default to zstd instead. An explicit `--compression` value takes precedence.
+Zstd layers require OCI output; Docker schema2 output and `--tar-path` do not support zstd.
+Defaults to `false`.
+Becomes default in `v1.30.0`.

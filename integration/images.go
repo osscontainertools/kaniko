@@ -260,6 +260,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_WARMER_BUILD_ARGS=1",
 	"FF_KANIKO_WARMER_FAIL_ON_ERROR=1",
 	"FF_KANIKO_WARMER_PREDEFINED_ARGS=1",
+	"FF_KANIKO_ZSTD_DEFAULT_COMPRESSION=1",
 	"KANIKO_PRINT_PLAN=1",
 	"GORACE=halt_on_error=1",
 	"KANIKO_TELEMETRY_ENDPOINT",
@@ -324,18 +325,32 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1133_cache":         {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz1201":               {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz824":                {"--cache=true"},
+	"issue-721":                                  {"--compression=gzip"},
+	"issue-1568":                                 {"--compression=gzip"},
+	"issue-1315":                                 {"--compression=gzip"},
+	"issue-57":                                   {"--compression=gzip"},
+	"issue-774":                                  {"--compression=gzip"},
+	"issue-2075":                                 {"--compression=gzip"},
+	"issue-1020":                                 {"--compression=gzip"},
+	"Dockerfile_test_replaced_hardlinks":         {"--compression=gzip"},
+	"Dockerfile_test_healthcheck":                {"--compression=gzip"},
+	"Dockerfile_test_copy_reproducible":          {"--compression=gzip"},
 	"Dockerfile_test_issue_519":                  {"--target=final_stage,nosquash1,nosquash2"},
-	"Dockerfile_test_issue_mz849":                {"--image-format=docker"},
-	"Dockerfile_test_issue_mz849_dockerv2":       {"--image-format=docker"},
-	"Dockerfile_test_issue_mz849_ociv1":          {"--image-format=oci"},
-	"Dockerfile_test_issue_mz1066_docker":        {"--image-format=docker"},
+	"Dockerfile_test_issue_mz849":                {"--image-format=docker", "--compression=gzip"},
+	"Dockerfile_test_issue_mz849_dockerv2":       {"--image-format=docker", "--compression=gzip"},
+	"Dockerfile_test_issue_mz849_ociv1":          {"--image-format=oci", "--compression=gzip"},
+	"Dockerfile_test_issue_mz1066_docker":        {"--image-format=docker", "--compression=gzip"},
+	"Dockerfile_test_add_dest_symlink_dir":       {"--compression=gzip"},
+	"Dockerfile_test_issue_mz731":                {"--compression=gzip"},
+	"Dockerfile_test_issue_mz1365":               {"--compression=gzip"},
+	"Dockerfile_test_stopsignal":                 {"--compression=gzip"},
 	"Dockerfile_test_issue_mz851":                {"--image-format=oci", "--compression=zstd"},
 	"Dockerfile_test_multistage_args_issue_1911": {"--target=base-custom2,nosquash1,nosquash2,nosquash3"},
 	"Dockerfile_test_cmd":                        {"--target=final,nosquash"},
 	"Dockerfile_test_issue_mz247":                {"--target=final,nosquash"},
 	"Dockerfile_test_issue_mz276":                {"--target=second,nosquash"},
 	"Dockerfile_test_pre_defined_build_args":     {"--target=final,nosquash"},
-	"Dockerfile_test_issue_1837":                 {"--target=final,nosquash"},
+	"Dockerfile_test_issue_1837":                 {"--target=final,nosquash", "--compression=gzip"},
 	"Dockerfile_test_issue_2066":                 {"--target=b,nosquash"},
 	"Dockerfile_test_issue_mz782":                {"--target=final,nosquash"},
 	"Dockerfile_test_issue_mz775":                {"--compressed-caching=false", "--target=final,nosquash"},
@@ -362,15 +377,15 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_cache_oci":                  {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache_install":              {"--cache-copy-layers=true"},
 	"Dockerfile_test_cache_install_oci":          {"--cache-copy-layers=true"},
-	"Dockerfile_test_cache_copy":                 {"--cache-copy-layers=true"},
-	"Dockerfile_test_cache_copy_oci":             {"--cache-copy-layers=true"},
+	"Dockerfile_test_cache_copy":                 {"--cache-copy-layers=true", "--compression=gzip"},
+	"Dockerfile_test_cache_copy_oci":             {"--cache-copy-layers=true", "--compression=gzip"},
 	"Dockerfile_test_issue_add":                  {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz655":                {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz873":                {"--reproducible"},
 	"Dockerfile_test_issue_mz774":                {"--cache-copy-layers=true"},
 	"Dockerfile_test_volume_3":                   {"--skip-unused-stages=false"},
 	"Dockerfile_test_multistage":                 {"--skip-unused-stages=false"},
-	"Dockerfile_test_copy_root_multistage":       {"--skip-unused-stages=false"},
+	"Dockerfile_test_copy_root_multistage":       {"--skip-unused-stages=false", "--compression=gzip"},
 	"Dockerfile_test_issue_cg188":                {"--secret=id=netrc,env=SECRET"},
 	// mz511: we're using /etc/nsswitch.conf because it pre-exists
 	// in the kaniko image and can therefore safely be deleted.
@@ -387,21 +402,21 @@ var additionalKanikoFlagsMap = map[string][]string{
 		"--registry-certificate=127.0.0.2:5001=/kaniko/ssl/certs/ca-certificates.crt",
 		"--destination=127.0.0.2:5001/kaniko/mz881:latest",
 	},
-	"Dockerfile_test_issue_mz1227":                {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1227_ci":             {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1227_mismatch":       {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1227_reproducible":   {"--predefined-annotations", "--reproducible"},
-	"Dockerfile_test_issue_mz1227_annotation":     {"--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
-	"Dockerfile_test_issue_mz1227_detached":       {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1227_merged_result":  {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1227_squash":         {"--predefined-annotations"},
-	"Dockerfile_test_issue_mz1230":                {"--provenance", "--predefined-annotations", "--index-file=/index/index.json"},
+	"Dockerfile_test_issue_mz1227":                {"--predefined-annotations", "--compression=gzip"},
+	"Dockerfile_test_issue_mz1227_ci":             {"--predefined-annotations", "--compression=gzip"},
+	"Dockerfile_test_issue_mz1227_mismatch":       {"--predefined-annotations", "--compression=gzip"},
+	"Dockerfile_test_issue_mz1227_reproducible":   {"--predefined-annotations", "--reproducible", "--compression=gzip"},
+	"Dockerfile_test_issue_mz1227_annotation":     {"--predefined-annotations", "--annotation=org.opencontainers.image.revision=override", "--compression=gzip"},
+	"Dockerfile_test_issue_mz1227_detached":       {"--predefined-annotations", "--compression=gzip"},
+	"Dockerfile_test_issue_mz1227_merged_result":  {"--predefined-annotations", "--compression=gzip"},
+	"Dockerfile_test_issue_mz1227_squash":         {"--predefined-annotations", "--compression=gzip"},
+	"Dockerfile_test_issue_mz1230":                {"--provenance", "--predefined-annotations", "--index-file=/index/index.json", "--compression=gzip"},
 	"Dockerfile_test_issue_mz1230_no_index":       {"--index-file=/tmp/index.json"},
-	"Dockerfile_test_issue_mz1230_no_push_tar":    {"--provenance", "--no-push", "--tar-path=/tmp/image.tar", "--index-file=/tmp/index.json"},
-	"Dockerfile_test_issue_mz1230_tar_no_index":   {"--provenance", "--tar-path=/tmp/image.tar"},
-	"Dockerfile_test_issue_mz1230_tar":            {"--provenance", "--tar-path=/index/image.tar", "--index-file=/index/index.json"},
-	"Dockerfile_test_issue_mz1230_reproducible":   {"--provenance", "--predefined-annotations", "--reproducible"},
-	"Dockerfile_test_issue_mz1230_oci":            {"--provenance", "--image-format=oci", "--predefined-annotations", "--annotation=org.opencontainers.image.revision=override"},
+	"Dockerfile_test_issue_mz1230_no_push_tar":    {"--provenance", "--no-push", "--tar-path=/tmp/image.tar", "--index-file=/tmp/index.json", "--compression=gzip"},
+	"Dockerfile_test_issue_mz1230_tar_no_index":   {"--provenance", "--tar-path=/tmp/image.tar", "--compression=gzip"},
+	"Dockerfile_test_issue_mz1230_tar":            {"--provenance", "--tar-path=/index/image.tar", "--index-file=/index/index.json", "--compression=gzip"},
+	"Dockerfile_test_issue_mz1230_reproducible":   {"--provenance", "--predefined-annotations", "--reproducible", "--compression=gzip"},
+	"Dockerfile_test_issue_mz1230_oci":            {"--provenance", "--image-format=oci", "--predefined-annotations", "--annotation=org.opencontainers.image.revision=override", "--compression=gzip"},
 	"Dockerfile_test_require_digest":              {"--require-digest"},
 	"Dockerfile_test_require_digest_fail":         {"--require-digest"},
 	"Dockerfile_test_issue_mz1375":                {"--require-add-checksum"},
@@ -409,7 +424,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1375_arg_fail":       {"--require-add-checksum"},
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": {"--require-add-checksum"},
 	"Dockerfile_test_issue_mz1375_stage_fail":     {"--require-add-checksum"},
-	"issue-mz1374": {"-c", "/workspace/../workspace"},
+	"issue-mz1374": {"-c", "/workspace/../workspace", "--compression=gzip"},
 	"Dockerfile_test_issue_mz1469_surplus_reproducible": {"--reproducible"},
 }
 
@@ -1079,6 +1094,8 @@ func (d *DockerFileBuilder) buildImage(t *testing.T, config *integrationTestConf
 	}
 
 	additionalKanikoFlags := append([]string{"-c", buildContextPath}, additionalKanikoFlagsMap[dockerfile]...)
+	// The Docker comparison image uses gzip layers, so match its compression.
+	additionalKanikoFlags = append(additionalKanikoFlags, "--compression=gzip")
 	if _, ok := d.TestReproducibleDockerfiles[dockerfile]; ok {
 		additionalKanikoFlags = append(additionalKanikoFlags, "--reproducible")
 	}
@@ -1300,7 +1317,8 @@ func (d *DockerFileBuilder) buildRelativePathsImage(t *testing.T, config *integr
 	dockerRunFlags = append(dockerRunFlags, executorImage,
 		"-f", dockerfile,
 		"-d", kanikoImage,
-		"-c", buildContextPath)
+		"-c", buildContextPath,
+		"--compression=gzip")
 
 	kanikoCmd := exec.Command("docker", dockerRunFlags...)
 
@@ -1471,6 +1489,7 @@ func buildKanikoImage(
 	contextDir string,
 	tlsCACert string,
 	dockerConfig string,
+	extraEnv ...string,
 ) ([]byte, error) {
 	// build kaniko image
 	additionalFlags := append(buildArgs, kanikoArgs...)
@@ -1491,6 +1510,9 @@ func buildKanikoImage(
 		for _, envVariable := range env {
 			dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 		}
+	}
+	for _, envVariable := range extraEnv {
+		dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
 	}
 
 	if dockerConfig != "" {
