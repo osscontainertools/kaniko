@@ -19,10 +19,6 @@ limitations under the License.
 package seccomp
 
 import (
-	"fmt"
-	"runtime"
-	"unsafe"
-
 	"golang.org/x/sys/unix"
 )
 
@@ -85,84 +81,9 @@ var amd64Syscalls = map[string]uint32{
 	"membarrier": uint32(unix.SYS_MEMBARRIER),
 }
 
-func BuildFilter(profilePath string) ([]unix.SockFilter, error) {
-	if profilePath != "" {
-		return nil, fmt.Errorf("custom seccomp profiles are not supported")
-	}
-
-	allowed := make([]uint32, 0, len(DefaultSyscalls))
-	for _, name := range DefaultSyscalls {
-		n, ok := amd64Syscalls[name]
-		if !ok {
-			return nil, fmt.Errorf("unknown syscall %q in default seccomp profile", name)
-		}
-		allowed = append(allowed, n)
-	}
-
-	const (
-		bpfLDWABS             = 0x20
-		bpfJEQK               = 0x15
-		bpfJGEK               = 0x35
-		bpfJSETK              = 0x45
-		bpfRETK               = 0x06
-		seccompDataNrOffset   = 0
-		seccompDataArchOffset = 4
-		seccompDataArg0Offset = 16
-	)
-	filter := []unix.SockFilter{
-		{Code: bpfLDWABS, K: seccompDataArchOffset},
-		{Code: bpfJEQK, Jt: 1, K: unix.AUDIT_ARCH_X86_64},
-		{Code: bpfRETK, K: unix.SECCOMP_RET_KILL_PROCESS},
-		{Code: bpfLDWABS, K: seccompDataNrOffset},
-		{Code: bpfJGEK, Jf: 1, K: 0x40000000},
-		{Code: bpfRETK, K: unix.SECCOMP_RET_KILL_PROCESS},
-	}
-	for _, n := range allowed {
-		filter = append(filter,
-			unix.SockFilter{Code: bpfJEQK, Jf: 1, K: n},
-			unix.SockFilter{Code: bpfRETK, K: unix.SECCOMP_RET_ALLOW},
-		)
-	}
-	// Allow ordinary clone calls but deny creation of new namespaces.
-	filter = append(filter,
-		unix.SockFilter{Code: bpfJEQK, Jf: 4, K: amd64Syscalls["clone"]},
-		unix.SockFilter{Code: bpfLDWABS, K: seccompDataArg0Offset},
-		unix.SockFilter{Code: bpfJSETK, Jf: 1, K: 0x7e020080},
-		unix.SockFilter{Code: bpfRETK, K: unix.SECCOMP_RET_KILL_PROCESS},
-		unix.SockFilter{Code: bpfRETK, K: unix.SECCOMP_RET_ALLOW},
-		unix.SockFilter{Code: bpfJEQK, Jf: 1, K: amd64Syscalls["clone3"]},
-		unix.SockFilter{Code: bpfRETK, K: uint32(unix.SECCOMP_RET_ERRNO) | uint32(unix.ENOSYS)},
-	)
-	filter = append(filter, unix.SockFilter{Code: bpfRETK, K: unix.SECCOMP_RET_KILL_PROCESS})
-	if len(filter) > 0xffff {
-		return nil, fmt.Errorf("seccomp filter is too large: %d instructions", len(filter))
-	}
-	return filter, nil
-}
-
-func installFilter(filter []unix.SockFilter) error {
-	if len(filter) == 0 {
-		return fmt.Errorf("seccomp filter is empty")
-	}
-	if err := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
-		return fmt.Errorf("setting no_new_privs: %w", err)
-	}
-	program := unix.SockFprog{
-		Len:    uint16(len(filter)),
-		Filter: &filter[0],
-	}
-	if err := unix.Prctl(unix.PR_SET_SECCOMP, unix.SECCOMP_MODE_FILTER, uintptr(unsafe.Pointer(&program)), 0, 0); err != nil {
-		return fmt.Errorf("installing seccomp filter: %w", err)
-	}
-	runtime.KeepAlive(filter)
-	runtime.KeepAlive(&program)
-	return nil
-}
-
-func InstallDefaultFilter() error {
-	filter, err := BuildFilter("")
-	if err != nil {
-		return err
-	}
-	return installFilter(filter)
+var nativeArch = archConfig{
+	auditArch:        unix.AUDIT_ARCH_X86_64,
+	syscallNumbers:   amd64Syscalls,
+	cloneArgOffset:   seccompDataArg0Offset,
+	checkX32Syscalls: true,
 }

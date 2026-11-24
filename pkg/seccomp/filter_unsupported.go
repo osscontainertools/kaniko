@@ -1,4 +1,4 @@
-//go:build !linux || !amd64
+//go:build !linux || (!amd64 && !arm64 && !arm && !s390x && !riscv64 && !ppc64le)
 
 /*
 Copyright 2026 OSS Container Tools

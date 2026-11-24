@@ -1,4 +1,4 @@
-//go:build linux && amd64
+//go:build linux && (amd64 || arm64 || arm || s390x || riscv64 || ppc64le)
 
 /*
 Copyright 2026 OSS Container Tools
@@ -43,9 +43,22 @@ func TestBuildFilterRestrictsCloneNamespaces(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cloneCheck := 6 + 2*len(DefaultSyscalls)
-	if got, want := filter[cloneCheck].K, uint32(unix.SYS_CLONE); got != want {
+	allowedCount := 0
+	for _, name := range DefaultSyscalls {
+		if _, ok := nativeArch.syscallNumbers[name]; ok {
+			allowedCount++
+		}
+	}
+	cloneCheck := 4 + 2*allowedCount
+	if nativeArch.checkX32Syscalls {
+		cloneCheck += 2
+	}
+
+	if got, want := filter[cloneCheck].K, nativeArch.syscallNumbers["clone"]; got != want {
 		t.Fatalf("clone check syscall number = %d, want %d", got, want)
+	}
+	if got, want := filter[cloneCheck+1].K, nativeArch.cloneArgOffset; got != want {
+		t.Fatalf("clone flags argument offset = %d, want %d", got, want)
 	}
 	if got, want := filter[cloneCheck+2].K, uint32(0x7e020080); got != want {
 		t.Fatalf("clone namespace mask = %#x, want %#x", got, want)
@@ -55,7 +68,7 @@ func TestBuildFilterRestrictsCloneNamespaces(t *testing.T) {
 	}
 
 	clone3Check := cloneCheck + 5
-	if got, want := filter[clone3Check].K, uint32(unix.SYS_CLONE3); got != want {
+	if got, want := filter[clone3Check].K, nativeArch.syscallNumbers["clone3"]; got != want {
 		t.Fatalf("clone3 check syscall number = %d, want %d", got, want)
 	}
 	if got, want := filter[clone3Check+1].K, uint32(unix.SECCOMP_RET_ERRNO|unix.ENOSYS); got != want {

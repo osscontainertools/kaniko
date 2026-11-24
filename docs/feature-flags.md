@@ -439,7 +439,7 @@ Will be deprecated together with `/kaniko/tini` in `v1.31.0`.
 
 Set this flag to `true` to apply Kaniko's default seccomp syscall policy to each `RUN` process. Syscalls outside the policy terminate the process with `SIGSYS`, failing the build. `clone3` returns `ENOSYS` so callers can fall back to `clone`.
 Defaults to `false`.
-Currently supported on Linux amd64 only. Custom seccomp profiles are not supported.
+Currently supported on Linux amd64, arm64, arm, s390x, riscv64, and ppc64le. Custom seccomp profiles are not supported.
 
 ## Flag `FF_KANIKO_SCOPED_DOCKERIGNORE`
 
