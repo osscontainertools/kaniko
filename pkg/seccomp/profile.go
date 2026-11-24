@@ -18,13 +18,13 @@ package seccomp
 
 var DefaultSyscalls = []string{
 	"read", "write", "openat", "close", "execve", "execveat", "stat", "fstat", "lstat",
-	"exit_group", "exit", "getpid", "getuid", "getgid", "futex",
+	"exit_group", "exit", "getpid", "getuid", "getgid", "futex", "uname",
 	"getppid", "geteuid", "getegid", "getgroups", "getresuid", "getresgid", "capget", "capset",
 	"mmap", "mprotect", "munmap", "brk", "rt_sigaction", "rt_sigprocmask",
-	"rt_sigreturn", "ioctl", "pread64", "pwrite64", "readv", "writev",
+	"rt_sigreturn", "rt_sigtimedwait", "ioctl", "pread64", "pwrite64", "readv", "writev",
 	"access", "faccessat", "faccessat2", "pipe", "select", "sched_yield", "mremap", "msync",
 	"mincore", "madvise", "dup", "dup2", "nanosleep", "gettid",
-	"gettimeofday", "clock_gettime", "clock_nanosleep", "set_tid_address",
+	"gettimeofday", "clock_gettime", "clock_nanosleep", "set_tid_address", "setpgid", "getpgrp",
 	"set_robust_list", "prlimit64", "getdents", "getdents64", "fcntl",
 	"mkdir", "mkdirat", "unlink", "unlinkat", "rename", "renameat",
 	"link", "linkat", "symlink", "symlinkat", "readlink", "readlinkat",

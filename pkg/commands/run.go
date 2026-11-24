@@ -446,11 +446,13 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 
 	var cmd *exec.Cmd
 	if kConfig.FF.RunSeccomp {
-		commandPath, err := exec.LookPath(newCommand[0])
-		if err != nil {
-			return fmt.Errorf("finding command for seccomp runner: %w", err)
+		if !strings.Contains(newCommand[0], string(os.PathSeparator)) {
+			commandPath, err := exec.LookPath(newCommand[0])
+			if err != nil {
+				return fmt.Errorf("finding command for seccomp runner: %w", err)
+			}
+			newCommand[0] = commandPath
 		}
-		newCommand[0] = commandPath
 		executorPath, err := os.Executable()
 		if err != nil {
 			return fmt.Errorf("finding executor for seccomp runner: %w", err)

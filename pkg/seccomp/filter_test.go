@@ -19,6 +19,7 @@ limitations under the License.
 package seccomp
 
 import (
+	"runtime"
 	"testing"
 
 	"golang.org/x/sys/unix"
@@ -57,14 +58,45 @@ func TestBuildFilterRestrictsCloneNamespaces(t *testing.T) {
 	if got, want := filter[cloneCheck].K, nativeArch.syscallNumbers["clone"]; got != want {
 		t.Fatalf("clone check syscall number = %d, want %d", got, want)
 	}
-	if got, want := filter[cloneCheck+1].K, nativeArch.cloneArgOffset; got != want {
+	wantCloneArgOffset := uint32(seccompDataArg0Offset)
+	if runtime.GOARCH == "s390x" {
+		wantCloneArgOffset = seccompDataArg1Hi
+	}
+	if got, want := nativeArch.cloneArgOffset, wantCloneArgOffset; got != want {
 		t.Fatalf("clone flags argument offset = %d, want %d", got, want)
 	}
-	if got, want := filter[cloneCheck+2].K, uint32(0x7e020080); got != want {
+	if got, want := filter[cloneCheck+1].K, wantCloneArgOffset; got != want {
+		t.Fatalf("clone flags argument offset = %d, want %d", got, want)
+	}
+	const namespaceMask = uint32(0x7e020080)
+	if got, want := filter[cloneCheck+2].K, namespaceMask; got != want {
 		t.Fatalf("clone namespace mask = %#x, want %#x", got, want)
 	}
 	if got, want := filter[cloneCheck+3].K, uint32(unix.SECCOMP_RET_KILL_PROCESS); got != want {
 		t.Fatalf("clone namespace action = %#x, want %#x", got, want)
+	}
+	if runtime.GOARCH == "s390x" {
+		argsByOffset := map[uint32]uint32{
+			seccompDataArg0Hi: namespaceMask,
+			seccompDataArg1Hi: 0,
+		}
+		actionForCloneFlags := func() uint32 {
+			flags := argsByOffset[filter[cloneCheck+1].K]
+			jset := filter[cloneCheck+2]
+			actionIndex := cloneCheck + 3
+			if flags&jset.K == 0 {
+				actionIndex += int(jset.Jf)
+			}
+			return filter[actionIndex].K
+		}
+		if got, want := actionForCloneFlags(), uint32(unix.SECCOMP_RET_ALLOW); got != want {
+			t.Fatalf("clone with namespace bits only in stack address action = %#x, want %#x", got, want)
+		}
+
+		argsByOffset[seccompDataArg1Hi] = namespaceMask
+		if got, want := actionForCloneFlags(), uint32(unix.SECCOMP_RET_KILL_PROCESS); got != want {
+			t.Fatalf("clone with namespace bits in flags action = %#x, want %#x", got, want)
+		}
 	}
 
 	clone3Check := cloneCheck + 5

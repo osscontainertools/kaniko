@@ -21,11 +21,9 @@ package seccomp
 import (
 	"fmt"
 	"runtime"
-
-	"golang.org/x/sys/unix"
 )
 
-func BuildFilter(string) ([]unix.SockFilter, error) {
+func BuildFilter(string) ([]FilterInstruction, error) {
 	return nil, fmt.Errorf("seccomp is not supported on %s/%s", runtime.GOOS, runtime.GOARCH)
 }
 

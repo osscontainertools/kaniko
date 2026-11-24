@@ -27,6 +27,7 @@ var nativeArch = archConfig{
 		"close": uint32(unix.SYS_CLOSE), "execve": uint32(unix.SYS_EXECVE), "execveat": uint32(unix.SYS_EXECVEAT),
 		"stat": uint32(unix.SYS_STAT), "fstat": uint32(unix.SYS_FSTAT), "lstat": uint32(unix.SYS_LSTAT),
 		"exit_group": uint32(unix.SYS_EXIT_GROUP), "exit": uint32(unix.SYS_EXIT), "getpid": uint32(unix.SYS_GETPID),
+		"uname": uint32(unix.SYS_UNAME), "setpgid": uint32(unix.SYS_SETPGID), "getpgrp": uint32(unix.SYS_GETPGRP),
 		"getuid": uint32(unix.SYS_GETUID), "getgid": uint32(unix.SYS_GETGID), "futex": uint32(unix.SYS_FUTEX),
 		"getppid": uint32(unix.SYS_GETPPID), "geteuid": uint32(unix.SYS_GETEUID), "getegid": uint32(unix.SYS_GETEGID),
 		"getgroups": uint32(unix.SYS_GETGROUPS), "getresuid": uint32(unix.SYS_GETRESUID),
@@ -34,7 +35,8 @@ var nativeArch = archConfig{
 		"mmap": uint32(unix.SYS_MMAP), "mprotect": uint32(unix.SYS_MPROTECT), "munmap": uint32(unix.SYS_MUNMAP),
 		"brk": uint32(unix.SYS_BRK), "rt_sigaction": uint32(unix.SYS_RT_SIGACTION),
 		"rt_sigprocmask": uint32(unix.SYS_RT_SIGPROCMASK), "rt_sigreturn": uint32(unix.SYS_RT_SIGRETURN),
-		"ioctl": uint32(unix.SYS_IOCTL), "pread64": uint32(unix.SYS_PREAD64), "pwrite64": uint32(unix.SYS_PWRITE64),
+		"rt_sigtimedwait": uint32(unix.SYS_RT_SIGTIMEDWAIT),
+		"ioctl":           uint32(unix.SYS_IOCTL), "pread64": uint32(unix.SYS_PREAD64), "pwrite64": uint32(unix.SYS_PWRITE64),
 		"readv": uint32(unix.SYS_READV), "writev": uint32(unix.SYS_WRITEV), "access": uint32(unix.SYS_ACCESS),
 		"faccessat": uint32(unix.SYS_FACCESSAT), "faccessat2": uint32(unix.SYS_FACCESSAT2),
 		"pipe": uint32(unix.SYS_PIPE), "select": uint32(unix.SYS_SELECT), "sched_yield": uint32(unix.SYS_SCHED_YIELD),
@@ -74,5 +76,5 @@ var nativeArch = archConfig{
 	unavailable: map[string]struct{}{
 		"accept": {}, "arch_prctl": {},
 	},
-	cloneArgOffset: seccompDataArg0Hi,
+	cloneArgOffset: seccompDataArg1Hi,
 }
