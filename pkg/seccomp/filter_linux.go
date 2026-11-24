@@ -46,14 +46,6 @@ type archConfig struct {
 	checkX32Syscalls bool
 }
 
-func syscallSet(names ...string) map[string]struct{} {
-	set := make(map[string]struct{}, len(names))
-	for _, name := range names {
-		set[name] = struct{}{}
-	}
-	return set
-}
-
 func BuildFilter(profilePath string) ([]unix.SockFilter, error) {
 	if profilePath != "" {
 		return nil, fmt.Errorf("custom seccomp profiles are not supported")

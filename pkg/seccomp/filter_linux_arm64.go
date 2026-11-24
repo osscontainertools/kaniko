@@ -67,9 +67,10 @@ var nativeArch = archConfig{
 		"rseq": uint32(unix.SYS_RSEQ), "prctl": uint32(unix.SYS_PRCTL), "membarrier": uint32(unix.SYS_MEMBARRIER),
 		"clone": uint32(unix.SYS_CLONE), "clone3": uint32(unix.SYS_CLONE3),
 	},
-	unavailable: syscallSet(
-		"stat", "lstat", "access", "pipe", "select", "dup2", "getdents", "mkdir", "unlink",
-		"rename", "link", "symlink", "readlink", "chmod", "chown", "vfork", "poll", "arch_prctl",
-	),
+	unavailable: map[string]struct{}{
+		"stat": {}, "lstat": {}, "access": {}, "pipe": {}, "select": {}, "dup2": {},
+		"getdents": {}, "mkdir": {}, "unlink": {}, "rename": {}, "link": {}, "symlink": {},
+		"readlink": {}, "chmod": {}, "chown": {}, "vfork": {}, "poll": {}, "arch_prctl": {},
+	},
 	cloneArgOffset: seccompDataArg0Offset,
 }

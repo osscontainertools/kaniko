@@ -71,6 +71,8 @@ var nativeArch = archConfig{
 		"rseq": uint32(unix.SYS_RSEQ), "prctl": uint32(unix.SYS_PRCTL), "membarrier": uint32(unix.SYS_MEMBARRIER),
 		"clone": uint32(unix.SYS_CLONE), "clone3": uint32(unix.SYS_CLONE3),
 	},
-	unavailable:    syscallSet("arch_prctl"),
+	unavailable: map[string]struct{}{
+		"arch_prctl": {},
+	},
 	cloneArgOffset: seccompDataArg0Offset,
 }
