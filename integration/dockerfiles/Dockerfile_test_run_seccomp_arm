@@ -1,0 +1,4 @@
+# Exercises ARM select(2) while the RUN seccomp filter is installed.
+FROM alpine:3.22
+RUN apk add --no-cache python3
+RUN python3 -c 'import select; assert select.select([], [], [], 0) == ([], [], [])'

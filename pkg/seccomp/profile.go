@@ -16,6 +16,13 @@ limitations under the License.
 
 package seccomp
 
+type FilterInstruction struct {
+	Code uint16
+	Jt   uint8
+	Jf   uint8
+	K    uint32
+}
+
 var DefaultSyscalls = []string{
 	"read", "write", "openat", "close", "execve", "execveat", "stat", "fstat", "lstat",
 	"exit_group", "exit", "getpid", "getuid", "getgid", "futex", "uname",
