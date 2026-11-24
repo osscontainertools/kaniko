@@ -1,0 +1,7 @@
+# Verifies that FF_KANIKO_RUN_SECCOMP installs a filter in each RUN process.
+FROM debian:13.7
+RUN filters=0; while read key value; do \
+      if [ "$key" = "Seccomp_filters:" ]; then filters="$value"; break; fi; \
+    done < /proc/self/status; \
+    test "$filters" -ge 2
+RUN unshare -n true; status="$?"; test "$status" -eq 159

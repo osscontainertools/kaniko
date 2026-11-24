@@ -1,0 +1,3 @@
+# Exercises Tini's supervisor syscalls under the RUN seccomp filter.
+FROM debian:13.7
+RUN true

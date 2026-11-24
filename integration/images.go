@@ -176,15 +176,19 @@ var argsMapVersion1 = map[string][]string{
 
 // Environment to build Dockerfiles with, used for both docker and kaniko builds
 var envsMap = map[string][]string{
-	"Dockerfile_test_arg_secret":   {"SSH_PRIVATE_KEY=ThEPriv4t3Key"},
-	"Dockerfile_test_issue_519":    {"DOCKER_BUILDKIT=0"},
-	"Dockerfile_test_issue_cg188":  {"SECRET=blubb"},
-	"Dockerfile_test_issue_mz1336": {"SECRET=blubb"},
-	"Dockerfile_test_issue_mz334":  {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
-	"Dockerfile_test_issue_mz960":  {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
-	"Dockerfile_test_issue_mz473":  {"KANIKO_DIR=/kaniko2"},
-	"Dockerfile_test_issue_mz661":  {"KANIKO_DIR=/kaniko2"},
-	"Dockerfile_test_issue_mz1065": {"KANIKO_DIR=/tmpdir/kaniko2"},
+	"Dockerfile_test_arg_secret":                {"SSH_PRIVATE_KEY=ThEPriv4t3Key"},
+	"Dockerfile_test_run_seccomp":               {"FF_KANIKO_RUN_SECCOMP=1"},
+	"Dockerfile_test_run_relative_exec_seccomp": {"FF_KANIKO_RUN_SECCOMP=1"},
+	"Dockerfile_test_run_tini_seccomp":          {"FF_KANIKO_RUN_VIA_TINI=1", "FF_KANIKO_RUN_SECCOMP=1"},
+	"Dockerfile_test_run_seccomp_arm":           {"FF_KANIKO_RUN_SECCOMP=1"},
+	"Dockerfile_test_issue_519":                 {"DOCKER_BUILDKIT=0"},
+	"Dockerfile_test_issue_cg188":               {"SECRET=blubb"},
+	"Dockerfile_test_issue_mz1336":              {"SECRET=blubb"},
+	"Dockerfile_test_issue_mz334":               {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
+	"Dockerfile_test_issue_mz960":               {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
+	"Dockerfile_test_issue_mz473":               {"KANIKO_DIR=/kaniko2"},
+	"Dockerfile_test_issue_mz661":               {"KANIKO_DIR=/kaniko2"},
+	"Dockerfile_test_issue_mz1065":              {"KANIKO_DIR=/tmpdir/kaniko2"},
 	// mz970: layout layers carry no reference, so a stored base cannot be mounted
 	"Dockerfile_test_issue_mz1007":   {"FF_KANIKO_SHARED_BASE_CACHE=0"},
 	"Dockerfile_test_stopsignal":     {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
@@ -295,6 +299,7 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz511":          {"--secret=id=netrc,src=context/foo"},
 	"Dockerfile_test_issue_mz1336":         {"--secret=id=foo,env=SECRET"},
 	"Dockerfile_test_cross_compile":        {"--platform=linux/" + crossCompileArch},
+	"Dockerfile_test_run_seccomp_arm":      {"--platform=linux/arm/v7"},
 	"Dockerfile_test_issue_mz849":          dockerV2Flags,
 	"Dockerfile_test_issue_mz849_dockerv2": dockerV2Flags,
 	"Dockerfile_test_issue_mz1066_docker":  dockerV2Flags,
@@ -325,6 +330,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1201":               {"--cache-copy-layers=true"},
 	"Dockerfile_test_issue_mz824":                {"--cache=true"},
 	"Dockerfile_test_issue_519":                  {"--target=final_stage,nosquash1,nosquash2"},
+	"Dockerfile_test_run_seccomp_arm":            {"--custom-platform=linux/arm/v7"},
 	"Dockerfile_test_issue_mz849":                {"--image-format=docker"},
 	"Dockerfile_test_issue_mz849_dockerv2":       {"--image-format=docker"},
 	"Dockerfile_test_issue_mz849_ociv1":          {"--image-format=oci"},
@@ -477,8 +483,10 @@ var crossCompileArch = func() string {
 
 // Platform overrides for docker pull and diffoci, keyed by test name.
 var platformMap = map[string]v1.Platform{
-	"TestRun/test_Dockerfile_test_cross_compile":          {OS: "linux", Architecture: crossCompileArch},
-	"TestLayers/test_layer_Dockerfile_test_cross_compile": {OS: "linux", Architecture: crossCompileArch},
+	"TestRun/test_Dockerfile_test_cross_compile":            {OS: "linux", Architecture: crossCompileArch},
+	"TestLayers/test_layer_Dockerfile_test_cross_compile":   {OS: "linux", Architecture: crossCompileArch},
+	"TestRun/test_Dockerfile_test_run_seccomp_arm":          {OS: "linux", Architecture: "arm", Variant: "v7"},
+	"TestLayers/test_layer_Dockerfile_test_run_seccomp_arm": {OS: "linux", Architecture: "arm", Variant: "v7"},
 }
 
 // Arguments to diffoci when comparing dockerfiles
@@ -490,9 +498,10 @@ var diffArgsMap = map[string][]string{
 	// docker is wrong. we do copy the symlink correctly.
 	"TestRun/test_Dockerfile_test_copy_symlink": {"--ignore-path=workdirAnother/relative_link"},
 	// docker dereferences the symlink source, we preserve it, so dest/linkS diverges.
-	"TestRun/test_Dockerfile_test_issue_mz921":   {"--ignore-path=dest/linkS", "--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_multistage":    {"--extra-ignore-files=new", "--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_cross_compile": {"--platform=linux/" + crossCompileArch},
+	"TestRun/test_Dockerfile_test_issue_mz921":     {"--ignore-path=dest/linkS", "--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_multistage":      {"--extra-ignore-files=new", "--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_cross_compile":   {"--platform=linux/" + crossCompileArch},
+	"TestRun/test_Dockerfile_test_run_seccomp_arm": {"--platform=linux/arm/v7"},
 	// kaniko adds parent directories of changed paths to the full-filesystem snapshot
 	"TestRun/test_Dockerfile_test_volume":   {"--extra-ignore-layer-length-mismatch"},
 	"TestRun/test_Dockerfile_test_volume_2": {"--extra-ignore-layer-length-mismatch"},
@@ -946,6 +955,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_issue_cg326_2":  {},
 		"Dockerfile_test_issue_cg326_3":  {},
 		"Dockerfile_test_issue_cg533":    {},
+		"Dockerfile_test_run_seccomp":    {},
 		"Dockerfile_test_issue_mz444":    {},
 		"Dockerfile_test_issue_mz455":    {},
 		"Dockerfile_test_issue_mz473":    {},

@@ -468,6 +468,12 @@ Currently no plans to activate.
 Superseded by [`FF_KANIKO_NATIVE_INIT`](#flag-ff_kaniko_native_init).
 Will be deprecated together with `/kaniko/tini` in `v1.31.0`.
 
+## Flag `FF_KANIKO_RUN_SECCOMP`
+
+Set this flag to `true` to apply Kaniko's default seccomp syscall policy to each `RUN` process. Syscalls outside the policy terminate the process with `SIGSYS`, failing the build. `clone3` returns `ENOSYS` so callers can fall back to `clone`.
+Defaults to `false`.
+Currently supported on Linux amd64, arm64, arm, s390x, riscv64, and ppc64le. Custom seccomp profiles are not supported.
+
 ## Flag `FF_KANIKO_SCOPED_DOCKERIGNORE`
 
 Scopes `.dockerignore` patterns to the build context. Without it, an absolute path outside the context (such as an intermediate `/kaniko/...` source of a multi-stage `COPY --from`) is matched against the patterns; with an allowlist `.dockerignore` (e.g. `*` then `!keep`) the catch-all wrongly excludes it, dropping it from the layer cache key and serving a stale image when only that file changed. Set this flag to `true` to never match paths outside the context.

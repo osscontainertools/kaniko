@@ -1,0 +1,5 @@
+# Exercises relative exec-form commands from the configured working directory.
+FROM debian:13.7
+WORKDIR /app
+RUN printf '#!/bin/sh\nexit 0\n' > tool && chmod +x tool
+RUN ["./tool"]

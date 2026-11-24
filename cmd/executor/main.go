@@ -24,10 +24,19 @@ import (
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/creds"
+	"github.com/osscontainertools/kaniko/pkg/seccomp"
 	"github.com/osscontainertools/kaniko/pkg/util"
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "--internal-seccomp-run" {
+		if err := seccomp.RunAndExecFromArgs(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	helper, ok := creds.Helpers[filepath.Base(os.Args[0])]
 	if ok {
 		os.Exit(helper())

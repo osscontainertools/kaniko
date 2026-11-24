@@ -35,6 +35,7 @@ import (
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
+	"github.com/osscontainertools/kaniko/pkg/seccomp"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
@@ -443,7 +444,24 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 		newCommand = append([]string{kConfig.TiniExec, "-s", "--"}, newCommand...)
 	}
 
-	cmd := exec.Command(newCommand[0], newCommand[1:]...)
+	var cmd *exec.Cmd
+	if kConfig.FF.RunSeccomp {
+		if !strings.Contains(newCommand[0], string(os.PathSeparator)) {
+			commandPath, err := exec.LookPath(newCommand[0])
+			if err != nil {
+				return fmt.Errorf("finding command for seccomp runner: %w", err)
+			}
+			newCommand[0] = commandPath
+		}
+		executorPath, err := os.Executable()
+		if err != nil {
+			return fmt.Errorf("finding executor for seccomp runner: %w", err)
+		}
+		helperArgs := append([]string{seccomp.RunnerArg}, newCommand...)
+		cmd = exec.Command(executorPath, helperArgs...)
+	} else {
+		cmd = exec.Command(newCommand[0], newCommand[1:]...)
+	}
 
 	cmd.Dir = setWorkDirIfExists(config.WorkingDir)
 	cmd.Stdout = os.Stdout
@@ -481,7 +499,7 @@ func runCommandInExec(config *v1.Config, buildArgs *dockerfile.BuildArgs, cmdRun
 
 	cmd.Env = append(env, secretEnvs...)
 
-	logrus.Infof("Running: %s", cmd.Args)
+	logrus.Infof("Running: %s", newCommand)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("starting command: %w", err)
 	}

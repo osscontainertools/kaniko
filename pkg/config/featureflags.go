@@ -84,6 +84,7 @@ type FeatureFlags struct {
 	RunMountBindRelative           bool
 	RunMountBindResolveSymlink     bool
 	RunMountTmpfs                  bool
+	RunSeccomp                     bool
 	RunViaTini                     bool
 	ScopedDockerignore             bool
 	ScopedRegistryCertificates     bool
@@ -191,6 +192,7 @@ func InitFeatureFlags() {
 		RunMountBindRelative:           featureFlag("FF_KANIKO_RUN_MOUNT_BIND_RELATIVE", false),
 		RunMountBindResolveSymlink:     featureFlag("FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK", false),
 		RunMountTmpfs:                  featureFlag("FF_KANIKO_RUN_MOUNT_TMPFS", false),
+		RunSeccomp:                     featureFlag("FF_KANIKO_RUN_SECCOMP", false),
 		RunViaTini:                     featureFlag("FF_KANIKO_RUN_VIA_TINI", false),
 		ScopedDockerignore:             featureFlag("FF_KANIKO_SCOPED_DOCKERIGNORE", false),
 		ScopedRegistryCertificates:     featureFlag("FF_KANIKO_SCOPED_REGISTRY_CERTIFICATES", true),
