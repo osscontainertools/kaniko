@@ -1,3 +1,3 @@
-# Exercises ARM select(2) while the RUN seccomp filter is installed.
+# Exercises ARM __NR__newselect (142) while the RUN seccomp filter is installed.
 FROM python:3.12-alpine3.22
-RUN python3 -c 'import select; assert select.select([], [], [], 0) == ([], [], [])'
+RUN python3 -c 'import ctypes; libc=ctypes.CDLL(None, use_errno=True); timeval=ctypes.c_long * 2; timeout=timeval(0, 0); libc.syscall.restype=ctypes.c_long; result=libc.syscall(142, 0, None, None, None, ctypes.byref(timeout)); assert result == 0, ctypes.get_errno()'
