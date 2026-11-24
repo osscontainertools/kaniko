@@ -24,8 +24,8 @@ type FilterInstruction struct {
 }
 
 var DefaultSyscalls = []string{
-	"read", "write", "openat", "close", "execve", "execveat", "stat", "fstat", "lstat",
-	"exit_group", "exit", "getpid", "getuid", "getgid", "futex", "uname",
+	"read", "write", "open", "openat", "close", "execve", "execveat", "stat", "fstat", "lstat",
+	"exit_group", "exit", "getpid", "getuid", "getgid", "futex", "uname", "sysinfo",
 	"getppid", "geteuid", "getegid", "getgroups", "getresuid", "getresgid", "capget", "capset",
 	"mmap", "mprotect", "munmap", "brk", "rt_sigaction", "rt_sigprocmask",
 	"rt_sigreturn", "rt_sigtimedwait", "ioctl", "pread64", "pwrite64", "readv", "writev",

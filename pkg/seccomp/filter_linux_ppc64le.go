@@ -23,11 +23,13 @@ import "golang.org/x/sys/unix"
 var nativeArch = archConfig{
 	auditArch: unix.AUDIT_ARCH_PPC64LE,
 	syscallNumbers: map[string]uint32{
-		"read": uint32(unix.SYS_READ), "write": uint32(unix.SYS_WRITE), "openat": uint32(unix.SYS_OPENAT),
-		"close": uint32(unix.SYS_CLOSE), "execve": uint32(unix.SYS_EXECVE), "execveat": uint32(unix.SYS_EXECVEAT),
+		"read": uint32(unix.SYS_READ), "write": uint32(unix.SYS_WRITE), "open": uint32(unix.SYS_OPEN),
+		"openat": uint32(unix.SYS_OPENAT),
+		"close":  uint32(unix.SYS_CLOSE), "execve": uint32(unix.SYS_EXECVE), "execveat": uint32(unix.SYS_EXECVEAT),
 		"stat": uint32(unix.SYS_STAT), "fstat": uint32(unix.SYS_FSTAT), "lstat": uint32(unix.SYS_LSTAT),
 		"exit_group": uint32(unix.SYS_EXIT_GROUP), "exit": uint32(unix.SYS_EXIT), "getpid": uint32(unix.SYS_GETPID),
-		"uname": uint32(unix.SYS_UNAME), "setpgid": uint32(unix.SYS_SETPGID), "getpgrp": uint32(unix.SYS_GETPGRP),
+		"uname": uint32(unix.SYS_UNAME), "sysinfo": uint32(unix.SYS_SYSINFO),
+		"setpgid": uint32(unix.SYS_SETPGID), "getpgrp": uint32(unix.SYS_GETPGRP),
 		"getuid": uint32(unix.SYS_GETUID), "getgid": uint32(unix.SYS_GETGID), "futex": uint32(unix.SYS_FUTEX),
 		"getppid": uint32(unix.SYS_GETPPID), "geteuid": uint32(unix.SYS_GETEUID), "getegid": uint32(unix.SYS_GETEGID),
 		"getgroups": uint32(unix.SYS_GETGROUPS), "getresuid": uint32(unix.SYS_GETRESUID),

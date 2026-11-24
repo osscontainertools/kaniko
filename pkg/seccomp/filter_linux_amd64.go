@@ -23,11 +23,13 @@ import (
 )
 
 var amd64Syscalls = map[string]uint32{
-	"read": uint32(unix.SYS_READ), "write": uint32(unix.SYS_WRITE), "openat": uint32(unix.SYS_OPENAT),
-	"close": uint32(unix.SYS_CLOSE), "execve": uint32(unix.SYS_EXECVE), "execveat": uint32(unix.SYS_EXECVEAT),
+	"read": uint32(unix.SYS_READ), "write": uint32(unix.SYS_WRITE), "open": uint32(unix.SYS_OPEN),
+	"openat": uint32(unix.SYS_OPENAT),
+	"close":  uint32(unix.SYS_CLOSE), "execve": uint32(unix.SYS_EXECVE), "execveat": uint32(unix.SYS_EXECVEAT),
 	"exit_group": uint32(unix.SYS_EXIT_GROUP), "exit": uint32(unix.SYS_EXIT),
 	"getpid": uint32(unix.SYS_GETPID), "getppid": uint32(unix.SYS_GETPPID),
-	"uname": uint32(unix.SYS_UNAME), "setpgid": uint32(unix.SYS_SETPGID), "getpgrp": uint32(unix.SYS_GETPGRP),
+	"uname": uint32(unix.SYS_UNAME), "sysinfo": uint32(unix.SYS_SYSINFO),
+	"setpgid": uint32(unix.SYS_SETPGID), "getpgrp": uint32(unix.SYS_GETPGRP),
 	"getuid": uint32(unix.SYS_GETUID), "geteuid": uint32(unix.SYS_GETEUID),
 	"getgid": uint32(unix.SYS_GETGID), "getegid": uint32(unix.SYS_GETEGID),
 	"getgroups": uint32(unix.SYS_GETGROUPS), "getresuid": uint32(unix.SYS_GETRESUID),

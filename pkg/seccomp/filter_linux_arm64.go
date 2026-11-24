@@ -27,7 +27,8 @@ var nativeArch = archConfig{
 		"close": uint32(unix.SYS_CLOSE), "execve": uint32(unix.SYS_EXECVE), "execveat": uint32(unix.SYS_EXECVEAT),
 		"fstat": uint32(unix.SYS_FSTAT), "exit_group": uint32(unix.SYS_EXIT_GROUP), "exit": uint32(unix.SYS_EXIT),
 		"getpid": uint32(unix.SYS_GETPID), "getuid": uint32(unix.SYS_GETUID), "getgid": uint32(unix.SYS_GETGID),
-		"uname": uint32(unix.SYS_UNAME), "setpgid": uint32(unix.SYS_SETPGID), "getpgrp": uint32(unix.SYS_GETPGID),
+		"uname": uint32(unix.SYS_UNAME), "sysinfo": uint32(unix.SYS_SYSINFO),
+		"setpgid": uint32(unix.SYS_SETPGID), "getpgrp": uint32(unix.SYS_GETPGID),
 		"futex": uint32(unix.SYS_FUTEX), "getppid": uint32(unix.SYS_GETPPID), "geteuid": uint32(unix.SYS_GETEUID),
 		"getegid": uint32(unix.SYS_GETEGID), "getgroups": uint32(unix.SYS_GETGROUPS),
 		"getresuid": uint32(unix.SYS_GETRESUID), "getresgid": uint32(unix.SYS_GETRESGID),
@@ -72,7 +73,7 @@ var nativeArch = archConfig{
 	unavailable: map[string]struct{}{
 		"stat": {}, "lstat": {}, "access": {}, "pipe": {}, "select": {}, "dup2": {},
 		"getdents": {}, "mkdir": {}, "unlink": {}, "rename": {}, "link": {}, "symlink": {},
-		"readlink": {}, "chmod": {}, "chown": {}, "vfork": {}, "poll": {}, "arch_prctl": {},
+		"readlink": {}, "chmod": {}, "chown": {}, "vfork": {}, "poll": {}, "arch_prctl": {}, "open": {},
 	},
 	cloneArgOffset: seccompDataArg0Offset,
 }
