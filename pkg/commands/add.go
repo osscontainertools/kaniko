@@ -39,7 +39,7 @@ type AddCommand struct {
 	fileContext   util.FileContext
 	snapshotFiles []string
 	shdCache      bool
-	addCache      AddSourceCache
+	addCacheDir   string
 }
 
 // ExecuteCommand executes the ADD command
@@ -163,8 +163,26 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				download = urlDest
 			}
 			logrus.Infof("Adding remote URL %s to %s", src, urlDest)
-			if err := a.downloadRemoteSource(src, download, owner, chmod.Apply(0o600), checksum); err != nil {
-				return fmt.Errorf("downloading remote source file: %w", err)
+			cachePath := ""
+			if kConfig.FF.WarmerAddSourceCache && a.addCacheDir != "" && checksum != "" {
+				hit, ok, err := addcache.Lookup(a.addCacheDir, src, checksum)
+				if err != nil {
+					logrus.Warnf("Ignoring cached ADD source %s: %v", src, err)
+				} else if ok {
+					cachePath = hit
+				}
+			}
+			if cachePath != "" {
+				logrus.Infof("Using cached ADD source %s", cachePath)
+				err = copyCachedSource(cachePath, download, owner, chmod.Apply(0o600))
+				if err != nil {
+					return fmt.Errorf("copying cached remote source file: %w", err)
+				}
+			} else {
+				err = util.DownloadFileToDest(src, download, owner, chmod.Apply(0o600), checksum)
+				if err != nil {
+					return fmt.Errorf("downloading remote source file: %w", err)
+				}
 			}
 
 			switch {
@@ -290,26 +308,6 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 	}
 	a.snapshotFiles = append(a.snapshotFiles, copyCmd.snapshotFiles...)
 	return nil
-}
-
-func (a *AddCommand) downloadRemoteSource(src, dest string, owner *util.Owner, perm os.FileMode, checksum digest.Digest) error {
-	if a.addCache.Enabled && a.addCache.Dir != "" {
-		cachePath, ok, err := addcache.Lookup(a.addCache.Dir, src, checksum)
-		if err != nil {
-			logrus.Warnf("Ignoring cached ADD source %s: %v", src, err)
-		}
-		if ok {
-			logrus.Infof("Using cached ADD source %s", src)
-			return copyCachedSource(cachePath, dest, owner, perm)
-		}
-		cachePath, err = addcache.Store(a.addCache.Dir, src, checksum)
-		if err != nil {
-			logrus.Warnf("Failed to cache ADD source %s, downloading directly: %v", src, err)
-		} else {
-			return copyCachedSource(cachePath, dest, owner, perm)
-		}
-	}
-	return util.DownloadFileToDest(src, dest, owner, perm, checksum)
 }
 
 func copyCachedSource(src, dest string, owner *util.Owner, perm os.FileMode) error {

@@ -238,8 +238,12 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 		args:            args.Clone(),
 	}
 
+	addCacheDir := ""
+	if opts.Cache {
+		addCacheDir = opts.CacheDir
+	}
 	for _, cmd := range stage.Commands {
-		command, err := commands.GetCommand(cmd, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers, commands.AddSourceCache{Enabled: config.FF.WarmerAddSourceCache && opts.Cache && opts.CacheDir != "" && opts.AddCache, Dir: opts.CacheDir})
+		command, err := commands.GetCommand(cmd, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers, addCacheDir)
 		if err != nil {
 			return nil, err
 		}
@@ -1498,8 +1502,12 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 			}
 		}
 		stageMediaTypes[s.Index] = mediaType
+		addCacheDir := ""
+		if opts.Cache {
+			addCacheDir = opts.CacheDir
+		}
 		for jdx, c := range s.Commands {
-			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers, commands.AddSourceCache{Enabled: opts.Cache && opts.CacheDir != "" && opts.AddCache, Dir: opts.CacheDir})
+			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers, addCacheDir)
 			if err != nil {
 				return err
 			}
@@ -2500,7 +2508,7 @@ func needsUnpack(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, cross
 		default:
 			unpack := false
 			for jdx, c := range s.Commands {
-				command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
+				command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers, "")
 				if err != nil {
 					return nil, err
 				}

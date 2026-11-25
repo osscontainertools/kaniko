@@ -40,7 +40,6 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
 	warmercmd "github.com/osscontainertools/kaniko/cmd/warmer/cmd"
-	testaddcache "github.com/osscontainertools/kaniko/golden/testdata/test_add_cache"
 	testbake "github.com/osscontainertools/kaniko/golden/testdata/test_bake"
 	testbakecontextdockerfile "github.com/osscontainertools/kaniko/golden/testdata/test_bake_context_dockerfile"
 	testissuemz1126 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1126"
@@ -175,7 +174,6 @@ func renderCommand(env map[string]string, args []string) string {
 }
 
 var allTests = map[string][]types.GoldenTests{
-	"test_add_cache":    testaddcache.Tests,
 	"test_issue_mz195":  {testissuemz195.Tests},
 	"test_issue_mz333":  {testissuemz333.Tests},
 	"test_issue_mz334":  {testissuemz334.Tests},
