@@ -19,6 +19,8 @@ package commands
 import (
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -163,22 +165,20 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				download = urlDest
 			}
 			logrus.Infof("Adding remote URL %s to %s", src, urlDest)
-			cachePath := ""
+			cached := false
 			if kConfig.FF.CacheAddSources && a.addCacheDir != "" && checksum != "" && checksum.Algorithm() == digest.SHA256 {
-				hit, ok, err := addcache.Lookup(a.addCacheDir, checksum)
-				if err != nil {
+				cachePath := addcache.Path(a.addCacheDir, checksum)
+				err = copyCachedSource(cachePath, download, owner, chmod.Apply(0o600), checksum)
+				if errors.Is(err, fs.ErrNotExist) {
+					logrus.Debugf("No cached ADD source for %s", src)
+				} else if err != nil {
 					logrus.Warnf("Ignoring cached ADD source %s: %v", src, err)
-				} else if ok {
-					cachePath = hit
+				} else {
+					logrus.Infof("Using cached ADD source %s", cachePath)
+					cached = true
 				}
 			}
-			if cachePath != "" {
-				logrus.Infof("Using cached ADD source %s", cachePath)
-				err = copyCachedSource(cachePath, download, owner, chmod.Apply(0o600))
-				if err != nil {
-					return fmt.Errorf("copying cached remote source file: %w", err)
-				}
-			} else {
+			if !cached {
 				err = util.DownloadFileToDest(src, download, owner, chmod.Apply(0o600), checksum)
 				if err != nil {
 					return fmt.Errorf("downloading remote source file: %w", err)
@@ -310,14 +310,19 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 	return nil
 }
 
-func copyCachedSource(src, dest string, owner *util.Owner, perm os.FileMode) error {
+func copyCachedSource(src, dest string, owner *util.Owner, perm os.FileMode, checksum digest.Digest) error {
 	f, err := os.Open(src)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	if err := util.CreateFile(dest, f, perm, 0o755, owner); err != nil {
+	digester := digest.Canonical.Digester()
+	if err := util.CreateFile(dest, io.TeeReader(f, digester.Hash()), perm, 0o755, owner); err != nil {
 		return err
+	}
+	got := digester.Digest()
+	if got != checksum {
+		return fmt.Errorf("cached digest mismatch for %s: got %s, want %s", src, got, checksum)
 	}
 	fi, err := f.Stat()
 	if err != nil {
