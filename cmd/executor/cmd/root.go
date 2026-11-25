@@ -136,6 +136,14 @@ func setupBuild() error {
 			PrefixMatchOnly: false,
 		})
 	}
+	// Exclude cache directory from snapshots to prevent cached content from entering the final image
+	if opts.CacheDir != "" {
+		logrus.Tracef("Adding %s to default ignore list", opts.CacheDir)
+		util.AddToDefaultIgnoreList(util.IgnoreListEntry{
+			Path:            opts.CacheDir,
+			PrefixMatchOnly: false,
+		})
+	}
 	for _, p := range opts.IgnorePaths {
 		util.AddToDefaultIgnoreList(util.IgnoreListEntry{
 			Path:            p,

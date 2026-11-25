@@ -628,8 +628,8 @@ func TestWarmerBake(t *testing.T) {
 							var buf bytes.Buffer
 							warmer.Out = &buf
 							err = warmercmd.WarmTargets(&opts, targets)
-							if !checkError(t, test, err) {
-								return
+							if err != nil {
+								t.Error(err)
 							}
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), buf.String())
 						})
