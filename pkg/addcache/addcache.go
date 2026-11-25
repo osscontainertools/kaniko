@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -37,6 +38,22 @@ import (
 
 // DirName is the subdirectory of the cache directory that holds ADD sources.
 const DirName = "add-cache"
+
+// httpClient is a shared HTTP client for downloading ADD sources.
+// Reusing a client allows connection pooling and proper resource management.
+var httpClient = &http.Client{
+	Transport: &http.Transport{
+		// Proxy respects environment proxy settings ($HTTP_PROXY, $HTTPS_PROXY, $NO_PROXY).
+		// Requests connect directly when no proxy applies.
+		Proxy: http.ProxyFromEnvironment,
+		// DialContext bounds connection establishment and TLS handshake to prevent indefinite blocking.
+		DialContext: (&net.Dialer{
+			Timeout: 30 * time.Second,
+		}).DialContext,
+		// ResponseHeaderTimeout bounds header waiting without limiting response body transfer.
+		ResponseHeaderTimeout: 30 * time.Second,
+	},
+}
 
 // Key returns the cache key for a remote ADD source. A checksum uniquely
 // identifies the content, otherwise the normalized URL is hashed.
@@ -101,12 +118,7 @@ func Store(cacheDir, src string, checksum digest.Digest, force ...bool) (string,
 		return "", fmt.Errorf("creating ADD cache directory: %w", err)
 	}
 
-	client := &http.Client{
-		Transport: &http.Transport{
-			ResponseHeaderTimeout: 30 * time.Second,
-		},
-	}
-	resp, err := client.Get(src)
+	resp, err := httpClient.Get(src)
 	if err != nil {
 		return "", err
 	}

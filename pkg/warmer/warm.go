@@ -185,9 +185,11 @@ func RenderPlan(w io.Writer, images []string, addSources []AddSource, opts *conf
 	for _, source := range addSources {
 		cachePath := addcache.Path(opts.CacheDir, source.Source, source.Checksum)
 		printf("ADD %s\n", source.Source)
-		if _, ok, err := AddSourceLookup(opts.CacheDir, source.Source, source.Checksum); err == nil && ok {
-			printf("  CACHE HIT: %s\n", cachePath)
-			continue
+		if !opts.Force {
+			if _, ok, err := AddSourceLookup(opts.CacheDir, source.Source, source.Checksum); err == nil && ok {
+				printf("  CACHE HIT: %s\n", cachePath)
+				continue
+			}
 		}
 		printf("  CACHE MISS: %s\n", cachePath)
 		printf("  FETCH %s\n", source.Source)
@@ -450,19 +452,19 @@ func ParseAddSources(opts *config.WarmerOptions) ([]AddSource, error) {
 	stageEnvs := make(map[int][]string)
 
 	for stageIdx, s := range stages {
-		// Start with build args for each stage
+		// Start with build args for each stage (these take precedence over base image ENVs)
 		envs := slices.Clone(args)
+		buildArgKeys := make(map[string]struct{})
+		for _, env := range args {
+			if k, _, ok := strings.Cut(env, "="); ok {
+				buildArgKeys[k] = struct{}{}
+			}
+		}
 
 		// Add base image ENV values if the base image is not a previous stage
 		if s.BaseName != "" && s.BaseName != constants.NoBaseImage {
-			// Check if base image is a previous stage
-			baseStageIdx := -1
-			for i := range stageIdx {
-				if stages[i].Name == s.BaseName {
-					baseStageIdx = i
-					break
-				}
-			}
+			// Check if base image is a previous stage using case-insensitive comparison
+			baseStageIdx := dockerfile.BaseImageIndex(stageIdx, stages)
 
 			// If base image is from a previous stage, inherit its environment
 			if baseStageIdx >= 0 {
@@ -477,11 +479,19 @@ func ParseAddSources(opts *config.WarmerOptions) ([]AddSource, error) {
 					// Continue without base image ENVs - they might not be needed for ADD sources
 				} else if img != nil {
 					cfgFile, err := img.ConfigFile()
-					if err == nil && cfgFile != nil {
-						// Extract ENV values from base image config
+					if err != nil {
+						return nil, fmt.Errorf("retrieving base image %s configuration: %w", s.BaseName, err)
+					}
+					if cfgFile != nil {
+						// Extract ENV values from base image config, but don't override build args
 						for _, env := range cfgFile.Config.Env {
 							parts := strings.SplitN(env, "=", 2)
-							if len(parts) == 2 {
+							if len(parts) == 2 && len(buildArgKeys) > 0 {
+								// Skip base image ENVs that are overridden by build args
+								if _, isBuildArg := buildArgKeys[parts[0]]; !isBuildArg {
+									envs = setEnv(envs, parts[0], parts[1])
+								}
+							} else if len(parts) == 2 {
 								envs = setEnv(envs, parts[0], parts[1])
 							}
 						}
