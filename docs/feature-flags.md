@@ -243,6 +243,12 @@ Set this flag to `true` to length-prefix every path and file hash before hashing
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
 
+## Flag `FF_KANIKO_IGNORE_CACHE_DIR`
+
+A `--cache-dir` that is not a mount lives in the rootfs, so the executor deletes it between stages and bake targets and later stages pull their base images again.
+Set this flag to `true` to treat `--cache-dir` like a mount: it is kept across stages, nothing under it is snapshotted, and base image content at that path is not unpacked.
+Defaults to `false`.
+
 ## Flag `FF_KANIKO_IMAGE_STAGES`
 
 A stage whose commands are all cache hits is already an image. Kaniko still unpacks every one of its cached layers onto the root filesystem and deletes them again when the stage ends, although nothing reads them.

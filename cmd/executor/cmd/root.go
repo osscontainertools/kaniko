@@ -346,6 +346,12 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget, 
 	if err := resolveRelativePaths(); err != nil {
 		return fmt.Errorf("error resolving relative paths to absolute paths: %w", err)
 	}
+	if config.FF.IgnoreCacheDir && opts.Cache && opts.CacheDir != "" {
+		util.AddToDefaultIgnoreList(util.IgnoreListEntry{
+			Path:            opts.CacheDir,
+			PrefixMatchOnly: false,
+		})
+	}
 	if err := os.Chdir("/"); err != nil {
 		return fmt.Errorf("error changing to root dir: %w", err)
 	}
