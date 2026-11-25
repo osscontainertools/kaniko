@@ -164,7 +164,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 			}
 			logrus.Infof("Adding remote URL %s to %s", src, urlDest)
 			cachePath := ""
-			if kConfig.FF.WarmerAddSourceCache && a.addCacheDir != "" && checksum != "" && checksum.Algorithm() == digest.SHA256 {
+			if kConfig.FF.CacheAddSources && a.addCacheDir != "" && checksum != "" && checksum.Algorithm() == digest.SHA256 {
 				hit, ok, err := addcache.Lookup(a.addCacheDir, checksum)
 				if err != nil {
 					logrus.Warnf("Ignoring cached ADD source %s: %v", src, err)

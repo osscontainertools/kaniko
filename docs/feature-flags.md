@@ -10,6 +10,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 FF_KANIKO_ADD_CHOWN_TAR=true
 FF_KANIKO_ADD_FOLLOW_SYMLINK=true
 FF_KANIKO_ALIGN_HISTORY=true
+FF_KANIKO_CACHE_ADD_SOURCES=true
 FF_KANIKO_CACHE_COPY_FROM=true
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_KEEP_DEST_OWNER=true
@@ -82,6 +83,13 @@ Will be deprecated in `v1.30.0`.
 
 On a base image whose history does not match its layers, the image history shows kaniko's build steps against the wrong layers.
 Set this flag to `true` to show each build step against its own layer.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
+
+## Flag `FF_KANIKO_CACHE_ADD_SOURCES`
+
+`ADD --checksum=sha256:<hex> <url>` always downloads the URL during the build, even with a warmed `--cache-dir`.
+Set this flag to `true` on the warmer and the executor to cache these sources in `--cache-dir`.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
 
@@ -542,14 +550,6 @@ Layer extraction stops at the tar end-of-archive marker and never reads the blob
 Set this flag to `true` to read every layer to its end and fail the build on a digest mismatch.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
-
-## Flag `FF_KANIKO_WARMER_ADD_SOURCE_CACHE`
-
-The warmer and executor parse remote ADD sources and cache them in a shared cache directory for reuse across builds.
-When disabled, the `--add-cache` flag is accepted but ignored, and ADD sources are not cached.
-Set this flag to `true` to enable ADD source caching in both the warmer and executor.
-Defaults to `false`.
-Becomes default in a future release.
 
 ## Flag `FF_KANIKO_WARMER_BUILD_ARGS`
 

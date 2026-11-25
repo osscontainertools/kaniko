@@ -31,7 +31,6 @@ import (
 type CacheOptions struct {
 	CacheDir string
 	CacheTTL time.Duration
-	AddCache bool
 }
 
 // RegistryOptions are all the options related to the registries, set by command line arguments.
@@ -231,15 +230,15 @@ func (f *ImageFormat) Type() string {
 type WarmerOptions struct {
 	CacheOptions
 	RegistryOptions
-	CustomPlatform     string
-	Images             multiArg
-	Force              bool
-	DockerfilePath     string
-	BuildArgs          multiArg
-	Target             []string
-	Dryrun             bool
-	RequireDigest      bool
-	RequireAddChecksum bool
+	CustomPlatform string
+	Images         multiArg
+	Force          bool
+	DockerfilePath string
+	BuildArgs      multiArg
+	Target         []string
+	Dryrun         bool
+	RequireDigest  bool
+	AddCache       bool
 }
 
 func EnvBool(key string) bool {

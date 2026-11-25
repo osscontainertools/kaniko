@@ -1,5 +1,12 @@
 # CLI Flags
 
+## Flag `--add-cache`
+
+The warmer caches `ADD --checksum=sha256:<hex> <url>` sources in `--cache-dir`, which fails when the warmer cannot reach those URLs.
+Set this flag to `false` on the warmer to skip them.
+Defaults to `true`.
+Takes effect with `FF_KANIKO_CACHE_ADD_SOURCES` until `v1.30.0`.
+
 ## Flag `--build-arg`
 
 This flag allows you to pass in ARG values at build time, similarly to Docker.
@@ -25,18 +32,6 @@ Set this flag to specify a local directory cache for base images. Defaults to
 `/cache`.
 
 _This flag must be used in conjunction with the `--cache=true` flag._
-
-## Flag `--add-cache`
-
-Cache remote `ADD` sources and use them for builds that share the local cache directory.
-The warmer accepts `--add-cache` with `--dockerfile` and writes remote sources under
-`<cache-dir>/add-cache/`. The executor accepts `--add-cache` only while `--cache=true`
-and `--cache-dir` is set. It resolves an entry before downloading the URL, then falls back
-to a normal download on a cache miss or cache error.
-
-An `ADD --checksum=<digest>` source is keyed and verified by its digest. Sources without a
-checksum are keyed by a normalized URL. Warmer `--require-add-checksum` rejects a remote
-`ADD` source that omits `--checksum`; it is available on both the warmer and executor.
 
 ## Flag `--cache-repo`
 
@@ -364,8 +359,7 @@ are:
 
 ## Flag `--require-add-checksum`
 
-Fail if an `ADD` instruction pulls a remote URL (HTTP/HTTPS) without a `--checksum` digest.
-Available on the warmer and executor. On the warmer, it requires `--add-cache`.
+Fail if an `ADD` instruction pulls a remote URL (HTTP/HTTPS) without a `--checksum` digest. Executor only.
 
 ## Flag `--require-digest`
 

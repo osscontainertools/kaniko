@@ -223,7 +223,7 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
-func renderPlan(t *testing.T, opts *config.KanikoOptions, test types.GoldenTest) (string, error) {
+func renderPlan(t *testing.T, opts *config.KanikoOptions, test types.GoldenTest) string {
 	t.Helper()
 	cacheMediaType := ggcrtypes.MediaType(test.CacheMediaType)
 	if cacheMediaType == "" {
@@ -249,25 +249,10 @@ func renderPlan(t *testing.T, opts *config.KanikoOptions, test types.GoldenTest)
 
 	var buf bytes.Buffer
 	executor.Out = &buf
-	_, err := executor.DoBuild(opts)
-	return buf.String(), err
-}
-
-// checkError fails the test unless err matches test.WantError. It reports
-// whether the plan should be compared, which is only the case for a test that
-// expects no error.
-func checkError(t *testing.T, test types.GoldenTest, err error) bool {
-	t.Helper()
-	if test.WantError == "" {
-		if err != nil {
-			t.Fatal(err)
-		}
-		return true
+	if _, err := executor.DoBuild(opts); err != nil {
+		t.Error(err)
 	}
-	if err == nil || !strings.Contains(err.Error(), test.WantError) {
-		t.Fatalf("error = %v, want it to contain %q", err, test.WantError)
-	}
-	return false
+	return buf.String()
 }
 
 // comparePlan diffs output against the golden plan at planPath, or rewrites it
@@ -333,10 +318,7 @@ func TestRun(t *testing.T) {
 								t.Fatal(err)
 							}
 
-							output, err := renderPlan(t, &opts, test)
-							if !checkError(t, test, err) {
-								return
-							}
+							output := renderPlan(t, &opts, test)
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), output)
 						})
 					}
@@ -410,11 +392,7 @@ func TestBake(t *testing.T) {
 								if err := cmd.ApplyTarget(&topts, target); err != nil {
 									t.Fatal(err)
 								}
-								rendered, err := renderPlan(t, &topts, test)
-								if !checkError(t, test, err) {
-									return
-								}
-								output += rendered
+								output += renderPlan(t, &topts, test)
 							}
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), output)
 						})
@@ -580,9 +558,8 @@ func TestWarmer(t *testing.T) {
 
 							var buf bytes.Buffer
 							warmer.Out = &buf
-							err = warmer.WarmCache(&opts)
-							if !checkError(t, test, err) {
-								return
+							if err := warmer.WarmCache(&opts); err != nil {
+								t.Error(err)
 							}
 							comparePlan(t, filepath.Join(testDir, "plans", test.Plan), buf.String())
 						})

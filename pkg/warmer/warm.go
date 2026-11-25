@@ -81,7 +81,7 @@ func WarmCache(opts *config.WarmerOptions) error {
 		if err != nil {
 			return fmt.Errorf("failed to parse Dockerfile: %w", err)
 		}
-		if config.FF.WarmerAddSourceCache && opts.AddCache {
+		if config.FF.CacheAddSources && opts.AddCache {
 			if addSources, err = ParseAddSources(opts); err != nil {
 				return fmt.Errorf("failed to parse Dockerfile ADD sources: %w", err)
 			}
@@ -130,7 +130,11 @@ func WarmCache(opts *config.WarmerOptions) error {
 
 	var errs []error
 	if len(addFailed) > 0 {
-		errs = append(errs, fmt.Errorf("failed to cache %d/%d ADD source(s): %s", len(addFailed), len(addSources), strings.Join(addFailed, ", ")))
+		if len(addFailed) == len(addSources) || config.FF.WarmerFailOnError {
+			errs = append(errs, fmt.Errorf("failed to cache %d/%d ADD source(s): %s", len(addFailed), len(addSources), strings.Join(addFailed, ", ")))
+		} else {
+			logrus.Warnf("Failed to cache %d/%d ADD source(s): %s", len(addFailed), len(addSources), strings.Join(addFailed, ", "))
+		}
 	}
 	if len(failed) > 0 {
 		if len(failed) == len(images) || config.FF.WarmerFailOnError {
@@ -553,10 +557,8 @@ func ParseAddSources(opts *config.WarmerOptions) ([]AddSource, error) {
 					if !util.IsSrcRemoteFileURL(src) {
 						continue
 					}
-					if checksum == "" && opts.RequireAddChecksum {
-						return nil, fmt.Errorf("--require-add-checksum: ADD %s has no --checksum", src)
-					}
 					if checksum == "" || checksum.Algorithm() != digest.SHA256 {
+						logrus.Infof("Not caching ADD source %s without a sha256 --checksum", src)
 						continue
 					}
 					key := checksum.String()

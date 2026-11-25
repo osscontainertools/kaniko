@@ -32,6 +32,7 @@ type FeatureFlags struct {
 	AddFollowSymlink               bool
 	AddUnpack                      bool
 	AlignHistory                   bool
+	CacheAddSources                bool
 	CacheCopyFrom                  bool
 	CacheHashBlake3                bool
 	CacheImageIndex                bool
@@ -96,7 +97,6 @@ type FeatureFlags struct {
 	UnpackZstd                     bool
 	UntarSkipRoot                  bool
 	VerifyLayerDigest              bool
-	WarmerAddSourceCache           bool
 	WarmerBuildArgs                bool
 	WarmerExecutorParity           bool
 	WarmerFailOnError              bool
@@ -141,6 +141,7 @@ func InitFeatureFlags() {
 		AddFollowSymlink:               featureFlag("FF_KANIKO_ADD_FOLLOW_SYMLINK", false),
 		AddUnpack:                      featureFlag("FF_KANIKO_ADD_UNPACK", true),
 		AlignHistory:                   featureFlag("FF_KANIKO_ALIGN_HISTORY", false),
+		CacheAddSources:                featureFlag("FF_KANIKO_CACHE_ADD_SOURCES", false),
 		CacheCopyFrom:                  featureFlag("FF_KANIKO_CACHE_COPY_FROM", false),
 		CacheHashBlake3:                featureFlag("FF_KANIKO_CACHE_HASH_BLAKE3", true),
 		CacheImageIndex:                featureFlag("FF_KANIKO_CACHE_IMAGE_INDEX", false),
@@ -205,7 +206,6 @@ func InitFeatureFlags() {
 		UnpackZstd:                     featureFlag("FF_KANIKO_UNPACK_ZSTD", true),
 		UntarSkipRoot:                  featureFlag("FF_KANIKO_UNTAR_SKIP_ROOT", true),
 		VerifyLayerDigest:              featureFlag("FF_KANIKO_VERIFY_LAYER_DIGEST", true),
-		WarmerAddSourceCache:           featureFlag("FF_KANIKO_WARMER_ADD_SOURCE_CACHE", false),
 		WarmerBuildArgs:                featureFlag("FF_KANIKO_WARMER_BUILD_ARGS", false),
 		WarmerExecutorParity:           featureFlag("FF_KANIKO_WARMER_EXECUTOR_PARITY", false),
 		WarmerFailOnError:              featureFlag("FF_KANIKO_WARMER_FAIL_ON_ERROR", false),
