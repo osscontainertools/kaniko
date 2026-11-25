@@ -81,7 +81,7 @@ func WarmCache(opts *config.WarmerOptions) error {
 		if err != nil {
 			return fmt.Errorf("failed to parse Dockerfile: %w", err)
 		}
-		if config.FF.CacheAddSources && opts.AddCache {
+		if config.FF.CacheAddSources && config.FF.AddChecksum && opts.AddCache {
 			if addSources, err = ParseAddSources(opts); err != nil {
 				return fmt.Errorf("failed to parse Dockerfile ADD sources: %w", err)
 			}
@@ -522,7 +522,7 @@ func ParseAddSources(opts *config.WarmerOptions) ([]AddSource, error) {
 			case *instructions.ArgCommand:
 				for _, arg := range c.Args {
 					// Check if this ARG key has a build-arg override
-					if buildArgValue, hasBuildArg := buildArgMap[arg.Key]; hasBuildArg {
+					if buildArgValue, hasBuildArg := buildArgMap[arg.Key]; hasBuildArg && !hasEnv(envs, arg.Key) {
 						// Apply the build-arg value when the ARG declaration takes effect
 						envs = setEnv(envs, arg.Key, buildArgValue)
 					} else if arg.Value != nil && !hasEnv(envs, arg.Key) {
