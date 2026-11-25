@@ -43,6 +43,7 @@ import (
 	"github.com/opencontainers/go-digest"
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/policy"
 	"github.com/osscontainertools/kaniko/pkg/timing"
 	otiai10Cpy "github.com/otiai10/copy"
 	"github.com/sirupsen/logrus"
@@ -99,6 +100,7 @@ type FileContext struct {
 	Root          string
 	ExcludedFiles []string
 	AllowedPath   string
+	InputPolicy   *policy.Policy
 	matcher       *patternmatcher.PatternMatcher
 }
 

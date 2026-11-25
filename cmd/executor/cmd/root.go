@@ -387,6 +387,7 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget, 
 				}
 			}
 			topts.SrcContext, topts.DockerfilePath, topts.ContextSource, topts.CI = in.srcContext, in.dockerfile, in.source, in.ci
+			topts.InputContext, topts.InputPolicyPath = in.inputContext, in.inputPolicyPath
 		}
 		if target.ID != "" {
 			logrus.Infof("Building target %q [stage: %q]", target.ID, target.Stage)
@@ -424,7 +425,13 @@ func resolveContext(opts *config.KanikoOptions) error {
 	if err := resolveSourceContext(opts); err != nil {
 		return fmt.Errorf("error resolving source context: %w", err)
 	}
-	if opts.PredefinedAnnotations || opts.Provenance {
+	if opts.PredefinedAnnotations || opts.Provenance || config.FF.InputPolicy {
+		if srcContext == "" {
+			srcContext = opts.Bucket
+			if srcContext != "" && !strings.Contains(srcContext, "://") {
+				srcContext = constants.GCSBuildContextPrefix + srcContext
+			}
+		}
 		dir, cloneURL := opts.SrcContext, ""
 		gitContext, isGit := strings.CutPrefix(srcContext, constants.GitBuildContextPrefix)
 		if isGit {
@@ -629,6 +636,7 @@ func validateCompressionLevel(compression config.Compression, level int) error {
 // resolveDockerfilePath resolves the Dockerfile path to an absolute path
 func resolveDockerfilePath(opts *config.KanikoOptions) error {
 	if isURL(opts.DockerfilePath) {
+		opts.InputPolicyPath = ""
 		return nil
 	}
 	if util.FilepathExists(opts.DockerfilePath) {
@@ -637,6 +645,11 @@ func resolveDockerfilePath(opts *config.KanikoOptions) error {
 			return fmt.Errorf("getting absolute path for dockerfile: %w", err)
 		}
 		opts.DockerfilePath = abs
+		if config.FF.InputPolicy {
+			opts.InputPolicyPath = abs + ".rego"
+		} else {
+			opts.InputPolicyPath = ""
+		}
 		return copyDockerfile(opts)
 	}
 	// Otherwise, check if the path relative to the build context exists
@@ -646,6 +659,11 @@ func resolveDockerfilePath(opts *config.KanikoOptions) error {
 			return fmt.Errorf("getting absolute path for src context/dockerfile path: %w", err)
 		}
 		opts.DockerfilePath = abs
+		if config.FF.InputPolicy {
+			opts.InputPolicyPath = abs + ".rego"
+		} else {
+			opts.InputPolicyPath = ""
+		}
 		return copyDockerfile(opts)
 	}
 	return errors.New("please provide a valid path to a Dockerfile within the build context with --dockerfile")
@@ -701,6 +719,17 @@ func copyDockerfile(opts *config.KanikoOptions) error {
 // resolveSourceContext unpacks the source context if it is a tar in a bucket or in kaniko container
 // it resets srcContext to be the path to the unpacked build context within the image
 func resolveSourceContext(opts *config.KanikoOptions) error {
+	if config.FF.InputPolicy {
+		opts.InputContext = opts.SrcContext
+		if opts.InputContext == "" && opts.Bucket != "" {
+			opts.InputContext = opts.Bucket
+			if !strings.Contains(opts.InputContext, "://") {
+				opts.InputContext = constants.GCSBuildContextPrefix + opts.InputContext
+			}
+		}
+	} else {
+		opts.InputContext = ""
+	}
 	if opts.SrcContext == "" && opts.Bucket == "" {
 		return errors.New("please specify a path to the build context with the --context flag or a bucket with the --bucket flag")
 	}

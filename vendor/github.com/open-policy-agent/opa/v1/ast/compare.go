@@ -1,0 +1,385 @@
+// Copyright 2016 The OPA Authors.  All rights reserved.
+// Use of this source code is governed by an Apache2
+// license that can be found in the LICENSE file.
+
+package ast
+
+import (
+	"cmp"
+	"fmt"
+	"math/big"
+	"slices"
+	"strings"
+
+	"github.com/open-policy-agent/opa/v1/util"
+)
+
+// Compare returns an integer indicating whether two AST values are less than,
+// equal to, or greater than each other.
+//
+// If a is less than b, the return value is negative. If a is greater than b,
+// the return value is positive. If a is equal to b, the return value is zero.
+//
+// Different types are never equal to each other. For comparison purposes, types
+// are sorted as follows:
+//
+// nil < Null < Boolean < Number < String < Var < Ref < Array < Object < Set <
+// ArrayComprehension < ObjectComprehension < SetComprehension < Expr < SomeDecl
+// < With < Body < Rule < Import < Package < Module.
+//
+// Arrays and Refs are equal if and only if both a and b have the same length
+// and all corresponding elements are equal. If one element is not equal, the
+// return value is the same as for the first differing element. If all elements
+// are equal but a and b have different lengths, the shorter is considered less
+// than the other.
+//
+// Objects are considered equal if and only if both a and b have the same sorted
+// (key, value) pairs and are of the same length. Other comparisons are
+// consistent but not defined.
+//
+// Sets are considered equal if and only if the symmetric difference of a and b
+// is empty.
+// Other comparisons are consistent but not defined.
+func Compare(a, b any) int {
+	if t, ok := a.(*Term); ok {
+		if t == nil {
+			a = nil
+		} else {
+			a = t.Value
+		}
+	}
+
+	if t, ok := b.(*Term); ok {
+		if t == nil {
+			b = nil
+		} else {
+			b = t.Value
+		}
+	}
+
+	if a == nil {
+		if b == nil {
+			return 0
+		}
+		return -1
+	}
+	if b == nil {
+		return 1
+	}
+
+	sortA := sortOrder(a)
+	sortB := sortOrder(b)
+
+	if sortA < sortB {
+		return -1
+	} else if sortB < sortA {
+		return 1
+	}
+
+	switch a := a.(type) {
+	case *Not:
+		b := b.(*Not)
+		return a.Compare(b)
+	case Null:
+		return 0
+	case Boolean:
+		if a == b.(Boolean) {
+			return 0
+		}
+		if !a {
+			return -1
+		}
+		return 1
+	case Number:
+		return NumberCompare(a, b.(Number))
+	case String:
+		b := b.(String)
+		if a == b {
+			return 0
+		}
+		if a < b {
+			return -1
+		}
+		return 1
+	case *TemplateString:
+		b := b.(*TemplateString)
+		return a.Compare(b)
+	case Var:
+		return VarCompare(a, b.(Var))
+	case Ref:
+		return slices.CompareFunc(a, b.(Ref), TermValueCompare)
+	case *Array:
+		return slices.CompareFunc(a.elems, b.(*Array).elems, TermValueCompare)
+	case *lazyObj:
+		return Compare(a.force(), b)
+	case *object:
+		if x, ok := b.(*lazyObj); ok {
+			b = x.force()
+		}
+		return a.Compare(b.(*object))
+	case Set:
+		return a.Compare(b.(Set))
+	case *ArrayComprehension:
+		b := b.(*ArrayComprehension)
+		return a.Compare(b)
+	case *ObjectComprehension:
+		b := b.(*ObjectComprehension)
+		return a.Compare(b)
+	case *SetComprehension:
+		b := b.(*SetComprehension)
+		return a.Compare(b)
+	case Call:
+		return slices.CompareFunc(a, b.(Call), TermValueCompare)
+	case *Expr:
+		return a.Compare(b.(*Expr))
+	case *SomeDecl:
+		return a.Compare(b.(*SomeDecl))
+	case *Every:
+		return a.Compare(b.(*Every))
+	case *LogicalAnd:
+		return a.Compare(b.(*LogicalAnd))
+	case *LogicalOr:
+		return a.Compare(b.(*LogicalOr))
+	case *With:
+		return a.Compare(b.(*With))
+	case Body:
+		return a.Compare(b.(Body))
+	case *Head:
+		return a.Compare(b.(*Head))
+	case *Rule:
+		return a.Compare(b.(*Rule))
+	case Args:
+		return slices.CompareFunc(a, b.(Args), TermValueCompare)
+	case *Import:
+		return a.Compare(b.(*Import))
+	case *Package:
+		return a.Compare(b.(*Package))
+	case *Annotations:
+		return a.Compare(b.(*Annotations))
+	case *Module:
+		return a.Compare(b.(*Module))
+	}
+	panic(fmt.Sprintf("illegal value: %T", a))
+}
+
+func valueSortOrder(v Value) int {
+	switch v.(type) {
+	case Null:
+		return 0
+	case Boolean:
+		return 1
+	case Number:
+		return 2
+	case String:
+		return 3
+	case *TemplateString:
+		return 4
+	case Var:
+		return 5
+	case Ref:
+		return 6
+	case *Array:
+		return 7
+	case Object:
+		return 8
+	case Set:
+		return 9
+	case *ArrayComprehension:
+		return 10
+	case *ObjectComprehension:
+		return 11
+	case *SetComprehension:
+		return 12
+	case Call:
+		return 13
+	case *Not:
+		return 111
+	}
+	return 10000000
+}
+
+func valueTypeCompare[A, B Value](a A, b B) int {
+	sortA := valueSortOrder(a)
+	sortB := valueSortOrder(b)
+
+	if sortA < sortB {
+		return -1
+	} else if sortB < sortA {
+		return 1
+	}
+	return 0
+}
+
+func sortOrder(x any) int {
+	switch v := x.(type) {
+	case Value:
+		return valueSortOrder(v)
+	case Args:
+		return 14
+	case *Expr:
+		return 100
+	case *SomeDecl:
+		return 101
+	case *Every:
+		return 102
+	case *LogicalAnd:
+		return 103
+	case *LogicalOr:
+		return 104
+	case *With:
+		return 110
+	case *Head:
+		return 120
+	case Body:
+		return 200
+	case *Rule:
+		return 1000
+	case *Import:
+		return 1001
+	case *Package:
+		return 1002
+	case *Annotations:
+		return 1003
+	case *Module:
+		return 10000
+	}
+	panic(fmt.Sprintf("illegal value: %T", x))
+}
+
+func VarCompare(a, b Var) int {
+	if a == b {
+		return 0
+	}
+	if a < b {
+		return -1
+	}
+	return 1
+}
+
+func TermValueCompare(a, b *Term) int {
+	if a == b {
+		return 0
+	}
+	return a.Value.Compare(b.Value)
+}
+
+func ValueEqual(a, b Value) bool {
+	switch v := a.(type) {
+	case Null, Boolean, String, Var:
+		return v == b
+	case Number:
+		return v.Equal(b)
+	case Ref:
+		return v.Equal(b)
+	case *Array:
+		return v.Equal(b)
+	case *object:
+		return v.Equal(b)
+	case *Not:
+		return v.Equal(b)
+	case *TemplateString:
+		return v.Equal(b)
+	}
+
+	return a.Compare(b) == 0
+}
+
+func RefCompare(a, b Ref) int {
+	return slices.CompareFunc(a, b, TermValueCompare)
+}
+
+func RefEqual(a, b Ref) bool {
+	return slices.EqualFunc(a, b, (*Term).Equal)
+}
+
+func NumberCompare(x, y Number) int {
+	xs, ys := string(x), string(y)
+	if xs == ys {
+		return 0
+	}
+
+	var xi, yi int64
+	var xiOK, yiOK, xfOK, yfOK bool
+
+	if xi, xiOK = util.Atoi64(xs); xiOK {
+		if yi, yiOK = util.Atoi64(ys); yiOK {
+			return cmp.Compare(xi, yi)
+		}
+	}
+
+	if xd, ok := parseDecimal(xs); ok {
+		if yd, ok := parseDecimal(ys); ok {
+			return xd.compare(yd)
+		}
+	}
+
+	var xf, yf float64
+	var xIsF, yIsF bool
+
+	// Treat "1" and "1.0", "1.00", etc as "1" for the purpose of deciding
+	// whether each side is a non-integral value.
+	//
+	// The trimmed forms must not be assigned back over xs and ys. TrimRight
+	// takes a cutset rather than a suffix, so ".0" strips every trailing '.'
+	// and '0' character: "0.0" trims to the empty string and "-0.0" to "-".
+	// Those are then handed to big.Float.SetString below, which fails, and the
+	// failure path is a panic.
+	if strings.IndexByte(xs, '.') != -1 {
+		if tx := strings.TrimRight(xs, ".0"); tx != xs {
+			// Still a float after trimming?
+			xIsF = strings.IndexByte(tx, '.') != -1
+		}
+	}
+	if strings.IndexByte(ys, '.') != -1 {
+		if ty := strings.TrimRight(ys, ".0"); ty != ys {
+			yIsF = strings.IndexByte(ty, '.') != -1
+		}
+	}
+
+	if xIsF && yIsF {
+		if xf, xfOK = x.Float64(); xfOK {
+			if yf, yfOK = y.Float64(); yfOK {
+				if xf == yf {
+					return 0
+				}
+				// could still be "equal" depending on precision, so we continue?
+			}
+		}
+	}
+
+	var a *big.Rat
+	fa, ok := new(big.Float).SetString(xs)
+	if !ok {
+		panic("illegal value")
+	}
+	if fa.IsInt() {
+		if i, _ := fa.Int64(); i == 0 {
+			a = new(big.Rat).SetInt64(0)
+		}
+	}
+	if a == nil {
+		a, ok = new(big.Rat).SetString(xs)
+		if !ok {
+			panic("illegal value")
+		}
+	}
+
+	var b *big.Rat
+	fb, ok := new(big.Float).SetString(ys)
+	if !ok {
+		panic("illegal value")
+	}
+	if fb.IsInt() {
+		if i, _ := fb.Int64(); i == 0 {
+			b = new(big.Rat).SetInt64(0)
+		}
+	}
+	if b == nil {
+		b, ok = new(big.Rat).SetString(ys)
+		if !ok {
+			panic("illegal value")
+		}
+	}
+
+	return a.Cmp(b)
+}

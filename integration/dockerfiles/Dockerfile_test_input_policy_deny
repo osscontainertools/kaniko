@@ -1,0 +1,5 @@
+# Exercises denial of an HTTP ADD input before it is downloaded.
+FROM scratch
+ARG INPUT_URL
+ADD ${INPUT_URL} /payload
+COPY input_policy.txt /context.txt

@@ -1,0 +1,4 @@
+# Exercises denial of an unapproved base image.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+COPY input_policy.txt /context.txt

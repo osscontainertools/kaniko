@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -47,6 +48,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/assert"
+	"github.com/osscontainertools/kaniko/pkg/buildcontext"
 	"github.com/osscontainertools/kaniko/pkg/buildenv"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/commands"
@@ -56,6 +58,7 @@ import (
 	image_util "github.com/osscontainertools/kaniko/pkg/image"
 	"github.com/osscontainertools/kaniko/pkg/image/remote"
 	"github.com/osscontainertools/kaniko/pkg/mounts"
+	"github.com/osscontainertools/kaniko/pkg/policy"
 	"github.com/osscontainertools/kaniko/pkg/provenance"
 	"github.com/osscontainertools/kaniko/pkg/snapshot"
 	"github.com/osscontainertools/kaniko/pkg/timing"
@@ -1329,6 +1332,9 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 		for _, c := range cmds {
 			switch cmd := c.(type) {
 			case *instructions.AddCommand:
+				if err := commands.ValidateAddPolicy(cmd, fileContext, ba.ReplacementEnvs(cfg.Config.Env)); err != nil {
+					return nil, nil, nil, err
+				}
 				if opts.RequireAddChecksum {
 					err := commands.RequireAddChecksum(cmd, fileContext, ba.ReplacementEnvs(cfg.Config.Env))
 					if err != nil {
@@ -1618,6 +1624,77 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 	return retErr
 }
 
+func validateContextInput(opts *config.KanikoOptions) error {
+	if strings.HasPrefix(opts.InputContext, constants.GitBuildContextPrefix) {
+		return validateGitContextInput(opts)
+	}
+	if strings.HasPrefix(opts.InputContext, "http://") || strings.HasPrefix(opts.InputContext, "https://") {
+		input, err := policy.NewHTTPInput(opts.InputContext, "", "", "")
+		if err != nil {
+			return fmt.Errorf("parsing HTTP context for input policy: %w", err)
+		}
+		return opts.InputPolicy.Evaluate(policy.Input{HTTP: &input})
+	}
+	return opts.InputPolicy.Evaluate(policy.Input{Local: true})
+}
+
+func validateGitContextInput(opts *config.KanikoOptions) error {
+	context := strings.TrimPrefix(opts.InputContext, constants.GitBuildContextPrefix)
+	parts := strings.SplitN(context, "#", 3)
+	remote := buildcontext.GitURL(context)
+	parsed, err := url.Parse(remote)
+	if err != nil {
+		return fmt.Errorf("parsing Git context for input policy: %w", err)
+	}
+	parsed.User = nil
+	remote = parsed.String()
+	input := policy.GitInput{
+		URL:            remote,
+		Remote:         remote,
+		Schema:         parsed.Scheme,
+		Host:           parsed.Hostname(),
+		Commit:         opts.ContextSource.Revision,
+		Checksum:       opts.ContextSource.Revision,
+		CommitChecksum: opts.ContextSource.Revision,
+		SignedTag:      false,
+		SignedCommit:   false,
+	}
+	if len(parts) > 1 {
+		input.Ref = parts[1]
+		switch {
+		case strings.HasPrefix(input.Ref, "refs/tags/"):
+			input.IsTag = true
+			input.TagName = strings.TrimPrefix(input.Ref, "refs/tags/")
+		case strings.HasPrefix(input.Ref, "refs/heads/"):
+			input.IsBranch = true
+			input.Branch = strings.TrimPrefix(input.Ref, "refs/heads/")
+		case isGitCommit(input.Ref):
+			input.IsCommitRef = true
+		case input.Ref != "":
+			input.IsBranch = true
+			input.Branch = input.Ref
+		}
+	}
+	if input.Commit == "" && len(parts) > 2 {
+		input.Commit = parts[2]
+		input.Checksum = parts[2]
+		input.CommitChecksum = parts[2]
+	}
+	return opts.InputPolicy.Evaluate(policy.Input{Git: &input})
+}
+
+func isGitCommit(ref string) bool {
+	if len(ref) != 40 && len(ref) != 64 {
+		return false
+	}
+	for _, char := range ref {
+		if !strings.ContainsRune("0123456789abcdefABCDEF", char) {
+			return false
+		}
+	}
+	return true
+}
+
 // DoBuild executes building the Dockerfile
 func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	started := time.Now()
@@ -1626,8 +1703,28 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	_, endPlanning := timing.Scope("Planning")
 	defer endPlanning()
 
-	var predefinedArgs []string
 	var err error
+	if config.FF.InputPolicy {
+		if opts.InputPolicy == nil {
+			path := opts.InputPolicyPath
+			if path == "" && !strings.HasPrefix(opts.DockerfilePath, "http://") && !strings.HasPrefix(opts.DockerfilePath, "https://") {
+				path = opts.DockerfilePath + ".rego"
+			}
+			if path != "" {
+				opts.InputPolicy, err = policy.Load(path)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+		if opts.InputPolicy != nil {
+			if err := validateContextInput(opts); err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	var predefinedArgs []string
 	if config.FF.FromPredefinedArgs {
 		predefinedArgs, err = dockerfile.PredefinedArgs(opts.CustomPlatform)
 		if err != nil {
@@ -1654,6 +1751,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	if err != nil {
 		return nil, err
 	}
+	fileContext.InputPolicy = opts.InputPolicy
 
 	crossStageDependencies, mountDependencies, copySources, err := CalculateDependencies(kanikoStages, opts, fileContext)
 	if err != nil {

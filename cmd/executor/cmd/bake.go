@@ -152,7 +152,12 @@ and inherits are not supported.`,
 				if err := resolveContext(&topts); err != nil {
 					return err
 				}
-				c = resolvedContext{inputs: targetInputs{srcContext: topts.SrcContext, source: topts.ContextSource, ci: topts.CI}, dockerfileBase: topts.SrcContext}
+				c = resolvedContext{inputs: targetInputs{
+					srcContext:   topts.SrcContext,
+					source:       topts.ContextSource,
+					ci:           topts.CI,
+					inputContext: topts.InputContext,
+				}, dockerfileBase: topts.SrcContext}
 				local := srcContext != "" && !strings.Contains(srcContext, "://")
 				switch {
 				case store && local:
@@ -195,6 +200,7 @@ and inherits are not supported.`,
 			}
 			in := c.inputs
 			in.dockerfile = topts.DockerfilePath
+			in.inputPolicyPath = topts.InputPolicyPath
 			if store && !isURL(in.dockerfile) {
 				in.dockerfile = filepath.Join(config.KanikoBuildContextsDir, fmt.Sprintf("Dockerfile-%d", i))
 				if err := os.Rename(config.DockerfilePath, in.dockerfile); err != nil {
@@ -211,14 +217,17 @@ and inherits are not supported.`,
 		}
 		// tracing reads the first target's Dockerfile through opts when it exports.
 		opts.SrcContext, opts.DockerfilePath, opts.ContextSource, opts.CI = inputs[0].srcContext, inputs[0].dockerfile, inputs[0].source, inputs[0].ci
+		opts.InputContext, opts.InputPolicyPath = inputs[0].inputContext, inputs[0].inputPolicyPath
 		return runBuildTargets(opts, targets, inputs)
 	},
 }
 
 type targetInputs struct {
-	stored     string
-	srcContext string
-	dockerfile string
-	source     buildenv.Source
-	ci         buildenv.CI
+	stored          string
+	srcContext      string
+	dockerfile      string
+	source          buildenv.Source
+	ci              buildenv.CI
+	inputContext    string
+	inputPolicyPath string
 }

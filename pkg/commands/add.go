@@ -28,6 +28,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
+	"github.com/osscontainertools/kaniko/pkg/policy"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
@@ -302,6 +303,37 @@ func RequireAddChecksum(cmd *instructions.AddCommand, fileContext util.FileConte
 	for _, src := range srcs {
 		if util.IsSrcRemoteFileURL(src) {
 			return fmt.Errorf("--require-add-checksum: ADD %s has no --checksum", src)
+		}
+	}
+	return nil
+}
+
+// ValidateAddPolicy checks all remote ADD inputs before any Dockerfile command executes.
+func ValidateAddPolicy(cmd *instructions.AddCommand, fileContext util.FileContext, replacementEnvs []string) error {
+	if fileContext.InputPolicy == nil {
+		return nil
+	}
+	srcs, _, err := util.ResolveEnvAndWildcards(cmd.SourcesAndDest, fileContext, replacementEnvs)
+	if err != nil {
+		return err
+	}
+	checksum := ""
+	if cmd.Checksum != "" {
+		checksum, err = util.ResolveEnvironmentReplacement(cmd.Checksum, replacementEnvs, false)
+		if err != nil {
+			return fmt.Errorf("resolving ADD checksum for policy: %w", err)
+		}
+	}
+	for _, src := range srcs {
+		if !util.IsSrcRemoteFileURL(src) {
+			continue
+		}
+		input, err := policy.NewHTTPInput(src, "", checksum, "")
+		if err != nil {
+			return fmt.Errorf("parsing ADD URL for policy: %w", err)
+		}
+		if err := fileContext.InputPolicy.Evaluate(policy.Input{HTTP: &input}); err != nil {
+			return err
 		}
 	}
 	return nil

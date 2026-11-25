@@ -1,0 +1,31 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "json",
+    srcs = [
+        "json.go",
+        "registry.go",
+        "stdlib.go",
+    ],
+    importpath = "github.com/lestrrat-go/jwx/v3/internal/json",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/base64",
+        "//internal/tokens",
+    ],
+)
+
+alias(
+    name = "go_default_library",
+    actual = ":json",
+    visibility = ["//:__subpackages__"],
+)
+
+go_test(
+    name = "json_test",
+    srcs = ["json_test.go"],
+    deps = [
+        ":json",
+        "@com_github_stretchr_testify//require",
+    ],
+)

@@ -1,0 +1,4 @@
+# Exercises an approved base image input.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+COPY input_policy.txt /context.txt

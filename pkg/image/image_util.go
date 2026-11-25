@@ -33,6 +33,7 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/image/remote"
+	"github.com/osscontainertools/kaniko/pkg/policy"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
@@ -96,12 +97,65 @@ func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, b
 				logrus.Errorf("Error while retrieving image from cache: %v %v", currentBaseName, err)
 			}
 		} else if cachedImage != nil {
-			return cachedImage, nil
+			return validateImageInput(currentBaseName, cachedImage, opts)
 		}
 	}
 
 	// Otherwise, initialize image as usual
-	return RetrieveRemoteImage(currentBaseName, opts.RegistryOptions, opts.CustomPlatform)
+	img, err := RetrieveRemoteImage(currentBaseName, opts.RegistryOptions, opts.CustomPlatform)
+	if err != nil {
+		return nil, err
+	}
+	return validateImageInput(currentBaseName, img, opts)
+}
+
+func validateImageInput(ref string, img v1.Image, opts *config.KanikoOptions) (v1.Image, error) {
+	if opts == nil || opts.InputPolicy == nil {
+		return img, nil
+	}
+	parsedRef, err := name.ParseReference(ref, name.WeakValidation)
+	if err != nil {
+		return nil, fmt.Errorf("parsing resolved image reference %q for policy: %w", ref, err)
+	}
+	digest, err := img.Digest()
+	if err != nil {
+		return nil, fmt.Errorf("resolving image digest for policy: %w", err)
+	}
+	imageConfig, err := img.ConfigFile()
+	if err != nil {
+		return nil, fmt.Errorf("reading image configuration for policy: %w", err)
+	}
+
+	host := parsedRef.Context().RegistryStr()
+	if host == name.DefaultRegistry {
+		host = "docker.io"
+	}
+	repo := parsedRef.Context().RepositoryStr()
+	input := policy.ImageInput{
+		Ref:           ref,
+		ResolvedRef:   host + "/" + repo + "@" + digest.String(),
+		Digest:        digest.String(),
+		Checksum:      digest.String(),
+		Host:          host,
+		Repo:          repo,
+		FullRepo:      host + "/" + repo,
+		Platform:      opts.CustomPlatform,
+		OS:            imageConfig.OS,
+		Arch:          imageConfig.Architecture,
+		HasProvenance: false,
+		Attestations:  []any{},
+		Signatures:    []any{},
+	}
+	switch reference := parsedRef.(type) {
+	case name.Digest:
+		input.IsCanonical = true
+	case name.Tag:
+		input.Tag = reference.TagStr()
+	}
+	if err := opts.InputPolicy.Evaluate(policy.Input{Image: &input}); err != nil {
+		return nil, fmt.Errorf("validating base image input: %w", err)
+	}
+	return img, nil
 }
 
 func ociImage(index int) (v1.Image, error) {
