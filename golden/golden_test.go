@@ -560,6 +560,12 @@ func TestWarmer(t *testing.T) {
 				t.Run(testSuite.Name, func(t *testing.T) {
 					for _, test := range testSuite.Tests {
 						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
+							t.Cleanup(config.InitFeatureFlags)
+							for k, v := range test.Env {
+								t.Setenv(k, v)
+							}
+							config.InitFeatureFlags()
+
 							fakeWarmerSources(t, test)
 
 							opts := config.WarmerOptions{}
@@ -608,6 +614,12 @@ func TestWarmerBake(t *testing.T) {
 				t.Run(testSuite.Name, func(t *testing.T) {
 					for _, test := range testSuite.Tests {
 						t.Run(renderCommand(test.Env, test.Args), func(t *testing.T) {
+							t.Cleanup(config.InitFeatureFlags)
+							for k, v := range test.Env {
+								t.Setenv(k, v)
+							}
+							config.InitFeatureFlags()
+
 							fakeWarmerSources(t, test)
 
 							opts := config.WarmerOptions{}

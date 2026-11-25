@@ -543,6 +543,14 @@ Set this flag to `true` to read every layer to its end and fail the build on a d
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
 
+## Flag `FF_KANIKO_WARMER_ADD_SOURCE_CACHE`
+
+The warmer and executor parse remote ADD sources and cache them in a shared cache directory for reuse across builds.
+When disabled, the `--add-cache` flag is accepted but ignored, and ADD sources are not cached.
+Set this flag to `true` to enable ADD source caching in both the warmer and executor.
+Defaults to `false`.
+Becomes default in a future release.
+
 ## Flag `FF_KANIKO_WARMER_BUILD_ARGS`
 
 In warmer an `ARG` default wins over an explicit `--build-arg`, and `--build-arg BASE` without a value is not read from the environment.

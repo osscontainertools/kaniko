@@ -25,6 +25,7 @@ var Tests = []types.GoldenTests{
 		Tests: []types.GoldenTest{
 			{
 				Args: []string{"--add-cache"},
+				Env:  map[string]string{"FF_KANIKO_WARMER_ADD_SOURCE_CACHE": "1"},
 				Plan: "add_cache",
 			},
 			{
@@ -33,11 +34,13 @@ var Tests = []types.GoldenTests{
 			},
 			{
 				Args:          []string{"--add-cache"},
+				Env:           map[string]string{"FF_KANIKO_WARMER_ADD_SOURCE_CACHE": "1"},
 				CachedAddKeys: []string{"sha256-1111111111111111111111111111111111111111111111111111111111111111"},
 				Plan:          "add_cache_hit",
 			},
 			{
 				Args:      []string{"--add-cache", "--require-add-checksum"},
+				Env:       map[string]string{"FF_KANIKO_WARMER_ADD_SOURCE_CACHE": "1"},
 				WantError: "--require-add-checksum: ADD https://example.com/file.txt has no --checksum",
 			},
 		},
@@ -48,10 +51,12 @@ var Tests = []types.GoldenTests{
 		Tests: []types.GoldenTest{
 			{
 				Args: []string{"--add-cache", "--require-add-checksum"},
+				Env:  map[string]string{"FF_KANIKO_WARMER_ADD_SOURCE_CACHE": "1"},
 				Plan: "add_cache_checksum",
 			},
 			{
 				Args:          []string{"--add-cache"},
+				Env:           map[string]string{"FF_KANIKO_WARMER_ADD_SOURCE_CACHE": "1"},
 				CachedAddKeys: []string{"sha256-2222222222222222222222222222222222222222222222222222222222222222"},
 				Plan:          "add_cache_checksum_hit",
 			},

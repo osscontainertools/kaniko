@@ -1624,6 +1624,7 @@ func TestAddCache(t *testing.T) {
 		cmdArgs := []string{
 			"run", "--rm", "--net=host",
 			"-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()),
+			"-e", "FF_KANIKO_WARMER_ADD_SOURCE_CACHE=1",
 			"-v", contextDir + ":/workspace:ro",
 			"-v", cacheDir + ":/cache",
 		}
@@ -1651,6 +1652,7 @@ func TestAddCache(t *testing.T) {
 			cmdArgs = append(cmdArgs, "--net=host")
 		}
 		cmdArgs = append(cmdArgs,
+			"-e", "FF_KANIKO_WARMER_ADD_SOURCE_CACHE=1",
 			"-v", contextDir+":/workspace:ro",
 			"-v", cacheDir+":/cache",
 		)
