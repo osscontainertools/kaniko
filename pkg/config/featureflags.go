@@ -96,6 +96,7 @@ type FeatureFlags struct {
 	UnpackZstd                     bool
 	UntarSkipRoot                  bool
 	VerifyLayerDigest              bool
+	WarmerAddSourceCache           bool
 	WarmerBuildArgs                bool
 	WarmerExecutorParity           bool
 	WarmerFailOnError              bool
@@ -204,6 +205,7 @@ func InitFeatureFlags() {
 		UnpackZstd:                     featureFlag("FF_KANIKO_UNPACK_ZSTD", true),
 		UntarSkipRoot:                  featureFlag("FF_KANIKO_UNTAR_SKIP_ROOT", true),
 		VerifyLayerDigest:              featureFlag("FF_KANIKO_VERIFY_LAYER_DIGEST", true),
+		WarmerAddSourceCache:           featureFlag("FF_KANIKO_WARMER_ADD_SOURCE_CACHE", false),
 		WarmerBuildArgs:                featureFlag("FF_KANIKO_WARMER_BUILD_ARGS", false),
 		WarmerExecutorParity:           featureFlag("FF_KANIKO_WARMER_EXECUTOR_PARITY", false),
 		WarmerFailOnError:              featureFlag("FF_KANIKO_WARMER_FAIL_ON_ERROR", false),

@@ -81,7 +81,7 @@ func WarmCache(opts *config.WarmerOptions) error {
 		if err != nil {
 			return fmt.Errorf("failed to parse Dockerfile: %w", err)
 		}
-		if opts.AddCache {
+		if config.FF.WarmerAddSourceCache && opts.AddCache {
 			if addSources, err = ParseAddSources(opts); err != nil {
 				return fmt.Errorf("failed to parse Dockerfile ADD sources: %w", err)
 			}
@@ -452,12 +452,12 @@ func ParseAddSources(opts *config.WarmerOptions) ([]AddSource, error) {
 	stageEnvs := make(map[int][]string)
 
 	for stageIdx, s := range stages {
-		// Start with build args for each stage (these take precedence over base image ENVs)
-		envs := slices.Clone(args)
-		buildArgKeys := make(map[string]struct{})
+		// Start with just the base image environment for this stage
+		envs := []string{}
+		buildArgMap := make(map[string]string)
 		for _, env := range args {
-			if k, _, ok := strings.Cut(env, "="); ok {
-				buildArgKeys[k] = struct{}{}
+			if k, v, ok := strings.Cut(env, "="); ok {
+				buildArgMap[k] = v
 			}
 		}
 
@@ -483,15 +483,10 @@ func ParseAddSources(opts *config.WarmerOptions) ([]AddSource, error) {
 						return nil, fmt.Errorf("retrieving base image %s configuration: %w", s.BaseName, err)
 					}
 					if cfgFile != nil {
-						// Extract ENV values from base image config, but don't override build args
+						// Extract ENV values from base image config
 						for _, env := range cfgFile.Config.Env {
 							parts := strings.SplitN(env, "=", 2)
-							if len(parts) == 2 && len(buildArgKeys) > 0 {
-								// Skip base image ENVs that are overridden by build args
-								if _, isBuildArg := buildArgKeys[parts[0]]; !isBuildArg {
-									envs = setEnv(envs, parts[0], parts[1])
-								}
-							} else if len(parts) == 2 {
+							if len(parts) == 2 {
 								envs = setEnv(envs, parts[0], parts[1])
 							}
 						}
@@ -517,14 +512,18 @@ func ParseAddSources(opts *config.WarmerOptions) ([]AddSource, error) {
 				}
 			case *instructions.ArgCommand:
 				for _, arg := range c.Args {
-					if arg.Value == nil || hasEnv(envs, arg.Key) {
-						continue
+					// Check if this ARG key has a build-arg override
+					if buildArgValue, hasBuildArg := buildArgMap[arg.Key]; hasBuildArg {
+						// Apply the build-arg value when the ARG declaration takes effect
+						envs = setEnv(envs, arg.Key, buildArgValue)
+					} else if arg.Value != nil && !hasEnv(envs, arg.Key) {
+						// Use the ARG's default value if no build-arg and not already set
+						value, err := util.ResolveEnvironmentReplacement(arg.ValueString(), envs, false)
+						if err != nil {
+							return nil, err
+						}
+						envs = setEnv(envs, arg.Key, value)
 					}
-					value, err := util.ResolveEnvironmentReplacement(arg.ValueString(), envs, false)
-					if err != nil {
-						return nil, err
-					}
-					envs = setEnv(envs, arg.Key, value)
 				}
 			case *instructions.AddCommand:
 				srcs, err := util.ResolveEnvironmentReplacementList(c.SourcePaths, envs, true)

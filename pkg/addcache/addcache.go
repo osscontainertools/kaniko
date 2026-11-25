@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"github.com/opencontainers/go-digest"
+	"github.com/sirupsen/logrus"
 )
 
 // DirName is the subdirectory of the cache directory that holds ADD sources.
@@ -70,6 +71,37 @@ func Path(cacheDir, src string, checksum digest.Digest) string {
 	return filepath.Join(cacheDir, DirName, Key(src, checksum))
 }
 
+// metadataPath returns the path to metadata file for a specific source URL.
+// Metadata is stored per URL so identical content from different URLs retains each URL's timestamp.
+func metadataPath(cacheDir, src string, checksum digest.Digest) string {
+	// Use a separate metadata file per source URL, keyed by source URL's hash
+	srcKey := sanitize("meta-" + Key(src, ""))
+	return filepath.Join(cacheDir, DirName, Key(src, checksum)+"_"+srcKey+".meta")
+}
+
+// loadMetadata retrieves the Last-Modified timestamp for a specific source URL.
+func loadMetadata(cacheDir, src string, checksum digest.Digest) (time.Time, error) {
+	metaFile := metadataPath(cacheDir, src, checksum)
+	data, err := os.ReadFile(metaFile)
+	if errors.Is(err, fs.ErrNotExist) {
+		return time.Time{}, nil
+	}
+	if err != nil {
+		return time.Time{}, err
+	}
+	mTime, err := time.Parse(time.RFC3339, string(data))
+	if err != nil {
+		return time.Time{}, nil // Silently ignore parse errors, use zero time
+	}
+	return mTime, nil
+}
+
+// saveMetadata stores the Last-Modified timestamp for a specific source URL.
+func saveMetadata(cacheDir, src string, checksum digest.Digest, mTime time.Time) error {
+	metaFile := metadataPath(cacheDir, src, checksum)
+	return os.WriteFile(metaFile, []byte(mTime.Format(time.RFC3339)), 0o600)
+}
+
 // Lookup returns the cached file for a remote ADD source. The second result is
 // false when the cache has no entry. A checksum mismatch is reported as an
 // error so callers can fall back to fetching the source again.
@@ -95,6 +127,20 @@ func Lookup(cacheDir, src string, checksum digest.Digest) (string, bool, error) 
 		}
 	}
 	return cachePath, true, nil
+}
+
+// LookupWithMetadata returns the cached file for a remote ADD source along with its metadata.
+// This allows the caller to apply the correct Last-Modified timestamp for the requested source URL.
+func LookupWithMetadata(cacheDir, src string, checksum digest.Digest) (string, time.Time, bool, error) {
+	cachePath, ok, err := Lookup(cacheDir, src, checksum)
+	if !ok || err != nil {
+		return "", time.Time{}, ok, err
+	}
+	mTime, err := loadMetadata(cacheDir, src, checksum)
+	if err != nil {
+		return "", time.Time{}, false, err
+	}
+	return cachePath, mTime, true, nil
 }
 
 // Store fetches a remote ADD source into the cache and returns its path. The
@@ -177,6 +223,14 @@ func Store(cacheDir, src string, checksum digest.Digest, force ...bool) (string,
 	if err := os.Rename(tmpName, cachePath); err != nil {
 		return "", fmt.Errorf("storing ADD cache file: %w", err)
 	}
+
+	// Save metadata per source URL so identical content from different URLs retains each URL's timestamp
+	if mTime != (time.Time{}) {
+		if err := saveMetadata(cacheDir, src, checksum, mTime); err != nil {
+			logrus.Debugf("Failed to save metadata for %s: %v", src, err)
+		}
+	}
+
 	return cachePath, nil
 }
 
