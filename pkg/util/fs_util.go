@@ -812,14 +812,45 @@ func AddVolumePathToIgnoreList(path string) {
 	volumes = append(volumes, path)
 }
 
+const addIdleTimeout = 60 * time.Second
+
+// idleReader restarts timer on every read, so the timer only fires once the
+// download has stalled for timeout.
+type idleReader struct {
+	r       io.Reader
+	timer   *time.Timer
+	timeout time.Duration
+}
+
+func (r idleReader) Read(p []byte) (int, error) {
+	n, err := r.r.Read(p)
+	r.timer.Reset(r.timeout)
+	return n, err
+}
+
 // DownloadFileToDest downloads the file at rawurl to the given dest for the ADD command
 // From add command docs:
 //  1. If <src> is a remote file URL:
 //     - destination will have permissions of 0600 by default if not specified with chmod
 //     - If remote file has HTTP Last-Modified header, we set the mtime of the file to that timestamp
 func DownloadFileToDest(rawurl, dest string, owner *Owner, chmod fs.FileMode, checksum digest.Digest) error {
-	resp, err := http.Get(rawurl) //nolint:noctx
+	ctx := context.Background()
+	var idle *time.Timer
+	if config.FF.AddIdleTimeout {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithCancel(ctx)
+		defer cancel()
+		idle = time.AfterFunc(addIdleTimeout, cancel)
+		defer idle.Stop()
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawurl, nil)
 	if err != nil {
+		return err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil && ctx.Err() != nil {
+		return fmt.Errorf("download of %s stalled for %s", rawurl, addIdleTimeout)
+	} else if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
@@ -829,14 +860,20 @@ func DownloadFileToDest(rawurl, dest string, owner *Owner, chmod fs.FileMode, ch
 	}
 
 	body := io.Reader(resp.Body)
+	if idle != nil {
+		body = idleReader{r: body, timer: idle, timeout: addIdleTimeout}
+	}
 	var digester digest.Digester
 	if checksum != "" {
 		// buildkit's http source hardcodes sha256, so any other algorithm can never match
 		digester = digest.Canonical.Digester()
-		body = io.TeeReader(resp.Body, digester.Hash())
+		body = io.TeeReader(body, digester.Hash())
 	}
 
-	if err := CreateFile(dest, body, chmod, 0o755, owner); err != nil {
+	err = CreateFile(dest, body, chmod, 0o755, owner)
+	if err != nil && ctx.Err() != nil {
+		return fmt.Errorf("download of %s stalled for %s", rawurl, addIdleTimeout)
+	} else if err != nil {
 		return err
 	}
 
