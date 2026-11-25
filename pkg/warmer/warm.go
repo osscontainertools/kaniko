@@ -119,7 +119,8 @@ func WarmCache(opts *config.WarmerOptions) error {
 
 	var addFailed []string
 	for _, source := range addSources {
-		if _, err := addcache.Store(cacheDir, source.Source, source.Checksum, opts.Force); err != nil {
+		_, err := addcache.Store(cacheDir, source.Source, source.Checksum, opts.Force)
+		if err != nil {
 			logrus.Warnf("Error while trying to cache ADD source: %v %v", source.Source, err)
 			addFailed = append(addFailed, source.Source)
 		} else {
@@ -183,10 +184,14 @@ func RenderPlan(w io.Writer, images []string, addSources []AddSource, opts *conf
 		}
 	}
 	for _, source := range addSources {
-		cachePath := addcache.Path(opts.CacheDir, source.Source, source.Checksum)
+		cachePath := addcache.Path(opts.CacheDir, source.Checksum)
 		printf("ADD %s\n", source.Source)
 		if !opts.Force {
-			if _, ok, err := AddSourceLookup(opts.CacheDir, source.Source, source.Checksum); err == nil && ok {
+			_, ok, err := AddSourceLookup(opts.CacheDir, source.Checksum)
+			if err != nil {
+				logrus.Warnf("Replacing ADD cache entry for %s: %v", source.Source, err)
+			}
+			if ok {
 				printf("  CACHE HIT: %s\n", cachePath)
 				continue
 			}
@@ -551,7 +556,10 @@ func ParseAddSources(opts *config.WarmerOptions) ([]AddSource, error) {
 					if checksum == "" && opts.RequireAddChecksum {
 						return nil, fmt.Errorf("--require-add-checksum: ADD %s has no --checksum", src)
 					}
-					key := src + "\x00" + checksum.String()
+					if checksum == "" || checksum.Algorithm() != digest.SHA256 {
+						continue
+					}
+					key := checksum.String()
 					if _, ok := seen[key]; ok {
 						continue
 					}

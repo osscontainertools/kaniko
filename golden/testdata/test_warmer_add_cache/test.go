@@ -35,7 +35,7 @@ var Tests = []types.GoldenTests{
 			{
 				Args:          []string{"--add-cache"},
 				Env:           map[string]string{"FF_KANIKO_WARMER_ADD_SOURCE_CACHE": "1"},
-				CachedAddKeys: []string{"sha256-1111111111111111111111111111111111111111111111111111111111111111"},
+				CachedAddKeys: []string{"sha256:1111111111111111111111111111111111111111111111111111111111111111"},
 				Plan:          "add_cache_hit",
 			},
 			{
@@ -57,7 +57,7 @@ var Tests = []types.GoldenTests{
 			{
 				Args:          []string{"--add-cache"},
 				Env:           map[string]string{"FF_KANIKO_WARMER_ADD_SOURCE_CACHE": "1"},
-				CachedAddKeys: []string{"sha256-2222222222222222222222222222222222222222222222222222222222222222"},
+				CachedAddKeys: []string{"sha256:2222222222222222222222222222222222222222222222222222222222222222"},
 				Plan:          "add_cache_checksum_hit",
 			},
 		},

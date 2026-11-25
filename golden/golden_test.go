@@ -540,8 +540,8 @@ func fakeWarmerSources(t *testing.T, test types.GoldenTest) {
 		}
 		return empty.Image, nil
 	}
-	warmer.AddSourceLookup = func(cacheDir, src string, checksum digest.Digest) (string, bool, error) {
-		return addcache.Path(cacheDir, src, checksum), slices.Contains(test.CachedAddKeys, addcache.Key(src, checksum)), nil
+	warmer.AddSourceLookup = func(cacheDir string, checksum digest.Digest) (string, bool, error) {
+		return addcache.Path(cacheDir, checksum), slices.Contains(test.CachedAddKeys, checksum.String()), nil
 	}
 	t.Cleanup(func() {
 		warmer.RemoteSource, warmer.LocalSource, warmer.AddSourceLookup = origRemote, origLocal, origLookup
