@@ -1,0 +1,9 @@
+# mz1539: a quoted --build-arg value used in FROM fails the push planning
+# Fails since v1.29.2 with: parsing base "\"debian:13.7\"": could not parse reference
+# The base name is lexed once when the stages are made, which keeps the quotes.
+# Pulling the base lexes it a second time, which strips them.
+# The push planning parsed the once-lexed name and failed.
+# Without FF_KANIKO_FROM_LEX_ONCE the push planning lexes twice like the pull.
+ARG BASE
+FROM $BASE
+RUN date > /date

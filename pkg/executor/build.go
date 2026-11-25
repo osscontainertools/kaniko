@@ -2552,6 +2552,13 @@ func pushStageRereadsBase(stage config.KanikoStage, opts *config.KanikoOptions) 
 	if opts.NoPush || len(opts.Destinations) == 0 {
 		return false, nil
 	}
+	if !config.FF.FromLexOnce {
+		relexed, err := image_util.RelexBaseName(baseName, stage.MetaArgs, opts)
+		if err != nil {
+			return false, err
+		}
+		baseName = relexed
+	}
 	base, err := name.ParseReference(baseName, name.WeakValidation)
 	if err != nil {
 		return false, fmt.Errorf("parsing base %q: %w", baseName, err)

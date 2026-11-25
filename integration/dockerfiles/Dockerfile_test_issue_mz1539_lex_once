@@ -1,0 +1,5 @@
+# mz1539: FF_KANIKO_FROM_LEX_ONCE lexes the base name once, as the Dockerfile reference does.
+# The quotes in a substituted value stay part of the name, so the reference fails to parse.
+ARG BASE
+FROM $BASE
+RUN date > /date
