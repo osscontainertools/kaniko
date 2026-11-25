@@ -82,10 +82,18 @@ func Lookup(cacheDir, src string, checksum digest.Digest) (string, bool, error) 
 
 // Store fetches a remote ADD source into the cache and returns its path. The
 // file is written to a temporary file and renamed so concurrent readers never
-// observe a partial entry.
-func Store(cacheDir, src string, checksum digest.Digest) (string, error) {
-	if cachePath, ok, err := Lookup(cacheDir, src, checksum); err == nil && ok {
-		return cachePath, nil
+// observe a partial entry. When force is true, existing cache entries are
+// bypassed and the source is re-fetched and overwritten.
+func Store(cacheDir, src string, checksum digest.Digest, force ...bool) (string, error) {
+	forceRefresh := false
+	if len(force) > 0 {
+		forceRefresh = force[0]
+	}
+
+	if !forceRefresh {
+		if cachePath, ok, err := Lookup(cacheDir, src, checksum); err == nil && ok {
+			return cachePath, nil
+		}
 	}
 
 	cachePath := Path(cacheDir, src, checksum)
@@ -93,7 +101,12 @@ func Store(cacheDir, src string, checksum digest.Digest) (string, error) {
 		return "", fmt.Errorf("creating ADD cache directory: %w", err)
 	}
 
-	resp, err := http.Get(src) //nolint:noctx
+	client := &http.Client{
+		Transport: &http.Transport{
+			ResponseHeaderTimeout: 30 * time.Second,
+		},
+	}
+	resp, err := client.Get(src)
 	if err != nil {
 		return "", err
 	}

@@ -136,14 +136,6 @@ func setupBuild() error {
 			PrefixMatchOnly: false,
 		})
 	}
-	// Exclude cache directory from snapshots to prevent cached content from entering the final image
-	if opts.CacheDir != "" {
-		logrus.Tracef("Adding %s to default ignore list", opts.CacheDir)
-		util.AddToDefaultIgnoreList(util.IgnoreListEntry{
-			Path:            opts.CacheDir,
-			PrefixMatchOnly: false,
-		})
-	}
 	for _, p := range opts.IgnorePaths {
 		util.AddToDefaultIgnoreList(util.IgnoreListEntry{
 			Path:            p,
@@ -342,6 +334,15 @@ func runBuildTargets(opts *config.KanikoOptions, targets []bake.ResolvedTarget, 
 	}
 	if err := resolveRelativePaths(); err != nil {
 		return fmt.Errorf("error resolving relative paths to absolute paths: %w", err)
+	}
+	// Exclude cache directory from snapshots to prevent cached content from entering the final image.
+	// Only ignore if caching is enabled, and after paths have been resolved to absolute paths.
+	if opts.Cache && opts.CacheDir != "" {
+		logrus.Tracef("Adding %s to default ignore list", opts.CacheDir)
+		util.AddToDefaultIgnoreList(util.IgnoreListEntry{
+			Path:            opts.CacheDir,
+			PrefixMatchOnly: false,
+		})
 	}
 	if err := os.Chdir("/"); err != nil {
 		return fmt.Errorf("error changing to root dir: %w", err)

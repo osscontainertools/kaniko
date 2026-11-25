@@ -119,7 +119,7 @@ func WarmCache(opts *config.WarmerOptions) error {
 
 	var addFailed []string
 	for _, source := range addSources {
-		if _, err := addcache.Store(cacheDir, source.Source, source.Checksum); err != nil {
+		if _, err := addcache.Store(cacheDir, source.Source, source.Checksum, opts.Force); err != nil {
 			logrus.Warnf("Error while trying to cache ADD source: %v %v", source.Source, err)
 			addFailed = append(addFailed, source.Source)
 		} else {
@@ -436,7 +436,7 @@ func parseStages(opts *config.WarmerOptions) ([]instructions.Stage, []string, er
 }
 
 // ParseAddSources returns the remote ADD sources of a Dockerfile so the warmer
-// can populate the ADD cache. Build args and stage ENV values are resolved.
+// can populate the ADD cache. Build args, base image ENV values, and stage ENV values are resolved.
 func ParseAddSources(opts *config.WarmerOptions) ([]AddSource, error) {
 	stages, args, err := parseStages(opts)
 	if err != nil {
@@ -445,8 +445,52 @@ func ParseAddSources(opts *config.WarmerOptions) ([]AddSource, error) {
 
 	var sources []AddSource
 	seen := make(map[string]struct{})
-	for _, s := range stages {
+
+	// Track environment across stages (for multi-stage builds)
+	stageEnvs := make(map[int][]string)
+
+	for stageIdx, s := range stages {
+		// Start with build args for each stage
 		envs := slices.Clone(args)
+
+		// Add base image ENV values if the base image is not a previous stage
+		if s.BaseName != "" && s.BaseName != constants.NoBaseImage {
+			// Check if base image is a previous stage
+			baseStageIdx := -1
+			for i := range stageIdx {
+				if stages[i].Name == s.BaseName {
+					baseStageIdx = i
+					break
+				}
+			}
+
+			// If base image is from a previous stage, inherit its environment
+			if baseStageIdx >= 0 {
+				if prevEnvs, ok := stageEnvs[baseStageIdx]; ok {
+					envs = slices.Clone(prevEnvs)
+				}
+			} else {
+				// Try to fetch base image to get its ENV values
+				img, _, err := RemoteSource(s.BaseName, opts.RegistryOptions, opts.CustomPlatform)
+				if err != nil {
+					logrus.Debugf("Could not fetch base image %s to retrieve ENV values: %v", s.BaseName, err)
+					// Continue without base image ENVs - they might not be needed for ADD sources
+				} else if img != nil {
+					cfgFile, err := img.ConfigFile()
+					if err == nil && cfgFile != nil {
+						// Extract ENV values from base image config
+						for _, env := range cfgFile.Config.Env {
+							parts := strings.SplitN(env, "=", 2)
+							if len(parts) == 2 {
+								envs = setEnv(envs, parts[0], parts[1])
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Process commands in the stage and resolve ADD sources
 		for _, cmd := range s.Commands {
 			switch c := cmd.(type) {
 			case *instructions.EnvCommand:
@@ -507,6 +551,9 @@ func ParseAddSources(opts *config.WarmerOptions) ([]AddSource, error) {
 				}
 			}
 		}
+
+		// Save the final environment for this stage (in case a later stage uses it as base)
+		stageEnvs[stageIdx] = envs
 	}
 	return sources, nil
 }
