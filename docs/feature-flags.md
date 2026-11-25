@@ -9,6 +9,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 ```sh
 FF_KANIKO_ADD_CHOWN_TAR=true
 FF_KANIKO_ADD_FOLLOW_SYMLINK=true
+FF_KANIKO_ADD_IDLE_TIMEOUT=true
 FF_KANIKO_ALIGN_HISTORY=true
 FF_KANIKO_CACHE_COPY_FROM=true
 FF_KANIKO_CACHE_IMAGE_INDEX=true
@@ -68,6 +69,13 @@ Becomes default in `v1.30.0`.
 
 `ADD <url> /dir/` fails with `destination cannot be a symlink` when `/dir` is a symlink to a directory.
 Set this flag to `true` to write the download through the symlink. Defaults to `false`.
+Becomes default in `v1.30.0`.
+
+## Flag `FF_KANIKO_ADD_IDLE_TIMEOUT`
+
+`ADD <url>` waits forever when the server stops sending, so a stalled download hangs the build.
+Set this flag to `true` to fail the download after 60 seconds without data.
+Defaults to `false`.
 Becomes default in `v1.30.0`.
 
 ## Flag `FF_KANIKO_ADD_UNPACK`
