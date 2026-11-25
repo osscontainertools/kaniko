@@ -831,10 +831,8 @@ func DownloadFileToDest(rawurl, dest string, owner *Owner, chmod fs.FileMode, ch
 	body := io.Reader(resp.Body)
 	var digester digest.Digester
 	if checksum != "" {
-		digester = checksum.Algorithm().Digester()
-		if digester == nil {
-			return fmt.Errorf("unsupported checksum algorithm %s", checksum.Algorithm())
-		}
+		// buildkit's http source hardcodes sha256, so any other algorithm can never match
+		digester = digest.Canonical.Digester()
 		body = io.TeeReader(resp.Body, digester.Hash())
 	}
 
