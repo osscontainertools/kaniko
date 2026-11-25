@@ -168,7 +168,6 @@ var argsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1375_arg_fail":       {"URL=https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz"},
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": {"SHA="},
 	"Dockerfile_test_issue_mz1539":                {`BASE="debian:13.7"`},
-	"Dockerfile_test_issue_mz1539_lex_once":       {`BASE="debian:13.7"`},
 }
 
 var argsMapVersion1 = map[string][]string{
@@ -189,7 +188,6 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1065": {"KANIKO_DIR=/tmpdir/kaniko2"},
 	// mz970: layout layers carry no reference, so a stored base cannot be mounted
 	"Dockerfile_test_issue_mz1007":   {"FF_KANIKO_SHARED_BASE_CACHE=0"},
-	"Dockerfile_test_issue_mz1539":   {"FF_KANIKO_FROM_LEX_ONCE=0"},
 	"Dockerfile_test_stopsignal":     {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
 	"Dockerfile_test_healthcheck":    {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
 	"Dockerfile_test_issue_mz1133_1": {"FF_KANIKO_COPY_AS_ROOT=0"},
@@ -443,11 +441,11 @@ var expectErr = map[string]int{
 	"Dockerfile_test_issue_mz1375_stage_fail":     1,
 	"Dockerfile_test_issue_mz1374":                1,
 	"Dockerfile_test_verify_layer_digest":         1,
-	"Dockerfile_test_issue_mz1539_lex_once":       1,
+	"Dockerfile_test_issue_mz1539":                1,
 }
 
 var expectErrOutput = map[string]string{
-	"Dockerfile_test_issue_mz1539_lex_once":       "could not parse reference",
+	"Dockerfile_test_issue_mz1539":                "could not parse reference",
 	"Dockerfile_test_issue_cg326_1":               "is not allowed: references parent directory",
 	"Dockerfile_test_issue_mz1140":                "must fit a 32 bit id",
 	"Dockerfile_test_add_404":                     "invalid response status 404",
@@ -948,7 +946,6 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_reproducible_mounted_base": {},
 	}
 	d.TestKanikoOnlyDockerfiles = map[string]struct{}{
-		"Dockerfile_test_issue_mz1539":   {},
 		"Dockerfile_test_issue_2567":     {},
 		"Dockerfile_test_issue_cg326_2":  {},
 		"Dockerfile_test_issue_cg326_3":  {},

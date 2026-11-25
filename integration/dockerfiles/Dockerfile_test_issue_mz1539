@@ -1,9 +1,7 @@
-# mz1539: a quoted --build-arg value used in FROM fails the push planning
-# Fails since v1.29.2 with: parsing base "\"debian:13.7\"": could not parse reference
-# The base name is lexed once when the stages are made, which keeps the quotes.
-# Pulling the base lexes it a second time, which strips them.
-# The push planning parsed the once-lexed name and failed.
-# Without FF_KANIKO_FROM_LEX_ONCE the push planning lexes twice like the pull.
+# mz1539: a quoted --build-arg value used in FROM is rejected, as docker rejects it
+# kaniko lexed the base name a second time before the pull, which stripped the quotes.
+# Since v1.29.2 the push planning parsed the once-lexed name and failed while the pull succeeded.
+# FF_KANIKO_FROM_LEX_ONCE lexes once everywhere, so the quotes stay part of the name.
 ARG BASE
 FROM $BASE
 RUN date > /date
