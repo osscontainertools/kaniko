@@ -119,7 +119,7 @@ jobs:
 
       # Sign images if not a PR.
       - if: steps.context.outputs.should_push == 'true'
-        uses: sigstore/cosign-installer@v4.1.3
+        uses: sigstore/cosign-installer@v4.1.4
 
       - if: steps.context.outputs.should_push == 'true'
         run: |
