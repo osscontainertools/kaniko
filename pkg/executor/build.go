@@ -1641,7 +1641,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		return nil, err
 	}
 
-	kanikoStages, err := dockerfile.MakeKanikoStages(opts, stages, metaArgs)
+	kanikoStages, externalImages, err := dockerfile.MakeKanikoStages(opts, stages, metaArgs)
 	if err != nil {
 		return nil, err
 	}
@@ -1676,7 +1676,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	}
 
 	// Some stages may refer to other random images, not previous stages
-	externalImageDigests, extraStageImages, err := resolveExtraStageDigests(kanikoStages, opts)
+	externalImageDigests, extraStageImages, err := resolveExtraStageDigests(externalImages, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -2298,64 +2298,31 @@ func deduplicatePaths(paths []string) []string {
 	return deduped
 }
 
-func resolveExtraStageDigests(stages []config.KanikoStage, opts *config.KanikoOptions) (map[string]string, map[string]v1.Image, error) {
+func resolveExtraStageDigests(froms []string, opts *config.KanikoOptions) (map[string]string, map[string]v1.Image, error) {
 	_, endResolve := timing.Scope("Resolving Extra Stage Digests")
 	defer endResolve()
 
 	externalImageDigests := make(map[string]string)
 	images := make(map[string]v1.Image)
-	for _, s := range stages {
-		for _, cmd := range s.Commands {
-			var froms []string
-			switch c := cmd.(type) {
-			case *instructions.CopyCommand:
-				if c.From != "" {
-					froms = append(froms, c.From)
-				}
-			case *instructions.RunCommand:
-				if config.FF.RunCrossStageBindMount {
-					for _, m := range dockerfile.CrossStageMounts(c) {
-						froms = append(froms, m.From)
-					}
-				}
-			}
-
-			for _, from := range froms {
-				// FROMs at this point are guaranteed to be either an integer referring to a previous stage,
-				// or a name of a remote image.
-
-				if fromIndex, err := strconv.Atoi(from); err == nil {
-					// If it is an integer stage index, validate that it is actually a previous index
-					if s.Index <= fromIndex || fromIndex < 0 {
-						return nil, nil, fmt.Errorf("%s refers to invalid stage: %d", cmd, fromIndex)
-					}
-					continue
-				}
-
-				if _, ok := images[from]; ok {
-					continue
-				}
-
-				// This must be an image name, fetch its manifest.
-				logrus.Debugf("Found extra base image stage %s", from)
-				var sourceImage v1.Image
-				var err error
-				if config.FF.CacheCopyFrom {
-					sourceImage, err = image_util.RetrieveSourceImageInternal(from, false, 0, nil, opts)
-				} else {
-					sourceImage, err = remote.RetrieveRemoteImage(from, opts.RegistryOptions, opts.CustomPlatform)
-				}
-				if err != nil {
-					return nil, nil, err
-				}
-				digest, err := sourceImage.Digest()
-				if err != nil {
-					return nil, nil, err
-				}
-				externalImageDigests[from] = digest.String()
-				images[from] = sourceImage
-			}
+	for _, from := range froms {
+		// This must be an image name, fetch its manifest.
+		logrus.Debugf("Found extra base image stage %s", from)
+		var sourceImage v1.Image
+		var err error
+		if config.FF.CacheCopyFrom {
+			sourceImage, err = image_util.RetrieveSourceImageInternal(from, false, 0, nil, opts)
+		} else {
+			sourceImage, err = remote.RetrieveRemoteImage(from, opts.RegistryOptions, opts.CustomPlatform)
 		}
+		if err != nil {
+			return nil, nil, err
+		}
+		digest, err := sourceImage.Digest()
+		if err != nil {
+			return nil, nil, err
+		}
+		externalImageDigests[from] = digest.String()
+		images[from] = sourceImage
 	}
 	return externalImageDigests, images, nil
 }

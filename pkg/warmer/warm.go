@@ -64,7 +64,12 @@ func WarmCache(opts *config.WarmerOptions) error {
 	// if opts.image is empty,we need to parse dockerfilepath to get images list
 	if opts.DockerfilePath != "" {
 		var err error
-		if dockerfileImages, err = ParseDockerfile(opts); err != nil {
+		if config.FF.WarmerExecutorParity {
+			dockerfileImages, err = DockerfileImages(opts)
+		} else {
+			dockerfileImages, err = ParseDockerfile(opts)
+		}
+		if err != nil {
 			return fmt.Errorf("failed to parse Dockerfile: %w", err)
 		}
 	}
@@ -305,6 +310,48 @@ func (w *OciWarmer) Write(cacheRef name.Reference, img v1.Image) error {
 	}
 
 	return nil
+}
+
+func DockerfileImages(opts *config.WarmerOptions) ([]string, error) {
+	var predefinedArgs []string
+	var err error
+	if config.FF.FromPredefinedArgs {
+		predefinedArgs, err = dockerfile.PredefinedArgs(opts.CustomPlatform)
+		if err != nil {
+			return nil, err
+		}
+	}
+	stages, metaArgs, err := dockerfile.ParseStages(opts.DockerfilePath, predefinedArgs, opts.BuildArgs)
+	if err != nil {
+		return nil, err
+	}
+	kanikoStages, externalImages, err := dockerfile.MakeKanikoStages(&config.KanikoOptions{
+		RegistryOptions: opts.RegistryOptions,
+		CacheOptions:    opts.CacheOptions,
+		Cache:           true,
+		CustomPlatform:  opts.CustomPlatform,
+		BuildArgs:       opts.BuildArgs,
+		RequireDigest:   opts.RequireDigest,
+		WarmerMode:      true,
+	}, stages, metaArgs)
+	if err != nil {
+		return nil, err
+	}
+
+	var images []string
+	for _, s := range kanikoStages {
+		if s.BaseName != constants.NoBaseImage && !s.BaseImageStoredLocally && !slices.Contains(images, s.BaseName) {
+			images = append(images, s.BaseName)
+		}
+	}
+	if config.FF.CacheCopyFrom {
+		for _, from := range externalImages {
+			if !slices.Contains(images, from) {
+				images = append(images, from)
+			}
+		}
+	}
+	return images, nil
 }
 
 func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {

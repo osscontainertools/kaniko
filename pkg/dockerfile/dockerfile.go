@@ -337,16 +337,16 @@ func ResolveStagesArgs(stages []instructions.Stage, args []string) error {
 	return nil
 }
 
-func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, metaArgs []instructions.ArgCommand) ([]config.KanikoStage, error) {
+func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, metaArgs []instructions.ArgCommand) ([]config.KanikoStage, []string, error) {
 	if len(stages) == 0 {
-		return nil, errors.New("dockerfile must contain at least one FROM instruction")
+		return nil, nil, errors.New("dockerfile must contain at least one FROM instruction")
 	}
 	if !config.FF.AddChecksum && opts.RequireAddChecksum {
-		return nil, errors.New("--require-add-checksum cannot be used with FF_KANIKO_ADD_CHECKSUM=false, checksums would not be verified")
+		return nil, nil, errors.New("--require-add-checksum cannot be used with FF_KANIKO_ADD_CHECKSUM=false, checksums would not be verified")
 	}
 	targetStages, err := targetStages(stages, opts.Target)
 	if err != nil {
-		return nil, fmt.Errorf("error finding target stage: %w", err)
+		return nil, nil, fmt.Errorf("error finding target stage: %w", err)
 	}
 	pushStage := targetStages[0]
 	slices.Sort(targetStages)
@@ -357,12 +357,12 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	if config.FF.FromPredefinedArgs {
 		predefinedArgs, err := PredefinedArgs(opts.CustomPlatform)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		args = append(predefinedArgs, args...)
 	}
 	if err := ResolveStagesArgs(stages, args); err != nil {
-		return nil, fmt.Errorf("resolving args: %w", err)
+		return nil, nil, fmt.Errorf("resolving args: %w", err)
 	}
 	stages = stages[:finalStage+1]
 
@@ -374,6 +374,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	buildTargets := make([]bool, len(stages))
 	stagesDependencies := make([]int, len(stages))
 	copyDependencies := make([]int, len(stages))
+	var externalImages []string
 	for _, x := range targetStages {
 		// buildTargets we just need to visit, but they
 		// can be squashed together, we don't care.
@@ -382,7 +383,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	// push stage cannot be squashed
 	stagesDependencies[pushStage] = 1
 	for i := finalStage; i >= 0; i-- {
-		if !buildTargets[i] && stagesDependencies[i] == 0 && copyDependencies[i] == 0 {
+		if !opts.WarmerMode && !buildTargets[i] && stagesDependencies[i] == 0 && copyDependencies[i] == 0 {
 			continue
 		}
 		stage := stages[i]
@@ -402,22 +403,24 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			if opts.RequireDigest {
 				_, err = name.NewDigest(stage.BaseName)
 				if err != nil {
-					return nil, fmt.Errorf("stage %d: --require-digest: %w", i, err)
+					return nil, nil, fmt.Errorf("stage %d: --require-digest: %w", i, err)
 				}
 			}
 			onBuild, baseImageDigest, err = GetRemoteOnBuild(stage.BaseName, metaArgs, opts)
-			if err != nil {
-				return nil, err
+			if err != nil && opts.WarmerMode {
+				logrus.Warnf("Ignoring ONBUILD of %s: %v", stage.BaseName, err)
+			} else if err != nil {
+				return nil, nil, err
 			}
 		}
 		cmds, err := ParseCommands(onBuild)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse ONBUILD instructions: %w", err)
+			return nil, nil, fmt.Errorf("failed to parse ONBUILD instructions: %w", err)
 		}
 		stage.Commands = append(cmds, stage.Commands...)
 		err = resolveCrossStageCommands(stage.Commands, stageByName, len(stages))
 		if err != nil {
-			return nil, fmt.Errorf("stage %d: %w", i, err)
+			return nil, nil, fmt.Errorf("stage %d: %w", i, err)
 		}
 		if baseImageStoredLocally {
 			stagesDependencies[baseImageIndex]++
@@ -425,14 +428,22 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		for _, c := range stage.Commands {
 			switch cmd := c.(type) {
 			case *instructions.CopyCommand:
-				if copyFromIndex, err := strconv.Atoi(cmd.From); err == nil {
+				if copyFromIndex, err := strconv.Atoi(cmd.From); err == nil && copyFromIndex >= i {
+					return nil, nil, fmt.Errorf("%s refers to invalid stage: %d", cmd, copyFromIndex)
+				} else if err == nil {
 					copyDependencies[copyFromIndex]++
+				} else if cmd.From != "" && !slices.Contains(externalImages, cmd.From) {
+					externalImages = append(externalImages, cmd.From)
 				}
 			case *instructions.RunCommand:
 				if config.FF.RunCrossStageBindMount {
 					for _, m := range CrossStageMounts(cmd) {
-						if fromIndex, err := strconv.Atoi(m.From); err == nil {
+						if fromIndex, err := strconv.Atoi(m.From); err == nil && fromIndex >= i {
+							return nil, nil, fmt.Errorf("%s refers to invalid stage: %d", cmd, fromIndex)
+						} else if err == nil {
 							copyDependencies[fromIndex]++
+						} else if !slices.Contains(externalImages, m.From) {
+							externalImages = append(externalImages, m.From)
 						}
 					}
 				}
@@ -468,12 +479,12 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	}
 	var onlyUsedStages []config.KanikoStage
 	for i, s := range kanikoStages {
-		if buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
+		if opts.WarmerMode || buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
 			s.SaveStage = stagesDependencies[i] > 0
 			onlyUsedStages = append(onlyUsedStages, s)
 		}
 	}
-	return onlyUsedStages, nil
+	return onlyUsedStages, externalImages, nil
 }
 
 // PredefinedArgs returns the predefined platform args, targeting the host when customPlatform is empty.

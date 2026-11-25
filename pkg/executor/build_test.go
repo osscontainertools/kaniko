@@ -365,7 +365,7 @@ COPY --from=second /bar /bat
 				t.Errorf("Failed to parse test dockerfile to stages: %s", err)
 			}
 
-			kanikoStages, err := dockerfile.MakeKanikoStages(opts, testStages, metaArgs)
+			kanikoStages, _, err := dockerfile.MakeKanikoStages(opts, testStages, metaArgs)
 			if err != nil {
 				t.Errorf("Failed to parse stages to Kaniko Stages: %s", err)
 			}
@@ -1069,7 +1069,7 @@ func Test_stageBuilder_build(t *testing.T) {
 				t.Errorf("Failed to parse test dockerfile to stages: %s", err)
 			}
 
-			kanikoStages, err := dockerfile.MakeKanikoStages(opts, testStages, metaArgs)
+			kanikoStages, _, err := dockerfile.MakeKanikoStages(opts, testStages, metaArgs)
 			if err != nil {
 				t.Errorf("Failed to parse stages to Kaniko Stages: %s", err)
 			}
@@ -1142,7 +1142,7 @@ COPY %s foo.txt
 				t.Errorf("Failed to parse test dockerfile to stages: %s", err)
 			}
 
-			kanikoStages, err := dockerfile.MakeKanikoStages(opts, testStages, metaArgs)
+			kanikoStages, _, err := dockerfile.MakeKanikoStages(opts, testStages, metaArgs)
 			if err != nil {
 				t.Errorf("Failed to parse stages to Kaniko Stages: %s", err)
 			}
@@ -1227,7 +1227,7 @@ COPY %s bar.txt
 				t.Errorf("Failed to parse test dockerfile to stages: %s", err)
 			}
 
-			kanikoStages, err := dockerfile.MakeKanikoStages(opts, testStages, metaArgs)
+			kanikoStages, _, err := dockerfile.MakeKanikoStages(opts, testStages, metaArgs)
 			if err != nil {
 				t.Errorf("Failed to parse stages to Kaniko Stages: %s", err)
 			}
@@ -1306,7 +1306,7 @@ RUN foobar
 				t.Errorf("Failed to parse test dockerfile to stages: %s", err)
 			}
 
-			kanikoStages, err := dockerfile.MakeKanikoStages(opts, testStages, metaArgs)
+			kanikoStages, _, err := dockerfile.MakeKanikoStages(opts, testStages, metaArgs)
 			if err != nil {
 				t.Errorf("Failed to parse stages to Kaniko Stages: %s", err)
 			}
