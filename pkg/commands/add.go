@@ -162,7 +162,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				download = urlDest
 			}
 			logrus.Infof("Adding remote URL %s to %s", src, urlDest)
-			if err := util.DownloadFileToDest(src, download, owner, chmod.Apply(0o600), checksum); err != nil {
+			if err := util.DownloadFileToDestWithPolicy(src, download, owner, chmod.Apply(0o600), checksum, a.fileContext.InputPolicy); err != nil {
 				return fmt.Errorf("downloading remote source file: %w", err)
 			}
 
@@ -313,9 +313,9 @@ func ValidateAddPolicy(cmd *instructions.AddCommand, fileContext util.FileContex
 	if fileContext.InputPolicy == nil {
 		return nil
 	}
-	srcs, _, err := util.ResolveEnvAndWildcards(cmd.SourcesAndDest, fileContext, replacementEnvs)
+	srcs, err := util.ResolveEnvironmentReplacementList(cmd.SourcePaths, replacementEnvs, true)
 	if err != nil {
-		return err
+		return fmt.Errorf("resolving ADD sources for policy: %w", err)
 	}
 	checksum := ""
 	if cmd.Checksum != "" {

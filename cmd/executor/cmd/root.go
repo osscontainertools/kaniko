@@ -719,31 +719,19 @@ func copyDockerfile(opts *config.KanikoOptions) error {
 // resolveSourceContext unpacks the source context if it is a tar in a bucket or in kaniko container
 // it resets srcContext to be the path to the unpacked build context within the image
 func resolveSourceContext(opts *config.KanikoOptions) error {
+	effectiveContext := effectiveSourceContext(opts.SrcContext, opts.Bucket)
 	if config.FF.InputPolicy {
-		opts.InputContext = opts.SrcContext
-		if opts.InputContext == "" && opts.Bucket != "" {
-			opts.InputContext = opts.Bucket
-			if !strings.Contains(opts.InputContext, "://") {
-				opts.InputContext = constants.GCSBuildContextPrefix + opts.InputContext
-			}
-		}
+		opts.InputContext = effectiveContext
 	} else {
 		opts.InputContext = ""
 	}
-	if opts.SrcContext == "" && opts.Bucket == "" {
+	if effectiveContext == "" {
 		return errors.New("please specify a path to the build context with the --context flag or a bucket with the --bucket flag")
 	}
-	if opts.SrcContext != "" && !strings.Contains(opts.SrcContext, "://") {
+	if !strings.Contains(effectiveContext, "://") {
 		return nil
 	}
-	if opts.Bucket != "" {
-		if !strings.Contains(opts.Bucket, "://") {
-			// if no prefix use Google Cloud Storage as default for backwards compatibility
-			opts.SrcContext = constants.GCSBuildContextPrefix + opts.Bucket
-		} else {
-			opts.SrcContext = opts.Bucket
-		}
-	}
+	opts.SrcContext = effectiveContext
 	contextExecutor, err := buildcontext.GetBuildContext(opts.SrcContext, buildcontext.BuildOptions{
 		GitBranch:            opts.Git.Branch,
 		GitSingleBranch:      opts.Git.SingleBranch,
@@ -774,6 +762,20 @@ func resolveSourceContext(opts *config.KanikoOptions) error {
 	}
 	logrus.Debugf("Build context located at %s", opts.SrcContext)
 	return nil
+}
+
+func effectiveSourceContext(srcContext, bucket string) string {
+	if srcContext != "" && !strings.Contains(srcContext, "://") {
+		return srcContext
+	}
+	if bucket == "" {
+		return srcContext
+	}
+	if !strings.Contains(bucket, "://") {
+		// If no prefix is provided, use Google Cloud Storage for backwards compatibility.
+		return constants.GCSBuildContextPrefix + bucket
+	}
+	return bucket
 }
 
 func resolveRelativePaths() error {

@@ -1703,8 +1703,14 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	_, endPlanning := timing.Scope("Planning")
 	defer endPlanning()
 
+	if opts.Dryrun {
+		optsWithoutInputPolicy := *opts
+		optsWithoutInputPolicy.InputPolicy = nil
+		opts = &optsWithoutInputPolicy
+	}
+
 	var err error
-	if config.FF.InputPolicy {
+	if config.FF.InputPolicy && !opts.Dryrun {
 		if opts.InputPolicy == nil {
 			path := opts.InputPolicyPath
 			if path == "" && !strings.HasPrefix(opts.DockerfilePath, "http://") && !strings.HasPrefix(opts.DockerfilePath, "https://") {

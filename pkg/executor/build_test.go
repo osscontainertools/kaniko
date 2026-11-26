@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/containerd/platforms"
@@ -37,11 +38,105 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/commands"
 	"github.com/osscontainertools/kaniko/pkg/config"
+	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
+	"github.com/osscontainertools/kaniko/pkg/policy"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/osscontainertools/kaniko/testutil"
 	"go.opentelemetry.io/otel/trace"
 )
+
+func TestDoBuildDryrunSkipsInputPolicyEnforcement(t *testing.T) {
+	testDir, cleanup := setupMultistageTests(t)
+	defer cleanup()
+
+	previousInputPolicyFlag := config.FF.InputPolicy
+	config.FF.InputPolicy = true
+	t.Cleanup(func() { config.FF.InputPolicy = previousInputPolicyFlag })
+
+	workspace := filepath.Join(testDir, "workspace")
+	dockerfilePath := filepath.Join(workspace, "Dockerfile")
+	if err := os.WriteFile(dockerfilePath, []byte("FROM scratch\nADD https://example.invalid/payload /payload\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	writePolicy := func(name, module string) *policy.Policy {
+		t.Helper()
+		path := filepath.Join(workspace, name+".rego")
+		if err := os.WriteFile(path, []byte(module), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		inputPolicy, err := policy.Load(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return inputPolicy
+	}
+
+	denyAll := writePolicy("deny-all", `package docker
+
+default allow := false
+decision := {"allow": allow}
+`)
+	opts := &config.KanikoOptions{
+		DockerfilePath: dockerfilePath,
+		SrcContext:     workspace,
+		SnapshotMode:   constants.SnapshotModeFull,
+		Dryrun:         true,
+		InputPolicy:    denyAll,
+	}
+	var plan bytes.Buffer
+	previousOut := Out
+	Out = &plan
+	t.Cleanup(func() { Out = previousOut })
+
+	if _, err := DoBuild(opts); err != nil {
+		t.Fatalf("DoBuild() dry-run error = %v, want nil", err)
+	}
+	if !strings.Contains(plan.String(), "ADD https://example.invalid/payload /payload") {
+		t.Fatalf("dry-run plan does not include ADD command:\n%s", plan.String())
+	}
+
+	tests := []struct {
+		name        string
+		module      string
+		wantErrText string
+	}{
+		{
+			name: "context policy remains enforced",
+			module: `package docker
+
+default allow := false
+allow if input.http.host == "example.com"
+decision := {"allow": allow}
+`,
+			wantErrText: "local input denied by policy",
+		},
+		{
+			name: "ADD policy remains enforced",
+			module: `package docker
+
+default allow := false
+allow if input.local
+decision := {"allow": allow}
+`,
+			wantErrText: "input denied by policy",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := &config.KanikoOptions{
+				DockerfilePath: dockerfilePath,
+				SrcContext:     workspace,
+				SnapshotMode:   constants.SnapshotModeFull,
+				InputPolicy:    writePolicy(strings.ReplaceAll(tt.name, " ", "-"), tt.module),
+			}
+			if _, err := DoBuild(opts); err == nil || !strings.Contains(err.Error(), tt.wantErrText) {
+				t.Fatalf("DoBuild() error = %v, want %q", err, tt.wantErrText)
+			}
+		})
+	}
+}
 
 func Test_reviewConfig(t *testing.T) {
 	tests := []struct {

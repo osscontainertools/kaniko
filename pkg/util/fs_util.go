@@ -820,7 +820,34 @@ func AddVolumePathToIgnoreList(path string) {
 //     - destination will have permissions of 0600 by default if not specified with chmod
 //     - If remote file has HTTP Last-Modified header, we set the mtime of the file to that timestamp
 func DownloadFileToDest(rawurl, dest string, owner *Owner, chmod fs.FileMode, checksum digest.Digest) error {
-	resp, err := http.Get(rawurl) //nolint:noctx
+	return downloadFileToDest(rawurl, dest, owner, chmod, checksum, nil)
+}
+
+// DownloadFileToDestWithPolicy checks redirect targets against the active input policy.
+func DownloadFileToDestWithPolicy(rawurl, dest string, owner *Owner, chmod fs.FileMode, checksum digest.Digest, inputPolicy *policy.Policy) error {
+	return downloadFileToDest(rawurl, dest, owner, chmod, checksum, inputPolicy)
+}
+
+func downloadFileToDest(rawurl, dest string, owner *Owner, chmod fs.FileMode, checksum digest.Digest, inputPolicy *policy.Policy) error {
+	client := *http.DefaultClient
+	if inputPolicy != nil {
+		checkRedirect := client.CheckRedirect
+		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			input, err := policy.NewHTTPInput(req.URL.String(), "", checksum.String(), "")
+			if err != nil {
+				return fmt.Errorf("parsing redirected ADD URL for policy: %w", err)
+			}
+			if err := inputPolicy.Evaluate(policy.Input{HTTP: &input}); err != nil {
+				return fmt.Errorf("validating redirected ADD URL for policy: %w", err)
+			}
+			if checkRedirect != nil {
+				return checkRedirect(req, via)
+			}
+			return nil
+		}
+	}
+
+	resp, err := client.Get(rawurl) //nolint:noctx
 	if err != nil {
 		return err
 	}
