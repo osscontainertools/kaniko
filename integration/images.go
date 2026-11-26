@@ -932,9 +932,10 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_cache_copy_oci":    {},
 	}
 	d.TestWarmerDockerfiles = map[string]struct{}{
-		"Dockerfile_test_issue_mz320":            {},
-		"Dockerfile_test_issue_mz1212":           {},
-		"Dockerfile_test_warmer_remote_bind_mnt": {},
+		"Dockerfile_test_issue_mz320":              {},
+		"Dockerfile_test_issue_mz1212":             {},
+		"Dockerfile_test_warmer_remote_bind_mnt":   {},
+		"Dockerfile_test_warmer_multistage_target": {},
 	}
 	d.TestMountDockerfiles = map[string]struct{}{
 		"Dockerfile_test_issue_mz1007": {},

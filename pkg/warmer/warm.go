@@ -354,6 +354,86 @@ func DockerfileImages(opts *config.WarmerOptions) ([]string, error) {
 	return images, nil
 }
 
+// reachableStages computes which stages are reachable from the given target stages.
+// A stage is reachable if:
+// - It's a target stage
+// - It's referenced as a base image (FROM) by a reachable stage
+// - It's referenced via COPY --from by a reachable stage
+// - It's referenced via RUN --mount=type=bind,from=<stage> by a reachable stage (if feature flag enabled)
+func reachableStages(stages []instructions.Stage, targetIndices []int) map[int]bool {
+	reachable := make(map[int]bool)
+	stageByName := dockerfile.StageIndices(stages)
+
+	// Add target stages to reachable
+	for _, idx := range targetIndices {
+		reachable[idx] = true
+	}
+
+	// Iteratively find dependencies until no new stages are discovered
+	changed := true
+	for changed {
+		changed = false
+		for i, stage := range stages {
+			if !reachable[i] {
+				continue // This stage is not reachable, skip it
+			}
+
+			// Check if this stage depends on another stage via FROM
+			if stage.BaseName != constants.NoBaseImage {
+				// BaseImageIndex finds the index of a stage that this stage is built off
+				baseIdx := dockerfile.BaseImageIndex(i, stages)
+				if baseIdx != -1 && !reachable[baseIdx] {
+					reachable[baseIdx] = true
+					changed = true
+				}
+			}
+
+			// Check if this stage depends on other stages via COPY --from
+			for _, cmd := range stage.Commands {
+				c, ok := cmd.(*instructions.CopyCommand)
+				if !ok || c.From == "" {
+					continue
+				}
+
+				// Check if it's a named stage reference
+				if stageIdx, exists := stageByName[strings.ToLower(c.From)]; exists {
+					if !reachable[stageIdx] {
+						reachable[stageIdx] = true
+						changed = true
+					}
+				}
+			}
+
+			// Check if this stage depends on other stages via RUN --mount=type=bind,from=<stage>
+			if config.FF.RunCrossStageBindMount {
+				for _, cmd := range stage.Commands {
+					runCmd, ok := cmd.(*instructions.RunCommand)
+					if !ok {
+						continue
+					}
+					for _, m := range dockerfile.CrossStageMounts(runCmd) {
+						// m.From can be a stage name or stage index
+						if stageIdx, exists := stageByName[strings.ToLower(m.From)]; exists {
+							if !reachable[stageIdx] {
+								reachable[stageIdx] = true
+								changed = true
+							}
+						} else if idx, err := strconv.Atoi(m.From); err == nil && idx >= 0 && idx < len(stages) {
+							// Handle numeric stage references
+							if !reachable[idx] {
+								reachable[idx] = true
+								changed = true
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return reachable
+}
+
 func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 	var baseNames []string
 	var predefinedArgs []string
@@ -386,7 +466,23 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Compute which stages to include based on target
+	var reachable map[int]bool
+	if len(opts.Target) > 0 {
+		targetIndices, err := dockerfile.TargetStages(stages, opts.Target)
+		if err != nil {
+			return nil, fmt.Errorf("error finding target stage: %w", err)
+		}
+		reachable = reachableStages(stages, targetIndices)
+	}
+
 	for i, s := range stages {
+		// Skip stages not reachable from targets (if targets are specified)
+		if len(opts.Target) > 0 && !reachable[i] {
+			continue
+		}
+
 		if s.BaseName != constants.NoBaseImage && dockerfile.BaseImageIndex(i, stages) == -1 {
 			if opts.RequireDigest {
 				_, err = name.NewDigest(s.BaseName)
@@ -402,7 +498,12 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 
 	if config.FF.CacheCopyFrom {
 		stageByName := dockerfile.StageIndices(stages)
-		for _, s := range stages {
+		for i, s := range stages {
+			// Skip stages not reachable from targets (if targets are specified)
+			if len(opts.Target) > 0 && !reachable[i] {
+				continue
+			}
+
 			for _, cmd := range s.Commands {
 				c, ok := cmd.(*instructions.CopyCommand)
 				if !ok || c.From == "" {

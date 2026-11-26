@@ -228,8 +228,8 @@ func extractValFromQuotes(val string) (string, error) {
 	return val[1 : len(val)-1], nil
 }
 
-// targetStage returns the indexes of the target stages kaniko is trying to build
-func targetStages(stages []instructions.Stage, targets []string) ([]int, error) {
+// TargetStages returns the indexes of the target stages kaniko is trying to build
+func TargetStages(stages []instructions.Stage, targets []string) ([]int, error) {
 	if len(targets) == 0 {
 		return []int{len(stages) - 1}, nil
 	}
@@ -344,7 +344,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	if !config.FF.AddChecksum && opts.RequireAddChecksum {
 		return nil, nil, errors.New("--require-add-checksum cannot be used with FF_KANIKO_ADD_CHECKSUM=false, checksums would not be verified")
 	}
-	targetStages, err := targetStages(stages, opts.Target)
+	targetStages, err := TargetStages(stages, opts.Target)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error finding target stage: %w", err)
 	}

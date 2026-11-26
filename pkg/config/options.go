@@ -235,6 +235,7 @@ type WarmerOptions struct {
 	Force          bool
 	DockerfilePath string
 	BuildArgs      multiArg
+	Target         []string
 	Dryrun         bool
 	RequireDigest  bool
 }

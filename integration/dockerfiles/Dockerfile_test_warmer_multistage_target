@@ -1,0 +1,14 @@
+# Multi-stage Dockerfile for testing warmer --target
+FROM golang:1.20-alpine as builder
+WORKDIR /build
+RUN echo "Building from golang" > /app.txt
+
+FROM alpine:3.18 as runtime
+WORKDIR /app
+COPY --from=builder /app.txt /app.txt
+RUN echo "Runtime stage"
+
+FROM busybox:latest as debug
+COPY --from=builder /app.txt /builder_app.txt
+COPY --from=runtime /app.txt /runtime_app.txt
+RUN echo "Debug stage"
