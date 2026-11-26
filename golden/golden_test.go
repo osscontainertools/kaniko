@@ -193,7 +193,6 @@ var update bool
 var previewEnv = map[string]string{
 	"FF_KANIKO_CACHE_COPY_FROM":              "1",
 	"FF_KANIKO_CACHE_IMAGE_INDEX":            "1",
-	"FF_KANIKO_CACHE_RUN_MOUNT_BIND_FROM":    "1",
 	"FF_KANIKO_COPY_KEEP_DEST_OWNER":         "1",
 	"FF_KANIKO_COPY_LINK":                    "1",
 	"FF_KANIKO_COPY_SUBDIR_MODE":             "1",

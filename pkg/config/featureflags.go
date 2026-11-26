@@ -37,7 +37,6 @@ type FeatureFlags struct {
 	CacheImageIndex                bool
 	CacheLookahead                 bool
 	CacheProbeAfterMiss            bool
-	CacheRunMountBindFrom          bool
 	ChownOnImplicitDirs            bool
 	ConfineCopySource              bool
 	ConfineHardlinkTarget          bool
@@ -146,7 +145,6 @@ func InitFeatureFlags() {
 		CacheImageIndex:                featureFlag("FF_KANIKO_CACHE_IMAGE_INDEX", false),
 		CacheLookahead:                 featureFlag("FF_KANIKO_CACHE_LOOKAHEAD", true),
 		CacheProbeAfterMiss:            featureFlag("FF_KANIKO_CACHE_PROBE_AFTER_MISS", false),
-		CacheRunMountBindFrom:          featureFlag("FF_KANIKO_CACHE_RUN_MOUNT_BIND_FROM", false),
 		ChownOnImplicitDirs:            featureFlag("FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS", false),
 		ConfineCopySource:              featureFlag("FF_KANIKO_CONFINE_COPY_SOURCE", true),
 		ConfineHardlinkTarget:          featureFlag("FF_KANIKO_CONFINE_HARDLINK_TARGET", true),

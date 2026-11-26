@@ -90,45 +90,6 @@ LABEL maintainer="alexezio"
 	}
 }
 
-func TestParseDockerfile_RunMountBindFrom(t *testing.T) {
-	dockerfile := `FROM alpine:latest AS builder
-RUN --mount=type=bind,from=alpine:latest,target=/alpine true
-RUN --mount=type=bind,from=busybox:1.36,target=/busybox true
-RUN --mount=type=bind,from=busybox:1.36,target=/busybox-copy true
-RUN --mount=type=bind,from=builder,target=/builder true
-RUN --mount=type=bind,from=0,target=/stage true
-`
-	dockerfilePath := t.TempDir() + "/Dockerfile"
-	if err := os.WriteFile(dockerfilePath, []byte(dockerfile), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	t.Cleanup(config.InitFeatureFlags)
-	t.Setenv("FF_KANIKO_CACHE_COPY_FROM", "0")
-	t.Setenv("FF_KANIKO_CACHE_RUN_MOUNT_BIND_FROM", "0")
-	config.InitFeatureFlags()
-
-	opts := &config.WarmerOptions{DockerfilePath: dockerfilePath}
-	baseNames, err := ParseDockerfile(opts)
-	if err != nil {
-		t.Fatalf("expected no error with flag disabled, got %v", err)
-	}
-	if len(baseNames) != 1 || baseNames[0] != "alpine:latest" {
-		t.Fatalf("expected only alpine:latest with flag disabled, got %v", baseNames)
-	}
-
-	t.Setenv("FF_KANIKO_CACHE_RUN_MOUNT_BIND_FROM", "1")
-	config.InitFeatureFlags()
-
-	baseNames, err = ParseDockerfile(opts)
-	if err != nil {
-		t.Fatalf("expected no error with flag enabled, got %v", err)
-	}
-	if len(baseNames) != 2 || baseNames[0] != "alpine:latest" || baseNames[1] != "busybox:1.36" {
-		t.Fatalf("expected deduplicated alpine:latest and busybox:1.36, got %v", baseNames)
-	}
-}
-
 func TestParseDockerfile_ArgsDockerfile(t *testing.T) {
 	dockerfile := `ARG NGINX_VERSION=1.29.1
 FROM nginx:$NGINX_VERSION-alpine-slim
