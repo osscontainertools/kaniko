@@ -183,7 +183,7 @@ and inherits are not supported.`,
 			}
 			topts.SrcContext = c.dockerfileBase
 			remote := strings.Contains(target.Context, "://")
-			fromBakefile := (target.Dockerfile != "" || (target.Context != "" && !dockerfileSet)) && !filepath.IsAbs(topts.DockerfilePath) && !isURL(topts.DockerfilePath)
+			fromBakefile := (target.Dockerfile != "" || (target.Context != "" && !dockerfileSet)) && !filepath.IsAbs(topts.DockerfilePath) && !util.IsURL(topts.DockerfilePath)
 			if fromBakefile && target.Context != "" && (target.Dockerfile == "" || remote) {
 				topts.DockerfilePath = filepath.Join(c.dockerfileBase, topts.DockerfilePath)
 			}
