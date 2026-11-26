@@ -37,8 +37,7 @@ GO_LDFLAGS += -buildid= # Drop build ID to make builds reproducible.
 GO_LDFLAGS += $(if $(RACE),-linkmode=external) # -race needs cgo, -extldflags only applies to the external linker
 GO_LDFLAGS += '
 
-EXECUTOR_PACKAGE = $(REPOPATH)/cmd/executor
-WARMER_PACKAGE = $(REPOPATH)/cmd/warmer
+KANIKO_PACKAGE = $(REPOPATH)/cmd/kaniko
 KANIKO_PROJECT = $(REPOPATH)/kaniko
 BUILD_ARG ?=
 COVER ?=
@@ -61,14 +60,11 @@ export GO_TAGS = otel,git,google,aws,azure
 .PHONY: FORCE
 FORCE:
 
-out/executor: FORCE ## Build the executor binary (default)
-	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build -tags $(GO_TAGS)$(if $(RACE),$(RACE_TAGS)) $(if $(COVER),-cover) $(if $(RACE),-race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
+out/kaniko: FORCE ## Build the kaniko binary (default)
+	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build -tags $(GO_TAGS)$(if $(RACE),$(RACE_TAGS)) $(if $(COVER),-cover) $(if $(RACE),-race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(KANIKO_PACKAGE)
 
-out/executor-slim: FORCE
-	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build $(if $(COVER),-cover) $(if $(RACE),-tags $(RACE_TAGS) -race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(EXECUTOR_PACKAGE)
-
-out/warmer: FORCE ## Build the warmer binary
-	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build -tags $(GO_TAGS)$(if $(RACE),$(RACE_TAGS)) $(if $(COVER),-cover) $(if $(RACE),-race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(WARMER_PACKAGE)
+out/kaniko-slim: FORCE
+	GOARCH=$(GOARCH) GOOS=$(GOOS) CGO_ENABLED=$(if $(RACE),1,0) go build $(if $(COVER),-cover) $(if $(RACE),-tags $(RACE_TAGS) -race $(RACE_GCFLAGS)) -ldflags $(GO_LDFLAGS) -o $@ $(KANIKO_PACKAGE)
 
 .PHONY: help
 help: ## Show this help
@@ -84,14 +80,14 @@ local-registries: ## Start the local registries for the integration tests
 	@ docker compose -f scripts/local-registries.compose.yaml up -d --wait
 
 .PHONY: test
-test: out/executor ## Run unit tests, license header check and lint
+test: out/kaniko ## Run unit tests, license header check and lint
 	@ ./scripts/test.sh
 
 test-with-coverage: test ## Run unit tests and open the coverage report
 	go tool cover -html=out/coverage.out
 
 .PHONY: golden
-golden: out/executor ## Run golden tests (UPDATE=1 to rewrite, TESTS=<pattern> to filter)
+golden: out/kaniko ## Run golden tests (UPDATE=1 to rewrite, TESTS=<pattern> to filter)
 	@ ./scripts/golden.sh
 
 .PHONY: lint
