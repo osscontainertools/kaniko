@@ -863,7 +863,7 @@ func FindDockerFiles(dir, dockerfilesPattern string) ([]string, error) {
 	for _, dockerfile := range allDockerfiles {
 		// Remove the leading directory from the path
 		dockerfile = dockerfile[len("dockerfiles/"):]
-		if !strings.HasSuffix(dockerfile, ".dockerignore") {
+		if !strings.HasSuffix(dockerfile, ".dockerignore") && !strings.HasSuffix(dockerfile, ".rego") {
 			dockerfiles = append(dockerfiles, dockerfile)
 		}
 	}
@@ -895,7 +895,13 @@ type DockerFileBuilder struct {
 // it will assume are all as yet unbuilt.
 func NewDockerFileBuilder() *DockerFileBuilder {
 	d := DockerFileBuilder{}
-	d.DockerfilesToIgnore = map[string]struct{}{}
+	d.DockerfilesToIgnore = map[string]struct{}{
+		"Dockerfile_test_input_policy_allow":        {},
+		"Dockerfile_test_input_policy_deny":         {},
+		"Dockerfile_test_input_policy_context_deny": {},
+		"Dockerfile_test_input_policy_image_allow":  {},
+		"Dockerfile_test_input_policy_image_deny":   {},
+	}
 	d.TestCacheDockerfiles = map[string]struct{}{
 		"Dockerfile_test_cache":              {},
 		"Dockerfile_test_cache_install":      {},

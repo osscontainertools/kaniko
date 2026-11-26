@@ -1,0 +1,5 @@
+# Exercises the allowed HTTP ADD input policy path.
+FROM scratch
+ARG INPUT_URL
+ADD ${INPUT_URL} /payload
+COPY input_policy.txt /context.txt

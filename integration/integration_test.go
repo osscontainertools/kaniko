@@ -31,6 +31,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
 	"os"
@@ -590,6 +591,94 @@ func TestRun(t *testing.T) {
 
 			diffoci(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 			checkAnnotations(t, dockerfile, kanikoImage)
+		})
+	}
+}
+
+func TestInputPolicy(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		dockerfile  string
+		buildArg    string
+		wantErr     string
+		wantRequest bool
+		useHTTP     bool
+	}{
+		{
+			name:        "allow HTTP ADD",
+			dockerfile:  "Dockerfile_test_input_policy_allow",
+			wantRequest: true,
+			useHTTP:     true,
+		},
+		{
+			name:       "deny HTTP ADD before download",
+			dockerfile: "Dockerfile_test_input_policy_deny",
+			wantErr:    "input denied by policy",
+			useHTTP:    true,
+		},
+		{
+			name:       "deny local context",
+			dockerfile: "Dockerfile_test_input_policy_context_deny",
+			wantErr:    "local input denied by policy",
+		},
+		{
+			name:       "allow approved base image",
+			dockerfile: "Dockerfile_test_input_policy_image_allow",
+			buildArg:   "BASE_IMAGE=" + config.alpineBaseImage,
+		},
+		{
+			name:       "deny unapproved base image",
+			dockerfile: "Dockerfile_test_input_policy_image_deny",
+			buildArg:   "BASE_IMAGE=" + config.alpineBaseImage,
+			wantErr:    "input denied by policy",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var requests atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				requests.Add(1)
+				_, _ = io.WriteString(w, "policy integration payload\n")
+			}))
+			defer server.Close()
+
+			dockerRunFlags := []string{
+				"run", "--rm", "--net=host",
+				"-v", config.dir + ":/workspace:ro",
+			}
+			dockerRunFlags = addKanikoEnvFlags(dockerRunFlags, t.Name())
+			dockerRunFlags = append(dockerRunFlags,
+				"-e", "FF_KANIKO_INPUT_POLICY=1",
+				ExecutorImage,
+				"-f", filepath.Join(buildContextPath, dockerfilesPath, tt.dockerfile),
+				"-c", filepath.Join(buildContextPath, dockerfilesPath),
+				"--no-push",
+			)
+			if tt.useHTTP {
+				dockerRunFlags = append(dockerRunFlags, "--build-arg=INPUT_URL="+server.URL+"/payload")
+			}
+			if tt.buildArg != "" {
+				dockerRunFlags = append(dockerRunFlags, "--build-arg="+tt.buildArg)
+			}
+
+			out, err := RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("Kaniko build failed: %v\n%s", err, out)
+				}
+			} else {
+				if err == nil {
+					t.Fatalf("Kaniko build succeeded, want error containing %q", tt.wantErr)
+				}
+				if !strings.Contains(string(out), tt.wantErr) {
+					t.Fatalf("Kaniko build error does not contain %q:\n%s", tt.wantErr, out)
+				}
+			}
+			if got := requests.Load() > 0; got != tt.wantRequest {
+				t.Fatalf("HTTP server received request = %t, want %t", got, tt.wantRequest)
+			}
 		})
 	}
 }

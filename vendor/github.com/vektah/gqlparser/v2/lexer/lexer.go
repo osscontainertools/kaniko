@@ -1,0 +1,653 @@
+package lexer
+
+import (
+	"bytes"
+	"slices"
+	"unicode/utf16"
+	"unicode/utf8"
+
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/gqlerror"
+)
+
+// Lexer turns graphql request and schema strings into tokens.
+type Lexer struct {
+	*ast.Source
+	// An offset into the string in bytes
+	start int
+	// An offset into the string in runes
+	startRunes int
+	// An offset into the string in bytes
+	end int
+	// An offset into the string in runes
+	endRunes int
+	// the current line number
+	line int
+	// An offset into the string in rune
+	lineStartRunes int
+}
+
+func New(src *ast.Source) Lexer {
+	return Lexer{
+		Source: src,
+		line:   1,
+	}
+}
+
+// take one rune from input and advance end.
+func (s *Lexer) peek() (rune, int) {
+	return utf8.DecodeRuneInString(s.Input[s.end:])
+}
+
+func (s *Lexer) makeToken(kind Type) (Token, error) {
+	return s.makeValueToken(kind, s.Input[s.start:s.end])
+}
+
+func (s *Lexer) makeValueToken(kind Type, value string) (Token, error) {
+	return Token{
+		Kind:  kind,
+		Value: value,
+		Pos: ast.Position{
+			Start:  s.startRunes,
+			End:    s.endRunes,
+			Line:   s.line,
+			Column: s.startRunes - s.lineStartRunes + 1,
+			Src:    s.Source,
+		},
+	}, nil
+}
+
+func (s *Lexer) makeError(format string, args ...any) (Token, *gqlerror.Error) {
+	column := s.endRunes - s.lineStartRunes + 1
+	return Token{
+		Kind: Invalid,
+		Pos: ast.Position{
+			Start:  s.startRunes,
+			End:    s.endRunes,
+			Line:   s.line,
+			Column: column,
+			Src:    s.Source,
+		},
+	}, gqlerror.ErrorLocf(s.Name, s.line, column, format, args...)
+}
+
+// ReadToken gets the next token from the source starting at the given position.
+//
+// This skips over whitespace and comments until it finds the next lexable
+// token, then lexes punctuators immediately or calls the appropriate helper
+// function for more complicated tokens.
+func (s *Lexer) ReadToken() (Token, error) {
+	s.ws()
+	s.start = s.end
+	s.startRunes = s.endRunes
+
+	if s.end >= len(s.Input) {
+		return s.makeToken(EOF)
+	}
+	r := s.Input[s.start]
+	s.end++
+	s.endRunes++
+	switch r {
+	case '!':
+		return s.makeValueToken(Bang, "")
+
+	case '$':
+		return s.makeValueToken(Dollar, "")
+	case '&':
+		return s.makeValueToken(Amp, "")
+	case '(':
+		return s.makeValueToken(ParenL, "")
+	case ')':
+		return s.makeValueToken(ParenR, "")
+	case '.':
+		if len(s.Input) > s.start+2 && s.Input[s.start:s.start+3] == "..." {
+			s.end += 2
+			s.endRunes += 2
+			return s.makeValueToken(Spread, "")
+		}
+	case ':':
+		return s.makeValueToken(Colon, "")
+	case '=':
+		return s.makeValueToken(Equals, "")
+	case '@':
+		return s.makeValueToken(At, "")
+	case '[':
+		return s.makeValueToken(BracketL, "")
+	case ']':
+		return s.makeValueToken(BracketR, "")
+	case '{':
+		return s.makeValueToken(BraceL, "")
+	case '}':
+		return s.makeValueToken(BraceR, "")
+	case '|':
+		return s.makeValueToken(Pipe, "")
+	case '#':
+		return s.readComment()
+
+	case '_',
+		'a',
+		'b',
+		'c',
+		'd',
+		'e',
+		'f',
+		'g',
+		'h',
+		'i',
+		'j',
+		'k',
+		'l',
+		'm',
+		'n',
+		'o',
+		'p',
+		'q',
+		'r',
+		's',
+		't',
+		'u',
+		'v',
+		'w',
+		'x',
+		'y',
+		'z',
+		'A',
+		'B',
+		'C',
+		'D',
+		'E',
+		'F',
+		'G',
+		'H',
+		'I',
+		'J',
+		'K',
+		'L',
+		'M',
+		'N',
+		'O',
+		'P',
+		'Q',
+		'R',
+		'S',
+		'T',
+		'U',
+		'V',
+		'W',
+		'X',
+		'Y',
+		'Z':
+		return s.readName()
+
+	case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		return s.readNumber()
+
+	case '"':
+		if len(s.Input) > s.start+2 && s.Input[s.start:s.start+3] == `"""` {
+			return s.readBlockString()
+		}
+
+		return s.readString()
+	}
+
+	s.end--
+	s.endRunes--
+
+	if r < 0x0020 && r != 0x0009 && r != 0x000a && r != 0x000d {
+		return s.makeError(`Cannot contain the invalid character "\u%04x"`, r)
+	}
+
+	if r == '\'' {
+		return s.makeError(
+			`Unexpected single quote character ('), did you mean to use a double quote (")?`,
+		)
+	}
+
+	return s.makeError(`Cannot parse the unexpected character "%s".`, string(r))
+}
+
+// ws reads from body starting at startPosition until it finds a non-whitespace
+// or commented character, and updates the token end to include all whitespace.
+func (s *Lexer) ws() {
+	for s.end < len(s.Input) {
+		switch s.Input[s.end] {
+		case '\t', ' ', ',':
+			s.end++
+			s.endRunes++
+		case '\n':
+			s.end++
+			s.endRunes++
+			s.line++
+			s.lineStartRunes = s.endRunes
+		case '\r':
+			s.end++
+			s.endRunes++
+			s.line++
+			s.lineStartRunes = s.endRunes
+			// skip the following newline if its there
+			if s.end < len(s.Input) && s.Input[s.end] == '\n' {
+				s.end++
+				s.endRunes++
+			}
+			// byte order mark, given ws is hot path we aren't relying on the unicode package here.
+		case 0xef:
+			if s.end+2 < len(s.Input) && s.Input[s.end+1] == 0xBB && s.Input[s.end+2] == 0xBF {
+				s.end += 3
+				s.endRunes++
+			} else {
+				return
+			}
+		default:
+			return
+		}
+	}
+}
+
+// readComment from the input
+//
+// #[\u0009\u0020-\uFFFF]*.
+func (s *Lexer) readComment() (Token, error) {
+	for s.end < len(s.Input) {
+		r, w := s.peek()
+
+		// SourceCharacter but not LineTerminator
+		if r > 0x001f || r == '\t' {
+			s.end += w
+			s.endRunes++
+		} else {
+			break
+		}
+	}
+
+	return s.makeToken(Comment)
+}
+
+// readNumber from the input, either a float
+// or an int depending on whether a decimal point appears.
+//
+// Int:   -?(0|[1-9][0-9]*)
+// Float: -?(0|[1-9][0-9]*)(\.[0-9]+)?((E|e)(+|-)?[0-9]+)?
+func (s *Lexer) readNumber() (Token, error) {
+	float := false
+
+	// backup to the first digit
+	s.end--
+	s.endRunes--
+
+	s.acceptByte('-')
+
+	if s.acceptByte('0') {
+		if consumed := s.acceptDigits(); consumed != 0 {
+			s.end -= consumed
+			s.endRunes -= consumed
+			return s.makeError("Invalid number, unexpected digit after 0: %s.", s.describeNext())
+		}
+	} else {
+		if consumed := s.acceptDigits(); consumed == 0 {
+			return s.makeError("Invalid number, expected digit but got: %s.", s.describeNext())
+		}
+	}
+
+	if s.acceptByte('.') {
+		float = true
+
+		if consumed := s.acceptDigits(); consumed == 0 {
+			return s.makeError("Invalid number, expected digit but got: %s.", s.describeNext())
+		}
+	}
+
+	if s.acceptByte('e', 'E') {
+		float = true
+
+		s.acceptByte('-', '+')
+
+		if consumed := s.acceptDigits(); consumed == 0 {
+			return s.makeError("Invalid number, expected digit but got: %s.", s.describeNext())
+		}
+	}
+
+	if float {
+		return s.makeToken(Float)
+	}
+	return s.makeToken(Int)
+}
+
+// acceptByte if it matches any of given bytes, returning true if it found anything.
+func (s *Lexer) acceptByte(bytes ...uint8) bool {
+	if s.end >= len(s.Input) {
+		return false
+	}
+
+	if slices.Contains(bytes, s.Input[s.end]) {
+		s.end++
+		s.endRunes++
+		return true
+	}
+	return false
+}
+
+// acceptDigits from the input, returning the number of digits it found.
+func (s *Lexer) acceptDigits() int {
+	consumed := 0
+	for s.end < len(s.Input) && s.Input[s.end] >= '0' && s.Input[s.end] <= '9' {
+		s.end++
+		s.endRunes++
+		consumed++
+	}
+
+	return consumed
+}
+
+// describeNext peeks at the input and returns a human readable string. This should will alloc
+// and should only be used in errors.
+func (s *Lexer) describeNext() string {
+	if s.end < len(s.Input) {
+		return `"` + string(s.Input[s.end]) + `"`
+	}
+	return "<EOF>"
+}
+
+// readString from the input
+//
+// "([^"\\\u000A\u000D]|(\\(u[0-9a-fA-F]{4}|u\{[0-9a-fA-F]+\}|["\\/bfnrt])))*".
+func (s *Lexer) readString() (Token, error) {
+	inputLen := len(s.Input)
+
+	// this buffer is lazily created only if there are escape characters.
+	var buf *bytes.Buffer
+
+	// skip the opening quote
+	s.start++
+	s.startRunes++
+
+	for s.end < inputLen {
+		r := s.Input[s.end]
+		if r == '\n' || r == '\r' {
+			break
+		}
+		if r < 0x0020 && r != '\t' {
+			return s.makeError(`Invalid character within String: "\u%04x".`, r)
+		}
+		switch r {
+		default:
+			char := rune(r)
+			w := 1
+
+			// skip unicode overhead if we are in the ascii range
+			if r >= 127 {
+				char, w = utf8.DecodeRuneInString(s.Input[s.end:])
+			}
+			s.end += w
+			s.endRunes++
+
+			if buf != nil {
+				buf.WriteRune(char)
+			}
+
+		case '"':
+			t, err := s.makeToken(String)
+			// the token should not include the quotes in its value, but should cover them in its
+			// position
+			t.Pos.Start--
+			t.Pos.End++
+
+			if buf != nil {
+				t.Value = buf.String()
+			}
+
+			// skip the close quote
+			s.end++
+			s.endRunes++
+
+			return t, err
+
+		case '\\':
+			if s.end+1 >= inputLen {
+				s.end++
+				s.endRunes++
+				return s.makeError(`Invalid character escape sequence.`)
+			}
+
+			if buf == nil {
+				buf = bytes.NewBufferString(s.Input[s.start:s.end])
+			}
+
+			escape := s.Input[s.end+1]
+
+			if escape == 'u' {
+				if s.end+2 < inputLen && s.Input[s.end+2] == '{' {
+					// A braced escape, such as \u{1F600}, names any Unicode
+					// scalar value with one to eight hex digits.
+					r, n, ok := unhexBraced(s.Input[s.end+3:])
+					if !ok {
+						s.end++
+						s.endRunes++
+						return s.makeError(
+							"Invalid character escape sequence: \\%s.",
+							s.Input[s.end:s.end+2+n],
+						)
+					}
+					s.end += 3 + n
+					s.endRunes += 3 + n
+					buf.WriteRune(r)
+					continue
+				}
+
+				if s.end+6 >= inputLen {
+					s.end++
+					s.endRunes++
+					return s.makeError("Invalid character escape sequence: \\%s.", s.Input[s.end:])
+				}
+
+				r, ok := unhex(s.Input[s.end+2 : s.end+6])
+				if !ok {
+					s.end++
+					s.endRunes++
+					return s.makeError(
+						"Invalid character escape sequence: \\%s.",
+						s.Input[s.end:s.end+5],
+					)
+				}
+				s.end += 6
+				s.endRunes += 6
+				// A leading surrogate followed by an escaped trailing surrogate
+				// is one code point, as in JSON.
+				if r >= 0xD800 && r < 0xDC00 && s.end+6 < inputLen {
+					next := s.Input[s.end : s.end+6]
+					r2, ok := unhex(next[2:])
+					if next[:2] == `\u` && ok && r2 >= 0xDC00 && r2 <= 0xDFFF {
+						r = utf16.DecodeRune(r, r2)
+						s.end += 6
+						s.endRunes += 6
+					}
+				}
+				buf.WriteRune(r)
+			} else {
+				switch escape {
+				case '"', '/', '\\':
+					buf.WriteByte(escape)
+				case 'b':
+					buf.WriteByte('\b')
+				case 'f':
+					buf.WriteByte('\f')
+				case 'n':
+					buf.WriteByte('\n')
+				case 'r':
+					buf.WriteByte('\r')
+				case 't':
+					buf.WriteByte('\t')
+				default:
+					s.end++
+					s.endRunes++
+					return s.makeError("Invalid character escape sequence: \\%s.", string(escape))
+				}
+				s.end += 2
+				s.endRunes += 2
+			}
+		}
+	}
+
+	return s.makeError("Unterminated string.")
+}
+
+// readBlockString from the input
+//
+// """("?"?(\\"""|\\(?!=""")|[^"\\]))*""".
+func (s *Lexer) readBlockString() (Token, error) {
+	inputLen := len(s.Input)
+
+	var buf bytes.Buffer
+
+	// skip the opening quote
+	s.start += 3
+	s.startRunes += 3
+	s.end += 2
+	s.endRunes += 2
+
+	for s.end < inputLen {
+		r := s.Input[s.end]
+
+		// Closing triple quote (""")
+		if r == '"' {
+			// Count consecutive quotes
+			quoteCount := 1
+			i := s.end + 1
+			for i < inputLen && s.Input[i] == '"' {
+				quoteCount++
+				i++
+			}
+
+			// If we have at least 3 quotes, use the last 3 as the closing quote
+			if quoteCount >= 3 {
+				// Add any extra quotes to the buffer (except the last 3)
+				for range quoteCount - 3 {
+					buf.WriteByte('"')
+				}
+
+				t, err := s.makeValueToken(BlockString, blockStringValue(buf.String()))
+				t.Pos.Start -= 3
+				t.Pos.End += 3
+				s.end += quoteCount
+				s.endRunes += quoteCount
+				return t, err
+			}
+		}
+
+		// SourceCharacter
+		if r < 0x0020 && r != '\t' && r != '\n' && r != '\r' {
+			return s.makeError(`Invalid character within String: "\u%04x".`, r)
+		}
+
+		switch {
+		case r == '\\' && s.end+4 <= inputLen && s.Input[s.end:s.end+4] == `\"""`:
+			buf.WriteString(`"""`)
+			s.end += 4
+			s.endRunes += 4
+		case r == '\r':
+			if s.end+1 < inputLen && s.Input[s.end+1] == '\n' {
+				s.end++
+				s.endRunes++
+			}
+
+			buf.WriteByte('\n')
+			s.end++
+			s.endRunes++
+			s.line++
+			s.lineStartRunes = s.endRunes
+		default:
+			char := rune(r)
+			w := 1
+
+			// skip unicode overhead if we are in the ascii range
+			if r >= 127 {
+				char, w = utf8.DecodeRuneInString(s.Input[s.end:])
+			}
+			s.end += w
+			s.endRunes++
+			buf.WriteRune(char)
+			if r == '\n' {
+				s.line++
+				s.lineStartRunes = s.endRunes
+			}
+		}
+	}
+
+	return s.makeError("Unterminated string.")
+}
+
+func unhex(b string) (v rune, ok bool) {
+	for i := 0; i < len(b); i++ {
+		d, ok := hexDigit(b[i])
+		if !ok {
+			return 0, false
+		}
+		v = v<<4 | d
+	}
+
+	return v, true
+}
+
+func hexDigit(c byte) (d rune, ok bool) {
+	switch {
+	case '0' <= c && c <= '9':
+		return rune(c - '0'), true
+	case 'a' <= c && c <= 'f':
+		return rune(c - 'a' + 10), true
+	case 'A' <= c && c <= 'F':
+		return rune(c - 'A' + 10), true
+	default:
+		return 0, false
+	}
+}
+
+// maxBracedDigits caps the digits of a braced unicode escape, leading zeros
+// included, at eight, as graphql-js does: \u{00000000} is the longest escape
+// it accepts.
+const maxBracedDigits = 8
+
+// unhexBraced reads the hex digits and the closing brace of a braced
+// unicode escape from b, which starts after the opening brace. It returns
+// the value of the digits and the number of bytes it read, the closing
+// brace included. It returns false for an escape without digits, with more
+// than maxBracedDigits digits, with a character that is not a hex digit,
+// without a closing brace, or whose value is not a Unicode scalar value.
+// On failure n covers the bytes worth quoting in the error, which never
+// include a byte that is not part of the escape.
+func unhexBraced(b string) (v rune, n int, ok bool) {
+	for n < len(b) && n <= maxBracedDigits {
+		if b[n] == '}' {
+			n++
+			// Eight digits can set the sign bit of a rune, so ValidRune
+			// rejects a negative value as well as one past utf8.MaxRune.
+			if n == 1 || !utf8.ValidRune(v) {
+				return 0, n, false
+			}
+			return v, n, true
+		}
+		d, ok := hexDigit(b[n])
+		if !ok {
+			return 0, n, false
+		}
+		v = v<<4 | d
+		n++
+	}
+	return 0, n, false
+}
+
+// readName from the input
+//
+// [_A-Za-z][_0-9A-Za-z]*.
+func (s *Lexer) readName() (Token, error) {
+	for s.end < len(s.Input) {
+		r, w := s.peek()
+
+		if (r >= '0' && r <= '9') || (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || r == '_' {
+			s.end += w
+			s.endRunes++
+		} else {
+			break
+		}
+	}
+
+	return s.makeToken(Name)
+}

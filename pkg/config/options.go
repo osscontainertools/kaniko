@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/osscontainertools/kaniko/pkg/buildenv"
+	"github.com/osscontainertools/kaniko/pkg/policy"
 )
 
 // CacheOptions are base image cache options that are set by command line arguments
@@ -67,6 +68,9 @@ type KanikoOptions struct {
 	Git                          KanikoGitOptions
 	IgnorePaths                  multiArg
 	DockerfilePath               string
+	InputPolicyPath              string
+	InputContext                 string
+	InputPolicy                  *policy.Policy
 	SrcContext                   string
 	ContextSubPath               string
 	SnapshotMode                 string

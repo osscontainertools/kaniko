@@ -41,6 +41,7 @@ import (
 	warmercmd "github.com/osscontainertools/kaniko/cmd/warmer/cmd"
 	testbake "github.com/osscontainertools/kaniko/golden/testdata/test_bake"
 	testbakecontextdockerfile "github.com/osscontainertools/kaniko/golden/testdata/test_bake_context_dockerfile"
+	testinputpolicy "github.com/osscontainertools/kaniko/golden/testdata/test_input_policy"
 	testissuemz1126 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1126"
 	testissuemz1128 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1128"
 	testissuemz1133 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz1133"
@@ -184,6 +185,7 @@ var allTests = map[string][]types.GoldenTests{
 	"test_issue_mz1346": {testissuemz1346.Tests},
 	"test_issue_mz1372": testissuemz1372.Tests,
 	"test_issue_mz1427": {testissuemz1427.Tests},
+	"test_input_policy": testinputpolicy.Tests,
 	"test_unittests":    testunittests.Tests,
 }
 var update bool

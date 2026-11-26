@@ -257,6 +257,36 @@ Set this flag to `true` to add additional cache entries for the shortcuts, curre
 Requires `--cache-copy-layers`. Defaults to `true`.
 Will be deprecated in `v1.30.0`.
 
+## Flag `FF_KANIKO_INPUT_POLICY`
+
+Set this flag to `true` to evaluate build inputs using a Rego policy named
+`<Dockerfile>.rego` alongside the Dockerfile (for example, `Dockerfile.rego`).
+The policy must use `package docker` and return a `decision` object containing a
+boolean `allow` field. The policy is evaluated for the local context, base
+images, Git contexts, and remote HTTP `ADD` sources before Dockerfile commands
+execute. A missing policy file leaves builds unchanged.
+
+For example:
+
+```rego
+package docker
+
+default allow := false
+allow if input.local
+allow if input.image.isCanonical
+allow if input.http.host == "downloads.example.com"
+
+decision := {"allow": allow}
+```
+
+The input object uses `input.image`, `input.git`, `input.http`, or `input.local`.
+Image and HTTP inputs include their resolved reference or URL metadata, checksums,
+and platform or filename fields where available. Git inputs include the remote,
+reference, and resolved commit. Provenance and signature verification is not
+currently available, so image `hasProvenance` is `false` and `attestations` and
+`signatures` are empty.
+Defaults to `false`.
+
 ## Flag `FF_KANIKO_ISOLATE_CACHE_PUSH`
 
 With `--cache`, kaniko writes the build's output files for every pushed cache layer, not only for the final image.

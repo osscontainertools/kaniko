@@ -1,0 +1,3 @@
+# Exercises denial of a local build context.
+FROM scratch
+COPY input_policy.txt /context.txt

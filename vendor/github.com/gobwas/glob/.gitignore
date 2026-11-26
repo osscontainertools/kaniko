@@ -1,0 +1,11 @@
+glob.iml
+.idea
+*.cpu
+*.mem
+*.test
+*.dot
+*.png
+*.svg
+patterns.txt
+*.bench
+/globtest
