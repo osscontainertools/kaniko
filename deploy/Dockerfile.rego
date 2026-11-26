@@ -11,6 +11,12 @@ allow if {
   input.image.ref == "scratch"
 }
 
+# Allow the scanner pulled by BuildKit for SBOM attestations
+allow if {
+  input.image
+  input.image.ref == "docker.io/docker/buildkit-syft-scanner:stable-1"
+}
+
 # Require base images from Docker Hub, pinned by digest
 allow if {
   input.image
