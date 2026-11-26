@@ -24,11 +24,11 @@ var Tests = []types.GoldenTests{
 		Dockerfile: "Dockerfile",
 		Tests: []types.GoldenTest{
 			{
-				Env:  map[string]string{"FF_KANIKO_CACHE_ADD_SOURCES": "1"},
+				Env:  map[string]string{"FF_KANIKO_CACHE_ADD_SOURCES": "1", "FF_KANIKO_WARMER_EXECUTOR_PARITY": "1"},
 				Plan: "add_cache",
 			},
 			{
-				Env:           map[string]string{"FF_KANIKO_CACHE_ADD_SOURCES": "1"},
+				Env:           map[string]string{"FF_KANIKO_CACHE_ADD_SOURCES": "1", "FF_KANIKO_WARMER_EXECUTOR_PARITY": "1"},
 				CachedAddKeys: []string{"sha256:1111111111111111111111111111111111111111111111111111111111111111"},
 				Plan:          "add_cache_hit",
 			},
@@ -39,11 +39,11 @@ var Tests = []types.GoldenTests{
 		Dockerfile: "Dockerfile.checksum",
 		Tests: []types.GoldenTest{
 			{
-				Env:  map[string]string{"FF_KANIKO_CACHE_ADD_SOURCES": "1"},
+				Env:  map[string]string{"FF_KANIKO_CACHE_ADD_SOURCES": "1", "FF_KANIKO_WARMER_EXECUTOR_PARITY": "1"},
 				Plan: "add_cache_checksum",
 			},
 			{
-				Env:           map[string]string{"FF_KANIKO_CACHE_ADD_SOURCES": "1"},
+				Env:           map[string]string{"FF_KANIKO_CACHE_ADD_SOURCES": "1", "FF_KANIKO_WARMER_EXECUTOR_PARITY": "1"},
 				CachedAddKeys: []string{"sha256:2222222222222222222222222222222222222222222222222222222222222222"},
 				Plan:          "add_cache_checksum_hit",
 			},

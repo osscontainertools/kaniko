@@ -105,7 +105,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 
 	var checksum digest.Digest
 	if kConfig.FF.AddChecksum && a.cmd.Checksum != "" {
-		checksum, err = resolveChecksum(a.cmd.Checksum, srcs, replacementEnvs)
+		checksum, err = ResolveChecksum(a.cmd.Checksum, srcs, replacementEnvs)
 		if err != nil {
 			return err
 		}
@@ -337,7 +337,7 @@ func RequireAddChecksum(cmd *instructions.AddCommand, fileContext util.FileConte
 		return err
 	}
 	if cmd.Checksum != "" {
-		_, err := resolveChecksum(cmd.Checksum, srcs, replacementEnvs)
+		_, err := ResolveChecksum(cmd.Checksum, srcs, replacementEnvs)
 		return err
 	}
 	for _, src := range srcs {
@@ -348,7 +348,7 @@ func RequireAddChecksum(cmd *instructions.AddCommand, fileContext util.FileConte
 	return nil
 }
 
-func resolveChecksum(raw string, srcs []string, replacementEnvs []string) (digest.Digest, error) {
+func ResolveChecksum(raw string, srcs []string, replacementEnvs []string) (digest.Digest, error) {
 	if len(srcs) > 1 {
 		return "", errors.New("checksum can't be specified for multiple sources")
 	}

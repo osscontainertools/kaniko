@@ -90,6 +90,7 @@ Becomes default in `v1.30.0`.
 
 `ADD --checksum=sha256:<hex> <url>` always downloads the URL during the build, even with a warmed `--cache-dir`.
 Set this flag to `true` on the warmer and the executor to cache these sources in `--cache-dir`.
+The warmer also needs `FF_KANIKO_WARMER_EXECUTOR_PARITY`.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
 

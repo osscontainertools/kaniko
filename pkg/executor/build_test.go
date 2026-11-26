@@ -369,7 +369,7 @@ COPY --from=second /bar /bat
 			if err != nil {
 				t.Errorf("Failed to parse stages to Kaniko Stages: %s", err)
 			}
-			got, _, _, err := CalculateDependencies(kanikoStages, opts, util.FileContext{})
+			got, _, _, _, err := CalculateDependencies(kanikoStages, opts, util.FileContext{})
 			if err != nil {
 				t.Errorf("got error: %s,", err)
 			}

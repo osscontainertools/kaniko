@@ -36,6 +36,12 @@ import (
 // DirName is the subdirectory of the cache directory that holds ADD sources.
 const DirName = "add"
 
+// Source is a remote ADD source that can be cached before a build.
+type Source struct {
+	URL      string
+	Checksum digest.Digest
+}
+
 func Path(cacheDir string, checksum digest.Digest) string {
 	return filepath.Join(cacheDir, DirName, checksum.String())
 }
