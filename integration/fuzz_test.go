@@ -540,7 +540,7 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	}
 
 	// kaniko mirrors the final base's media type, so tell docker to emit the same.
-	dockerOut, dockerErr := runFuzzDocker(dir, dockerImage, dockerWantsOCI(gen), gen.buildArgs, gen.labels, gen.annotations, gen.target, gen.usesSecret)
+	dockerOut, dockerErr := runFuzzDocker(dir, dockerImage, dockerWantsOCI(gen), gen.buildArgs, gen.envFlags, gen.labels, gen.annotations, gen.target, gen.usesSecret)
 	kanikoOut, kanikoErr := runFuzzKanikoEnv(dir, kanikoImage, gen.kanikoFlags, covDir, gen.envFlags, gen.mounts...)
 
 	if f := crashOr(kanikoOut); f != nil {
@@ -1676,7 +1676,7 @@ func dockerWantsOCI(gen genResult) bool {
 	if hasFlag(gen.kanikoFlags, "--image-format=docker") {
 		return false
 	}
-	ref := finalBaseRef(gen.dockerfile, gen.target, gen.buildArgs)
+	ref := finalBaseRef(gen.dockerfile, gen.target, append(slices.Clone(gen.buildArgs), gen.envFlags...))
 	if ref == "scratch" {
 		return scratchEnvOCI(gen.envFlags)
 	}
@@ -1769,7 +1769,7 @@ func finalBaseRef(dockerfile, target string, buildArgs []string) string {
 // entries and yields a docker v2 manifest; oci adds oci-mediatypes=true to emit OCI
 // instead, matching whatever media type the final base carries so the comparison
 // does not flag a format difference the base itself dictated.
-func runFuzzDocker(contextDir, image string, oci bool, buildArgs, labels, annotations []string, target string, usesSecret bool) (string, error) {
+func runFuzzDocker(contextDir, image string, oci bool, buildArgs, env, labels, annotations []string, target string, usesSecret bool) (string, error) {
 	argFlags := []string{}
 	for _, kv := range buildArgs {
 		argFlags = append(argFlags, "--build-arg", kv)
@@ -1799,8 +1799,9 @@ func runFuzzDocker(contextDir, image string, oci bool, buildArgs, labels, annota
 	cmd := append([]string{"build", "--no-cache", "--provenance=false"}, argFlags...)
 	cmd = append(cmd, "--output", "type=image,name="+image+",oci-mediatypes="+ociFlag+",push=true", contextDir)
 	c := exec.Command("docker", cmd...)
+	c.Env = append(os.Environ(), env...)
 	if usesSecret {
-		c.Env = append(os.Environ(), secretEnvVar+"="+secretToken)
+		c.Env = append(c.Env, secretEnvVar+"="+secretToken)
 	}
 	out, err := runFuzzBounded(c)
 	return string(out), err

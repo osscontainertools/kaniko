@@ -144,14 +144,15 @@ type genResult struct {
 	dockerfile  string
 	context     []fileSpec
 	kanikoFlags []string
-	// buildArgs are the --build-arg NAME=VALUE pairs the case declares, threaded to
+	// buildArgs are the --build-arg NAME=VALUE or NAME values the case declares, threaded to
 	// docker as well so the parity oracle stays valid. The kaniko side gets them via
 	// kanikoFlags. argNames are just the declared names, for a collision oracle to reuse.
 	buildArgs []string
 	argNames  []string
-	// envFlags are output-neutral FF_KANIKO_* toggles (NAME=VALUE) applied as env
-	// overrides to every kaniko build of the case, so the flags are part of the search
-	// space without breaking the kaniko-vs-kaniko oracles.
+	// envFlags are env overrides (NAME=VALUE) applied to every kaniko build of the case
+	// and to the docker build: output-neutral FF_KANIKO_* toggles, so the flags are part
+	// of the search space without breaking the kaniko-vs-kaniko oracles, and the values
+	// of build args passed by name only.
 	envFlags []string
 	// cacheCompression, if set (zstd|gzip), is applied to both sides of the cache
 	// comparison only, never the docker-compared fresh build.
@@ -1356,13 +1357,6 @@ func generate(s *source, bases []string) genResult {
 		flags = append(flags, "--target="+target)
 	}
 
-	// Pass the build args to every kaniko build via kanikoFlags so the fresh, cache,
-	// determinism, invariance, and warmer builds all see identical args. The docker
-	// side gets the same list through genResult.buildArgs.
-	for _, kv := range buildArgs {
-		flags = append(flags, "--build-arg="+kv)
-	}
-
 	// Image labels: --label KEY=VALUE set on the config, passed to both tools so the parity
 	// oracle checks kaniko writes the same labels docker does. Values reuse the build-arg
 	// pool, which includes strings with '=' and dashes, stressing the SplitN key=value parse.
@@ -1438,8 +1432,30 @@ func generate(s *source, bases []string) genResult {
 	dockerfile, indirectArgs := argIndirection(s, b.String())
 	dockerfile = lineSyntax(s, dockerfile)
 	buildArgs = append(buildArgs, indirectArgs...)
-	for _, kv := range indirectArgs {
-		flags = append(flags, "--build-arg="+kv)
+
+	// --build-arg NAME takes the value from the environment, which may hold a value, an
+	// empty value or nothing. Proxy args stay inline, in the environment they would
+	// route the registry traffic. Drawn last so it does not perturb the byte positions
+	// the Dockerfile depends on.
+	for i, kv := range buildArgs {
+		name, value, _ := strings.Cut(kv, "=")
+		if !strings.Contains(strings.ToLower(name), "proxy") {
+			switch s.intn(8) {
+			case 0:
+				envFlags = append(envFlags, name+"="+value)
+				buildArgs[i] = name
+			case 1:
+				envFlags = append(envFlags, name+"=")
+				buildArgs[i] = name
+			case 2:
+				buildArgs[i] = name
+			case 3:
+				buildArgs[i] = name + "="
+			}
+		}
+		// Every kaniko build of the case gets the same args, the docker side gets them
+		// through genResult.buildArgs.
+		flags = append(flags, "--build-arg="+buildArgs[i])
 	}
 
 	return genResult{dockerfile: dockerfile, context: ctx, kanikoFlags: flags, buildArgs: buildArgs, argNames: argNames, envFlags: envFlags, cacheCompression: cacheCompression, cacheLocal: cacheLocal, cacheMode: cacheMode, target: target, labels: labels, annotations: annotations, usesSecret: usesSecret, chaosEnv: chaosEnv, mounts: mounts}
