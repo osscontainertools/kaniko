@@ -23,7 +23,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -83,25 +82,15 @@ func ValidateFlags(opts *config.KanikoOptions) {
 	}
 
 	// Allow setting --registry-maps using an environment variable.
-	if val, ok := os.LookupEnv("KANIKO_REGISTRY_MAP"); ok {
-		err := opts.RegistryMaps.Set(val)
-		if err != nil {
-			logrus.Fatalf("failed to set registry map %s", val)
-		}
+	err := config.ApplyRegistryMapEnv(&opts.RegistryOptions)
+	if err != nil {
+		logrus.Fatalf("failed to set registry map: %v", err)
 	}
-
-	for _, target := range opts.RegistryMirrors {
-		err := opts.RegistryMaps.Set(fmt.Sprintf("%s=%s", name.DefaultRegistry, target))
-		if err != nil {
-			logrus.Fatalf("failed to set registry mirror %s", target)
-		}
+	err = config.ApplyRegistryMirrors(&opts.RegistryOptions)
+	if err != nil {
+		logrus.Fatalf("failed to set registry mirror: %v", err)
 	}
-
-	if len(opts.RegistryMaps) > 0 {
-		for src, dsts := range opts.RegistryMaps {
-			logrus.Debugf("registry-map remaps %s to %s.", src, strings.Join(dsts, ", "))
-		}
-	}
+	config.LogRegistryMaps(&opts.RegistryOptions)
 
 	// Default the custom platform flag to our current platform, and validate it.
 	if opts.CustomPlatform == "" {
@@ -628,7 +617,7 @@ func validateCompressionLevel(compression config.Compression, level int) error {
 
 // resolveDockerfilePath resolves the Dockerfile path to an absolute path
 func resolveDockerfilePath(opts *config.KanikoOptions) error {
-	if isURL(opts.DockerfilePath) {
+	if util.IsURL(opts.DockerfilePath) {
 		return nil
 	}
 	if util.FilepathExists(opts.DockerfilePath) {
@@ -794,13 +783,6 @@ func exitWithCode(err error, exitCode int) {
 	os.Exit(exitCode)
 }
 
-func isURL(path string) bool {
-	if match, _ := regexp.MatchString("^https?://", path); match {
-		return true
-	}
-	return false
-}
-
 func shdSkip(path string) bool {
-	return path == "" || isURL(path) || filepath.IsAbs(path)
+	return path == "" || util.IsURL(path) || filepath.IsAbs(path)
 }
