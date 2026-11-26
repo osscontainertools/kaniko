@@ -425,5 +425,29 @@ func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {
 		}
 	}
 
+	if config.FF.CacheRunMountBindFrom {
+		stageByName := dockerfile.StageIndices(stages)
+		for _, s := range stages {
+			for _, cmd := range s.Commands {
+				runCmd, ok := cmd.(*instructions.RunCommand)
+				if !ok {
+					continue
+				}
+				for _, mount := range dockerfile.CrossStageMounts(runCmd) {
+					if _, ok := stageByName[strings.ToLower(mount.From)]; ok {
+						continue
+					}
+					if _, err := strconv.Atoi(mount.From); err == nil {
+						continue
+					}
+					if slices.Contains(baseNames, mount.From) {
+						continue
+					}
+					baseNames = append(baseNames, mount.From)
+				}
+			}
+		}
+	}
+
 	return baseNames, nil
 }

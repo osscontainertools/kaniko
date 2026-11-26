@@ -204,6 +204,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_CACHE_HASH_BLAKE3=1",
 	"FF_KANIKO_CACHE_IMAGE_INDEX=1",
 	"FF_KANIKO_CACHE_LOOKAHEAD=1",
+	"FF_KANIKO_CACHE_RUN_MOUNT_BIND_FROM=1",
 	"FF_KANIKO_CHOWN_ON_IMPLICIT_DIRS=1",
 	"FF_KANIKO_COPY_AS_ROOT=1",
 	"FF_KANIKO_COPY_CHMOD_ON_IMPLICIT_DIRS=1",
@@ -282,6 +283,7 @@ var KanikoEnv = []string{
 var WarmerEnv = []string{
 	"FF_KANIKO_CACHE_COPY_FROM=1",
 	"FF_KANIKO_CACHE_IMAGE_INDEX=1",
+	"FF_KANIKO_CACHE_RUN_MOUNT_BIND_FROM=1",
 	"FF_KANIKO_FROM_PREDEFINED_ARGS=1",
 	"FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=1",
 	"FF_KANIKO_WARMER_EXECUTOR_PARITY=1",
@@ -932,8 +934,9 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_cache_copy_oci":    {},
 	}
 	d.TestWarmerDockerfiles = map[string]struct{}{
-		"Dockerfile_test_issue_mz320":  {},
-		"Dockerfile_test_issue_mz1212": {},
+		"Dockerfile_test_issue_mz320":            {},
+		"Dockerfile_test_issue_mz1212":           {},
+		"Dockerfile_test_warmer_remote_bind_mnt": {},
 	}
 	d.TestMountDockerfiles = map[string]struct{}{
 		"Dockerfile_test_issue_mz1007": {},
@@ -1213,6 +1216,31 @@ func populateVolumeCache(t *testing.T, config *integrationTestConfig) error {
 	t.Logf("%s", out)
 	if err != nil {
 		return fmt.Errorf("failed to warm kaniko cache: %w", err)
+	}
+	return nil
+}
+
+func populateDockerfileCache(t *testing.T, config *integrationTestConfig, dockerfile string) error {
+	cmd := []string{
+		"run", "--net=host",
+		"-v", config.dir + ":/workspace",
+	}
+	for _, envVariable := range WarmerEnv {
+		cmd = append(cmd, "-e", envVariable)
+	}
+	cmd = addAuthFlags(cmd)
+	cmd = addCoverageFlags(cmd)
+	cmd = append(cmd,
+		WarmerImage,
+		"-c", cacheDir,
+		"-d", dockerfile,
+	)
+
+	warmerCmd := exec.Command("docker", cmd...)
+	out, err := RunCommandWithoutTest(warmerCmd)
+	t.Logf("%s", out)
+	if err != nil {
+		return fmt.Errorf("failed to warm Dockerfile images: %w", err)
 	}
 	return nil
 }

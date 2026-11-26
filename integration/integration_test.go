@@ -1582,6 +1582,13 @@ func TestWarmer(t *testing.T) {
 	for dockerfile := range imageBuilder.TestWarmerDockerfiles {
 		t.Run("test_warmer_"+dockerfile, func(t *testing.T) {
 			t.Parallel()
+			if dockerfile == "Dockerfile_test_warmer_remote_bind_mnt" {
+				dockerfilePath := filepath.Join(buildContextPath, dockerfilesPath, dockerfile)
+				if err := populateDockerfileCache(t, config, dockerfilePath); err != nil {
+					t.Fatal(err)
+				}
+			}
+
 			args, ok := additionalKanikoFlagsMap[dockerfile]
 			imageRepo := config.imageRepo
 			if !ok {

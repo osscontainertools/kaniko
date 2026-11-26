@@ -12,6 +12,7 @@ FF_KANIKO_ADD_FOLLOW_SYMLINK=true
 FF_KANIKO_ALIGN_HISTORY=true
 FF_KANIKO_CACHE_COPY_FROM=true
 FF_KANIKO_CACHE_IMAGE_INDEX=true
+FF_KANIKO_CACHE_RUN_MOUNT_BIND_FROM=true
 FF_KANIKO_COPY_KEEP_DEST_OWNER=true
 FF_KANIKO_COPY_LINK=true
 FF_KANIKO_COPY_SUBDIR_MODE=true
@@ -103,6 +104,14 @@ Will be deprecated in `v1.30.0`.
 
 The warmer does not cache image indexes. A base image pinned to an index digest still needs the registry, so air-gapped builds fail even with a warm cache.
 Set this flag to `true` on the warmer and the executor to cache the index too.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
+
+## Flag `FF_KANIKO_CACHE_RUN_MOUNT_BIND_FROM`
+
+The warmer does not cache external images referenced by `RUN --mount=type=bind,from=<image>`.
+Set this flag to `true` on the warmer to cache these images like `FROM` base images.
+Set `FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=true` on the executor to enable external-image bind mounts during builds.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
 
