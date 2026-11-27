@@ -454,7 +454,7 @@ trivy image --input /tmp/image.tar --exit-code 1
 
 Set this flag to indicate which stages to build. If multiple targets are configured the first in the list is pushed.
 If not set we implicitly target the last stage of the Dockerfile.
-On the warmer it caches only the images those stages need, and without it every stage is warmed.
+On the warmer it caches only the images those stages need, and without it every stage is warmed. The warmer requires `FF_KANIKO_WARMER_EXECUTOR_PARITY=true` for it.
 
 ## Flag `--use-new-run`
 

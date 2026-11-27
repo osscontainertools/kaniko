@@ -64,9 +64,12 @@ func WarmCache(opts *config.WarmerOptions) error {
 	// if opts.image is empty,we need to parse dockerfilepath to get images list
 	if opts.DockerfilePath != "" {
 		var err error
-		if config.FF.WarmerExecutorParity || len(opts.Target) > 0 {
+		switch {
+		case config.FF.WarmerExecutorParity:
 			dockerfileImages, err = DockerfileImages(opts)
-		} else {
+		case len(opts.Target) > 0:
+			err = fmt.Errorf("--target requires FF_KANIKO_WARMER_EXECUTOR_PARITY=true")
+		default:
 			dockerfileImages, err = ParseDockerfile(opts)
 		}
 		if err != nil {
