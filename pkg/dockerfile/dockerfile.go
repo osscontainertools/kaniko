@@ -398,7 +398,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		if stage.BaseName == constants.NoBaseImage {
 			// pass
 		} else if baseImageStoredLocally {
-			onBuild = getOnBuild(stages[baseImageIndex].Commands)
+			onBuild = GetOnBuild(stages[baseImageIndex].Commands)
 		} else {
 			if opts.RequireDigest {
 				_, err = name.NewDigest(stage.BaseName)
@@ -536,7 +536,7 @@ func UnifyArgs(metaArgs []instructions.ArgCommand, buildArgs []string) []string 
 	return args
 }
 
-func getOnBuild(cmds []instructions.Command) []string {
+func GetOnBuild(cmds []instructions.Command) []string {
 	var out []string
 	for _, c := range cmds {
 		switch cmd := c.(type) {

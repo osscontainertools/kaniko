@@ -3071,12 +3071,14 @@ func TestWarmerTarget(t *testing.T) {
 	expectedImages := []string{"golang:1.20", "alpine:3.18", "busybox:latest"}
 	for _, img := range expectedImages {
 		if !strings.Contains(out1, img) && !strings.Contains(out1, "Image already in cache:") {
-			t.Logf("Warning: expected to see %s in output", img)
+			t.Fatalf("output should contain %s", img)
 		}
 	}
 
 	// Clear cache
-	os.RemoveAll(tmpDir)
+	if err := os.RemoveAll(tmpDir); err != nil {
+		t.Fatalf("failed to remove cache dir: %v", err)
+	}
 	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
@@ -3093,9 +3095,14 @@ func TestWarmerTarget(t *testing.T) {
 	if !strings.Contains(out2, "alpine:3.18") {
 		t.Fatalf("output should contain alpine:3.18 for runtime target")
 	}
+	if strings.Contains(out2, "busybox:latest") {
+		t.Fatalf("output should NOT contain busybox:latest for runtime target")
+	}
 
 	// Clear cache again
-	os.RemoveAll(tmpDir)
+	if err := os.RemoveAll(tmpDir); err != nil {
+		t.Fatalf("failed to remove cache dir: %v", err)
+	}
 	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}

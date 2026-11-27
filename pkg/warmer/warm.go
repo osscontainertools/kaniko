@@ -360,6 +360,7 @@ func DockerfileImages(opts *config.WarmerOptions) ([]string, error) {
 // - It's referenced as a base image (FROM) by a reachable stage
 // - It's referenced via COPY --from by a reachable stage
 // - It's referenced via RUN --mount=type=bind,from=<stage> by a reachable stage (if feature flag enabled)
+// - It's referenced via ONBUILD instructions inherited from a reachable base stage
 func reachableStages(stages []instructions.Stage, targetIndices []int) map[int]bool {
 	reachable := make(map[int]bool)
 	stageByName := dockerfile.StageIndices(stages)
@@ -401,6 +402,15 @@ func reachableStages(stages []instructions.Stage, targetIndices []int) map[int]b
 						reachable[stageIdx] = true
 						changed = true
 					}
+					continue
+				}
+
+				// Check if it's a numeric stage reference
+				if idx, err := strconv.Atoi(c.From); err == nil && idx >= 0 && idx < len(stages) {
+					if !reachable[idx] {
+						reachable[idx] = true
+						changed = true
+					}
 				}
 			}
 
@@ -418,8 +428,51 @@ func reachableStages(stages []instructions.Stage, targetIndices []int) map[int]b
 								reachable[stageIdx] = true
 								changed = true
 							}
-						} else if idx, err := strconv.Atoi(m.From); err == nil && idx >= 0 && idx < len(stages) {
-							// Handle numeric stage references
+							continue
+						}
+						// Handle numeric stage references
+						if idx, err := strconv.Atoi(m.From); err == nil && idx >= 0 && idx < len(stages) {
+							if !reachable[idx] {
+								reachable[idx] = true
+								changed = true
+							}
+						}
+					}
+				}
+			}
+
+			// Check if this stage inherits commands via ONBUILD from its base stage
+			if stage.BaseName != constants.NoBaseImage && dockerfile.BaseImageIndex(i, stages) >= 0 {
+				baseIdx := dockerfile.BaseImageIndex(i, stages)
+				baseStage := stages[baseIdx]
+
+				// Get ONBUILD commands from base stage and parse them
+				onbuildCmds := dockerfile.GetOnBuild(baseStage.Commands)
+				for _, onbuildExpr := range onbuildCmds {
+					// Parse the ONBUILD expression as a command
+					parsedCmds, err := dockerfile.ParseCommands([]string{onbuildExpr})
+					if err != nil {
+						continue
+					}
+
+					for _, parsedCmd := range parsedCmds {
+						// Check if any parsed command is a COPY --from that references a stage
+						c, ok := parsedCmd.(*instructions.CopyCommand)
+						if !ok || c.From == "" {
+							continue
+						}
+
+						// Check named stage reference
+						if stageIdx, exists := stageByName[strings.ToLower(c.From)]; exists {
+							if !reachable[stageIdx] {
+								reachable[stageIdx] = true
+								changed = true
+							}
+							continue
+						}
+
+						// Check numeric stage reference
+						if idx, err := strconv.Atoi(c.From); err == nil && idx >= 0 && idx < len(stages) {
 							if !reachable[idx] {
 								reachable[idx] = true
 								changed = true
