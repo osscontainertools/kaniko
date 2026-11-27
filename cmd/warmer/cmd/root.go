@@ -180,6 +180,7 @@ func WarmTargets(opts *config.WarmerOptions, targets []bake.ResolvedTarget) erro
 func AddWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
 	AddSharedWarmerFlags(cmd, opts)
 	cmd.Flags().VarP(&opts.BuildArgs, "build-arg", "", "This flag should be used in conjunction with the dockerfile flag for scenarios where dynamic replacement of the base image is required.")
+	cmd.Flags().StringSliceVarP(&opts.Target, "target", "", []string{}, "Target stage name(s) to warm. When specified, only base images needed to build these stages and their dependencies are cached.")
 }
 
 func AddSharedWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
@@ -201,7 +202,6 @@ func AddSharedWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
 	cmd.Flags().BoolVarP(&opts.SkipDefaultRegistryFallback, "skip-default-registry-fallback", "", false, "If an image is not found on any mirrors (defined with registry-mirror) do not fallback to the default registry. If registry-mirror is not defined, this flag is ignored.")
 	cmd.Flags().StringVarP(&opts.CustomPlatform, "customPlatform", "", "", "Specify the build platform if different from the current host")
 	cmd.Flags().StringVarP(&opts.DockerfilePath, "dockerfile", "d", "", "Path to the dockerfile to be cached. The kaniko warmer will parse and write out each stage's base image layers to the cache-dir. Using the same dockerfile path as what you plan to build in the kaniko executor is the expected usage.")
-	cmd.Flags().StringSliceVarP(&opts.Target, "target", "", []string{}, "Target stage name(s) to warm. When specified, only base images needed to build these stages and their dependencies are cached.")
 	cmd.Flags().BoolVarP(&opts.Dryrun, "dryrun", "", false, "Whether to only print the images that would be cached")
 	cmd.Flags().BoolVarP(&opts.RequireDigest, "require-digest", "", false, "Fail if a base image is not pinned by digest")
 
