@@ -456,26 +456,45 @@ func reachableStages(stages []instructions.Stage, targetIndices []int) map[int]b
 					}
 
 					for _, parsedCmd := range parsedCmds {
-						// Check if any parsed command is a COPY --from that references a stage
-						c, ok := parsedCmd.(*instructions.CopyCommand)
-						if !ok || c.From == "" {
-							continue
-						}
-
-						// Check named stage reference
-						if stageIdx, exists := stageByName[strings.ToLower(c.From)]; exists {
-							if !reachable[stageIdx] {
-								reachable[stageIdx] = true
-								changed = true
+						// Check if an inherited command references another stage.
+						if c, ok := parsedCmd.(*instructions.CopyCommand); ok && c.From != "" {
+							// Check named stage reference
+							if stageIdx, exists := stageByName[strings.ToLower(c.From)]; exists {
+								if !reachable[stageIdx] {
+									reachable[stageIdx] = true
+									changed = true
+								}
+								continue
 							}
-							continue
+
+							// Check numeric stage reference
+							if idx, err := strconv.Atoi(c.From); err == nil && idx >= 0 && idx < len(stages) {
+								if !reachable[idx] {
+									reachable[idx] = true
+									changed = true
+								}
+							}
 						}
 
-						// Check numeric stage reference
-						if idx, err := strconv.Atoi(c.From); err == nil && idx >= 0 && idx < len(stages) {
-							if !reachable[idx] {
-								reachable[idx] = true
-								changed = true
+						if config.FF.RunCrossStageBindMount {
+							runCmd, ok := parsedCmd.(*instructions.RunCommand)
+							if !ok {
+								continue
+							}
+							for _, m := range dockerfile.CrossStageMounts(runCmd) {
+								if stageIdx, exists := stageByName[strings.ToLower(m.From)]; exists {
+									if !reachable[stageIdx] {
+										reachable[stageIdx] = true
+										changed = true
+									}
+									continue
+								}
+								if idx, err := strconv.Atoi(m.From); err == nil && idx >= 0 && idx < len(stages) {
+									if !reachable[idx] {
+										reachable[idx] = true
+										changed = true
+									}
+								}
 							}
 						}
 					}
