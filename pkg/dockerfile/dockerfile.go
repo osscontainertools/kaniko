@@ -228,8 +228,8 @@ func extractValFromQuotes(val string) (string, error) {
 	return val[1 : len(val)-1], nil
 }
 
-// TargetStages returns the indexes of the target stages kaniko is trying to build
-func TargetStages(stages []instructions.Stage, targets []string) ([]int, error) {
+// targetStage returns the indexes of the target stages kaniko is trying to build
+func targetStages(stages []instructions.Stage, targets []string) ([]int, error) {
 	if len(targets) == 0 {
 		return []int{len(stages) - 1}, nil
 	}
@@ -344,7 +344,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	if !config.FF.AddChecksum && opts.RequireAddChecksum {
 		return nil, nil, errors.New("--require-add-checksum cannot be used with FF_KANIKO_ADD_CHECKSUM=false, checksums would not be verified")
 	}
-	targetStages, err := TargetStages(stages, opts.Target)
+	targetStages, err := targetStages(stages, opts.Target)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error finding target stage: %w", err)
 	}
@@ -382,8 +382,9 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	}
 	// push stage cannot be squashed
 	stagesDependencies[pushStage] = 1
+	allStages := opts.WarmerMode && len(opts.Target) == 0
 	for i := finalStage; i >= 0; i-- {
-		if !opts.WarmerMode && !buildTargets[i] && stagesDependencies[i] == 0 && copyDependencies[i] == 0 {
+		if !allStages && !buildTargets[i] && stagesDependencies[i] == 0 && copyDependencies[i] == 0 {
 			continue
 		}
 		stage := stages[i]
@@ -398,7 +399,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		if stage.BaseName == constants.NoBaseImage {
 			// pass
 		} else if baseImageStoredLocally {
-			onBuild = GetOnBuild(stages[baseImageIndex].Commands)
+			onBuild = getOnBuild(stages[baseImageIndex].Commands)
 		} else {
 			if opts.RequireDigest {
 				_, err = name.NewDigest(stage.BaseName)
@@ -479,7 +480,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	}
 	var onlyUsedStages []config.KanikoStage
 	for i, s := range kanikoStages {
-		if opts.WarmerMode || buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
+		if allStages || buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
 			s.SaveStage = stagesDependencies[i] > 0
 			onlyUsedStages = append(onlyUsedStages, s)
 		}
@@ -536,7 +537,7 @@ func UnifyArgs(metaArgs []instructions.ArgCommand, buildArgs []string) []string 
 	return args
 }
 
-func GetOnBuild(cmds []instructions.Command) []string {
+func getOnBuild(cmds []instructions.Command) []string {
 	var out []string
 	for _, c := range cmds {
 		switch cmd := c.(type) {

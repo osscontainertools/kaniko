@@ -313,7 +313,7 @@ func Test_targetStage(t *testing.T) {
 			if test.target != "" {
 				targs = []string{test.target}
 			}
-			targets, err := TargetStages(stages, targs)
+			targets, err := targetStages(stages, targs)
 			testutil.CheckError(t, test.shouldErr, err)
 			if !test.shouldErr {
 				if len(targets) != 1 {
