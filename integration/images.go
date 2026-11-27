@@ -932,8 +932,9 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 		"Dockerfile_test_cache_copy_oci":    {},
 	}
 	d.TestWarmerDockerfiles = map[string]struct{}{
-		"Dockerfile_test_issue_mz320":  {},
-		"Dockerfile_test_issue_mz1212": {},
+		"Dockerfile_test_issue_mz320":            {},
+		"Dockerfile_test_issue_mz1212":           {},
+		"Dockerfile_test_warmer_remote_bind_mnt": {},
 	}
 	d.TestMountDockerfiles = map[string]struct{}{
 		"Dockerfile_test_issue_mz1007": {},
@@ -1213,6 +1214,31 @@ func populateVolumeCache(t *testing.T, config *integrationTestConfig) error {
 	t.Logf("%s", out)
 	if err != nil {
 		return fmt.Errorf("failed to warm kaniko cache: %w", err)
+	}
+	return nil
+}
+
+func populateDockerfileCache(t *testing.T, config *integrationTestConfig, dockerfile string) error {
+	cmd := []string{
+		"run", "--net=host",
+		"-v", config.dir + ":/workspace",
+	}
+	for _, envVariable := range WarmerEnv {
+		cmd = append(cmd, "-e", envVariable)
+	}
+	cmd = addAuthFlags(cmd)
+	cmd = addCoverageFlags(cmd)
+	cmd = append(cmd,
+		WarmerImage,
+		"-c", cacheDir,
+		"-d", dockerfile,
+	)
+
+	warmerCmd := exec.Command("docker", cmd...)
+	out, err := RunCommandWithoutTest(warmerCmd)
+	t.Logf("%s", out)
+	if err != nil {
+		return fmt.Errorf("failed to warm Dockerfile images: %w", err)
 	}
 	return nil
 }
