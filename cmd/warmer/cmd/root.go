@@ -157,7 +157,6 @@ func WarmTargets(opts *config.WarmerOptions, targets []bake.ResolvedTarget) erro
 	for _, t := range targets {
 		topts := *opts
 		topts.BuildArgs = t.BuildArgs()
-		topts.Target = opts.Target
 		remote := strings.Contains(t.Context, "://")
 		switch {
 		case util.IsURL(t.Dockerfile) || (t.Dockerfile != "" && !remote):
