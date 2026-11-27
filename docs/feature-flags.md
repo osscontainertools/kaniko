@@ -32,6 +32,7 @@ FF_KANIKO_RUN_HEREDOC_SCRIPT=true
 FF_KANIKO_RUN_MOUNT_BIND_RELATIVE=true
 FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK=true
 FF_KANIKO_RUN_MOUNT_TMPFS=true
+FF_KANIKO_SKIP_UNSET_BUILD_ARGS=true
 FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS=true
 FF_KANIKO_WARMER_BUILD_ARGS=true
 FF_KANIKO_WARMER_FAIL_ON_ERROR=true
@@ -501,6 +502,13 @@ When a cached layer is reused in an image of a different media-type vendor, kani
 Set this flag to `true` to skip the unecessary re-compression and serve the relabeled already-compressed blob.
 Defaults to `true`.
 Will be deprecated in `v1.30.0`.
+
+## Flag `FF_KANIKO_SKIP_UNSET_BUILD_ARGS`
+
+Passing `--build-arg NAME` without a value looks up `NAME` in the environment, and turns it into `NAME=` when `NAME` is unset, overriding any `ARG NAME=default` in the Dockerfile with an empty string.
+Set this flag to `true` to skip unset build args so the `ARG` default applies, matching Docker and Podman.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 ## Flag `FF_KANIKO_SKIP_WRITE_WHITEOUTS`
 

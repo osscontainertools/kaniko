@@ -19,6 +19,7 @@ package dockerfile
 import (
 	"fmt"
 	"maps"
+	"os"
 	"strings"
 
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
@@ -198,15 +199,27 @@ func convertKVStringsToMap(values []string) map[string]*string {
 	return result
 }
 
-// ResolveEnvironmentBuildArgs replace build args without value by the same named environment variable
-func ResolveEnvironmentBuildArgs(arguments []string, resolver func(string) string) {
-	for index, argument := range arguments {
-		found := strings.Contains(argument, "=")
-		if !found {
-			value := resolver(argument)
-			arguments[index] = fmt.Sprintf("%s=%s", argument, value)
+// ResolveEnvironmentBuildArgs replaces build args without a value with the same-named
+// environment variable. When resolver reports a variable as unset, the entry is omitted.
+func ResolveEnvironmentBuildArgs(arguments []string, resolver func(string) (string, bool)) []string {
+	resolved := make([]string, 0, len(arguments))
+	for _, argument := range arguments {
+		if strings.Contains(argument, "=") {
+			resolved = append(resolved, argument)
+			continue
 		}
+		value, ok := resolver(argument)
+		if !ok {
+			continue
+		}
+		resolved = append(resolved, fmt.Sprintf("%s=%s", argument, value))
 	}
+	return resolved
+}
+
+// EnvOrEmpty looks up key in the environment and reports it as set even when absent.
+func EnvOrEmpty(key string) (string, bool) {
+	return os.Getenv(key), true
 }
 
 // Initialize predefined build args s.a.: TARGETOS, TARGETARCH, BUILDPLATFORM, TARGETPLATFORM ...

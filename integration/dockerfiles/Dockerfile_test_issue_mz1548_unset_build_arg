@@ -1,0 +1,7 @@
+FROM busybox:1.36
+ARG UNSET_ARG=default
+ARG EMPTY_ENV_ARG=default
+ARG SET_ENV_ARG=default
+ARG EXPLICIT_EMPTY=default
+RUN printf 'UNSET=[%s]\nEMPTY_ENV=[%s]\nSET_ENV=[%s]\nEXPLICIT_EMPTY=[%s]\n' \
+    "$UNSET_ARG" "$EMPTY_ENV_ARG" "$SET_ENV_ARG" "$EXPLICIT_EMPTY" > /out
