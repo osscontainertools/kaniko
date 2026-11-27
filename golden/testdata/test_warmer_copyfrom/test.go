@@ -8,7 +8,7 @@ var Tests = types.GoldenTests{
 	Tests: []types.GoldenTest{
 		{
 			Args: []string{"--target=runtime"},
-			Plan: "out_of_order_dependency",
+			Plan: "cross_stage_dependency",
 		},
 	},
 }
