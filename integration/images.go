@@ -167,6 +167,7 @@ var argsMap = map[string][]string{
 	},
 	"Dockerfile_test_issue_mz1375_arg_fail":       {"URL=https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz"},
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": {"SHA="},
+	"Dockerfile_test_issue_mz1539":                {`BASE="debian:13.7"`},
 }
 
 var argsMapVersion1 = map[string][]string{
@@ -216,6 +217,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES=1",
 	"FF_KANIKO_EXPAND_HEREDOC=1",
 	"FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY=1",
+	"FF_KANIKO_FROM_LEX_ONCE=1",
 	"FF_KANIKO_FROM_PREDEFINED_ARGS=1",
 	"FF_KANIKO_GLOB_CHAR_PATHS=1",
 	"FF_KANIKO_HASH_DIR_FRAMING=1",
@@ -443,9 +445,11 @@ var expectErr = map[string]int{
 	"Dockerfile_test_issue_mz1375_stage_fail":     1,
 	"Dockerfile_test_issue_mz1374":                1,
 	"Dockerfile_test_verify_layer_digest":         1,
+	"Dockerfile_test_issue_mz1539":                1,
 }
 
 var expectErrOutput = map[string]string{
+	"Dockerfile_test_issue_mz1539":                "could not parse reference",
 	"Dockerfile_test_issue_cg326_1":               "is not allowed: references parent directory",
 	"Dockerfile_test_issue_mz1140":                "must fit a 32 bit id",
 	"Dockerfile_test_add_404":                     "invalid response status 404",

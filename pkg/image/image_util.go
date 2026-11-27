@@ -58,7 +58,7 @@ func RetrieveSourceImage(stage config.KanikoStage, opts *config.KanikoOptions) (
 	return RetrieveSourceImageInternal(stage.BaseName, stage.BaseImageStoredLocally, stage.BaseImageIndex, stage.MetaArgs, opts)
 }
 
-func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, baseImageIndex int, metaArgs []instructions.ArgCommand, opts *config.KanikoOptions) (v1.Image, error) {
+func RelexBaseName(baseName string, metaArgs []instructions.ArgCommand, opts *config.KanikoOptions) (string, error) {
 	var buildArgs []string
 
 	for _, marg := range metaArgs {
@@ -67,9 +67,17 @@ func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, b
 		}
 	}
 	buildArgs = append(buildArgs, opts.BuildArgs...)
-	currentBaseName, err := util.ResolveEnvironmentReplacement(baseName, buildArgs, false)
-	if err != nil {
-		return nil, err
+	return util.ResolveEnvironmentReplacement(baseName, buildArgs, false)
+}
+
+func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, baseImageIndex int, metaArgs []instructions.ArgCommand, opts *config.KanikoOptions) (v1.Image, error) {
+	currentBaseName := baseName
+	if !config.FF.FromLexOnce {
+		relexed, err := RelexBaseName(baseName, metaArgs, opts)
+		if err != nil {
+			return nil, err
+		}
+		currentBaseName = relexed
 	}
 	// First, check if the base image is a scratch image
 	if currentBaseName == constants.NoBaseImage {
