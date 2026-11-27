@@ -23,6 +23,103 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/config"
 )
 
+func TestParseDockerfile_SingleStageDockerfile(t *testing.T) {
+	dockerfile := `FROM alpine:latest
+LABEL maintainer="alexezio"
+`
+	tmpfile, err := os.CreateTemp("", "example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+
+	if _, err := tmpfile.WriteString(dockerfile); err != nil {
+		t.Fatal(err)
+	}
+	if err := tmpfile.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	opts := &config.WarmerOptions{DockerfilePath: tmpfile.Name()}
+	baseNames, err := ParseDockerfile(opts)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(baseNames) != 1 {
+		t.Fatalf("expected 1 base name, got %d", len(baseNames))
+	}
+	if baseNames[0] != "alpine:latest" {
+		t.Fatalf("expected 'alpine:latest', got '%s'", baseNames[0])
+	}
+}
+
+func TestParseDockerfile_MultiStageDockerfile(t *testing.T) {
+	dockerfile := `FROM golang:1.20 as BUILDER
+LABEL maintainer="alexezio"
+
+FROM alpine:latest as RUNNER
+LABEL maintainer="alexezio"
+`
+	tmpfile, err := os.CreateTemp("", "example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+
+	if _, err := tmpfile.Write([]byte(dockerfile)); err != nil {
+		t.Fatal(err)
+	}
+	if err := tmpfile.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	opts := &config.WarmerOptions{DockerfilePath: tmpfile.Name()}
+	baseNames, err := ParseDockerfile(opts)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(baseNames) != 2 {
+		t.Fatalf("expected 2 base name, got %d", len(baseNames))
+	}
+	if baseNames[0] != "golang:1.20" {
+		t.Fatalf("expected 'golang:1.20', got '%s'", baseNames[0])
+	}
+
+	if baseNames[1] != "alpine:latest" {
+		t.Fatalf("expected 'alpine:latest', got '%s'", baseNames[0])
+	}
+}
+
+func TestParseDockerfile_ArgsDockerfile(t *testing.T) {
+	dockerfile := `ARG NGINX_VERSION=1.29.1
+FROM nginx:$NGINX_VERSION-alpine-slim
+`
+	tmpfile, err := os.CreateTemp("", "example")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+
+	if _, err := tmpfile.Write([]byte(dockerfile)); err != nil {
+		t.Fatal(err)
+	}
+	if err := tmpfile.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	opts := &config.WarmerOptions{DockerfilePath: tmpfile.Name(), BuildArgs: []string{"version=1.20"}}
+	baseNames, err := ParseDockerfile(opts)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if len(baseNames) != 1 {
+		t.Fatalf("expected 1 base name, got %d", len(baseNames))
+	}
+	if baseNames[0] != "nginx:1.29.1-alpine-slim" {
+		t.Fatalf("expected 'nginx:1.29.1-alpine-slim', got '%s'", baseNames[0])
+	}
+}
+
 func TestParseDockerfile_MissingsDockerfile(t *testing.T) {
 	opts := &config.WarmerOptions{DockerfilePath: "dummy-nowhere"}
 	baseNames, err := ParseDockerfile(opts)
