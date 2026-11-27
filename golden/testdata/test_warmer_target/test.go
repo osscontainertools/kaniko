@@ -11,5 +11,10 @@ var Tests = types.GoldenTests{
 			Env:  map[string]string{"FF_KANIKO_WARMER_EXECUTOR_PARITY": "1"},
 			Plan: "earlier_stage_dependency",
 		},
+		{
+			Args: []string{"--target=runtime,unrelated"},
+			Env:  map[string]string{"FF_KANIKO_WARMER_EXECUTOR_PARITY": "1"},
+			Plan: "multiple_targets",
+		},
 	},
 }
