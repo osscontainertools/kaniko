@@ -3049,7 +3049,7 @@ func TestWarmerTarget(t *testing.T) {
 		dockerRunFlags = addCoverageFlags(dockerRunFlags)
 		dockerRunFlags = append(dockerRunFlags,
 			"-v", tmpDir+":/cache",
-			"-v", filepath.Join(config.dir, "integration")+":/workspace:ro",
+			"-v", config.dir+":/workspace:ro",
 			WarmerImage,
 			"--cache-dir=/cache",
 			"-d", filepath.Join(buildContextPath, dockerfilesPath, "Dockerfile_test_warmer_multistage_target"),
@@ -3068,9 +3068,9 @@ func TestWarmerTarget(t *testing.T) {
 		t.Fatalf("warmer without target failed: %v", err)
 	}
 	// Verify that all three base images are warmed
-	expectedImages := []string{"golang:1.20", "alpine:3.18", "busybox:latest"}
+	expectedImages := []string{"golang:1.20-alpine", "alpine:3.18", "busybox:latest"}
 	for _, img := range expectedImages {
-		if !strings.Contains(out1, img) && !strings.Contains(out1, "Image already in cache:") {
+		if !strings.Contains(out1, img) {
 			t.Fatalf("output should contain %s", img)
 		}
 	}
@@ -3089,8 +3089,8 @@ func TestWarmerTarget(t *testing.T) {
 		t.Fatalf("warmer with target=runtime failed: %v", err)
 	}
 	// Verify that golang and alpine are warmed but busybox is not
-	if !strings.Contains(out2, "golang:1.20") {
-		t.Fatalf("output should contain golang:1.20 for runtime target")
+	if !strings.Contains(out2, "golang:1.20-alpine") {
+		t.Fatalf("output should contain golang:1.20-alpine for runtime target")
 	}
 	if !strings.Contains(out2, "alpine:3.18") {
 		t.Fatalf("output should contain alpine:3.18 for runtime target")
@@ -3113,8 +3113,8 @@ func TestWarmerTarget(t *testing.T) {
 		t.Fatalf("warmer with target=builder failed: %v", err)
 	}
 	// Verify that only golang is warmed
-	if !strings.Contains(out3, "golang:1.20") {
-		t.Fatalf("output should contain golang:1.20 for builder target")
+	if !strings.Contains(out3, "golang:1.20-alpine") {
+		t.Fatalf("output should contain golang:1.20-alpine for builder target")
 	}
 	if strings.Contains(out3, "alpine:3.18") {
 		t.Fatalf("output should NOT contain alpine:3.18 for builder target")
