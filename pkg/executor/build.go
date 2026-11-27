@@ -1641,7 +1641,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		return nil, err
 	}
 
-	kanikoStages, err := dockerfile.MakeKanikoStages(opts, stages, metaArgs)
+	kanikoStages, externalImages, err := dockerfile.MakeKanikoStages(opts, stages, metaArgs)
 	if err != nil {
 		return nil, err
 	}
@@ -1676,7 +1676,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 	}
 
 	// Some stages may refer to other random images, not previous stages
-	externalImageDigests, extraStageImages, err := resolveExtraStageDigests(kanikoStages, opts)
+	externalImageDigests, extraStageImages, err := resolveExtraStageDigests(kanikoStages, externalImages, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -2298,7 +2298,7 @@ func deduplicatePaths(paths []string) []string {
 	return deduped
 }
 
-func resolveExtraStageDigests(stages []config.KanikoStage, opts *config.KanikoOptions) (map[string]string, map[string]v1.Image, error) {
+func resolveExtraStageDigests(stages []config.KanikoStage, externalImages []string, opts *config.KanikoOptions) (map[string]string, map[string]v1.Image, error) {
 	_, endResolve := timing.Scope("Resolving Extra Stage Digests")
 	defer endResolve()
 
@@ -2357,6 +2357,8 @@ func resolveExtraStageDigests(stages []config.KanikoStage, opts *config.KanikoOp
 			}
 		}
 	}
+	// MakeKanikoStages collects the same images in its own walk over the stages.
+	assert.Assert("executor.external-images.match", slices.Equal(slices.Sorted(maps.Keys(images)), slices.Sorted(slices.Values(externalImages))), "external images %v differ from %v", slices.Sorted(maps.Keys(images)), externalImages)
 	return externalImageDigests, images, nil
 }
 

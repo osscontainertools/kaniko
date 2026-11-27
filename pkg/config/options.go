@@ -114,6 +114,7 @@ type KanikoOptions struct {
 	Dryrun                       bool
 	RequireDigest                bool
 	RequireAddChecksum           bool
+	WarmerMode                   bool
 }
 
 type KanikoGitOptions struct {

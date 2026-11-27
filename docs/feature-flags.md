@@ -34,6 +34,7 @@ FF_KANIKO_RUN_MOUNT_BIND_RESOLVE_SYMLINK=true
 FF_KANIKO_RUN_MOUNT_TMPFS=true
 FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS=true
 FF_KANIKO_WARMER_BUILD_ARGS=true
+FF_KANIKO_WARMER_EXECUTOR_PARITY=true
 FF_KANIKO_WARMER_FAIL_ON_ERROR=true
 FF_KANIKO_WARMER_PREDEFINED_ARGS=true
 ```
@@ -546,6 +547,13 @@ Will be deprecated in `v1.30.0`.
 
 In warmer an `ARG` default wins over an explicit `--build-arg`, and `--build-arg BASE` without a value is not read from the environment.
 Set this flag to `true` to resolve `--build-arg` like the executor does.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
+
+## Flag `FF_KANIKO_WARMER_EXECUTOR_PARITY`
+
+The warmer reads the Dockerfile with its own rules. It misses `COPY --from` images that a base image's `ONBUILD` adds and the images of `RUN --mount=from=<image>`, and it resolves `FROM` args differently from the executor.
+Set this flag to `true` to find the images of every stage the way the executor does.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
 
