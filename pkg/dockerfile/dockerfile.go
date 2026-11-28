@@ -402,7 +402,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		baseImageIndex := BaseImageIndex(i, stages)
 		baseImageStoredLocally := baseImageIndex != -1
 		platform := opts.CustomPlatform
-		if config.FF.FromPlatform && !baseImageStoredLocally && stage.Platform != "" {
+		if config.FF.FromPlatform && !baseImageStoredLocally && stage.BaseName != constants.NoBaseImage && stage.Platform != "" {
 			expanded, err := util.ResolveEnvironmentReplacement(stage.Platform, platformArgs, false)
 			if err != nil {
 				return nil, nil, fmt.Errorf("stage %d: resolving platform %s: %w", i, stage.Platform, err)

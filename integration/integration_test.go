@@ -592,6 +592,9 @@ func TestRun(t *testing.T) {
 
 			diffoci(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 			checkAnnotations(t, dockerfile, kanikoImage)
+			if check, ok := imageChecks[dockerfile]; ok {
+				check(t, kanikoImage)
+			}
 		})
 	}
 }
