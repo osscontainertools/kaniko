@@ -165,9 +165,9 @@ var argsMap = map[string][]string{
 		"URL=https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz",
 		"SHA=sha256:a680e90a30faae7b193edf63b088a11edf856f731d93c25f1fd7c1a21cf82d06",
 	},
-	"Dockerfile_test_issue_mz1375_arg_fail":        {"URL=https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz"},
-	"Dockerfile_test_issue_mz1375_empty_arg_fail":  {"SHA="},
-	"Dockerfile_test_issue_mz1548_unset_build_arg": {"UNSET_ARG", "EMPTY_ENV_ARG", "SET_ENV_ARG", "EXPLICIT_EMPTY="},
+	"Dockerfile_test_issue_mz1375_arg_fail":       {"URL=https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz"},
+	"Dockerfile_test_issue_mz1375_empty_arg_fail": {"SHA="},
+	"Dockerfile_test_issue_mz1548":                {"UNSET_ARG", "EMPTY_ENV_ARG", "SET_ENV_ARG", "EXPLICIT_EMPTY="},
 }
 
 var argsMapVersion1 = map[string][]string{
@@ -177,16 +177,16 @@ var argsMapVersion1 = map[string][]string{
 
 // Environment to build Dockerfiles with, used for both docker and kaniko builds
 var envsMap = map[string][]string{
-	"Dockerfile_test_arg_secret":                   {"SSH_PRIVATE_KEY=ThEPriv4t3Key"},
-	"Dockerfile_test_issue_519":                    {"DOCKER_BUILDKIT=0"},
-	"Dockerfile_test_issue_cg188":                  {"SECRET=blubb"},
-	"Dockerfile_test_issue_mz1336":                 {"SECRET=blubb"},
-	"Dockerfile_test_issue_mz1548_unset_build_arg": {"EMPTY_ENV_ARG=", "SET_ENV_ARG=from_env"},
-	"Dockerfile_test_issue_mz334":                  {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
-	"Dockerfile_test_issue_mz960":                  {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
-	"Dockerfile_test_issue_mz473":                  {"KANIKO_DIR=/kaniko2"},
-	"Dockerfile_test_issue_mz661":                  {"KANIKO_DIR=/kaniko2"},
-	"Dockerfile_test_issue_mz1065":                 {"KANIKO_DIR=/tmpdir/kaniko2"},
+	"Dockerfile_test_arg_secret":   {"SSH_PRIVATE_KEY=ThEPriv4t3Key"},
+	"Dockerfile_test_issue_519":    {"DOCKER_BUILDKIT=0"},
+	"Dockerfile_test_issue_cg188":  {"SECRET=blubb"},
+	"Dockerfile_test_issue_mz1336": {"SECRET=blubb"},
+	"Dockerfile_test_issue_mz1548": {"EMPTY_ENV_ARG=", "SET_ENV_ARG=from_env"},
+	"Dockerfile_test_issue_mz334":  {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
+	"Dockerfile_test_issue_mz960":  {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
+	"Dockerfile_test_issue_mz473":  {"KANIKO_DIR=/kaniko2"},
+	"Dockerfile_test_issue_mz661":  {"KANIKO_DIR=/kaniko2"},
+	"Dockerfile_test_issue_mz1065": {"KANIKO_DIR=/tmpdir/kaniko2"},
 	// mz970: layout layers carry no reference, so a stored base cannot be mounted
 	"Dockerfile_test_issue_mz1007":   {"FF_KANIKO_SHARED_BASE_CACHE=0"},
 	"Dockerfile_test_stopsignal":     {"FF_KANIKO_OCI_SCRATCH_BASE=0"},
@@ -519,7 +519,7 @@ var diffArgsMap = map[string][]string{
 	// We enforce predefined ARGs are identical by dumping them to a file
 	"TestRun/test_Dockerfile_test_pre_defined_build_args": {"--extra-ignore-file-content=false"},
 	// mz1548: the resolved ARG values are dumped to /out
-	"TestRun/test_Dockerfile_test_issue_mz1548_unset_build_arg": {"--extra-ignore-file-content=false"},
+	"TestRun/test_Dockerfile_test_issue_mz1548": {"--extra-ignore-file-content=false"},
 	// mz511: We delete the builtin file /etc/nsswitch.conf to verify that secrets are persisted
 	// But we discovered a new issue with this. For builtins, buildkit will emit "whiteout" files,
 	// to remember that it was removed, we don't. So we end up with a diff in the resulting image.

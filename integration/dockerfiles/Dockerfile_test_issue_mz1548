@@ -1,3 +1,5 @@
+# mz1548: Through kaniko v1.29.x, --build-arg NAME with NAME unset in the environment
+# became NAME= and overrode the ARG default with an empty value.
 ARG IMAGE_REPO
 FROM ${IMAGE_REPO}busybox
 ARG UNSET_ARG=default
