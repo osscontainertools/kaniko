@@ -237,9 +237,10 @@ Becomes default in `v1.30.0`.
 
 ## Flag `FF_KANIKO_FROM_PLATFORM`
 
-`FROM --platform=<platform>` is ignored, every base image is pulled for `--custom-platform`.
-Set this flag to `true` to pull the base image of that stage for `<platform>`, for example `FROM --platform=$BUILDPLATFORM golang AS build`. The warmer fetches it for the same platform. A stage built on another stage inherits its platform. Kaniko only runs commands natively, so a `RUN` that misses the cache fails the build in a stage whose platform the host cannot run. `COPY` and `ADD` work on any platform.
+`FROM --platform=<platform>` is ignored. A `FROM --platform=$BUILDPLATFORM` stage gets the base image for `--custom-platform`, not for the host.
+Set this flag to `true` to build that stage for `<platform>`.
 Defaults to `false`.
+Becomes default in `v1.30.0`.
 
 ## Flag `FF_KANIKO_FROM_PREDEFINED_ARGS`
 
