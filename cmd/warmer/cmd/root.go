@@ -77,11 +77,7 @@ var RootCmd = &cobra.Command{
 		config.LogRegistryMaps(&opts.RegistryOptions)
 
 		if config.FF.WarmerBuildArgs {
-			if config.FF.SkipUnsetBuildArgs {
-				opts.BuildArgs = dockerfile.ResolveEnvironmentBuildArgs(opts.BuildArgs, os.LookupEnv)
-			} else {
-				opts.BuildArgs = dockerfile.ResolveEnvironmentBuildArgs(opts.BuildArgs, func(key string) (string, bool) { return os.Getenv(key), true })
-			}
+			opts.BuildArgs = dockerfile.ResolveEnvironmentBuildArgs(opts.BuildArgs)
 		}
 
 		return nil

@@ -19,10 +19,12 @@ package dockerfile
 import (
 	"fmt"
 	"maps"
+	"os"
 	"strings"
 
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/assert"
+	"github.com/osscontainertools/kaniko/pkg/config"
 )
 
 // builtinAllowedBuildArgs is list of built-in allowed build args
@@ -199,15 +201,15 @@ func convertKVStringsToMap(values []string) map[string]*string {
 }
 
 // ResolveEnvironmentBuildArgs replaces build args without a value with the same-named
-// environment variable. When resolver reports a variable as unset, the entry is omitted.
-func ResolveEnvironmentBuildArgs(arguments []string, resolver func(string) (string, bool)) []string {
+// environment variable.
+func ResolveEnvironmentBuildArgs(arguments []string) []string {
 	resolved := make([]string, 0, len(arguments))
 	for _, argument := range arguments {
 		if strings.Contains(argument, "=") {
 			resolved = append(resolved, argument)
 		} else {
-			value, ok := resolver(argument)
-			if ok {
+			value, ok := os.LookupEnv(argument)
+			if ok || !config.FF.SkipUnsetBuildArgs {
 				resolved = append(resolved, fmt.Sprintf("%s=%s", argument, value))
 			}
 		}

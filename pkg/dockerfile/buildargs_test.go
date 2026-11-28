@@ -17,9 +17,11 @@ limitations under the License.
 package dockerfile
 
 import (
+	"os"
 	"testing"
 
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/testutil"
 )
 
@@ -117,72 +119,33 @@ func TestGetAllMeta(t *testing.T) {
 }
 
 func TestResolveEnvironmentBuildArgs(t *testing.T) {
+	// registered before t.Setenv so it runs after the environment is restored
+	t.Cleanup(config.InitFeatureFlags)
+	t.Setenv("FF_KANIKO_SKIP_UNSET_BUILD_ARGS", "1")
+	config.InitFeatureFlags()
+	t.Setenv("variable1", "value1")
+	t.Setenv("empty", "")
+	t.Setenv("unset", "")
+	if err := os.Unsetenv("unset"); err != nil {
+		t.Fatal(err)
+	}
+
 	tests := []struct {
-		description               string
-		input                     []string
-		expected                  []string
-		mockedEnvironmentResolver func(string) (string, bool)
+		description string
+		input       []string
+		expected    []string
 	}{
-		{
-			description: "replace when environment variable is present and value is not specified",
-			input:       []string{"variable1"},
-			expected:    []string{"variable1=value1"},
-			mockedEnvironmentResolver: func(variable string) (string, bool) {
-				if variable == "variable1" {
-					return "value1", true
-				}
-				return "", false
-			},
-		},
-		{
-			description: "do not replace when environment variable is present and value is specified",
-			input:       []string{"variable1=value1", "variable2=value2"},
-			expected:    []string{"variable1=value1", "variable2=value2"},
-			mockedEnvironmentResolver: func(_ string) (string, bool) {
-				return "unexpected", true
-			},
-		},
-		{
-			description: "do not replace when environment variable is present and empty value is specified",
-			input:       []string{"variable1="},
-			expected:    []string{"variable1="},
-			mockedEnvironmentResolver: func(_ string) (string, bool) {
-				return "unexpected", true
-			},
-		},
-		{
-			description: "preserve empty string when environment variable is set to empty and value is not specified",
-			input:       []string{"variable1"},
-			expected:    []string{"variable1="},
-			mockedEnvironmentResolver: func(variable string) (string, bool) {
-				if variable == "variable1" {
-					return "", true
-				}
-				return "", false
-			},
-		},
-		{
-			description: "skip when environment variable is unset and value is not specified",
-			input:       []string{"variable1", "variable2=value2"},
-			expected:    []string{"variable2=value2"},
-			mockedEnvironmentResolver: func(_ string) (string, bool) {
-				return "", false
-			},
-		},
-		{
-			description: "keep earlier explicit value when bare arg is unset",
-			input:       []string{"variable1=value1", "variable1"},
-			expected:    []string{"variable1=value1"},
-			mockedEnvironmentResolver: func(_ string) (string, bool) {
-				return "", false
-			},
-		},
+		{"replace when environment variable is present and value is not specified", []string{"variable1"}, []string{"variable1=value1"}},
+		{"do not replace when value is specified", []string{"variable1=explicit", "variable2=value2"}, []string{"variable1=explicit", "variable2=value2"}},
+		{"do not replace when empty value is specified", []string{"variable1="}, []string{"variable1="}},
+		{"preserve empty string when environment variable is set to empty", []string{"empty"}, []string{"empty="}},
+		{"skip when environment variable is unset", []string{"unset", "variable2=value2"}, []string{"variable2=value2"}},
+		{"keep earlier explicit value when bare arg is unset", []string{"unset=value1", "unset"}, []string{"unset=value1"}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
-			got := ResolveEnvironmentBuildArgs(tt.input, tt.mockedEnvironmentResolver)
-			testutil.CheckDeepEqual(t, tt.expected, got)
+			testutil.CheckDeepEqual(t, tt.expected, ResolveEnvironmentBuildArgs(tt.input))
 		})
 	}
 }
