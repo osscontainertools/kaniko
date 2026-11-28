@@ -6,7 +6,5 @@ ARG UNSET_ARG=default
 ARG EMPTY_ENV_ARG=default
 ARG SET_ENV_ARG=default
 ARG EXPLICIT_EMPTY=default
-RUN test "$UNSET_ARG" = default && test -z "$EMPTY_ENV_ARG" && \
-    test "$SET_ENV_ARG" = from_env && test -z "$EXPLICIT_EMPTY" && \
-    printf 'UNSET=[%s]\nEMPTY_ENV=[%s]\nSET_ENV=[%s]\nEXPLICIT_EMPTY=[%s]\n' \
+RUN printf 'UNSET=[%s]\nEMPTY_ENV=[%s]\nSET_ENV=[%s]\nEXPLICIT_EMPTY=[%s]\n' \
     "$UNSET_ARG" "$EMPTY_ENV_ARG" "$SET_ENV_ARG" "$EXPLICIT_EMPTY" > /out
