@@ -33,4 +33,5 @@ type KanikoStage struct {
 	SaveStage              bool
 	MetaArgs               []instructions.ArgCommand
 	Index                  int
+	Platform               string
 }

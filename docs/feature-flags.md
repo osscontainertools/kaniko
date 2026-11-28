@@ -18,6 +18,7 @@ FF_KANIKO_COPY_LINK=true
 FF_KANIKO_COPY_SUBDIR_MODE=true
 FF_KANIKO_DEFER_CACHE_PUSH=true
 FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY=true
+FF_KANIKO_FROM_PLATFORM=true
 FF_KANIKO_FROM_PREDEFINED_ARGS=true
 FF_KANIKO_GLOB_CHAR_PATHS=true
 FF_KANIKO_ISOLATE_CACHE_PUSH=true
@@ -233,6 +234,12 @@ Cache keys depend on the manifest format of the base image, so switching `--imag
 Set this flag to `true` to compute cache keys independently of the manifest format.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
+
+## Flag `FF_KANIKO_FROM_PLATFORM`
+
+`FROM --platform=<platform>` is ignored, every base image is pulled for `--custom-platform`.
+Set this flag to `true` to pull the base image of that stage for `<platform>`, for example `FROM --platform=$BUILDPLATFORM golang AS build`. The warmer fetches it for the same platform. A stage built on another stage inherits its platform. Kaniko only runs commands natively, so a `RUN` that misses the cache fails the build in a stage whose platform the host cannot run. `COPY` and `ADD` work on any platform.
+Defaults to `false`.
 
 ## Flag `FF_KANIKO_FROM_PREDEFINED_ARGS`
 

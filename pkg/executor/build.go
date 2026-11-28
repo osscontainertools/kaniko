@@ -36,6 +36,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/containerd/platforms"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -100,6 +101,8 @@ type stageBuilder struct {
 	span            trace.Span
 	stageNames      map[int]string
 	plannedUnpack   *bool
+	// the stage platform when this host cannot run it natively
+	foreignPlatform string
 }
 
 type stageCacheInfo struct {
@@ -230,6 +233,16 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 	if err != nil {
 		return nil, err
 	}
+	var foreignPlatform string
+	if config.FF.FromPlatform && stage.Platform != "" {
+		parsed, err := platforms.Parse(stage.Platform)
+		if err != nil {
+			return nil, fmt.Errorf("invalid platform %q: %w", stage.Platform, err)
+		}
+		if !platforms.Only(platforms.DefaultSpec()).Match(parsed) {
+			foreignPlatform = stage.Platform
+		}
+	}
 	s := &stageBuilder{
 		index:           stage.Index,
 		final:           stage.Final,
@@ -238,6 +251,7 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 		cf:              imageConfig,
 		baseImageDigest: digest.String(),
 		args:            args.Clone(),
+		foreignPlatform: foreignPlatform,
 	}
 
 	addCacheDir := ""
@@ -846,6 +860,10 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		execTimer := timing.Start("Execute")
 		switch command.(type) {
 		case *commands.RunCommand, *commands.RunMarkerCommand:
+			if s.foreignPlatform != "" {
+				execTimer.End()
+				return false, fmt.Errorf("%s needs a %s host, this host is %s", command.String(), s.foreignPlatform, platforms.Format(platforms.Normalize(platforms.DefaultSpec())))
+			}
 			execTimer.SetAttributes(attribute.String("kaniko.phase", "build"))
 		}
 		err := command.ExecuteCommand(&s.cf.Config, s.args)
@@ -1697,15 +1715,17 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 
 	assert.Assert("executor.build.stages-nonempty", len(kanikoStages) > 0, "no stages to build")
 
-	var platform string
+	platformKeys := make(map[int]string)
 	if config.FF.PlatformCacheKey {
-		platform = runtime.GOOS + "/" + runtime.GOARCH
-		if opts.CustomPlatform != "" {
-			parsed, err := v1.ParsePlatform(opts.CustomPlatform)
-			if err != nil {
-				return nil, fmt.Errorf("invalid platform %q: %w", opts.CustomPlatform, err)
+		for _, s := range kanikoStages {
+			platformKeys[s.Index] = runtime.GOOS + "/" + runtime.GOARCH
+			if s.Platform != "" {
+				parsed, err := v1.ParsePlatform(s.Platform)
+				if err != nil {
+					return nil, fmt.Errorf("invalid platform %q: %w", s.Platform, err)
+				}
+				platformKeys[s.Index] = parsed.String()
 			}
-			platform = parsed.String()
 		}
 	}
 
@@ -1758,7 +1778,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 					compositeKey = ResumeCompositeCache(cacheKey)
 				}
 			} else if config.FF.PlatformCacheKey {
-				compositeKey = NewCompositeCache(sb.baseImageDigest, platform)
+				compositeKey = NewCompositeCache(sb.baseImageDigest, platformKeys[stage.Index])
 			} else {
 				compositeKey = NewCompositeCache(sb.baseImageDigest)
 			}
@@ -2017,7 +2037,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		}
 		if compositeKey == nil {
 			if config.FF.PlatformCacheKey {
-				compositeKey = NewCompositeCache(sb.baseImageDigest, platform)
+				compositeKey = NewCompositeCache(sb.baseImageDigest, platformKeys[stage.Index])
 			} else {
 				compositeKey = NewCompositeCache(sb.baseImageDigest)
 			}
@@ -2063,13 +2083,13 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		if err != nil {
 			return nil, err
 		}
-		if opts.CustomPlatform == "" {
+		if stage.Platform == "" {
 			configFile.OS = runtime.GOOS
 			configFile.Architecture = runtime.GOARCH
 		} else {
-			platform, err := v1.ParsePlatform(opts.CustomPlatform)
+			platform, err := v1.ParsePlatform(stage.Platform)
 			if err != nil {
-				return nil, fmt.Errorf("invalid platform %q: %w", opts.CustomPlatform, err)
+				return nil, fmt.Errorf("invalid platform %q: %w", stage.Platform, err)
 			}
 			configFile.OS = platform.OS
 			configFile.Architecture = platform.Architecture
@@ -2375,7 +2395,7 @@ func resolveExtraStageDigests(stages []config.KanikoStage, externalImages []stri
 				var sourceImage v1.Image
 				var err error
 				if config.FF.CacheCopyFrom {
-					sourceImage, err = image_util.RetrieveSourceImageInternal(from, false, 0, nil, opts)
+					sourceImage, err = image_util.RetrieveSourceImageInternal(from, opts.CustomPlatform, false, 0, nil, opts)
 				} else {
 					sourceImage, err = remote.RetrieveRemoteImage(from, opts.RegistryOptions, opts.CustomPlatform)
 				}

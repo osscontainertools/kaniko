@@ -1935,6 +1935,45 @@ func TestWarmerIndexAcrossPlatforms(t *testing.T) {
 	}
 }
 
+// mz1559: the warmer fetches the base image of a FROM --platform stage for that platform.
+func TestWarmerFromPlatform(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	warm := func(args ...string) string {
+		dockerRunFlags := []string{"run", "--rm", "--net=host", "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())}
+		dockerRunFlags = addAuthFlags(dockerRunFlags)
+		dockerRunFlags = addCoverageFlags(dockerRunFlags)
+		for _, envVariable := range WarmerEnv {
+			dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
+		}
+		dockerRunFlags = append(dockerRunFlags,
+			"-v", config.dir+":/workspace:ro",
+			"-v", tmpDir+":/cache",
+			WarmerImage,
+			"--cache-dir=/cache",
+			"--customPlatform=linux/"+crossCompileArch,
+			"-d", filepath.Join(buildContextPath, dockerfilesPath, "Dockerfile_test_issue_mz1559"))
+		dockerRunFlags = append(dockerRunFlags, args...)
+		out, err := RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
+		t.Logf("Warm %v output:\n%s", args, out)
+		if err != nil {
+			t.Fatalf("Unable to warm %v: %s", args, err)
+		}
+		return string(out)
+	}
+
+	warm()
+	out := warm("--dryrun")
+	for _, s := range []string{
+		"FROM --platform=linux/" + runtime.GOARCH + " alpine\n  CACHE HIT",
+		"FROM alpine\n  CACHE HIT",
+	} {
+		if !strings.Contains(out, s) {
+			t.Fatalf("output must contain %q", s)
+		}
+	}
+}
+
 func TestWarmerFailOnError(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()

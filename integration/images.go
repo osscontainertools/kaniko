@@ -168,6 +168,7 @@ var argsMap = map[string][]string{
 	"Dockerfile_test_issue_mz1375_arg_fail":       {"URL=https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz"},
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": {"SHA="},
 	"Dockerfile_test_issue_mz1548":                {"UNSET_ARG", "EMPTY_ENV_ARG", "SET_ENV_ARG", "EXPLICIT_EMPTY="},
+	"Dockerfile_test_issue_mz1559_run_foreign":    {"FOREIGN=linux/" + crossCompileArch},
 }
 
 var argsMapVersion1 = map[string][]string{
@@ -219,6 +220,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES=1",
 	"FF_KANIKO_EXPAND_HEREDOC=1",
 	"FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY=1",
+	"FF_KANIKO_FROM_PLATFORM=1",
 	"FF_KANIKO_FROM_PREDEFINED_ARGS=1",
 	"FF_KANIKO_GLOB_CHAR_PATHS=1",
 	"FF_KANIKO_HASH_DIR_FRAMING=1",
@@ -287,6 +289,7 @@ var WarmerEnv = []string{
 	"FF_KANIKO_CACHE_ADD_SOURCES=1",
 	"FF_KANIKO_CACHE_COPY_FROM=1",
 	"FF_KANIKO_CACHE_IMAGE_INDEX=1",
+	"FF_KANIKO_FROM_PLATFORM=1",
 	"FF_KANIKO_FROM_PREDEFINED_ARGS=1",
 	"FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=1",
 	"FF_KANIKO_WARMER_EXECUTOR_PARITY=1",
@@ -304,6 +307,7 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz511":          {"--secret=id=netrc,src=context/foo"},
 	"Dockerfile_test_issue_mz1336":         {"--secret=id=foo,env=SECRET"},
 	"Dockerfile_test_cross_compile":        {"--platform=linux/" + crossCompileArch},
+	"Dockerfile_test_issue_mz1559":         {"--platform=linux/" + crossCompileArch},
 	"Dockerfile_test_issue_mz849":          dockerV2Flags,
 	"Dockerfile_test_issue_mz849_dockerv2": dockerV2Flags,
 	"Dockerfile_test_issue_mz1066_docker":  dockerV2Flags,
@@ -386,6 +390,7 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz511":   {"--secret=id=netrc,src=/etc/nsswitch.conf", "--target=second,nosquash"},
 	"Dockerfile_test_ignore_path":   {"--ignore-path=/kaniko-extra-file", "--ignore-path=/kaniko-extra-dir"},
 	"Dockerfile_test_cross_compile": {"--custom-platform=linux/" + crossCompileArch},
+	"Dockerfile_test_issue_mz1559":  {"--custom-platform=linux/" + crossCompileArch},
 	"Dockerfile_test_issue_mz529":   {"--cleanup", "--target=final,nosquash"},
 	"Dockerfile_test_issue_mz595":   {"--cleanup"},
 	"Dockerfile_test_issue_mz661":   {"--secret=id=kaniko,src=/kaniko/executor"},
@@ -448,6 +453,7 @@ var expectErr = map[string]int{
 	"Dockerfile_test_issue_mz1375_stage_fail":     1,
 	"Dockerfile_test_issue_mz1374":                1,
 	"Dockerfile_test_verify_layer_digest":         1,
+	"Dockerfile_test_issue_mz1559_run_foreign":    1,
 }
 
 var expectErrOutput = map[string]string{
@@ -475,6 +481,7 @@ var expectErrOutput = map[string]string{
 	"Dockerfile_test_issue_mz1375_stage_fail":     "--require-add-checksum: ADD https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz has no --checksum",
 	"Dockerfile_test_issue_mz1374":                "resolves to excluded path",
 	"Dockerfile_test_verify_layer_digest":         "verifying layer",
+	"Dockerfile_test_issue_mz1559_run_foreign":    "needs a linux/" + crossCompileArch + " host",
 }
 
 var crossCompileArch = func() string {
@@ -488,6 +495,8 @@ var crossCompileArch = func() string {
 var platformMap = map[string]v1.Platform{
 	"TestRun/test_Dockerfile_test_cross_compile":          {OS: "linux", Architecture: crossCompileArch},
 	"TestLayers/test_layer_Dockerfile_test_cross_compile": {OS: "linux", Architecture: crossCompileArch},
+	"TestRun/test_Dockerfile_test_issue_mz1559":           {OS: "linux", Architecture: crossCompileArch},
+	"TestLayers/test_layer_Dockerfile_test_issue_mz1559":  {OS: "linux", Architecture: crossCompileArch},
 }
 
 // Arguments to diffoci when comparing dockerfiles
