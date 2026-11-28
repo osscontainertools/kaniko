@@ -463,7 +463,7 @@ var expectErrOutput = map[string]string{
 	"Dockerfile_test_issue_mz1160_3":              "in the kaniko directory",
 	"Dockerfile_test_issue_mz1160_4":              "in the kaniko directory",
 	"Dockerfile_test_issue_mz881":                 "x509: certificate signed by unknown authority",
-	"Dockerfile_test_issue_mz1133_2":              "COPY --link needs a numeric USER or --chown",
+	"Dockerfile_test_issue_mz1133_2":              "--link needs a numeric USER or --chown",
 	"Dockerfile_test_issue_mz1230_no_index":       "--index-file requires --provenance",
 	"Dockerfile_test_issue_mz1230_no_push_tar":    "--provenance with --no-push stores the attestation only in --oci-layout-path",
 	"Dockerfile_test_issue_mz1230_tar_no_index":   "--tar-path with --provenance requires --index-file",

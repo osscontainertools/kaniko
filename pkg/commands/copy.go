@@ -48,51 +48,13 @@ type CopyCommand struct {
 }
 
 func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
-	// Resolve from
-	var owner *util.Owner
-	var err error
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 	if c.cmd.From != "" {
 		c.fileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoInterStageDepsDir, c.cmd.From)}
-		if kConfig.FF.CopyLink && c.cmd.Link {
-			owner, err = util.GetNumericUserGroup(c.cmd.Chown, replacementEnvs)
-		} else {
-			owner, err = getUserGroup(c.cmd.Chown, replacementEnvs)
-		}
-		if err != nil {
-			return fmt.Errorf("getting user group from chown: %w", err)
-		}
-	} else if kConfig.FF.CopyLink && c.cmd.Link {
-		chown := c.cmd.Chown
-		if chown == "" {
-			chown = config.User
-			if kConfig.FF.CopyAsRoot {
-				chown = "0:0"
-			}
-		}
-		owner, err = util.GetNumericUserGroup(chown, replacementEnvs)
-		if err != nil && c.cmd.Chown == "" {
-			return fmt.Errorf("COPY --link needs a numeric USER or --chown, got USER %q: %w", config.User, err)
-		}
-		if err != nil {
-			return fmt.Errorf("getting user group from chown: %w", err)
-		}
-		if owner == nil {
-			owner = &util.Owner{}
-		}
-	} else {
-		user := config.User
-		if kConfig.FF.CopyAsRoot {
-			// According to spec: https://docs.docker.com/reference/dockerfile/#copy---chown---chmod
-			//   All files and directories copied from the build context
-			//   are created with a default UID and GID of 0.
-			// But this is a breaking change so we keep it optional for now
-			user = "0:0"
-		}
-		owner, err = getActiveUserGroup(user, c.cmd.Chown, replacementEnvs)
-		if err != nil {
-			return fmt.Errorf("getting user group from chown: %w", err)
-		}
+	}
+	owner, err := resolveOwner(c.cmd, config, replacementEnvs)
+	if err != nil {
+		return err
 	}
 
 	// sources from the Copy command are resolved with wildcards {*?[}
@@ -219,6 +181,53 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 	}
 
 	return nil
+}
+
+func resolveOwner(cmd *instructions.CopyCommand, config *v1.Config, replacementEnvs []string) (*util.Owner, error) {
+	var owner *util.Owner
+	var err error
+	if cmd.From != "" {
+		if kConfig.FF.CopyLink && cmd.Link {
+			owner, err = util.GetNumericUserGroup(cmd.Chown, replacementEnvs)
+		} else {
+			owner, err = getUserGroup(cmd.Chown, replacementEnvs)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("getting user group from chown: %w", err)
+		}
+	} else if kConfig.FF.CopyLink && cmd.Link {
+		chown := cmd.Chown
+		if chown == "" {
+			chown = config.User
+			if kConfig.FF.CopyAsRoot {
+				chown = "0:0"
+			}
+		}
+		owner, err = util.GetNumericUserGroup(chown, replacementEnvs)
+		if err != nil && cmd.Chown == "" {
+			return nil, fmt.Errorf("--link needs a numeric USER or --chown, got USER %q: %w", config.User, err)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("getting user group from chown: %w", err)
+		}
+		if owner == nil {
+			owner = &util.Owner{}
+		}
+	} else {
+		user := config.User
+		if kConfig.FF.CopyAsRoot {
+			// According to spec: https://docs.docker.com/reference/dockerfile/#copy---chown---chmod
+			//   All files and directories copied from the build context
+			//   are created with a default UID and GID of 0.
+			// But this is a breaking change so we keep it optional for now
+			user = "0:0"
+		}
+		owner, err = getActiveUserGroup(user, cmd.Chown, replacementEnvs)
+		if err != nil {
+			return nil, fmt.Errorf("getting user group from chown: %w", err)
+		}
+	}
+	return owner, nil
 }
 
 // FilesToSnapshot should return an empty array if still nil; no files were changed

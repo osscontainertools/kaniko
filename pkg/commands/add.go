@@ -60,37 +60,9 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		return fmt.Errorf("getting permissions from chmod: %w", err)
 	}
 
-	var owner *util.Owner
-	if kConfig.FF.CopyLink && a.cmd.Link {
-		chown := a.cmd.Chown
-		if chown == "" {
-			chown = config.User
-			if kConfig.FF.CopyAsRoot {
-				chown = "0:0"
-			}
-		}
-		owner, err = util.GetNumericUserGroup(chown, replacementEnvs)
-		if err != nil && a.cmd.Chown == "" {
-			return fmt.Errorf("ADD --link needs a numeric USER or --chown, got USER %q: %w", config.User, err)
-		}
-		if err != nil {
-			return fmt.Errorf("getting user group from chown: %w", err)
-		}
-		if owner == nil {
-			owner = &util.Owner{}
-		}
-	} else {
-		user := config.User
-		if kConfig.FF.CopyAsRoot {
-			// According to spec: https://docs.docker.com/reference/dockerfile/#add---chown
-			//   Without this flag, files are created with UID and GID of 0.
-			// But this is a breaking change so we keep it optional for now
-			user = "0:0"
-		}
-		owner, err = util.GetActiveUserGroup(user, a.cmd.Chown, replacementEnvs)
-		if err != nil {
-			return fmt.Errorf("getting user group from chown: %w", err)
-		}
+	owner, err := resolveOwner(&instructions.CopyCommand{Chown: a.cmd.Chown, Link: a.cmd.Link}, config, replacementEnvs)
+	if err != nil {
+		return err
 	}
 
 	var chownOwner *util.Owner
