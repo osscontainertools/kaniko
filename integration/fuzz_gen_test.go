@@ -280,6 +280,14 @@ func generate(s *source, bases []string) genResult {
 		oddName = "odd name.txt"
 		ctx = append(ctx, fileSpec{name: oddName, content: "odd\n", mode: 0o644})
 	}
+	// Sources whose names hold glob and env characters. Only the ctx* glob picks them up,
+	// and the matched name must not be matched or expanded again: ctx[1] also matches
+	// ctx1, and ctx$x expands to ctx (#1557).
+	if s.chance(2) {
+		ctx = append(ctx,
+			fileSpec{name: "ctx[1]", content: "bracket\n", mode: 0o644},
+			fileSpec{name: "ctx$x", content: "dollar\n", mode: 0o644})
+	}
 	// A .dockerignore, sometimes, to exercise ignore matching against a full-context COPY
 	// (FF_KANIKO_SCOPED_DOCKERIGNORE). docker and kaniko must select the same files. It
 	// always excludes build-meta so the COPY does not pull the Dockerfile or the tar, plus
@@ -584,8 +592,8 @@ func generate(s *source, bases []string) genResult {
 				// ARG with a default, made observable by writing it to a file.
 				fmt.Fprintf(&b, "ARG FUZZ_ARG_%d=arg%d\nRUN echo $FUZZ_ARG_%d > /arg%d\n", i, i, i, i)
 			case 21:
-				// Glob COPY of every context file.
-				fmt.Fprintf(&b, "COPY ctx* /glob%d/\n", i)
+				// Glob COPY or ADD of every context file.
+				fmt.Fprintf(&b, "%s ctx* /glob%d/\n", srcPick(s, []string{"COPY", "ADD"}), i)
 			case 22:
 				// Multi-source COPY (needs a trailing-slash dir dest).
 				if len(regulars) >= 2 {
@@ -1090,6 +1098,8 @@ func generate(s *source, bases []string) genResult {
 					fmt.Fprintf(&b, "WORKDIR /w${%s#s}${%s:+x}%d\n", m, u, i)
 				default:
 					fmt.Fprintf(&b, "ENV LIT%d=\\$%s DOLLAR%d=a$ MIX%d=${%s}\\${%s}\n", i, m, i, i, m, m)
+					// The destination expands to a literal $ that must not be expanded again.
+					fmt.Fprintf(&b, "%s %s /lit%d/${LIT%d}\n", srcPick(s, []string{"COPY", "ADD"}), srcPick(s, regulars), i, i)
 				}
 			case 49:
 				// "." and "./" as the destination resolve against WORKDIR.
