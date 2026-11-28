@@ -94,6 +94,10 @@ test-with-coverage: test ## Run unit tests and open the coverage report
 golden: out/executor ## Run golden tests (UPDATE=1 to rewrite, TESTS=<pattern> to filter)
 	@ ./scripts/golden.sh
 
+.PHONY: gobra
+gobra: ## Verify the Gobra-annotated files
+	docker run --rm -v $(CURDIR):/work:ro ghcr.io/viperproject/gobra@sha256:11876e2d20efe71560db6fa963ed4d537b0c0e7ca277e9416a17e2b4d0aa1910 --projectRoot /work -I /work/formal/stubs -o -p /work/pkg/util
+
 .PHONY: lint
 lint: ## Run golangci-lint
 	@tool="$$(go -C tools tool -n golangci-lint)" && "$$tool" run

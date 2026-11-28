@@ -1,0 +1,7 @@
+// +gobra
+
+package fmt
+
+ensures err != nil
+decreases
+func Errorf(format string, a ...interface{}) (err error)

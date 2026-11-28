@@ -1,0 +1,12 @@
+// +gobra
+
+package securejoin
+
+import "path/filepath"
+
+// Taken from the SecureJoin doc comment: symlinks are evaluated as if root were the filesystem
+// root, so the result is scoped inside root and has no symlink components left. The result is
+// a cleaned path.
+ensures err == nil ==> filepath.Resolved(root, ret) && filepath.IsClean(ret)
+decreases
+func SecureJoin(root, unsafePath string) (ret string, err error)

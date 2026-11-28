@@ -1,0 +1,52 @@
+// +gobra
+
+package filepath
+
+import "strings"
+
+// Within(root, p) holds when p is lexically at or below root: after cleaning, p equals root or
+// starts with root followed by a separator.
+ghost
+decreases
+pure func Within(root, p string) bool
+
+// Resolved(root, p) holds when p is Within root and no component of p below root is a symlink.
+// It describes the filesystem at the time of the call. Verified code relies on it only while
+// nothing else writes under root.
+ghost
+ensures ret ==> Within(root, p)
+decreases
+pure func Resolved(root, p string) (ret bool)
+
+// IsClean(p) holds when p is the result of Clean.
+ghost
+decreases
+pure func IsClean(p string) bool
+
+// IsName(e) holds when e is a single path element: no separator, not "." and not "..".
+ghost
+decreases
+pure func IsName(e string) bool
+
+ensures IsClean(ret)
+decreases
+func Clean(path string) (ret string)
+
+decreases
+pure func Dir(path string) (ret string)
+
+// A cleaned path only has ".." at its start, so its last element is "..", a name, or the whole
+// path when it is "." or "/".
+requires IsClean(path)
+requires path != ".."
+ensures !strings.HasPrefix(path, "../") ==> ret == "." || ret == "/" || IsName(ret)
+decreases
+func Base(path string) (ret string)
+
+// Join cleans its result. On a clean dir, "." and "/" add nothing, and a name becomes the last
+// element.
+ensures IsClean(dir) && (name == "." || name == "/") ==> ret == dir
+ensures IsClean(dir) && IsName(name) ==> Dir(ret) == dir
+ensures forall root string :: { Within(root, ret) } Within(root, dir) && IsName(name) ==> Within(root, ret)
+decreases
+func Join(dir, name string) (ret string)
