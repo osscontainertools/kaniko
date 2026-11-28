@@ -518,6 +518,8 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_issue_mz155": {"--semantic=false", "--ignore-history", "--ignore-file-meta-format", "--ignore-file-atime", "--ignore-file-ctime", "--extra-ignore-files=tmp/"},
 	// We enforce predefined ARGs are identical by dumping them to a file
 	"TestRun/test_Dockerfile_test_pre_defined_build_args": {"--extra-ignore-file-content=false"},
+	// mz1548: the resolved ARG values are dumped to /out
+	"TestRun/test_Dockerfile_test_issue_mz1548_unset_build_arg": {"--extra-ignore-file-content=false"},
 	// mz511: We delete the builtin file /etc/nsswitch.conf to verify that secrets are persisted
 	// But we discovered a new issue with this. For builtins, buildkit will emit "whiteout" files,
 	// to remember that it was removed, we don't. So we end up with a diff in the resulting image.
@@ -527,14 +529,11 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_issue_1599_2": {"--extra-ignore-files=kaniko/", "--extra-ignore-layer-length-mismatch"},
 	// We never snapshot the live container mounts (/proc, /sys, /dev, /etc/hosts, /etc/hostname,
 	// /etc/mtab, /var/run). Buildkit records them, as mountpoints of a RUN or as content of ADD/COPY.
-	"TestRun/test_Dockerfile_test_add":          {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_1007":   {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_mz247":  {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_mz332":  {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_mz1152": {"--extra-ignore-layer-length-mismatch"},
-	"TestRun/test_Dockerfile_test_issue_mz1548_unset_build_arg": {
-		"--ignore-path=proc", "--ignore-path=sys", "--extra-ignore-layer-length-mismatch", "--extra-ignore-file-content=false",
-	},
+	"TestRun/test_Dockerfile_test_add":             {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_1007":      {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz247":     {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz332":     {"--extra-ignore-layer-length-mismatch"},
+	"TestRun/test_Dockerfile_test_issue_mz1152":    {"--extra-ignore-layer-length-mismatch"},
 	"TestWithContext/test_with_context_issue-57":   {"--extra-ignore-layer-length-mismatch"},
 	"TestWithContext/test_with_context_issue-1568": {"--extra-ignore-layer-length-mismatch"},
 	"TestK8s/test_k8s_with_context_issue-57":       {"--extra-ignore-layer-length-mismatch"},
