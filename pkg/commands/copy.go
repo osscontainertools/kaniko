@@ -1,19 +1,3 @@
-/*
-Copyright 2018 Google LLC
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package commands
 
 import (
@@ -33,12 +17,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// for testing
-var (
-	getUserGroup       = util.GetUserGroup
-	getActiveUserGroup = util.GetActiveUserGroup
-)
-
 type CopyCommand struct {
 	BaseCommand
 	cmd           *instructions.CopyCommand
@@ -48,66 +26,19 @@ type CopyCommand struct {
 }
 
 func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
-	// Resolve from
-	var owner *util.Owner
-	var err error
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
-	if c.cmd.From != "" {
-		c.fileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoInterStageDepsDir, c.cmd.From)}
-		if kConfig.FF.CopyLink && c.cmd.Link {
-			owner, err = util.GetNumericUserGroup(c.cmd.Chown, replacementEnvs)
-		} else {
-			owner, err = getUserGroup(c.cmd.Chown, replacementEnvs)
-		}
-		if err != nil {
-			return fmt.Errorf("getting user group from chown: %w", err)
-		}
-	} else if kConfig.FF.CopyLink && c.cmd.Link {
-		chown := c.cmd.Chown
-		if chown == "" {
-			chown = config.User
-			if kConfig.FF.CopyAsRoot {
-				chown = "0:0"
-			}
-		}
-		owner, err = util.GetNumericUserGroup(chown, replacementEnvs)
-		if err != nil && c.cmd.Chown == "" {
-			return fmt.Errorf("COPY --link needs a numeric USER or --chown, got USER %q: %w", config.User, err)
-		}
-		if err != nil {
-			return fmt.Errorf("getting user group from chown: %w", err)
-		}
-		if owner == nil {
-			owner = &util.Owner{}
-		}
-	} else {
-		user := config.User
-		if kConfig.FF.CopyAsRoot {
-			// According to spec: https://docs.docker.com/reference/dockerfile/#copy---chown---chmod
-			//   All files and directories copied from the build context
-			//   are created with a default UID and GID of 0.
-			// But this is a breaking change so we keep it optional for now
-			user = "0:0"
-		}
-		owner, err = getActiveUserGroup(user, c.cmd.Chown, replacementEnvs)
-		if err != nil {
-			return fmt.Errorf("getting user group from chown: %w", err)
-		}
-	}
-
-	// sources from the Copy command are resolved with wildcards {*?[}
-	srcs, dest, err := util.ResolveEnvAndWildcards(c.cmd.SourcesAndDest, c.fileContext, replacementEnvs)
+	opts, err := resolveTransferOptions("COPY", c.cmd.SourcesAndDest, c.cmd.Chown,
+		c.cmd.Chmod, c.cmd.Link, c.cmd.From, c.fileContext, config, replacementEnvs)
 	if err != nil {
-		return fmt.Errorf("resolving src: %w", err)
+		return err
 	}
+	c.fileContext = opts.fileContext
+	return c.executeResolved(opts)
+}
 
-	chmod, useDefaultChmod, err := util.GetChmod(c.cmd.Chmod, replacementEnvs)
-	if err != nil {
-		return fmt.Errorf("getting permissions from chmod: %w", err)
-	}
-
+func (c *CopyCommand) executeResolved(opts *transferOptions) error {
 	// For each source, iterate through and copy it over
-	for _, src := range srcs {
+	for _, src := range opts.srcs {
 		fullPath := filepath.Join(c.fileContext.Root, src)
 
 		fi, err := os.Lstat(fullPath)
@@ -117,12 +48,8 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		if fi.IsDir() && !strings.HasSuffix(fullPath, string(os.PathSeparator)) {
 			fullPath += "/"
 		}
-		cwd := config.WorkingDir
-		if cwd == "" {
-			cwd = kConfig.RootDir
-		}
 
-		destPath, err := util.DestinationFilepath(fullPath, dest, cwd)
+		destPath, err := util.DestinationFilepath(fullPath, opts.dest, opts.cwd)
 		if err != nil {
 			return fmt.Errorf("find destination path: %w", err)
 		}
@@ -142,7 +69,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		}
 
 		if fi.IsDir() {
-			copiedFiles, err := util.CopyDir(fullPath, destPath, c.fileContext, owner, chmod, useDefaultChmod)
+			copiedFiles, err := util.CopyDir(fullPath, destPath, c.fileContext, opts.owner, opts.chmod, opts.useDefaultChmod)
 			if err != nil {
 				return fmt.Errorf("copying dir: %w", err)
 			}
@@ -159,7 +86,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 			c.snapshotFiles = append(c.snapshotFiles, destPath)
 		} else if fi.Mode()&os.ModeNamedPipe != 0 {
 			// Opening a fifo blocks until it has a writer, so recreate it instead.
-			exclude, err := util.CreateFifo(fullPath, destPath, fi, c.fileContext, owner, chmod, useDefaultChmod, false)
+			exclude, err := util.CreateFifo(fullPath, destPath, fi, c.fileContext, opts.owner, opts.chmod, opts.useDefaultChmod, false)
 			if err != nil {
 				return fmt.Errorf("copying fifo: %w", err)
 			}
@@ -172,7 +99,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 			continue
 		} else {
 			// ... Else, we want to copy over a file
-			exclude, err := util.CopyFile(fullPath, destPath, fi, c.fileContext, owner, chmod, useDefaultChmod, false)
+			exclude, err := util.CopyFile(fullPath, destPath, fi, c.fileContext, opts.owner, opts.chmod, opts.useDefaultChmod, false)
 			if err != nil {
 				return fmt.Errorf("copying file: %w", err)
 			}
@@ -186,11 +113,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 	// Heredocs
 	for _, src := range c.cmd.SourceContents {
 		fullPath := filepath.Join(c.fileContext.Root, src.Path)
-		cwd := config.WorkingDir
-		if cwd == "" {
-			cwd = kConfig.RootDir
-		}
-		destPath, err := util.DestinationFilepath(fullPath, dest, cwd)
+		destPath, err := util.DestinationFilepath(fullPath, opts.dest, opts.cwd)
 		if err != nil {
 			return fmt.Errorf("find destination path: %w", err)
 		}
@@ -203,7 +126,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 
 		data := src.Data
 		if src.Expand && kConfig.FF.ExpandHeredoc {
-			expanded, err := util.ResolveEnvironmentReplacementRaw(src.Data, replacementEnvs)
+			expanded, err := util.ResolveEnvironmentReplacementRaw(src.Data, opts.replacementEnvs)
 			if err != nil {
 				return fmt.Errorf("expanding heredoc content: %w", err)
 			}
@@ -211,7 +134,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		}
 
 		srcFile := strings.NewReader(data)
-		err = util.CreateFile(destPath, srcFile, chmod.Apply(0o644), chmod.Apply(0o755), owner)
+		err = util.CreateFile(destPath, srcFile, opts.chmod.Apply(0o644), opts.chmod.Apply(0o755), opts.owner)
 		if err != nil {
 			return fmt.Errorf("creating file: %w", err)
 		}

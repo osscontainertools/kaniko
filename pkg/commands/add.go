@@ -51,57 +51,21 @@ type AddCommand struct {
 func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 
-	chmod, _, err := util.GetChmod(a.cmd.Chmod, replacementEnvs)
-	if err != nil {
-		return fmt.Errorf("getting permissions from chmod: %w", err)
-	}
-
-	var owner *util.Owner
-	if kConfig.FF.CopyLink && a.cmd.Link {
-		chown := a.cmd.Chown
-		if chown == "" {
-			chown = config.User
-			if kConfig.FF.CopyAsRoot {
-				chown = "0:0"
-			}
-		}
-		owner, err = util.GetNumericUserGroup(chown, replacementEnvs)
-		if err != nil && a.cmd.Chown == "" {
-			return fmt.Errorf("ADD --link needs a numeric USER or --chown, got USER %q: %w", config.User, err)
-		}
-		if err != nil {
-			return fmt.Errorf("getting user group from chown: %w", err)
-		}
-		if owner == nil {
-			owner = &util.Owner{}
-		}
-	} else {
-		user := config.User
-		if kConfig.FF.CopyAsRoot {
-			// According to spec: https://docs.docker.com/reference/dockerfile/#add---chown
-			//   Without this flag, files are created with UID and GID of 0.
-			// But this is a breaking change so we keep it optional for now
-			user = "0:0"
-		}
-		owner, err = util.GetActiveUserGroup(user, a.cmd.Chown, replacementEnvs)
-		if err != nil {
-			return fmt.Errorf("getting user group from chown: %w", err)
-		}
-	}
-
-	var chownOwner *util.Owner
-	if kConfig.FF.AddChownTar && a.cmd.Chown != "" {
-		chownOwner = owner
-	}
-
-	srcs, dest, err := util.ResolveEnvAndWildcards(a.cmd.SourcesAndDest, a.fileContext, replacementEnvs)
+	// Resolve transfer options (owner, chmod, srcs, dest, cwd)
+	opts, err := resolveTransferOptions("ADD", a.cmd.SourcesAndDest, a.cmd.Chown,
+		a.cmd.Chmod, a.cmd.Link, "", a.fileContext, config, replacementEnvs)
 	if err != nil {
 		return err
 	}
 
+	var chownOwner *util.Owner
+	if kConfig.FF.AddChownTar && a.cmd.Chown != "" {
+		chownOwner = opts.owner
+	}
+
 	var checksum digest.Digest
 	if kConfig.FF.AddChecksum && a.cmd.Checksum != "" {
-		checksum, err = resolveChecksum(a.cmd.Checksum, srcs, replacementEnvs)
+		checksum, err = resolveChecksum(a.cmd.Checksum, opts.srcs, replacementEnvs)
 		if err != nil {
 			return err
 		}
@@ -124,24 +88,19 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		defer os.RemoveAll(staging)
 	}
 
-	cwd := config.WorkingDir
-	if !filepath.IsAbs(cwd) {
-		cwd = filepath.Join(kConfig.RootDir, cwd)
-	}
-
 	var unresolvedSrcs []string
 	// If any of the sources are local tar archives:
 	// 	1. Unpack them to the specified destination
 	// If any of the sources is a remote file URL:
 	//	1. Download and copy it to the specified dest
 	// Else, add to the list of unresolved sources
-	for _, src := range srcs {
-		fullPath := filepath.Join(a.fileContext.Root, src)
+	for _, src := range opts.srcs {
+		fullPath := filepath.Join(opts.fileContext.Root, src)
 		if checksum != "" && !util.IsSrcRemoteFileURL(src) {
 			return fmt.Errorf("checksum requires HTTP(S) sources, got %s", src)
 		}
 		if util.IsSrcRemoteFileURL(src) {
-			urlDest, err := util.URLDestinationFilepath(src, dest, cwd, replacementEnvs)
+			urlDest, err := util.URLDestinationFilepath(src, opts.dest, opts.cwd, replacementEnvs)
 			if err != nil {
 				return err
 			}
@@ -161,7 +120,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				download = urlDest
 			}
 			logrus.Infof("Adding remote URL %s to %s", src, urlDest)
-			if err := util.DownloadFileToDest(src, download, owner, chmod.Apply(0o600), checksum); err != nil {
+			if err := util.DownloadFileToDest(src, download, opts.owner, opts.chmod.Apply(0o600), checksum); err != nil {
 				return fmt.Errorf("downloading remote source file: %w", err)
 			}
 
@@ -169,7 +128,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 			case !unpackRemote:
 				a.snapshotFiles = append(a.snapshotFiles, urlDest)
 			case util.IsFileTarArchive(download):
-				tarDest, err := util.DestinationFilepath("", dest, cwd)
+				tarDest, err := util.DestinationFilepath("", opts.dest, opts.cwd)
 				if err != nil {
 					return fmt.Errorf("determining dest for tar: %w", err)
 				}
@@ -210,8 +169,8 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				_, err := os.Lstat(parent)
 				if os.IsNotExist(err) {
 					dirOwner := util.Owner{}
-					if owner != nil {
-						dirOwner = *owner
+					if opts.owner != nil {
+						dirOwner = *opts.owner
 					}
 					if err := util.MkdirAllWithPermissions(parent, 0o755, dirOwner, false); err != nil {
 						return err
@@ -235,7 +194,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 					return err
 				}
 			}
-			tarDest, err := util.DestinationFilepath("", dest, cwd)
+			tarDest, err := util.DestinationFilepath("", opts.dest, opts.cwd)
 			if err != nil {
 				return fmt.Errorf("determining dest for tar: %w", err)
 			}
@@ -273,17 +232,19 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		return nil
 	}
 
+	copyOpts := *opts
+	copyOpts.srcs = unresolvedSrcs
 	copyCmd := CopyCommand{
 		cmd: &instructions.CopyCommand{
-			SourcesAndDest: instructions.SourcesAndDest{SourcePaths: unresolvedSrcs, DestPath: dest, SourceContents: heredocs},
+			SourcesAndDest: instructions.SourcesAndDest{SourcePaths: unresolvedSrcs, DestPath: opts.dest, SourceContents: heredocs},
 			Chown:          a.cmd.Chown,
 			Chmod:          a.cmd.Chmod,
 			Link:           a.cmd.Link,
 		},
-		fileContext: a.fileContext,
+		fileContext: opts.fileContext,
 	}
 
-	if err := copyCmd.ExecuteCommand(config, buildArgs); err != nil {
+	if err := copyCmd.executeResolved(&copyOpts); err != nil {
 		return fmt.Errorf("executing copy command: %w", err)
 	}
 	a.snapshotFiles = append(a.snapshotFiles, copyCmd.snapshotFiles...)
