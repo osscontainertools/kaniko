@@ -236,15 +236,15 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 	copyOpts.srcs = unresolvedSrcs
 	copyCmd := CopyCommand{
 		cmd: &instructions.CopyCommand{
-			SourcesAndDest: instructions.SourcesAndDest{SourcePaths: unresolvedSrcs, DestPath: opts.dest, SourceContents: heredocs},
+			SourcesAndDest: instructions.SourcesAndDest{SourcePaths: unresolvedSrcs, DestPath: a.cmd.DestPath, SourceContents: heredocs},
 			Chown:          a.cmd.Chown,
 			Chmod:          a.cmd.Chmod,
 			Link:           a.cmd.Link,
 		},
-		fileContext: opts.fileContext,
+		fileContext: a.fileContext,
 	}
 
-	if err := copyCmd.executeResolved(&copyOpts); err != nil {
+	if err := copyCmd.ExecuteCommand(config, buildArgs); err != nil {
 		return fmt.Errorf("executing copy command: %w", err)
 	}
 	a.snapshotFiles = append(a.snapshotFiles, copyCmd.snapshotFiles...)
