@@ -9,6 +9,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 ```sh
 FF_KANIKO_ADD_CHOWN_TAR=true
 FF_KANIKO_ADD_FOLLOW_SYMLINK=true
+FF_KANIKO_ADD_RESOLVE_ONCE=true
 FF_KANIKO_ALIGN_HISTORY=true
 FF_KANIKO_CACHE_ADD_SOURCES=true
 FF_KANIKO_CACHE_COPY_FROM=true
@@ -71,6 +72,13 @@ Becomes default in `v1.30.0`.
 
 `ADD <url> /dir/` fails with `destination cannot be a symlink` when `/dir` is a symlink to a directory.
 Set this flag to `true` to write the download through the symlink. Defaults to `false`.
+Becomes default in `v1.30.0`.
+
+## Flag `FF_KANIKO_ADD_RESOLVE_ONCE`
+
+`ADD` with a wildcard copies the wrong files when a matched name contains `$` or `[`, for example it adds `x.txt` for a match `x$y.txt`. A destination that expands to a literal `$` is expanded a second time as well.
+Set this flag to `true` to copy the matched files to the destination as written.
+Defaults to `false`.
 Becomes default in `v1.30.0`.
 
 ## Flag `FF_KANIKO_ADD_UNPACK`
