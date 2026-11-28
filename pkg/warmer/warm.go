@@ -52,7 +52,6 @@ var (
 	AddSourceLookup                  = addcache.Lookup
 )
 
-// WarmImage is an image reference fetched for one platform.
 type WarmImage struct {
 	Ref      string
 	Platform string

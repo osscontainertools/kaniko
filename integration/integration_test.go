@@ -1584,7 +1584,7 @@ func TestWarmer(t *testing.T) {
 	for dockerfile := range imageBuilder.TestWarmerDockerfiles {
 		t.Run("test_warmer_"+dockerfile, func(t *testing.T) {
 			t.Parallel()
-			if dockerfile == "Dockerfile_test_warmer_remote_bind_mnt" {
+			if dockerfile == "Dockerfile_test_warmer_remote_bind_mnt" || dockerfile == "Dockerfile_test_issue_mz1559_warmer" {
 				dockerfilePath := filepath.Join(buildContextPath, dockerfilesPath, dockerfile)
 				if err := populateDockerfileCache(t, config, dockerfilePath); err != nil {
 					t.Fatal(err)
@@ -1932,45 +1932,6 @@ func TestWarmerIndexAcrossPlatforms(t *testing.T) {
 	s = "Image already in cache: " + image
 	if strings.Contains(out, s) {
 		t.Fatalf("output must not contain %s", s)
-	}
-}
-
-// mz1559: the warmer fetches the base image of a FROM --platform stage for that platform.
-func TestWarmerFromPlatform(t *testing.T) {
-	t.Parallel()
-	tmpDir := t.TempDir()
-	warm := func(args ...string) string {
-		dockerRunFlags := []string{"run", "--rm", "--net=host", "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())}
-		dockerRunFlags = addAuthFlags(dockerRunFlags)
-		dockerRunFlags = addCoverageFlags(dockerRunFlags)
-		for _, envVariable := range WarmerEnv {
-			dockerRunFlags = append(dockerRunFlags, "-e", envVariable)
-		}
-		dockerRunFlags = append(dockerRunFlags,
-			"-v", config.dir+":/workspace:ro",
-			"-v", tmpDir+":/cache",
-			WarmerImage,
-			"--cache-dir=/cache",
-			"--customPlatform=linux/"+crossCompileArch,
-			"-d", filepath.Join(buildContextPath, dockerfilesPath, "Dockerfile_test_issue_mz1559"))
-		dockerRunFlags = append(dockerRunFlags, args...)
-		out, err := RunCommandWithoutTest(exec.Command("docker", dockerRunFlags...))
-		t.Logf("Warm %v output:\n%s", args, out)
-		if err != nil {
-			t.Fatalf("Unable to warm %v: %s", args, err)
-		}
-		return string(out)
-	}
-
-	warm()
-	out := warm("--dryrun")
-	for _, s := range []string{
-		"FROM --platform=linux/" + runtime.GOARCH + " alpine\n  CACHE HIT",
-		"FROM alpine\n  CACHE HIT",
-	} {
-		if !strings.Contains(out, s) {
-			t.Fatalf("output must contain %q", s)
-		}
 	}
 }
 

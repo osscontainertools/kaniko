@@ -101,7 +101,6 @@ type stageBuilder struct {
 	span            trace.Span
 	stageNames      map[int]string
 	plannedUnpack   *bool
-	// the stage platform when this host cannot run it natively
 	foreignPlatform string
 }
 

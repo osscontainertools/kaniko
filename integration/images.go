@@ -950,6 +950,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 	d.TestWarmerDockerfiles = map[string]struct{}{
 		"Dockerfile_test_issue_mz320":            {},
 		"Dockerfile_test_issue_mz1212":           {},
+		"Dockerfile_test_issue_mz1559_warmer":    {},
 		"Dockerfile_test_warmer_remote_bind_mnt": {},
 	}
 	d.TestMountDockerfiles = map[string]struct{}{
