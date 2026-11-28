@@ -365,31 +365,13 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		return nil, nil, fmt.Errorf("resolving args: %w", err)
 	}
 	stages = stages[:finalStage+1]
+	var platformArgs []string
 	if config.FF.FromPlatform {
-		platformArgs := args
-		if !config.FF.FromPredefinedArgs {
-			predefinedArgs, err := PredefinedArgs(opts.CustomPlatform)
-			if err != nil {
-				return nil, nil, err
-			}
-			platformArgs = append(predefinedArgs, args...)
+		predefinedArgs, err := PredefinedArgs(opts.CustomPlatform)
+		if err != nil {
+			return nil, nil, err
 		}
-		for i, s := range stages {
-			base := BaseImageIndex(i, stages)
-			if base != -1 {
-				stages[i].Platform = stages[base].Platform
-			} else if s.Platform != "" {
-				expanded, err := util.ResolveEnvironmentReplacement(s.Platform, platformArgs, false)
-				if err != nil {
-					return nil, nil, fmt.Errorf("stage %d: resolving platform %s: %w", i, s.Platform, err)
-				}
-				parsed, err := platforms.Parse(expanded)
-				if err != nil {
-					return nil, nil, fmt.Errorf("stage %d: parsing platform %q: %w", i, expanded, err)
-				}
-				stages[i].Platform = platforms.Format(platforms.Normalize(parsed))
-			}
-		}
+		platformArgs = append(predefinedArgs, args...)
 	}
 
 	stageByName := StageIndices(stages)
@@ -420,8 +402,16 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		baseImageIndex := BaseImageIndex(i, stages)
 		baseImageStoredLocally := baseImageIndex != -1
 		platform := opts.CustomPlatform
-		if config.FF.FromPlatform && stage.Platform != "" {
-			platform = stage.Platform
+		if config.FF.FromPlatform && !baseImageStoredLocally && stage.Platform != "" {
+			expanded, err := util.ResolveEnvironmentReplacement(stage.Platform, platformArgs, false)
+			if err != nil {
+				return nil, nil, fmt.Errorf("stage %d: resolving platform %s: %w", i, stage.Platform, err)
+			}
+			parsed, err := platforms.Parse(expanded)
+			if err != nil {
+				return nil, nil, fmt.Errorf("stage %d: parsing platform %q: %w", i, expanded, err)
+			}
+			platform = platforms.Format(platforms.Normalize(parsed))
 		}
 
 		var onBuild []string
@@ -497,6 +487,9 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 	}
 	for i, s := range kanikoStages {
 		if buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
+			if s.BaseImageStoredLocally {
+				kanikoStages[i].Platform = kanikoStages[s.BaseImageIndex].Platform
+			}
 			if s.BaseImageStoredLocally && stagesDependencies[s.BaseImageIndex] == 1 && copyDependencies[s.BaseImageIndex] == 0 {
 				sb := kanikoStages[s.BaseImageIndex]
 				// squash stages[i] into stages[i].BaseName
