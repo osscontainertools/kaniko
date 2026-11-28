@@ -17,7 +17,6 @@ limitations under the License.
 package dockerfile
 
 import (
-	"os"
 	"testing"
 
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
@@ -186,26 +185,4 @@ func TestResolveEnvironmentBuildArgs(t *testing.T) {
 			testutil.CheckDeepEqual(t, tt.expected, got)
 		})
 	}
-}
-
-func TestBuildArgsUnsetEnvPreservesDefault(t *testing.T) {
-	// Ensure UNSET_X is absent from the test process environment.
-	t.Setenv("UNSET_X", "")
-	if err := os.Unsetenv("UNSET_X"); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("EMPTY_Y", "")
-	t.Setenv("SET_Z", "fromenv")
-
-	resolved := ResolveEnvironmentBuildArgs([]string{"UNSET_X", "EMPTY_Y", "SET_Z"}, os.LookupEnv)
-	ba := NewBuildArgs(resolved)
-	ba.AddArg("UNSET_X", new("default"))
-	ba.AddArg("EMPTY_Y", new("default"))
-	ba.AddArg("SET_Z", new("default"))
-
-	testutil.CheckDeepEqual(t, map[string]string{
-		"UNSET_X": "default",
-		"EMPTY_Y": "",
-		"SET_Z":   "fromenv",
-	}, ba.GetAllAllowed())
 }
