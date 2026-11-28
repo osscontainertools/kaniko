@@ -80,7 +80,7 @@ var RootCmd = &cobra.Command{
 			if config.FF.SkipUnsetBuildArgs {
 				opts.BuildArgs = dockerfile.ResolveEnvironmentBuildArgs(opts.BuildArgs, os.LookupEnv)
 			} else {
-				opts.BuildArgs = dockerfile.ResolveEnvironmentBuildArgs(opts.BuildArgs, dockerfile.EnvOrEmpty)
+				opts.BuildArgs = dockerfile.ResolveEnvironmentBuildArgs(opts.BuildArgs, func(key string) (string, bool) { return os.Getenv(key), true })
 			}
 		}
 

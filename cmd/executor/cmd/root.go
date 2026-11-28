@@ -123,7 +123,11 @@ func setupBuild() error {
 		}
 	}
 
-	resolveBuildArgs(opts)
+	if config.FF.SkipUnsetBuildArgs {
+		opts.BuildArgs = dockerfile.ResolveEnvironmentBuildArgs(opts.BuildArgs, os.LookupEnv)
+	} else {
+		opts.BuildArgs = dockerfile.ResolveEnvironmentBuildArgs(opts.BuildArgs, func(key string) (string, bool) { return os.Getenv(key), true })
+	}
 	// Update ignored paths
 	if opts.IgnoreVarRun {
 		// /var/run is a special case. It's common to mount in /var/run/docker.sock
@@ -143,14 +147,6 @@ func setupBuild() error {
 		})
 	}
 	return nil
-}
-
-func resolveBuildArgs(opts *config.KanikoOptions) {
-	if config.FF.SkipUnsetBuildArgs {
-		opts.BuildArgs = dockerfile.ResolveEnvironmentBuildArgs(opts.BuildArgs, os.LookupEnv)
-		return
-	}
-	opts.BuildArgs = dockerfile.ResolveEnvironmentBuildArgs(opts.BuildArgs, dockerfile.EnvOrEmpty)
 }
 
 // validateOutputFlags rejects the flag combinations that describe an image kaniko

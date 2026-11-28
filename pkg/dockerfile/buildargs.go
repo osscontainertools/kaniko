@@ -19,7 +19,6 @@ package dockerfile
 import (
 	"fmt"
 	"maps"
-	"os"
 	"strings"
 
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
@@ -206,20 +205,14 @@ func ResolveEnvironmentBuildArgs(arguments []string, resolver func(string) (stri
 	for _, argument := range arguments {
 		if strings.Contains(argument, "=") {
 			resolved = append(resolved, argument)
-			continue
+		} else {
+			value, ok := resolver(argument)
+			if ok {
+				resolved = append(resolved, fmt.Sprintf("%s=%s", argument, value))
+			}
 		}
-		value, ok := resolver(argument)
-		if !ok {
-			continue
-		}
-		resolved = append(resolved, fmt.Sprintf("%s=%s", argument, value))
 	}
 	return resolved
-}
-
-// EnvOrEmpty looks up key in the environment and reports it as set even when absent.
-func EnvOrEmpty(key string) (string, bool) {
-	return os.Getenv(key), true
 }
 
 // Initialize predefined build args s.a.: TARGETOS, TARGETARCH, BUILDPLATFORM, TARGETPLATFORM ...
