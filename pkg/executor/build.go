@@ -36,7 +36,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/containerd/platforms"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
@@ -101,7 +100,6 @@ type stageBuilder struct {
 	span            trace.Span
 	stageNames      map[int]string
 	plannedUnpack   *bool
-	foreignPlatform string
 }
 
 type stageCacheInfo struct {
@@ -232,16 +230,6 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 	if err != nil {
 		return nil, err
 	}
-	var foreignPlatform string
-	if config.FF.FromPlatform && stage.Platform != "" {
-		parsed, err := platforms.Parse(stage.Platform)
-		if err != nil {
-			return nil, fmt.Errorf("invalid platform %q: %w", stage.Platform, err)
-		}
-		if !platforms.Only(platforms.DefaultSpec()).Match(parsed) {
-			foreignPlatform = stage.Platform
-		}
-	}
 	s := &stageBuilder{
 		index:           stage.Index,
 		final:           stage.Final,
@@ -250,7 +238,6 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 		cf:              imageConfig,
 		baseImageDigest: digest.String(),
 		args:            args.Clone(),
-		foreignPlatform: foreignPlatform,
 	}
 
 	addCacheDir := ""
@@ -859,10 +846,6 @@ func (s *stageBuilder) build(compositeKey CompositeCache, opts *config.KanikoOpt
 		execTimer := timing.Start("Execute")
 		switch command.(type) {
 		case *commands.RunCommand, *commands.RunMarkerCommand:
-			if s.foreignPlatform != "" {
-				execTimer.End()
-				return false, fmt.Errorf("%s needs a %s host, this host is %s", command.String(), s.foreignPlatform, platforms.Format(platforms.Normalize(platforms.DefaultSpec())))
-			}
 			execTimer.SetAttributes(attribute.String("kaniko.phase", "build"))
 		}
 		err := command.ExecuteCommand(&s.cf.Config, s.args)

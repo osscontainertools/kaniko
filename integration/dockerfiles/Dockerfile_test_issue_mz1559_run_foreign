@@ -1,4 +1,0 @@
-# mz1559: kaniko only runs commands natively, so RUN in a stage of a foreign platform fails the build.
-ARG FOREIGN
-FROM --platform=$FOREIGN alpine
-RUN true

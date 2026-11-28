@@ -167,9 +167,7 @@ var argsMap = map[string][]string{
 	},
 	"Dockerfile_test_issue_mz1375_arg_fail":       {"URL=https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz"},
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": {"SHA="},
-	"Dockerfile_test_issue_mz1548":                {"UNSET_ARG", "EMPTY_ENV_ARG", "SET_ENV_ARG", "EXPLICIT_EMPTY="},
-	"Dockerfile_test_issue_mz1559_run_foreign":    {"FOREIGN=linux/" + crossCompileArch},
-}
+	"Dockerfile_test_issue_mz1548":                {"UNSET_ARG", "EMPTY_ENV_ARG", "SET_ENV_ARG", "EXPLICIT_EMPTY="}}
 
 var argsMapVersion1 = map[string][]string{
 	"Dockerfile_test_issue_mz655":      {"BASE_TAG=1.37.0"},
@@ -452,9 +450,7 @@ var expectErr = map[string]int{
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": 1,
 	"Dockerfile_test_issue_mz1375_stage_fail":     1,
 	"Dockerfile_test_issue_mz1374":                1,
-	"Dockerfile_test_verify_layer_digest":         1,
-	"Dockerfile_test_issue_mz1559_run_foreign":    1,
-}
+	"Dockerfile_test_verify_layer_digest":         1}
 
 var expectErrOutput = map[string]string{
 	"Dockerfile_test_issue_cg326_1":               "is not allowed: references parent directory",
@@ -480,9 +476,7 @@ var expectErrOutput = map[string]string{
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": "invalid checksum digest format",
 	"Dockerfile_test_issue_mz1375_stage_fail":     "--require-add-checksum: ADD https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz has no --checksum",
 	"Dockerfile_test_issue_mz1374":                "resolves to excluded path",
-	"Dockerfile_test_verify_layer_digest":         "verifying layer",
-	"Dockerfile_test_issue_mz1559_run_foreign":    "needs a linux/" + crossCompileArch + " host",
-}
+	"Dockerfile_test_verify_layer_digest":         "verifying layer"}
 
 var crossCompileArch = func() string {
 	if runtime.GOARCH == "amd64" {
