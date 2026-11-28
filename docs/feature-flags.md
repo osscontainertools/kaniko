@@ -237,8 +237,9 @@ Becomes default in `v1.30.0`.
 
 ## Flag `FF_KANIKO_FROM_PLATFORM`
 
-`FROM --platform=<platform>` is ignored. A `FROM --platform=$BUILDPLATFORM` stage gets the base image for `--custom-platform`, not for the host.
-Set this flag to `true` to build that stage for `<platform>`.
+Supports `--platform` in `FROM` instructions. The stage builds on the base image for that platform instead of the one for `--custom-platform`, for example `FROM --platform=$BUILDPLATFORM golang AS build`.
+Set this flag to `true` on the warmer and the executor to enable `FROM --platform`.
+The warmer also needs `FF_KANIKO_WARMER_EXECUTOR_PARITY`.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
 
