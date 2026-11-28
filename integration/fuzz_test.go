@@ -618,6 +618,18 @@ func buildAndClassify(t *testing.T, seed int64, label string, gen genResult, cov
 	if !dockerSame {
 		dockerCls = classify(dockerDiff, allow)
 	}
+	// The noop-run class excuses every per-layer membership row, which also hides a file
+	// one tool drops or adds (#1557). An unchanged entry is still present in both final
+	// filesystems, so a name only one of them holds is a real divergence.
+	if dockerCls.known["noop-run-unchanged-dir-layer"] > 0 {
+		rows, err := flatMembershipRows(dockerImage, kanikoImage)
+		if err != nil {
+			t.Logf("[%s] flattened filesystem check: %v", label, err)
+		} else {
+			flat := classifyRows(rows, allow)
+			dockerCls.novel = append(dockerCls.novel, flat.novel...)
+		}
+	}
 
 	// cache oracle: kaniko populate versus kaniko consume. Both sides are kaniko
 	// building the identical context, so the comparison is byte-strict. Only the
@@ -2875,6 +2887,62 @@ func runFuzzDiffoci(image1, image2 string, ignores []string) (string, bool, erro
 	args = append(args, image1, image2)
 	out, err := runFuzzBounded(exec.Command("diffoci", args...))
 	return string(out), err == nil, err
+}
+
+// flatNames lists the paths in image's flattened filesystem.
+func flatNames(image string) (map[string]bool, error) {
+	f, err := os.CreateTemp("", "kaniko-fuzz-flat-*.tar")
+	if err != nil {
+		return nil, err
+	}
+	f.Close()
+	defer os.Remove(f.Name())
+	out, err := runFuzzBounded(exec.Command("crane", "--platform", "linux/"+runtime.GOARCH, "export", image, f.Name()))
+	if err != nil {
+		return nil, fmt.Errorf("crane export %s: %w: %s", image, err, out)
+	}
+	r, err := os.Open(f.Name())
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	names := map[string]bool{}
+	tr := tar.NewReader(r)
+	for {
+		h, err := tr.Next()
+		if err == io.EOF {
+			return names, nil
+		} else if err != nil {
+			return nil, err
+		}
+		names[path.Clean(h.Name)] = true
+	}
+}
+
+// flatMembershipRows reports, as diff rows, the paths only one of the two flattened
+// filesystems holds.
+func flatMembershipRows(image0, image1 string) ([]string, error) {
+	names0, err := flatNames(image0)
+	if err != nil {
+		return nil, err
+	}
+	names1, err := flatNames(image1)
+	if err != nil {
+		return nil, err
+	}
+	var rows []string
+	for n := range names0 {
+		if !names1[n] {
+			rows = append(rows, fmt.Sprintf("File %s only appears in input 0 of the flattened filesystem", n))
+		}
+	}
+	for n := range names1 {
+		if !names0[n] {
+			rows = append(rows, fmt.Sprintf("File %s only appears in input 1 of the flattened filesystem", n))
+		}
+	}
+	slices.Sort(rows)
+	return rows, nil
 }
 
 // craneLayerDigests returns image's layer digests straight from the registry via crane,

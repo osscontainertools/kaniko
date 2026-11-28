@@ -266,8 +266,12 @@ type classification struct {
 }
 
 func classify(out string, allowlist []knownDivergence) classification {
+	return classifyRows(diffRows(out), allowlist)
+}
+
+func classifyRows(rows []string, allowlist []knownDivergence) classification {
 	c := classification{known: map[string]int{}}
-	for _, row := range diffRows(out) {
+	for _, row := range rows {
 		matched := false
 		for _, kd := range allowlist {
 			if kd.match(row) {
