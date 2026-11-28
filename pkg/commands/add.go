@@ -311,7 +311,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 }
 
 func copyCachedSource(src, dest string, owner *util.Owner, perm os.FileMode, checksum digest.Digest) error {
-	f, err := os.Open(src)
+	f, err := util.FSys.Open(src)
 	if err != nil {
 		return err
 	}
