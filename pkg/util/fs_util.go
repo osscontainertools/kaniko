@@ -396,24 +396,16 @@ func ExtractFile(dest string, hdr *tar.Header, cleanedName string, tr io.Reader)
 }
 
 func ExtractFileWithChown(dest string, hdr *tar.Header, cleanedName string, tr io.Reader, chownOwner *Owner) error {
-	if cleanedName == ".." || strings.HasPrefix(cleanedName, "../") {
-		return fmt.Errorf("tar entry %q is not allowed: references parent directory", hdr.Name)
-	}
-
-	var path string
-	// cg330: SecureJoin the parent only, then append the basename lexically. Joining
-	// the full name would resolve the final component when it is a symlink we
-	// mean to overwrite, writing through it and creating loops like
-	// bin/sh -> dash -> dash.
-	secureDir, err := securejoin.SecureJoin(dest, filepath.Dir(cleanedName))
+	// cg330: resolving the full name would follow the final component when it is a symlink we
+	// mean to overwrite, writing through it and creating loops like bin/sh -> dash -> dash.
+	path, err := confinedEntry(dest, cleanedName)
 	if err != nil {
 		if !errors.Is(err, syscall.ELOOP) {
-			return fmt.Errorf("resolving path for %q: %w", hdr.Name, err)
+			return err
 		}
 		logrus.Warnf("Skipping %q: parent path cannot be securely resolved (symlink loop)", hdr.Name)
 		return nil
 	}
-	path = filepath.Join(secureDir, filepath.Base(cleanedName))
 	base := filepath.Base(path)
 	dir := filepath.Dir(path)
 	mode := hdr.FileInfo().Mode()
