@@ -208,6 +208,7 @@ func AddSharedWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
 	cmd.Flags().StringVarP(&opts.DockerfilePath, "dockerfile", "d", "", "Path to the dockerfile to be cached. The kaniko warmer will parse and write out each stage's base image layers to the cache-dir. Using the same dockerfile path as what you plan to build in the kaniko executor is the expected usage.")
 	cmd.Flags().BoolVarP(&opts.Dryrun, "dryrun", "", false, "Whether to only print the images that would be cached")
 	cmd.Flags().BoolVarP(&opts.RequireDigest, "require-digest", "", false, "Fail if a base image is not pinned by digest")
+	cmd.Flags().BoolVarP(&opts.AddCache, "add-cache", "", true, "Cache remote ADD sources that have a sha256 --checksum in the cache-dir")
 
 	// Default the custom platform flag to our current platform, and validate it.
 	if opts.CustomPlatform == "" {

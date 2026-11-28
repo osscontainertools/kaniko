@@ -32,6 +32,7 @@ type FeatureFlags struct {
 	AddFollowSymlink               bool
 	AddUnpack                      bool
 	AlignHistory                   bool
+	CacheAddSources                bool
 	CacheCopyFrom                  bool
 	CacheHashBlake3                bool
 	CacheImageIndex                bool
@@ -140,6 +141,7 @@ func InitFeatureFlags() {
 		AddFollowSymlink:               featureFlag("FF_KANIKO_ADD_FOLLOW_SYMLINK", false),
 		AddUnpack:                      featureFlag("FF_KANIKO_ADD_UNPACK", true),
 		AlignHistory:                   featureFlag("FF_KANIKO_ALIGN_HISTORY", false),
+		CacheAddSources:                featureFlag("FF_KANIKO_CACHE_ADD_SOURCES", false),
 		CacheCopyFrom:                  featureFlag("FF_KANIKO_CACHE_COPY_FROM", false),
 		CacheHashBlake3:                featureFlag("FF_KANIKO_CACHE_HASH_BLAKE3", true),
 		CacheImageIndex:                featureFlag("FF_KANIKO_CACHE_IMAGE_INDEX", false),

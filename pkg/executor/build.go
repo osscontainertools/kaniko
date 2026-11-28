@@ -46,6 +46,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/opencontainers/go-digest"
+	"github.com/osscontainertools/kaniko/pkg/addcache"
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	"github.com/osscontainertools/kaniko/pkg/buildenv"
 	"github.com/osscontainertools/kaniko/pkg/cache"
@@ -238,8 +240,12 @@ func newStageBuilder(sourceImage v1.Image, args *dockerfile.BuildArgs, opts *con
 		args:            args.Clone(),
 	}
 
+	addCacheDir := ""
+	if opts.Cache {
+		addCacheDir = opts.CacheDir
+	}
 	for _, cmd := range stage.Commands {
-		command, err := commands.GetCommand(cmd, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
+		command, err := commands.GetCommand(cmd, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers, addCacheDir)
 		if err != nil {
 			return nil, err
 		}
@@ -1288,17 +1294,19 @@ func saveLayerToImage(image v1.Image, layer v1.Layer, createdBy string, opts *co
 }
 
 // CalculateDependencies returns per stage the COPY --from source patterns and the bind
-// mount source paths that later stages read from it.
-func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext) (map[int][]string, map[int][]string, map[*instructions.CopyCommand][]string, error) {
+// mount source paths that later stages read from it. In warmer mode it also returns the
+// remote ADD sources.
+func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptions, fileContext util.FileContext) (map[int][]string, map[int][]string, map[*instructions.CopyCommand][]string, []addcache.Source, error) {
 	images := make(map[int]v1.Image)
 	stageArgs := make(map[int]*dockerfile.BuildArgs)
 	depGraph := map[int][]string{}
 	mountDeps := map[int][]string{}
 	copySources := map[*instructions.CopyCommand][]string{}
+	var addSources []addcache.Source
 	baseArgs := dockerfile.NewBuildArgs(opts.BuildArgs)
 	err := baseArgs.InitPredefinedArgs(opts.CustomPlatform, stages[len(stages)-1].Name)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	for _, s := range stages {
 		ba := baseArgs.Clone()
@@ -1315,13 +1323,16 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 			image = image_util.EmptyBaseImage
 		} else {
 			image, err = image_util.RetrieveSourceImage(s, opts)
-			if err != nil {
-				return nil, nil, nil, err
+			if err != nil && opts.WarmerMode {
+				logrus.Warnf("Ignoring config of %s: %v", s.BaseName, err)
+				image = image_util.EmptyBaseImage
+			} else if err != nil {
+				return nil, nil, nil, nil, err
 			}
 		}
 		cfg, err := initializeConfig(image, opts)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 
 		cmds := s.Commands
@@ -1332,14 +1343,33 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 				if opts.RequireAddChecksum {
 					err := commands.RequireAddChecksum(cmd, fileContext, ba.ReplacementEnvs(cfg.Config.Env))
 					if err != nil {
-						return nil, nil, nil, err
+						return nil, nil, nil, nil, err
+					}
+				}
+				if opts.WarmerMode {
+					replacementEnvs := ba.ReplacementEnvs(cfg.Config.Env)
+					srcs, err := util.ResolveEnvironmentReplacementList(cmd.SourcePaths, replacementEnvs, true)
+					if err != nil {
+						return nil, nil, nil, nil, err
+					}
+					var checksum digest.Digest
+					if cmd.Checksum != "" {
+						checksum, err = commands.ResolveChecksum(cmd.Checksum, srcs, replacementEnvs)
+						if err != nil {
+							return nil, nil, nil, nil, err
+						}
+					}
+					for _, src := range srcs {
+						if util.IsSrcRemoteFileURL(src) {
+							addSources = append(addSources, addcache.Source{URL: src, Checksum: checksum})
+						}
 					}
 				}
 			case *instructions.CopyCommand:
 				if cmd.From != "" {
 					resolved, err := util.ResolveEnvironmentReplacementList(cmd.SourcePaths, ba.ReplacementEnvs(cfg.Config.Env), true)
 					if err != nil {
-						return nil, nil, nil, err
+						return nil, nil, nil, nil, err
 					}
 					copySources[cmd] = resolved
 					i, err := strconv.Atoi(cmd.From)
@@ -1355,7 +1385,7 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 						return util.ResolveEnvironmentReplacement(word, replacementEnvs, false)
 					})
 					if err != nil {
-						return nil, nil, nil, err
+						return nil, nil, nil, nil, err
 					}
 					for _, m := range dockerfile.CrossStageMounts(cmd) {
 						i, err := strconv.Atoi(m.From)
@@ -1370,7 +1400,7 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 				}
 			case *instructions.EnvCommand:
 				if err := util.UpdateConfigEnv(cmd.Env, &cfg.Config, ba.ReplacementEnvs(cfg.Config.Env)); err != nil {
-					return nil, nil, nil, err
+					return nil, nil, nil, nil, err
 				}
 				// Match EnvCommand: later ENV values override arguments of the same name.
 				for _, keyVal := range cmd.Env {
@@ -1378,13 +1408,13 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 				}
 				image, err = mutate.Config(image, cfg.Config)
 				if err != nil {
-					return nil, nil, nil, err
+					return nil, nil, nil, nil, err
 				}
 			case *instructions.ArgCommand:
 				for _, arg := range cmd.Args {
 					k, v, err := commands.ParseArg(arg.Key, arg.Value, cfg.Config.Env, ba)
 					if err != nil {
-						return nil, nil, nil, err
+						return nil, nil, nil, nil, err
 					}
 					ba.AddArg(k, v)
 				}
@@ -1401,7 +1431,7 @@ func CalculateDependencies(stages []config.KanikoStage, opts *config.KanikoOptio
 		slices.Sort(mountDeps[i])
 		mountDeps[i] = slices.Compact(mountDeps[i])
 	}
-	return depGraph, mountDeps, copySources, nil
+	return depGraph, mountDeps, copySources, addSources, nil
 }
 
 // for testing
@@ -1498,8 +1528,12 @@ func RenderStages(w io.Writer, stages []config.KanikoStage, cacheInfo []*stageCa
 			}
 		}
 		stageMediaTypes[s.Index] = mediaType
+		addCacheDir := ""
+		if opts.Cache {
+			addCacheDir = opts.CacheDir
+		}
 		for jdx, c := range s.Commands {
-			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
+			command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers, addCacheDir)
 			if err != nil {
 				return err
 			}
@@ -1655,7 +1689,7 @@ func DoBuild(opts *config.KanikoOptions) (out *Output, retErr error) {
 		return nil, err
 	}
 
-	crossStageDependencies, mountDependencies, copySources, err := CalculateDependencies(kanikoStages, opts, fileContext)
+	crossStageDependencies, mountDependencies, copySources, _, err := CalculateDependencies(kanikoStages, opts, fileContext)
 	if err != nil {
 		return nil, err
 	}
@@ -2500,7 +2534,7 @@ func needsUnpack(stages []config.KanikoStage, cacheInfo []*stageCacheInfo, cross
 		default:
 			unpack := false
 			for jdx, c := range s.Commands {
-				command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers)
+				command, err := commands.GetCommand(c, fileContext, opts.Secrets, opts.RunV2, opts.CacheCopyLayers, opts.CacheRunLayers, "")
 				if err != nil {
 					return nil, err
 				}

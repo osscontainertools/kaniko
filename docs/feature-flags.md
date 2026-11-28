@@ -10,6 +10,7 @@ Opting into the Preview profile gives you early access to upcoming performance i
 FF_KANIKO_ADD_CHOWN_TAR=true
 FF_KANIKO_ADD_FOLLOW_SYMLINK=true
 FF_KANIKO_ALIGN_HISTORY=true
+FF_KANIKO_CACHE_ADD_SOURCES=true
 FF_KANIKO_CACHE_COPY_FROM=true
 FF_KANIKO_CACHE_IMAGE_INDEX=true
 FF_KANIKO_COPY_KEEP_DEST_OWNER=true
@@ -82,6 +83,15 @@ Will be deprecated in `v1.30.0`.
 
 On a base image whose history does not match its layers, the image history shows kaniko's build steps against the wrong layers.
 Set this flag to `true` to show each build step against its own layer.
+Defaults to `false`.
+Becomes default in `v1.30.0`.
+
+## Flag `FF_KANIKO_CACHE_ADD_SOURCES`
+
+`ADD --checksum=sha256:<hex> <url>` always downloads the URL during the build, even with a warmed `--cache-dir`.
+Set this flag to `true` on the warmer and the executor to cache these sources in `--cache-dir`.
+The executor reads them only with `--cache=true`.
+The warmer also needs `FF_KANIKO_WARMER_EXECUTOR_PARITY`.
 Defaults to `false`.
 Becomes default in `v1.30.0`.
 

@@ -238,6 +238,7 @@ type WarmerOptions struct {
 	Target         []string
 	Dryrun         bool
 	RequireDigest  bool
+	AddCache       bool
 }
 
 func EnvBool(key string) bool {

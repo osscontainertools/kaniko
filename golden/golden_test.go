@@ -37,6 +37,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	ggcrtypes "github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/opencontainers/go-digest"
 	"github.com/osscontainertools/kaniko/cmd/executor/cmd"
 	warmercmd "github.com/osscontainertools/kaniko/cmd/warmer/cmd"
 	testbake "github.com/osscontainertools/kaniko/golden/testdata/test_bake"
@@ -66,6 +67,7 @@ import (
 	testissuemz989 "github.com/osscontainertools/kaniko/golden/testdata/test_issue_mz989"
 	testunittests "github.com/osscontainertools/kaniko/golden/testdata/test_unittests"
 	testwarmer "github.com/osscontainertools/kaniko/golden/testdata/test_warmer"
+	testwarmeraddcache "github.com/osscontainertools/kaniko/golden/testdata/test_warmer_add_cache"
 	testwarmerbake "github.com/osscontainertools/kaniko/golden/testdata/test_warmer_bake"
 	testwarmerbindmount "github.com/osscontainertools/kaniko/golden/testdata/test_warmer_bindmount"
 	testwarmercopyfrom "github.com/osscontainertools/kaniko/golden/testdata/test_warmer_copyfrom"
@@ -74,6 +76,7 @@ import (
 	testwarmerrunmountbind "github.com/osscontainertools/kaniko/golden/testdata/test_warmer_run_mount_bind"
 	testwarmertarget "github.com/osscontainertools/kaniko/golden/testdata/test_warmer_target"
 	"github.com/osscontainertools/kaniko/golden/types"
+	"github.com/osscontainertools/kaniko/pkg/addcache"
 	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
@@ -446,6 +449,7 @@ func TestBakePrint(t *testing.T) {
 
 var warmerTests = map[string][]types.GoldenTests{
 	"test_warmer":                   {testwarmer.Tests},
+	"test_warmer_add_cache":         testwarmeraddcache.Tests,
 	"test_warmer_no_target":         {testwarmernotarget.Tests},
 	"test_warmer_target":            {testwarmertarget.Tests},
 	"test_warmer_copyfrom":          {testwarmercopyfrom.Tests},
@@ -506,6 +510,7 @@ func fakeWarmerSources(t *testing.T, test types.GoldenTest) {
 	config.InitFeatureFlags()
 
 	origRemote, origLocal := warmer.RemoteSource, warmer.LocalSource
+	origLookup := warmer.AddSourceLookup
 	warmer.RemoteSource = fakeRemoteImage
 	warmer.LocalSource = func(_ *config.CacheOptions, key, _ string) (v1.Image, error) {
 		if !slices.Contains(test.CachedKeys, key) {
@@ -513,7 +518,12 @@ func fakeWarmerSources(t *testing.T, test types.GoldenTest) {
 		}
 		return empty.Image, nil
 	}
-	t.Cleanup(func() { warmer.RemoteSource, warmer.LocalSource = origRemote, origLocal })
+	warmer.AddSourceLookup = func(cacheDir string, checksum digest.Digest) (string, bool, error) {
+		return addcache.Path(cacheDir, checksum), slices.Contains(test.CachedAddKeys, checksum.String()), nil
+	}
+	t.Cleanup(func() {
+		warmer.RemoteSource, warmer.LocalSource, warmer.AddSourceLookup = origRemote, origLocal, origLookup
+	})
 }
 
 func TestWarmer(t *testing.T) {

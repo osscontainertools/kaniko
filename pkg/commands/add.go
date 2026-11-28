@@ -19,12 +19,15 @@ package commands
 import (
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/opencontainers/go-digest"
+	"github.com/osscontainertools/kaniko/pkg/addcache"
 	"github.com/osscontainertools/kaniko/pkg/assert"
 	kConfig "github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
@@ -38,6 +41,7 @@ type AddCommand struct {
 	fileContext   util.FileContext
 	snapshotFiles []string
 	shdCache      bool
+	addCacheDir   string
 }
 
 // ExecuteCommand executes the ADD command
@@ -101,7 +105,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 
 	var checksum digest.Digest
 	if kConfig.FF.AddChecksum && a.cmd.Checksum != "" {
-		checksum, err = resolveChecksum(a.cmd.Checksum, srcs, replacementEnvs)
+		checksum, err = ResolveChecksum(a.cmd.Checksum, srcs, replacementEnvs)
 		if err != nil {
 			return err
 		}
@@ -161,8 +165,24 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				download = urlDest
 			}
 			logrus.Infof("Adding remote URL %s to %s", src, urlDest)
-			if err := util.DownloadFileToDest(src, download, owner, chmod.Apply(0o600), checksum); err != nil {
-				return fmt.Errorf("downloading remote source file: %w", err)
+			cached := false
+			if kConfig.FF.CacheAddSources && a.addCacheDir != "" && checksum != "" && checksum.Algorithm() == digest.SHA256 {
+				cachePath := addcache.Path(a.addCacheDir, checksum)
+				err = copyCachedSource(cachePath, download, owner, chmod.Apply(0o600), checksum)
+				if errors.Is(err, fs.ErrNotExist) {
+					logrus.Debugf("No cached ADD source for %s", src)
+				} else if err != nil {
+					logrus.Warnf("Ignoring cached ADD source %s: %v", src, err)
+				} else {
+					logrus.Infof("Using cached ADD source %s", cachePath)
+					cached = true
+				}
+			}
+			if !cached {
+				err = util.DownloadFileToDest(src, download, owner, chmod.Apply(0o600), checksum)
+				if err != nil {
+					return fmt.Errorf("downloading remote source file: %w", err)
+				}
 			}
 
 			switch {
@@ -290,13 +310,34 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 	return nil
 }
 
+func copyCachedSource(src, dest string, owner *util.Owner, perm os.FileMode, checksum digest.Digest) error {
+	f, err := util.FSys.Open(src)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	digester := digest.Canonical.Digester()
+	if err := util.CreateFile(dest, io.TeeReader(f, digester.Hash()), perm, 0o755, owner); err != nil {
+		return err
+	}
+	got := digester.Digest()
+	if got != checksum {
+		return fmt.Errorf("cached digest mismatch for %s: got %s, want %s", src, got, checksum)
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	return os.Chtimes(dest, fi.ModTime(), fi.ModTime())
+}
+
 func RequireAddChecksum(cmd *instructions.AddCommand, fileContext util.FileContext, replacementEnvs []string) error {
 	srcs, _, err := util.ResolveEnvAndWildcards(cmd.SourcesAndDest, fileContext, replacementEnvs)
 	if err != nil {
 		return err
 	}
 	if cmd.Checksum != "" {
-		_, err := resolveChecksum(cmd.Checksum, srcs, replacementEnvs)
+		_, err := ResolveChecksum(cmd.Checksum, srcs, replacementEnvs)
 		return err
 	}
 	for _, src := range srcs {
@@ -307,7 +348,7 @@ func RequireAddChecksum(cmd *instructions.AddCommand, fileContext util.FileConte
 	return nil
 }
 
-func resolveChecksum(raw string, srcs []string, replacementEnvs []string) (digest.Digest, error) {
+func ResolveChecksum(raw string, srcs []string, replacementEnvs []string) (digest.Digest, error) {
 	if len(srcs) > 1 {
 		return "", errors.New("checksum can't be specified for multiple sources")
 	}

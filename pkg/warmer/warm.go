@@ -18,6 +18,7 @@ package warmer
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -31,24 +32,30 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
+	"github.com/opencontainers/go-digest"
+	"github.com/osscontainertools/kaniko/pkg/addcache"
 	"github.com/osscontainertools/kaniko/pkg/cache"
 	"github.com/osscontainertools/kaniko/pkg/config"
 	"github.com/osscontainertools/kaniko/pkg/constants"
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
+	"github.com/osscontainertools/kaniko/pkg/executor"
 	"github.com/osscontainertools/kaniko/pkg/image/remote"
+	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
 )
 
 // for testing
 var (
-	Out          io.Writer        = os.Stdout
-	RemoteSource FetchRemoteImage = remote.RetrieveRemoteImageAndIndex
-	LocalSource  FetchLocalSource = cache.LocalSource
+	Out             io.Writer        = os.Stdout
+	RemoteSource    FetchRemoteImage = remote.RetrieveRemoteImageAndIndex
+	LocalSource     FetchLocalSource = cache.LocalSource
+	AddSourceLookup                  = addcache.Lookup
 )
 
 // WarmCache populates the cache
 func WarmCache(opts *config.WarmerOptions) error {
 	var dockerfileImages []string
+	var addSources []addcache.Source
 	cacheDir := opts.CacheDir
 	images := opts.Images
 
@@ -66,7 +73,7 @@ func WarmCache(opts *config.WarmerOptions) error {
 		var err error
 		switch {
 		case config.FF.WarmerExecutorParity:
-			dockerfileImages, err = DockerfileImages(opts)
+			dockerfileImages, addSources, err = DockerfileImages(opts)
 		case len(opts.Target) > 0:
 			err = fmt.Errorf("--target requires FF_KANIKO_WARMER_EXECUTOR_PARITY=true")
 		default:
@@ -89,7 +96,7 @@ func WarmCache(opts *config.WarmerOptions) error {
 	logrus.Debugf("%s\n", images)
 
 	if opts.Dryrun || config.EnvBool("KANIKO_PRINT_PLAN") {
-		err := RenderPlan(Out, images, opts)
+		err := RenderPlan(Out, images, addSources, opts)
 		if err != nil {
 			return err
 		}
@@ -106,17 +113,37 @@ func WarmCache(opts *config.WarmerOptions) error {
 		}
 	}
 
-	if len(failed) > 0 {
-		if len(failed) == len(images) || config.FF.WarmerFailOnError {
-			return fmt.Errorf("failed to warm %d/%d image(s): %s", len(failed), len(images), strings.Join(failed, ", "))
+	var addFailed []string
+	for _, source := range addSources {
+		_, err := addcache.Store(cacheDir, source.URL, source.Checksum, opts.Force)
+		if err != nil {
+			logrus.Warnf("Error while trying to cache ADD source: %v %v", source.URL, err)
+			addFailed = append(addFailed, source.URL)
+		} else {
+			logrus.Infof("Cached ADD source: %v", source.URL)
 		}
-		logrus.Warnf("Failed to warm %d/%d image(s): %s", len(failed), len(images), strings.Join(failed, ", "))
 	}
 
-	return nil
+	var errs []error
+	if len(addFailed) > 0 {
+		if len(addFailed) == len(addSources) || config.FF.WarmerFailOnError {
+			errs = append(errs, fmt.Errorf("failed to cache %d/%d ADD source(s): %s", len(addFailed), len(addSources), strings.Join(addFailed, ", ")))
+		} else {
+			logrus.Warnf("Failed to cache %d/%d ADD source(s): %s", len(addFailed), len(addSources), strings.Join(addFailed, ", "))
+		}
+	}
+	if len(failed) > 0 {
+		if len(failed) == len(images) || config.FF.WarmerFailOnError {
+			errs = append(errs, fmt.Errorf("failed to warm %d/%d image(s): %s", len(failed), len(images), strings.Join(failed, ", ")))
+		} else {
+			logrus.Warnf("Failed to warm %d/%d image(s): %s", len(failed), len(images), strings.Join(failed, ", "))
+		}
+	}
+
+	return errors.Join(errs...)
 }
 
-func RenderPlan(w io.Writer, images []string, opts *config.WarmerOptions) (retErr error) {
+func RenderPlan(w io.Writer, images []string, addSources []addcache.Source, opts *config.WarmerOptions) (retErr error) {
 	printf := func(format string, args ...any) {
 		if retErr == nil {
 			_, retErr = fmt.Fprintf(w, format, args...)
@@ -155,6 +182,23 @@ func RenderPlan(w io.Writer, images []string, opts *config.WarmerOptions) (retEr
 			printf("  FETCH %s\n", img)
 			printf("  SAVE %s\n", path.Join(opts.CacheDir, digest.String()))
 		}
+	}
+	for _, source := range addSources {
+		cachePath := addcache.Path(opts.CacheDir, source.Checksum)
+		printf("ADD %s\n", source.URL)
+		if !opts.Force {
+			_, ok, err := AddSourceLookup(opts.CacheDir, source.Checksum)
+			if err != nil {
+				logrus.Warnf("Replacing ADD cache entry for %s: %v", source.URL, err)
+			}
+			if ok {
+				printf("  CACHE HIT: %s\n", cachePath)
+				continue
+			}
+		}
+		printf("  CACHE MISS: %s\n", cachePath)
+		printf("  FETCH %s\n", source.URL)
+		printf("  SAVE %s\n", cachePath)
 	}
 	if len(failed) > 0 {
 		// Without --dryrun the warm that follows reports the failures, after it warmed every image that resolves.
@@ -315,20 +359,20 @@ func (w *OciWarmer) Write(cacheRef name.Reference, img v1.Image) error {
 	return nil
 }
 
-func DockerfileImages(opts *config.WarmerOptions) ([]string, error) {
+func DockerfileImages(opts *config.WarmerOptions) ([]string, []addcache.Source, error) {
 	var predefinedArgs []string
 	var err error
 	if config.FF.FromPredefinedArgs {
 		predefinedArgs, err = dockerfile.PredefinedArgs(opts.CustomPlatform)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	stages, metaArgs, err := dockerfile.ParseStages(opts.DockerfilePath, predefinedArgs, opts.BuildArgs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	kanikoStages, externalImages, err := dockerfile.MakeKanikoStages(&config.KanikoOptions{
+	kanikoOpts := &config.KanikoOptions{
 		RegistryOptions: opts.RegistryOptions,
 		CacheOptions:    opts.CacheOptions,
 		Cache:           true,
@@ -337,9 +381,10 @@ func DockerfileImages(opts *config.WarmerOptions) ([]string, error) {
 		RequireDigest:   opts.RequireDigest,
 		Target:          opts.Target,
 		WarmerMode:      true,
-	}, stages, metaArgs)
+	}
+	kanikoStages, externalImages, err := dockerfile.MakeKanikoStages(kanikoOpts, stages, metaArgs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var images []string
@@ -355,7 +400,22 @@ func DockerfileImages(opts *config.WarmerOptions) ([]string, error) {
 			}
 		}
 	}
-	return images, nil
+
+	var addSources []addcache.Source
+	if config.FF.CacheAddSources && config.FF.AddChecksum && opts.AddCache {
+		_, _, _, sources, err := executor.CalculateDependencies(kanikoStages, kanikoOpts, util.FileContext{})
+		if err != nil {
+			return nil, nil, fmt.Errorf("resolving ADD sources: %w", err)
+		}
+		for _, source := range sources {
+			if source.Checksum == "" || source.Checksum.Algorithm() != digest.SHA256 {
+				logrus.Infof("Not caching ADD source %s without a sha256 --checksum", source.URL)
+			} else if !slices.ContainsFunc(addSources, func(s addcache.Source) bool { return s.Checksum == source.Checksum }) {
+				addSources = append(addSources, source)
+			}
+		}
+	}
+	return images, addSources, nil
 }
 
 func ParseDockerfile(opts *config.WarmerOptions) ([]string, error) {

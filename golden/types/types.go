@@ -20,6 +20,7 @@ type GoldenTest struct {
 	Args             []string
 	Env              map[string]string
 	CachedKeys       []string
+	CachedAddKeys    []string
 	CachedKeysByRepo map[string][]string
 	CacheMediaType   string // docker gzip when empty
 	Plan             string

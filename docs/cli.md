@@ -1,5 +1,12 @@
 # CLI Flags
 
+## Flag `--add-cache`
+
+The warmer caches `ADD --checksum=sha256:<hex> <url>` sources in `--cache-dir`, which fails when the warmer cannot reach those URLs.
+Set this flag to `false` on the warmer to skip them.
+Defaults to `true`.
+Takes effect with `FF_KANIKO_CACHE_ADD_SOURCES` and `FF_KANIKO_WARMER_EXECUTOR_PARITY` until `v1.30.0`.
+
 ## Flag `--build-arg`
 
 This flag allows you to pass in ARG values at build time, similarly to Docker.
