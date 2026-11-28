@@ -5,15 +5,18 @@
 This flag allows you to pass in ARG values at build time, similarly to Docker.
 You can set it multiple times for multiple arguments.
 
-Note that passing values that contain spaces is not natively supported - you
-need to ensure that the IFS is set to null before your executor command. You can
-set this by adding `export IFS=''` before your executor call. See the following
-example
+```bash
+/kaniko/executor --build-arg MY_VAR=value --build-arg "OTHER_VAR=value with spaces" ...
+```
+
+Pass only the name to take the value from the environment variable of the same name.
 
 ```bash
-export IFS=''
-/kaniko/executor --build-arg "MY_VAR='value with spaces'" ...
+export MY_VAR="value with spaces"
+/kaniko/executor --build-arg MY_VAR ...
 ```
+
+Quotes stored inside a variable are not shell syntax. `BUILD_ARGS='--build-arg "MY_VAR=value with spaces"'` followed by `/kaniko/executor $BUILD_ARGS` still splits the value on its spaces. Put the value on the command line, or pass only the name.
 
 ## Flag `--cache`
 
