@@ -37,15 +37,20 @@ type resolvedImage struct {
 	index []byte
 }
 
+type manifestKey struct {
+	image    string
+	platform string
+}
+
 var (
-	manifestCache = make(map[string]resolvedImage)
+	manifestCache = make(map[manifestKey]resolvedImage)
 	GetImage      = getImage
 )
 
 // ResetManifestCache forgets every resolved image, so the next lookup records
 // its mount source again after a mounts.Reset.
 func ResetManifestCache() {
-	manifestCache = make(map[string]resolvedImage)
+	manifestCache = make(map[manifestKey]resolvedImage)
 }
 
 func getImage(ref name.Reference, options ...remote.Option) (v1.Image, []byte, error) {
@@ -75,7 +80,8 @@ func RetrieveRemoteImage(image string, opts config.RegistryOptions, customPlatfo
 func RetrieveRemoteImageAndIndex(image string, opts config.RegistryOptions, customPlatform string) (v1.Image, []byte, error) {
 	logrus.Infof("Retrieving image manifest %s", image)
 
-	cached, ok := manifestCache[image]
+	key := manifestKey{image, customPlatform}
+	cached, ok := manifestCache[key]
 	if ok {
 		logrus.Infof("Returning cached image manifest")
 		return cached.image, cached.index, nil
@@ -118,7 +124,7 @@ func RetrieveRemoteImageAndIndex(image string, opts config.RegistryOptions, cust
 				continue
 			}
 
-			manifestCache[image] = remoteImage
+			manifestCache[key] = remoteImage
 			if config.FF.CrossRepoMount {
 				// a registry-map implies that the original also holds the image,
 				// and we might push there, so record it as a possible mount reference too.
@@ -156,7 +162,7 @@ func RetrieveRemoteImageAndIndex(image string, opts config.RegistryOptions, cust
 
 	var remoteImage resolvedImage
 	if remoteImage, err = util.RetryWithResult(retryFunc, opts.ImageDownloadRetry, 1000); remoteImage.image != nil {
-		manifestCache[image] = remoteImage
+		manifestCache[key] = remoteImage
 		if config.FF.CrossRepoMount {
 			mounts.RecordImage(remoteImage.image, ref.Context())
 		}

@@ -179,7 +179,7 @@ func Test_RetrieveRemoteImage_manifestCache(t *testing.T) {
 		t.Fatal("Expected call to fail because there is no manifest for this image.")
 	}
 
-	manifestCache[nonExistingImageName] = resolvedImage{image: &mockImage{}}
+	manifestCache[manifestKey{nonExistingImageName, ""}] = resolvedImage{image: &mockImage{}}
 
 	if image, err := RetrieveRemoteImage(nonExistingImageName, config.RegistryOptions{}, ""); image == nil || err != nil {
 		t.Fatal("Expected call to succeed because there is a manifest for this image in the cache.")
@@ -208,7 +208,7 @@ func Test_RetrieveRemoteImage_skipFallback(t *testing.T) {
 
 	opts.SkipDefaultRegistryFallback = true
 	// clean cached image
-	manifestCache = make(map[string]resolvedImage)
+	manifestCache = make(map[manifestKey]resolvedImage)
 
 	if _, err := RetrieveRemoteImage(image, opts, ""); err == nil {
 		t.Fatal("Expected call to fail because fallback to default registry is skipped")
@@ -229,7 +229,7 @@ func Test_RetryRetrieveRemoteImageSucceeds(t *testing.T) {
 	}
 
 	// Clean cached image
-	manifestCache = make(map[string]resolvedImage)
+	manifestCache = make(map[manifestKey]resolvedImage)
 
 	if _, err := RetrieveRemoteImage(image, opts, ""); err != nil {
 		t.Fatal("Expected call to succeed because of retry")
@@ -250,7 +250,7 @@ func Test_NoRetryRetrieveRemoteImageFails(t *testing.T) {
 	}
 
 	// Clean cached image
-	manifestCache = make(map[string]resolvedImage)
+	manifestCache = make(map[manifestKey]resolvedImage)
 
 	if _, err := RetrieveRemoteImage(image, opts, ""); err == nil {
 		t.Fatal("Expected call to fail because there is no retry")
