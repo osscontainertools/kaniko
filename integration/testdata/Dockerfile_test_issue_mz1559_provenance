@@ -1,0 +1,4 @@
+# mz1559: provenance lists an image once per platform it was pulled for.
+FROM --platform=linux/s390x busybox:1.38 AS foreign
+FROM busybox:1.38
+COPY --from=foreign /bin/busybox /busybox-s390x
