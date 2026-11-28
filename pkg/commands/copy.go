@@ -52,9 +52,15 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 	if c.cmd.From != "" {
 		c.fileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoInterStageDepsDir, c.cmd.From)}
 	}
-	owner, srcs, dest, err := resolveTransfer(c.cmd, c.fileContext, config, replacementEnvs)
+	owner, err := resolveOwner(c.cmd, config, replacementEnvs)
 	if err != nil {
 		return err
+	}
+
+	// sources from the Copy command are resolved with wildcards {*?[}
+	srcs, dest, err := util.ResolveEnvAndWildcards(c.cmd.SourcesAndDest, c.fileContext, replacementEnvs)
+	if err != nil {
+		return fmt.Errorf("resolving src: %w", err)
 	}
 
 	chmod, useDefaultChmod, err := util.GetChmod(c.cmd.Chmod, replacementEnvs)
@@ -177,7 +183,7 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 	return nil
 }
 
-func resolveTransfer(cmd *instructions.CopyCommand, fileContext util.FileContext, config *v1.Config, replacementEnvs []string) (*util.Owner, []string, string, error) {
+func resolveOwner(cmd *instructions.CopyCommand, config *v1.Config, replacementEnvs []string) (*util.Owner, error) {
 	var owner *util.Owner
 	var err error
 	if cmd.From != "" {
@@ -187,7 +193,7 @@ func resolveTransfer(cmd *instructions.CopyCommand, fileContext util.FileContext
 			owner, err = getUserGroup(cmd.Chown, replacementEnvs)
 		}
 		if err != nil {
-			return nil, nil, "", fmt.Errorf("getting user group from chown: %w", err)
+			return nil, fmt.Errorf("getting user group from chown: %w", err)
 		}
 	} else if kConfig.FF.CopyLink && cmd.Link {
 		chown := cmd.Chown
@@ -199,10 +205,10 @@ func resolveTransfer(cmd *instructions.CopyCommand, fileContext util.FileContext
 		}
 		owner, err = util.GetNumericUserGroup(chown, replacementEnvs)
 		if err != nil && cmd.Chown == "" {
-			return nil, nil, "", fmt.Errorf("--link needs a numeric USER or --chown, got USER %q: %w", config.User, err)
+			return nil, fmt.Errorf("--link needs a numeric USER or --chown, got USER %q: %w", config.User, err)
 		}
 		if err != nil {
-			return nil, nil, "", fmt.Errorf("getting user group from chown: %w", err)
+			return nil, fmt.Errorf("getting user group from chown: %w", err)
 		}
 		if owner == nil {
 			owner = &util.Owner{}
@@ -218,16 +224,10 @@ func resolveTransfer(cmd *instructions.CopyCommand, fileContext util.FileContext
 		}
 		owner, err = getActiveUserGroup(user, cmd.Chown, replacementEnvs)
 		if err != nil {
-			return nil, nil, "", fmt.Errorf("getting user group from chown: %w", err)
+			return nil, fmt.Errorf("getting user group from chown: %w", err)
 		}
 	}
-
-	// sources from the Copy command are resolved with wildcards {*?[}
-	srcs, dest, err := util.ResolveEnvAndWildcards(cmd.SourcesAndDest, fileContext, replacementEnvs)
-	if err != nil {
-		return nil, nil, "", fmt.Errorf("resolving src: %w", err)
-	}
-	return owner, srcs, dest, nil
+	return owner, nil
 }
 
 // FilesToSnapshot should return an empty array if still nil; no files were changed

@@ -56,12 +56,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		return fmt.Errorf("getting permissions from chmod: %w", err)
 	}
 
-	cmd := &instructions.CopyCommand{
-		SourcesAndDest: a.cmd.SourcesAndDest,
-		Chown:          a.cmd.Chown,
-		Link:           a.cmd.Link,
-	}
-	owner, srcs, dest, err := resolveTransfer(cmd, a.fileContext, config, replacementEnvs)
+	owner, err := resolveOwner(&instructions.CopyCommand{Chown: a.cmd.Chown, Link: a.cmd.Link}, config, replacementEnvs)
 	if err != nil {
 		return err
 	}
@@ -69,6 +64,11 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 	var chownOwner *util.Owner
 	if kConfig.FF.AddChownTar && a.cmd.Chown != "" {
 		chownOwner = owner
+	}
+
+	srcs, dest, err := util.ResolveEnvAndWildcards(a.cmd.SourcesAndDest, a.fileContext, replacementEnvs)
+	if err != nil {
+		return err
 	}
 
 	var checksum digest.Digest
