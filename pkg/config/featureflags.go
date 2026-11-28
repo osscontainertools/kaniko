@@ -30,6 +30,7 @@ type FeatureFlags struct {
 	AddChecksum                    bool
 	AddChownTar                    bool
 	AddFollowSymlink               bool
+	AddResolveOnce                 bool
 	AddUnpack                      bool
 	AlignHistory                   bool
 	CacheAddSources                bool
@@ -140,6 +141,7 @@ func InitFeatureFlags() {
 		AddChecksum:                    featureFlag("FF_KANIKO_ADD_CHECKSUM", true),
 		AddChownTar:                    featureFlag("FF_KANIKO_ADD_CHOWN_TAR", false),
 		AddFollowSymlink:               featureFlag("FF_KANIKO_ADD_FOLLOW_SYMLINK", false),
+		AddResolveOnce:                 featureFlag("FF_KANIKO_ADD_RESOLVE_ONCE", false),
 		AddUnpack:                      featureFlag("FF_KANIKO_ADD_UNPACK", true),
 		AlignHistory:                   featureFlag("FF_KANIKO_ALIGN_HISTORY", false),
 		CacheAddSources:                featureFlag("FF_KANIKO_CACHE_ADD_SOURCES", false),

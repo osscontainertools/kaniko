@@ -45,6 +45,8 @@ type CopyCommand struct {
 	fileContext   util.FileContext
 	snapshotFiles []string
 	shdCache      bool
+	// ADD hands over sources it already matched, a second pass would match their names again
+	srcsResolved bool
 }
 
 func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
@@ -57,10 +59,14 @@ func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bu
 		return err
 	}
 
-	// sources from the Copy command are resolved with wildcards {*?[}
-	srcs, dest, err := util.ResolveEnvAndWildcards(c.cmd.SourcesAndDest, c.fileContext, replacementEnvs)
-	if err != nil {
-		return fmt.Errorf("resolving src: %w", err)
+	srcs, dest := c.cmd.SourcePaths, c.cmd.DestPath
+	if !c.srcsResolved {
+		// sources from the Copy command are resolved with wildcards {*?[}
+		resolvedSrcs, resolvedDest, err := util.ResolveEnvAndWildcards(c.cmd.SourcesAndDest, c.fileContext, replacementEnvs)
+		if err != nil {
+			return fmt.Errorf("resolving src: %w", err)
+		}
+		srcs, dest = resolvedSrcs, resolvedDest
 	}
 
 	chmod, useDefaultChmod, err := util.GetChmod(c.cmd.Chmod, replacementEnvs)

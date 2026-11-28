@@ -272,7 +272,8 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 			Chmod:          a.cmd.Chmod,
 			Link:           a.cmd.Link,
 		},
-		fileContext: a.fileContext,
+		fileContext:  a.fileContext,
+		srcsResolved: kConfig.FF.AddResolveOnce,
 	}
 
 	if err := copyCmd.ExecuteCommand(config, buildArgs); err != nil {
