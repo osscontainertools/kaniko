@@ -365,6 +365,14 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		return nil, nil, fmt.Errorf("resolving args: %w", err)
 	}
 	stages = stages[:finalStage+1]
+	var platformArgs []string
+	if config.FF.FromPlatform {
+		predefinedArgs, err := PredefinedArgs(opts.CustomPlatform)
+		if err != nil {
+			return nil, nil, err
+		}
+		platformArgs = append(predefinedArgs, args...)
+	}
 
 	stageByName := StageIndices(stages)
 
@@ -393,6 +401,18 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 		}
 		baseImageIndex := BaseImageIndex(i, stages)
 		baseImageStoredLocally := baseImageIndex != -1
+		platform := opts.CustomPlatform
+		if config.FF.FromPlatform && !baseImageStoredLocally && stage.BaseName != constants.NoBaseImage && stage.Platform != "" {
+			expanded, err := util.ResolveEnvironmentReplacement(stage.Platform, platformArgs, false)
+			if err != nil {
+				return nil, nil, fmt.Errorf("stage %d: resolving platform %s: %w", i, stage.Platform, err)
+			}
+			parsed, err := platforms.Parse(expanded)
+			if err != nil {
+				return nil, nil, fmt.Errorf("stage %d: parsing platform %q: %w", i, expanded, err)
+			}
+			platform = platforms.Format(platforms.Normalize(parsed))
+		}
 
 		var onBuild []string
 		var baseImageDigest string
@@ -407,7 +427,7 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 					return nil, nil, fmt.Errorf("stage %d: --require-digest: %w", i, err)
 				}
 			}
-			onBuild, baseImageDigest, err = GetRemoteOnBuild(stage.BaseName, metaArgs, opts)
+			onBuild, baseImageDigest, err = GetRemoteOnBuild(stage.BaseName, platform, metaArgs, opts)
 			if err != nil && opts.WarmerMode {
 				logrus.Warnf("Ignoring ONBUILD of %s: %v", stage.BaseName, err)
 			} else if err != nil {
@@ -462,10 +482,14 @@ func MakeKanikoStages(opts *config.KanikoOptions, stages []instructions.Stage, m
 			Final:                  i == finalStage,
 			MetaArgs:               metaArgs,
 			Index:                  i,
+			Platform:               platform,
 		}
 	}
 	for i, s := range kanikoStages {
 		if buildTargets[i] || stagesDependencies[i] > 0 || copyDependencies[i] > 0 {
+			if s.BaseImageStoredLocally {
+				kanikoStages[i].Platform = kanikoStages[s.BaseImageIndex].Platform
+			}
 			if s.BaseImageStoredLocally && stagesDependencies[s.BaseImageIndex] == 1 && copyDependencies[s.BaseImageIndex] == 0 {
 				sb := kanikoStages[s.BaseImageIndex]
 				// squash stages[i] into stages[i].BaseName
@@ -548,8 +572,8 @@ func getOnBuild(cmds []instructions.Command) []string {
 	return out
 }
 
-func getRemoteOnBuild(baseName string, metaArgs []instructions.ArgCommand, opts *config.KanikoOptions) ([]string, string, error) {
-	image, err := image_util.RetrieveSourceImageInternal(baseName, false, -1, metaArgs, opts)
+func getRemoteOnBuild(baseName, platform string, metaArgs []instructions.ArgCommand, opts *config.KanikoOptions) ([]string, string, error) {
+	image, err := image_util.RetrieveSourceImageInternal(baseName, platform, false, -1, metaArgs, opts)
 	if err != nil {
 		return nil, "", err
 	}
@@ -591,5 +615,6 @@ func Squash(a, b config.KanikoStage) config.KanikoStage {
 		SaveStage:              b.SaveStage,
 		MetaArgs:               append(a.MetaArgs, b.MetaArgs...),
 		Index:                  b.Index,
+		Platform:               a.Platform,
 	}
 }

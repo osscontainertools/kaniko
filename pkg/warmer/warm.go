@@ -52,20 +52,26 @@ var (
 	AddSourceLookup                  = addcache.Lookup
 )
 
+type WarmImage struct {
+	Ref      string
+	Platform string
+}
+
 // WarmCache populates the cache
 func WarmCache(opts *config.WarmerOptions) error {
-	var dockerfileImages []string
+	var dockerfileImages []WarmImage
 	var addSources []addcache.Source
 	cacheDir := opts.CacheDir
-	images := opts.Images
+	var images []WarmImage
 
-	if opts.RequireDigest {
-		for _, image := range images {
+	for _, image := range opts.Images {
+		if opts.RequireDigest {
 			_, err := name.NewDigest(image)
 			if err != nil {
 				return fmt.Errorf("--require-digest: %w", err)
 			}
 		}
+		images = append(images, WarmImage{Ref: image, Platform: opts.CustomPlatform})
 	}
 
 	// if opts.image is empty,we need to parse dockerfilepath to get images list
@@ -77,14 +83,18 @@ func WarmCache(opts *config.WarmerOptions) error {
 		case len(opts.Target) > 0:
 			err = fmt.Errorf("--target requires FF_KANIKO_WARMER_EXECUTOR_PARITY=true")
 		default:
-			dockerfileImages, err = ParseDockerfile(opts)
+			var baseNames []string
+			baseNames, err = ParseDockerfile(opts)
+			for _, baseName := range baseNames {
+				dockerfileImages = append(dockerfileImages, WarmImage{Ref: baseName, Platform: opts.CustomPlatform})
+			}
 		}
 		if err != nil {
 			return fmt.Errorf("failed to parse Dockerfile: %w", err)
 		}
 	}
 
-	var deduped []string
+	var deduped []WarmImage
 	for _, img := range slices.Concat(images, dockerfileImages) {
 		if !slices.Contains(deduped, img) {
 			deduped = append(deduped, img)
@@ -108,8 +118,8 @@ func WarmCache(opts *config.WarmerOptions) error {
 	var failed []string
 	for _, img := range images {
 		if err := ociWarmToFile(cacheDir, img, opts); err != nil {
-			logrus.Warnf("Error while trying to warm image: %v %v", img, err)
-			failed = append(failed, img)
+			logrus.Warnf("Error while trying to warm image: %v %v", img.Ref, err)
+			failed = append(failed, img.Ref)
 		}
 	}
 
@@ -143,7 +153,7 @@ func WarmCache(opts *config.WarmerOptions) error {
 	return errors.Join(errs...)
 }
 
-func RenderPlan(w io.Writer, images []string, addSources []addcache.Source, opts *config.WarmerOptions) (retErr error) {
+func RenderPlan(w io.Writer, images []WarmImage, addSources []addcache.Source, opts *config.WarmerOptions) (retErr error) {
 	printf := func(format string, args ...any) {
 		if retErr == nil {
 			_, retErr = fmt.Fprintf(w, format, args...)
@@ -156,8 +166,12 @@ func RenderPlan(w io.Writer, images []string, addSources []addcache.Source, opts
 	}
 	var failed []string
 	for _, img := range images {
-		printf("FROM %s\n", img)
-		_, _, index, digest, err := cw.Resolve(img, opts)
+		if img.Platform == opts.CustomPlatform {
+			printf("FROM %s\n", img.Ref)
+		} else {
+			printf("FROM --platform=%s %s\n", img.Platform, img.Ref)
+		}
+		_, _, index, digest, err := cw.Resolve(img.Ref, img.Platform, opts)
 		var indexPath string
 		if config.FF.CacheImageIndex && index != nil {
 			indexDigest, _, _ := v1.SHA256(bytes.NewReader(index))
@@ -170,8 +184,8 @@ func RenderPlan(w io.Writer, images []string, addSources []addcache.Source, opts
 				printf("  SAVE %s\n", indexPath)
 			}
 		case err != nil:
-			logrus.Warnf("Error while trying to warm image: %v %v", img, err)
-			failed = append(failed, img)
+			logrus.Warnf("Error while trying to warm image: %v %v", img.Ref, err)
+			failed = append(failed, img.Ref)
 		default:
 			if !opts.Force {
 				printf("  CACHE MISS: %s\n", digest)
@@ -179,7 +193,7 @@ func RenderPlan(w io.Writer, images []string, addSources []addcache.Source, opts
 			if indexPath != "" {
 				printf("  SAVE %s\n", indexPath)
 			}
-			printf("  FETCH %s\n", img)
+			printf("  FETCH %s\n", img.Ref)
 			printf("  SAVE %s\n", path.Join(opts.CacheDir, digest.String()))
 		}
 	}
@@ -211,7 +225,7 @@ func RenderPlan(w io.Writer, images []string, addSources []addcache.Source, opts
 }
 
 // Download image in temporary files then move files to final destination
-func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
+func ociWarmToFile(cacheDir string, img WarmImage, opts *config.WarmerOptions) error {
 	tmp, err := os.MkdirTemp(cacheDir, "")
 	if err != nil {
 		return err
@@ -224,7 +238,7 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 		TmpDir: tmp,
 	}
 
-	cacheRef, image, index, digest, err := cw.Resolve(img, opts)
+	cacheRef, image, index, digest, err := cw.Resolve(img.Ref, img.Platform, opts)
 	if config.FF.CacheImageIndex && index != nil {
 		storeErr := cache.StoreIndex(cacheDir, index)
 		if storeErr != nil {
@@ -233,7 +247,7 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	}
 	if err != nil {
 		if cache.IsAlreadyCached(err) {
-			logrus.Infof("Image already in cache: %v", img)
+			logrus.Infof("Image already in cache: %v", img.Ref)
 			return nil
 		}
 		return err
@@ -247,9 +261,9 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 	}
 	defer lock.Release()
 
-	_, lookupErr := cw.Local(&opts.CacheOptions, digest.String(), opts.CustomPlatform)
+	_, lookupErr := cw.Local(&opts.CacheOptions, digest.String(), img.Platform)
 	if lookupErr == nil || cache.IsExpired(lookupErr) {
-		logrus.Infof("Image %v became available in cache while waiting for lock; keeping existing copy", img)
+		logrus.Infof("Image %v became available in cache while waiting for lock; keeping existing copy", img.Ref)
 		return nil
 	}
 	_ = os.RemoveAll(finalCachePath)
@@ -263,7 +277,7 @@ func ociWarmToFile(cacheDir, img string, opts *config.WarmerOptions) error {
 		return err
 	}
 
-	logrus.Debugf("Wrote %s to cache", img)
+	logrus.Debugf("Wrote %s to cache", img.Ref)
 	return nil
 }
 
@@ -285,7 +299,7 @@ type OciWarmer struct {
 
 // Resolve fetches the image manifest and resolves its digest, short-circuiting
 // with AlreadyCachedErr if the local cache already holds it.
-func (w *OciWarmer) Resolve(image string, opts *config.WarmerOptions) (name.Reference, v1.Image, []byte, v1.Hash, error) {
+func (w *OciWarmer) Resolve(image, platform string, opts *config.WarmerOptions) (name.Reference, v1.Image, []byte, v1.Hash, error) {
 	cacheRef, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
 		return nil, nil, nil, v1.Hash{}, fmt.Errorf("failed to verify image name: %s: %w", image, err)
@@ -297,7 +311,7 @@ func (w *OciWarmer) Resolve(image string, opts *config.WarmerOptions) (name.Refe
 	if !opts.Force {
 		if d, ok := cacheRef.(name.Digest); ok {
 			cacheKey := d.DigestStr()
-			_, err := w.Local(&opts.CacheOptions, cacheKey, opts.CustomPlatform)
+			_, err := w.Local(&opts.CacheOptions, cacheKey, platform)
 			if err == nil || cache.IsExpired(err) {
 				digest, _ := v1.NewHash(cacheKey)
 				return nil, nil, nil, digest, cache.AlreadyCachedErr{}
@@ -313,7 +327,7 @@ func (w *OciWarmer) Resolve(image string, opts *config.WarmerOptions) (name.Refe
 		}
 	}
 
-	img, index, err := w.Remote(image, opts.RegistryOptions, opts.CustomPlatform)
+	img, index, err := w.Remote(image, opts.RegistryOptions, platform)
 	if err != nil || img == nil {
 		return nil, nil, nil, v1.Hash{}, fmt.Errorf("failed to retrieve image: %s: %w", image, err)
 	}
@@ -332,7 +346,7 @@ func (w *OciWarmer) Resolve(image string, opts *config.WarmerOptions) (name.Refe
 			// so we can short-circuit with the previous error here.
 			err = oldErr
 		} else {
-			_, err = w.Local(&opts.CacheOptions, cacheKey, opts.CustomPlatform)
+			_, err = w.Local(&opts.CacheOptions, cacheKey, platform)
 		}
 		if err == nil || cache.IsExpired(err) {
 			return nil, nil, index, digest, cache.AlreadyCachedErr{}
@@ -359,7 +373,7 @@ func (w *OciWarmer) Write(cacheRef name.Reference, img v1.Image) error {
 	return nil
 }
 
-func DockerfileImages(opts *config.WarmerOptions) ([]string, []addcache.Source, error) {
+func DockerfileImages(opts *config.WarmerOptions) ([]WarmImage, []addcache.Source, error) {
 	var predefinedArgs []string
 	var err error
 	if config.FF.FromPredefinedArgs {
@@ -387,16 +401,18 @@ func DockerfileImages(opts *config.WarmerOptions) ([]string, []addcache.Source, 
 		return nil, nil, err
 	}
 
-	var images []string
+	var images []WarmImage
 	for _, s := range kanikoStages {
-		if s.BaseName != constants.NoBaseImage && !s.BaseImageStoredLocally && !slices.Contains(images, s.BaseName) {
-			images = append(images, s.BaseName)
+		image := WarmImage{Ref: s.BaseName, Platform: s.Platform}
+		if s.BaseName != constants.NoBaseImage && !s.BaseImageStoredLocally && !slices.Contains(images, image) {
+			images = append(images, image)
 		}
 	}
 	if config.FF.CacheCopyFrom {
 		for _, from := range externalImages {
-			if !slices.Contains(images, from) {
-				images = append(images, from)
+			image := WarmImage{Ref: from, Platform: opts.CustomPlatform}
+			if !slices.Contains(images, image) {
+				images = append(images, image)
 			}
 		}
 	}

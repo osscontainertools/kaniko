@@ -33,7 +33,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	ggcrtypes "github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/osscontainertools/kaniko/pkg/provenance"
 	"github.com/osscontainertools/kaniko/pkg/tracing"
@@ -219,6 +221,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_DEPRECATE_LAYERLESS_CACHE_ENTRIES=1",
 	"FF_KANIKO_EXPAND_HEREDOC=1",
 	"FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY=1",
+	"FF_KANIKO_FROM_PLATFORM=1",
 	"FF_KANIKO_FROM_PREDEFINED_ARGS=1",
 	"FF_KANIKO_GLOB_CHAR_PATHS=1",
 	"FF_KANIKO_HASH_DIR_FRAMING=1",
@@ -287,6 +290,7 @@ var WarmerEnv = []string{
 	"FF_KANIKO_CACHE_ADD_SOURCES=1",
 	"FF_KANIKO_CACHE_COPY_FROM=1",
 	"FF_KANIKO_CACHE_IMAGE_INDEX=1",
+	"FF_KANIKO_FROM_PLATFORM=1",
 	"FF_KANIKO_FROM_PREDEFINED_ARGS=1",
 	"FF_KANIKO_RUN_CROSS_STAGE_BIND_MOUNT=1",
 	"FF_KANIKO_WARMER_EXECUTOR_PARITY=1",
@@ -304,6 +308,8 @@ var additionalDockerFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_mz511":          {"--secret=id=netrc,src=context/foo"},
 	"Dockerfile_test_issue_mz1336":         {"--secret=id=foo,env=SECRET"},
 	"Dockerfile_test_cross_compile":        {"--platform=linux/" + crossCompileArch},
+	"Dockerfile_test_issue_mz1559":         {"--platform=linux/" + crossCompileArch},
+	"Dockerfile_test_issue_mz1559_scratch": {"--platform=linux/" + crossCompileArch},
 	"Dockerfile_test_issue_mz849":          dockerV2Flags,
 	"Dockerfile_test_issue_mz849_dockerv2": dockerV2Flags,
 	"Dockerfile_test_issue_mz1066_docker":  dockerV2Flags,
@@ -383,14 +389,16 @@ var additionalKanikoFlagsMap = map[string][]string{
 	"Dockerfile_test_issue_cg188":                {"--secret=id=netrc,env=SECRET"},
 	// mz511: we're using /etc/nsswitch.conf because it pre-exists
 	// in the kaniko image and can therefore safely be deleted.
-	"Dockerfile_test_issue_mz511":   {"--secret=id=netrc,src=/etc/nsswitch.conf", "--target=second,nosquash"},
-	"Dockerfile_test_ignore_path":   {"--ignore-path=/kaniko-extra-file", "--ignore-path=/kaniko-extra-dir"},
-	"Dockerfile_test_cross_compile": {"--custom-platform=linux/" + crossCompileArch},
-	"Dockerfile_test_issue_mz529":   {"--cleanup", "--target=final,nosquash"},
-	"Dockerfile_test_issue_mz595":   {"--cleanup"},
-	"Dockerfile_test_issue_mz661":   {"--secret=id=kaniko,src=/kaniko/executor"},
-	"Dockerfile_test_issue_mz1336":  {"--secret=id=foo,env=SECRET"},
-	"Dockerfile_test_issue_mz992":   {"--dryrun", "--tar-path=/kaniko/dryrun.tar", "--oci-layout-path=/kaniko/dryrun-layout"},
+	"Dockerfile_test_issue_mz511":          {"--secret=id=netrc,src=/etc/nsswitch.conf", "--target=second,nosquash"},
+	"Dockerfile_test_ignore_path":          {"--ignore-path=/kaniko-extra-file", "--ignore-path=/kaniko-extra-dir"},
+	"Dockerfile_test_cross_compile":        {"--custom-platform=linux/" + crossCompileArch},
+	"Dockerfile_test_issue_mz1559":         {"--custom-platform=linux/" + crossCompileArch},
+	"Dockerfile_test_issue_mz1559_scratch": {"--custom-platform=linux/" + crossCompileArch},
+	"Dockerfile_test_issue_mz529":          {"--cleanup", "--target=final,nosquash"},
+	"Dockerfile_test_issue_mz595":          {"--cleanup"},
+	"Dockerfile_test_issue_mz661":          {"--secret=id=kaniko,src=/kaniko/executor"},
+	"Dockerfile_test_issue_mz1336":         {"--secret=id=foo,env=SECRET"},
+	"Dockerfile_test_issue_mz992":          {"--dryrun", "--tar-path=/kaniko/dryrun.tar", "--oci-layout-path=/kaniko/dryrun-layout"},
 	"Dockerfile_test_issue_mz881": {
 		"--registry-certificate=localhost:5000=/mz881/registry-ca.crt",
 		"--registry-certificate=127.0.0.2:5001=/kaniko/ssl/certs/ca-certificates.crt",
@@ -486,8 +494,12 @@ var crossCompileArch = func() string {
 
 // Platform overrides for docker pull and diffoci, keyed by test name.
 var platformMap = map[string]v1.Platform{
-	"TestRun/test_Dockerfile_test_cross_compile":          {OS: "linux", Architecture: crossCompileArch},
-	"TestLayers/test_layer_Dockerfile_test_cross_compile": {OS: "linux", Architecture: crossCompileArch},
+	"TestRun/test_Dockerfile_test_cross_compile":                 {OS: "linux", Architecture: crossCompileArch},
+	"TestLayers/test_layer_Dockerfile_test_cross_compile":        {OS: "linux", Architecture: crossCompileArch},
+	"TestRun/test_Dockerfile_test_issue_mz1559":                  {OS: "linux", Architecture: crossCompileArch},
+	"TestLayers/test_layer_Dockerfile_test_issue_mz1559":         {OS: "linux", Architecture: crossCompileArch},
+	"TestRun/test_Dockerfile_test_issue_mz1559_scratch":          {OS: "linux", Architecture: crossCompileArch},
+	"TestLayers/test_layer_Dockerfile_test_issue_mz1559_scratch": {OS: "linux", Architecture: crossCompileArch},
 }
 
 // Arguments to diffoci when comparing dockerfiles
@@ -659,6 +671,27 @@ var imageChecks = map[string]func(*testing.T, string){
 		// final stage is based on first; if second's LABEL mutated first's shared map the value is "second"
 		if got, want := strings.TrimSpace(string(out)), "first"; got != want {
 			t.Errorf("final stage label 'from': got %q, want %q (shallow-copy corruption from second stage)", got, want)
+		}
+	},
+	"Dockerfile_test_issue_mz1559_scratch": func(t *testing.T, kanikoImage string) {
+		t.Helper()
+		ref, err := name.ParseReference(kanikoImage, name.WeakValidation)
+		if err != nil {
+			t.Errorf("parse %s: %v", kanikoImage, err)
+			return
+		}
+		img, err := remote.Image(ref)
+		if err != nil {
+			t.Errorf("fetch %s: %v", kanikoImage, err)
+			return
+		}
+		cfg, err := img.ConfigFile()
+		if err != nil {
+			t.Errorf("config of %s: %v", kanikoImage, err)
+			return
+		}
+		if cfg.Architecture != crossCompileArch {
+			t.Errorf("architecture: got %q, want %q", cfg.Architecture, crossCompileArch)
 		}
 	},
 }
@@ -941,6 +974,7 @@ func NewDockerFileBuilder() *DockerFileBuilder {
 	d.TestWarmerDockerfiles = map[string]struct{}{
 		"Dockerfile_test_issue_mz320":            {},
 		"Dockerfile_test_issue_mz1212":           {},
+		"Dockerfile_test_issue_mz1559_warmer":    {},
 		"Dockerfile_test_warmer_remote_bind_mnt": {},
 	}
 	d.TestMountDockerfiles = map[string]struct{}{

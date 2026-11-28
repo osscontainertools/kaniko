@@ -592,6 +592,9 @@ func TestRun(t *testing.T) {
 
 			diffoci(t, dockerImage, kanikoImage, "--semantic", "--extra-ignore-file-content")
 			checkAnnotations(t, dockerfile, kanikoImage)
+			if check, ok := imageChecks[dockerfile]; ok {
+				check(t, kanikoImage)
+			}
 		})
 	}
 }
@@ -1584,7 +1587,7 @@ func TestWarmer(t *testing.T) {
 	for dockerfile := range imageBuilder.TestWarmerDockerfiles {
 		t.Run("test_warmer_"+dockerfile, func(t *testing.T) {
 			t.Parallel()
-			if dockerfile == "Dockerfile_test_warmer_remote_bind_mnt" {
+			if dockerfile == "Dockerfile_test_warmer_remote_bind_mnt" || dockerfile == "Dockerfile_test_issue_mz1559_warmer" {
 				dockerfilePath := filepath.Join(buildContextPath, dockerfilesPath, dockerfile)
 				if err := populateDockerfileCache(t, config, dockerfilePath); err != nil {
 					t.Fatal(err)
@@ -2265,30 +2268,34 @@ func TestProvenanceMatchesBuildKit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dockerfile := "Dockerfile_test_issue_mz1230_buildkit"
-	dockerImage := GetDockerImage(config.imageRepo, dockerfile)
-	kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
+	for _, dockerfile := range []string{"Dockerfile_test_issue_mz1230_buildkit", "Dockerfile_test_issue_mz1559_provenance"} {
+		t.Run(dockerfile, func(t *testing.T) {
+			t.Parallel()
+			dockerImage := GetDockerImage(config.imageRepo, dockerfile)
+			kanikoImage := GetKanikoImage(config.imageRepo, dockerfile)
 
-	RunCommand(exec.Command("docker", "build", "--provenance=mode=min,version=v1", "-f", filepath.Join(testdata, dockerfile), "-t", dockerImage, testdata), t)
-	RunCommand(exec.Command("docker", "push", dockerImage), t)
+			RunCommand(exec.Command("docker", "build", "--provenance=mode=min,version=v1", "-f", filepath.Join(testdata, dockerfile), "-t", dockerImage, testdata), t)
+			RunCommand(exec.Command("docker", "push", dockerImage), t)
 
-	flags := []string{"run", "--rm", "--net=host", "-v", testdata + ":/workspace:ro"}
-	flags = addKanikoEnvFlags(flags, t.Name())
-	flags = addAuthFlags(flags)
-	flags = append(flags, ExecutorImage, "-f", "/workspace/"+dockerfile, "-c", "/workspace", "-d", kanikoImage, "--provenance")
-	RunCommand(exec.Command("docker", flags...), t)
+			flags := []string{"run", "--rm", "--net=host", "-v", testdata + ":/workspace:ro"}
+			flags = addKanikoEnvFlags(flags, t.Name())
+			flags = addAuthFlags(flags)
+			flags = append(flags, ExecutorImage, "-f", "/workspace/"+dockerfile, "-c", "/workspace", "-d", kanikoImage, "--provenance")
+			RunCommand(exec.Command("docker", flags...), t)
 
-	images := func(image string) []provenance.ResourceDescriptor {
-		_, statement := readAttestation(t, image)
-		var out []provenance.ResourceDescriptor
-		for _, dep := range statement.Predicate.BuildDefinition.ResolvedDependencies {
-			if strings.HasPrefix(dep.URI, "pkg:docker/") {
-				out = append(out, dep)
+			images := func(image string) []provenance.ResourceDescriptor {
+				_, statement := readAttestation(t, image)
+				var out []provenance.ResourceDescriptor
+				for _, dep := range statement.Predicate.BuildDefinition.ResolvedDependencies {
+					if strings.HasPrefix(dep.URI, "pkg:docker/") {
+						out = append(out, dep)
+					}
+				}
+				return out
 			}
-		}
-		return out
+			testutil.CheckDeepEqual(t, images(dockerImage), images(kanikoImage))
+		})
 	}
-	testutil.CheckDeepEqual(t, images(dockerImage), images(kanikoImage))
 }
 
 func TestPushFromArtifact(t *testing.T) {

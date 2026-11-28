@@ -1,0 +1,5 @@
+# mz1559: the warmer fetches the base image of a FROM --platform stage for that platform.
+FROM --platform=linux/s390x debian:13.7@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308 AS foreign
+
+FROM debian:13.7@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308
+COPY --from=foreign /etc/issue /issue

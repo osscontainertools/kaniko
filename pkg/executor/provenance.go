@@ -18,6 +18,7 @@ package executor
 
 import (
 	"bytes"
+	"cmp"
 	"maps"
 	"os"
 	"path/filepath"
@@ -39,9 +40,15 @@ func provenanceStatement(image v1.Image, opts *config.KanikoOptions, stages []co
 	if err != nil {
 		return provenance.Statement{}, err
 	}
+	pushPlatform := opts.CustomPlatform
+	for _, s := range stages {
+		if s.Push {
+			pushPlatform = s.Platform
+		}
+	}
 	subject := []provenance.ResourceDescriptor{}
 	for _, destination := range opts.Destinations {
-		purl, err := provenance.PURL(destination, opts.CustomPlatform)
+		purl, err := provenance.PURL(destination, pushPlatform)
 		if err != nil {
 			return provenance.Statement{}, err
 		}
@@ -51,13 +58,16 @@ func provenanceStatement(image v1.Image, opts *config.KanikoOptions, stages []co
 		subject = append(subject, provenance.ResourceDescriptor{Digest: provenance.Digest(digest.String())})
 	}
 
-	images := map[string]string{}
+	type platformImage struct{ image, platform string }
+	images := map[platformImage]string{}
 	for _, s := range stages {
 		if !s.BaseImageStoredLocally && s.BaseName != constants.NoBaseImage {
-			images[s.BaseName] = s.BaseImageDigest
+			images[platformImage{s.BaseName, s.Platform}] = s.BaseImageDigest
 		}
 	}
-	maps.Copy(images, externalImageDigests)
+	for image, digest := range externalImageDigests {
+		images[platformImage{image, opts.CustomPlatform}] = digest
+	}
 	dependencies := []provenance.ResourceDescriptor{}
 	src := opts.ContextSource
 	if src.URL != "" && src.Revision != "" {
@@ -67,18 +77,21 @@ func provenanceStatement(image v1.Image, opts *config.KanikoOptions, stages []co
 		}
 		dependencies = append(dependencies, provenance.ResourceDescriptor{URI: uri, Digest: map[string]string{"gitCommit": src.Revision}})
 	}
-	for _, image := range slices.Sorted(maps.Keys(images)) {
-		purl, err := provenance.PURL(image, opts.CustomPlatform)
+	keys := slices.SortedFunc(maps.Keys(images), func(a, b platformImage) int {
+		return cmp.Or(strings.Compare(a.image, b.image), strings.Compare(a.platform, b.platform))
+	})
+	for _, key := range keys {
+		purl, err := provenance.PURL(key.image, key.platform)
 		if err != nil {
 			return provenance.Statement{}, err
 		}
 		// the digest the reference resolved to, the index of a multi-platform image
-		digest := images[image]
-		_, pinned, isPinned := strings.Cut(image, "@")
+		digest := images[key]
+		_, pinned, isPinned := strings.Cut(key.image, "@")
 		if isPinned {
 			digest = pinned
 		} else {
-			_, index, err := remote.RetrieveRemoteImageAndIndex(image, opts.RegistryOptions, opts.CustomPlatform)
+			_, index, err := remote.RetrieveRemoteImageAndIndex(key.image, opts.RegistryOptions, key.platform)
 			if err != nil {
 				return provenance.Statement{}, err
 			}

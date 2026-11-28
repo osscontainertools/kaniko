@@ -1,0 +1,4 @@
+# mz1559: FROM --platform has no effect on scratch, as in BuildKit.
+# The stage keeps the target platform, so the image config names --custom-platform, not $BUILDPLATFORM.
+FROM --platform=$BUILDPLATFORM scratch
+COPY context/foo /foo

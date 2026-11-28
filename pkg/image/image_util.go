@@ -55,10 +55,10 @@ var (
 
 // RetrieveSourceImage returns the base image of the stage at index
 func RetrieveSourceImage(stage config.KanikoStage, opts *config.KanikoOptions) (v1.Image, error) {
-	return RetrieveSourceImageInternal(stage.BaseName, stage.BaseImageStoredLocally, stage.BaseImageIndex, stage.MetaArgs, opts)
+	return RetrieveSourceImageInternal(stage.BaseName, stage.Platform, stage.BaseImageStoredLocally, stage.BaseImageIndex, stage.MetaArgs, opts)
 }
 
-func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, baseImageIndex int, metaArgs []instructions.ArgCommand, opts *config.KanikoOptions) (v1.Image, error) {
+func RetrieveSourceImageInternal(baseName, platform string, baseImageStoredLocally bool, baseImageIndex int, metaArgs []instructions.ArgCommand, opts *config.KanikoOptions) (v1.Image, error) {
 	var buildArgs []string
 
 	for _, marg := range metaArgs {
@@ -85,7 +85,7 @@ func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, b
 	// Finally, check if local caching is enabled
 	// If so, look in the local cache before trying the remote registry
 	if opts.Cache && opts.CacheDir != "" {
-		cachedImage, err := cachedImage(opts, currentBaseName)
+		cachedImage, err := cachedImage(opts, currentBaseName, platform)
 		if err != nil {
 			switch {
 			case cache.IsNotFound(err):
@@ -101,7 +101,7 @@ func RetrieveSourceImageInternal(baseName string, baseImageStoredLocally bool, b
 	}
 
 	// Otherwise, initialize image as usual
-	return RetrieveRemoteImage(currentBaseName, opts.RegistryOptions, opts.CustomPlatform)
+	return RetrieveRemoteImage(currentBaseName, opts.RegistryOptions, platform)
 }
 
 func ociImage(index int) (v1.Image, error) {
@@ -138,7 +138,7 @@ func ociImage(index int) (v1.Image, error) {
 	return img, nil
 }
 
-func cachedImage(opts *config.KanikoOptions, image string) (v1.Image, error) {
+func cachedImage(opts *config.KanikoOptions, image, platform string) (v1.Image, error) {
 	ref, err := name.ParseReference(image, name.WeakValidation)
 	if err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func cachedImage(opts *config.KanikoOptions, image string) (v1.Image, error) {
 	var oldErr error
 	if d, ok := ref.(name.Digest); ok {
 		cacheKey := d.DigestStr()
-		img, err := cache.LocalSource(&opts.CacheOptions, cacheKey, opts.CustomPlatform)
+		img, err := cache.LocalSource(&opts.CacheOptions, cacheKey, platform)
 		if err == nil {
 			return img, nil
 		} else if cache.IsNotFound(err) {
@@ -164,7 +164,7 @@ func cachedImage(opts *config.KanikoOptions, image string) (v1.Image, error) {
 			return nil, err
 		}
 	}
-	img, err := remote.RetrieveRemoteImage(image, opts.RegistryOptions, opts.CustomPlatform)
+	img, err := remote.RetrieveRemoteImage(image, opts.RegistryOptions, platform)
 	if err != nil {
 		return nil, err
 	}
@@ -180,5 +180,5 @@ func cachedImage(opts *config.KanikoOptions, image string) (v1.Image, error) {
 		// so we can short-circuit with the previous error here.
 		return nil, oldErr
 	}
-	return cache.LocalSource(&opts.CacheOptions, cacheKey, opts.CustomPlatform)
+	return cache.LocalSource(&opts.CacheOptions, cacheKey, platform)
 }

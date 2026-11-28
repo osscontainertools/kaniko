@@ -1,0 +1,13 @@
+# mz1559: FROM --platform sets the platform of that stage's base image.
+# Through kaniko v1.29.x the flag is ignored and every base image is pulled for --custom-platform.
+# The build runs for a foreign --custom-platform. The build stages run natively on $BUILDPLATFORM.
+# inherit builds on build, so it inherits its platform and is squashed into it.
+FROM --platform=$BUILDPLATFORM alpine AS build
+ARG BUILDPLATFORM TARGETPLATFORM
+RUN echo "$BUILDPLATFORM $TARGETPLATFORM" > /platforms
+
+FROM build AS inherit
+RUN cp /bin/busybox /busybox-build
+
+FROM alpine
+COPY --from=inherit /platforms /busybox-build /

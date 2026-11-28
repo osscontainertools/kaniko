@@ -53,6 +53,7 @@ type FeatureFlags struct {
 	DisableHTTP2                   bool
 	ExpandHeredoc                  bool
 	FormatIndependentCacheKey      bool
+	FromPlatform                   bool
 	FromPredefinedArgs             bool
 	GlobCharPaths                  bool
 	HashDirFraming                 bool
@@ -163,6 +164,7 @@ func InitFeatureFlags() {
 		DisableHTTP2:                   featureFlag("FF_KANIKO_DISABLE_HTTP2", false),
 		ExpandHeredoc:                  featureFlag("FF_KANIKO_EXPAND_HEREDOC", true),
 		FormatIndependentCacheKey:      featureFlag("FF_KANIKO_FORMAT_INDEPENDENT_CACHE_KEY", false),
+		FromPlatform:                   featureFlag("FF_KANIKO_FROM_PLATFORM", false),
 		FromPredefinedArgs:             featureFlag("FF_KANIKO_FROM_PREDEFINED_ARGS", false),
 		GlobCharPaths:                  featureFlag("FF_KANIKO_GLOB_CHAR_PATHS", false),
 		HashDirFraming:                 featureFlag("FF_KANIKO_HASH_DIR_FRAMING", true),
