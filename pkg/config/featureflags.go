@@ -56,6 +56,7 @@ type FeatureFlags struct {
 	FromPredefinedArgs             bool
 	GlobCharPaths                  bool
 	HashDirFraming                 bool
+	IgnoreCacheDir                 bool
 	ImageStages                    bool
 	InferCrossStageCacheKey        bool
 	IsolateCachePush               bool
@@ -166,6 +167,7 @@ func InitFeatureFlags() {
 		FromPredefinedArgs:             featureFlag("FF_KANIKO_FROM_PREDEFINED_ARGS", false),
 		GlobCharPaths:                  featureFlag("FF_KANIKO_GLOB_CHAR_PATHS", false),
 		HashDirFraming:                 featureFlag("FF_KANIKO_HASH_DIR_FRAMING", true),
+		IgnoreCacheDir:                 featureFlag("FF_KANIKO_IGNORE_CACHE_DIR", false),
 		ImageStages:                    featureFlag("FF_KANIKO_IMAGE_STAGES", true),
 		InferCrossStageCacheKey:        featureFlag("FF_KANIKO_INFER_CROSS_STAGE_CACHE_KEY", true),
 		IsolateCachePush:               featureFlag("FF_KANIKO_ISOLATE_CACHE_PUSH", false),

@@ -3303,6 +3303,57 @@ func TestWarmerBake(t *testing.T) {
 	}
 }
 
+func TestIgnoreCacheDir(t *testing.T) {
+	t.Parallel()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctxDir := filepath.Join(cwd, "testdata", "test_ignore_cache_dir")
+	cacheDir := t.TempDir()
+
+	warmFlags := []string{"run", "--rm", "--net=host", "-u", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid())}
+	warmFlags = addAuthFlags(warmFlags)
+	warmFlags = addCoverageFlags(warmFlags)
+	for _, envVariable := range WarmerEnv {
+		warmFlags = append(warmFlags, "-e", envVariable)
+	}
+	warmFlags = append(warmFlags, "-v", ctxDir+":/workspace", "-v", cacheDir+":/cache", WarmerImage,
+		"--cache-dir=/cache", "--dockerfile=/workspace/Dockerfile")
+	out, err := RunCommandWithoutTest(exec.Command("docker", warmFlags...))
+	t.Logf("warmer output:\n%s", out)
+	if err != nil {
+		t.Fatalf("warmer failed: %v", err)
+	}
+
+	createFlags := []string{"create", "--network=none", "-v", ctxDir + ":/workspace"}
+	createFlags = addCoverageFlags(createFlags)
+	createFlags = addKanikoEnvFlags(createFlags, t.Name())
+	createFlags = append(createFlags, ExecutorImage,
+		"--dockerfile=/workspace/Dockerfile", "--context=/workspace",
+		"--destination="+GetKanikoImage(config.imageRepo, "test_ignore_cache_dir"), "--no-push",
+		"--cache=true", "--no-push-cache", "--cache-dir=/plain-cache")
+	out, err = RunCommandWithoutTest(exec.Command("docker", createFlags...))
+	if err != nil {
+		t.Fatalf("creating executor container failed: %v\n%s", err, out)
+	}
+	id := strings.TrimSpace(string(out))
+	t.Cleanup(func() { _, _ = RunCommandWithoutTest(exec.Command("docker", "rm", "-f", id)) })
+
+	// docker cp instead of -v: the cache dir has to be a plain directory, not a mount.
+	out, err = RunCommandWithoutTest(exec.Command("docker", "cp", cacheDir+"/.", id+":/plain-cache"))
+	if err != nil {
+		t.Fatalf("copying the cache into the executor container failed: %v\n%s", err, out)
+	}
+
+	// Without a network, the second stage's base image can only come from the cache.
+	out, err = RunCommandWithoutTest(exec.Command("docker", "start", "-a", id))
+	t.Logf("executor output:\n%s", out)
+	if err != nil {
+		t.Fatalf("executor failed: %v", err)
+	}
+}
+
 func TestWarmerBakeFailLate(t *testing.T) {
 	t.Parallel()
 	cwd, err := os.Getwd()
