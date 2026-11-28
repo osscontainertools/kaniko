@@ -123,7 +123,7 @@ func setupBuild() error {
 		}
 	}
 
-	dockerfile.ResolveEnvironmentBuildArgs(opts.BuildArgs, os.Getenv)
+	opts.BuildArgs = dockerfile.ResolveEnvironmentBuildArgs(opts.BuildArgs)
 	// Update ignored paths
 	if opts.IgnoreVarRun {
 		// /var/run is a special case. It's common to mount in /var/run/docker.sock

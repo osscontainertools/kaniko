@@ -19,10 +19,12 @@ package dockerfile
 import (
 	"fmt"
 	"maps"
+	"os"
 	"strings"
 
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
 	"github.com/osscontainertools/kaniko/pkg/assert"
+	"github.com/osscontainertools/kaniko/pkg/config"
 )
 
 // builtinAllowedBuildArgs is list of built-in allowed build args
@@ -198,15 +200,21 @@ func convertKVStringsToMap(values []string) map[string]*string {
 	return result
 }
 
-// ResolveEnvironmentBuildArgs replace build args without value by the same named environment variable
-func ResolveEnvironmentBuildArgs(arguments []string, resolver func(string) string) {
-	for index, argument := range arguments {
-		found := strings.Contains(argument, "=")
-		if !found {
-			value := resolver(argument)
-			arguments[index] = fmt.Sprintf("%s=%s", argument, value)
+// ResolveEnvironmentBuildArgs replaces build args without a value with the same-named
+// environment variable.
+func ResolveEnvironmentBuildArgs(arguments []string) []string {
+	resolved := make([]string, 0, len(arguments))
+	for _, argument := range arguments {
+		if strings.Contains(argument, "=") {
+			resolved = append(resolved, argument)
+		} else {
+			value, ok := os.LookupEnv(argument)
+			if ok || !config.FF.SkipUnsetBuildArgs {
+				resolved = append(resolved, fmt.Sprintf("%s=%s", argument, value))
+			}
 		}
 	}
+	return resolved
 }
 
 // Initialize predefined build args s.a.: TARGETOS, TARGETARCH, BUILDPLATFORM, TARGETPLATFORM ...

@@ -91,6 +91,7 @@ type FeatureFlags struct {
 	SharedBaseCache                bool
 	SkipCachedStages               bool
 	SkipRelabelRecompress          bool
+	SkipUnsetBuildArgs             bool
 	SkipWriteWhiteouts             bool
 	SnapshotTrackCachedLayers      bool
 	UnpackXz                       bool
@@ -200,6 +201,7 @@ func InitFeatureFlags() {
 		SharedBaseCache:                featureFlag("FF_KANIKO_SHARED_BASE_CACHE", true),
 		SkipCachedStages:               featureFlag("FF_KANIKO_SKIP_CACHED_STAGES", true),
 		SkipRelabelRecompress:          featureFlag("FF_KANIKO_SKIP_RELABEL_RECOMPRESS", true),
+		SkipUnsetBuildArgs:             featureFlag("FF_KANIKO_SKIP_UNSET_BUILD_ARGS", false),
 		SkipWriteWhiteouts:             featureFlag("FF_KANIKO_SKIP_WRITE_WHITEOUTS", true),
 		SnapshotTrackCachedLayers:      featureFlag("FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS", false),
 		UnpackXz:                       featureFlag("FF_KANIKO_UNPACK_XZ", false),

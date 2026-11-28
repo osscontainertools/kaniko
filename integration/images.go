@@ -167,6 +167,7 @@ var argsMap = map[string][]string{
 	},
 	"Dockerfile_test_issue_mz1375_arg_fail":       {"URL=https://github.com/GoogleCloudPlatform/docker-credential-gcr/releases/download/v1.4.3/docker-credential-gcr_linux_386-1.4.3.tar.gz"},
 	"Dockerfile_test_issue_mz1375_empty_arg_fail": {"SHA="},
+	"Dockerfile_test_issue_mz1548":                {"UNSET_ARG", "EMPTY_ENV_ARG", "SET_ENV_ARG", "EXPLICIT_EMPTY="},
 }
 
 var argsMapVersion1 = map[string][]string{
@@ -180,6 +181,7 @@ var envsMap = map[string][]string{
 	"Dockerfile_test_issue_519":    {"DOCKER_BUILDKIT=0"},
 	"Dockerfile_test_issue_cg188":  {"SECRET=blubb"},
 	"Dockerfile_test_issue_mz1336": {"SECRET=blubb"},
+	"Dockerfile_test_issue_mz1548": {"EMPTY_ENV_ARG=", "SET_ENV_ARG=from_env"},
 	"Dockerfile_test_issue_mz334":  {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
 	"Dockerfile_test_issue_mz960":  {"FF_KANIKO_SKIP_CACHED_STAGES=1"},
 	"Dockerfile_test_issue_mz473":  {"KANIKO_DIR=/kaniko2"},
@@ -252,6 +254,7 @@ var KanikoEnv = []string{
 	"FF_KANIKO_SCOPED_DOCKERIGNORE=1",
 	"FF_KANIKO_SHARED_BASE_CACHE=1",
 	"FF_KANIKO_SKIP_RELABEL_RECOMPRESS=1",
+	"FF_KANIKO_SKIP_UNSET_BUILD_ARGS=1",
 	"FF_KANIKO_SKIP_WRITE_WHITEOUTS=1",
 	"FF_KANIKO_SNAPSHOT_TRACK_CACHED_LAYERS=1",
 	"FF_KANIKO_UNPACK_XZ=1",
@@ -521,6 +524,8 @@ var diffArgsMap = map[string][]string{
 	"TestRun/test_Dockerfile_test_issue_mz155": {"--semantic=false", "--ignore-history", "--ignore-file-meta-format", "--ignore-file-atime", "--ignore-file-ctime", "--extra-ignore-files=tmp/"},
 	// We enforce predefined ARGs are identical by dumping them to a file
 	"TestRun/test_Dockerfile_test_pre_defined_build_args": {"--extra-ignore-file-content=false"},
+	// mz1548: the resolved ARG values are dumped to /out
+	"TestRun/test_Dockerfile_test_issue_mz1548": {"--extra-ignore-file-content=false"},
 	// mz511: We delete the builtin file /etc/nsswitch.conf to verify that secrets are persisted
 	// But we discovered a new issue with this. For builtins, buildkit will emit "whiteout" files,
 	// to remember that it was removed, we don't. So we end up with a diff in the resulting image.
