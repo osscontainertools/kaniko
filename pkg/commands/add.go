@@ -51,13 +51,17 @@ type AddCommand struct {
 func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 
+	chmod, _, err := util.GetChmod(a.cmd.Chmod, replacementEnvs)
+	if err != nil {
+		return fmt.Errorf("getting permissions from chmod: %w", err)
+	}
+
 	cmd := &instructions.CopyCommand{
 		SourcesAndDest: a.cmd.SourcesAndDest,
 		Chown:          a.cmd.Chown,
-		Chmod:          a.cmd.Chmod,
 		Link:           a.cmd.Link,
 	}
-	owner, chmod, _, srcs, dest, err := resolveTransfer(cmd, a.fileContext, config, replacementEnvs)
+	owner, srcs, dest, err := resolveTransfer(cmd, a.fileContext, config, replacementEnvs)
 	if err != nil {
 		return err
 	}
