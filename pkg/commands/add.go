@@ -51,21 +51,25 @@ type AddCommand struct {
 func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
 
-	// Resolve transfer options (owner, chmod, srcs, dest, cwd)
-	opts, err := resolveTransferOptions("ADD", a.cmd.SourcesAndDest, a.cmd.Chown,
-		a.cmd.Chmod, a.cmd.Link, "", a.fileContext, config, replacementEnvs)
+	cmd := &instructions.CopyCommand{
+		SourcesAndDest: a.cmd.SourcesAndDest,
+		Chown:          a.cmd.Chown,
+		Chmod:          a.cmd.Chmod,
+		Link:           a.cmd.Link,
+	}
+	owner, chmod, _, srcs, dest, err := resolveTransfer(cmd, a.fileContext, config, replacementEnvs)
 	if err != nil {
 		return err
 	}
 
 	var chownOwner *util.Owner
 	if kConfig.FF.AddChownTar && a.cmd.Chown != "" {
-		chownOwner = opts.owner
+		chownOwner = owner
 	}
 
 	var checksum digest.Digest
 	if kConfig.FF.AddChecksum && a.cmd.Checksum != "" {
-		checksum, err = resolveChecksum(a.cmd.Checksum, opts.srcs, replacementEnvs)
+		checksum, err = resolveChecksum(a.cmd.Checksum, srcs, replacementEnvs)
 		if err != nil {
 			return err
 		}
@@ -88,19 +92,24 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		defer os.RemoveAll(staging)
 	}
 
+	cwd := config.WorkingDir
+	if !filepath.IsAbs(cwd) {
+		cwd = filepath.Join(kConfig.RootDir, cwd)
+	}
+
 	var unresolvedSrcs []string
 	// If any of the sources are local tar archives:
 	// 	1. Unpack them to the specified destination
 	// If any of the sources is a remote file URL:
 	//	1. Download and copy it to the specified dest
 	// Else, add to the list of unresolved sources
-	for _, src := range opts.srcs {
-		fullPath := filepath.Join(opts.fileContext.Root, src)
+	for _, src := range srcs {
+		fullPath := filepath.Join(a.fileContext.Root, src)
 		if checksum != "" && !util.IsSrcRemoteFileURL(src) {
 			return fmt.Errorf("checksum requires HTTP(S) sources, got %s", src)
 		}
 		if util.IsSrcRemoteFileURL(src) {
-			urlDest, err := util.URLDestinationFilepath(src, opts.dest, opts.cwd, replacementEnvs)
+			urlDest, err := util.URLDestinationFilepath(src, dest, cwd, replacementEnvs)
 			if err != nil {
 				return err
 			}
@@ -120,7 +129,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				download = urlDest
 			}
 			logrus.Infof("Adding remote URL %s to %s", src, urlDest)
-			if err := util.DownloadFileToDest(src, download, opts.owner, opts.chmod.Apply(0o600), checksum); err != nil {
+			if err := util.DownloadFileToDest(src, download, owner, chmod.Apply(0o600), checksum); err != nil {
 				return fmt.Errorf("downloading remote source file: %w", err)
 			}
 
@@ -128,7 +137,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 			case !unpackRemote:
 				a.snapshotFiles = append(a.snapshotFiles, urlDest)
 			case util.IsFileTarArchive(download):
-				tarDest, err := util.DestinationFilepath("", opts.dest, opts.cwd)
+				tarDest, err := util.DestinationFilepath("", dest, cwd)
 				if err != nil {
 					return fmt.Errorf("determining dest for tar: %w", err)
 				}
@@ -169,8 +178,8 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 				_, err := os.Lstat(parent)
 				if os.IsNotExist(err) {
 					dirOwner := util.Owner{}
-					if opts.owner != nil {
-						dirOwner = *opts.owner
+					if owner != nil {
+						dirOwner = *owner
 					}
 					if err := util.MkdirAllWithPermissions(parent, 0o755, dirOwner, false); err != nil {
 						return err
@@ -194,7 +203,7 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 					return err
 				}
 			}
-			tarDest, err := util.DestinationFilepath("", opts.dest, opts.cwd)
+			tarDest, err := util.DestinationFilepath("", dest, cwd)
 			if err != nil {
 				return fmt.Errorf("determining dest for tar: %w", err)
 			}
@@ -232,11 +241,9 @@ func (a *AddCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.Bui
 		return nil
 	}
 
-	copyOpts := *opts
-	copyOpts.srcs = unresolvedSrcs
 	copyCmd := CopyCommand{
 		cmd: &instructions.CopyCommand{
-			SourcesAndDest: instructions.SourcesAndDest{SourcePaths: unresolvedSrcs, DestPath: a.cmd.DestPath, SourceContents: heredocs},
+			SourcesAndDest: instructions.SourcesAndDest{SourcePaths: unresolvedSrcs, DestPath: dest, SourceContents: heredocs},
 			Chown:          a.cmd.Chown,
 			Chmod:          a.cmd.Chmod,
 			Link:           a.cmd.Link,

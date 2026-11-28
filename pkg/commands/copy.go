@@ -31,6 +31,13 @@ import (
 	"github.com/osscontainertools/kaniko/pkg/dockerfile"
 	"github.com/osscontainertools/kaniko/pkg/util"
 	"github.com/sirupsen/logrus"
+	mode "github.com/tonistiigi/dchapes-mode"
+)
+
+// for testing
+var (
+	getUserGroup       = util.GetUserGroup
+	getActiveUserGroup = util.GetActiveUserGroup
 )
 
 type CopyCommand struct {
@@ -43,18 +50,16 @@ type CopyCommand struct {
 
 func (c *CopyCommand) ExecuteCommand(config *v1.Config, buildArgs *dockerfile.BuildArgs) error {
 	replacementEnvs := buildArgs.ReplacementEnvs(config.Env)
-	opts, err := resolveTransferOptions("COPY", c.cmd.SourcesAndDest, c.cmd.Chown,
-		c.cmd.Chmod, c.cmd.Link, c.cmd.From, c.fileContext, config, replacementEnvs)
+	if c.cmd.From != "" {
+		c.fileContext = util.FileContext{Root: filepath.Join(kConfig.KanikoInterStageDepsDir, c.cmd.From)}
+	}
+	owner, chmod, useDefaultChmod, srcs, dest, err := resolveTransfer(c.cmd, c.fileContext, config, replacementEnvs)
 	if err != nil {
 		return err
 	}
-	c.fileContext = opts.fileContext
-	return c.executeResolved(opts)
-}
 
-func (c *CopyCommand) executeResolved(opts *transferOptions) error {
 	// For each source, iterate through and copy it over
-	for _, src := range opts.srcs {
+	for _, src := range srcs {
 		fullPath := filepath.Join(c.fileContext.Root, src)
 
 		fi, err := os.Lstat(fullPath)
@@ -64,8 +69,12 @@ func (c *CopyCommand) executeResolved(opts *transferOptions) error {
 		if fi.IsDir() && !strings.HasSuffix(fullPath, string(os.PathSeparator)) {
 			fullPath += "/"
 		}
+		cwd := config.WorkingDir
+		if cwd == "" {
+			cwd = kConfig.RootDir
+		}
 
-		destPath, err := util.DestinationFilepath(fullPath, opts.dest, opts.cwd)
+		destPath, err := util.DestinationFilepath(fullPath, dest, cwd)
 		if err != nil {
 			return fmt.Errorf("find destination path: %w", err)
 		}
@@ -85,7 +94,7 @@ func (c *CopyCommand) executeResolved(opts *transferOptions) error {
 		}
 
 		if fi.IsDir() {
-			copiedFiles, err := util.CopyDir(fullPath, destPath, c.fileContext, opts.owner, opts.chmod, opts.useDefaultChmod)
+			copiedFiles, err := util.CopyDir(fullPath, destPath, c.fileContext, owner, chmod, useDefaultChmod)
 			if err != nil {
 				return fmt.Errorf("copying dir: %w", err)
 			}
@@ -102,7 +111,7 @@ func (c *CopyCommand) executeResolved(opts *transferOptions) error {
 			c.snapshotFiles = append(c.snapshotFiles, destPath)
 		} else if fi.Mode()&os.ModeNamedPipe != 0 {
 			// Opening a fifo blocks until it has a writer, so recreate it instead.
-			exclude, err := util.CreateFifo(fullPath, destPath, fi, c.fileContext, opts.owner, opts.chmod, opts.useDefaultChmod, false)
+			exclude, err := util.CreateFifo(fullPath, destPath, fi, c.fileContext, owner, chmod, useDefaultChmod, false)
 			if err != nil {
 				return fmt.Errorf("copying fifo: %w", err)
 			}
@@ -115,7 +124,7 @@ func (c *CopyCommand) executeResolved(opts *transferOptions) error {
 			continue
 		} else {
 			// ... Else, we want to copy over a file
-			exclude, err := util.CopyFile(fullPath, destPath, fi, c.fileContext, opts.owner, opts.chmod, opts.useDefaultChmod, false)
+			exclude, err := util.CopyFile(fullPath, destPath, fi, c.fileContext, owner, chmod, useDefaultChmod, false)
 			if err != nil {
 				return fmt.Errorf("copying file: %w", err)
 			}
@@ -129,7 +138,11 @@ func (c *CopyCommand) executeResolved(opts *transferOptions) error {
 	// Heredocs
 	for _, src := range c.cmd.SourceContents {
 		fullPath := filepath.Join(c.fileContext.Root, src.Path)
-		destPath, err := util.DestinationFilepath(fullPath, opts.dest, opts.cwd)
+		cwd := config.WorkingDir
+		if cwd == "" {
+			cwd = kConfig.RootDir
+		}
+		destPath, err := util.DestinationFilepath(fullPath, dest, cwd)
 		if err != nil {
 			return fmt.Errorf("find destination path: %w", err)
 		}
@@ -142,7 +155,7 @@ func (c *CopyCommand) executeResolved(opts *transferOptions) error {
 
 		data := src.Data
 		if src.Expand && kConfig.FF.ExpandHeredoc {
-			expanded, err := util.ResolveEnvironmentReplacementRaw(src.Data, opts.replacementEnvs)
+			expanded, err := util.ResolveEnvironmentReplacementRaw(src.Data, replacementEnvs)
 			if err != nil {
 				return fmt.Errorf("expanding heredoc content: %w", err)
 			}
@@ -150,7 +163,7 @@ func (c *CopyCommand) executeResolved(opts *transferOptions) error {
 		}
 
 		srcFile := strings.NewReader(data)
-		err = util.CreateFile(destPath, srcFile, opts.chmod.Apply(0o644), opts.chmod.Apply(0o755), opts.owner)
+		err = util.CreateFile(destPath, srcFile, chmod.Apply(0o644), chmod.Apply(0o755), owner)
 		if err != nil {
 			return fmt.Errorf("creating file: %w", err)
 		}
@@ -158,6 +171,64 @@ func (c *CopyCommand) executeResolved(opts *transferOptions) error {
 	}
 
 	return nil
+}
+
+func resolveTransfer(cmd *instructions.CopyCommand, fileContext util.FileContext, config *v1.Config, replacementEnvs []string) (*util.Owner, mode.Set, bool, []string, string, error) {
+	var owner *util.Owner
+	var err error
+	if cmd.From != "" {
+		if kConfig.FF.CopyLink && cmd.Link {
+			owner, err = util.GetNumericUserGroup(cmd.Chown, replacementEnvs)
+		} else {
+			owner, err = getUserGroup(cmd.Chown, replacementEnvs)
+		}
+		if err != nil {
+			return nil, mode.Set{}, false, nil, "", fmt.Errorf("getting user group from chown: %w", err)
+		}
+	} else if kConfig.FF.CopyLink && cmd.Link {
+		chown := cmd.Chown
+		if chown == "" {
+			chown = config.User
+			if kConfig.FF.CopyAsRoot {
+				chown = "0:0"
+			}
+		}
+		owner, err = util.GetNumericUserGroup(chown, replacementEnvs)
+		if err != nil && cmd.Chown == "" {
+			return nil, mode.Set{}, false, nil, "", fmt.Errorf("--link needs a numeric USER or --chown, got USER %q: %w", config.User, err)
+		}
+		if err != nil {
+			return nil, mode.Set{}, false, nil, "", fmt.Errorf("getting user group from chown: %w", err)
+		}
+		if owner == nil {
+			owner = &util.Owner{}
+		}
+	} else {
+		user := config.User
+		if kConfig.FF.CopyAsRoot {
+			// According to spec: https://docs.docker.com/reference/dockerfile/#copy---chown---chmod
+			//   All files and directories copied from the build context
+			//   are created with a default UID and GID of 0.
+			// But this is a breaking change so we keep it optional for now
+			user = "0:0"
+		}
+		owner, err = getActiveUserGroup(user, cmd.Chown, replacementEnvs)
+		if err != nil {
+			return nil, mode.Set{}, false, nil, "", fmt.Errorf("getting user group from chown: %w", err)
+		}
+	}
+
+	// sources from the Copy command are resolved with wildcards {*?[}
+	srcs, dest, err := util.ResolveEnvAndWildcards(cmd.SourcesAndDest, fileContext, replacementEnvs)
+	if err != nil {
+		return nil, mode.Set{}, false, nil, "", fmt.Errorf("resolving src: %w", err)
+	}
+
+	chmod, useDefaultChmod, err := util.GetChmod(cmd.Chmod, replacementEnvs)
+	if err != nil {
+		return nil, mode.Set{}, false, nil, "", fmt.Errorf("getting permissions from chmod: %w", err)
+	}
+	return owner, chmod, useDefaultChmod, srcs, dest, nil
 }
 
 // FilesToSnapshot should return an empty array if still nil; no files were changed
