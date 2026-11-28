@@ -67,7 +67,12 @@ import (
 	testunittests "github.com/osscontainertools/kaniko/golden/testdata/test_unittests"
 	testwarmer "github.com/osscontainertools/kaniko/golden/testdata/test_warmer"
 	testwarmerbake "github.com/osscontainertools/kaniko/golden/testdata/test_warmer_bake"
+	testwarmerbindmount "github.com/osscontainertools/kaniko/golden/testdata/test_warmer_bindmount"
+	testwarmercopyfrom "github.com/osscontainertools/kaniko/golden/testdata/test_warmer_copyfrom"
+	testwarmernotarget "github.com/osscontainertools/kaniko/golden/testdata/test_warmer_no_target"
+	testwarmeronbuildbindmount "github.com/osscontainertools/kaniko/golden/testdata/test_warmer_onbuild_bindmount"
 	testwarmerrunmountbind "github.com/osscontainertools/kaniko/golden/testdata/test_warmer_run_mount_bind"
+	testwarmertarget "github.com/osscontainertools/kaniko/golden/testdata/test_warmer_target"
 	"github.com/osscontainertools/kaniko/golden/types"
 	"github.com/osscontainertools/kaniko/pkg/bake"
 	"github.com/osscontainertools/kaniko/pkg/cache"
@@ -440,10 +445,15 @@ func TestBakePrint(t *testing.T) {
 }
 
 var warmerTests = map[string][]types.GoldenTests{
-	"test_warmer":                {testwarmer.Tests},
-	"test_issue_mz1126":          {testissuemz1126.Tests},
-	"test_issue_mz1212":          {testissuemz1212.Tests},
-	"test_warmer_run_mount_bind": {testwarmerrunmountbind.Tests},
+	"test_warmer":                   {testwarmer.Tests},
+	"test_warmer_no_target":         {testwarmernotarget.Tests},
+	"test_warmer_target":            {testwarmertarget.Tests},
+	"test_warmer_copyfrom":          {testwarmercopyfrom.Tests},
+	"test_warmer_bindmount":         {testwarmerbindmount.Tests},
+	"test_warmer_onbuild_bindmount": {testwarmeronbuildbindmount.Tests},
+	"test_warmer_run_mount_bind":    {testwarmerrunmountbind.Tests},
+	"test_issue_mz1126":             {testissuemz1126.Tests},
+	"test_issue_mz1212":             {testissuemz1212.Tests},
 }
 
 // fakeRemoteImage derives the image and its index from its reference, so their digests are stable across runs.

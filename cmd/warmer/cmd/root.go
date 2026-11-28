@@ -114,7 +114,8 @@ var bakeCmd = &cobra.Command{
 	Short: "Warm the base images of targets defined in a bakefile",
 	Long: `Warm the base images of targets defined in a bakefile into --cache-dir. Name
 the targets to warm, or omit them to warm all. Each target's dockerfile is parsed
-as a whole, its stage is ignored, and so are destination, cache_from and cache_to.`,
+as a whole, its stage is ignored unless FF_KANIKO_WARMER_EXECUTOR_PARITY is set,
+and so are destination, cache_from and cache_to.`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(_ *cobra.Command, args []string) error {
 		if len(opts.Images) > 0 {
@@ -157,6 +158,9 @@ func WarmTargets(opts *config.WarmerOptions, targets []bake.ResolvedTarget) erro
 	for _, t := range targets {
 		topts := *opts
 		topts.BuildArgs = t.BuildArgs()
+		if config.FF.WarmerExecutorParity {
+			topts.Target = []string{t.Stage}
+		}
 		remote := strings.Contains(t.Context, "://")
 		switch {
 		case util.IsURL(t.Dockerfile) || (t.Dockerfile != "" && !remote):
@@ -180,6 +184,7 @@ func WarmTargets(opts *config.WarmerOptions, targets []bake.ResolvedTarget) erro
 func AddWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {
 	AddSharedWarmerFlags(cmd, opts)
 	cmd.Flags().VarP(&opts.BuildArgs, "build-arg", "", "This flag should be used in conjunction with the dockerfile flag for scenarios where dynamic replacement of the base image is required.")
+	cmd.Flags().StringSliceVarP(&opts.Target, "target", "", []string{}, "Target stage name(s) to warm. When specified, only base images needed to build these stages and their dependencies are cached.")
 }
 
 func AddSharedWarmerFlags(cmd *cobra.Command, opts *config.WarmerOptions) {

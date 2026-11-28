@@ -3060,6 +3060,11 @@ func TestWarmerBake(t *testing.T) {
 	if err != nil {
 		t.Fatalf("warmer bake failed: %v", err)
 	}
+	// target "app" does not build the unused stage
+	unused := "ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac"
+	if strings.Contains(string(out), unused) {
+		t.Fatalf("warmer bake output must not contain %s", unused)
+	}
 
 	// Without a network, the base images can only come from the warmed cache.
 	buildFlags := []string{"run", "--rm", "--network=none", "-v", ctxDir + ":/workspace", "-v", cacheDir + ":/cache"}
